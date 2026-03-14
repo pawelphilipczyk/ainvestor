@@ -176,7 +176,7 @@ router.post(routes.addEtf, context => {
   let rawStatus = form.get('status')
 
   let name = typeof rawName === 'string' ? rawName.trim() : ''
-  let status = rawStatus === 'have' || rawStatus === 'want_to_buy' ? rawStatus : 'have'
+  let status: EtfStatus = rawStatus === 'want_to_buy' ? 'want_to_buy' : 'have'
 
   if (name.length > 0) {
     etfEntries = [{ name, status }, ...etfEntries]
