@@ -167,8 +167,11 @@ function renderPage() {
 
 router.get(routes.home, () => renderPage())
 
-router.post(routes.addEtf, ({ get }) => {
-  let form = get(FormData)
+router.post(routes.addEtf, context => {
+  let form = context.formData
+  if (!form) {
+    return createRedirectResponse(routes.home.href())
+  }
   let rawName = form.get('etfName')
   let rawStatus = form.get('status')
 
