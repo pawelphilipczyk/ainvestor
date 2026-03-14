@@ -55,3 +55,12 @@ fly deploy
 ```bash
 fly open
 ```
+
+## GitHub Actions auto-deploy
+
+This repo includes `.github/workflows/deploy-fly.yml` to deploy automatically on each push to
+`main` (after PR merge).
+
+Add this repository secret in GitHub before relying on the workflow:
+
+- `FLY_API_TOKEN` (create with `fly tokens create deploy`)
