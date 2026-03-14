@@ -167,6 +167,12 @@ function renderPage() {
 
 router.get(routes.home, () => renderPage())
 
+router.get(routes.health, () => {
+  return new Response('ok', {
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  })
+})
+
 router.post(routes.addEtf, context => {
   let form = context.formData
   if (!form) {

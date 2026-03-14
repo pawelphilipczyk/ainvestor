@@ -17,7 +17,7 @@ let server = http.createServer(
 
 let port = process.env.PORT ? parseInt(process.env.PORT, 10) : 44100
 
-server.listen(port, () => {
+server.listen(port, '0.0.0.0', () => {
   console.log(`AI Investor is running on http://localhost:${port}`)
 })
 

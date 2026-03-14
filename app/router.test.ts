@@ -8,6 +8,14 @@ afterEach(() => {
 })
 
 describe('ETF homepage', () => {
+  it('returns ok from the health endpoint', async () => {
+    let response = await router.fetch('http://localhost/health')
+    let body = await response.text()
+
+    assert.equal(response.status, 200)
+    assert.equal(body, 'ok')
+  })
+
   it('renders the homepage and ETF form', async () => {
     let response = await router.fetch('http://localhost/')
     let body = await response.text()

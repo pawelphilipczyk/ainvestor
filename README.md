@@ -32,7 +32,35 @@ npm run test
 npm run typecheck
 ```
 
-## Fly.io direction (next step)
+## Deploy to Fly.io
 
-This repo now runs as a standard Node HTTP server (`server.ts`) and can be containerized/deployed
-to Fly.io in the next iteration.
+This repo now includes `fly.toml` and a health endpoint at `/health`.
+
+1. Install Fly CLI and authenticate:
+
+```bash
+fly auth login
+```
+
+2. If needed, set your app name in `fly.toml` (`app = "ainvestor"`).
+
+3. Deploy:
+
+```bash
+fly deploy
+```
+
+4. Open the app:
+
+```bash
+fly open
+```
+
+## GitHub Actions auto-deploy
+
+This repo includes `.github/workflows/deploy-fly.yml` to deploy automatically on each push to
+`main` (after PR merge).
+
+Add this repository secret in GitHub before relying on the workflow:
+
+- `FLY_API_TOKEN` (create with `fly tokens create deploy`)
