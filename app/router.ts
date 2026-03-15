@@ -6,26 +6,180 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 
 import { renderComponent } from './components/render.ts'
+import { fetchEtfs, findOrCreateGist, saveEtfs } from './lib/gist.ts'
+import type { EtfEntry } from './lib/gist.ts'
+import { clearSessionCookie, createSessionCookie, parseSessionCookie } from './lib/session.ts'
+import type { SessionData } from './lib/session.ts'
 import { routes } from './routes.ts'
 
-type EtfStatus = 'have' | 'want_to_buy'
+// ---------------------------------------------------------------------------
+// Config helpers (read at request time so env vars can be set in tests)
+// ---------------------------------------------------------------------------
+function getClientId() { return process.env.GH_CLIENT_ID ?? '' }
+function getClientSecret() { return process.env.GH_CLIENT_SECRET ?? '' }
+function getSessionSecret() { return process.env.SESSION_SECRET ?? 'dev-secret-change-me' }
 
-type EtfEntry = {
-  name: string
-  status: EtfStatus
-}
-
-let etfEntries: EtfEntry[] = []
+// ---------------------------------------------------------------------------
+// In-memory fallback (used when user is not logged in, preserved for tests)
+// ---------------------------------------------------------------------------
+let guestEntries: EtfEntry[] = []
 
 export function resetEtfEntries() {
-  etfEntries = []
+  guestEntries = []
 }
 
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+function getSession(request: Request): Promise<SessionData | null> {
+  const cookie = request.headers.get('cookie') ?? undefined
+  return parseSessionCookie(cookie, getSessionSecret())
+}
+
+// ---------------------------------------------------------------------------
+// Router
+// ---------------------------------------------------------------------------
 export let router = createRouter({
   middleware: process.env.NODE_ENV === 'development' ? [logger(), formData()] : [formData()],
 })
 
-function renderPage() {
+// ---------------------------------------------------------------------------
+// GET /
+// ---------------------------------------------------------------------------
+router.get(routes.home, async context => {
+  const session = await getSession(context.request)
+  const entries = session ? await fetchEtfs(session.token, session.gistId!) : guestEntries
+  return renderPage(entries, session)
+})
+
+// ---------------------------------------------------------------------------
+// GET /health
+// ---------------------------------------------------------------------------
+router.get(routes.health, () => {
+  return new Response('ok', {
+    headers: { 'content-type': 'text/plain; charset=utf-8' },
+  })
+})
+
+// ---------------------------------------------------------------------------
+// POST /etfs
+// ---------------------------------------------------------------------------
+router.post(routes.addEtf, async context => {
+  const form = context.formData
+  if (!form) return createRedirectResponse(routes.home.href())
+
+  const name = typeof form.get('etfName') === 'string' ? (form.get('etfName') as string).trim() : ''
+  const rawValue = form.get('value')
+  const currency = typeof form.get('currency') === 'string' ? (form.get('currency') as string).trim().toUpperCase() : 'USD'
+  const value = typeof rawValue === 'string' ? parseFloat(rawValue.replace(/,/g, '')) : NaN
+
+  if (name.length === 0 || isNaN(value) || value < 0) {
+    return createRedirectResponse(routes.home.href())
+  }
+
+  const entry = { id: crypto.randomUUID(), name, value, currency }
+  const session = await getSession(context.request)
+
+  if (session) {
+    const current = await fetchEtfs(session.token, session.gistId!)
+    await saveEtfs(session.token, session.gistId!, [entry, ...current])
+  } else {
+    guestEntries = [entry, ...guestEntries]
+  }
+
+  return createRedirectResponse(routes.home.href())
+})
+
+// ---------------------------------------------------------------------------
+// GET /auth/github  — redirect to GitHub OAuth
+// ---------------------------------------------------------------------------
+router.get(routes.githubLogin, () => {
+  const clientId = getClientId()
+  if (!clientId) {
+    return new Response('GH_CLIENT_ID is not configured', { status: 500 })
+  }
+  const params = new URLSearchParams({ client_id: clientId, scope: 'gist' })
+  return createRedirectResponse(`https://github.com/login/oauth/authorize?${params}`)
+})
+
+// ---------------------------------------------------------------------------
+// GET /auth/github/callback  — exchange code for token, set session cookie
+// ---------------------------------------------------------------------------
+router.get(routes.githubCallback, async context => {
+  const url = new URL(context.request.url)
+  const code = url.searchParams.get('code')
+  if (!code) return createRedirectResponse(routes.home.href())
+
+  // Exchange code for access token
+  const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      client_id: getClientId(),
+      client_secret: getClientSecret(),
+      code,
+    }),
+  })
+
+  if (!tokenRes.ok) return createRedirectResponse(routes.home.href())
+  const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string }
+  const token = tokenData.access_token
+  if (!token) return createRedirectResponse(routes.home.href())
+
+  // Get user info
+  const userRes = await fetch('https://api.github.com/user', {
+    headers: {
+      Authorization: `Bearer ${token}`,
+      Accept: 'application/vnd.github+json',
+    },
+  })
+  const user = (await userRes.json()) as { login: string }
+
+  // Find or create the user's private gist
+  const gistId = await findOrCreateGist(token)
+
+  const sessionCookie = await createSessionCookie(
+    { token, gistId, login: user.login },
+    getSessionSecret(),
+  )
+
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: routes.home.href(),
+      'Set-Cookie': sessionCookie,
+    },
+  })
+})
+
+// ---------------------------------------------------------------------------
+// POST /auth/logout
+// ---------------------------------------------------------------------------
+router.post(routes.logout, () => {
+  return new Response(null, {
+    status: 302,
+    headers: {
+      Location: routes.home.href(),
+      'Set-Cookie': clearSessionCookie(),
+    },
+  })
+})
+
+// ---------------------------------------------------------------------------
+// Page renderer
+// ---------------------------------------------------------------------------
+function formatValue(value: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
+  } catch {
+    return `${value} ${currency}`
+  }
+}
+
+function renderPage(entries: EtfEntry[], session: SessionData | null) {
   const etfNameInput = renderComponent('text-input', {
     id: 'etfName',
     label: 'ETF Name',
@@ -33,26 +187,67 @@ function renderPage() {
     placeholder: 'e.g. VTI',
   })
 
-  const statusSelect = renderComponent('select-input', {
-    id: 'status',
-    label: 'Status',
-    field_name: 'status',
-    children: '<option value="have">Have</option><option value="want_to_buy">Want to Buy</option>',
+  const valueInput = renderComponent('text-input', {
+    id: 'value',
+    label: 'Value',
+    field_name: 'value',
+    placeholder: 'e.g. 1200.50',
+  })
+
+  const currencySelect = renderComponent('select-input', {
+    id: 'currency',
+    label: 'Currency',
+    field_name: 'currency',
+    children: [
+      'USD', 'EUR', 'GBP', 'CHF', 'PLN', 'JPY', 'CAD', 'AUD', 'SEK', 'NOK',
+    ].map(c => `<option value="${c}">${c}</option>`).join(''),
   })
 
   const addButton = renderComponent('submit-button', { children: 'Add ETF' })
 
   const listContent =
-    etfEntries.length === 0
+    entries.length === 0
       ? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs added yet.</p>`
       : html`<ul class="mt-4 grid gap-2">
-          ${etfEntries.map(entry => {
+          ${entries.map(entry => {
             const badge = renderComponent('badge', {
-              children: entry.status === 'have' ? 'Have' : 'Want to Buy',
+              children: formatValue(entry.value, entry.currency),
             })
             return renderComponent('etf-card', { name: entry.name, badge: String(badge) })
           })}
         </ul>`
+
+  const authSection = session
+    ? html`
+        <div class="flex items-center gap-3">
+          <span class="text-sm text-muted-foreground">@${session.login}</span>
+          <form method="post" action="${routes.logout.href()}">
+            <button
+              type="submit"
+              class="rounded-md border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
+      `
+    : html`
+        <a
+          href="${routes.githubLogin.href()}"
+          class="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
+        >
+          <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
+          </svg>
+          Sign in with GitHub
+        </a>
+      `
+
+  const storageNote = session
+    ? html`<p class="mt-1 text-xs text-muted-foreground">Saved to your private GitHub Gist</p>`
+    : html`<p class="mt-1 text-xs text-muted-foreground">
+        Sign in to persist your data across sessions
+      </p>`
 
   return createHtmlResponse(html`
     <!doctype html>
@@ -136,25 +331,32 @@ function renderPage() {
             <div>
               <h1 class="text-2xl font-bold tracking-tight text-card-foreground">AI Investor</h1>
               <p class="mt-1 text-sm text-muted-foreground">Add ETF names you already hold or want to buy.</p>
+              ${storageNote}
             </div>
-            <button
-              data-island="theme-toggle"
-              type="button"
-              aria-label="Toggle theme"
-              class="relative mt-1 inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              <svg class="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-              </svg>
-              <svg class="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-              </svg>
-            </button>
+            <div class="flex shrink-0 items-center gap-2 mt-1">
+              ${authSection}
+              <button
+                data-island="theme-toggle"
+                type="button"
+                aria-label="Toggle theme"
+                class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              >
+                <svg class="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
+                </svg>
+                <svg class="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+              </button>
+            </div>
           </header>
 
           <form method="post" action="${routes.addEtf.href()}" class="mt-6 grid gap-4">
             ${etfNameInput}
-            ${statusSelect}
+            <div class="grid grid-cols-2 gap-3">
+              ${valueInput}
+              ${currencySelect}
+            </div>
             ${addButton}
           </form>
 
@@ -173,29 +375,3 @@ function renderPage() {
     </html>
   `)
 }
-
-router.get(routes.home, () => renderPage())
-
-router.get(routes.health, () => {
-  return new Response('ok', {
-    headers: { 'content-type': 'text/plain; charset=utf-8' },
-  })
-})
-
-router.post(routes.addEtf, context => {
-  let form = context.formData
-  if (!form) {
-    return createRedirectResponse(routes.home.href())
-  }
-  let rawName = form.get('etfName')
-  let rawStatus = form.get('status')
-
-  let name = typeof rawName === 'string' ? rawName.trim() : ''
-  let status: EtfStatus = rawStatus === 'want_to_buy' ? 'want_to_buy' : 'have'
-
-  if (name.length > 0) {
-    etfEntries = [{ name, status }, ...etfEntries]
-  }
-
-  return createRedirectResponse(routes.home.href())
-})
