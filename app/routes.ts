@@ -8,4 +8,7 @@ export let routes = route({
   githubCallback: get('/auth/github/callback'),
   logout: post('/auth/logout'),
   advice: post('/advice'),
+  guidelines: get('/guidelines'),
+  addGuideline: post('/guidelines'),
+  deleteGuideline: post('/guidelines/:id/delete'),
 })
