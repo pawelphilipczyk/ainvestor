@@ -68,20 +68,23 @@ router.post(routes.addEtf, async context => {
   const form = context.formData
   if (!form) return createRedirectResponse(routes.home.href())
 
-  const rawName = form.get('etfName')
-  const rawStatus = form.get('status')
-  const name = typeof rawName === 'string' ? rawName.trim() : ''
-  const status = rawStatus === 'want_to_buy' ? 'want_to_buy' : ('have' as const)
+  const name = typeof form.get('etfName') === 'string' ? (form.get('etfName') as string).trim() : ''
+  const rawValue = form.get('value')
+  const currency = typeof form.get('currency') === 'string' ? (form.get('currency') as string).trim().toUpperCase() : 'USD'
+  const value = typeof rawValue === 'string' ? parseFloat(rawValue.replace(/,/g, '')) : NaN
 
-  if (name.length === 0) return createRedirectResponse(routes.home.href())
+  if (name.length === 0 || isNaN(value) || value < 0) {
+    return createRedirectResponse(routes.home.href())
+  }
 
+  const entry = { id: crypto.randomUUID(), name, value, currency }
   const session = await getSession(context.request)
 
   if (session) {
     const current = await fetchEtfs(session.token, session.gistId!)
-    await saveEtfs(session.token, session.gistId!, [{ name, status }, ...current])
+    await saveEtfs(session.token, session.gistId!, [entry, ...current])
   } else {
-    guestEntries = [{ name, status }, ...guestEntries]
+    guestEntries = [entry, ...guestEntries]
   }
 
   return createRedirectResponse(routes.home.href())
@@ -168,6 +171,14 @@ router.post(routes.logout, () => {
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
+function formatValue(value: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
+  } catch {
+    return `${value} ${currency}`
+  }
+}
+
 function renderPage(entries: EtfEntry[], session: SessionData | null) {
   const etfNameInput = renderComponent('text-input', {
     id: 'etfName',
@@ -176,11 +187,20 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
     placeholder: 'e.g. VTI',
   })
 
-  const statusSelect = renderComponent('select-input', {
-    id: 'status',
-    label: 'Status',
-    field_name: 'status',
-    children: '<option value="have">Have</option><option value="want_to_buy">Want to Buy</option>',
+  const valueInput = renderComponent('text-input', {
+    id: 'value',
+    label: 'Value',
+    field_name: 'value',
+    placeholder: 'e.g. 1200.50',
+  })
+
+  const currencySelect = renderComponent('select-input', {
+    id: 'currency',
+    label: 'Currency',
+    field_name: 'currency',
+    children: [
+      'USD', 'EUR', 'GBP', 'CHF', 'PLN', 'JPY', 'CAD', 'AUD', 'SEK', 'NOK',
+    ].map(c => `<option value="${c}">${c}</option>`).join(''),
   })
 
   const addButton = renderComponent('submit-button', { children: 'Add ETF' })
@@ -191,7 +211,7 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
       : html`<ul class="mt-4 grid gap-2">
           ${entries.map(entry => {
             const badge = renderComponent('badge', {
-              children: entry.status === 'have' ? 'Have' : 'Want to Buy',
+              children: formatValue(entry.value, entry.currency),
             })
             return renderComponent('etf-card', { name: entry.name, badge: String(badge) })
           })}
@@ -333,7 +353,10 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
 
           <form method="post" action="${routes.addEtf.href()}" class="mt-6 grid gap-4">
             ${etfNameInput}
-            ${statusSelect}
+            <div class="grid grid-cols-2 gap-3">
+              ${valueInput}
+              ${currencySelect}
+            </div>
             ${addButton}
           </form>
 

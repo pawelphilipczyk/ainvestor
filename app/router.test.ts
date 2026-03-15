@@ -26,10 +26,20 @@ describe('ETF homepage', () => {
     assert.match(body, /<form[^>]*method="post"[^>]*action="\/etfs"/)
   })
 
+  it('form has name, value and currency fields', async () => {
+    let response = await router.fetch('http://localhost/')
+    let body = await response.text()
+
+    assert.match(body, /name="etfName"/)
+    assert.match(body, /name="value"/)
+    assert.match(body, /name="currency"/)
+  })
+
   it('adds an ETF on form submit and displays it on homepage', async () => {
     let form = new FormData()
     form.set('etfName', 'VTI')
-    form.set('status', 'have')
+    form.set('value', '1200.50')
+    form.set('currency', 'USD')
 
     let postResponse = await router.fetch(
       new Request('http://localhost/etfs', {
@@ -45,7 +55,8 @@ describe('ETF homepage', () => {
     let homeBody = await homeResponse.text()
 
     assert.match(homeBody, /VTI/)
-    assert.match(homeBody, /Have/)
+    assert.match(homeBody, /1[,.]?200/)
+    assert.match(homeBody, /USD/)
   })
 
   it('shows sign-in link when not authenticated', async () => {
