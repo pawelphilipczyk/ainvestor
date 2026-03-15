@@ -11,4 +11,6 @@ export let routes = route({
   guidelines: get('/guidelines'),
   addGuideline: post('/guidelines'),
   deleteGuideline: post('/guidelines/:id/delete'),
+  catalog: get('/catalog'),
+  importCatalog: post('/catalog/import'),
 })
