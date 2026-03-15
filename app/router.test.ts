@@ -107,6 +107,38 @@ describe('ETF homepage', () => {
     assert.match(capturedUserMessage, /\$500/)
   })
 
+  it('passes guidelines into the advice prompt when they exist', async () => {
+    let capturedUserMessage = ''
+    const capturingClient: AdviceClient = {
+      chat: {
+        completions: {
+          create: async params => {
+            capturedUserMessage = params.messages[1].content
+            return { choices: [{ message: { content: 'advice' } }] }
+          },
+        },
+      },
+    }
+    setAdviceClient(capturingClient)
+
+    // Add a guideline
+    const guidelineForm = new FormData()
+    guidelineForm.set('etfName', 'VTI')
+    guidelineForm.set('targetPct', '60')
+    guidelineForm.set('etfType', 'equity')
+    await router.fetch(
+      new Request('http://localhost/guidelines', { method: 'POST', body: guidelineForm }),
+    )
+
+    // Ask for advice
+    const adviceForm = new FormData()
+    adviceForm.set('cashAmount', '1000')
+    await router.fetch(new Request('http://localhost/advice', { method: 'POST', body: adviceForm }))
+
+    assert.match(capturedUserMessage, /VTI.*60%/)
+    assert.match(capturedUserMessage, /equity/)
+  })
+
   it('adds an ETF on form submit and displays it on homepage', async () => {
     let form = new FormData()
     form.set('etfName', 'VTI')

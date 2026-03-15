@@ -257,9 +257,12 @@ router.post(routes.advice, async context => {
 
   const session = await getSession(context.request)
   const entries = session ? await fetchEtfs(session.token, session.gistId!) : guestEntries
+  const guidelines = session
+    ? await fetchGuidelines(session.token, session.gistId!)
+    : guestGuidelines
 
   const client = adviceClient ?? createDefaultClient()
-  const advice = await getInvestmentAdvice(entries, cashAmount, client)
+  const advice = await getInvestmentAdvice(entries, guidelines, cashAmount, client)
 
   return createHtmlResponse(html`
     <!doctype html>
