@@ -160,6 +160,15 @@ function renderPage() {
 
           ${listContent}
         </main>
+        <script type="module">
+          const el = document.querySelector('[data-island="theme-toggle"]')
+          if (el) {
+            el.addEventListener('click', () => {
+              const isDark = document.documentElement.classList.toggle('dark')
+              localStorage.setItem('theme', isDark ? 'dark' : 'light')
+            })
+          }
+        </script>
       </body>
     </html>
   `)
