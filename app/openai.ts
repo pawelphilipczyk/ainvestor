@@ -1,13 +1,15 @@
 import OpenAI from 'openai'
 
+import type { EtfGuideline } from './lib/guidelines.ts'
 import type { EtfEntry } from './lib/gist.ts'
 
 export type { EtfEntry }
 
 const SYSTEM_PROMPT = `You are a financial advisor specialising in ETF portfolio allocation.
-The user will tell you their current ETF holdings (name and current value in each currency) and how much cash they have available to invest.
-Your job is to recommend which ETF they should buy next (or increase their position in) and why,
-taking into account diversification, risk balance, and long-term growth.
+The user will describe their target allocation (if set), their current holdings, and available cash.
+Compare the current holdings against the target allocation and recommend which ETF to buy next
+to move the portfolio closest to the stated targets — prioritising the asset furthest below its target percentage.
+If no target allocation is set, recommend based on diversification, risk balance, and long-term growth.
 Keep your answer concise – two to four paragraphs maximum.
 Do not provide legal or tax advice; only portfolio allocation guidance.`
 
@@ -28,6 +30,7 @@ export function createDefaultClient(): AdviceClient {
 
 export async function getInvestmentAdvice(
   holdings: EtfEntry[],
+  guidelines: EtfGuideline[],
   cashAmount: string,
   client: AdviceClient,
 ): Promise<string> {
@@ -38,7 +41,15 @@ export async function getInvestmentAdvice(
           .map(h => `- ${h.name}: ${h.value} ${h.currency}`)
           .join('\n')
 
-  const userMessage = `My current ETF holdings:\n${holdingsList}\n\nI have $${cashAmount} available to invest. What should I buy next?`
+  const guidelinesSection =
+    guidelines.length === 0
+      ? ''
+      : `My target allocation:\n${guidelines.map(g => `- ${g.etfName} (${g.etfType}): ${g.targetPct}%`).join('\n')}\n\n`
+
+  const userMessage =
+    `${guidelinesSection}` +
+    `My current holdings:\n${holdingsList}\n\n` +
+    `I have $${cashAmount} available to invest. What should I buy next?`
 
   const response = await client.chat.completions.create({
     model: 'gpt-4o-mini',
