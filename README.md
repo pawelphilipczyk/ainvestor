@@ -7,11 +7,38 @@ repository using the `remix` package (`remix@next`).
 
 - Home page with app name
 - ETF form (ETF name + status: **Have** or **Want to Buy**)
-- Server-side handler that stores entries in memory
+- **GitHub OAuth login** — sign in with your GitHub account
+- **GitHub Gist database** — your ETF list is stored in a private Gist in your own GitHub account (no external DB required)
+- Unauthenticated guests can still add ETFs (stored in memory for the session)
 - Simple mobile-friendly HTML/CSS
-- Basic test coverage for GET + POST flow
+- Test coverage for session helpers, Gist utilities, and all route handlers
 
-## Run locally
+## Environment variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `GITHUB_CLIENT_ID` | Yes (for auth) | Client ID of your GitHub OAuth App |
+| `GITHUB_CLIENT_SECRET` | Yes (for auth) | Client secret of your GitHub OAuth App |
+| `SESSION_SECRET` | Recommended | Random string used to sign session cookies (defaults to a weak dev value) |
+
+### Creating a GitHub OAuth App
+
+1. Go to [GitHub Developer Settings → OAuth Apps](https://github.com/settings/developers)
+2. Click **New OAuth App**
+3. Set **Authorization callback URL** to `http://localhost:44100/auth/github/callback` (or your production URL)
+4. Copy the **Client ID** and generate a **Client Secret**
+
+### Running locally
+
+Create a `.env` file (or export variables in your shell):
+
+```bash
+export GITHUB_CLIENT_ID=your_client_id
+export GITHUB_CLIENT_SECRET=your_client_secret
+export SESSION_SECRET=$(openssl rand -hex 32)
+```
+
+Then:
 
 ```bash
 npm install
@@ -61,6 +88,12 @@ fly open
 This repo includes `.github/workflows/deploy-fly.yml` to deploy automatically on each push to
 `main` (after PR merge).
 
-Add this repository secret in GitHub before relying on the workflow:
+Add these repository secrets in GitHub before relying on the workflow:
 
 - `FLY_API_TOKEN` (create with `fly tokens create deploy`)
+- `GITHUB_CLIENT_ID` — your OAuth App client ID
+- `GITHUB_CLIENT_SECRET` — your OAuth App client secret
+- `SESSION_SECRET` — a random string (generate with `openssl rand -hex 32`)
+
+Also update the **Authorization callback URL** in your GitHub OAuth App to your Fly.io app URL:
+`https://ainvestor.fly.dev/auth/github/callback`
