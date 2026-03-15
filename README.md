@@ -17,8 +17,8 @@ repository using the `remix` package (`remix@next`).
 
 | Variable | Required | Description |
 |---|---|---|
-| `GITHUB_CLIENT_ID` | Yes (for auth) | Client ID of your GitHub OAuth App |
-| `GITHUB_CLIENT_SECRET` | Yes (for auth) | Client secret of your GitHub OAuth App |
+| `GH_CLIENT_ID` | Yes (for auth) | Client ID of your GitHub OAuth App |
+| `GH_CLIENT_SECRET` | Yes (for auth) | Client secret of your GitHub OAuth App |
 | `SESSION_SECRET` | Recommended | Random string used to sign session cookies (defaults to a weak dev value) |
 
 ### Creating a GitHub OAuth App
@@ -33,8 +33,8 @@ repository using the `remix` package (`remix@next`).
 Create a `.env` file (or export variables in your shell):
 
 ```bash
-export GITHUB_CLIENT_ID=your_client_id
-export GITHUB_CLIENT_SECRET=your_client_secret
+export GH_CLIENT_ID=your_client_id
+export GH_CLIENT_SECRET=your_client_secret
 export SESSION_SECRET=$(openssl rand -hex 32)
 ```
 
@@ -91,8 +91,8 @@ This repo includes `.github/workflows/deploy-fly.yml` to deploy automatically on
 Add these repository secrets in GitHub before relying on the workflow:
 
 - `FLY_API_TOKEN` (create with `fly tokens create deploy`)
-- `GITHUB_CLIENT_ID` — your OAuth App client ID
-- `GITHUB_CLIENT_SECRET` — your OAuth App client secret
+- `GH_CLIENT_ID` — your OAuth App client ID
+- `GH_CLIENT_SECRET` — your OAuth App client secret
 - `SESSION_SECRET` — a random string (generate with `openssl rand -hex 32`)
 
 Also update the **Authorization callback URL** in your GitHub OAuth App to your Fly.io app URL:

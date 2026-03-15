@@ -5,7 +5,7 @@ import { router, resetEtfEntries } from './router.ts'
 
 afterEach(() => {
   resetEtfEntries()
-  delete process.env.GITHUB_CLIENT_ID
+  delete process.env.GH_CLIENT_ID
 })
 
 describe('ETF homepage', () => {
@@ -59,13 +59,13 @@ describe('ETF homepage', () => {
 })
 
 describe('GitHub OAuth routes', () => {
-  it('GET /auth/github returns 500 when GITHUB_CLIENT_ID is not set', async () => {
+  it('GET /auth/github returns 500 when GH_CLIENT_ID is not set', async () => {
     const response = await router.fetch('http://localhost/auth/github')
     assert.equal(response.status, 500)
   })
 
-  it('GET /auth/github redirects to GitHub when GITHUB_CLIENT_ID is set', async () => {
-    process.env.GITHUB_CLIENT_ID = 'test-client-id'
+  it('GET /auth/github redirects to GitHub when GH_CLIENT_ID is set', async () => {
+    process.env.GH_CLIENT_ID = 'test-client-id'
     const response = await router.fetch('http://localhost/auth/github')
 
     assert.equal(response.status, 302)

@@ -15,8 +15,8 @@ import { routes } from './routes.ts'
 // ---------------------------------------------------------------------------
 // Config helpers (read at request time so env vars can be set in tests)
 // ---------------------------------------------------------------------------
-function getClientId() { return process.env.GITHUB_CLIENT_ID ?? '' }
-function getClientSecret() { return process.env.GITHUB_CLIENT_SECRET ?? '' }
+function getClientId() { return process.env.GH_CLIENT_ID ?? '' }
+function getClientSecret() { return process.env.GH_CLIENT_SECRET ?? '' }
 function getSessionSecret() { return process.env.SESSION_SECRET ?? 'dev-secret-change-me' }
 
 // ---------------------------------------------------------------------------
@@ -93,7 +93,7 @@ router.post(routes.addEtf, async context => {
 router.get(routes.githubLogin, () => {
   const clientId = getClientId()
   if (!clientId) {
-    return new Response('GITHUB_CLIENT_ID is not configured', { status: 500 })
+    return new Response('GH_CLIENT_ID is not configured', { status: 500 })
   }
   const params = new URLSearchParams({ client_id: clientId, scope: 'gist' })
   return createRedirectResponse(`https://github.com/login/oauth/authorize?${params}`)
