@@ -314,6 +314,14 @@ describe('ETF Catalog page', () => {
     assert.match(body, /Portfolio/)
   })
 
+  it('GET /catalog renders theme toggle as a real button element, not escaped HTML text', async () => {
+    const response = await router.fetch('http://localhost/catalog')
+    const body = await response.text()
+
+    assert.match(body, /<button[^>]*data-island="theme-toggle"/)
+    assert.doesNotMatch(body, /&lt;button/)
+  })
+
   it('POST /catalog/import with a CSV file stores catalog and redirects', async () => {
     const csv = 'ticker,name,type,description\nVTI,Vanguard Total,equity,US broad market\nBND,Vanguard Bond,bond,US bonds'
     const file = new File([csv], 'etfs.csv', { type: 'text/csv' })
