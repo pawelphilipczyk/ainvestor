@@ -42,6 +42,12 @@ describe('ETF homepage', () => {
     assert.match(body, /<form[^>]*method="post"[^>]*action="\/etfs"/)
   })
 
+  it('GET / sets Cache-Control: no-store so browsers always fetch a fresh ETF list', async () => {
+    const response = await router.fetch('http://localhost/')
+
+    assert.equal(response.headers.get('cache-control'), 'no-store')
+  })
+
   it('form has name, value and currency fields', async () => {
     let response = await router.fetch('http://localhost/')
     let body = await response.text()
