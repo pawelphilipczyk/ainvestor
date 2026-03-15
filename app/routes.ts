@@ -7,4 +7,5 @@ export let routes = route({
   githubLogin: get('/auth/github'),
   githubCallback: get('/auth/github/callback'),
   logout: post('/auth/logout'),
+  advice: post('/advice'),
 })
