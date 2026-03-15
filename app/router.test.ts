@@ -180,6 +180,14 @@ describe('ETF homepage', () => {
     assert.match(body, /name="cashAmount"/)
     assert.match(body, /action="\/advice"/)
   })
+
+  it('homepage has a link to the guidelines page', async () => {
+    const response = await router.fetch('http://localhost/')
+    const body = await response.text()
+
+    assert.match(body, /href="\/guidelines"/)
+    assert.match(body, /Manage guidelines/)
+  })
 })
 
 describe('Guidelines page', () => {

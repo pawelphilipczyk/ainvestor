@@ -225,7 +225,7 @@ router.post(routes.addGuideline, async context => {
 // POST /guidelines/:id/delete
 // ---------------------------------------------------------------------------
 router.post(routes.deleteGuideline, async context => {
-  const id = context.params?.id
+  const id = (context.params as Record<string, string>).id
   if (!id) return createRedirectResponse(routes.guidelines.href())
 
   const session = await getSession(context.request)
@@ -737,7 +737,15 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
           <hr class="my-6 border-border" />
 
           <section>
-            <h2 class="text-lg font-semibold tracking-tight">Get Advice</h2>
+            <div class="flex items-center justify-between">
+              <h2 class="text-lg font-semibold tracking-tight">Get Advice</h2>
+              <a
+                href="${routes.guidelines.href()}"
+                class="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
+              >
+                Manage guidelines
+              </a>
+            </div>
             <p class="mt-1 text-sm text-muted-foreground">Tell me how much cash you have and I'll suggest what to buy next.</p>
             <form method="post" action="${routes.advice.href()}" class="mt-4 flex gap-2">
               <label for="cashAmount" class="sr-only">Available cash (USD)</label>
