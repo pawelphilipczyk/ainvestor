@@ -2,44 +2,60 @@
 
 ## Purpose
 
-Define the UI architecture for this project. The goal is to build a modern interface using web platform primitives, Tailwind CSS, and HTML modules as components, while avoiding framework-specific component systems (React, Vue, etc.).
+Define the UI architecture for this project. The goal is to build a modern interface using web platform primitives, Tailwind CSS, and server-rendered UI components, while avoiding framework-specific UI systems such as React component libraries.
 
-The UI must follow a server-first philosophy and remain compatible with Remix v3.
+This architecture is designed to align with Remix v3's server-first philosophy.
 
 ---
 
 ## Core Principles
 
-### 1) HTML-first UI
+### 1. HTML-First UI
 
-All UI should begin with semantic HTML. Prefer built-in browser primitives whenever possible.
+All UI must begin with semantic HTML.
+
+Prefer built-in browser primitives whenever possible.
 
 Use native elements such as:
 
 - `<dialog>` for modals
 - `<details>` / `<summary>` for accordions
-- `<form>` and standard inputs
+- `<form>` and native inputs
 - `<button>` for actions
-- `<nav>` and `<header>` for navigation
-- `<section>` and `<article>` for layout
+- `<nav>`, `<header>`, `<section>`, `<article>` for layout
+- Popover API (`popover`, `popovertarget`)
 
-Avoid replacing native controls unless absolutely necessary.
+Avoid replacing native controls with custom implementations unless necessary.
 
-### 2) Progressive enhancement
+### 2. Server-First Rendering
 
-Interfaces should work with minimal or no JavaScript.
+UI components should be rendered on the server whenever possible.
 
-JavaScript should only enhance functionality, not be required for basic usability.
+Pages should be fully usable when delivered as HTML without JavaScript.
 
-Pattern:
+JavaScript should only enhance interactivity.
 
-- HTML provides structure
-- Tailwind provides styling
-- JavaScript adds optional interaction
+This matches Remix's core design principles:
+
+- server-rendered HTML
+- progressive enhancement
+- minimal client JavaScript
+
+### 3. Progressive Enhancement
+
+Interfaces must function with little or no JavaScript.
+
+Enhancement layers:
+
+1. HTML structure
+2. Tailwind styling
+3. Optional JavaScript behavior
+
+The UI must remain usable if JavaScript fails.
 
 ---
 
-## Styling strategy
+## Styling Strategy
 
 ### Tailwind CSS
 
@@ -47,9 +63,9 @@ Tailwind is the primary styling solution.
 
 Guidelines:
 
-- Prefer utility classes over custom CSS
+- Prefer utility classes
+- Avoid large custom CSS files
 - Extract repeated patterns into reusable components
-- Keep global CSS minimal
 
 Example:
 
@@ -59,23 +75,23 @@ Example:
 </button>
 ```
 
-Avoid large custom CSS files unless necessary.
+Global CSS should be minimal and primarily support Tailwind.
 
 ---
 
-## Component strategy
+## Component Architecture
 
-### HTML modules as components
+### Server-Rendered Component Partials
 
-Reusable UI elements are stored as HTML template modules.
+Reusable UI components are implemented as HTML partial templates rendered on the server.
 
-Each component lives in:
+Component directory:
 
 ```text
 app/components/
 ```
 
-Example:
+Example structure:
 
 ```text
 app/components/
@@ -84,53 +100,54 @@ app/components/
   dropdown.html
 ```
 
-### Component file format
+These files contain pure HTML markup with Tailwind styling.
 
-Each component contains a single `<template>` element.
+### Component Example
 
-Example:
-
-```html
-<template>
-  <button class="px-4 py-2 rounded bg-blue-600 text-white">
-    <slot></slot>
-  </button>
-</template>
-```
-
-The `<slot>` placeholder is replaced by the component's inner content.
-
-### Component usage
-
-Components are used as custom HTML tags.
-
-Example:
+`app/components/button.html`
 
 ```html
-<ui-button>Save</ui-button>
+<button class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">
+  {{ children }}
+</button>
 ```
 
-The component loader replaces the tag with template content at runtime.
+The `children` placeholder represents nested content inserted by the server renderer.
+
+### Component Usage
+
+Example usage inside a page template:
+
+```html
+<ui-button>
+  Save
+</ui-button>
+```
+
+During server rendering the component tag is replaced with the component partial.
 
 Rendered output:
 
 ```html
-<button class="px-4 py-2 rounded bg-blue-600 text-white">
+<button class="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700">
   Save
 </button>
 ```
 
+Component resolution should occur during server rendering, not at runtime in the browser.
+
 ---
 
-## Native UI patterns
+## Native UI Patterns
 
-Use browser-native UI patterns whenever possible.
+Use browser-native UI primitives whenever possible.
 
 ### Modal
 
 ```html
 <dialog>
   Modal content
+
   <form method="dialog">
     <button>Close</button>
   </form>
@@ -146,23 +163,24 @@ Use browser-native UI patterns whenever possible.
 </details>
 ```
 
-### Popover
+### Popover Menu
 
 ```html
 <button popovertarget="menu">Options</button>
+
 <div id="menu" popover>
   <button>Edit</button>
   <button>Delete</button>
 </div>
 ```
 
-Avoid implementing custom versions if a native primitive exists.
+Avoid custom JavaScript implementations if a native primitive exists.
 
 ---
 
-## Interactive components
+## Interactive Components
 
-Interactive UI logic lives in island modules.
+Interactive behaviors should be implemented as JavaScript islands.
 
 Directory:
 
@@ -179,9 +197,9 @@ app/islands/
   cart.js
 ```
 
-Each island attaches behavior to existing HTML.
+Each island attaches behavior to existing server-rendered HTML.
 
-Example:
+Example island module:
 
 ```js
 export function mount(el) {
@@ -194,16 +212,9 @@ export function mount(el) {
 }
 ```
 
----
+### Island Activation
 
-## JavaScript guidelines
-
-JavaScript should:
-
-- Enhance existing HTML
-- Remain small and modular
-- Avoid framework runtimes
-- Attach behavior via `data-*` attributes or component tags
+Interactive areas should declare themselves with `data-island`.
 
 Example:
 
@@ -213,11 +224,34 @@ Example:
 </div>
 ```
 
+The island loader initializes behavior only for those sections.
+
+This ensures JavaScript is loaded only where necessary.
+
 ---
 
-## Folder structure
+## JavaScript Guidelines
 
-UI-related files should follow this structure:
+JavaScript must:
+
+- enhance existing HTML
+- remain small and modular
+- avoid heavy client frameworks
+- rely on platform APIs
+
+Prefer:
+
+- native DOM APIs
+- event delegation
+- minimal client state
+
+Avoid introducing large UI runtimes.
+
+---
+
+## Folder Structure
+
+All UI-related files should follow this structure:
 
 ```text
 app/
@@ -234,16 +268,17 @@ app/
 
 ---
 
-## Anti-patterns
+## Anti-Patterns
 
 Avoid introducing:
 
-- React-style component systems
-- Heavy UI frameworks
-- Complex client-side state managers
-- Unnecessary JavaScript for simple interactions
+- React-style UI frameworks
+- large client-side UI libraries
+- full-page hydration
+- complex client state management
+- unnecessary JavaScript for simple UI interactions
 
-Prefer native HTML + Tailwind + small JS modules.
+Prefer HTML + Tailwind + minimal JavaScript.
 
 ---
 
@@ -251,11 +286,11 @@ Prefer native HTML + Tailwind + small JS modules.
 
 The UI architecture follows these principles:
 
-- HTML-first
-- Tailwind for styling
-- HTML modules for reusable components
+- HTML-first design
+- Server-rendered components
+- Tailwind CSS for styling
 - Native browser UI primitives
 - Progressive enhancement
-- Minimal JavaScript islands
+- JavaScript islands for interaction
 
-This keeps the UI lightweight, maintainable, and aligned with modern web platform capabilities.
+This approach produces a UI that is fast, accessible, framework-independent, and aligned with Remix v3's server-first model.
