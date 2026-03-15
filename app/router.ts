@@ -5,6 +5,7 @@ import { logger } from 'remix/logger-middleware'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 
+import { renderComponent } from './components/render.ts'
 import { routes } from './routes.ts'
 
 type EtfStatus = 'have' | 'want_to_buy'
@@ -25,6 +26,34 @@ export let router = createRouter({
 })
 
 function renderPage() {
+  const etfNameInput = renderComponent('text-input', {
+    id: 'etfName',
+    label: 'ETF Name',
+    field_name: 'etfName',
+    placeholder: 'e.g. VTI',
+  })
+
+  const statusSelect = renderComponent('select-input', {
+    id: 'status',
+    label: 'Status',
+    field_name: 'status',
+    children: '<option value="have">Have</option><option value="want_to_buy">Want to Buy</option>',
+  })
+
+  const addButton = renderComponent('submit-button', { children: 'Add ETF' })
+
+  const listContent =
+    etfEntries.length === 0
+      ? html`<p class="mt-4 text-sm text-slate-500">No ETFs added yet.</p>`
+      : html`<ul class="mt-4 grid gap-2">
+          ${etfEntries.map(entry => {
+            const badge = renderComponent('badge', {
+              children: entry.status === 'have' ? 'Have' : 'Want to Buy',
+            })
+            return renderComponent('etf-card', { name: entry.name, badge: String(badge) })
+          })}
+        </ul>`
+
   return createHtmlResponse(html`
     <!doctype html>
     <html lang="en">
@@ -32,133 +61,23 @@ function renderPage() {
         <meta charset="utf-8" />
         <meta name="viewport" content="width=device-width,initial-scale=1" />
         <title>AI Investor</title>
-        <meta
-          name="description"
-          content="Track ETFs you have or want to buy with Remix 3."
-        />
-        <style>
-          :root {
-            color-scheme: light;
-            font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
-          }
-          body {
-            margin: 0;
-            background: #f8fafc;
-            color: #0f172a;
-            padding: 1rem;
-          }
-          main {
-            max-width: 36rem;
-            margin: 0 auto;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 12px;
-            padding: 1rem;
-          }
-          h1 {
-            margin: 0;
-            font-size: 1.5rem;
-          }
-          p {
-            margin: 0.5rem 0 0;
-            color: #475569;
-          }
-          form {
-            margin-top: 1.25rem;
-            display: grid;
-            gap: 0.75rem;
-          }
-          label {
-            display: block;
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 0.25rem;
-          }
-          input,
-          select,
-          button {
-            font: inherit;
-            width: 100%;
-            box-sizing: border-box;
-            border-radius: 8px;
-            border: 1px solid #cbd5e1;
-            padding: 0.6rem 0.75rem;
-          }
-          button {
-            background: #0f172a;
-            border-color: #0f172a;
-            color: #ffffff;
-            font-weight: 600;
-          }
-          ul {
-            list-style: none;
-            margin: 1rem 0 0;
-            padding: 0;
-            display: grid;
-            gap: 0.5rem;
-          }
-          li {
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            padding: 0.6rem 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            gap: 0.5rem;
-          }
-          .badge {
-            border-radius: 9999px;
-            background: #e2e8f0;
-            color: #334155;
-            font-size: 0.75rem;
-            padding: 0.2rem 0.5rem;
-            white-space: nowrap;
-          }
-          .muted {
-            margin-top: 1rem;
-            color: #64748b;
-            font-size: 0.9rem;
-          }
-        </style>
+        <meta name="description" content="Track ETFs you have or want to buy with Remix 3." />
+        <script src="https://cdn.tailwindcss.com"></script>
       </head>
-      <body>
-        <main>
-          <h1>AI Investor</h1>
-          <p>Add ETF names you already hold or want to buy.</p>
+      <body class="min-h-screen bg-slate-50 p-4 font-sans text-slate-900">
+        <main class="mx-auto max-w-lg rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
+          <header>
+            <h1 class="text-2xl font-bold tracking-tight text-slate-900">AI Investor</h1>
+            <p class="mt-1 text-sm text-slate-500">Add ETF names you already hold or want to buy.</p>
+          </header>
 
-          <form method="post" action="${routes.addEtf.href()}">
-            <div>
-              <label for="etfName">ETF Name</label>
-              <input
-                id="etfName"
-                name="etfName"
-                type="text"
-                required
-                placeholder="e.g. VTI"
-                autocomplete="off"
-              />
-            </div>
-
-            <div>
-              <label for="status">Status</label>
-              <select id="status" name="status">
-                <option value="have">Have</option>
-                <option value="want_to_buy">Want to Buy</option>
-              </select>
-            </div>
-
-            <button type="submit">Add ETF</button>
+          <form method="post" action="${routes.addEtf.href()}" class="mt-6 grid gap-4">
+            ${etfNameInput}
+            ${statusSelect}
+            ${addButton}
           </form>
 
-          ${etfEntries.length === 0
-            ? html`<p class="muted">No ETFs added yet.</p>`
-            : html`<ul>
-                ${etfEntries.map(
-                  entry => html`<li>
-                    <strong>${entry.name}</strong>
-                    <span class="badge">${entry.status === 'have' ? 'Have' : 'Want to Buy'}</span>
-                  </li>`,
-                )}
-              </ul>`}
+          ${listContent}
         </main>
       </body>
     </html>
