@@ -693,8 +693,8 @@ function pageShell(title: string, body: ReturnType<typeof html>): ReturnType<typ
   `
 }
 
-function themeToggleButton(): string {
-  return `
+function themeToggleButton() {
+  return html`
     <button
       data-island="theme-toggle"
       type="button"
