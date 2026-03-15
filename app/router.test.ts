@@ -1,10 +1,24 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
-import { router, resetEtfEntries } from './router.ts'
+import { router, resetEtfEntries, setAdviceClient } from './router.ts'
+import type { AdviceClient } from './openai.ts'
+
+function makeMockClient(responseText: string): AdviceClient {
+  return {
+    chat: {
+      completions: {
+        create: async () => ({
+          choices: [{ message: { content: responseText } }],
+        }),
+      },
+    },
+  }
+}
 
 afterEach(() => {
   resetEtfEntries()
+  setAdviceClient(null)
   delete process.env.GH_CLIENT_ID
 })
 
@@ -33,6 +47,63 @@ describe('ETF homepage', () => {
     assert.match(body, /name="etfName"/)
     assert.match(body, /name="value"/)
     assert.match(body, /name="currency"/)
+  })
+
+  it('returns 400 when cashAmount is missing from advice request', async () => {
+    setAdviceClient(makeMockClient('irrelevant'))
+    let form = new FormData()
+
+    let response = await router.fetch(
+      new Request('http://localhost/advice', { method: 'POST', body: form }),
+    )
+
+    assert.equal(response.status, 400)
+  })
+
+  it('returns advice HTML from the LLM when cashAmount is provided', async () => {
+    setAdviceClient(makeMockClient('Buy VTI for broad market exposure.'))
+
+    let form = new FormData()
+    form.set('cashAmount', '1000')
+
+    let response = await router.fetch(
+      new Request('http://localhost/advice', { method: 'POST', body: form }),
+    )
+    let body = await response.text()
+
+    assert.equal(response.status, 200)
+    assert.match(body, /Buy VTI for broad market exposure\./)
+  })
+
+  it('includes current ETF holdings in the advice context', async () => {
+    let capturedUserMessage = ''
+    const capturingClient: AdviceClient = {
+      chat: {
+        completions: {
+          create: async params => {
+            capturedUserMessage = params.messages[1].content
+            return { choices: [{ message: { content: 'advice' } }] }
+          },
+        },
+      },
+    }
+    setAdviceClient(capturingClient)
+
+    // First add an ETF with the new schema
+    let addForm = new FormData()
+    addForm.set('etfName', 'VXUS')
+    addForm.set('value', '3000')
+    addForm.set('currency', 'USD')
+    await router.fetch(new Request('http://localhost/etfs', { method: 'POST', body: addForm }))
+
+    // Then ask for advice
+    let adviceForm = new FormData()
+    adviceForm.set('cashAmount', '500')
+    await router.fetch(new Request('http://localhost/advice', { method: 'POST', body: adviceForm }))
+
+    assert.match(capturedUserMessage, /VXUS/)
+    assert.match(capturedUserMessage, /3000 USD/)
+    assert.match(capturedUserMessage, /\$500/)
   })
 
   it('adds an ETF on form submit and displays it on homepage', async () => {
@@ -66,6 +137,15 @@ describe('ETF homepage', () => {
     assert.equal(response.status, 200)
     assert.match(body, /Sign in with GitHub/)
     assert.match(body, /href="\/auth\/github"/)
+  })
+
+  it('renders advice form section on the homepage', async () => {
+    const response = await router.fetch('http://localhost/')
+    const body = await response.text()
+
+    assert.match(body, /Get Advice/)
+    assert.match(body, /name="cashAmount"/)
+    assert.match(body, /action="\/advice"/)
   })
 })
 

@@ -9,6 +9,7 @@
     "test": "tsx --test"
   },
   "dependencies": {
+    "openai": "^6.29.0",
     "remix": "next"
   },
   "devDependencies": {
