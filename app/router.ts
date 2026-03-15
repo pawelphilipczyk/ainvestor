@@ -1159,5 +1159,5 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
         </script>
       </body>
     </html>
-  `)
+  `, { headers: { 'Cache-Control': 'no-store' } })
 }
