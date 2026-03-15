@@ -1,11 +1,11 @@
 export const GIST_FILENAME = 'etfs.json'
 export const GIST_DESCRIPTION = 'ai-investor-data'
 
-export type EtfStatus = 'have' | 'want_to_buy'
-
 export type EtfEntry = {
+  id: string
   name: string
-  status: EtfStatus
+  value: number
+  currency: string
 }
 
 type GistFile = {

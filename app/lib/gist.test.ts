@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict'
-import { describe, it, mock } from 'node:test'
+import { describe, it } from 'node:test'
 
 import { parseEtfsFromGist, buildGistBody, GIST_FILENAME, GIST_DESCRIPTION } from './gist.ts'
 
@@ -19,10 +19,10 @@ describe('gist', () => {
     assert.deepEqual(result, [])
   })
 
-  it('parseEtfsFromGist parses valid ETF JSON', () => {
+  it('parseEtfsFromGist parses valid ETF JSON with new fields', () => {
     const entries = [
-      { name: 'VTI', status: 'have' },
-      { name: 'QQQ', status: 'want_to_buy' },
+      { id: 'abc-1', name: 'VTI', value: 1200.5, currency: 'USD' },
+      { id: 'abc-2', name: 'VWCE', value: 3400, currency: 'EUR' },
     ]
     const result = parseEtfsFromGist({
       files: { [GIST_FILENAME]: { content: JSON.stringify(entries) } },
@@ -38,7 +38,7 @@ describe('gist', () => {
   })
 
   it('buildGistBody creates a valid create-gist request body', () => {
-    const entries = [{ name: 'SPY', status: 'have' }]
+    const entries = [{ id: 'abc-1', name: 'SPY', value: 500, currency: 'USD' }]
     const body = buildGistBody(entries)
 
     assert.equal(body.description, GIST_DESCRIPTION)
