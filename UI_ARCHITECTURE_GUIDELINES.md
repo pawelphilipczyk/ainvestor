@@ -294,3 +294,125 @@ The UI architecture follows these principles:
 - JavaScript islands for interaction
 
 This approach produces a UI that is fast, accessible, framework-independent, and aligned with Remix v3's server-first model.
+
+---
+
+## Component Creation Rules
+
+This section defines the exact rules an AI agent must follow when generating a new UI component.
+
+### 1. One component per file
+
+Each component lives in its own file inside `app/components/`.
+
+File name must be lowercase and hyphen-separated:
+
+```text
+app/components/alert-banner.html
+app/components/avatar.html
+app/components/icon-button.html
+```
+
+### 2. File contents are pure HTML
+
+Component files contain only HTML markup. No `<template>` wrapper, no `<script>`, no `<style>`.
+
+```html
+<div class="rounded border border-yellow-400 bg-yellow-50 px-4 py-3 text-yellow-800">
+  {{ children }}
+</div>
+```
+
+### 3. Use `{{ children }}` for slot content
+
+When the component wraps arbitrary content, use `{{ children }}` as the single insertion point.
+
+Only one `{{ children }}` per component.
+
+### 4. Use named placeholders for additional variables
+
+When a component needs more than one dynamic value, use named placeholders in the form `{{ name }}`.
+
+Example `app/components/alert-banner.html`:
+
+```html
+<div role="alert" class="rounded border px-4 py-3 {{ variant_classes }}">
+  <strong class="font-semibold">{{ title }}</strong>
+  <p>{{ children }}</p>
+</div>
+```
+
+Keep placeholders to a minimum. If a component needs many variables, consider splitting it into smaller components.
+
+### 5. Use Tailwind utility classes only
+
+Do not add inline `style` attributes or `<style>` blocks.
+
+All visual styling must be expressed with Tailwind utility classes.
+
+### 6. Use semantic HTML elements
+
+Choose the most appropriate HTML element for the component's role:
+
+| Purpose | Element |
+|---|---|
+| Actions | `<button>` |
+| Navigation links | `<a>` |
+| Grouped content | `<section>`, `<article>` |
+| Overlays | `<dialog>` |
+| Expandable content | `<details>` / `<summary>` |
+| Status messages | `<output>`, `<p role="alert">` |
+
+Do not use `<div>` when a semantic element fits.
+
+### 7. Add ARIA attributes where needed
+
+If the element's role is not obvious from the tag alone, add the appropriate `role` or `aria-*` attribute.
+
+```html
+<div role="status" class="text-sm text-green-700">
+  {{ children }}
+</div>
+```
+
+### 8. Do not add JavaScript inside component files
+
+Interactivity belongs in a matching island file, not in the component partial.
+
+If the component needs behavior, create a corresponding island:
+
+```text
+app/components/dropdown.html   ← markup only
+app/islands/dropdown.js        ← behavior only
+```
+
+The island targets the component via `data-island`:
+
+```html
+<div data-island="dropdown" class="relative">
+  {{ children }}
+</div>
+```
+
+### 9. Component naming convention
+
+| File name | Custom tag used in templates |
+|---|---|
+| `button.html` | `<ui-button>` |
+| `alert-banner.html` | `<ui-alert-banner>` |
+| `icon-button.html` | `<ui-icon-button>` |
+
+All custom tags use the `ui-` prefix followed by the file name without extension.
+
+### 10. Creation checklist
+
+Before finishing a new component, verify:
+
+- [ ] File is in `app/components/` with a lowercase hyphenated name
+- [ ] File contains only HTML (no `<template>`, `<script>`, or `<style>`)
+- [ ] Dynamic content uses `{{ children }}` or named `{{ placeholders }}`
+- [ ] All styling uses Tailwind utility classes
+- [ ] Semantic HTML element is used
+- [ ] ARIA attributes are present where the role is not implicit
+- [ ] No JavaScript inside the file
+- [ ] If behavior is needed, a matching island file exists in `app/islands/`
