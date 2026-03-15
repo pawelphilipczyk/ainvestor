@@ -22,7 +22,7 @@ describe('ETF homepage', () => {
 
     assert.equal(response.status, 200)
     assert.match(body, /AI Investor/)
-    assert.match(body, /<form method="post" action="\/etfs">/)
+    assert.match(body, /<form[^>]*method="post"[^>]*action="\/etfs"/)
   })
 
   it('adds an ETF on form submit and displays it on homepage', async () => {
