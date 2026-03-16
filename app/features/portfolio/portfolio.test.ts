@@ -64,6 +64,70 @@ describe('Portfolio page', () => {
 		assert.match(homeBody, /USD/)
 	})
 
+	it('updates existing ETF when adding same name instead of duplicating', async () => {
+		const form1 = new FormData()
+		form1.set('etfName', 'VTI')
+		form1.set('value', '1200')
+		form1.set('currency', 'USD')
+
+		await router.fetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: form1 }),
+		)
+
+		const form2 = new FormData()
+		form2.set('etfName', 'VTI')
+		form2.set('value', '500')
+		form2.set('currency', 'EUR')
+
+		await router.fetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: form2 }),
+		)
+
+		const homeResponse = await router.fetch('http://localhost/')
+		const homeBody = await homeResponse.text()
+
+		assert.match(homeBody, /VTI/)
+		assert.match(homeBody, /500/)
+		assert.match(homeBody, /EUR/)
+		const deleteForms = homeBody.match(/action="\/etfs\/[a-f0-9-]+"/g)
+		assert.equal(
+			deleteForms?.length ?? 0,
+			1,
+			'should have exactly one ETF entry',
+		)
+	})
+
+	it('DELETE /etfs/:id removes the ETF via method override', async () => {
+		const form = new FormData()
+		form.set('etfName', 'VTI')
+		form.set('value', '1000')
+		form.set('currency', 'USD')
+
+		await router.fetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+		)
+
+		const listResponse = await router.fetch('http://localhost/')
+		const listBody = await listResponse.text()
+		const idMatch = listBody.match(/action="\/etfs\/([a-f0-9-]+)"/)
+		assert.ok(idMatch, 'delete form action should be present')
+		const id = idMatch[1]
+
+		const deleteForm = new FormData()
+		deleteForm.set('_method', 'DELETE')
+		const deleteResponse = await router.fetch(
+			new Request(`http://localhost/etfs/${id}`, {
+				method: 'POST',
+				body: deleteForm,
+			}),
+		)
+
+		assert.equal(deleteResponse.status, 302)
+
+		const afterBody = await (await router.fetch('http://localhost/')).text()
+		assert.match(afterBody, /No ETFs added yet/)
+	})
+
 	it('shows sign-in link when not authenticated', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
