@@ -128,6 +128,7 @@ function renderGuidelinesPage(
               <div class="flex items-center gap-4">
                 <span class="text-sm font-semibold">${g.targetPct}%</span>
                 <form method="post" action="${routes.guidelines.delete.href({ id: g.id })}">
+                  <input type="hidden" name="_method" value="DELETE" />
                   <button
                     type="submit"
                     class="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"

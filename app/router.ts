@@ -1,6 +1,7 @@
 import { createRouter } from 'remix/fetch-router'
 import { formData } from 'remix/form-data-middleware'
 import { logger } from 'remix/logger-middleware'
+import { methodOverride } from 'remix/method-override-middleware'
 import { session } from 'remix/session-middleware'
 import { staticFiles } from 'remix/static-middleware'
 import { adviceHandler, setAdviceClient } from './features/advice/index.ts'
@@ -34,8 +35,8 @@ const islands = staticFiles('app', {
 export const router = createRouter({
 	middleware:
 		process.env.NODE_ENV === 'development'
-			? [islands, logger(), formData(), session(sessionCookie, sessionStorage)]
-			: [islands, formData(), session(sessionCookie, sessionStorage)],
+			? [islands, logger(), formData(), methodOverride(), session(sessionCookie, sessionStorage)]
+			: [islands, formData(), methodOverride(), session(sessionCookie, sessionStorage)],
 })
 
 router.get(routes.health, () => {

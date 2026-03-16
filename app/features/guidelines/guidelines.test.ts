@@ -77,7 +77,7 @@ describe('Guidelines page', () => {
 		assert.match(body, /No guidelines/)
 	})
 
-	it('POST /guidelines/:id/delete removes the guideline', async () => {
+	it('DELETE /guidelines/:id removes the guideline via method override', async () => {
 		const addForm = new FormData()
 		addForm.set('etfName', 'VNQ')
 		addForm.set('targetPct', '10')
@@ -91,13 +91,16 @@ describe('Guidelines page', () => {
 
 		const listResponse = await router.fetch('http://localhost/guidelines')
 		const listBody = await listResponse.text()
-		const idMatch = listBody.match(/\/guidelines\/([^/]+)\/delete/)
-		assert.ok(idMatch, 'delete link should be present')
+		const idMatch = listBody.match(/action="\/guidelines\/([a-f0-9-]+)"/)
+		assert.ok(idMatch, 'delete form action should be present')
 		const id = idMatch[1]
 
+		const deleteForm = new FormData()
+		deleteForm.set('_method', 'DELETE')
 		const deleteResponse = await router.fetch(
-			new Request(`http://localhost/guidelines/${id}/delete`, {
+			new Request(`http://localhost/guidelines/${id}`, {
 				method: 'POST',
+				body: deleteForm,
 			}),
 		)
 
