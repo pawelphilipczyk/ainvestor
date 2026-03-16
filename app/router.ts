@@ -6,24 +6,34 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 
 import { renderComponent } from './components/render.ts'
-import { fetchEtfs, findOrCreateGist, saveEtfs } from './lib/gist.ts'
-import type { EtfEntry } from './lib/gist.ts'
-import { fetchGuidelines, saveGuidelines } from './lib/guidelines.ts'
-import type { EtfGuideline, EtfType } from './lib/guidelines.ts'
-import { fetchCatalog, saveCatalog, parseCsvToCatalog } from './lib/catalog.ts'
 import type { CatalogEntry } from './lib/catalog.ts'
-import { clearSessionCookie, createSessionCookie, parseSessionCookie } from './lib/session.ts'
+import { fetchCatalog, parseCsvToCatalog, saveCatalog } from './lib/catalog.ts'
+import type { EtfEntry } from './lib/gist.ts'
+import { fetchEtfs, findOrCreateGist, saveEtfs } from './lib/gist.ts'
+import type { EtfGuideline, EtfType } from './lib/guidelines.ts'
+import { fetchGuidelines, saveGuidelines } from './lib/guidelines.ts'
 import type { SessionData } from './lib/session.ts'
-import { createDefaultClient, getInvestmentAdvice } from './openai.ts'
+import {
+	clearSessionCookie,
+	createSessionCookie,
+	parseSessionCookie,
+} from './lib/session.ts'
 import type { AdviceClient } from './openai.ts'
+import { createDefaultClient, getInvestmentAdvice } from './openai.ts'
 import { routes } from './routes.ts'
 
 // ---------------------------------------------------------------------------
 // Config helpers (read at request time so env vars can be set in tests)
 // ---------------------------------------------------------------------------
-function getClientId() { return process.env.GH_CLIENT_ID ?? '' }
-function getClientSecret() { return process.env.GH_CLIENT_SECRET ?? '' }
-function getSessionSecret() { return process.env.SESSION_SECRET ?? 'dev-secret-change-me' }
+function getClientId() {
+	return process.env.GH_CLIENT_ID ?? ''
+}
+function getClientSecret() {
+	return process.env.GH_CLIENT_SECRET ?? ''
+}
+function getSessionSecret() {
+	return process.env.SESSION_SECRET ?? 'dev-secret-change-me'
+}
 
 // ---------------------------------------------------------------------------
 // In-memory fallback (used when user is not logged in, preserved for tests)
@@ -34,244 +44,278 @@ let guestCatalog: CatalogEntry[] = []
 let adviceClient: AdviceClient | null = null
 
 export function resetEtfEntries() {
-  guestEntries = []
+	guestEntries = []
 }
 
 export function resetGuestGuidelines() {
-  guestGuidelines = []
+	guestGuidelines = []
 }
 
 export function resetGuestCatalog() {
-  guestCatalog = []
+	guestCatalog = []
 }
 
 export function setAdviceClient(client: AdviceClient | null) {
-  adviceClient = client
+	adviceClient = client
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function getSession(request: Request): Promise<SessionData | null> {
-  const cookie = request.headers.get('cookie') ?? undefined
-  return parseSessionCookie(cookie, getSessionSecret())
+	const cookie = request.headers.get('cookie') ?? undefined
+	return parseSessionCookie(cookie, getSessionSecret())
 }
 
 // ---------------------------------------------------------------------------
 // Router
 // ---------------------------------------------------------------------------
-export let router = createRouter({
-  middleware: process.env.NODE_ENV === 'development' ? [logger(), formData()] : [formData()],
+export const router = createRouter({
+	middleware:
+		process.env.NODE_ENV === 'development'
+			? [logger(), formData()]
+			: [formData()],
 })
 
 // ---------------------------------------------------------------------------
 // GET /
 // ---------------------------------------------------------------------------
-router.get(routes.home, async context => {
-  const session = await getSession(context.request)
-  const entries = session ? await fetchEtfs(session.token, session.gistId!) : guestEntries
-  return renderPage(entries, session)
+router.get(routes.home, async (context) => {
+	const session = await getSession(context.request)
+	const entries = session
+		? await fetchEtfs(session.token, session.gistId!)
+		: guestEntries
+	return renderPage(entries, session)
 })
 
 // ---------------------------------------------------------------------------
 // GET /health
 // ---------------------------------------------------------------------------
 router.get(routes.health, () => {
-  return new Response('ok', {
-    headers: { 'content-type': 'text/plain; charset=utf-8' },
-  })
+	return new Response('ok', {
+		headers: { 'content-type': 'text/plain; charset=utf-8' },
+	})
 })
 
 // ---------------------------------------------------------------------------
 // POST /etfs
 // ---------------------------------------------------------------------------
-router.post(routes.addEtf, async context => {
-  const form = context.formData
-  if (!form) return createRedirectResponse(routes.home.href())
+router.post(routes.addEtf, async (context) => {
+	const form = context.formData
+	if (!form) return createRedirectResponse(routes.home.href())
 
-  const name = typeof form.get('etfName') === 'string' ? (form.get('etfName') as string).trim() : ''
-  const rawValue = form.get('value')
-  const currency = typeof form.get('currency') === 'string' ? (form.get('currency') as string).trim().toUpperCase() : 'USD'
-  const value = typeof rawValue === 'string' ? parseFloat(rawValue.replace(/,/g, '')) : NaN
+	const name =
+		typeof form.get('etfName') === 'string'
+			? (form.get('etfName') as string).trim()
+			: ''
+	const rawValue = form.get('value')
+	const currency =
+		typeof form.get('currency') === 'string'
+			? (form.get('currency') as string).trim().toUpperCase()
+			: 'USD'
+	const value =
+		typeof rawValue === 'string' ? parseFloat(rawValue.replace(/,/g, '')) : NaN
 
-  if (name.length === 0 || isNaN(value) || value < 0) {
-    return createRedirectResponse(routes.home.href())
-  }
+	if (name.length === 0 || isNaN(value) || value < 0) {
+		return createRedirectResponse(routes.home.href())
+	}
 
-  const entry = { id: crypto.randomUUID(), name, value, currency }
-  const session = await getSession(context.request)
+	const entry = { id: crypto.randomUUID(), name, value, currency }
+	const session = await getSession(context.request)
 
-  if (session) {
-    const current = await fetchEtfs(session.token, session.gistId!)
-    await saveEtfs(session.token, session.gistId!, [entry, ...current])
-  } else {
-    guestEntries = [entry, ...guestEntries]
-  }
+	if (session) {
+		const current = await fetchEtfs(session.token, session.gistId!)
+		await saveEtfs(session.token, session.gistId!, [entry, ...current])
+	} else {
+		guestEntries = [entry, ...guestEntries]
+	}
 
-  return createRedirectResponse(routes.home.href())
+	return createRedirectResponse(routes.home.href())
 })
 
 // ---------------------------------------------------------------------------
 // GET /auth/github  — redirect to GitHub OAuth
 // ---------------------------------------------------------------------------
 router.get(routes.githubLogin, () => {
-  const clientId = getClientId()
-  if (!clientId) {
-    return new Response('GH_CLIENT_ID is not configured', { status: 500 })
-  }
-  const params = new URLSearchParams({ client_id: clientId, scope: 'gist' })
-  return createRedirectResponse(`https://github.com/login/oauth/authorize?${params}`)
+	const clientId = getClientId()
+	if (!clientId) {
+		return new Response('GH_CLIENT_ID is not configured', { status: 500 })
+	}
+	const params = new URLSearchParams({ client_id: clientId, scope: 'gist' })
+	return createRedirectResponse(
+		`https://github.com/login/oauth/authorize?${params}`,
+	)
 })
 
 // ---------------------------------------------------------------------------
 // GET /auth/github/callback  — exchange code for token, set session cookie
 // ---------------------------------------------------------------------------
-router.get(routes.githubCallback, async context => {
-  const url = new URL(context.request.url)
-  const code = url.searchParams.get('code')
-  if (!code) return createRedirectResponse(routes.home.href())
+router.get(routes.githubCallback, async (context) => {
+	const url = new URL(context.request.url)
+	const code = url.searchParams.get('code')
+	if (!code) return createRedirectResponse(routes.home.href())
 
-  const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      client_id: getClientId(),
-      client_secret: getClientSecret(),
-      code,
-    }),
-  })
+	const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+		method: 'POST',
+		headers: {
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
+		},
+		body: JSON.stringify({
+			client_id: getClientId(),
+			client_secret: getClientSecret(),
+			code,
+		}),
+	})
 
-  if (!tokenRes.ok) return createRedirectResponse(routes.home.href())
-  const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string }
-  const token = tokenData.access_token
-  if (!token) return createRedirectResponse(routes.home.href())
+	if (!tokenRes.ok) return createRedirectResponse(routes.home.href())
+	const tokenData = (await tokenRes.json()) as {
+		access_token?: string
+		error?: string
+	}
+	const token = tokenData.access_token
+	if (!token) return createRedirectResponse(routes.home.href())
 
-  const userRes = await fetch('https://api.github.com/user', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-    },
-  })
-  const user = (await userRes.json()) as { login: string }
+	const userRes = await fetch('https://api.github.com/user', {
+		headers: {
+			Authorization: `Bearer ${token}`,
+			Accept: 'application/vnd.github+json',
+		},
+	})
+	const user = (await userRes.json()) as { login: string }
 
-  const gistId = await findOrCreateGist(token)
+	const gistId = await findOrCreateGist(token)
 
-  const sessionCookie = await createSessionCookie(
-    { token, gistId, login: user.login },
-    getSessionSecret(),
-  )
+	const sessionCookie = await createSessionCookie(
+		{ token, gistId, login: user.login },
+		getSessionSecret(),
+	)
 
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: routes.home.href(),
-      'Set-Cookie': sessionCookie,
-    },
-  })
+	return new Response(null, {
+		status: 302,
+		headers: {
+			Location: routes.home.href(),
+			'Set-Cookie': sessionCookie,
+		},
+	})
 })
 
 // ---------------------------------------------------------------------------
 // POST /auth/logout
 // ---------------------------------------------------------------------------
 router.post(routes.logout, () => {
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: routes.home.href(),
-      'Set-Cookie': clearSessionCookie(),
-    },
-  })
+	return new Response(null, {
+		status: 302,
+		headers: {
+			Location: routes.home.href(),
+			'Set-Cookie': clearSessionCookie(),
+		},
+	})
 })
 
 // ---------------------------------------------------------------------------
 // GET /guidelines
 // ---------------------------------------------------------------------------
-router.get(routes.guidelines, async context => {
-  const session = await getSession(context.request)
-  const guidelines = session
-    ? await fetchGuidelines(session.token, session.gistId!)
-    : guestGuidelines
-  return renderGuidelinesPage(guidelines, session)
+router.get(routes.guidelines, async (context) => {
+	const session = await getSession(context.request)
+	const guidelines = session
+		? await fetchGuidelines(session.token, session.gistId!)
+		: guestGuidelines
+	return renderGuidelinesPage(guidelines, session)
 })
 
 // ---------------------------------------------------------------------------
 // POST /guidelines
 // ---------------------------------------------------------------------------
-router.post(routes.addGuideline, async context => {
-  const form = context.formData
-  if (!form) return createRedirectResponse(routes.guidelines.href())
+router.post(routes.addGuideline, async (context) => {
+	const form = context.formData
+	if (!form) return createRedirectResponse(routes.guidelines.href())
 
-  const etfName = typeof form.get('etfName') === 'string'
-    ? (form.get('etfName') as string).trim()
-    : ''
-  const rawPct = form.get('targetPct')
-  const targetPct = typeof rawPct === 'string' ? parseFloat(rawPct) : NaN
-  const etfType = (form.get('etfType') as EtfType | null) ?? 'equity'
+	const etfName =
+		typeof form.get('etfName') === 'string'
+			? (form.get('etfName') as string).trim()
+			: ''
+	const rawPct = form.get('targetPct')
+	const targetPct = typeof rawPct === 'string' ? parseFloat(rawPct) : NaN
+	const etfType = (form.get('etfType') as EtfType | null) ?? 'equity'
 
-  if (!etfName || isNaN(targetPct) || targetPct <= 0 || targetPct > 100) {
-    return createRedirectResponse(routes.guidelines.href())
-  }
+	if (!etfName || isNaN(targetPct) || targetPct <= 0 || targetPct > 100) {
+		return createRedirectResponse(routes.guidelines.href())
+	}
 
-  const entry: EtfGuideline = { id: crypto.randomUUID(), etfName, targetPct, etfType }
-  const session = await getSession(context.request)
+	const entry: EtfGuideline = {
+		id: crypto.randomUUID(),
+		etfName,
+		targetPct,
+		etfType,
+	}
+	const session = await getSession(context.request)
 
-  if (session) {
-    const current = await fetchGuidelines(session.token, session.gistId!)
-    await saveGuidelines(session.token, session.gistId!, [entry, ...current])
-  } else {
-    guestGuidelines = [entry, ...guestGuidelines]
-  }
+	if (session) {
+		const current = await fetchGuidelines(session.token, session.gistId!)
+		await saveGuidelines(session.token, session.gistId!, [entry, ...current])
+	} else {
+		guestGuidelines = [entry, ...guestGuidelines]
+	}
 
-  return createRedirectResponse(routes.guidelines.href())
+	return createRedirectResponse(routes.guidelines.href())
 })
 
 // ---------------------------------------------------------------------------
 // POST /guidelines/:id/delete
 // ---------------------------------------------------------------------------
-router.post(routes.deleteGuideline, async context => {
-  const id = (context.params as Record<string, string>).id
-  if (!id) return createRedirectResponse(routes.guidelines.href())
+router.post(routes.deleteGuideline, async (context) => {
+	const id = (context.params as Record<string, string>).id
+	if (!id) return createRedirectResponse(routes.guidelines.href())
 
-  const session = await getSession(context.request)
+	const session = await getSession(context.request)
 
-  if (session) {
-    const current = await fetchGuidelines(session.token, session.gistId!)
-    await saveGuidelines(session.token, session.gistId!, current.filter(g => g.id !== id))
-  } else {
-    guestGuidelines = guestGuidelines.filter(g => g.id !== id)
-  }
+	if (session) {
+		const current = await fetchGuidelines(session.token, session.gistId!)
+		await saveGuidelines(
+			session.token,
+			session.gistId!,
+			current.filter((g) => g.id !== id),
+		)
+	} else {
+		guestGuidelines = guestGuidelines.filter((g) => g.id !== id)
+	}
 
-  return createRedirectResponse(routes.guidelines.href())
+	return createRedirectResponse(routes.guidelines.href())
 })
 
 // ---------------------------------------------------------------------------
 // POST /advice
 // ---------------------------------------------------------------------------
-router.post(routes.advice, async context => {
-  const form = context.formData
-  if (!form) {
-    return new Response('Bad request', { status: 400 })
-  }
+router.post(routes.advice, async (context) => {
+	const form = context.formData
+	if (!form) {
+		return new Response('Bad request', { status: 400 })
+	}
 
-  const rawCash = form.get('cashAmount')
-  const cashAmount = typeof rawCash === 'string' ? rawCash.trim() : ''
-  if (!cashAmount) {
-    return new Response('cashAmount is required', { status: 400 })
-  }
+	const rawCash = form.get('cashAmount')
+	const cashAmount = typeof rawCash === 'string' ? rawCash.trim() : ''
+	if (!cashAmount) {
+		return new Response('cashAmount is required', { status: 400 })
+	}
 
-  const session = await getSession(context.request)
-  const entries = session ? await fetchEtfs(session.token, session.gistId!) : guestEntries
-  const guidelines = session
-    ? await fetchGuidelines(session.token, session.gistId!)
-    : guestGuidelines
+	const session = await getSession(context.request)
+	const entries = session
+		? await fetchEtfs(session.token, session.gistId!)
+		: guestEntries
+	const guidelines = session
+		? await fetchGuidelines(session.token, session.gistId!)
+		: guestGuidelines
 
-  const client = adviceClient ?? createDefaultClient()
-  const advice = await getInvestmentAdvice(entries, guidelines, cashAmount, client)
+	const client = adviceClient ?? createDefaultClient()
+	const advice = await getInvestmentAdvice(
+		entries,
+		guidelines,
+		cashAmount,
+		client,
+	)
 
-  return createHtmlResponse(html`
+	return createHtmlResponse(html`
     <!doctype html>
     <html lang="en" class="dark">
       <head>
@@ -361,58 +405,71 @@ router.post(routes.advice, async context => {
 // ---------------------------------------------------------------------------
 // GET /catalog
 // ---------------------------------------------------------------------------
-router.get(routes.catalog, async context => {
-  const url = new URL(context.request.url)
-  const typeFilter = url.searchParams.get('type') ?? ''
-  const query = url.searchParams.get('q') ?? ''
+router.get(routes.catalog, async (context) => {
+	const url = new URL(context.request.url)
+	const typeFilter = url.searchParams.get('type') ?? ''
+	const query = url.searchParams.get('q') ?? ''
 
-  const session = await getSession(context.request)
-  const [catalog, entries] = await Promise.all([
-    session ? fetchCatalog(session.token, session.gistId!) : guestCatalog,
-    session ? fetchEtfs(session.token, session.gistId!) : guestEntries,
-  ])
+	const session = await getSession(context.request)
+	const [catalog, entries] = await Promise.all([
+		session ? fetchCatalog(session.token, session.gistId!) : guestCatalog,
+		session ? fetchEtfs(session.token, session.gistId!) : guestEntries,
+	])
 
-  return renderCatalogPage(catalog, entries, session, typeFilter, query)
+	return renderCatalogPage(catalog, entries, session, typeFilter, query)
 })
 
 // ---------------------------------------------------------------------------
 // POST /catalog/import
 // ---------------------------------------------------------------------------
-router.post(routes.importCatalog, async context => {
-  const form = context.formData
-  if (!form) return createRedirectResponse(routes.catalog.href())
+router.post(routes.importCatalog, async (context) => {
+	const form = context.formData
+	if (!form) return createRedirectResponse(routes.catalog.href())
 
-  const file = form.get('csvFile')
-  if (!file || typeof file === 'string') return createRedirectResponse(routes.catalog.href())
+	const file = form.get('csvFile')
+	if (!file || typeof file === 'string')
+		return createRedirectResponse(routes.catalog.href())
 
-  const csvText = await (file as Blob).text()
-  const imported = parseCsvToCatalog(csvText)
-  if (imported.length === 0) return createRedirectResponse(routes.catalog.href())
+	const csvText = await (file as Blob).text()
+	const imported = parseCsvToCatalog(csvText)
+	if (imported.length === 0)
+		return createRedirectResponse(routes.catalog.href())
 
-  const session = await getSession(context.request)
-  if (session) {
-    await saveCatalog(session.token, session.gistId!, imported)
-  } else {
-    guestCatalog = imported
-  }
+	const session = await getSession(context.request)
+	if (session) {
+		await saveCatalog(session.token, session.gistId!, imported)
+	} else {
+		guestCatalog = imported
+	}
 
-  return createRedirectResponse(routes.catalog.href())
+	return createRedirectResponse(routes.catalog.href())
 })
 
 // ---------------------------------------------------------------------------
 // Page renderers
 // ---------------------------------------------------------------------------
-const ETF_TYPES: EtfType[] = ['equity', 'bond', 'real_estate', 'commodity', 'mixed', 'money_market']
+const ETF_TYPES: EtfType[] = [
+	'equity',
+	'bond',
+	'real_estate',
+	'commodity',
+	'mixed',
+	'money_market',
+]
 
-function renderGuidelinesPage(guidelines: EtfGuideline[], session: SessionData | null) {
-  const totalPct = guidelines.reduce((sum, g) => sum + g.targetPct, 0)
-  const remaining = Math.max(0, 100 - totalPct)
+function renderGuidelinesPage(
+	guidelines: EtfGuideline[],
+	session: SessionData | null,
+) {
+	const totalPct = guidelines.reduce((sum, g) => sum + g.targetPct, 0)
+	const remaining = Math.max(0, 100 - totalPct)
 
-  const listContent =
-    guidelines.length === 0
-      ? html`<p class="mt-4 text-sm text-muted-foreground">No guidelines added yet.</p>`
-      : html`<ul class="mt-4 grid gap-2">
-          ${guidelines.map(g => html`
+	const listContent =
+		guidelines.length === 0
+			? html`<p class="mt-4 text-sm text-muted-foreground">No guidelines added yet.</p>`
+			: html`<ul class="mt-4 grid gap-2">
+          ${guidelines.map(
+						(g) => html`
             <li class="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
               <div class="flex items-center gap-3">
                 <span class="font-medium">${g.etfName}</span>
@@ -431,10 +488,11 @@ function renderGuidelinesPage(guidelines: EtfGuideline[], session: SessionData |
                 </form>
               </div>
             </li>
-          `)}
+          `,
+					)}
         </ul>`
 
-  return createHtmlResponse(html`
+	return createHtmlResponse(html`
     <!doctype html>
     <html lang="en" class="dark">
       <head>
@@ -558,7 +616,7 @@ function renderGuidelinesPage(guidelines: EtfGuideline[], session: SessionData |
                   name="etfType"
                   class="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  ${ETF_TYPES.map(t => `<option value="${t}">${t.replace('_', ' ')}</option>`).join('')}
+                  ${ETF_TYPES.map((t) => `<option value="${t}">${t.replace('_', ' ')}</option>`).join('')}
                 </select>
               </div>
             </div>
@@ -592,16 +650,23 @@ function renderGuidelinesPage(guidelines: EtfGuideline[], session: SessionData |
 }
 
 function formatValue(value: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
-  } catch {
-    return `${value} ${currency}`
-  }
+	try {
+		return new Intl.NumberFormat('en-US', {
+			style: 'currency',
+			currency,
+			maximumFractionDigits: 2,
+		}).format(value)
+	} catch {
+		return `${value} ${currency}`
+	}
 }
 
 // Shared HTML head/body shell so each page stays consistent.
-function pageShell(title: string, body: ReturnType<typeof html>): ReturnType<typeof html> {
-  return html`
+function pageShell(
+	title: string,
+	body: ReturnType<typeof html>,
+): ReturnType<typeof html> {
+	return html`
     <!doctype html>
     <html lang="en" class="dark">
       <head>
@@ -694,7 +759,7 @@ function pageShell(title: string, body: ReturnType<typeof html>): ReturnType<typ
 }
 
 function themeToggleButton() {
-  return html`
+	return html`
     <button
       data-island="theme-toggle"
       type="button"
@@ -712,29 +777,31 @@ function themeToggleButton() {
 }
 
 function renderCatalogPage(
-  catalog: CatalogEntry[],
-  holdings: EtfEntry[],
-  session: SessionData | null,
-  typeFilter: string,
-  query: string,
+	catalog: CatalogEntry[],
+	holdings: EtfEntry[],
+	session: SessionData | null,
+	typeFilter: string,
+	query: string,
 ) {
-  const holdingsByTicker = new Map(holdings.map(e => [e.name.toUpperCase(), e]))
+	const holdingsByTicker = new Map(
+		holdings.map((e) => [e.name.toUpperCase(), e]),
+	)
 
-  const filtered = catalog.filter(entry => {
-    const matchesType = !typeFilter || entry.type === typeFilter
-    const lq = query.toLowerCase()
-    const matchesQuery =
-      !query ||
-      entry.ticker.toLowerCase().includes(lq) ||
-      entry.name.toLowerCase().includes(lq) ||
-      entry.description.toLowerCase().includes(lq)
-    return matchesType && matchesQuery
-  })
+	const filtered = catalog.filter((entry) => {
+		const matchesType = !typeFilter || entry.type === typeFilter
+		const lq = query.toLowerCase()
+		const matchesQuery =
+			!query ||
+			entry.ticker.toLowerCase().includes(lq) ||
+			entry.name.toLowerCase().includes(lq) ||
+			entry.description.toLowerCase().includes(lq)
+		return matchesType && matchesQuery
+	})
 
-  const ownedInCatalog = filtered.filter(e => holdingsByTicker.has(e.ticker))
-  const restOfCatalog = filtered.filter(e => !holdingsByTicker.has(e.ticker))
+	const ownedInCatalog = filtered.filter((e) => holdingsByTicker.has(e.ticker))
+	const restOfCatalog = filtered.filter((e) => !holdingsByTicker.has(e.ticker))
 
-  const tableHeaderRow = html`
+	const tableHeaderRow = html`
     <tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
       <th class="pb-2 pr-4">Ticker</th>
       <th class="pb-2 pr-4">Name</th>
@@ -745,12 +812,12 @@ function renderCatalogPage(
     </tr>
   `
 
-  function catalogRow(entry: CatalogEntry, holding?: EtfEntry) {
-    const valueCell = holding
-      ? html`<td class="py-2 pr-4 text-sm font-medium text-foreground">${formatValue(holding.value, holding.currency)}</td>`
-      : html`<td class="py-2 pr-4 text-sm text-muted-foreground">—</td>`
+	function catalogRow(entry: CatalogEntry, holding?: EtfEntry) {
+		const valueCell = holding
+			? html`<td class="py-2 pr-4 text-sm font-medium text-foreground">${formatValue(holding.value, holding.currency)}</td>`
+			: html`<td class="py-2 pr-4 text-sm text-muted-foreground">—</td>`
 
-    return html`
+		return html`
       <tr class="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
         <td class="py-2 pr-4 font-mono text-sm font-semibold">${entry.ticker}</td>
         <td class="py-2 pr-4 text-sm">${entry.name}</td>
@@ -762,12 +829,12 @@ function renderCatalogPage(
         ${valueCell}
       </tr>
     `
-  }
+	}
 
-  const holdingsSection =
-    ownedInCatalog.length === 0
-      ? html``
-      : html`
+	const holdingsSection =
+		ownedInCatalog.length === 0
+			? html``
+			: html`
           <section class="mt-6">
             <h2 class="text-base font-semibold tracking-tight text-card-foreground">Your Holdings</h2>
             <p class="mt-0.5 text-xs text-muted-foreground">ETFs in this catalog that you already own.</p>
@@ -778,19 +845,19 @@ function renderCatalogPage(
                   ${tableHeaderRow}
                 </thead>
                 <tbody>
-                  ${ownedInCatalog.map(e => catalogRow(e, holdingsByTicker.get(e.ticker)))}
+                  ${ownedInCatalog.map((e) => catalogRow(e, holdingsByTicker.get(e.ticker)))}
                 </tbody>
               </table>
             </div>
           </section>
         `
 
-  const allCatalogSection =
-    restOfCatalog.length === 0 && ownedInCatalog.length === 0
-      ? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs match your search.</p>`
-      : restOfCatalog.length === 0
-        ? html``
-        : html`
+	const allCatalogSection =
+		restOfCatalog.length === 0 && ownedInCatalog.length === 0
+			? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs match your search.</p>`
+			: restOfCatalog.length === 0
+				? html``
+				: html`
             <section class="mt-6">
               <h2 class="text-base font-semibold tracking-tight text-card-foreground">
                 ${ownedInCatalog.length > 0 ? 'Other Available ETFs' : 'Available ETFs'}
@@ -803,16 +870,16 @@ function renderCatalogPage(
                     ${tableHeaderRow}
                   </thead>
                   <tbody>
-                    ${restOfCatalog.map(e => catalogRow(e))}
+                    ${restOfCatalog.map((e) => catalogRow(e))}
                   </tbody>
                 </table>
               </div>
             </section>
           `
 
-  const emptyCatalogHint =
-    catalog.length === 0
-      ? html`
+	const emptyCatalogHint =
+		catalog.length === 0
+			? html`
           <div class="mt-4 rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
             <p class="font-medium text-foreground">No catalog imported yet.</p>
             <p class="mt-1">Upload a CSV file from your broker above. Expected columns:</p>
@@ -823,11 +890,11 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
             Type aliases: <em>asset class</em>, <em>category</em>. Ticker aliases: <em>symbol</em>, <em>code</em>.</p>
           </div>
         `
-      : html``
+			: html``
 
-  const filterForm =
-    catalog.length > 0
-      ? html`
+	const filterForm =
+		catalog.length > 0
+			? html`
           <form method="get" action="${routes.catalog.href()}" class="mt-5 flex flex-wrap items-end gap-3">
             <div class="grid gap-1.5">
               <label for="q" class="text-xs font-medium text-muted-foreground">Search</label>
@@ -848,7 +915,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
                 class="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="">All types</option>
-                ${ETF_TYPES.map(t => `<option value="${t}"${typeFilter === t ? ' selected' : ''}>${t.replace('_', ' ')}</option>`).join('')}
+                ${ETF_TYPES.map((t) => `<option value="${t}"${typeFilter === t ? ' selected' : ''}>${t.replace('_', ' ')}</option>`).join('')}
               </select>
             </div>
             <button
@@ -857,18 +924,20 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
             >
               Filter
             </button>
-            ${typeFilter || query
-              ? html`<a href="${routes.catalog.href()}" class="h-9 inline-flex items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Clear</a>`
-              : html``}
+            ${
+							typeFilter || query
+								? html`<a href="${routes.catalog.href()}" class="h-9 inline-flex items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Clear</a>`
+								: html``
+						}
           </form>
         `
-      : html``
+			: html``
 
-  const storageNote = session
-    ? html`<p class="mt-0.5 text-xs text-muted-foreground">Catalog saved to your private GitHub Gist.</p>`
-    : html`<p class="mt-0.5 text-xs text-muted-foreground">Sign in to persist catalog across sessions.</p>`
+	const storageNote = session
+		? html`<p class="mt-0.5 text-xs text-muted-foreground">Catalog saved to your private GitHub Gist.</p>`
+		: html`<p class="mt-0.5 text-xs text-muted-foreground">Sign in to persist catalog across sessions.</p>`
 
-  const body = html`
+	const body = html`
     <main class="mx-auto max-w-5xl rounded-xl border border-border bg-card p-6 shadow-sm">
       <header class="flex items-start justify-between gap-4">
         <div>
@@ -920,49 +989,63 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
     </main>
   `
 
-  return createHtmlResponse(pageShell('AI Investor – ETF Catalog', body))
+	return createHtmlResponse(pageShell('AI Investor – ETF Catalog', body))
 }
 
 function renderPage(entries: EtfEntry[], session: SessionData | null) {
-  const etfNameInput = renderComponent('text-input', {
-    id: 'etfName',
-    label: 'ETF Name',
-    field_name: 'etfName',
-    placeholder: 'e.g. VTI',
-  })
+	const etfNameInput = renderComponent('text-input', {
+		id: 'etfName',
+		label: 'ETF Name',
+		field_name: 'etfName',
+		placeholder: 'e.g. VTI',
+	})
 
-  const valueInput = renderComponent('text-input', {
-    id: 'value',
-    label: 'Value',
-    field_name: 'value',
-    placeholder: 'e.g. 1200.50',
-  })
+	const valueInput = renderComponent('text-input', {
+		id: 'value',
+		label: 'Value',
+		field_name: 'value',
+		placeholder: 'e.g. 1200.50',
+	})
 
-  const currencySelect = renderComponent('select-input', {
-    id: 'currency',
-    label: 'Currency',
-    field_name: 'currency',
-    children: [
-      'USD', 'EUR', 'GBP', 'CHF', 'PLN', 'JPY', 'CAD', 'AUD', 'SEK', 'NOK',
-    ].map(c => `<option value="${c}">${c}</option>`).join(''),
-  })
+	const currencySelect = renderComponent('select-input', {
+		id: 'currency',
+		label: 'Currency',
+		field_name: 'currency',
+		children: [
+			'USD',
+			'EUR',
+			'GBP',
+			'CHF',
+			'PLN',
+			'JPY',
+			'CAD',
+			'AUD',
+			'SEK',
+			'NOK',
+		]
+			.map((c) => `<option value="${c}">${c}</option>`)
+			.join(''),
+	})
 
-  const addButton = renderComponent('submit-button', { children: 'Add ETF' })
+	const addButton = renderComponent('submit-button', { children: 'Add ETF' })
 
-  const listContent =
-    entries.length === 0
-      ? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs added yet.</p>`
-      : html`<ul class="mt-4 grid gap-2">
-          ${entries.map(entry => {
-            const badge = renderComponent('badge', {
-              children: formatValue(entry.value, entry.currency),
-            })
-            return renderComponent('etf-card', { name: entry.name, badge: String(badge) })
-          })}
+	const listContent =
+		entries.length === 0
+			? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs added yet.</p>`
+			: html`<ul class="mt-4 grid gap-2">
+          ${entries.map((entry) => {
+						const badge = renderComponent('badge', {
+							children: formatValue(entry.value, entry.currency),
+						})
+						return renderComponent('etf-card', {
+							name: entry.name,
+							badge: String(badge),
+						})
+					})}
         </ul>`
 
-  const authSection = session
-    ? html`
+	const authSection = session
+		? html`
         <div class="flex items-center gap-3">
           <span class="text-sm text-muted-foreground">@${session.login}</span>
           <form method="post" action="${routes.logout.href()}">
@@ -975,7 +1058,7 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
           </form>
         </div>
       `
-    : html`
+		: html`
         <a
           href="${routes.githubLogin.href()}"
           class="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
@@ -987,13 +1070,14 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
         </a>
       `
 
-  const storageNote = session
-    ? html`<p class="mt-1 text-xs text-muted-foreground">Saved to your private GitHub Gist</p>`
-    : html`<p class="mt-1 text-xs text-muted-foreground">
+	const storageNote = session
+		? html`<p class="mt-1 text-xs text-muted-foreground">Saved to your private GitHub Gist</p>`
+		: html`<p class="mt-1 text-xs text-muted-foreground">
         Sign in to persist your data across sessions
       </p>`
 
-  return createHtmlResponse(html`
+	return createHtmlResponse(
+		html`
     <!doctype html>
     <html lang="en" class="dark">
       <head>
@@ -1159,5 +1243,7 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
         </script>
       </body>
     </html>
-  `, { headers: { 'Cache-Control': 'no-store' } })
+  `,
+		{ headers: { 'Cache-Control': 'no-store' } },
+	)
 }
