@@ -67,7 +67,7 @@ export let router = createRouter({
 // ---------------------------------------------------------------------------
 // GET /
 // ---------------------------------------------------------------------------
-router.get(routes.home, async context => {
+router.get(routes.portfolio.index, async context => {
   const session = await getSession(context.request)
   const entries = session ? await fetchEtfs(session.token, session.gistId!) : guestEntries
   return renderPage(entries, session)
@@ -85,9 +85,9 @@ router.get(routes.health, () => {
 // ---------------------------------------------------------------------------
 // POST /etfs
 // ---------------------------------------------------------------------------
-router.post(routes.addEtf, async context => {
+router.post(routes.portfolio.create, async context => {
   const form = context.formData
-  if (!form) return createRedirectResponse(routes.home.href())
+  if (!form) return createRedirectResponse(routes.portfolio.index.href())
 
   const name = typeof form.get('etfName') === 'string' ? (form.get('etfName') as string).trim() : ''
   const rawValue = form.get('value')
@@ -95,7 +95,7 @@ router.post(routes.addEtf, async context => {
   const value = typeof rawValue === 'string' ? parseFloat(rawValue.replace(/,/g, '')) : NaN
 
   if (name.length === 0 || isNaN(value) || value < 0) {
-    return createRedirectResponse(routes.home.href())
+    return createRedirectResponse(routes.portfolio.index.href())
   }
 
   const entry = { id: crypto.randomUUID(), name, value, currency }
@@ -108,13 +108,13 @@ router.post(routes.addEtf, async context => {
     guestEntries = [entry, ...guestEntries]
   }
 
-  return createRedirectResponse(routes.home.href())
+  return createRedirectResponse(routes.portfolio.index.href())
 })
 
 // ---------------------------------------------------------------------------
 // GET /auth/github  — redirect to GitHub OAuth
 // ---------------------------------------------------------------------------
-router.get(routes.githubLogin, () => {
+router.get(routes.auth.login, () => {
   const clientId = getClientId()
   if (!clientId) {
     return new Response('GH_CLIENT_ID is not configured', { status: 500 })
@@ -126,10 +126,10 @@ router.get(routes.githubLogin, () => {
 // ---------------------------------------------------------------------------
 // GET /auth/github/callback  — exchange code for token, set session cookie
 // ---------------------------------------------------------------------------
-router.get(routes.githubCallback, async context => {
+router.get(routes.auth.callback, async context => {
   const url = new URL(context.request.url)
   const code = url.searchParams.get('code')
-  if (!code) return createRedirectResponse(routes.home.href())
+  if (!code) return createRedirectResponse(routes.portfolio.index.href())
 
   const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
     method: 'POST',
@@ -144,10 +144,10 @@ router.get(routes.githubCallback, async context => {
     }),
   })
 
-  if (!tokenRes.ok) return createRedirectResponse(routes.home.href())
+  if (!tokenRes.ok) return createRedirectResponse(routes.portfolio.index.href())
   const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string }
   const token = tokenData.access_token
-  if (!token) return createRedirectResponse(routes.home.href())
+  if (!token) return createRedirectResponse(routes.portfolio.index.href())
 
   const userRes = await fetch('https://api.github.com/user', {
     headers: {
@@ -167,7 +167,7 @@ router.get(routes.githubCallback, async context => {
   return new Response(null, {
     status: 302,
     headers: {
-      Location: routes.home.href(),
+      Location: routes.portfolio.index.href(),
       'Set-Cookie': sessionCookie,
     },
   })
@@ -176,11 +176,11 @@ router.get(routes.githubCallback, async context => {
 // ---------------------------------------------------------------------------
 // POST /auth/logout
 // ---------------------------------------------------------------------------
-router.post(routes.logout, () => {
+router.post(routes.auth.logout, () => {
   return new Response(null, {
     status: 302,
     headers: {
-      Location: routes.home.href(),
+      Location: routes.portfolio.index.href(),
       'Set-Cookie': clearSessionCookie(),
     },
   })
@@ -189,7 +189,7 @@ router.post(routes.logout, () => {
 // ---------------------------------------------------------------------------
 // GET /guidelines
 // ---------------------------------------------------------------------------
-router.get(routes.guidelines, async context => {
+router.get(routes.guidelines.index, async context => {
   const session = await getSession(context.request)
   const guidelines = session
     ? await fetchGuidelines(session.token, session.gistId!)
@@ -200,9 +200,9 @@ router.get(routes.guidelines, async context => {
 // ---------------------------------------------------------------------------
 // POST /guidelines
 // ---------------------------------------------------------------------------
-router.post(routes.addGuideline, async context => {
+router.post(routes.guidelines.create, async context => {
   const form = context.formData
-  if (!form) return createRedirectResponse(routes.guidelines.href())
+  if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
   const etfName = typeof form.get('etfName') === 'string'
     ? (form.get('etfName') as string).trim()
@@ -212,7 +212,7 @@ router.post(routes.addGuideline, async context => {
   const etfType = (form.get('etfType') as EtfType | null) ?? 'equity'
 
   if (!etfName || isNaN(targetPct) || targetPct <= 0 || targetPct > 100) {
-    return createRedirectResponse(routes.guidelines.href())
+    return createRedirectResponse(routes.guidelines.index.href())
   }
 
   const entry: EtfGuideline = { id: crypto.randomUUID(), etfName, targetPct, etfType }
@@ -225,15 +225,15 @@ router.post(routes.addGuideline, async context => {
     guestGuidelines = [entry, ...guestGuidelines]
   }
 
-  return createRedirectResponse(routes.guidelines.href())
+  return createRedirectResponse(routes.guidelines.index.href())
 })
 
 // ---------------------------------------------------------------------------
 // POST /guidelines/:id/delete
 // ---------------------------------------------------------------------------
-router.post(routes.deleteGuideline, async context => {
+router.post(routes.guidelines.delete, async context => {
   const id = (context.params as Record<string, string>).id
-  if (!id) return createRedirectResponse(routes.guidelines.href())
+  if (!id) return createRedirectResponse(routes.guidelines.index.href())
 
   const session = await getSession(context.request)
 
@@ -244,7 +244,7 @@ router.post(routes.deleteGuideline, async context => {
     guestGuidelines = guestGuidelines.filter(g => g.id !== id)
   }
 
-  return createRedirectResponse(routes.guidelines.href())
+  return createRedirectResponse(routes.guidelines.index.href())
 })
 
 // ---------------------------------------------------------------------------
@@ -351,7 +351,7 @@ router.post(routes.advice, async context => {
           <h1 class="text-2xl font-bold tracking-tight">Investment Advice</h1>
           <p class="mt-1 text-sm text-muted-foreground">Based on your portfolio and $${cashAmount} available.</p>
           <div class="mt-6 whitespace-pre-wrap text-sm leading-relaxed">${advice}</div>
-          <a href="${routes.home.href()}" class="mt-6 inline-block text-sm underline underline-offset-4">← Back to portfolio</a>
+          <a href="${routes.portfolio.index.href()}" class="mt-6 inline-block text-sm underline underline-offset-4">← Back to portfolio</a>
         </main>
       </body>
     </html>
@@ -361,7 +361,7 @@ router.post(routes.advice, async context => {
 // ---------------------------------------------------------------------------
 // GET /catalog
 // ---------------------------------------------------------------------------
-router.get(routes.catalog, async context => {
+router.get(routes.catalog.index, async context => {
   const url = new URL(context.request.url)
   const typeFilter = url.searchParams.get('type') ?? ''
   const query = url.searchParams.get('q') ?? ''
@@ -378,16 +378,16 @@ router.get(routes.catalog, async context => {
 // ---------------------------------------------------------------------------
 // POST /catalog/import
 // ---------------------------------------------------------------------------
-router.post(routes.importCatalog, async context => {
+router.post(routes.catalog.import, async context => {
   const form = context.formData
-  if (!form) return createRedirectResponse(routes.catalog.href())
+  if (!form) return createRedirectResponse(routes.catalog.index.href())
 
   const file = form.get('csvFile')
-  if (!file || typeof file === 'string') return createRedirectResponse(routes.catalog.href())
+  if (!file || typeof file === 'string') return createRedirectResponse(routes.catalog.index.href())
 
   const csvText = await (file as Blob).text()
   const imported = parseCsvToCatalog(csvText)
-  if (imported.length === 0) return createRedirectResponse(routes.catalog.href())
+  if (imported.length === 0) return createRedirectResponse(routes.catalog.index.href())
 
   const session = await getSession(context.request)
   if (session) {
@@ -396,7 +396,7 @@ router.post(routes.importCatalog, async context => {
     guestCatalog = imported
   }
 
-  return createRedirectResponse(routes.catalog.href())
+  return createRedirectResponse(routes.catalog.index.href())
 })
 
 // ---------------------------------------------------------------------------
@@ -420,7 +420,7 @@ function renderGuidelinesPage(guidelines: EtfGuideline[], session: SessionData |
               </div>
               <div class="flex items-center gap-4">
                 <span class="text-sm font-semibold">${g.targetPct}%</span>
-                <form method="post" action="${routes.deleteGuideline.href({ id: g.id })}">
+                <form method="post" action="${routes.guidelines.delete.href({ id: g.id })}">
                   <button
                     type="submit"
                     class="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
@@ -519,12 +519,12 @@ function renderGuidelinesPage(guidelines: EtfGuideline[], session: SessionData |
                 Set your target allocation. ${session ? 'Saved to your private GitHub Gist.' : 'Sign in to persist across sessions.'}
               </p>
             </div>
-            <a href="${routes.home.href()}" class="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground shrink-0">
+            <a href="${routes.portfolio.index.href()}" class="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground shrink-0">
               ← Portfolio
             </a>
           </header>
 
-          <form method="post" action="${routes.addGuideline.href()}" class="mt-6 grid gap-4">
+          <form method="post" action="${routes.guidelines.create.href()}" class="mt-6 grid gap-4">
             <div class="grid gap-2">
               <label for="etfName" class="text-sm font-medium">ETF / Asset Name</label>
               <input
@@ -828,7 +828,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
   const filterForm =
     catalog.length > 0
       ? html`
-          <form method="get" action="${routes.catalog.href()}" class="mt-5 flex flex-wrap items-end gap-3">
+          <form method="get" action="${routes.catalog.index.href()}" class="mt-5 flex flex-wrap items-end gap-3">
             <div class="grid gap-1.5">
               <label for="q" class="text-xs font-medium text-muted-foreground">Search</label>
               <input
@@ -858,7 +858,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
               Filter
             </button>
             ${typeFilter || query
-              ? html`<a href="${routes.catalog.href()}" class="h-9 inline-flex items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Clear</a>`
+              ? html`<a href="${routes.catalog.index.href()}" class="h-9 inline-flex items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Clear</a>`
               : html``}
           </form>
         `
@@ -877,7 +877,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
           ${storageNote}
         </div>
         <div class="flex shrink-0 items-center gap-3 mt-1">
-          <a href="${routes.home.href()}" class="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground shrink-0">
+          <a href="${routes.portfolio.index.href()}" class="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground shrink-0">
             ← Portfolio
           </a>
           ${themeToggleButton()}
@@ -891,7 +891,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
         </p>
         <form
           method="post"
-          action="${routes.importCatalog.href()}"
+          action="${routes.catalog.import.href()}"
           enctype="multipart/form-data"
           class="mt-3 flex flex-wrap items-center gap-3"
         >
@@ -965,7 +965,7 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
     ? html`
         <div class="flex items-center gap-3">
           <span class="text-sm text-muted-foreground">@${session.login}</span>
-          <form method="post" action="${routes.logout.href()}">
+          <form method="post" action="${routes.auth.logout.href()}">
             <button
               type="submit"
               class="rounded-md border border-border px-3 py-1 text-xs font-medium text-foreground transition-colors hover:bg-accent"
@@ -977,7 +977,7 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
       `
     : html`
         <a
-          href="${routes.githubLogin.href()}"
+          href="${routes.auth.login.href()}"
           class="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
         >
           <svg class="h-4 w-4" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
@@ -1095,7 +1095,7 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
             </div>
           </header>
 
-          <form method="post" action="${routes.addEtf.href()}" class="mt-6 grid gap-4">
+          <form method="post" action="${routes.portfolio.create.href()}" class="mt-6 grid gap-4">
             ${etfNameInput}
             <div class="grid grid-cols-2 gap-3">
               ${valueInput}
@@ -1113,13 +1113,13 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
               <h2 class="text-lg font-semibold tracking-tight">Get Advice</h2>
               <div class="flex items-center gap-4">
                 <a
-                  href="${routes.catalog.href()}"
+                  href="${routes.catalog.index.href()}"
                   class="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
                 >
                   ETF catalog
                 </a>
                 <a
-                  href="${routes.guidelines.href()}"
+                  href="${routes.guidelines.index.href()}"
                   class="text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
                 >
                   Manage guidelines
