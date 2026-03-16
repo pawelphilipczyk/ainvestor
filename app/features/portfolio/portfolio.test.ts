@@ -64,7 +64,7 @@ describe('Portfolio page', () => {
 		assert.match(homeBody, /USD/)
 	})
 
-	it('updates existing ETF when adding same name instead of duplicating', async () => {
+	it('adds to existing ETF value when adding same name instead of replacing', async () => {
 		const form1 = new FormData()
 		form1.set('etfName', 'VTI')
 		form1.set('value', '1200')
@@ -77,7 +77,7 @@ describe('Portfolio page', () => {
 		const form2 = new FormData()
 		form2.set('etfName', 'VTI')
 		form2.set('value', '500')
-		form2.set('currency', 'EUR')
+		form2.set('currency', 'USD')
 
 		await router.fetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form2 }),
@@ -87,13 +87,37 @@ describe('Portfolio page', () => {
 		const homeBody = await homeResponse.text()
 
 		assert.match(homeBody, /VTI/)
-		assert.match(homeBody, /500/)
-		assert.match(homeBody, /EUR/)
+		assert.match(homeBody, /1[,.]?700/)
+		assert.match(homeBody, /USD/)
 		const deleteForms = homeBody.match(/action="\/etfs\/[a-f0-9-]+"/g)
 		assert.equal(
 			deleteForms?.length ?? 0,
 			1,
 			'should have exactly one ETF entry',
+		)
+	})
+
+	it('renders feature island path for ETF cards and serves island script', async () => {
+		const form = new FormData()
+		form.set('etfName', 'VTI')
+		form.set('value', '1000')
+		form.set('currency', 'USD')
+
+		await router.fetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+		)
+
+		const listResponse = await router.fetch('http://localhost/')
+		const listBody = await listResponse.text()
+		assert.match(listBody, /data-island="features\/portfolio\/etf-card"/)
+
+		const islandResponse = await router.fetch(
+			'http://localhost/features/portfolio/etf-card.island.js',
+		)
+		assert.equal(islandResponse.status, 200)
+		assert.match(
+			islandResponse.headers.get('content-type') ?? '',
+			/text\/javascript/,
 		)
 	})
 

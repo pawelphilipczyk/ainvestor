@@ -70,17 +70,20 @@ export const portfolioController = {
 			? await fetchEtfs(session.token, session.gistId)
 			: guestEntries
 
+		const normalizedName = name.toLowerCase()
+		const normalizedCurrency = currency.toUpperCase()
 		const existingIndex = current.findIndex(
-			(e) => e.name.toLowerCase() === name.toLowerCase(),
+			(e) =>
+				e.name.toLowerCase() === normalizedName &&
+				e.currency.toUpperCase() === normalizedCurrency,
 		)
 		const entry: EtfEntry =
 			existingIndex >= 0
 				? {
 						...current[existingIndex],
-						value,
-						currency,
+						value: current[existingIndex].value + value,
 					}
-				: { id: crypto.randomUUID(), name, value, currency }
+				: { id: crypto.randomUUID(), name, value, currency: normalizedCurrency }
 
 		const updated =
 			existingIndex >= 0
