@@ -1,10 +1,9 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
-
-import { router } from '../../router.ts'
 import type { AdviceClient } from '../../openai.ts'
-import { resetEtfEntries } from '../portfolio/index.ts'
+import { router } from '../../router.ts'
 import { resetGuestGuidelines } from '../guidelines/index.ts'
+import { resetEtfEntries } from '../portfolio/index.ts'
 import { setAdviceClient } from './index.ts'
 
 function makeMockClient(responseText: string): AdviceClient {

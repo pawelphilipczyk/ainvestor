@@ -1,8 +1,7 @@
 import { html } from 'remix/html-template'
-
-import { parseSessionCookie } from '../../lib/session.ts'
-import type { SessionData } from '../../lib/session.ts'
 import type { EtfType } from '../../lib/guidelines.ts'
+import type { SessionData } from '../../lib/session.ts'
+import { parseSessionCookie } from '../../lib/session.ts'
 
 // ---------------------------------------------------------------------------
 // Config helpers (read at request time so env vars can be set in tests)

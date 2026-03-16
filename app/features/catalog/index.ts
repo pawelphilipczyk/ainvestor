@@ -1,17 +1,17 @@
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
-
-import { fetchEtfs } from '../../lib/gist.ts'
-import type { EtfEntry } from '../../lib/gist.ts'
+import type { CatalogEntry } from '../../lib/catalog.ts'
 import {
 	fetchCatalog,
-	saveCatalog,
 	parseCsvToCatalog,
+	saveCatalog,
 } from '../../lib/catalog.ts'
-import type { CatalogEntry } from '../../lib/catalog.ts'
+import type { EtfEntry } from '../../lib/gist.ts'
+import { fetchEtfs } from '../../lib/gist.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+import { getGuestEntries } from '../portfolio/index.ts'
 import {
 	ETF_TYPES,
 	formatValue,
@@ -19,7 +19,6 @@ import {
 	pageShell,
 	themeToggleButton,
 } from '../shared/index.ts'
-import { getGuestEntries } from '../portfolio/index.ts'
 
 // ---------------------------------------------------------------------------
 // Guest state

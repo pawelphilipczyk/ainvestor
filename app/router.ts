@@ -1,27 +1,26 @@
 import { createRouter } from 'remix/fetch-router'
 import { formData } from 'remix/form-data-middleware'
 import { logger } from 'remix/logger-middleware'
-
-import { routes } from './routes.ts'
+import { adviceHandler, setAdviceClient } from './features/advice/index.ts'
 import { authController } from './features/auth/index.ts'
 import {
-	portfolioController,
-	resetEtfEntries,
-} from './features/portfolio/index.ts'
+	catalogController,
+	resetGuestCatalog,
+} from './features/catalog/index.ts'
 import {
 	guidelinesController,
 	resetGuestGuidelines,
 } from './features/guidelines/index.ts'
 import {
-	catalogController,
-	resetGuestCatalog,
-} from './features/catalog/index.ts'
-import { adviceHandler, setAdviceClient } from './features/advice/index.ts'
+	portfolioController,
+	resetEtfEntries,
+} from './features/portfolio/index.ts'
+import { routes } from './routes.ts'
 
 export {
 	resetEtfEntries,
-	resetGuestGuidelines,
 	resetGuestCatalog,
+	resetGuestGuidelines,
 	setAdviceClient,
 }
 

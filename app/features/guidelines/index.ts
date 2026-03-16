@@ -1,9 +1,8 @@
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
-
-import { fetchGuidelines, saveGuidelines } from '../../lib/guidelines.ts'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
+import { fetchGuidelines, saveGuidelines } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { ETF_TYPES, getSession } from '../shared/index.ts'

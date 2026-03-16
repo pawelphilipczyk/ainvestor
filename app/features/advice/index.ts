@@ -3,12 +3,12 @@ import { createHtmlResponse } from 'remix/response/html'
 
 import { fetchEtfs } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
-import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
 import type { AdviceClient } from '../../openai.ts'
+import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
 import { routes } from '../../routes.ts'
-import { getSession } from '../shared/index.ts'
-import { getGuestEntries } from '../portfolio/index.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
+import { getGuestEntries } from '../portfolio/index.ts'
+import { getSession } from '../shared/index.ts'
 
 // ---------------------------------------------------------------------------
 // Advice client (injectable for tests)
