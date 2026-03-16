@@ -7,39 +7,59 @@ import type { EtfType } from '../../lib/guidelines.ts'
 // ---------------------------------------------------------------------------
 // Config helpers (read at request time so env vars can be set in tests)
 // ---------------------------------------------------------------------------
-export function getClientId() { return process.env.GH_CLIENT_ID ?? '' }
-export function getClientSecret() { return process.env.GH_CLIENT_SECRET ?? '' }
-export function getSessionSecret() { return process.env.SESSION_SECRET ?? 'dev-secret-change-me' }
+export function getClientId() {
+	return process.env.GH_CLIENT_ID ?? ''
+}
+export function getClientSecret() {
+	return process.env.GH_CLIENT_SECRET ?? ''
+}
+export function getSessionSecret() {
+	return process.env.SESSION_SECRET ?? 'dev-secret-change-me'
+}
 
 // ---------------------------------------------------------------------------
 // Session helper
 // ---------------------------------------------------------------------------
 export function getSession(request: Request): Promise<SessionData | null> {
-  const cookie = request.headers.get('cookie') ?? undefined
-  return parseSessionCookie(cookie, getSessionSecret())
+	const cookie = request.headers.get('cookie') ?? undefined
+	return parseSessionCookie(cookie, getSessionSecret())
 }
 
 // ---------------------------------------------------------------------------
 // Shared constants
 // ---------------------------------------------------------------------------
-export const ETF_TYPES: EtfType[] = ['equity', 'bond', 'real_estate', 'commodity', 'mixed', 'money_market']
+export const ETF_TYPES: EtfType[] = [
+	'equity',
+	'bond',
+	'real_estate',
+	'commodity',
+	'mixed',
+	'money_market',
+]
 
 // ---------------------------------------------------------------------------
 // Formatting
 // ---------------------------------------------------------------------------
 export function formatValue(value: number, currency: string): string {
-  try {
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency, maximumFractionDigits: 2 }).format(value)
-  } catch {
-    return `${value} ${currency}`
-  }
+	try {
+		return new Intl.NumberFormat('en-US', {
+			style: 'currency',
+			currency,
+			maximumFractionDigits: 2,
+		}).format(value)
+	} catch {
+		return `${value} ${currency}`
+	}
 }
 
 // ---------------------------------------------------------------------------
 // Shared HTML shell
 // ---------------------------------------------------------------------------
-export function pageShell(title: string, body: ReturnType<typeof html>): ReturnType<typeof html> {
-  return html`
+export function pageShell(
+	title: string,
+	body: ReturnType<typeof html>,
+): ReturnType<typeof html> {
+	return html`
     <!doctype html>
     <html lang="en" class="dark">
       <head>
@@ -131,8 +151,8 @@ export function pageShell(title: string, body: ReturnType<typeof html>): ReturnT
   `
 }
 
-export function themeToggleButton(): string {
-  return `
+export function themeToggleButton() {
+	return html`
     <button
       data-island="theme-toggle"
       type="button"

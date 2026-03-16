@@ -16,34 +16,44 @@ import { getGuestGuidelines } from '../guidelines/index.ts'
 let adviceClient: AdviceClient | null = null
 
 export function setAdviceClient(client: AdviceClient | null) {
-  adviceClient = client
+	adviceClient = client
 }
 
 // ---------------------------------------------------------------------------
 // Handler
 // ---------------------------------------------------------------------------
-export async function adviceHandler(context: { request: Request; formData: FormData | null }) {
-  const form = context.formData
-  if (!form) {
-    return new Response('Bad request', { status: 400 })
-  }
+export async function adviceHandler(context: {
+	request: Request
+	formData: FormData | null
+}) {
+	const form = context.formData
+	if (!form) {
+		return new Response('Bad request', { status: 400 })
+	}
 
-  const rawCash = form.get('cashAmount')
-  const cashAmount = typeof rawCash === 'string' ? rawCash.trim() : ''
-  if (!cashAmount) {
-    return new Response('cashAmount is required', { status: 400 })
-  }
+	const rawCash = form.get('cashAmount')
+	const cashAmount = typeof rawCash === 'string' ? rawCash.trim() : ''
+	if (!cashAmount) {
+		return new Response('cashAmount is required', { status: 400 })
+	}
 
-  const session = await getSession(context.request)
-  const entries = session ? await fetchEtfs(session.token, session.gistId!) : getGuestEntries()
-  const guidelines = session
-    ? await fetchGuidelines(session.token, session.gistId!)
-    : getGuestGuidelines()
+	const session = await getSession(context.request)
+	const entries = session
+		? await fetchEtfs(session.token, session.gistId!)
+		: getGuestEntries()
+	const guidelines = session
+		? await fetchGuidelines(session.token, session.gistId!)
+		: getGuestGuidelines()
 
-  const client = adviceClient ?? createDefaultClient()
-  const advice = await getInvestmentAdvice(entries, guidelines, cashAmount, client)
+	const client = adviceClient ?? createDefaultClient()
+	const advice = await getInvestmentAdvice(
+		entries,
+		guidelines,
+		cashAmount,
+		client,
+	)
 
-  return createHtmlResponse(html`
+	return createHtmlResponse(html`
     <!doctype html>
     <html lang="en" class="dark">
       <head>

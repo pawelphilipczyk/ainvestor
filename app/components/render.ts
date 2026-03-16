@@ -14,14 +14,18 @@ const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
  * Pass an optional `dir` (import.meta.url of the calling module) to resolve
  * the component relative to a different folder (e.g. a feature folder).
  */
-export function renderComponent(name: string, slots: Record<string, string> = {}, dir?: string) {
-  const base = dir ? dirname(fileURLToPath(dir)) : componentsDir
-  const filePath = join(base, `${name}.html`)
-  let template = readFileSync(filePath, 'utf-8')
+export function renderComponent(
+	name: string,
+	slots: Record<string, string> = {},
+	dir?: string,
+) {
+	const base = dir ? dirname(fileURLToPath(dir)) : componentsDir
+	const filePath = join(base, `${name}.html`)
+	let template = readFileSync(filePath, 'utf-8')
 
-  for (const [key, value] of Object.entries(slots)) {
-    template = template.replaceAll(`{{ ${key} }}`, value)
-  }
+	for (const [key, value] of Object.entries(slots)) {
+		template = template.replaceAll(`{{ ${key} }}`, value)
+	}
 
-  return html.raw`${template}`
+	return html.raw`${template}`
 }

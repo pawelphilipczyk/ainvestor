@@ -14,82 +14,96 @@ import { ETF_TYPES, getSession } from '../shared/index.ts'
 let guestGuidelines: EtfGuideline[] = []
 
 export function resetGuestGuidelines() {
-  guestGuidelines = []
+	guestGuidelines = []
 }
 
 export function getGuestGuidelines(): EtfGuideline[] {
-  return guestGuidelines
+	return guestGuidelines
 }
 
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
 export const guidelinesController = {
-  async index(context: { request: Request }) {
-    const session = await getSession(context.request)
-    const guidelines = session
-      ? await fetchGuidelines(session.token, session.gistId!)
-      : guestGuidelines
-    return renderGuidelinesPage(guidelines, session)
-  },
+	async index(context: { request: Request }) {
+		const session = await getSession(context.request)
+		const guidelines = session
+			? await fetchGuidelines(session.token, session.gistId!)
+			: guestGuidelines
+		return renderGuidelinesPage(guidelines, session)
+	},
 
-  async create(context: { request: Request; formData: FormData | null }) {
-    const form = context.formData
-    if (!form) return createRedirectResponse(routes.guidelines.index.href())
+	async create(context: { request: Request; formData: FormData | null }) {
+		const form = context.formData
+		if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
-    const etfName = typeof form.get('etfName') === 'string'
-      ? (form.get('etfName') as string).trim()
-      : ''
-    const rawPct = form.get('targetPct')
-    const targetPct = typeof rawPct === 'string' ? parseFloat(rawPct) : NaN
-    const etfType = (form.get('etfType') as EtfType | null) ?? 'equity'
+		const etfName =
+			typeof form.get('etfName') === 'string'
+				? (form.get('etfName') as string).trim()
+				: ''
+		const rawPct = form.get('targetPct')
+		const targetPct = typeof rawPct === 'string' ? parseFloat(rawPct) : NaN
+		const etfType = (form.get('etfType') as EtfType | null) ?? 'equity'
 
-    if (!etfName || isNaN(targetPct) || targetPct <= 0 || targetPct > 100) {
-      return createRedirectResponse(routes.guidelines.index.href())
-    }
+		if (!etfName || isNaN(targetPct) || targetPct <= 0 || targetPct > 100) {
+			return createRedirectResponse(routes.guidelines.index.href())
+		}
 
-    const entry: EtfGuideline = { id: crypto.randomUUID(), etfName, targetPct, etfType }
-    const session = await getSession(context.request)
+		const entry: EtfGuideline = {
+			id: crypto.randomUUID(),
+			etfName,
+			targetPct,
+			etfType,
+		}
+		const session = await getSession(context.request)
 
-    if (session) {
-      const current = await fetchGuidelines(session.token, session.gistId!)
-      await saveGuidelines(session.token, session.gistId!, [entry, ...current])
-    } else {
-      guestGuidelines = [entry, ...guestGuidelines]
-    }
+		if (session) {
+			const current = await fetchGuidelines(session.token, session.gistId!)
+			await saveGuidelines(session.token, session.gistId!, [entry, ...current])
+		} else {
+			guestGuidelines = [entry, ...guestGuidelines]
+		}
 
-    return createRedirectResponse(routes.guidelines.index.href())
-  },
+		return createRedirectResponse(routes.guidelines.index.href())
+	},
 
-  async delete(context: { request: Request; params: unknown }) {
-    const id = (context.params as Record<string, string>).id
-    if (!id) return createRedirectResponse(routes.guidelines.index.href())
+	async delete(context: { request: Request; params: unknown }) {
+		const id = (context.params as Record<string, string>).id
+		if (!id) return createRedirectResponse(routes.guidelines.index.href())
 
-    const session = await getSession(context.request)
+		const session = await getSession(context.request)
 
-    if (session) {
-      const current = await fetchGuidelines(session.token, session.gistId!)
-      await saveGuidelines(session.token, session.gistId!, current.filter(g => g.id !== id))
-    } else {
-      guestGuidelines = guestGuidelines.filter(g => g.id !== id)
-    }
+		if (session) {
+			const current = await fetchGuidelines(session.token, session.gistId!)
+			await saveGuidelines(
+				session.token,
+				session.gistId!,
+				current.filter((g) => g.id !== id),
+			)
+		} else {
+			guestGuidelines = guestGuidelines.filter((g) => g.id !== id)
+		}
 
-    return createRedirectResponse(routes.guidelines.index.href())
-  },
+		return createRedirectResponse(routes.guidelines.index.href())
+	},
 }
 
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
-function renderGuidelinesPage(guidelines: EtfGuideline[], session: SessionData | null) {
-  const totalPct = guidelines.reduce((sum, g) => sum + g.targetPct, 0)
-  const remaining = Math.max(0, 100 - totalPct)
+function renderGuidelinesPage(
+	guidelines: EtfGuideline[],
+	session: SessionData | null,
+) {
+	const totalPct = guidelines.reduce((sum, g) => sum + g.targetPct, 0)
+	const remaining = Math.max(0, 100 - totalPct)
 
-  const listContent =
-    guidelines.length === 0
-      ? html`<p class="mt-4 text-sm text-muted-foreground">No guidelines added yet.</p>`
-      : html`<ul class="mt-4 grid gap-2">
-          ${guidelines.map(g => html`
+	const listContent =
+		guidelines.length === 0
+			? html`<p class="mt-4 text-sm text-muted-foreground">No guidelines added yet.</p>`
+			: html`<ul class="mt-4 grid gap-2">
+          ${guidelines.map(
+						(g) => html`
             <li class="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3">
               <div class="flex items-center gap-3">
                 <span class="font-medium">${g.etfName}</span>
@@ -108,10 +122,11 @@ function renderGuidelinesPage(guidelines: EtfGuideline[], session: SessionData |
                 </form>
               </div>
             </li>
-          `)}
+          `,
+					)}
         </ul>`
 
-  return createHtmlResponse(html`
+	return createHtmlResponse(html`
     <!doctype html>
     <html lang="en" class="dark">
       <head>
@@ -235,7 +250,7 @@ function renderGuidelinesPage(guidelines: EtfGuideline[], session: SessionData |
                   name="etfType"
                   class="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  ${ETF_TYPES.map(t => `<option value="${t}">${t.replace('_', ' ')}</option>`).join('')}
+                  ${ETF_TYPES.map((t) => `<option value="${t}">${t.replace('_', ' ')}</option>`).join('')}
                 </select>
               </div>
             </div>

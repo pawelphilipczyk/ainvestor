@@ -4,11 +4,21 @@ import { createRedirectResponse } from 'remix/response/redirect'
 
 import { fetchEtfs } from '../../lib/gist.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
-import { fetchCatalog, saveCatalog, parseCsvToCatalog } from '../../lib/catalog.ts'
+import {
+	fetchCatalog,
+	saveCatalog,
+	parseCsvToCatalog,
+} from '../../lib/catalog.ts'
 import type { CatalogEntry } from '../../lib/catalog.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { ETF_TYPES, formatValue, getSession, pageShell, themeToggleButton } from '../shared/index.ts'
+import {
+	ETF_TYPES,
+	formatValue,
+	getSession,
+	pageShell,
+	themeToggleButton,
+} from '../shared/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
 
 // ---------------------------------------------------------------------------
@@ -17,76 +27,80 @@ import { getGuestEntries } from '../portfolio/index.ts'
 let guestCatalog: CatalogEntry[] = []
 
 export function resetGuestCatalog() {
-  guestCatalog = []
+	guestCatalog = []
 }
 
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
 export const catalogController = {
-  async index(context: { request: Request }) {
-    const url = new URL(context.request.url)
-    const typeFilter = url.searchParams.get('type') ?? ''
-    const query = url.searchParams.get('q') ?? ''
+	async index(context: { request: Request }) {
+		const url = new URL(context.request.url)
+		const typeFilter = url.searchParams.get('type') ?? ''
+		const query = url.searchParams.get('q') ?? ''
 
-    const session = await getSession(context.request)
-    const [catalog, entries] = await Promise.all([
-      session ? fetchCatalog(session.token, session.gistId!) : guestCatalog,
-      session ? fetchEtfs(session.token, session.gistId!) : getGuestEntries(),
-    ])
+		const session = await getSession(context.request)
+		const [catalog, entries] = await Promise.all([
+			session ? fetchCatalog(session.token, session.gistId!) : guestCatalog,
+			session ? fetchEtfs(session.token, session.gistId!) : getGuestEntries(),
+		])
 
-    return renderCatalogPage(catalog, entries, session, typeFilter, query)
-  },
+		return renderCatalogPage(catalog, entries, session, typeFilter, query)
+	},
 
-  async import(context: { request: Request; formData: FormData | null }) {
-    const form = context.formData
-    if (!form) return createRedirectResponse(routes.catalog.index.href())
+	async import(context: { request: Request; formData: FormData | null }) {
+		const form = context.formData
+		if (!form) return createRedirectResponse(routes.catalog.index.href())
 
-    const file = form.get('csvFile')
-    if (!file || typeof file === 'string') return createRedirectResponse(routes.catalog.index.href())
+		const file = form.get('csvFile')
+		if (!file || typeof file === 'string')
+			return createRedirectResponse(routes.catalog.index.href())
 
-    const csvText = await (file as Blob).text()
-    const imported = parseCsvToCatalog(csvText)
-    if (imported.length === 0) return createRedirectResponse(routes.catalog.index.href())
+		const csvText = await (file as Blob).text()
+		const imported = parseCsvToCatalog(csvText)
+		if (imported.length === 0)
+			return createRedirectResponse(routes.catalog.index.href())
 
-    const session = await getSession(context.request)
-    if (session) {
-      await saveCatalog(session.token, session.gistId!, imported)
-    } else {
-      guestCatalog = imported
-    }
+		const session = await getSession(context.request)
+		if (session) {
+			await saveCatalog(session.token, session.gistId!, imported)
+		} else {
+			guestCatalog = imported
+		}
 
-    return createRedirectResponse(routes.catalog.index.href())
-  },
+		return createRedirectResponse(routes.catalog.index.href())
+	},
 }
 
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
 function renderCatalogPage(
-  catalog: CatalogEntry[],
-  holdings: EtfEntry[],
-  session: SessionData | null,
-  typeFilter: string,
-  query: string,
+	catalog: CatalogEntry[],
+	holdings: EtfEntry[],
+	session: SessionData | null,
+	typeFilter: string,
+	query: string,
 ) {
-  const holdingsByTicker = new Map(holdings.map(e => [e.name.toUpperCase(), e]))
+	const holdingsByTicker = new Map(
+		holdings.map((e) => [e.name.toUpperCase(), e]),
+	)
 
-  const filtered = catalog.filter(entry => {
-    const matchesType = !typeFilter || entry.type === typeFilter
-    const lq = query.toLowerCase()
-    const matchesQuery =
-      !query ||
-      entry.ticker.toLowerCase().includes(lq) ||
-      entry.name.toLowerCase().includes(lq) ||
-      entry.description.toLowerCase().includes(lq)
-    return matchesType && matchesQuery
-  })
+	const filtered = catalog.filter((entry) => {
+		const matchesType = !typeFilter || entry.type === typeFilter
+		const lq = query.toLowerCase()
+		const matchesQuery =
+			!query ||
+			entry.ticker.toLowerCase().includes(lq) ||
+			entry.name.toLowerCase().includes(lq) ||
+			entry.description.toLowerCase().includes(lq)
+		return matchesType && matchesQuery
+	})
 
-  const ownedInCatalog = filtered.filter(e => holdingsByTicker.has(e.ticker))
-  const restOfCatalog = filtered.filter(e => !holdingsByTicker.has(e.ticker))
+	const ownedInCatalog = filtered.filter((e) => holdingsByTicker.has(e.ticker))
+	const restOfCatalog = filtered.filter((e) => !holdingsByTicker.has(e.ticker))
 
-  const tableHeaderRow = html`
+	const tableHeaderRow = html`
     <tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
       <th class="pb-2 pr-4">Ticker</th>
       <th class="pb-2 pr-4">Name</th>
@@ -97,12 +111,12 @@ function renderCatalogPage(
     </tr>
   `
 
-  function catalogRow(entry: CatalogEntry, holding?: EtfEntry) {
-    const valueCell = holding
-      ? html`<td class="py-2 pr-4 text-sm font-medium text-foreground">${formatValue(holding.value, holding.currency)}</td>`
-      : html`<td class="py-2 pr-4 text-sm text-muted-foreground">—</td>`
+	function catalogRow(entry: CatalogEntry, holding?: EtfEntry) {
+		const valueCell = holding
+			? html`<td class="py-2 pr-4 text-sm font-medium text-foreground">${formatValue(holding.value, holding.currency)}</td>`
+			: html`<td class="py-2 pr-4 text-sm text-muted-foreground">—</td>`
 
-    return html`
+		return html`
       <tr class="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
         <td class="py-2 pr-4 font-mono text-sm font-semibold">${entry.ticker}</td>
         <td class="py-2 pr-4 text-sm">${entry.name}</td>
@@ -114,12 +128,12 @@ function renderCatalogPage(
         ${valueCell}
       </tr>
     `
-  }
+	}
 
-  const holdingsSection =
-    ownedInCatalog.length === 0
-      ? html``
-      : html`
+	const holdingsSection =
+		ownedInCatalog.length === 0
+			? html``
+			: html`
           <section class="mt-6">
             <h2 class="text-base font-semibold tracking-tight text-card-foreground">Your Holdings</h2>
             <p class="mt-0.5 text-xs text-muted-foreground">ETFs in this catalog that you already own.</p>
@@ -130,19 +144,19 @@ function renderCatalogPage(
                   ${tableHeaderRow}
                 </thead>
                 <tbody>
-                  ${ownedInCatalog.map(e => catalogRow(e, holdingsByTicker.get(e.ticker)))}
+                  ${ownedInCatalog.map((e) => catalogRow(e, holdingsByTicker.get(e.ticker)))}
                 </tbody>
               </table>
             </div>
           </section>
         `
 
-  const allCatalogSection =
-    restOfCatalog.length === 0 && ownedInCatalog.length === 0
-      ? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs match your search.</p>`
-      : restOfCatalog.length === 0
-        ? html``
-        : html`
+	const allCatalogSection =
+		restOfCatalog.length === 0 && ownedInCatalog.length === 0
+			? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs match your search.</p>`
+			: restOfCatalog.length === 0
+				? html``
+				: html`
             <section class="mt-6">
               <h2 class="text-base font-semibold tracking-tight text-card-foreground">
                 ${ownedInCatalog.length > 0 ? 'Other Available ETFs' : 'Available ETFs'}
@@ -155,16 +169,16 @@ function renderCatalogPage(
                     ${tableHeaderRow}
                   </thead>
                   <tbody>
-                    ${restOfCatalog.map(e => catalogRow(e))}
+                    ${restOfCatalog.map((e) => catalogRow(e))}
                   </tbody>
                 </table>
               </div>
             </section>
           `
 
-  const emptyCatalogHint =
-    catalog.length === 0
-      ? html`
+	const emptyCatalogHint =
+		catalog.length === 0
+			? html`
           <div class="mt-4 rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
             <p class="font-medium text-foreground">No catalog imported yet.</p>
             <p class="mt-1">Upload a CSV file from your broker above. Expected columns:</p>
@@ -175,11 +189,11 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
             Type aliases: <em>asset class</em>, <em>category</em>. Ticker aliases: <em>symbol</em>, <em>code</em>.</p>
           </div>
         `
-      : html``
+			: html``
 
-  const filterForm =
-    catalog.length > 0
-      ? html`
+	const filterForm =
+		catalog.length > 0
+			? html`
           <form method="get" action="${routes.catalog.index.href()}" class="mt-5 flex flex-wrap items-end gap-3">
             <div class="grid gap-1.5">
               <label for="q" class="text-xs font-medium text-muted-foreground">Search</label>
@@ -200,7 +214,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
                 class="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="">All types</option>
-                ${ETF_TYPES.map(t => `<option value="${t}"${typeFilter === t ? ' selected' : ''}>${t.replace('_', ' ')}</option>`).join('')}
+                ${ETF_TYPES.map((t) => `<option value="${t}"${typeFilter === t ? ' selected' : ''}>${t.replace('_', ' ')}</option>`).join('')}
               </select>
             </div>
             <button
@@ -209,18 +223,20 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
             >
               Filter
             </button>
-            ${typeFilter || query
-              ? html`<a href="${routes.catalog.index.href()}" class="h-9 inline-flex items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Clear</a>`
-              : html``}
+            ${
+							typeFilter || query
+								? html`<a href="${routes.catalog.index.href()}" class="h-9 inline-flex items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground">Clear</a>`
+								: html``
+						}
           </form>
         `
-      : html``
+			: html``
 
-  const storageNote = session
-    ? html`<p class="mt-0.5 text-xs text-muted-foreground">Catalog saved to your private GitHub Gist.</p>`
-    : html`<p class="mt-0.5 text-xs text-muted-foreground">Sign in to persist catalog across sessions.</p>`
+	const storageNote = session
+		? html`<p class="mt-0.5 text-xs text-muted-foreground">Catalog saved to your private GitHub Gist.</p>`
+		: html`<p class="mt-0.5 text-xs text-muted-foreground">Sign in to persist catalog across sessions.</p>`
 
-  const body = html`
+	const body = html`
     <main class="mx-auto max-w-5xl rounded-xl border border-border bg-card p-6 shadow-sm">
       <header class="flex items-start justify-between gap-4">
         <div>
@@ -272,5 +288,5 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
     </main>
   `
 
-  return createHtmlResponse(pageShell('AI Investor – ETF Catalog', body))
+	return createHtmlResponse(pageShell('AI Investor – ETF Catalog', body))
 }

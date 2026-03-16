@@ -15,93 +15,123 @@ import { formatValue, getSession } from '../shared/index.ts'
 let guestEntries: EtfEntry[] = []
 
 export function resetEtfEntries() {
-  guestEntries = []
+	guestEntries = []
 }
 
 export function getGuestEntries(): EtfEntry[] {
-  return guestEntries
+	return guestEntries
 }
 
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
 export const portfolioController = {
-  async index(context: { request: Request }) {
-    const session = await getSession(context.request)
-    const entries = session ? await fetchEtfs(session.token, session.gistId!) : guestEntries
-    return renderPage(entries, session)
-  },
+	async index(context: { request: Request }) {
+		const session = await getSession(context.request)
+		const entries = session
+			? await fetchEtfs(session.token, session.gistId!)
+			: guestEntries
+		return renderPage(entries, session)
+	},
 
-  async create(context: { request: Request; formData: FormData | null }) {
-    const form = context.formData
-    if (!form) return createRedirectResponse(routes.portfolio.index.href())
+	async create(context: { request: Request; formData: FormData | null }) {
+		const form = context.formData
+		if (!form) return createRedirectResponse(routes.portfolio.index.href())
 
-    const name = typeof form.get('etfName') === 'string' ? (form.get('etfName') as string).trim() : ''
-    const rawValue = form.get('value')
-    const currency = typeof form.get('currency') === 'string' ? (form.get('currency') as string).trim().toUpperCase() : 'USD'
-    const value = typeof rawValue === 'string' ? parseFloat(rawValue.replace(/,/g, '')) : NaN
+		const name =
+			typeof form.get('etfName') === 'string'
+				? (form.get('etfName') as string).trim()
+				: ''
+		const rawValue = form.get('value')
+		const currency =
+			typeof form.get('currency') === 'string'
+				? (form.get('currency') as string).trim().toUpperCase()
+				: 'USD'
+		const value =
+			typeof rawValue === 'string'
+				? parseFloat(rawValue.replace(/,/g, ''))
+				: NaN
 
-    if (name.length === 0 || isNaN(value) || value < 0) {
-      return createRedirectResponse(routes.portfolio.index.href())
-    }
+		if (name.length === 0 || isNaN(value) || value < 0) {
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
 
-    const entry = { id: crypto.randomUUID(), name, value, currency }
-    const session = await getSession(context.request)
+		const entry = { id: crypto.randomUUID(), name, value, currency }
+		const session = await getSession(context.request)
 
-    if (session) {
-      const current = await fetchEtfs(session.token, session.gistId!)
-      await saveEtfs(session.token, session.gistId!, [entry, ...current])
-    } else {
-      guestEntries = [entry, ...guestEntries]
-    }
+		if (session) {
+			const current = await fetchEtfs(session.token, session.gistId!)
+			await saveEtfs(session.token, session.gistId!, [entry, ...current])
+		} else {
+			guestEntries = [entry, ...guestEntries]
+		}
 
-    return createRedirectResponse(routes.portfolio.index.href())
-  },
+		return createRedirectResponse(routes.portfolio.index.href())
+	},
 }
 
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
 function renderPage(entries: EtfEntry[], session: SessionData | null) {
-  const etfNameInput = renderComponent('text-input', {
-    id: 'etfName',
-    label: 'ETF Name',
-    field_name: 'etfName',
-    placeholder: 'e.g. VTI',
-  })
+	const etfNameInput = renderComponent('text-input', {
+		id: 'etfName',
+		label: 'ETF Name',
+		field_name: 'etfName',
+		placeholder: 'e.g. VTI',
+	})
 
-  const valueInput = renderComponent('text-input', {
-    id: 'value',
-    label: 'Value',
-    field_name: 'value',
-    placeholder: 'e.g. 1200.50',
-  })
+	const valueInput = renderComponent('text-input', {
+		id: 'value',
+		label: 'Value',
+		field_name: 'value',
+		placeholder: 'e.g. 1200.50',
+	})
 
-  const currencySelect = renderComponent('select-input', {
-    id: 'currency',
-    label: 'Currency',
-    field_name: 'currency',
-    children: [
-      'USD', 'EUR', 'GBP', 'CHF', 'PLN', 'JPY', 'CAD', 'AUD', 'SEK', 'NOK',
-    ].map(c => `<option value="${c}">${c}</option>`).join(''),
-  })
+	const currencySelect = renderComponent('select-input', {
+		id: 'currency',
+		label: 'Currency',
+		field_name: 'currency',
+		children: [
+			'USD',
+			'EUR',
+			'GBP',
+			'CHF',
+			'PLN',
+			'JPY',
+			'CAD',
+			'AUD',
+			'SEK',
+			'NOK',
+		]
+			.map((c) => `<option value="${c}">${c}</option>`)
+			.join(''),
+	})
 
-  const addButton = renderComponent('submit-button', { children: 'Add ETF' })
+	const addButton = renderComponent('submit-button', { children: 'Add ETF' })
 
-  const listContent =
-    entries.length === 0
-      ? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs added yet.</p>`
-      : html`<ul class="mt-4 grid gap-2">
-          ${entries.map(entry => {
-            const badge = renderComponent('badge', {
-              children: formatValue(entry.value, entry.currency),
-            }, import.meta.url)
-            return renderComponent('etf-card', { name: entry.name, badge: String(badge) }, import.meta.url)
-          })}
+	const listContent =
+		entries.length === 0
+			? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs added yet.</p>`
+			: html`<ul class="mt-4 grid gap-2">
+          ${entries.map((entry) => {
+						const badge = renderComponent(
+							'badge',
+							{
+								children: formatValue(entry.value, entry.currency),
+							},
+							import.meta.url,
+						)
+						return renderComponent(
+							'etf-card',
+							{ name: entry.name, badge: String(badge) },
+							import.meta.url,
+						)
+					})}
         </ul>`
 
-  const authSection = session
-    ? html`
+	const authSection = session
+		? html`
         <div class="flex items-center gap-3">
           <span class="text-sm text-muted-foreground">@${session.login}</span>
           <form method="post" action="${routes.auth.logout.href()}">
@@ -114,7 +144,7 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
           </form>
         </div>
       `
-    : html`
+		: html`
         <a
           href="${routes.auth.login.href()}"
           class="inline-flex items-center gap-2 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-foreground transition-colors hover:bg-accent"
@@ -126,13 +156,14 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
         </a>
       `
 
-  const storageNote = session
-    ? html`<p class="mt-1 text-xs text-muted-foreground">Saved to your private GitHub Gist</p>`
-    : html`<p class="mt-1 text-xs text-muted-foreground">
+	const storageNote = session
+		? html`<p class="mt-1 text-xs text-muted-foreground">Saved to your private GitHub Gist</p>`
+		: html`<p class="mt-1 text-xs text-muted-foreground">
         Sign in to persist your data across sessions
       </p>`
 
-  return createHtmlResponse(html`
+	return createHtmlResponse(
+		html`
     <!doctype html>
     <html lang="en" class="dark">
       <head>
@@ -298,5 +329,7 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
         </script>
       </body>
     </html>
-  `)
+  `,
+		{ headers: { 'Cache-Control': 'no-store' } },
+	)
 }
