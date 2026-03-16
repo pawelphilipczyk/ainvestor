@@ -87,7 +87,7 @@ describe('Portfolio page', () => {
 		const body = await response.text()
 
 		assert.match(body, /href="\/guidelines"/)
-		assert.match(body, /Manage guidelines/)
+		assert.match(body, /Investment Guidelines/)
 	})
 
 	it('homepage has a link to the ETF catalog', async () => {
@@ -95,6 +95,6 @@ describe('Portfolio page', () => {
 		const body = await response.text()
 
 		assert.match(body, /href="\/catalog"/)
-		assert.match(body, /ETF catalog/)
+		assert.match(body, /ETF Catalog/)
 	})
 })

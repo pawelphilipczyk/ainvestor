@@ -17,7 +17,6 @@ import {
 	formatValue,
 	getSession,
 	pageShell,
-	themeToggleButton,
 } from '../shared/index.ts'
 
 // ---------------------------------------------------------------------------
@@ -237,18 +236,10 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
 
 	const body = html`
     <main class="mx-auto max-w-5xl rounded-xl border border-border bg-card p-6 shadow-sm">
-      <header class="flex items-start justify-between gap-4">
-        <div>
-          <h1 class="text-2xl font-bold tracking-tight text-card-foreground">ETF Catalog</h1>
-          <p class="mt-1 text-sm text-muted-foreground">Import your broker's ETF list and browse what's available.</p>
-          ${storageNote}
-        </div>
-        <div class="flex shrink-0 items-center gap-3 mt-1">
-          <a href="${routes.portfolio.index.href()}" class="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground shrink-0">
-            ← Portfolio
-          </a>
-          ${themeToggleButton()}
-        </div>
+      <header>
+        <h1 class="text-2xl font-bold tracking-tight text-card-foreground">ETF Catalog</h1>
+        <p class="mt-1 text-sm text-muted-foreground">Import your broker's ETF list and browse what's available.</p>
+        ${storageNote}
       </header>
 
       <section class="mt-6">
@@ -287,5 +278,5 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
     </main>
   `
 
-	return createHtmlResponse(pageShell('AI Investor – ETF Catalog', body))
+	return createHtmlResponse(pageShell('AI Investor – ETF Catalog', session, 'catalog', body))
 }
