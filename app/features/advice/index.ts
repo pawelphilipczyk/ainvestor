@@ -1,5 +1,6 @@
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
+import type { Session } from 'remix/session'
 
 import { fetchEtfs } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
@@ -8,7 +9,7 @@ import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
 import { routes } from '../../routes.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
-import { getSession } from '../shared/index.ts'
+import { getSessionData } from '../shared/index.ts'
 
 // ---------------------------------------------------------------------------
 // Advice client (injectable for tests)
@@ -24,6 +25,7 @@ export function setAdviceClient(client: AdviceClient | null) {
 // ---------------------------------------------------------------------------
 export async function adviceHandler(context: {
 	request: Request
+	session: Session
 	formData: FormData | null
 }) {
 	const form = context.formData
@@ -37,7 +39,7 @@ export async function adviceHandler(context: {
 		return new Response('cashAmount is required', { status: 400 })
 	}
 
-	const session = await getSession(context.request)
+	const session = getSessionData(context.session)
 	const entries = session?.gistId
 		? await fetchEtfs(session.token, session.gistId)
 		: getGuestEntries()

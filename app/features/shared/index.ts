@@ -1,8 +1,8 @@
 import { html } from 'remix/html-template'
+import type { Session } from 'remix/session'
 import { renderComponent } from '../../components/render.ts'
 import type { EtfType } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
-import { parseSessionCookie } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 
 // ---------------------------------------------------------------------------
@@ -14,16 +14,19 @@ export function getClientId() {
 export function getClientSecret() {
 	return process.env.GH_CLIENT_SECRET ?? ''
 }
-export function getSessionSecret() {
-	return process.env.SESSION_SECRET ?? 'dev-secret-change-me'
-}
 
 // ---------------------------------------------------------------------------
-// Session helper
+// Session helper: read typed session data from the middleware-injected Session
 // ---------------------------------------------------------------------------
-export function getSession(request: Request): Promise<SessionData | null> {
-	const cookie = request.headers.get('cookie') ?? undefined
-	return parseSessionCookie(cookie, getSessionSecret())
+export function getSessionData(session: Session): SessionData | null {
+	const token = session.get('token') as string | undefined
+	const login = session.get('login') as string | undefined
+	if (!token || !login) return null
+	return {
+		token,
+		gistId: (session.get('gistId') as string | undefined) ?? null,
+		login,
+	}
 }
 
 // ---------------------------------------------------------------------------

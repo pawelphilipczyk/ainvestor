@@ -1,13 +1,14 @@
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
+import type { Session } from 'remix/session'
 
 import { renderComponent } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, saveEtfs } from '../../lib/gist.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { formatValue, getSession, pageShell } from '../shared/index.ts'
+import { formatValue, getSessionData, pageShell } from '../shared/index.ts'
 
 // ---------------------------------------------------------------------------
 // Guest state
@@ -26,15 +27,19 @@ export function getGuestEntries(): EtfEntry[] {
 // Controller
 // ---------------------------------------------------------------------------
 export const portfolioController = {
-	async index(context: { request: Request }) {
-		const session = await getSession(context.request)
+	async index(context: { request: Request; session: Session }) {
+		const session = getSessionData(context.session)
 		const entries = session?.gistId
 			? await fetchEtfs(session.token, session.gistId)
 			: guestEntries
 		return renderPage(entries, session)
 	},
 
-	async create(context: { request: Request; formData: FormData | null }) {
+	async create(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+	}) {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.portfolio.index.href())
 
@@ -57,7 +62,7 @@ export const portfolioController = {
 		}
 
 		const entry = { id: crypto.randomUUID(), name, value, currency }
-		const session = await getSession(context.request)
+		const session = getSessionData(context.session)
 
 		if (session?.gistId) {
 			const current = await fetchEtfs(session.token, session.gistId)

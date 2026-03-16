@@ -1,6 +1,7 @@
 import { createRouter } from 'remix/fetch-router'
 import { formData } from 'remix/form-data-middleware'
 import { logger } from 'remix/logger-middleware'
+import { session } from 'remix/session-middleware'
 import { staticFiles } from 'remix/static-middleware'
 import { adviceHandler, setAdviceClient } from './features/advice/index.ts'
 import { authController } from './features/auth/index.ts'
@@ -16,6 +17,7 @@ import {
 	portfolioController,
 	resetEtfEntries,
 } from './features/portfolio/index.ts'
+import { sessionCookie, sessionStorage } from './lib/session.ts'
 import { routes } from './routes.ts'
 
 export {
@@ -32,8 +34,8 @@ const islands = staticFiles('app', {
 export const router = createRouter({
 	middleware:
 		process.env.NODE_ENV === 'development'
-			? [islands, logger(), formData()]
-			: [islands, formData()],
+			? [islands, logger(), formData(), session(sessionCookie, sessionStorage)]
+			: [islands, formData(), session(sessionCookie, sessionStorage)],
 })
 
 router.get(routes.health, () => {

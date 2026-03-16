@@ -1,11 +1,12 @@
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
+import type { Session } from 'remix/session'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
 import { fetchGuidelines, saveGuidelines } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { ETF_TYPES, getSession, pageShell } from '../shared/index.ts'
+import { ETF_TYPES, getSessionData, pageShell } from '../shared/index.ts'
 
 // ---------------------------------------------------------------------------
 // Guest state
@@ -24,15 +25,19 @@ export function getGuestGuidelines(): EtfGuideline[] {
 // Controller
 // ---------------------------------------------------------------------------
 export const guidelinesController = {
-	async index(context: { request: Request }) {
-		const session = await getSession(context.request)
+	async index(context: { request: Request; session: Session }) {
+		const session = getSessionData(context.session)
 		const guidelines = session?.gistId
 			? await fetchGuidelines(session.token, session.gistId)
 			: guestGuidelines
 		return renderGuidelinesPage(guidelines, session)
 	},
 
-	async create(context: { request: Request; formData: FormData | null }) {
+	async create(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+	}) {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
@@ -59,7 +64,7 @@ export const guidelinesController = {
 			targetPct,
 			etfType,
 		}
-		const session = await getSession(context.request)
+		const session = getSessionData(context.session)
 
 		if (session?.gistId) {
 			const current = await fetchGuidelines(session.token, session.gistId)
@@ -71,11 +76,11 @@ export const guidelinesController = {
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
-	async delete(context: { request: Request; params: unknown }) {
+	async delete(context: { request: Request; session: Session; params: unknown }) {
 		const id = (context.params as Record<string, string>).id
 		if (!id) return createRedirectResponse(routes.guidelines.index.href())
 
-		const session = await getSession(context.request)
+		const session = getSessionData(context.session)
 
 		if (session?.gistId) {
 			const current = await fetchGuidelines(session.token, session.gistId)

@@ -1,13 +1,9 @@
 import { createRedirectResponse } from 'remix/response/redirect'
+import type { Session } from 'remix/session'
 
 import { findOrCreateGist } from '../../lib/gist.ts'
-import { clearSessionCookie, createSessionCookie } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import {
-	getClientId,
-	getClientSecret,
-	getSessionSecret,
-} from '../shared/index.ts'
+import { getClientId, getClientSecret } from '../shared/index.ts'
 
 export const authController = {
 	async login() {
@@ -21,7 +17,7 @@ export const authController = {
 		)
 	},
 
-	async callback(context: { request: Request }) {
+	async callback(context: { request: Request; session: Session }) {
 		const url = new URL(context.request.url)
 		const code = url.searchParams.get('code')
 		if (!code) return createRedirectResponse(routes.portfolio.index.href())
@@ -60,27 +56,17 @@ export const authController = {
 		const user = (await userRes.json()) as { login: string }
 
 		const gistId = await findOrCreateGist(token)
-		const sessionCookie = await createSessionCookie(
-			{ token, gistId, login: user.login },
-			getSessionSecret(),
-		)
 
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: routes.portfolio.index.href(),
-				'Set-Cookie': sessionCookie,
-			},
-		})
+		context.session.regenerateId()
+		context.session.set('token', token)
+		context.session.set('gistId', gistId)
+		context.session.set('login', user.login)
+
+		return createRedirectResponse(routes.portfolio.index.href())
 	},
 
-	logout() {
-		return new Response(null, {
-			status: 302,
-			headers: {
-				Location: routes.portfolio.index.href(),
-				'Set-Cookie': clearSessionCookie(),
-			},
-		})
+	logout(context: { session: Session }) {
+		context.session.destroy()
+		return createRedirectResponse(routes.portfolio.index.href())
 	},
 }
