@@ -71,11 +71,12 @@ describe('island loader in page shell', () => {
 		assert.match(body, /<body[^>]*data-island="components\/sidebar"/)
 	})
 
-	it('page shell island loader script loads islands via /<name>.island.js', async () => {
+	it('page shell island loader script resolves from optional asset map with legacy fallback', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 		assert.match(body, /data-island/)
-		assert.match(body, /\.island\.js/)
+		assert.match(body, /window\.__ISLAND_ASSET_MAP/)
+		assert.match(body, /\?\? '\/' \+ name \+ '\.island\.js'/)
 	})
 
 	it('page shell does not contain inline sidebar or theme-toggle logic', async () => {

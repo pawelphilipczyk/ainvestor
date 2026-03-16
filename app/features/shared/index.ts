@@ -256,9 +256,12 @@ export function pageShell(
           ${body}
         </div>
         <script type="module">
+          const islandAssetMap = window.__ISLAND_ASSET_MAP ?? {}
           document.querySelectorAll('[data-island]').forEach(async (el) => {
             const name = el.dataset.island
-            const { mount } = await import('/' + name + '.island.js')
+            if (!name) return
+            const modulePath = islandAssetMap[name] ?? '/' + name + '.island.js'
+            const { mount } = await import(modulePath)
             mount(el)
           })
         </script>
