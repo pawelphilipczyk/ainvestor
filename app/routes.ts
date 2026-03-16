@@ -5,6 +5,7 @@ export const routes = route({
 	portfolio: {
 		index: get('/'),
 		create: post('/etfs'),
+		delete: del('/etfs/:id'),
 	},
 	auth: {
 		login: get('/auth/github'),

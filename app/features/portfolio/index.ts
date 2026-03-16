@@ -65,14 +65,56 @@ export const portfolioController = {
 		}
 
 		const { etfName: name, value, currency } = result.value
-		const entry = { id: crypto.randomUUID(), name, value, currency }
+		const session = getSessionData(context.session)
+		const current = session?.gistId
+			? await fetchEtfs(session.token, session.gistId)
+			: guestEntries
+
+		const existingIndex = current.findIndex(
+			(e) => e.name.toLowerCase() === name.toLowerCase(),
+		)
+		const entry: EtfEntry =
+			existingIndex >= 0
+				? {
+						...current[existingIndex],
+						value,
+						currency,
+					}
+				: { id: crypto.randomUUID(), name, value, currency }
+
+		const updated =
+			existingIndex >= 0
+				? current.map((e, i) => (i === existingIndex ? entry : e))
+				: [entry, ...current]
+
+		if (session?.gistId) {
+			await saveEtfs(session.token, session.gistId, updated)
+		} else {
+			guestEntries = updated
+		}
+
+		return createRedirectResponse(routes.portfolio.index.href())
+	},
+
+	async delete(context: {
+		request: Request
+		session: Session
+		params: unknown
+	}) {
+		const id = (context.params as Record<string, string>).id
+		if (!id) return createRedirectResponse(routes.portfolio.index.href())
+
 		const session = getSessionData(context.session)
 
 		if (session?.gistId) {
 			const current = await fetchEtfs(session.token, session.gistId)
-			await saveEtfs(session.token, session.gistId, [entry, ...current])
+			await saveEtfs(
+				session.token,
+				session.gistId,
+				current.filter((e) => e.id !== id),
+			)
 		} else {
-			guestEntries = [entry, ...guestEntries]
+			guestEntries = guestEntries.filter((e) => e.id !== id)
 		}
 
 		return createRedirectResponse(routes.portfolio.index.href())
@@ -133,7 +175,12 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
 						)
 						return renderComponent(
 							'etf-card',
-							{ name: entry.name, badge: String(badge) },
+							{
+								name: entry.name,
+								badge: String(badge),
+								dialog_id: `dialog-${entry.id}`,
+								delete_href: routes.portfolio.delete.href({ id: entry.id }),
+							},
 							import.meta.url,
 						)
 					})}
