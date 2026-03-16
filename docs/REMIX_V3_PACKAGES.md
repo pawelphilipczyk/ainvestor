@@ -803,30 +803,22 @@ Parse `FormData` once globally rather than in each handler.
 | `remix/logger-middleware` | ✅ | Dev logging |
 | `remix/static-middleware` | ✅ | Serves `.island.js` files from `app/` |
 | `route.href()` | ✅ | Used in all HTML templates — no hardcoded URL strings |
-| `remix/session` | ❌ | Custom HMAC signing in `app/lib/session.ts` instead |
-| `remix/session-middleware` | ❌ | `getSession()` called manually in every handler |
-| `remix/cookie` | ❌ | Custom `createSessionCookie` / `parseSessionCookie` |
-| `remix/data-schema` | ❌ | Ad-hoc `typeof` + `parseFloat` + `NaN` checks per handler |
-| `remix/method-override-middleware` | ❌ | Delete uses `POST /guidelines/:id/delete` workaround |
+| `remix/session` | ✅ | `Session` type used in all handler contexts |
+| `remix/session-middleware` | ✅ | `session()` in router middleware chain |
+| `remix/cookie` | ✅ | `sessionCookie` in `app/lib/session.ts` |
+| `remix/data-schema` | ✅ | `parseSafe()` + `coerce.*` in portfolio, guidelines, advice |
+| `remix/method-override-middleware` | ✅ | `methodOverride()` in router; DELETE /guidelines/:id |
+| `remix/compression-middleware` | ✅ | `compression()` in production middleware stack |
+| `form()` shorthand | ✅ | guidelines routes use `form('guidelines')` |
 | `remix/headers` | ❌ | Not used yet |
-| `remix/compression-middleware` | ❌ | No response compression |
 | `remix/component` | ❌ | Using manual `data-island` + `mount(el)` pattern |
 | `remix/interaction` | ❌ | Using vanilla JS in island files |
-| `form()` shorthand | ❌ | guidelines uses `get()`+`post()` manually for same URL |
 | `resources()` shorthand | ❌ | No RESTful resource collections yet |
 
-### What still needs replacing / adding (priority order)
+### What still could be added (future opportunities)
 
-1. **`remix/session-middleware` + `remix/cookie`** — replace `app/lib/session.ts` (80 lines of custom HMAC + base64 code) with `createCookie()` and the session middleware. Eliminates the manual `getSession(request)` call repeated in every handler across 5 feature files, and the manual `Set-Cookie` header construction in auth.
+1. **`remix/static-middleware` (expand scope for Tailwind)** — `app/styles/tailwind.css` exists locally but the pages load Tailwind from the public CDN. Expanding to serve a compiled CSS file requires adding a Tailwind CLI build step to the project (compile `tailwind.css` → `tailwind.built.css`, then serve it via `staticFiles`).
 
-2. **`remix/data-schema`** — every POST handler validates form inputs with ad-hoc `typeof === 'string'`, `parseFloat`, and `Number.isNaN` guards. Replace with `parseSafe()` + `coerce.number()` at each handler boundary for consistent, readable validation.
+2. **`remix/interaction`** — island files use plain `addEventListener`. `remix/interaction`'s `on()` helper adds type-safe async re-entry protection for free.
 
-3. **`remix/static-middleware` (expand scope)** — `app/styles/tailwind.css` exists locally but is never served. Every page loads Tailwind from the public CDN (`<script src="https://cdn.tailwindcss.com">`). Extend the static middleware to also serve `app/styles/` and switch to a local `<link rel="stylesheet">`.
-
-4. **`form()` shorthand** — `guidelines` has `index: get('/guidelines')` + `create: post('/guidelines')` at the same URL; replace with `form('guidelines')`.
-
-5. **`remix/method-override-middleware`** — the delete guideline action uses a `POST /guidelines/:id/delete` workaround. Add the middleware and switch to a proper `DELETE /guidelines/:id` route with a hidden `_method` field in the form.
-
-6. **`remix/compression-middleware`** — no gzip/brotli compression on HTML responses. Add to the production middleware stack.
-
-7. **`remix/interaction`** — island files use plain `addEventListener`. `remix/interaction`'s `on()` helper adds type-safe async re-entry protection for free.
+3. **`resources()` shorthand** — if more RESTful resource collections are added in the future, prefer `resources('name', { only: [...] })` over manual route declarations.
