@@ -1,6 +1,7 @@
 import { createRouter } from 'remix/fetch-router'
 import { formData } from 'remix/form-data-middleware'
 import { logger } from 'remix/logger-middleware'
+import { staticFiles } from 'remix/static-middleware'
 import { adviceHandler, setAdviceClient } from './features/advice/index.ts'
 import { authController } from './features/auth/index.ts'
 import {
@@ -24,11 +25,15 @@ export {
 	setAdviceClient,
 }
 
+const islands = staticFiles('app', {
+	filter: (path) => path.startsWith('islands/') && path.endsWith('.js'),
+})
+
 export const router = createRouter({
 	middleware:
 		process.env.NODE_ENV === 'development'
-			? [logger(), formData()]
-			: [formData()],
+			? [islands, logger(), formData()]
+			: [islands, formData()],
 })
 
 router.get(routes.health, () => {

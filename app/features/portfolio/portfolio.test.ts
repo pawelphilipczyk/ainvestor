@@ -18,6 +18,30 @@ describe('Health endpoint', () => {
 	})
 })
 
+describe('Island static files', () => {
+	it('GET /islands/sidebar.js serves the sidebar island', async () => {
+		const response = await router.fetch('http://localhost/islands/sidebar.js')
+
+		assert.equal(response.status, 200)
+		assert.match(response.headers.get('content-type') ?? '', /javascript/)
+	})
+
+	it('GET /islands/theme-toggle.js serves the theme-toggle island', async () => {
+		const response = await router.fetch(
+			'http://localhost/islands/theme-toggle.js',
+		)
+
+		assert.equal(response.status, 200)
+		assert.match(response.headers.get('content-type') ?? '', /javascript/)
+	})
+
+	it('GET /islands/sidebar.ts returns 404 (TypeScript source not exposed)', async () => {
+		const response = await router.fetch('http://localhost/islands/sidebar.ts')
+
+		assert.equal(response.status, 404)
+	})
+})
+
 describe('Portfolio page', () => {
 	it('GET / sets Cache-Control: no-store so browsers always fetch a fresh ETF list', async () => {
 		const response = await router.fetch('http://localhost/')
