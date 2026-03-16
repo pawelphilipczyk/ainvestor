@@ -1,8 +1,18 @@
-export function mount(el) {
+function bindClick(target, handler, on) {
+	if (!target) return
+	if (on) {
+		on(target, { click: handler })
+		return
+	}
+	target.addEventListener('click', handler)
+}
+
+export async function mount(el) {
 	const sidebarToggle = el.querySelector('[data-sidebar-toggle]')
 	const sidebarClose = el.querySelector('[data-sidebar-close]')
 	const sidebar = el.querySelector('#app-sidebar')
 	const backdrop = el.querySelector('#sidebar-backdrop')
+	let on = null
 
 	function openSidebar() {
 		sidebar.classList.remove('-translate-x-full')
@@ -20,9 +30,15 @@ export function mount(el) {
 		document.body.style.overflow = ''
 	}
 
-	if (sidebarToggle) sidebarToggle.addEventListener('click', openSidebar)
-	if (sidebarClose) sidebarClose.addEventListener('click', closeSidebar)
-	if (backdrop) backdrop.addEventListener('click', closeSidebar)
+	try {
+		;({ on } = await import('remix/interaction'))
+	} catch {
+		// Keep native listeners as a no-build fallback.
+	}
+
+	bindClick(sidebarToggle, openSidebar, on)
+	bindClick(sidebarClose, closeSidebar, on)
+	bindClick(backdrop, closeSidebar, on)
 	document.addEventListener('keydown', (e) => {
 		if (e.key === 'Escape') closeSidebar()
 	})
