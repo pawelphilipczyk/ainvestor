@@ -1,8 +1,8 @@
-export function mount() {
-	const sidebarToggle = document.querySelector('[data-sidebar-toggle]')
-	const sidebarClose = document.querySelector('[data-sidebar-close]')
-	const sidebar = document.getElementById('app-sidebar')
-	const backdrop = document.getElementById('sidebar-backdrop')
+export function mount(el) {
+	const sidebarToggle = el.querySelector('[data-sidebar-toggle]')
+	const sidebarClose = el.querySelector('[data-sidebar-close]')
+	const sidebar = el.querySelector('#app-sidebar')
+	const backdrop = el.querySelector('#sidebar-backdrop')
 
 	function openSidebar() {
 		sidebar.classList.remove('-translate-x-full')
