@@ -42,4 +42,13 @@ describe('theme-toggle island static file', () => {
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 	})
+
+	it('theme-toggle island attempts remix/interaction with addEventListener fallback', async () => {
+		const response = await router.fetch(
+			'http://localhost/components/theme-toggle.island.js',
+		)
+		const body = await response.text()
+		assert.match(body, /import\('remix\/interaction'\)/)
+		assert.match(body, /addEventListener\('click'/)
+	})
 })
