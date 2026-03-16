@@ -1,0 +1,37 @@
+import * as assert from 'node:assert/strict'
+import { afterEach, describe, it } from 'node:test'
+
+import { router } from '../../router.ts'
+
+afterEach(() => {
+  delete process.env.GH_CLIENT_ID
+})
+
+describe('GitHub OAuth routes', () => {
+  it('GET /auth/github returns 500 when GH_CLIENT_ID is not set', async () => {
+    const response = await router.fetch('http://localhost/auth/github')
+    assert.equal(response.status, 500)
+  })
+
+  it('GET /auth/github redirects to GitHub when GH_CLIENT_ID is set', async () => {
+    process.env.GH_CLIENT_ID = 'test-client-id'
+    const response = await router.fetch('http://localhost/auth/github')
+
+    assert.equal(response.status, 302)
+    const location = response.headers.get('location') ?? ''
+    assert.ok(location.startsWith('https://github.com/login/oauth/authorize'))
+    assert.ok(location.includes('client_id=test-client-id'))
+    assert.ok(location.includes('scope=gist'))
+  })
+
+  it('POST /auth/logout clears the session cookie and redirects home', async () => {
+    const response = await router.fetch(
+      new Request('http://localhost/auth/logout', { method: 'POST' }),
+    )
+
+    assert.equal(response.status, 302)
+    assert.equal(response.headers.get('location'), '/')
+    const cookie = response.headers.get('set-cookie') ?? ''
+    assert.ok(cookie.includes('session=;') || cookie.includes('Max-Age=0'))
+  })
+})
