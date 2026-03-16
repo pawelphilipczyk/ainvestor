@@ -18,56 +18,6 @@ describe('Health endpoint', () => {
 	})
 })
 
-describe('Island loader in page shell', () => {
-	it('body has data-island="sidebar" so the island loader activates it', async () => {
-		const response = await router.fetch('http://localhost/')
-		const body = await response.text()
-
-		assert.match(body, /<body[^>]*data-island="sidebar"/)
-	})
-
-	it('page shell includes an island loader script', async () => {
-		const response = await router.fetch('http://localhost/')
-		const body = await response.text()
-
-		assert.match(body, /data-island/)
-		assert.match(body, /\/islands\//)
-	})
-
-	it('page shell does not contain inline sidebar or theme-toggle logic', async () => {
-		const response = await router.fetch('http://localhost/')
-		const body = await response.text()
-
-		assert.doesNotMatch(body, /openSidebar/)
-		assert.doesNotMatch(body, /closeSidebar/)
-		assert.doesNotMatch(body, /localStorage\.setItem\('theme'/)
-	})
-})
-
-describe('Island static files', () => {
-	it('GET /islands/sidebar.js serves the sidebar island', async () => {
-		const response = await router.fetch('http://localhost/islands/sidebar.js')
-
-		assert.equal(response.status, 200)
-		assert.match(response.headers.get('content-type') ?? '', /javascript/)
-	})
-
-	it('GET /islands/theme-toggle.js serves the theme-toggle island', async () => {
-		const response = await router.fetch(
-			'http://localhost/islands/theme-toggle.js',
-		)
-
-		assert.equal(response.status, 200)
-		assert.match(response.headers.get('content-type') ?? '', /javascript/)
-	})
-
-	it('GET /islands/sidebar.ts returns 404 (TypeScript source not exposed)', async () => {
-		const response = await router.fetch('http://localhost/islands/sidebar.ts')
-
-		assert.equal(response.status, 404)
-	})
-})
-
 describe('Portfolio page', () => {
 	it('GET / sets Cache-Control: no-store so browsers always fetch a fresh ETF list', async () => {
 		const response = await router.fetch('http://localhost/')

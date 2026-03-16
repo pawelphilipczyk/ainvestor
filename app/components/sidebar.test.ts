@@ -61,6 +61,29 @@ describe('sidebar component', () => {
 	})
 })
 
+describe('island loader in page shell', () => {
+	it('body element carries data-island="sidebar" so the loader activates it', async () => {
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+		assert.match(body, /<body[^>]*data-island="sidebar"/)
+	})
+
+	it('page shell includes the island loader script referencing /islands/', async () => {
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+		assert.match(body, /data-island/)
+		assert.match(body, /\/islands\//)
+	})
+
+	it('page shell does not contain inline sidebar or theme-toggle logic', async () => {
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+		assert.doesNotMatch(body, /openSidebar/)
+		assert.doesNotMatch(body, /closeSidebar/)
+		assert.doesNotMatch(body, /localStorage\.setItem\('theme'/)
+	})
+})
+
 describe('sidebar island static file', () => {
 	it('GET /islands/sidebar.js returns 200 with javascript content-type', async () => {
 		const response = await router.fetch('http://localhost/islands/sidebar.js')
