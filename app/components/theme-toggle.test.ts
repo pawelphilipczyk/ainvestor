@@ -1,11 +1,10 @@
 import * as assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, it } from 'node:test'
-
-import { router } from '../router.ts'
+import { fileURLToPath } from 'node:url'
 import { themeToggleButton } from '../features/shared/index.ts'
+import { router } from '../router.ts'
 
 const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 
@@ -37,7 +36,9 @@ describe('theme-toggle component', () => {
 
 describe('theme-toggle island static file', () => {
 	it('GET /components/theme-toggle.island.js returns 200 with javascript content-type', async () => {
-		const response = await router.fetch('http://localhost/components/theme-toggle.island.js')
+		const response = await router.fetch(
+			'http://localhost/components/theme-toggle.island.js',
+		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 	})

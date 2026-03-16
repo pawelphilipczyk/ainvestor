@@ -1,11 +1,10 @@
 import * as assert from 'node:assert/strict'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
 import { describe, it } from 'node:test'
-
-import { router } from '../router.ts'
+import { fileURLToPath } from 'node:url'
 import { appSidebar } from '../features/shared/index.ts'
+import { router } from '../router.ts'
 import { renderComponent } from './render.ts'
 
 const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
@@ -26,10 +25,12 @@ describe('sidebar component', () => {
 	})
 
 	it('renderComponent("sidebar") fills nav_items and auth_action placeholders', () => {
-		const result = String(renderComponent('sidebar', {
-			nav_items: '<a href="/test">Test</a>',
-			auth_action: '<a href="/login">Sign in</a>',
-		}))
+		const result = String(
+			renderComponent('sidebar', {
+				nav_items: '<a href="/test">Test</a>',
+				auth_action: '<a href="/login">Sign in</a>',
+			}),
+		)
 		assert.match(result, /href="\/test"/)
 		assert.match(result, /href="\/login"/)
 		assert.doesNotMatch(result, /\{\{ nav_items \}\}/)
@@ -55,7 +56,9 @@ describe('sidebar component', () => {
 	})
 
 	it('appSidebar() shows sign-out form when session is provided', () => {
-		const result = String(appSidebar({ login: 'alice', token: 'tok', gistId: null }, 'portfolio'))
+		const result = String(
+			appSidebar({ login: 'alice', token: 'tok', gistId: null }, 'portfolio'),
+		)
 		assert.match(result, /Sign out/)
 		assert.match(result, /@alice/)
 	})
@@ -86,13 +89,17 @@ describe('island loader in page shell', () => {
 
 describe('sidebar island static file', () => {
 	it('GET /components/sidebar.island.js returns 200 with javascript content-type', async () => {
-		const response = await router.fetch('http://localhost/components/sidebar.island.js')
+		const response = await router.fetch(
+			'http://localhost/components/sidebar.island.js',
+		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 	})
 
 	it('GET /components/sidebar.island.ts returns 404 (TypeScript source not exposed)', async () => {
-		const response = await router.fetch('http://localhost/components/sidebar.island.ts')
+		const response = await router.fetch(
+			'http://localhost/components/sidebar.island.ts',
+		)
 		assert.equal(response.status, 404)
 	})
 })

@@ -39,8 +39,12 @@ export const catalogController = {
 
 		const session = await getSession(context.request)
 		const [catalog, entries] = await Promise.all([
-			session?.gistId ? fetchCatalog(session.token, session.gistId) : guestCatalog,
-			session?.gistId ? fetchEtfs(session.token, session.gistId) : getGuestEntries(),
+			session?.gistId
+				? fetchCatalog(session.token, session.gistId)
+				: guestCatalog,
+			session?.gistId
+				? fetchEtfs(session.token, session.gistId)
+				: getGuestEntries(),
 		])
 
 		return renderCatalogPage(catalog, entries, session, typeFilter, query)

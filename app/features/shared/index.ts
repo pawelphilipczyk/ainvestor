@@ -1,9 +1,9 @@
 import { html } from 'remix/html-template'
+import { renderComponent } from '../../components/render.ts'
 import type { EtfType } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { parseSessionCookie } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { renderComponent } from '../../components/render.ts'
 
 // ---------------------------------------------------------------------------
 // Config helpers (read at request time so env vars can be set in tests)
