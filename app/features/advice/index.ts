@@ -1,6 +1,8 @@
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import type { Session } from 'remix/session'
+import { object, parseSafe, string } from 'remix/data-schema'
+import { minLength } from 'remix/data-schema/checks'
 
 import { fetchEtfs } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
@@ -10,6 +12,10 @@ import { routes } from '../../routes.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
 import { getSessionData } from '../shared/index.ts'
+
+const AdviceSchema = object({
+	cashAmount: string().pipe(minLength(1)),
+})
 
 // ---------------------------------------------------------------------------
 // Advice client (injectable for tests)
@@ -33,11 +39,11 @@ export async function adviceHandler(context: {
 		return new Response('Bad request', { status: 400 })
 	}
 
-	const rawCash = form.get('cashAmount')
-	const cashAmount = typeof rawCash === 'string' ? rawCash.trim() : ''
-	if (!cashAmount) {
+	const result = parseSafe(AdviceSchema, Object.fromEntries(form as unknown as Iterable<[string, FormDataEntryValue]>))
+	if (!result.success) {
 		return new Response('cashAmount is required', { status: 400 })
 	}
+	const { cashAmount } = result.value
 
 	const session = getSessionData(context.session)
 	const entries = session?.gistId

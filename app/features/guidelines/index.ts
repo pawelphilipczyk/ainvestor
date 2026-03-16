@@ -2,11 +2,29 @@ import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
+import { enum_, object, optional, parseSafe, string } from 'remix/data-schema'
+import { max, min, minLength } from 'remix/data-schema/checks'
+import * as coerce from 'remix/data-schema/coerce'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
 import { fetchGuidelines, saveGuidelines } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { ETF_TYPES, getSessionData, pageShell } from '../shared/index.ts'
+
+const ETF_TYPE_VALUES = [
+	'equity',
+	'bond',
+	'real_estate',
+	'commodity',
+	'mixed',
+	'money_market',
+] as const
+
+const CreateGuidelineSchema = object({
+	etfName: string().pipe(minLength(1)),
+	targetPct: coerce.number().pipe(min(0.001), max(100)),
+	etfType: optional(enum_(ETF_TYPE_VALUES)),
+})
 
 // ---------------------------------------------------------------------------
 // Guest state
@@ -41,28 +59,17 @@ export const guidelinesController = {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
-		const etfName =
-			typeof form.get('etfName') === 'string'
-				? (form.get('etfName') as string).trim()
-				: ''
-		const rawPct = form.get('targetPct')
-		const targetPct = typeof rawPct === 'string' ? parseFloat(rawPct) : NaN
-		const etfType = (form.get('etfType') as EtfType | null) ?? 'equity'
-
-		if (
-			!etfName ||
-			Number.isNaN(targetPct) ||
-			targetPct <= 0 ||
-			targetPct > 100
-		) {
+		const result = parseSafe(CreateGuidelineSchema, Object.fromEntries(form as unknown as Iterable<[string, FormDataEntryValue]>))
+		if (!result.success) {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
 
+		const { etfName, targetPct, etfType = 'equity' } = result.value
 		const entry: EtfGuideline = {
 			id: crypto.randomUUID(),
 			etfName,
 			targetPct,
-			etfType,
+			etfType: etfType as EtfType,
 		}
 		const session = getSessionData(context.session)
 
