@@ -39,7 +39,7 @@ describe('ETF Catalog page', () => {
 		const response = await router.fetch('http://localhost/catalog')
 		const body = await response.text()
 
-		assert.match(body, /<button[^>]*data-island="theme-toggle"/)
+		assert.match(body, /<button[^>]*data-island="components\/theme-toggle"/)
 		assert.doesNotMatch(body, /&lt;button/)
 	})
 

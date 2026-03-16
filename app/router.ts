@@ -26,7 +26,7 @@ export {
 }
 
 const islands = staticFiles('app', {
-	filter: (path) => path.startsWith('islands/') && path.endsWith('.js'),
+	filter: (path) => path.endsWith('.island.js'),
 })
 
 export const router = createRouter({

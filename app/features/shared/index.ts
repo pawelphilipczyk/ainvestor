@@ -246,7 +246,7 @@ export function pageShell(
           }
         </style>
       </head>
-      <body data-island="sidebar" class="min-h-screen bg-background font-sans text-foreground antialiased">
+      <body data-island="components/sidebar" class="min-h-screen bg-background font-sans text-foreground antialiased">
         ${appSidebar(session, currentPage)}
         ${appTopBar(session)}
         <div class="p-4">
@@ -255,7 +255,7 @@ export function pageShell(
         <script type="module">
           document.querySelectorAll('[data-island]').forEach(async (el) => {
             const name = el.dataset.island
-            const { mount } = await import('/islands/' + name + '.js')
+            const { mount } = await import('/' + name + '.island.js')
             mount(el)
           })
         </script>

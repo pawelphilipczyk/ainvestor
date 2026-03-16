@@ -62,17 +62,17 @@ describe('sidebar component', () => {
 })
 
 describe('island loader in page shell', () => {
-	it('body element carries data-island="sidebar" so the loader activates it', async () => {
+	it('body element carries data-island="components/sidebar" so the loader activates it', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /<body[^>]*data-island="sidebar"/)
+		assert.match(body, /<body[^>]*data-island="components\/sidebar"/)
 	})
 
-	it('page shell includes the island loader script referencing /islands/', async () => {
+	it('page shell island loader script loads islands via /<name>.island.js', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 		assert.match(body, /data-island/)
-		assert.match(body, /\/islands\//)
+		assert.match(body, /\.island\.js/)
 	})
 
 	it('page shell does not contain inline sidebar or theme-toggle logic', async () => {
@@ -85,14 +85,14 @@ describe('island loader in page shell', () => {
 })
 
 describe('sidebar island static file', () => {
-	it('GET /islands/sidebar.js returns 200 with javascript content-type', async () => {
-		const response = await router.fetch('http://localhost/islands/sidebar.js')
+	it('GET /components/sidebar.island.js returns 200 with javascript content-type', async () => {
+		const response = await router.fetch('http://localhost/components/sidebar.island.js')
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 	})
 
-	it('GET /islands/sidebar.ts returns 404 (TypeScript source not exposed)', async () => {
-		const response = await router.fetch('http://localhost/islands/sidebar.ts')
+	it('GET /components/sidebar.island.ts returns 404 (TypeScript source not exposed)', async () => {
+		const response = await router.fetch('http://localhost/components/sidebar.island.ts')
 		assert.equal(response.status, 404)
 	})
 })

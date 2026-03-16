@@ -15,10 +15,10 @@ describe('theme-toggle component', () => {
 		assert.ok(existsSync(filePath), 'theme-toggle.html must exist')
 	})
 
-	it('theme-toggle.html contains the data-island attribute', () => {
+	it('theme-toggle.html contains the data-island attribute with component path', () => {
 		const filePath = join(componentsDir, 'theme-toggle.html')
 		const template = readFileSync(filePath, 'utf-8')
-		assert.match(template, /data-island="theme-toggle"/)
+		assert.match(template, /data-island="components\/theme-toggle"/)
 	})
 
 	it('theme-toggle.html contains sun and moon SVG icons', () => {
@@ -30,14 +30,14 @@ describe('theme-toggle component', () => {
 
 	it('themeToggleButton() renders output from theme-toggle.html (no inline HTML duplication)', () => {
 		const result = String(themeToggleButton())
-		assert.match(result, /data-island="theme-toggle"/)
+		assert.match(result, /data-island="components\/theme-toggle"/)
 		assert.match(result, /<button/)
 	})
 })
 
 describe('theme-toggle island static file', () => {
-	it('GET /islands/theme-toggle.js returns 200 with javascript content-type', async () => {
-		const response = await router.fetch('http://localhost/islands/theme-toggle.js')
+	it('GET /components/theme-toggle.island.js returns 200 with javascript content-type', async () => {
+		const response = await router.fetch('http://localhost/components/theme-toggle.island.js')
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 	})
