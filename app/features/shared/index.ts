@@ -115,11 +115,12 @@ export function appSidebar(
 
 	const navItems = navLinks.map((link) => {
 		const isCurrent = link.page === currentPage
+		const ariaCurrent = isCurrent ? html.raw`aria-current="page"` : html.raw``
 		return html`
       <a
         href="${link.href}"
         class="flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${isCurrent ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent hover:text-accent-foreground'}"
-        ${isCurrent ? 'aria-current="page"' : ''}
+        ${ariaCurrent}
       >
         ${link.label}
       </a>
@@ -154,41 +155,10 @@ export function appSidebar(
         </div>
       `
 
-	return html`
-    <div
-      id="sidebar-backdrop"
-      aria-hidden="true"
-      class="fixed inset-0 z-40 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200"
-    ></div>
-    <aside
-      id="app-sidebar"
-      aria-label="Main navigation"
-      class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-card transition-transform duration-200 ease-in-out"
-    >
-      <div class="flex items-center justify-between border-b border-border p-4">
-        <span class="text-sm font-semibold text-card-foreground">Navigation</span>
-        <button
-          data-sidebar-close
-          type="button"
-          aria-label="Close navigation"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <nav class="flex-1 overflow-y-auto p-4">
-        <div class="grid gap-1">
-          ${navItems}
-        </div>
-        <div class="mt-4">
-          ${authAction}
-        </div>
-      </nav>
-    </aside>
-  `
+	return renderComponent('sidebar', {
+		nav_items: navItems.map(String).join(''),
+		auth_action: String(authAction),
+	})
 }
 
 // ---------------------------------------------------------------------------
