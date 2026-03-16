@@ -1,13 +1,23 @@
+import { object, parseSafe, string } from 'remix/data-schema'
+import { min, minLength } from 'remix/data-schema/checks'
+import * as coerce from 'remix/data-schema/coerce'
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
+import type { Session } from 'remix/session'
 
 import { renderComponent } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, saveEtfs } from '../../lib/gist.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { formatValue, getSession, pageShell } from '../shared/index.ts'
+import { formatValue, getSessionData, pageShell } from '../shared/index.ts'
+
+const CreateEtfSchema = object({
+	etfName: string().pipe(minLength(1)),
+	value: coerce.number().pipe(min(0)),
+	currency: string(),
+})
 
 // ---------------------------------------------------------------------------
 // Guest state
@@ -26,38 +36,37 @@ export function getGuestEntries(): EtfEntry[] {
 // Controller
 // ---------------------------------------------------------------------------
 export const portfolioController = {
-	async index(context: { request: Request }) {
-		const session = await getSession(context.request)
+	async index(context: { request: Request; session: Session }) {
+		const session = getSessionData(context.session)
 		const entries = session?.gistId
 			? await fetchEtfs(session.token, session.gistId)
 			: guestEntries
 		return renderPage(entries, session)
 	},
 
-	async create(context: { request: Request; formData: FormData | null }) {
+	async create(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+	}) {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.portfolio.index.href())
 
-		const name =
-			typeof form.get('etfName') === 'string'
-				? (form.get('etfName') as string).trim()
-				: ''
-		const rawValue = form.get('value')
-		const currency =
-			typeof form.get('currency') === 'string'
-				? (form.get('currency') as string).trim().toUpperCase()
-				: 'USD'
-		const value =
-			typeof rawValue === 'string'
-				? parseFloat(rawValue.replace(/,/g, ''))
-				: NaN
+		const raw = Object.fromEntries(
+			form as unknown as Iterable<[string, FormDataEntryValue]>,
+		)
+		if (typeof raw.value === 'string') {
+			raw.value = raw.value.replace(/,/g, '')
+		}
 
-		if (name.length === 0 || Number.isNaN(value) || value < 0) {
+		const result = parseSafe(CreateEtfSchema, raw)
+		if (!result.success) {
 			return createRedirectResponse(routes.portfolio.index.href())
 		}
 
+		const { etfName: name, value, currency } = result.value
 		const entry = { id: crypto.randomUUID(), name, value, currency }
-		const session = await getSession(context.request)
+		const session = getSessionData(context.session)
 
 		if (session?.gistId) {
 			const current = await fetchEtfs(session.token, session.gistId)

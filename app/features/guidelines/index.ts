@@ -1,11 +1,30 @@
+import { enum_, object, optional, parseSafe, string } from 'remix/data-schema'
+import { max, min, minLength } from 'remix/data-schema/checks'
+import * as coerce from 'remix/data-schema/coerce'
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
+import type { Session } from 'remix/session'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
 import { fetchGuidelines, saveGuidelines } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { ETF_TYPES, getSession, pageShell } from '../shared/index.ts'
+import { ETF_TYPES, getSessionData, pageShell } from '../shared/index.ts'
+
+const ETF_TYPE_VALUES = [
+	'equity',
+	'bond',
+	'real_estate',
+	'commodity',
+	'mixed',
+	'money_market',
+] as const
+
+const CreateGuidelineSchema = object({
+	etfName: string().pipe(minLength(1)),
+	targetPct: coerce.number().pipe(min(0.001), max(100)),
+	etfType: optional(enum_(ETF_TYPE_VALUES)),
+})
 
 // ---------------------------------------------------------------------------
 // Guest state
@@ -24,42 +43,40 @@ export function getGuestGuidelines(): EtfGuideline[] {
 // Controller
 // ---------------------------------------------------------------------------
 export const guidelinesController = {
-	async index(context: { request: Request }) {
-		const session = await getSession(context.request)
+	async index(context: { request: Request; session: Session }) {
+		const session = getSessionData(context.session)
 		const guidelines = session?.gistId
 			? await fetchGuidelines(session.token, session.gistId)
 			: guestGuidelines
 		return renderGuidelinesPage(guidelines, session)
 	},
 
-	async create(context: { request: Request; formData: FormData | null }) {
+	async action(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+	}) {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
-		const etfName =
-			typeof form.get('etfName') === 'string'
-				? (form.get('etfName') as string).trim()
-				: ''
-		const rawPct = form.get('targetPct')
-		const targetPct = typeof rawPct === 'string' ? parseFloat(rawPct) : NaN
-		const etfType = (form.get('etfType') as EtfType | null) ?? 'equity'
-
-		if (
-			!etfName ||
-			Number.isNaN(targetPct) ||
-			targetPct <= 0 ||
-			targetPct > 100
-		) {
+		const result = parseSafe(
+			CreateGuidelineSchema,
+			Object.fromEntries(
+				form as unknown as Iterable<[string, FormDataEntryValue]>,
+			),
+		)
+		if (!result.success) {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
 
+		const { etfName, targetPct, etfType = 'equity' } = result.value
 		const entry: EtfGuideline = {
 			id: crypto.randomUUID(),
 			etfName,
 			targetPct,
-			etfType,
+			etfType: etfType as EtfType,
 		}
-		const session = await getSession(context.request)
+		const session = getSessionData(context.session)
 
 		if (session?.gistId) {
 			const current = await fetchGuidelines(session.token, session.gistId)
@@ -71,11 +88,15 @@ export const guidelinesController = {
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
-	async delete(context: { request: Request; params: unknown }) {
+	async delete(context: {
+		request: Request
+		session: Session
+		params: unknown
+	}) {
 		const id = (context.params as Record<string, string>).id
 		if (!id) return createRedirectResponse(routes.guidelines.index.href())
 
-		const session = await getSession(context.request)
+		const session = getSessionData(context.session)
 
 		if (session?.gistId) {
 			const current = await fetchGuidelines(session.token, session.gistId)
@@ -116,6 +137,7 @@ function renderGuidelinesPage(
               <div class="flex items-center gap-4">
                 <span class="text-sm font-semibold">${g.targetPct}%</span>
                 <form method="post" action="${routes.guidelines.delete.href({ id: g.id })}">
+                  <input type="hidden" name="_method" value="DELETE" />
                   <button
                     type="submit"
                     class="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
@@ -139,7 +161,7 @@ function renderGuidelinesPage(
         </p>
       </header>
 
-      <form method="post" action="${routes.guidelines.create.href()}" class="mt-6 grid gap-4">
+      <form method="post" action="${routes.guidelines.action.href()}" class="mt-6 grid gap-4">
         <div class="grid gap-2">
           <label for="etfName" class="text-sm font-medium">ETF / Asset Name</label>
           <input

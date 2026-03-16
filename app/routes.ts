@@ -1,4 +1,4 @@
-import { get, post, route } from 'remix/fetch-router/routes'
+import { del, form, get, post, route } from 'remix/fetch-router/routes'
 
 export const routes = route({
 	health: get('/health'),
@@ -13,9 +13,8 @@ export const routes = route({
 	},
 	advice: post('/advice'),
 	guidelines: {
-		index: get('/guidelines'),
-		create: post('/guidelines'),
-		delete: post('/guidelines/:id/delete'),
+		...form('guidelines'),
+		delete: del('/guidelines/:id'),
 	},
 	catalog: {
 		index: get('/catalog'),

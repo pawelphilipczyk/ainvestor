@@ -794,32 +794,31 @@ Parse `FormData` once globally rather than in each handler.
 | Package | Used | Notes |
 |---|---|---|
 | `remix/fetch-router` | ✅ | Core router |
-| `remix/fetch-router/routes` | ✅ | `get()`, `post()` |
+| `remix/fetch-router/routes` | ✅ | `get()`, `post()` — all routes in `app/routes.ts` |
 | `remix/node-fetch-server` | ✅ | `server.ts` |
-| `remix/html-template` | ✅ | `html` tag |
+| `remix/html-template` | ✅ | `html` tag used in all feature renderers |
 | `remix/response/html` | ✅ | `createHtmlResponse` |
 | `remix/response/redirect` | ✅ | `createRedirectResponse` |
-| `remix/form-data-middleware` | ✅ | `formData()` middleware |
+| `remix/form-data-middleware` | ✅ | `formData()` global middleware |
 | `remix/logger-middleware` | ✅ | Dev logging |
-| `remix/session` | ❌ | Custom HMAC session instead |
-| `remix/session-middleware` | ❌ | Manual session per handler |
-| `remix/cookie` | ❌ | Custom cookie signing |
-| `remix/data-schema` | ❌ | No form validation yet |
-| `remix/static-middleware` | ❌ | No static file serving |
-| `remix/method-override-middleware` | ❌ | No PUT/DELETE forms yet |
+| `remix/static-middleware` | ✅ | Serves `.island.js` files from `app/` |
+| `route.href()` | ✅ | Used in all HTML templates — no hardcoded URL strings |
+| `remix/session` | ✅ | `Session` type used in all handler contexts |
+| `remix/session-middleware` | ✅ | `session()` in router middleware chain |
+| `remix/cookie` | ✅ | `sessionCookie` in `app/lib/session.ts` |
+| `remix/data-schema` | ✅ | `parseSafe()` + `coerce.*` in portfolio, guidelines, advice |
+| `remix/method-override-middleware` | ✅ | `methodOverride()` in router; DELETE /guidelines/:id |
+| `remix/compression-middleware` | ✅ | `compression()` in production middleware stack |
+| `form()` shorthand | ✅ | guidelines routes use `form('guidelines')` |
 | `remix/headers` | ❌ | Not used yet |
-| `remix/compression-middleware` | ❌ | No compression |
-| `remix/component` | ❌ | Using manual islands pattern |
-| `remix/interaction` | ❌ | Using vanilla JS islands |
-| `form()` shorthand | ❌ | Using `get()`+`post()` manually |
-| `resources()` shorthand | ❌ | Using `get()`+`post()` manually |
+| `remix/component` | ❌ | Using manual `data-island` + `mount(el)` pattern |
+| `remix/interaction` | ❌ | Using vanilla JS in island files |
+| `resources()` shorthand | ❌ | No RESTful resource collections yet |
 
-### Recommended next migrations (highest value)
+### What still could be added (future opportunities)
 
-1. **`remix/session-middleware` + `remix/cookie`** — replace `app/lib/session.ts` custom implementation
-2. **`remix/data-schema`** — add form validation to all POST handlers
-3. **`remix/static-middleware`** — serve `app/styles/tailwind.css` and future static assets
-4. **`remix/method-override-middleware`** — enable proper REST methods from HTML forms
-5. **`form()` shorthand** — simplify guidelines and catalog routes in `routes.ts`
-6. **`remix/compression-middleware`** — compress HTML responses in production
-7. **`route.href()`** — replace all hardcoded URL strings in HTML templates
+1. **`remix/static-middleware` (expand scope for Tailwind)** — `app/styles/tailwind.css` exists locally but the pages load Tailwind from the public CDN. Expanding to serve a compiled CSS file requires adding a Tailwind CLI build step to the project (compile `tailwind.css` → `tailwind.built.css`, then serve it via `staticFiles`).
+
+2. **`remix/interaction`** — island files use plain `addEventListener`. `remix/interaction`'s `on()` helper adds type-safe async re-entry protection for free.
+
+3. **`resources()` shorthand** — if more RESTful resource collections are added in the future, prefer `resources('name', { only: [...] })` over manual route declarations.

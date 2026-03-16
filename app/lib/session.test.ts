@@ -1,52 +1,89 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { createSessionCookie, parseSessionCookie } from './session.ts'
-
-const secret = 'test-secret-32-chars-long-enough!'
+import { sessionCookie, sessionStorage } from './session.ts'
 
 describe('session', () => {
+	it('session cookie must be signed (has secrets)', async () => {
+		assert.ok(sessionCookie.signed, 'session cookie must be signed')
+	})
+
 	it('round-trips session data through a signed cookie', async () => {
-		const data = { token: 'gho_abc123', gistId: 'gist456', login: 'octocat' }
-		const cookie = await createSessionCookie(data, secret)
+		const session = await sessionStorage.read(null)
+		session.set('token', 'ghp_test')
+		session.set('gistId', 'gist456')
+		session.set('login', 'octocat')
 
-		assert.ok(typeof cookie === 'string')
-		assert.ok(cookie.length > 0)
+		const value = await sessionStorage.save(session)
+		if (value == null)
+			throw new Error('dirty session should produce a save value')
 
-		const parsed = await parseSessionCookie(cookie, secret)
-		assert.deepEqual(parsed, data)
+		const header = await sessionCookie.serialize(value)
+		const parsed = await sessionCookie.parse(header)
+		const session2 = await sessionStorage.read(parsed)
+
+		assert.equal(session2.get('token'), 'ghp_test')
+		assert.equal(session2.get('gistId'), 'gist456')
+		assert.equal(session2.get('login'), 'octocat')
 	})
 
-	it('returns null when the signature is tampered with', async () => {
-		const data = { token: 'gho_abc123', gistId: 'gist456', login: 'octocat' }
-		const setCookie = await createSessionCookie(data, secret)
-		// Extract just the raw cookie value (between "session=" and the first ";")
-		const value = setCookie.split('=').slice(1).join('=').split(';')[0]
-		// Tamper with the last 4 characters of the value (the signature portion)
-		const tampered = `${value.slice(0, -4)}XXXX`
-
-		const parsed = await parseSessionCookie(`session=${tampered}`, secret)
-		assert.equal(parsed, null)
+	it('returns empty session when cookie value is null', async () => {
+		const session = await sessionStorage.read(null)
+		assert.equal(session.size, 0)
 	})
 
-	it('returns null for an empty or missing cookie header', async () => {
-		assert.equal(await parseSessionCookie('', secret), null)
-		assert.equal(await parseSessionCookie(undefined, secret), null)
+	it('returns empty session for invalid cookie value', async () => {
+		const session = await sessionStorage.read('not-valid-json')
+		assert.equal(session.size, 0)
 	})
 
-	it('returns null when no session cookie is present among other cookies', async () => {
-		const result = await parseSessionCookie('foo=bar; baz=qux', secret)
-		assert.equal(result, null)
+	it('returns empty session when cookie has been tampered with', async () => {
+		const session = await sessionStorage.read(null)
+		session.set('token', 'ghp_test')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected a save value')
+
+		// Produce the signed Set-Cookie header, then tamper with the signature
+		const header = await sessionCookie.serialize(value)
+		const tamperedHeader = header.replace(/\.[^;]+/, '.XXXX')
+		const parsed = await sessionCookie.parse(tamperedHeader)
+		assert.equal(parsed, null, 'tampered cookie should not parse')
 	})
 
-	it('parses the session cookie among multiple cookies', async () => {
-		const data = { token: 't', gistId: 'g', login: 'u' }
-		const sessionValue = await createSessionCookie(data, secret)
-		// createSessionCookie returns just the Set-Cookie header value; extract the value part
-		const cookieValue = sessionValue.split('=').slice(1).join('=').split(';')[0]
-		const fullHeader = `other=abc; session=${cookieValue}; another=xyz`
+	it('serialized cookie is HttpOnly', async () => {
+		const session = await sessionStorage.read(null)
+		session.set('token', 'test')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected a save value')
 
-		const parsed = await parseSessionCookie(fullHeader, secret)
-		assert.deepEqual(parsed, data)
+		const header = await sessionCookie.serialize(value)
+		assert.ok(header.includes('HttpOnly'), 'cookie should be HttpOnly')
+	})
+
+	it('serialized cookie has SameSite=lax', async () => {
+		const session = await sessionStorage.read(null)
+		session.set('token', 'test')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected a save value')
+
+		const header = await sessionCookie.serialize(value)
+		assert.ok(
+			header.toLowerCase().includes('samesite=lax'),
+			'cookie should have SameSite=lax',
+		)
+	})
+
+	it('destroyed session serializes to clear the cookie', async () => {
+		const session = await sessionStorage.read(null)
+		session.destroy()
+		const value = await sessionStorage.save(session)
+		if (value == null)
+			throw new Error('expected a save value for destroyed session')
+
+		const header = await sessionCookie.serialize(value)
+		assert.ok(
+			header.includes('session=;') || header.includes('Max-Age=0'),
+			'destroyed session should clear the cookie',
+		)
 	})
 })

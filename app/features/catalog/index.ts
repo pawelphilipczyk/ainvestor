@@ -1,6 +1,7 @@
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
+import type { Session } from 'remix/session'
 import type { CatalogEntry } from '../../lib/catalog.ts'
 import {
 	fetchCatalog,
@@ -15,7 +16,7 @@ import { getGuestEntries } from '../portfolio/index.ts'
 import {
 	ETF_TYPES,
 	formatValue,
-	getSession,
+	getSessionData,
 	pageShell,
 } from '../shared/index.ts'
 
@@ -32,12 +33,12 @@ export function resetGuestCatalog() {
 // Controller
 // ---------------------------------------------------------------------------
 export const catalogController = {
-	async index(context: { request: Request }) {
+	async index(context: { request: Request; session: Session }) {
 		const url = new URL(context.request.url)
 		const typeFilter = url.searchParams.get('type') ?? ''
 		const query = url.searchParams.get('q') ?? ''
 
-		const session = await getSession(context.request)
+		const session = getSessionData(context.session)
 		const [catalog, entries] = await Promise.all([
 			session?.gistId
 				? fetchCatalog(session.token, session.gistId)
@@ -50,7 +51,11 @@ export const catalogController = {
 		return renderCatalogPage(catalog, entries, session, typeFilter, query)
 	},
 
-	async import(context: { request: Request; formData: FormData | null }) {
+	async import(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+	}) {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.catalog.index.href())
 
@@ -63,7 +68,7 @@ export const catalogController = {
 		if (imported.length === 0)
 			return createRedirectResponse(routes.catalog.index.href())
 
-		const session = await getSession(context.request)
+		const session = getSessionData(context.session)
 		if (session?.gistId) {
 			await saveCatalog(session.token, session.gistId, imported)
 		} else {
