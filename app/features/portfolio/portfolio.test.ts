@@ -121,6 +121,16 @@ describe('Portfolio page', () => {
 		)
 	})
 
+	it('ETF card island attempts remix/interaction with addEventListener fallback', async () => {
+		const islandResponse = await router.fetch(
+			'http://localhost/features/portfolio/etf-card.island.js',
+		)
+		const islandBody = await islandResponse.text()
+
+		assert.match(islandBody, /import\('remix\/interaction'\)/)
+		assert.match(islandBody, /addEventListener\('click'/)
+	})
+
 	it('DELETE /etfs/:id removes the ETF via method override', async () => {
 		const form = new FormData()
 		form.set('etfName', 'VTI')
