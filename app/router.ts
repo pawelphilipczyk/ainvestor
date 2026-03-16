@@ -1,70 +1,70 @@
-import { createRouter } from "remix/fetch-router";
-import { formData } from "remix/form-data-middleware";
-import { html } from "remix/html-template";
-import { logger } from "remix/logger-middleware";
-import { createHtmlResponse } from "remix/response/html";
-import { createRedirectResponse } from "remix/response/redirect";
+import { createRouter } from 'remix/fetch-router'
+import { formData } from 'remix/form-data-middleware'
+import { html } from 'remix/html-template'
+import { logger } from 'remix/logger-middleware'
+import { createHtmlResponse } from 'remix/response/html'
+import { createRedirectResponse } from 'remix/response/redirect'
 
-import { renderComponent } from "./components/render.ts";
-import type { CatalogEntry } from "./lib/catalog.ts";
-import { fetchCatalog, parseCsvToCatalog, saveCatalog } from "./lib/catalog.ts";
-import type { EtfEntry } from "./lib/gist.ts";
-import { fetchEtfs, findOrCreateGist, saveEtfs } from "./lib/gist.ts";
-import type { EtfGuideline, EtfType } from "./lib/guidelines.ts";
-import { fetchGuidelines, saveGuidelines } from "./lib/guidelines.ts";
-import type { SessionData } from "./lib/session.ts";
+import { renderComponent } from './components/render.ts'
+import type { CatalogEntry } from './lib/catalog.ts'
+import { fetchCatalog, parseCsvToCatalog, saveCatalog } from './lib/catalog.ts'
+import type { EtfEntry } from './lib/gist.ts'
+import { fetchEtfs, findOrCreateGist, saveEtfs } from './lib/gist.ts'
+import type { EtfGuideline, EtfType } from './lib/guidelines.ts'
+import { fetchGuidelines, saveGuidelines } from './lib/guidelines.ts'
+import type { SessionData } from './lib/session.ts'
 import {
 	clearSessionCookie,
 	createSessionCookie,
 	parseSessionCookie,
-} from "./lib/session.ts";
-import type { AdviceClient } from "./openai.ts";
-import { createDefaultClient, getInvestmentAdvice } from "./openai.ts";
-import { routes } from "./routes.ts";
+} from './lib/session.ts'
+import type { AdviceClient } from './openai.ts'
+import { createDefaultClient, getInvestmentAdvice } from './openai.ts'
+import { routes } from './routes.ts'
 
 // ---------------------------------------------------------------------------
 // Config helpers (read at request time so env vars can be set in tests)
 // ---------------------------------------------------------------------------
 function getClientId() {
-	return process.env.GH_CLIENT_ID ?? "";
+	return process.env.GH_CLIENT_ID ?? ''
 }
 function getClientSecret() {
-	return process.env.GH_CLIENT_SECRET ?? "";
+	return process.env.GH_CLIENT_SECRET ?? ''
 }
 function getSessionSecret() {
-	return process.env.SESSION_SECRET ?? "dev-secret-change-me";
+	return process.env.SESSION_SECRET ?? 'dev-secret-change-me'
 }
 
 // ---------------------------------------------------------------------------
 // In-memory fallback (used when user is not logged in, preserved for tests)
 // ---------------------------------------------------------------------------
-let guestEntries: EtfEntry[] = [];
-let guestGuidelines: EtfGuideline[] = [];
-let guestCatalog: CatalogEntry[] = [];
-let adviceClient: AdviceClient | null = null;
+let guestEntries: EtfEntry[] = []
+let guestGuidelines: EtfGuideline[] = []
+let guestCatalog: CatalogEntry[] = []
+let adviceClient: AdviceClient | null = null
 
 export function resetEtfEntries() {
-	guestEntries = [];
+	guestEntries = []
 }
 
 export function resetGuestGuidelines() {
-	guestGuidelines = [];
+	guestGuidelines = []
 }
 
 export function resetGuestCatalog() {
-	guestCatalog = [];
+	guestCatalog = []
 }
 
 export function setAdviceClient(client: AdviceClient | null) {
-	adviceClient = client;
+	adviceClient = client
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function getSession(request: Request): Promise<SessionData | null> {
-	const cookie = request.headers.get("cookie") ?? undefined;
-	return parseSessionCookie(cookie, getSessionSecret());
+	const cookie = request.headers.get('cookie') ?? undefined
+	return parseSessionCookie(cookie, getSessionSecret())
 }
 
 // ---------------------------------------------------------------------------
@@ -72,133 +72,133 @@ function getSession(request: Request): Promise<SessionData | null> {
 // ---------------------------------------------------------------------------
 export const router = createRouter({
 	middleware:
-		process.env.NODE_ENV === "development"
+		process.env.NODE_ENV === 'development'
 			? [logger(), formData()]
 			: [formData()],
-});
+})
 
 // ---------------------------------------------------------------------------
 // GET /
 // ---------------------------------------------------------------------------
 router.get(routes.home, async (context) => {
-	const session = await getSession(context.request);
+	const session = await getSession(context.request)
 	const entries = session
 		? await fetchEtfs(session.token, session.gistId!)
-		: guestEntries;
-	return renderPage(entries, session);
-});
+		: guestEntries
+	return renderPage(entries, session)
+})
 
 // ---------------------------------------------------------------------------
 // GET /health
 // ---------------------------------------------------------------------------
 router.get(routes.health, () => {
-	return new Response("ok", {
-		headers: { "content-type": "text/plain; charset=utf-8" },
-	});
-});
+	return new Response('ok', {
+		headers: { 'content-type': 'text/plain; charset=utf-8' },
+	})
+})
 
 // ---------------------------------------------------------------------------
 // POST /etfs
 // ---------------------------------------------------------------------------
 router.post(routes.addEtf, async (context) => {
-	const form = context.formData;
-	if (!form) return createRedirectResponse(routes.home.href());
+	const form = context.formData
+	if (!form) return createRedirectResponse(routes.home.href())
 
 	const name =
-		typeof form.get("etfName") === "string"
-			? (form.get("etfName") as string).trim()
-			: "";
-	const rawValue = form.get("value");
+		typeof form.get('etfName') === 'string'
+			? (form.get('etfName') as string).trim()
+			: ''
+	const rawValue = form.get('value')
 	const currency =
-		typeof form.get("currency") === "string"
-			? (form.get("currency") as string).trim().toUpperCase()
-			: "USD";
+		typeof form.get('currency') === 'string'
+			? (form.get('currency') as string).trim().toUpperCase()
+			: 'USD'
 	const value =
-		typeof rawValue === "string" ? parseFloat(rawValue.replace(/,/g, "")) : NaN;
+		typeof rawValue === 'string' ? parseFloat(rawValue.replace(/,/g, '')) : NaN
 
 	if (name.length === 0 || isNaN(value) || value < 0) {
-		return createRedirectResponse(routes.home.href());
+		return createRedirectResponse(routes.home.href())
 	}
 
-	const entry = { id: crypto.randomUUID(), name, value, currency };
-	const session = await getSession(context.request);
+	const entry = { id: crypto.randomUUID(), name, value, currency }
+	const session = await getSession(context.request)
 
 	if (session) {
-		const current = await fetchEtfs(session.token, session.gistId!);
-		await saveEtfs(session.token, session.gistId!, [entry, ...current]);
+		const current = await fetchEtfs(session.token, session.gistId!)
+		await saveEtfs(session.token, session.gistId!, [entry, ...current])
 	} else {
-		guestEntries = [entry, ...guestEntries];
+		guestEntries = [entry, ...guestEntries]
 	}
 
-	return createRedirectResponse(routes.home.href());
-});
+	return createRedirectResponse(routes.home.href())
+})
 
 // ---------------------------------------------------------------------------
 // GET /auth/github  — redirect to GitHub OAuth
 // ---------------------------------------------------------------------------
 router.get(routes.githubLogin, () => {
-	const clientId = getClientId();
+	const clientId = getClientId()
 	if (!clientId) {
-		return new Response("GH_CLIENT_ID is not configured", { status: 500 });
+		return new Response('GH_CLIENT_ID is not configured', { status: 500 })
 	}
-	const params = new URLSearchParams({ client_id: clientId, scope: "gist" });
+	const params = new URLSearchParams({ client_id: clientId, scope: 'gist' })
 	return createRedirectResponse(
 		`https://github.com/login/oauth/authorize?${params}`,
-	);
-});
+	)
+})
 
 // ---------------------------------------------------------------------------
 // GET /auth/github/callback  — exchange code for token, set session cookie
 // ---------------------------------------------------------------------------
 router.get(routes.githubCallback, async (context) => {
-	const url = new URL(context.request.url);
-	const code = url.searchParams.get("code");
-	if (!code) return createRedirectResponse(routes.home.href());
+	const url = new URL(context.request.url)
+	const code = url.searchParams.get('code')
+	if (!code) return createRedirectResponse(routes.home.href())
 
-	const tokenRes = await fetch("https://github.com/login/oauth/access_token", {
-		method: "POST",
+	const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
+		method: 'POST',
 		headers: {
-			Accept: "application/json",
-			"Content-Type": "application/json",
+			Accept: 'application/json',
+			'Content-Type': 'application/json',
 		},
 		body: JSON.stringify({
 			client_id: getClientId(),
 			client_secret: getClientSecret(),
 			code,
 		}),
-	});
+	})
 
-	if (!tokenRes.ok) return createRedirectResponse(routes.home.href());
+	if (!tokenRes.ok) return createRedirectResponse(routes.home.href())
 	const tokenData = (await tokenRes.json()) as {
-		access_token?: string;
-		error?: string;
-	};
-	const token = tokenData.access_token;
-	if (!token) return createRedirectResponse(routes.home.href());
+		access_token?: string
+		error?: string
+	}
+	const token = tokenData.access_token
+	if (!token) return createRedirectResponse(routes.home.href())
 
-	const userRes = await fetch("https://api.github.com/user", {
+	const userRes = await fetch('https://api.github.com/user', {
 		headers: {
 			Authorization: `Bearer ${token}`,
-			Accept: "application/vnd.github+json",
+			Accept: 'application/vnd.github+json',
 		},
-	});
-	const user = (await userRes.json()) as { login: string };
+	})
+	const user = (await userRes.json()) as { login: string }
 
-	const gistId = await findOrCreateGist(token);
+	const gistId = await findOrCreateGist(token)
 
 	const sessionCookie = await createSessionCookie(
 		{ token, gistId, login: user.login },
 		getSessionSecret(),
-	);
+	)
 
 	return new Response(null, {
 		status: 302,
 		headers: {
 			Location: routes.home.href(),
-			"Set-Cookie": sessionCookie,
+			'Set-Cookie': sessionCookie,
 		},
-	});
-});
+	})
+})
 
 // ---------------------------------------------------------------------------
 // POST /auth/logout
@@ -208,39 +208,39 @@ router.post(routes.logout, () => {
 		status: 302,
 		headers: {
 			Location: routes.home.href(),
-			"Set-Cookie": clearSessionCookie(),
+			'Set-Cookie': clearSessionCookie(),
 		},
-	});
-});
+	})
+})
 
 // ---------------------------------------------------------------------------
 // GET /guidelines
 // ---------------------------------------------------------------------------
 router.get(routes.guidelines, async (context) => {
-	const session = await getSession(context.request);
+	const session = await getSession(context.request)
 	const guidelines = session
 		? await fetchGuidelines(session.token, session.gistId!)
-		: guestGuidelines;
-	return renderGuidelinesPage(guidelines, session);
-});
+		: guestGuidelines
+	return renderGuidelinesPage(guidelines, session)
+})
 
 // ---------------------------------------------------------------------------
 // POST /guidelines
 // ---------------------------------------------------------------------------
 router.post(routes.addGuideline, async (context) => {
-	const form = context.formData;
-	if (!form) return createRedirectResponse(routes.guidelines.href());
+	const form = context.formData
+	if (!form) return createRedirectResponse(routes.guidelines.href())
 
 	const etfName =
-		typeof form.get("etfName") === "string"
-			? (form.get("etfName") as string).trim()
-			: "";
-	const rawPct = form.get("targetPct");
-	const targetPct = typeof rawPct === "string" ? parseFloat(rawPct) : NaN;
-	const etfType = (form.get("etfType") as EtfType | null) ?? "equity";
+		typeof form.get('etfName') === 'string'
+			? (form.get('etfName') as string).trim()
+			: ''
+	const rawPct = form.get('targetPct')
+	const targetPct = typeof rawPct === 'string' ? parseFloat(rawPct) : NaN
+	const etfType = (form.get('etfType') as EtfType | null) ?? 'equity'
 
 	if (!etfName || isNaN(targetPct) || targetPct <= 0 || targetPct > 100) {
-		return createRedirectResponse(routes.guidelines.href());
+		return createRedirectResponse(routes.guidelines.href())
 	}
 
 	const entry: EtfGuideline = {
@@ -248,72 +248,72 @@ router.post(routes.addGuideline, async (context) => {
 		etfName,
 		targetPct,
 		etfType,
-	};
-	const session = await getSession(context.request);
+	}
+	const session = await getSession(context.request)
 
 	if (session) {
-		const current = await fetchGuidelines(session.token, session.gistId!);
-		await saveGuidelines(session.token, session.gistId!, [entry, ...current]);
+		const current = await fetchGuidelines(session.token, session.gistId!)
+		await saveGuidelines(session.token, session.gistId!, [entry, ...current])
 	} else {
-		guestGuidelines = [entry, ...guestGuidelines];
+		guestGuidelines = [entry, ...guestGuidelines]
 	}
 
-	return createRedirectResponse(routes.guidelines.href());
-});
+	return createRedirectResponse(routes.guidelines.href())
+})
 
 // ---------------------------------------------------------------------------
 // POST /guidelines/:id/delete
 // ---------------------------------------------------------------------------
 router.post(routes.deleteGuideline, async (context) => {
-	const id = (context.params as Record<string, string>).id;
-	if (!id) return createRedirectResponse(routes.guidelines.href());
+	const id = (context.params as Record<string, string>).id
+	if (!id) return createRedirectResponse(routes.guidelines.href())
 
-	const session = await getSession(context.request);
+	const session = await getSession(context.request)
 
 	if (session) {
-		const current = await fetchGuidelines(session.token, session.gistId!);
+		const current = await fetchGuidelines(session.token, session.gistId!)
 		await saveGuidelines(
 			session.token,
 			session.gistId!,
 			current.filter((g) => g.id !== id),
-		);
+		)
 	} else {
-		guestGuidelines = guestGuidelines.filter((g) => g.id !== id);
+		guestGuidelines = guestGuidelines.filter((g) => g.id !== id)
 	}
 
-	return createRedirectResponse(routes.guidelines.href());
-});
+	return createRedirectResponse(routes.guidelines.href())
+})
 
 // ---------------------------------------------------------------------------
 // POST /advice
 // ---------------------------------------------------------------------------
 router.post(routes.advice, async (context) => {
-	const form = context.formData;
+	const form = context.formData
 	if (!form) {
-		return new Response("Bad request", { status: 400 });
+		return new Response('Bad request', { status: 400 })
 	}
 
-	const rawCash = form.get("cashAmount");
-	const cashAmount = typeof rawCash === "string" ? rawCash.trim() : "";
+	const rawCash = form.get('cashAmount')
+	const cashAmount = typeof rawCash === 'string' ? rawCash.trim() : ''
 	if (!cashAmount) {
-		return new Response("cashAmount is required", { status: 400 });
+		return new Response('cashAmount is required', { status: 400 })
 	}
 
-	const session = await getSession(context.request);
+	const session = await getSession(context.request)
 	const entries = session
 		? await fetchEtfs(session.token, session.gistId!)
-		: guestEntries;
+		: guestEntries
 	const guidelines = session
 		? await fetchGuidelines(session.token, session.gistId!)
-		: guestGuidelines;
+		: guestGuidelines
 
-	const client = adviceClient ?? createDefaultClient();
+	const client = adviceClient ?? createDefaultClient()
 	const advice = await getInvestmentAdvice(
 		entries,
 		guidelines,
 		cashAmount,
 		client,
-	);
+	)
 
 	return createHtmlResponse(html`
     <!doctype html>
@@ -399,70 +399,70 @@ router.post(routes.advice, async (context) => {
         </main>
       </body>
     </html>
-  `);
-});
+  `)
+})
 
 // ---------------------------------------------------------------------------
 // GET /catalog
 // ---------------------------------------------------------------------------
 router.get(routes.catalog, async (context) => {
-	const url = new URL(context.request.url);
-	const typeFilter = url.searchParams.get("type") ?? "";
-	const query = url.searchParams.get("q") ?? "";
+	const url = new URL(context.request.url)
+	const typeFilter = url.searchParams.get('type') ?? ''
+	const query = url.searchParams.get('q') ?? ''
 
-	const session = await getSession(context.request);
+	const session = await getSession(context.request)
 	const [catalog, entries] = await Promise.all([
 		session ? fetchCatalog(session.token, session.gistId!) : guestCatalog,
 		session ? fetchEtfs(session.token, session.gistId!) : guestEntries,
-	]);
+	])
 
-	return renderCatalogPage(catalog, entries, session, typeFilter, query);
-});
+	return renderCatalogPage(catalog, entries, session, typeFilter, query)
+})
 
 // ---------------------------------------------------------------------------
 // POST /catalog/import
 // ---------------------------------------------------------------------------
 router.post(routes.importCatalog, async (context) => {
-	const form = context.formData;
-	if (!form) return createRedirectResponse(routes.catalog.href());
+	const form = context.formData
+	if (!form) return createRedirectResponse(routes.catalog.href())
 
-	const file = form.get("csvFile");
-	if (!file || typeof file === "string")
-		return createRedirectResponse(routes.catalog.href());
+	const file = form.get('csvFile')
+	if (!file || typeof file === 'string')
+		return createRedirectResponse(routes.catalog.href())
 
-	const csvText = await (file as Blob).text();
-	const imported = parseCsvToCatalog(csvText);
+	const csvText = await (file as Blob).text()
+	const imported = parseCsvToCatalog(csvText)
 	if (imported.length === 0)
-		return createRedirectResponse(routes.catalog.href());
+		return createRedirectResponse(routes.catalog.href())
 
-	const session = await getSession(context.request);
+	const session = await getSession(context.request)
 	if (session) {
-		await saveCatalog(session.token, session.gistId!, imported);
+		await saveCatalog(session.token, session.gistId!, imported)
 	} else {
-		guestCatalog = imported;
+		guestCatalog = imported
 	}
 
-	return createRedirectResponse(routes.catalog.href());
-});
+	return createRedirectResponse(routes.catalog.href())
+})
 
 // ---------------------------------------------------------------------------
 // Page renderers
 // ---------------------------------------------------------------------------
 const ETF_TYPES: EtfType[] = [
-	"equity",
-	"bond",
-	"real_estate",
-	"commodity",
-	"mixed",
-	"money_market",
-];
+	'equity',
+	'bond',
+	'real_estate',
+	'commodity',
+	'mixed',
+	'money_market',
+]
 
 function renderGuidelinesPage(
 	guidelines: EtfGuideline[],
 	session: SessionData | null,
 ) {
-	const totalPct = guidelines.reduce((sum, g) => sum + g.targetPct, 0);
-	const remaining = Math.max(0, 100 - totalPct);
+	const totalPct = guidelines.reduce((sum, g) => sum + g.targetPct, 0)
+	const remaining = Math.max(0, 100 - totalPct)
 
 	const listContent =
 		guidelines.length === 0
@@ -490,7 +490,7 @@ function renderGuidelinesPage(
             </li>
           `,
 					)}
-        </ul>`;
+        </ul>`
 
 	return createHtmlResponse(html`
     <!doctype html>
@@ -574,7 +574,7 @@ function renderGuidelinesPage(
             <div>
               <h1 class="text-2xl font-bold tracking-tight text-card-foreground">Investment Guidelines</h1>
               <p class="mt-1 text-sm text-muted-foreground">
-                Set your target allocation. ${session ? "Saved to your private GitHub Gist." : "Sign in to persist across sessions."}
+                Set your target allocation. ${session ? 'Saved to your private GitHub Gist.' : 'Sign in to persist across sessions.'}
               </p>
             </div>
             <a href="${routes.home.href()}" class="text-sm text-muted-foreground underline underline-offset-4 hover:text-foreground shrink-0">
@@ -616,7 +616,7 @@ function renderGuidelinesPage(
                   name="etfType"
                   class="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  ${ETF_TYPES.map((t) => `<option value="${t}">${t.replace("_", " ")}</option>`).join("")}
+                  ${ETF_TYPES.map((t) => `<option value="${t}">${t.replace('_', ' ')}</option>`).join('')}
                 </select>
               </div>
             </div>
@@ -646,18 +646,18 @@ function renderGuidelinesPage(
         </script>
       </body>
     </html>
-  `);
+  `)
 }
 
 function formatValue(value: number, currency: string): string {
 	try {
-		return new Intl.NumberFormat("en-US", {
-			style: "currency",
+		return new Intl.NumberFormat('en-US', {
+			style: 'currency',
 			currency,
 			maximumFractionDigits: 2,
-		}).format(value);
+		}).format(value)
 	} catch {
-		return `${value} ${currency}`;
+		return `${value} ${currency}`
 	}
 }
 
@@ -755,7 +755,7 @@ function pageShell(
         </script>
       </body>
     </html>
-  `;
+  `
 }
 
 function themeToggleButton() {
@@ -773,7 +773,7 @@ function themeToggleButton() {
         <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
       </svg>
     </button>
-  `;
+  `
 }
 
 function renderCatalogPage(
@@ -785,21 +785,21 @@ function renderCatalogPage(
 ) {
 	const holdingsByTicker = new Map(
 		holdings.map((e) => [e.name.toUpperCase(), e]),
-	);
+	)
 
 	const filtered = catalog.filter((entry) => {
-		const matchesType = !typeFilter || entry.type === typeFilter;
-		const lq = query.toLowerCase();
+		const matchesType = !typeFilter || entry.type === typeFilter
+		const lq = query.toLowerCase()
 		const matchesQuery =
 			!query ||
 			entry.ticker.toLowerCase().includes(lq) ||
 			entry.name.toLowerCase().includes(lq) ||
-			entry.description.toLowerCase().includes(lq);
-		return matchesType && matchesQuery;
-	});
+			entry.description.toLowerCase().includes(lq)
+		return matchesType && matchesQuery
+	})
 
-	const ownedInCatalog = filtered.filter((e) => holdingsByTicker.has(e.ticker));
-	const restOfCatalog = filtered.filter((e) => !holdingsByTicker.has(e.ticker));
+	const ownedInCatalog = filtered.filter((e) => holdingsByTicker.has(e.ticker))
+	const restOfCatalog = filtered.filter((e) => !holdingsByTicker.has(e.ticker))
 
 	const tableHeaderRow = html`
     <tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -810,25 +810,25 @@ function renderCatalogPage(
       <th class="pb-2 pr-4">ISIN</th>
       <th class="pb-2">Value</th>
     </tr>
-  `;
+  `
 
 	function catalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 		const valueCell = holding
 			? html`<td class="py-2 pr-4 text-sm font-medium text-foreground">${formatValue(holding.value, holding.currency)}</td>`
-			: html`<td class="py-2 pr-4 text-sm text-muted-foreground">—</td>`;
+			: html`<td class="py-2 pr-4 text-sm text-muted-foreground">—</td>`
 
 		return html`
       <tr class="border-b border-border last:border-0 hover:bg-muted/40 transition-colors">
         <td class="py-2 pr-4 font-mono text-sm font-semibold">${entry.ticker}</td>
         <td class="py-2 pr-4 text-sm">${entry.name}</td>
         <td class="py-2 pr-4">
-          <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">${entry.type.replace("_", " ")}</span>
+          <span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">${entry.type.replace('_', ' ')}</span>
         </td>
-        <td class="py-2 pr-4 text-sm text-muted-foreground max-w-xs truncate">${entry.description || "—"}</td>
-        <td class="py-2 pr-4 font-mono text-xs text-muted-foreground">${entry.isin ?? "—"}</td>
+        <td class="py-2 pr-4 text-sm text-muted-foreground max-w-xs truncate">${entry.description || '—'}</td>
+        <td class="py-2 pr-4 font-mono text-xs text-muted-foreground">${entry.isin ?? '—'}</td>
         ${valueCell}
       </tr>
-    `;
+    `
 	}
 
 	const holdingsSection =
@@ -850,7 +850,7 @@ function renderCatalogPage(
               </table>
             </div>
           </section>
-        `;
+        `
 
 	const allCatalogSection =
 		restOfCatalog.length === 0 && ownedInCatalog.length === 0
@@ -860,9 +860,9 @@ function renderCatalogPage(
 				: html`
             <section class="mt-6">
               <h2 class="text-base font-semibold tracking-tight text-card-foreground">
-                ${ownedInCatalog.length > 0 ? "Other Available ETFs" : "Available ETFs"}
+                ${ownedInCatalog.length > 0 ? 'Other Available ETFs' : 'Available ETFs'}
               </h2>
-              <p class="mt-0.5 text-xs text-muted-foreground">${restOfCatalog.length} ETF${restOfCatalog.length === 1 ? "" : "s"} listed.</p>
+              <p class="mt-0.5 text-xs text-muted-foreground">${restOfCatalog.length} ETF${restOfCatalog.length === 1 ? '' : 's'} listed.</p>
               <div class="mt-3 overflow-x-auto rounded-lg border border-border">
                 <table class="w-full table-auto border-collapse">
                   <thead class="bg-muted/40">
@@ -875,7 +875,7 @@ function renderCatalogPage(
                 </table>
               </div>
             </section>
-          `;
+          `
 
 	const emptyCatalogHint =
 		catalog.length === 0
@@ -890,7 +890,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
             Type aliases: <em>asset class</em>, <em>category</em>. Ticker aliases: <em>symbol</em>, <em>code</em>.</p>
           </div>
         `
-			: html``;
+			: html``
 
 	const filterForm =
 		catalog.length > 0
@@ -915,7 +915,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
                 class="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
                 <option value="">All types</option>
-                ${ETF_TYPES.map((t) => `<option value="${t}"${typeFilter === t ? " selected" : ""}>${t.replace("_", " ")}</option>`).join("")}
+                ${ETF_TYPES.map((t) => `<option value="${t}"${typeFilter === t ? ' selected' : ''}>${t.replace('_', ' ')}</option>`).join('')}
               </select>
             </div>
             <button
@@ -931,11 +931,11 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
 						}
           </form>
         `
-			: html``;
+			: html``
 
 	const storageNote = session
 		? html`<p class="mt-0.5 text-xs text-muted-foreground">Catalog saved to your private GitHub Gist.</p>`
-		: html`<p class="mt-0.5 text-xs text-muted-foreground">Sign in to persist catalog across sessions.</p>`;
+		: html`<p class="mt-0.5 text-xs text-muted-foreground">Sign in to persist catalog across sessions.</p>`
 
 	const body = html`
     <main class="mx-auto max-w-5xl rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -956,7 +956,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
       <section class="mt-6">
         <h2 class="text-base font-semibold tracking-tight text-card-foreground">Import CSV</h2>
         <p class="mt-0.5 text-xs text-muted-foreground">
-          Importing a new CSV replaces the current catalog (${catalog.length} ETF${catalog.length === 1 ? "" : "s"} stored).
+          Importing a new CSV replaces the current catalog (${catalog.length} ETF${catalog.length === 1 ? '' : 's'} stored).
         </p>
         <form
           method="post"
@@ -987,62 +987,62 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
       ${holdingsSection}
       ${allCatalogSection}
     </main>
-  `;
+  `
 
-	return createHtmlResponse(pageShell("AI Investor – ETF Catalog", body));
+	return createHtmlResponse(pageShell('AI Investor – ETF Catalog', body))
 }
 
 function renderPage(entries: EtfEntry[], session: SessionData | null) {
-	const etfNameInput = renderComponent("text-input", {
-		id: "etfName",
-		label: "ETF Name",
-		field_name: "etfName",
-		placeholder: "e.g. VTI",
-	});
+	const etfNameInput = renderComponent('text-input', {
+		id: 'etfName',
+		label: 'ETF Name',
+		field_name: 'etfName',
+		placeholder: 'e.g. VTI',
+	})
 
-	const valueInput = renderComponent("text-input", {
-		id: "value",
-		label: "Value",
-		field_name: "value",
-		placeholder: "e.g. 1200.50",
-	});
+	const valueInput = renderComponent('text-input', {
+		id: 'value',
+		label: 'Value',
+		field_name: 'value',
+		placeholder: 'e.g. 1200.50',
+	})
 
-	const currencySelect = renderComponent("select-input", {
-		id: "currency",
-		label: "Currency",
-		field_name: "currency",
+	const currencySelect = renderComponent('select-input', {
+		id: 'currency',
+		label: 'Currency',
+		field_name: 'currency',
 		children: [
-			"USD",
-			"EUR",
-			"GBP",
-			"CHF",
-			"PLN",
-			"JPY",
-			"CAD",
-			"AUD",
-			"SEK",
-			"NOK",
+			'USD',
+			'EUR',
+			'GBP',
+			'CHF',
+			'PLN',
+			'JPY',
+			'CAD',
+			'AUD',
+			'SEK',
+			'NOK',
 		]
 			.map((c) => `<option value="${c}">${c}</option>`)
-			.join(""),
-	});
+			.join(''),
+	})
 
-	const addButton = renderComponent("submit-button", { children: "Add ETF" });
+	const addButton = renderComponent('submit-button', { children: 'Add ETF' })
 
 	const listContent =
 		entries.length === 0
 			? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs added yet.</p>`
 			: html`<ul class="mt-4 grid gap-2">
           ${entries.map((entry) => {
-						const badge = renderComponent("badge", {
+						const badge = renderComponent('badge', {
 							children: formatValue(entry.value, entry.currency),
-						});
-						return renderComponent("etf-card", {
+						})
+						return renderComponent('etf-card', {
 							name: entry.name,
 							badge: String(badge),
-						});
+						})
 					})}
-        </ul>`;
+        </ul>`
 
 	const authSection = session
 		? html`
@@ -1068,13 +1068,13 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
           </svg>
           Sign in with GitHub
         </a>
-      `;
+      `
 
 	const storageNote = session
 		? html`<p class="mt-1 text-xs text-muted-foreground">Saved to your private GitHub Gist</p>`
 		: html`<p class="mt-1 text-xs text-muted-foreground">
         Sign in to persist your data across sessions
-      </p>`;
+      </p>`
 
 	return createHtmlResponse(
 		html`
@@ -1244,6 +1244,6 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
       </body>
     </html>
   `,
-		{ headers: { "Cache-Control": "no-store" } },
-	);
+		{ headers: { 'Cache-Control': 'no-store' } },
+	)
 }

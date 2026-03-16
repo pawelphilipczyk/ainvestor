@@ -1,10 +1,10 @@
-import { readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { readFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
-import { html } from "remix/html-template";
+import { html } from 'remix/html-template'
 
-const componentsDir = join(dirname(fileURLToPath(import.meta.url)));
+const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 
 /**
  * Reads a component HTML file and replaces {{ placeholder }} tokens with
@@ -15,12 +15,12 @@ export function renderComponent(
 	name: string,
 	slots: Record<string, string> = {},
 ) {
-	const filePath = join(componentsDir, `${name}.html`);
-	let template = readFileSync(filePath, "utf-8");
+	const filePath = join(componentsDir, `${name}.html`)
+	let template = readFileSync(filePath, 'utf-8')
 
 	for (const [key, value] of Object.entries(slots)) {
-		template = template.replaceAll(`{{ ${key} }}`, value);
+		template = template.replaceAll(`{{ ${key} }}`, value)
 	}
 
-	return html.raw`${template}`;
+	return html.raw`${template}`
 }
