@@ -278,5 +278,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
     </main>
   `
 
-	return createHtmlResponse(pageShell('AI Investor – ETF Catalog', session, 'catalog', body))
+	return createHtmlResponse(
+		pageShell('AI Investor – ETF Catalog', session, 'catalog', body),
+	)
 }

@@ -95,8 +95,16 @@ export function appSidebar(
 		label: string
 		page: 'portfolio' | 'guidelines' | 'catalog'
 	}> = [
-		{ href: routes.portfolio.index.href(), label: 'Portfolio', page: 'portfolio' },
-		{ href: routes.catalog.index.href(), label: 'ETF Catalog', page: 'catalog' },
+		{
+			href: routes.portfolio.index.href(),
+			label: 'Portfolio',
+			page: 'portfolio',
+		},
+		{
+			href: routes.catalog.index.href(),
+			label: 'ETF Catalog',
+			page: 'catalog',
+		},
 		{
 			href: routes.guidelines.index.href(),
 			label: 'Investment Guidelines',

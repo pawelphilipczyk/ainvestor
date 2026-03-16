@@ -52,7 +52,7 @@ export const portfolioController = {
 				? parseFloat(rawValue.replace(/,/g, ''))
 				: NaN
 
-		if (name.length === 0 || isNaN(value) || value < 0) {
+		if (name.length === 0 || Number.isNaN(value) || value < 0) {
 			return createRedirectResponse(routes.portfolio.index.href())
 		}
 
@@ -183,7 +183,10 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
     </main>
   `
 
-	return createHtmlResponse(pageShell('AI Investor', session, 'portfolio', body), {
-		headers: { 'Cache-Control': 'no-store' },
-	})
+	return createHtmlResponse(
+		pageShell('AI Investor', session, 'portfolio', body),
+		{
+			headers: { 'Cache-Control': 'no-store' },
+		},
+	)
 }

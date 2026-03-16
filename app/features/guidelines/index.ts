@@ -44,7 +44,12 @@ export const guidelinesController = {
 		const targetPct = typeof rawPct === 'string' ? parseFloat(rawPct) : NaN
 		const etfType = (form.get('etfType') as EtfType | null) ?? 'equity'
 
-		if (!etfName || isNaN(targetPct) || targetPct <= 0 || targetPct > 100) {
+		if (
+			!etfName ||
+			Number.isNaN(targetPct) ||
+			targetPct <= 0 ||
+			targetPct > 100
+		) {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
 
@@ -189,5 +194,7 @@ function renderGuidelinesPage(
     </main>
   `
 
-	return createHtmlResponse(pageShell('AI Investor – Guidelines', session, 'guidelines', body))
+	return createHtmlResponse(
+		pageShell('AI Investor – Guidelines', session, 'guidelines', body),
+	)
 }
