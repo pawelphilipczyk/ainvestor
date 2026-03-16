@@ -15,7 +15,12 @@
     <p class="mb-4 text-sm text-card-foreground">Remove <strong>{{ name }}</strong> from your portfolio?</p>
     <div class="flex justify-end gap-2">
       <form method="dialog">
-        <button type="submit" class="rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent">Cancel</button>
+        <button
+          type="submit"
+          class="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-card-foreground transition-colors hover:bg-accent"
+        >
+          Cancel
+        </button>
       </form>
       <form method="post" action="{{ delete_href }}">
         <input type="hidden" name="_method" value="DELETE" />
