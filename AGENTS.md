@@ -2,11 +2,11 @@
 
 This repository uses a server-first UI architecture. Before making UI-related changes, read:
 
-- `UI_ARCHITECTURE_GUIDELINES.md`
+- `docs/UI_ARCHITECTURE_GUIDELINES.md`
 
 Before making Remix framework changes, read:
 
-- `REMIX_V3_PACKAGES.md`
+- `docs/REMIX_V3_PACKAGES.md`
 
 ## Required defaults for UI work
 
@@ -34,6 +34,6 @@ Before making Remix framework changes, read:
 
 ## Scope rules
 
-- When a task involves UI implementation, patterns in `UI_ARCHITECTURE_GUIDELINES.md` are the source of truth.
-- When a task involves Remix routing, sessions, middleware, or HTTP utilities, `REMIX_V3_PACKAGES.md` is the reference.
+- When a task involves UI implementation, patterns in `docs/UI_ARCHITECTURE_GUIDELINES.md` are the source of truth.
+- When a task involves Remix routing, sessions, middleware, or HTTP utilities, `docs/REMIX_V3_PACKAGES.md` is the reference.
 - Islands that are feature-specific live next to the feature HTML (`.island.js` suffix). Shared islands live in `app/islands/`.
