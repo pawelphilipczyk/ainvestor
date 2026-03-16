@@ -6,17 +6,17 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 
 import { renderComponent } from './components/render.ts'
-import { fetchEtfs, findOrCreateGist, saveEtfs } from './lib/gist.ts'
+import { fetchEtfs, saveEtfs } from './lib/gist.ts'
 import type { EtfEntry } from './lib/gist.ts'
 import { fetchGuidelines, saveGuidelines } from './lib/guidelines.ts'
 import type { EtfGuideline, EtfType } from './lib/guidelines.ts'
 import { fetchCatalog, saveCatalog, parseCsvToCatalog } from './lib/catalog.ts'
 import type { CatalogEntry } from './lib/catalog.ts'
-import { clearSessionCookie, createSessionCookie } from './lib/session.ts'
 import { createDefaultClient, getInvestmentAdvice } from './openai.ts'
 import type { AdviceClient } from './openai.ts'
 import { routes } from './routes.ts'
-import { getClientId, getClientSecret, getSession, getSessionSecret, ETF_TYPES, formatValue, pageShell, themeToggleButton } from './features/shared/index.ts'
+import { getSession, ETF_TYPES, formatValue, pageShell, themeToggleButton } from './features/shared/index.ts'
+import { authController } from './features/auth/index.ts'
 
 // ---------------------------------------------------------------------------
 // In-memory fallback (used when user is not logged in, preserved for tests)
@@ -97,79 +97,9 @@ router.post(routes.portfolio.create, async context => {
 })
 
 // ---------------------------------------------------------------------------
-// GET /auth/github  — redirect to GitHub OAuth
+// Auth routes
 // ---------------------------------------------------------------------------
-router.get(routes.auth.login, () => {
-  const clientId = getClientId()
-  if (!clientId) {
-    return new Response('GH_CLIENT_ID is not configured', { status: 500 })
-  }
-  const params = new URLSearchParams({ client_id: clientId, scope: 'gist' })
-  return createRedirectResponse(`https://github.com/login/oauth/authorize?${params}`)
-})
-
-// ---------------------------------------------------------------------------
-// GET /auth/github/callback  — exchange code for token, set session cookie
-// ---------------------------------------------------------------------------
-router.get(routes.auth.callback, async context => {
-  const url = new URL(context.request.url)
-  const code = url.searchParams.get('code')
-  if (!code) return createRedirectResponse(routes.portfolio.index.href())
-
-  const tokenRes = await fetch('https://github.com/login/oauth/access_token', {
-    method: 'POST',
-    headers: {
-      Accept: 'application/json',
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      client_id: getClientId(),
-      client_secret: getClientSecret(),
-      code,
-    }),
-  })
-
-  if (!tokenRes.ok) return createRedirectResponse(routes.portfolio.index.href())
-  const tokenData = (await tokenRes.json()) as { access_token?: string; error?: string }
-  const token = tokenData.access_token
-  if (!token) return createRedirectResponse(routes.portfolio.index.href())
-
-  const userRes = await fetch('https://api.github.com/user', {
-    headers: {
-      Authorization: `Bearer ${token}`,
-      Accept: 'application/vnd.github+json',
-    },
-  })
-  const user = (await userRes.json()) as { login: string }
-
-  const gistId = await findOrCreateGist(token)
-
-  const sessionCookie = await createSessionCookie(
-    { token, gistId, login: user.login },
-    getSessionSecret(),
-  )
-
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: routes.portfolio.index.href(),
-      'Set-Cookie': sessionCookie,
-    },
-  })
-})
-
-// ---------------------------------------------------------------------------
-// POST /auth/logout
-// ---------------------------------------------------------------------------
-router.post(routes.auth.logout, () => {
-  return new Response(null, {
-    status: 302,
-    headers: {
-      Location: routes.portfolio.index.href(),
-      'Set-Cookie': clearSessionCookie(),
-    },
-  })
-})
+router.map(routes.auth, authController)
 
 // ---------------------------------------------------------------------------
 // GET /guidelines
