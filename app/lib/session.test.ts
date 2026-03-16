@@ -15,9 +15,10 @@ describe('session', () => {
 		session.set('login', 'octocat')
 
 		const value = await sessionStorage.save(session)
-		assert.ok(value != null, 'dirty session should produce a save value')
+		if (value == null)
+			throw new Error('dirty session should produce a save value')
 
-		const header = await sessionCookie.serialize(value!)
+		const header = await sessionCookie.serialize(value)
 		const parsed = await sessionCookie.parse(header)
 		const session2 = await sessionStorage.read(parsed)
 
@@ -40,9 +41,10 @@ describe('session', () => {
 		const session = await sessionStorage.read(null)
 		session.set('token', 'ghp_test')
 		const value = await sessionStorage.save(session)
-		const header = await sessionCookie.serialize(value!)
+		if (value == null) throw new Error('expected a save value')
 
-		// Tamper: strip the HMAC signature
+		// Produce the signed Set-Cookie header, then tamper with the signature
+		const header = await sessionCookie.serialize(value)
 		const tamperedHeader = header.replace(/\.[^;]+/, '.XXXX')
 		const parsed = await sessionCookie.parse(tamperedHeader)
 		assert.equal(parsed, null, 'tampered cookie should not parse')
@@ -52,7 +54,9 @@ describe('session', () => {
 		const session = await sessionStorage.read(null)
 		session.set('token', 'test')
 		const value = await sessionStorage.save(session)
-		const header = await sessionCookie.serialize(value!)
+		if (value == null) throw new Error('expected a save value')
+
+		const header = await sessionCookie.serialize(value)
 		assert.ok(header.includes('HttpOnly'), 'cookie should be HttpOnly')
 	})
 
@@ -60,7 +64,9 @@ describe('session', () => {
 		const session = await sessionStorage.read(null)
 		session.set('token', 'test')
 		const value = await sessionStorage.save(session)
-		const header = await sessionCookie.serialize(value!)
+		if (value == null) throw new Error('expected a save value')
+
+		const header = await sessionCookie.serialize(value)
 		assert.ok(
 			header.toLowerCase().includes('samesite=lax'),
 			'cookie should have SameSite=lax',
@@ -71,8 +77,10 @@ describe('session', () => {
 		const session = await sessionStorage.read(null)
 		session.destroy()
 		const value = await sessionStorage.save(session)
-		assert.ok(value != null)
-		const header = await sessionCookie.serialize(value!)
+		if (value == null)
+			throw new Error('expected a save value for destroyed session')
+
+		const header = await sessionCookie.serialize(value)
 		assert.ok(
 			header.includes('session=;') || header.includes('Max-Age=0'),
 			'destroyed session should clear the cookie',

@@ -1,8 +1,8 @@
+import { object, parseSafe, string } from 'remix/data-schema'
+import { minLength } from 'remix/data-schema/checks'
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import type { Session } from 'remix/session'
-import { object, parseSafe, string } from 'remix/data-schema'
-import { minLength } from 'remix/data-schema/checks'
 
 import { fetchEtfs } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
@@ -39,7 +39,12 @@ export async function adviceHandler(context: {
 		return new Response('Bad request', { status: 400 })
 	}
 
-	const result = parseSafe(AdviceSchema, Object.fromEntries(form as unknown as Iterable<[string, FormDataEntryValue]>))
+	const result = parseSafe(
+		AdviceSchema,
+		Object.fromEntries(
+			form as unknown as Iterable<[string, FormDataEntryValue]>,
+		),
+	)
 	if (!result.success) {
 		return new Response('cashAmount is required', { status: 400 })
 	}

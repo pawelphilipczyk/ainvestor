@@ -1,10 +1,10 @@
+import { object, parseSafe, string } from 'remix/data-schema'
+import { min, minLength } from 'remix/data-schema/checks'
+import * as coerce from 'remix/data-schema/coerce'
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
-import { object, parseSafe, string } from 'remix/data-schema'
-import { min, minLength } from 'remix/data-schema/checks'
-import * as coerce from 'remix/data-schema/coerce'
 
 import { renderComponent } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
@@ -52,7 +52,9 @@ export const portfolioController = {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.portfolio.index.href())
 
-		const raw = Object.fromEntries(form as unknown as Iterable<[string, FormDataEntryValue]>)
+		const raw = Object.fromEntries(
+			form as unknown as Iterable<[string, FormDataEntryValue]>,
+		)
 		if (typeof raw.value === 'string') {
 			raw.value = raw.value.replace(/,/g, '')
 		}

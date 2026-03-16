@@ -1,10 +1,10 @@
+import { enum_, object, optional, parseSafe, string } from 'remix/data-schema'
+import { max, min, minLength } from 'remix/data-schema/checks'
+import * as coerce from 'remix/data-schema/coerce'
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
-import { enum_, object, optional, parseSafe, string } from 'remix/data-schema'
-import { max, min, minLength } from 'remix/data-schema/checks'
-import * as coerce from 'remix/data-schema/coerce'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
 import { fetchGuidelines, saveGuidelines } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
@@ -59,7 +59,12 @@ export const guidelinesController = {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
-		const result = parseSafe(CreateGuidelineSchema, Object.fromEntries(form as unknown as Iterable<[string, FormDataEntryValue]>))
+		const result = parseSafe(
+			CreateGuidelineSchema,
+			Object.fromEntries(
+				form as unknown as Iterable<[string, FormDataEntryValue]>,
+			),
+		)
 		if (!result.success) {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
@@ -83,7 +88,11 @@ export const guidelinesController = {
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
-	async delete(context: { request: Request; session: Session; params: unknown }) {
+	async delete(context: {
+		request: Request
+		session: Session
+		params: unknown
+	}) {
 		const id = (context.params as Record<string, string>).id
 		if (!id) return createRedirectResponse(routes.guidelines.index.href())
 

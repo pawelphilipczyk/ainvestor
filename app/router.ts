@@ -1,5 +1,5 @@
-import { createRouter } from 'remix/fetch-router'
 import { compression } from 'remix/compression-middleware'
+import { createRouter } from 'remix/fetch-router'
 import { formData } from 'remix/form-data-middleware'
 import { logger } from 'remix/logger-middleware'
 import { methodOverride } from 'remix/method-override-middleware'
@@ -36,8 +36,20 @@ const islands = staticFiles('app', {
 export const router = createRouter({
 	middleware:
 		process.env.NODE_ENV === 'development'
-			? [islands, logger(), formData(), methodOverride(), session(sessionCookie, sessionStorage)]
-			: [islands, compression(), formData(), methodOverride(), session(sessionCookie, sessionStorage)],
+			? [
+					islands,
+					logger(),
+					formData(),
+					methodOverride(),
+					session(sessionCookie, sessionStorage),
+				]
+			: [
+					islands,
+					compression(),
+					formData(),
+					methodOverride(),
+					session(sessionCookie, sessionStorage),
+				],
 })
 
 router.get(routes.health, () => {
