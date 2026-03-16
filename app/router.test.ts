@@ -1,7 +1,11 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
-import { router, resetEtfEntries, resetGuestGuidelines, resetGuestCatalog, setAdviceClient } from './router.ts'
+import { router } from './router.ts'
+import { resetEtfEntries } from './features/portfolio/index.ts'
+import { resetGuestGuidelines } from './features/guidelines/index.ts'
+import { resetGuestCatalog } from './features/catalog/index.ts'
+import { setAdviceClient } from './features/advice/index.ts'
 import type { AdviceClient } from './openai.ts'
 
 function makeMockClient(responseText: string): AdviceClient {
