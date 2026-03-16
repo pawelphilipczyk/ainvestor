@@ -93,7 +93,7 @@ describe('Guidelines page', () => {
 		const listBody = await listResponse.text()
 		const idMatch = listBody.match(/\/guidelines\/([^/]+)\/delete/)
 		assert.ok(idMatch, 'delete link should be present')
-		const id = idMatch![1]
+		const id = idMatch[1]
 
 		const deleteResponse = await router.fetch(
 			new Request(`http://localhost/guidelines/${id}/delete`, {

@@ -26,8 +26,8 @@ export function getGuestGuidelines(): EtfGuideline[] {
 export const guidelinesController = {
 	async index(context: { request: Request }) {
 		const session = await getSession(context.request)
-		const guidelines = session
-			? await fetchGuidelines(session.token, session.gistId!)
+		const guidelines = session?.gistId
+			? await fetchGuidelines(session.token, session.gistId)
 			: guestGuidelines
 		return renderGuidelinesPage(guidelines, session)
 	},
@@ -61,9 +61,9 @@ export const guidelinesController = {
 		}
 		const session = await getSession(context.request)
 
-		if (session) {
-			const current = await fetchGuidelines(session.token, session.gistId!)
-			await saveGuidelines(session.token, session.gistId!, [entry, ...current])
+		if (session?.gistId) {
+			const current = await fetchGuidelines(session.token, session.gistId)
+			await saveGuidelines(session.token, session.gistId, [entry, ...current])
 		} else {
 			guestGuidelines = [entry, ...guestGuidelines]
 		}
@@ -77,11 +77,11 @@ export const guidelinesController = {
 
 		const session = await getSession(context.request)
 
-		if (session) {
-			const current = await fetchGuidelines(session.token, session.gistId!)
+		if (session?.gistId) {
+			const current = await fetchGuidelines(session.token, session.gistId)
 			await saveGuidelines(
 				session.token,
-				session.gistId!,
+				session.gistId,
 				current.filter((g) => g.id !== id),
 			)
 		} else {

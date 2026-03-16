@@ -23,7 +23,7 @@ describe('session', () => {
 		// Extract just the raw cookie value (between "session=" and the first ";")
 		const value = setCookie.split('=').slice(1).join('=').split(';')[0]
 		// Tamper with the last 4 characters of the value (the signature portion)
-		const tampered = value.slice(0, -4) + 'XXXX'
+		const tampered = `${value.slice(0, -4)}XXXX`
 
 		const parsed = await parseSessionCookie(`session=${tampered}`, secret)
 		assert.equal(parsed, null)

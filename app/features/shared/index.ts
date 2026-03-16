@@ -1,4 +1,5 @@
 import { html } from 'remix/html-template'
+import { renderComponent } from '../../components/render.ts'
 import type { EtfType } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { parseSessionCookie } from '../../lib/session.ts'
@@ -114,11 +115,12 @@ export function appSidebar(
 
 	const navItems = navLinks.map((link) => {
 		const isCurrent = link.page === currentPage
+		const ariaCurrent = isCurrent ? html.raw`aria-current="page"` : html.raw``
 		return html`
       <a
         href="${link.href}"
         class="flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${isCurrent ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent hover:text-accent-foreground'}"
-        ${isCurrent ? 'aria-current="page"' : ''}
+        ${ariaCurrent}
       >
         ${link.label}
       </a>
@@ -153,41 +155,10 @@ export function appSidebar(
         </div>
       `
 
-	return html`
-    <div
-      id="sidebar-backdrop"
-      aria-hidden="true"
-      class="fixed inset-0 z-40 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200"
-    ></div>
-    <aside
-      id="app-sidebar"
-      aria-label="Main navigation"
-      class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-card transition-transform duration-200 ease-in-out"
-    >
-      <div class="flex items-center justify-between border-b border-border p-4">
-        <span class="text-sm font-semibold text-card-foreground">Navigation</span>
-        <button
-          data-sidebar-close
-          type="button"
-          aria-label="Close navigation"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="18" y1="6" x2="6" y2="18"/>
-            <line x1="6" y1="6" x2="18" y2="18"/>
-          </svg>
-        </button>
-      </div>
-      <nav class="flex-1 overflow-y-auto p-4">
-        <div class="grid gap-1">
-          ${navItems}
-        </div>
-        <div class="mt-4">
-          ${authAction}
-        </div>
-      </nav>
-    </aside>
-  `
+	return renderComponent('sidebar', {
+		nav_items: navItems.map(String).join(''),
+		auth_action: String(authAction),
+	})
 }
 
 // ---------------------------------------------------------------------------
@@ -275,7 +246,7 @@ export function pageShell(
           }
         </style>
       </head>
-      <body data-island="sidebar" class="min-h-screen bg-background font-sans text-foreground antialiased">
+      <body data-island="components/sidebar" class="min-h-screen bg-background font-sans text-foreground antialiased">
         ${appSidebar(session, currentPage)}
         ${appTopBar(session)}
         <div class="p-4">
@@ -284,7 +255,7 @@ export function pageShell(
         <script type="module">
           document.querySelectorAll('[data-island]').forEach(async (el) => {
             const name = el.dataset.island
-            const { mount } = await import('/islands/' + name + '.js')
+            const { mount } = await import('/' + name + '.island.js')
             mount(el)
           })
         </script>
@@ -294,19 +265,5 @@ export function pageShell(
 }
 
 export function themeToggleButton() {
-	return html`
-    <button
-      data-island="theme-toggle"
-      type="button"
-      aria-label="Toggle theme"
-      class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <svg class="h-4 w-4 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>
-      </svg>
-      <svg class="absolute h-4 w-4 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
-      </svg>
-    </button>
-  `
+	return renderComponent('theme-toggle')
 }

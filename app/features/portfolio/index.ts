@@ -28,8 +28,8 @@ export function getGuestEntries(): EtfEntry[] {
 export const portfolioController = {
 	async index(context: { request: Request }) {
 		const session = await getSession(context.request)
-		const entries = session
-			? await fetchEtfs(session.token, session.gistId!)
+		const entries = session?.gistId
+			? await fetchEtfs(session.token, session.gistId)
 			: guestEntries
 		return renderPage(entries, session)
 	},
@@ -59,9 +59,9 @@ export const portfolioController = {
 		const entry = { id: crypto.randomUUID(), name, value, currency }
 		const session = await getSession(context.request)
 
-		if (session) {
-			const current = await fetchEtfs(session.token, session.gistId!)
-			await saveEtfs(session.token, session.gistId!, [entry, ...current])
+		if (session?.gistId) {
+			const current = await fetchEtfs(session.token, session.gistId)
+			await saveEtfs(session.token, session.gistId, [entry, ...current])
 		} else {
 			guestEntries = [entry, ...guestEntries]
 		}
