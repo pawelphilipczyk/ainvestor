@@ -51,7 +51,7 @@ export const guidelinesController = {
 		return renderGuidelinesPage(guidelines, session)
 	},
 
-	async create(context: {
+	async action(context: {
 		request: Request
 		session: Session
 		formData: FormData | null
@@ -151,7 +151,7 @@ function renderGuidelinesPage(
         </p>
       </header>
 
-      <form method="post" action="${routes.guidelines.create.href()}" class="mt-6 grid gap-4">
+      <form method="post" action="${routes.guidelines.action.href()}" class="mt-6 grid gap-4">
         <div class="grid gap-2">
           <label for="etfName" class="text-sm font-medium">ETF / Asset Name</label>
           <input
