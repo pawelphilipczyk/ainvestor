@@ -180,53 +180,73 @@ Avoid custom JavaScript implementations if a native primitive exists.
 
 ## Interactive Components
 
-Interactive behaviors should be implemented as JavaScript islands.
+Interactive behaviors should be implemented as JavaScript islands. Each island attaches behavior to server-rendered HTML and is loaded only when its `data-island` attribute is present in the page.
 
-Directory:
+### Island Placement Rules
 
-```text
-app/islands/
-```
+Islands have two homes, depending on their scope:
 
-Example:
+**Shared islands** — reused across multiple features — live in the central directory:
 
 ```text
 app/islands/
-  modal.js
+  sidebar.js
+  theme-toggle.js
   dropdown.js
-  cart.js
 ```
 
-Each island attaches behavior to existing server-rendered HTML.
+**Feature-specific islands** — used by only one feature — live next to the feature HTML component that needs them, using an `.island.js` suffix:
 
-Example island module:
+```text
+app/features/portfolio/
+  etf-card.html
+  etf-card.island.js   ← behavior for this card only
+  badge.html
+
+app/features/guidelines/
+  inline-editor.html
+  inline-editor.island.js
+```
+
+This co-location rule keeps the interactive behavior close to the markup it enhances, making it easy to reason about and modify a feature in one place.
+
+### When to co-locate vs. centralize
+
+| Situation | Location |
+|---|---|
+| Behavior used in ≥ 2 features | `app/islands/` |
+| Behavior specific to one feature | `app/features/{feature}/{name}.island.js` |
+| Behavior specific to a shared component | `app/components/{name}.island.js` |
+
+### Island module interface
+
+All islands follow the same interface regardless of location:
 
 ```js
+// Any of: app/islands/*.js, app/features/**/*.island.js, app/components/*.island.js
 export function mount(el) {
-  const button = el.querySelector(".trigger")
-  const panel = el.querySelector(".panel")
+  const trigger = el.querySelector('.trigger')
+  const panel   = el.querySelector('.panel')
 
-  button.addEventListener("click", () => {
-    panel.classList.toggle("hidden")
+  trigger.addEventListener('click', () => {
+    panel.classList.toggle('hidden')
   })
 }
 ```
 
 ### Island Activation
 
-Interactive areas should declare themselves with `data-island`.
-
-Example:
+Interactive areas declare themselves with `data-island`, referencing the island module name:
 
 ```html
-<div data-island="dropdown">
-  ...
-</div>
+<!-- Shared island: app/islands/dropdown.js -->
+<div data-island="dropdown">...</div>
+
+<!-- Feature island: app/features/portfolio/etf-card.island.js -->
+<div data-island="portfolio/etf-card">...</div>
 ```
 
-The island loader initializes behavior only for those sections.
-
-This ensures JavaScript is loaded only where necessary.
+The island loader initializes behavior only for elements that declare `data-island`, ensuring JavaScript is loaded only where necessary.
 
 ---
 
@@ -259,9 +279,17 @@ app/
     button.html
     modal.html
     dropdown.html
+    dropdown.island.js   ← shared component islands live here
   islands/
-    dropdown.js
-    modal.js
+    sidebar.js           ← global/shared islands live here
+    theme-toggle.js
+  features/
+    portfolio/
+      etf-card.html
+      etf-card.island.js ← feature-specific island next to its HTML
+    guidelines/
+      inline-editor.html
+      inline-editor.island.js
   styles/
     tailwind.css
 ```
@@ -291,9 +319,28 @@ The UI architecture follows these principles:
 - Tailwind CSS for styling
 - Native browser UI primitives
 - Progressive enhancement
-- JavaScript islands for interaction
+- JavaScript islands for interaction (co-located with feature or shared component)
 
 This approach produces a UI that is fast, accessible, framework-independent, and aligned with Remix v3's server-first model.
+
+---
+
+## Remix v3 Alignment
+
+This architecture aligns with the packages available in `remix@next`. Key Remix v3 packages relevant to UI work:
+
+| Package | Role in this architecture |
+|---|---|
+| `remix/html-template` | XSS-safe `html` tag for all server-rendered HTML |
+| `remix/response/html` | `createHtmlResponse()` — wraps HTML with proper headers |
+| `remix/response/redirect` | `createRedirectResponse()` — post-form redirect |
+| `remix/static-middleware` | Serve CSS, JS islands, and other static assets |
+| `remix/component` | Advanced island system (JSX + `clientEntry` + `<Frame>`) — opt-in for richer interactivity |
+| `remix/interaction` | Type-safe DOM events for islands (`on()`, `createContainer()`) |
+
+The manual `data-island` + `mount(el)` pattern is the default. For components requiring more complex state or server-streaming (`<Frame>`), prefer `remix/component` over custom solutions.
+
+Refer to `REMIX_V3_PACKAGES.md` for the full package reference.
 
 ---
 
@@ -379,17 +426,32 @@ If the element's role is not obvious from the tag alone, add the appropriate `ro
 
 Interactivity belongs in a matching island file, not in the component partial.
 
-If the component needs behavior, create a corresponding island:
+If a **shared component** needs behavior, create a co-located island next to the component file:
 
 ```text
-app/components/dropdown.html   ← markup only
-app/islands/dropdown.js        ← behavior only
+app/components/dropdown.html       ← markup only
+app/components/dropdown.island.js  ← behavior for this shared component
 ```
+
+If a **feature component** needs behavior, create a co-located island next to the feature HTML file:
+
+```text
+app/features/portfolio/etf-card.html
+app/features/portfolio/etf-card.island.js
+```
+
+If behavior is used across multiple features, move the island to `app/islands/` instead.
 
 The island targets the component via `data-island`:
 
 ```html
+<!-- Shared component island -->
 <div data-island="dropdown" class="relative">
+  {{ children }}
+</div>
+
+<!-- Feature island -->
+<div data-island="portfolio/etf-card">
   {{ children }}
 </div>
 ```
