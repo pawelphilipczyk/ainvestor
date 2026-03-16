@@ -38,11 +38,11 @@ export async function adviceHandler(context: {
 	}
 
 	const session = await getSession(context.request)
-	const entries = session
-		? await fetchEtfs(session.token, session.gistId!)
+	const entries = session?.gistId
+		? await fetchEtfs(session.token, session.gistId)
 		: getGuestEntries()
-	const guidelines = session
-		? await fetchGuidelines(session.token, session.gistId!)
+	const guidelines = session?.gistId
+		? await fetchGuidelines(session.token, session.gistId)
 		: getGuestGuidelines()
 
 	const client = adviceClient ?? createDefaultClient()

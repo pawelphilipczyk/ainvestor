@@ -39,8 +39,8 @@ export const catalogController = {
 
 		const session = await getSession(context.request)
 		const [catalog, entries] = await Promise.all([
-			session ? fetchCatalog(session.token, session.gistId!) : guestCatalog,
-			session ? fetchEtfs(session.token, session.gistId!) : getGuestEntries(),
+			session?.gistId ? fetchCatalog(session.token, session.gistId) : guestCatalog,
+			session?.gistId ? fetchEtfs(session.token, session.gistId) : getGuestEntries(),
 		])
 
 		return renderCatalogPage(catalog, entries, session, typeFilter, query)
@@ -60,8 +60,8 @@ export const catalogController = {
 			return createRedirectResponse(routes.catalog.index.href())
 
 		const session = await getSession(context.request)
-		if (session) {
-			await saveCatalog(session.token, session.gistId!, imported)
+		if (session?.gistId) {
+			await saveCatalog(session.token, session.gistId, imported)
 		} else {
 			guestCatalog = imported
 		}

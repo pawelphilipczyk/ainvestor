@@ -55,7 +55,7 @@ describe('sidebar component', () => {
 	})
 
 	it('appSidebar() shows sign-out form when session is provided', () => {
-		const result = String(appSidebar({ login: 'alice', token: 'tok' }, 'portfolio'))
+		const result = String(appSidebar({ login: 'alice', token: 'tok', gistId: null }, 'portfolio'))
 		assert.match(result, /Sign out/)
 		assert.match(result, /@alice/)
 	})
