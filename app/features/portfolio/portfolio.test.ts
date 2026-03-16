@@ -18,6 +18,32 @@ describe('Health endpoint', () => {
 	})
 })
 
+describe('Island loader in page shell', () => {
+	it('body has data-island="sidebar" so the island loader activates it', async () => {
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+
+		assert.match(body, /<body[^>]*data-island="sidebar"/)
+	})
+
+	it('page shell includes an island loader script', async () => {
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+
+		assert.match(body, /data-island/)
+		assert.match(body, /\/islands\//)
+	})
+
+	it('page shell does not contain inline sidebar or theme-toggle logic', async () => {
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+
+		assert.doesNotMatch(body, /openSidebar/)
+		assert.doesNotMatch(body, /closeSidebar/)
+		assert.doesNotMatch(body, /localStorage\.setItem\('theme'/)
+	})
+})
+
 describe('Island static files', () => {
 	it('GET /islands/sidebar.js serves the sidebar island', async () => {
 		const response = await router.fetch('http://localhost/islands/sidebar.js')
