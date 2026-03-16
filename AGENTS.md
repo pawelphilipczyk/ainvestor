@@ -8,6 +8,10 @@ Before making Remix framework changes, read:
 
 - `docs/REMIX_V3_PACKAGES.md`
 
+Before writing any JS/TS/CSS code, read:
+
+- `docs/BIOME_RULES.md`
+
 ## Required defaults for UI work
 
 1. Follow semantic HTML first.
@@ -36,4 +40,5 @@ Before making Remix framework changes, read:
 
 - When a task involves UI implementation, patterns in `docs/UI_ARCHITECTURE_GUIDELINES.md` are the source of truth.
 - When a task involves Remix routing, sessions, middleware, or HTTP utilities, `docs/REMIX_V3_PACKAGES.md` is the reference.
+- For all JS/TS/CSS formatting and lint rules, `docs/BIOME_RULES.md` is the reference. Run `npm run check` before committing.
 - Islands that are feature-specific live next to the feature HTML (`.island.js` suffix). Shared islands live in `app/islands/`.
