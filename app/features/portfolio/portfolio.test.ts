@@ -131,6 +131,25 @@ describe('Portfolio page', () => {
 		assert.match(islandBody, /addEventListener\('click'/)
 	})
 
+	it('uses explicit readable colors for the sell confirmation cancel button', async () => {
+		const form = new FormData()
+		form.set('etfName', 'VTI')
+		form.set('value', '1000')
+		form.set('currency', 'USD')
+
+		await router.fetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+		)
+
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+
+		assert.match(
+			body,
+			/<button\s+type="submit"\s+class="[^"]*bg-background[^"]*text-card-foreground[^"]*"[\s\S]*?>\s*Cancel\s*<\/button>/,
+		)
+	})
+
 	it('DELETE /etfs/:id removes the ETF via method override', async () => {
 		const form = new FormData()
 		form.set('etfName', 'VTI')
