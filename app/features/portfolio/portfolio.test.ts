@@ -135,7 +135,8 @@ describe('Portfolio page', () => {
 		assert.match(componentBody, /clientEntry/)
 		assert.match(componentBody, /from 'remix\/component'/)
 		assert.match(componentBody, /from 'remix\/interaction'/)
-		assert.match(componentBody, /on\(document,/)
+		assert.match(componentBody, /ownerDocument/)
+		assert.match(componentBody, /on\(doc,/)
 	})
 
 	it('uses explicit readable colors for the sell confirmation cancel button', async () => {

@@ -1,34 +1,20 @@
 import { clientEntry, createElement } from 'remix/component'
 import { on } from 'remix/interaction'
 
-function openSidebar() {
-	const sidebar = document.querySelector('#app-sidebar')
-	const backdrop = document.querySelector('#sidebar-backdrop')
-	const sidebarToggle = document.querySelector('[data-sidebar-toggle]')
-	if (!(sidebar instanceof HTMLElement) || !(backdrop instanceof HTMLElement)) {
-		return
-	}
-
+function openSidebar(sidebar, backdrop, sidebarToggle, doc) {
 	sidebar.classList.remove('-translate-x-full')
 	backdrop.classList.remove('opacity-0', 'pointer-events-none')
 	backdrop.classList.add('opacity-100')
-	sidebarToggle?.setAttribute('aria-expanded', 'true')
-	document.body.style.overflow = 'hidden'
+	sidebarToggle.setAttribute('aria-expanded', 'true')
+	doc.body.style.overflow = 'hidden'
 }
 
-function closeSidebar() {
-	const sidebar = document.querySelector('#app-sidebar')
-	const backdrop = document.querySelector('#sidebar-backdrop')
-	const sidebarToggle = document.querySelector('[data-sidebar-toggle]')
-	if (!(sidebar instanceof HTMLElement) || !(backdrop instanceof HTMLElement)) {
-		return
-	}
-
+function closeSidebar(sidebar, backdrop, sidebarToggle, doc) {
 	sidebar.classList.add('-translate-x-full')
 	backdrop.classList.add('opacity-0', 'pointer-events-none')
 	backdrop.classList.remove('opacity-100')
-	sidebarToggle?.setAttribute('aria-expanded', 'false')
-	document.body.style.overflow = ''
+	sidebarToggle.setAttribute('aria-expanded', 'false')
+	doc.body.style.overflow = ''
 }
 
 export const SidebarInteractions = clientEntry(
@@ -39,15 +25,26 @@ export const SidebarInteractions = clientEntry(
 				hidden: true,
 				'aria-hidden': 'true',
 				'data-component': 'sidebar-interactions',
-				connect: (_node, signal) => {
-					if (typeof document === 'undefined') return
-					const dispose = on(document, {
+				connect: (node, signal) => {
+					const doc = node.ownerDocument
+					const sidebar = doc.querySelector('#app-sidebar')
+					const backdrop = doc.querySelector('#sidebar-backdrop')
+					const sidebarToggle = doc.querySelector('[data-sidebar-toggle]')
+					if (
+						!(sidebar instanceof HTMLElement) ||
+						!(backdrop instanceof HTMLElement) ||
+						!(sidebarToggle instanceof HTMLElement)
+					) {
+						return
+					}
+
+					const dispose = on(doc, {
 						click(event) {
 							const target = event.target
 							if (!(target instanceof Element)) return
 
 							if (target.closest('[data-sidebar-toggle]')) {
-								openSidebar()
+								openSidebar(sidebar, backdrop, sidebarToggle, doc)
 								return
 							}
 
@@ -55,11 +52,13 @@ export const SidebarInteractions = clientEntry(
 								target.closest('[data-sidebar-close]') ||
 								target.closest('#sidebar-backdrop')
 							) {
-								closeSidebar()
+								closeSidebar(sidebar, backdrop, sidebarToggle, doc)
 							}
 						},
 						keydown(event) {
-							if (event.key === 'Escape') closeSidebar()
+							if (event.key === 'Escape') {
+								closeSidebar(sidebar, backdrop, sidebarToggle, doc)
+							}
 						},
 					})
 					signal.addEventListener('abort', dispose, { once: true })

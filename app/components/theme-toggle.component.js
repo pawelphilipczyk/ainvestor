@@ -1,6 +1,11 @@
 import { clientEntry, createElement } from 'remix/component'
 import { on } from 'remix/interaction'
 
+function toggleTheme(doc) {
+	const isDark = doc.documentElement.classList.toggle('dark')
+	doc.defaultView?.localStorage.setItem('theme', isDark ? 'dark' : 'light')
+}
+
 export const ThemeToggleInteractions = clientEntry(
 	'/components/theme-toggle.component.js#ThemeToggleInteractions',
 	function ThemeToggleInteractions() {
@@ -9,16 +14,15 @@ export const ThemeToggleInteractions = clientEntry(
 				hidden: true,
 				'aria-hidden': 'true',
 				'data-component': 'theme-toggle-interactions',
-				connect: (_node, signal) => {
-					if (typeof document === 'undefined') return
-					const dispose = on(document, {
+				connect: (node, signal) => {
+					const doc = node.ownerDocument
+					const dispose = on(doc, {
 						click(event) {
 							const target = event.target
 							if (!(target instanceof Element)) return
 							if (!target.closest('[data-theme-toggle]')) return
 
-							const isDark = document.documentElement.classList.toggle('dark')
-							localStorage.setItem('theme', isDark ? 'dark' : 'light')
+							toggleTheme(doc)
 						},
 					})
 					signal.addEventListener('abort', dispose, { once: true })

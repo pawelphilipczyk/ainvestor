@@ -58,6 +58,7 @@ describe('theme-toggle component entry static file', () => {
 		assert.match(body, /clientEntry/)
 		assert.match(body, /from 'remix\/component'/)
 		assert.match(body, /from 'remix\/interaction'/)
-		assert.match(body, /on\(document,/)
+		assert.match(body, /ownerDocument/)
+		assert.match(body, /on\(doc,/)
 	})
 })
