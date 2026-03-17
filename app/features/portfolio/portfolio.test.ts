@@ -97,7 +97,7 @@ describe('Portfolio page', () => {
 		)
 	})
 
-	it('renders feature island path for ETF cards and serves island script', async () => {
+	it('portfolio page no longer uses legacy etf-card data-island hooks', async () => {
 		const form = new FormData()
 		form.set('etfName', 'VTI')
 		form.set('value', '1000')
@@ -109,16 +109,34 @@ describe('Portfolio page', () => {
 
 		const listResponse = await router.fetch('http://localhost/')
 		const listBody = await listResponse.text()
-		assert.match(listBody, /data-island="features\/portfolio\/etf-card"/)
+		assert.doesNotMatch(listBody, /data-island="features\/portfolio\/etf-card"/)
+	})
 
-		const islandResponse = await router.fetch(
-			'http://localhost/features/portfolio/etf-card.island.js',
+	it('serves etf-card component entry and hides old island endpoint', async () => {
+		const componentResponse = await router.fetch(
+			'http://localhost/features/portfolio/etf-card.component.js',
 		)
-		assert.equal(islandResponse.status, 200)
+		assert.equal(componentResponse.status, 200)
 		assert.match(
-			islandResponse.headers.get('content-type') ?? '',
+			componentResponse.headers.get('content-type') ?? '',
 			/text\/javascript/,
 		)
+		const legacyResponse = await router.fetch(
+			'http://localhost/features/portfolio/etf-card.island.js',
+		)
+		assert.equal(legacyResponse.status, 404)
+	})
+
+	it('ETF card component entry uses remix component + interaction APIs', async () => {
+		const componentResponse = await router.fetch(
+			'http://localhost/features/portfolio/etf-card.component.js',
+		)
+		const componentBody = await componentResponse.text()
+		assert.match(componentBody, /clientEntry/)
+		assert.match(componentBody, /from 'remix\/component'/)
+		assert.match(componentBody, /from 'remix\/interaction'/)
+		assert.match(componentBody, /ownerDocument/)
+		assert.match(componentBody, /on\(doc,/)
 	})
 
 	it('uses explicit readable colors for the sell confirmation cancel button', async () => {

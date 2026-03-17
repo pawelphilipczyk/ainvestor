@@ -35,11 +35,11 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /No catalog imported yet/)
 	})
 
-	it('GET /catalog renders theme toggle as a real button element, not escaped HTML text', async () => {
+	it('GET /catalog renders theme toggle button hook without escaped HTML text', async () => {
 		const response = await router.fetch('http://localhost/catalog')
 		const body = await response.text()
 
-		assert.match(body, /<button[^>]*data-island="components\/theme-toggle"/)
+		assert.match(body, /<button[^>]*data-theme-toggle/)
 		assert.doesNotMatch(body, /&lt;button/)
 	})
 

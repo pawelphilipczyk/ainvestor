@@ -116,7 +116,7 @@ export const guidelinesController = {
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
-function renderGuidelinesPage(
+async function renderGuidelinesPage(
 	guidelines: EtfGuideline[],
 	session: SessionData | null,
 ) {
@@ -217,6 +217,6 @@ function renderGuidelinesPage(
   `
 
 	return createHtmlResponse(
-		pageShell('AI Investor – Guidelines', session, 'guidelines', body),
+		await pageShell('AI Investor – Guidelines', session, 'guidelines', body),
 	)
 }

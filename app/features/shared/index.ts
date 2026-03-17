@@ -1,9 +1,17 @@
+import { createElement } from 'remix/component'
+import { renderToString } from 'remix/component/server'
 import { html } from 'remix/html-template'
 import type { Session } from 'remix/session'
 import { renderComponent } from '../../components/render.ts'
+// @ts-expect-error Runtime-only JS client entry module
+import { SidebarInteractions } from '../../components/sidebar.component.js'
+// @ts-expect-error Runtime-only JS client entry module
+import { ThemeToggleInteractions } from '../../components/theme-toggle.component.js'
 import type { EtfType } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+// @ts-expect-error Runtime-only JS client entry module
+import { EtfCardInteractions } from '../portfolio/etf-card.component.js'
 
 // ---------------------------------------------------------------------------
 // Config helpers (read at request time so env vars can be set in tests)
@@ -167,12 +175,22 @@ export function appSidebar(
 // ---------------------------------------------------------------------------
 // Shared HTML shell
 // ---------------------------------------------------------------------------
-export function pageShell(
+export async function pageShell(
 	title: string,
 	session: SessionData | null,
 	currentPage: 'portfolio' | 'guidelines' | 'catalog',
 	body: ReturnType<typeof html>,
-): ReturnType<typeof html> {
+): Promise<ReturnType<typeof html>> {
+	const sidebarInteractions = await renderToString(
+		createElement(SidebarInteractions, {}),
+	)
+	const themeToggleInteractions = await renderToString(
+		createElement(ThemeToggleInteractions, {}),
+	)
+	const etfCardInteractions = await renderToString(
+		createElement(EtfCardInteractions, {}),
+	)
+
 	return html`
     <!doctype html>
     <html lang="en" class="dark">
@@ -248,18 +266,38 @@ export function pageShell(
             }
           }
         </style>
+        <script type="importmap">
+          {
+            "imports": {
+              "remix/component": "/remix/dist/component.js",
+              "remix/interaction": "/remix/dist/interaction.js",
+              "@remix-run/component": "/@remix-run/component/dist/index.js",
+              "@remix-run/interaction": "/@remix-run/interaction/dist/index.js"
+            }
+          }
+        </script>
       </head>
-      <body data-island="components/sidebar" class="min-h-screen bg-background font-sans text-foreground antialiased">
+      <body class="min-h-screen bg-background font-sans text-foreground antialiased">
         ${appSidebar(session, currentPage)}
         ${appTopBar(session)}
         <div class="p-4">
           ${body}
         </div>
+        ${html.raw`${sidebarInteractions}`}
+        ${html.raw`${themeToggleInteractions}`}
+        ${html.raw`${etfCardInteractions}`}
         <script type="module">
-          document.querySelectorAll('[data-island]').forEach(async (el) => {
-            const name = el.dataset.island
-            const { mount } = await import('/' + name + '.island.js')
-            mount(el)
+          import { run } from 'remix/component'
+
+          run(document, {
+            async loadModule(moduleUrl, exportName) {
+              const mod = await import(moduleUrl)
+              const loaded = mod[exportName]
+              if (typeof loaded !== 'function') {
+                throw new Error('Missing export ' + exportName + ' from ' + moduleUrl)
+              }
+              return loaded
+            },
           })
         </script>
       </body>

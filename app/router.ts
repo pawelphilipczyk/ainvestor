@@ -29,22 +29,32 @@ export {
 	setAdviceClient,
 }
 
-const islands = staticFiles('app', {
-	filter: (path) => path.endsWith('.island.js'),
+const componentEntries = staticFiles('app', {
+	filter: (path) => path.endsWith('.component.js'),
+})
+
+const remixRuntime = staticFiles('node_modules', {
+	filter: (path) =>
+		path === 'remix/dist/component.js' ||
+		path === 'remix/dist/interaction.js' ||
+		path.startsWith('@remix-run/component/dist/') ||
+		path.startsWith('@remix-run/interaction/dist/'),
 })
 
 export const router = createRouter({
 	middleware:
 		process.env.NODE_ENV === 'development'
 			? [
-					islands,
+					componentEntries,
+					remixRuntime,
 					logger(),
 					formData(),
 					methodOverride(),
 					session(sessionCookie, sessionStorage),
 				]
 			: [
-					islands,
+					componentEntries,
+					remixRuntime,
 					compression(),
 					formData(),
 					methodOverride(),

@@ -3,13 +3,14 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"ensure-deps": "node ./scripts/ensure-deps.mjs",
 		"dev": "tsx watch server.ts",
 		"start": "tsx server.ts",
 		"typecheck": "tsc --noEmit",
-		"test": "tsx --test",
+		"test": "npm run -s ensure-deps && tsx --test",
 		"lint": "biome lint .",
 		"format": "biome format .",
-		"check": "biome check ."
+		"check": "npm run -s ensure-deps && biome check ."
 	},
 	"dependencies": {
 		"openai": "^6.29.0",

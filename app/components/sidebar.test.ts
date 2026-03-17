@@ -64,42 +64,57 @@ describe('sidebar component', () => {
 	})
 })
 
-describe('island loader in page shell', () => {
-	it('body element carries data-island="components/sidebar" so the loader activates it', async () => {
+describe('remix component runtime in page shell', () => {
+	it('body no longer uses legacy data-island activation attributes', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /<body[^>]*data-island="components\/sidebar"/)
+		assert.doesNotMatch(body, /data-island=/)
 	})
 
-	it('page shell island loader script loads islands via /<name>.island.js', async () => {
+	it('page shell includes import map for remix component runtime', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /data-island/)
-		assert.match(body, /\.island\.js/)
+		assert.match(body, /"remix\/component": "\/remix\/dist\/component\.js"/)
+		assert.match(
+			body,
+			/"@remix-run\/component": "\/@remix-run\/component\/dist\/index\.js"/,
+		)
 	})
 
-	it('page shell does not contain inline sidebar or theme-toggle logic', async () => {
+	it('page shell boots remix component runtime with run(document, ...)', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.doesNotMatch(body, /openSidebar/)
-		assert.doesNotMatch(body, /closeSidebar/)
-		assert.doesNotMatch(body, /localStorage\.setItem\('theme'/)
+		assert.match(body, /import \{ run \} from 'remix\/component'/)
+		assert.match(body, /run\(document, \{/)
+		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
 	})
 })
 
-describe('sidebar island static file', () => {
-	it('GET /components/sidebar.island.js returns 200 with javascript content-type', async () => {
+describe('sidebar component entry static file', () => {
+	it('GET /components/sidebar.component.js returns 200 with javascript content-type', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/sidebar.island.js',
+			'http://localhost/components/sidebar.component.js',
 		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 	})
 
-	it('GET /components/sidebar.island.ts returns 404 (TypeScript source not exposed)', async () => {
+	it('GET /components/sidebar.island.js returns 404 after migration', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/sidebar.island.ts',
+			'http://localhost/components/sidebar.island.js',
 		)
 		assert.equal(response.status, 404)
+	})
+
+	it('sidebar component entry uses remix component + interaction APIs', async () => {
+		const response = await router.fetch(
+			'http://localhost/components/sidebar.component.js',
+		)
+		const body = await response.text()
+		assert.match(body, /clientEntry/)
+		assert.match(body, /from 'remix\/component'/)
+		assert.match(body, /from 'remix\/interaction'/)
+		assert.match(body, /ownerDocument/)
+		assert.match(body, /on\(doc,/)
 	})
 })

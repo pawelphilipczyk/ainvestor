@@ -53,11 +53,15 @@ App runs on: `http://localhost:44100`
 npm run test
 ```
 
+`npm run test` auto-installs dependencies with `npm ci` when `node_modules` is missing.
+
 ## Type check
 
 ```bash
 npm run typecheck
 ```
+
+`npm run check` also auto-installs dependencies with `npm ci` when needed.
 
 ## Deploy to Fly.io
 
