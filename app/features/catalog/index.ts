@@ -82,7 +82,7 @@ export const catalogController = {
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
-function renderCatalogPage(
+async function renderCatalogPage(
 	catalog: CatalogEntry[],
 	holdings: EtfEntry[],
 	session: SessionData | null,
@@ -288,6 +288,6 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
   `
 
 	return createHtmlResponse(
-		pageShell('AI Investor – ETF Catalog', session, 'catalog', body),
+		await pageShell('AI Investor – ETF Catalog', session, 'catalog', body),
 	)
 }

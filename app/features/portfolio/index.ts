@@ -127,7 +127,7 @@ export const portfolioController = {
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
-function renderPage(entries: EtfEntry[], session: SessionData | null) {
+async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 	const etfNameInput = renderComponent('text-input', {
 		id: 'etfName',
 		label: 'ETF Name',
@@ -243,7 +243,7 @@ function renderPage(entries: EtfEntry[], session: SessionData | null) {
   `
 
 	return createHtmlResponse(
-		pageShell('AI Investor', session, 'portfolio', body),
+		await pageShell('AI Investor', session, 'portfolio', body),
 		{
 			headers: { 'Cache-Control': 'no-store' },
 		},
