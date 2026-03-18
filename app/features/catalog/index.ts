@@ -18,7 +18,6 @@ import {
 	fetchCatalog,
 	mergeBankIntoCatalog,
 	parseBankJsonToCatalog,
-	parseCsvToCatalog,
 	saveCatalog,
 } from './lib.ts'
 
@@ -51,33 +50,6 @@ export const catalogController = {
 		])
 
 		return renderCatalogPage(catalog, entries, session, typeFilter, query)
-	},
-
-	async import(context: {
-		request: Request
-		session: Session
-		formData: FormData | null
-	}) {
-		const form = context.formData
-		if (!form) return createRedirectResponse(routes.catalog.index.href())
-
-		const file = form.get('csvFile')
-		if (!file || typeof file === 'string')
-			return createRedirectResponse(routes.catalog.index.href())
-
-		const csvText = await (file as Blob).text()
-		const imported = parseCsvToCatalog(csvText)
-		if (imported.length === 0)
-			return createRedirectResponse(routes.catalog.index.href())
-
-		const session = getSessionData(context.session)
-		if (session?.gistId) {
-			await saveCatalog(session.token, session.gistId, imported)
-		} else {
-			guestCatalog = imported
-		}
-
-		return createRedirectResponse(routes.catalog.index.href())
 	},
 
 	async importJson(context: { request: Request; session: Session }) {
@@ -218,12 +190,7 @@ async function renderCatalogPage(
 			? html`
           <div class="mt-4 rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
             <p class="font-medium text-foreground">No catalog imported yet.</p>
-            <p class="mt-1">Upload a CSV file from your broker above. Expected columns:</p>
-            <pre class="mt-2 overflow-x-auto rounded bg-background px-3 py-2 text-xs">ticker,name,type,description,isin
-VTI,"Vanguard Total Stock Market ETF",equity,"Broad US market",US9229087690
-BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
-            <p class="mt-2 text-xs">Column order is flexible. <code>ticker</code> and <code>name</code> are required.
-            Type aliases: <em>asset class</em>, <em>category</em>. Ticker aliases: <em>symbol</em>, <em>code</em>.</p>
+            <p class="mt-1">Paste bank API JSON above to add ETFs to your catalog.</p>
           </div>
         `
 			: html``
@@ -284,7 +251,7 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
       <section class="mt-6">
         <h2 class="text-base font-semibold tracking-tight text-card-foreground">Import</h2>
         <p class="mt-0.5 text-xs text-muted-foreground">
-          Paste bank API JSON below to add ETFs (merges with existing). Or upload CSV to replace.
+          Paste bank API JSON below to add ETFs (merges with existing).
         </p>
         <div
           data-catalog-paste-zone
@@ -299,27 +266,6 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
             class="block w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           ></textarea>
         </div>
-        <form
-          method="post"
-          action="${routes.catalog.import.href()}"
-          enctype="multipart/form-data"
-          class="mt-4 flex flex-wrap items-center gap-3"
-        >
-          <label class="sr-only" for="csvFile">CSV file</label>
-          <input
-            id="csvFile"
-            name="csvFile"
-            type="file"
-            accept=".csv,text/csv"
-            class="text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground hover:file:opacity-90 cursor-pointer"
-          />
-          <button
-            type="submit"
-            class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          >
-            Import CSV (replaces catalog)
-          </button>
-        </form>
         ${emptyCatalogHint}
       </section>
 
