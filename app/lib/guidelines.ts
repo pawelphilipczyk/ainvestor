@@ -8,14 +8,14 @@ export type EtfType =
 	| 'mixed'
 	| 'money_market'
 
-export const ETF_TYPES: EtfType[] = [
+export const ETF_TYPES = [
 	'equity',
 	'bond',
 	'real_estate',
 	'commodity',
 	'mixed',
 	'money_market',
-]
+] as const satisfies readonly EtfType[]
 
 export type EtfGuideline = {
 	id: string
