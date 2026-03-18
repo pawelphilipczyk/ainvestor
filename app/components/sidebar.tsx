@@ -1,12 +1,7 @@
 import type { Handle } from 'remix/component'
 import type { SessionData } from '../lib/session.ts'
 import { routes } from '../routes.ts'
-
-type NavLink = {
-	href: string
-	label: string
-	page: 'portfolio' | 'guidelines' | 'catalog'
-}
+import type { NavLink } from './sidebar-nav.ts'
 
 type SidebarProps = {
 	navLinks: NavLink[]

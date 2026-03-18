@@ -14,16 +14,18 @@ type CatalogPageProps = {
 	query: string
 }
 
-const TABLE_HEADER = (
-	<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-		<th class="pb-2 pr-4">Ticker</th>
-		<th class="pb-2 pr-4">Name</th>
-		<th class="pb-2 pr-4">Type</th>
-		<th class="pb-2 pr-4">Description</th>
-		<th class="pb-2 pr-4">ISIN</th>
-		<th class="pb-2">Value</th>
-	</tr>
-)
+function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
+	return () => (
+		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+			<th class="pb-2 pr-4">Ticker</th>
+			<th class="pb-2 pr-4">Name</th>
+			<th class="pb-2 pr-4">Type</th>
+			<th class="pb-2 pr-4">Description</th>
+			<th class="pb-2 pr-4">ISIN</th>
+			<th class="pb-2">Value</th>
+		</tr>
+	)
+}
 
 function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 	const valueCell = holding ? (
@@ -198,7 +200,7 @@ export function CatalogPage(_handle: Handle, _setup?: unknown) {
 									<tr>
 										<td colspan={6} class="h-1" />
 									</tr>
-									{TABLE_HEADER}
+									<CatalogTableHeader />
 								</thead>
 								<tbody>
 									{ownedInCatalog.map((e) =>
@@ -231,7 +233,7 @@ export function CatalogPage(_handle: Handle, _setup?: unknown) {
 									<tr>
 										<td colspan={6} class="h-1" />
 									</tr>
-									{TABLE_HEADER}
+									<CatalogTableHeader />
 								</thead>
 								<tbody>{restOfCatalog.map((e) => renderCatalogRow(e))}</tbody>
 							</table>

@@ -6,28 +6,10 @@ import { fileURLToPath } from 'node:url'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
 import { router } from '../router.ts'
-import { routes } from '../routes.ts'
 import { Sidebar } from './sidebar.tsx'
+import { NAV_LINKS } from './sidebar-nav.ts'
 
 const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
-
-const NAV_LINKS = [
-	{
-		href: routes.portfolio.index.href(),
-		label: 'Portfolio',
-		page: 'portfolio' as const,
-	},
-	{
-		href: routes.catalog.index.href(),
-		label: 'ETF Catalog',
-		page: 'catalog' as const,
-	},
-	{
-		href: routes.guidelines.index.href(),
-		label: 'Investment Guidelines',
-		page: 'guidelines' as const,
-	},
-]
 
 describe('sidebar component', () => {
 	it('sidebar.tsx exists in app/components/', () => {
