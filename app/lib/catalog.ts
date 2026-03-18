@@ -9,6 +9,24 @@ export type CatalogEntry = {
 	type: EtfType
 	description: string
 	isin?: string
+	/** Expense ratio (e.g. "0,35%") — for cost comparison. */
+	expense_ratio?: string
+	/** Risk scale 1–7 (PRIIPs KID). */
+	risk_kid?: number
+	/** Geographic region (e.g. "Świat", "Europa"). */
+	region?: string
+	/** Sector (e.g. "technologia", "nieruchomości"). */
+	sector?: string
+	/** Annual rate of return (%). */
+	rate_of_return?: number
+	/** Volatility (e.g. "19,16%"). */
+	volatility?: string
+	/** Return/risk ratio. */
+	return_risk?: string
+	/** Fund size (e.g. "166 mln USD"). */
+	fund_size?: string
+	/** ESG-compliant. */
+	esg?: boolean
 }
 
 const ETF_TYPES: EtfType[] = [
@@ -113,6 +131,115 @@ export function parseCsvToCatalog(csvText: string): CatalogEntry[] {
 	}
 
 	return entries
+}
+
+// ---------------------------------------------------------------------------
+// Bank API JSON parsing
+// ---------------------------------------------------------------------------
+
+/** Raw item shape from bank/investment website fetch response. */
+export type BankEtfItem = {
+	isin?: string
+	fund_name?: string
+	expense_ratio?: string
+	ticker?: string
+	description?: string
+	assets?: string
+	sector?: string
+	region?: string
+	risk_kid?: number
+	rate_of_return?: number
+	volatility?: string
+	return_risk?: string
+	fund_size?: string
+	esg?: string
+	id?: string
+}
+
+/** Bank API response shape: { data: BankEtfItem[], count?, total_count? }. */
+export type BankEtfResponse = {
+	data?: BankEtfItem[]
+	count?: number
+	total_count?: number
+}
+
+function normaliseTypeFromBank(assets: string, sector: string): EtfType {
+	const a = (assets ?? '').toLowerCase()
+	const s = (sector ?? '').toLowerCase()
+	if (a.includes('obligac')) return 'bond'
+	if (a.includes('mieszany')) return 'mixed'
+	if (s.includes('nieruchomo')) return 'real_estate'
+	if (s.includes('surowce') || s.includes('towar')) return 'commodity'
+	if (a.includes('akcje') || a.includes('akcj')) return 'equity'
+	return 'equity'
+}
+
+/**
+ * Parse bank/investment website fetch response JSON into CatalogEntry array.
+ * Extracts only investment-relevant fields; merges by bank id for deduplication.
+ */
+export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
+	if (!json || typeof json !== 'object') return []
+	const obj = json as Record<string, unknown>
+	const data = obj.data
+	if (!Array.isArray(data)) return []
+
+	const entries: CatalogEntry[] = []
+	for (const item of data as BankEtfItem[]) {
+		const ticker = (item.ticker ?? '').trim()
+		const name = (item.fund_name ?? '').trim()
+		if (!ticker || !name) continue
+
+		const id =
+			(item.id ?? `${item.isin ?? ''}_${ticker}`).trim() || crypto.randomUUID()
+		const type = normaliseTypeFromBank(item.assets ?? '', item.sector ?? '')
+		const description = (item.description ?? '').trim()
+
+		const entry: CatalogEntry = {
+			id,
+			ticker: ticker.toUpperCase(),
+			name,
+			type,
+			description,
+			...(item.isin ? { isin: item.isin } : {}),
+			...(item.expense_ratio ? { expense_ratio: item.expense_ratio } : {}),
+			...(typeof item.risk_kid === 'number' ? { risk_kid: item.risk_kid } : {}),
+			...(item.region ? { region: item.region } : {}),
+			...(item.sector ? { sector: item.sector } : {}),
+			...(typeof item.rate_of_return === 'number'
+				? { rate_of_return: item.rate_of_return }
+				: {}),
+			...(item.volatility ? { volatility: item.volatility } : {}),
+			...(item.return_risk ? { return_risk: item.return_risk } : {}),
+			...(item.fund_size ? { fund_size: item.fund_size } : {}),
+			...(item.esg === 'tak'
+				? { esg: true }
+				: item.esg === 'nie'
+					? { esg: false }
+					: {}),
+		}
+		entries.push(entry)
+	}
+	return entries
+}
+
+function catalogMergeKey(entry: CatalogEntry): string {
+	return `${entry.isin ?? ''}_${entry.ticker}`
+}
+
+/**
+ * Merge newly imported bank entries into existing catalog.
+ * Matches by isin+ticker; incoming overwrites existing for same listing.
+ */
+export function mergeBankIntoCatalog(
+	existing: CatalogEntry[],
+	incoming: CatalogEntry[],
+): CatalogEntry[] {
+	const byKey = new Map(existing.map((e) => [catalogMergeKey(e), e]))
+	for (const e of incoming) {
+		byKey.set(catalogMergeKey(e), e)
+	}
+	return [...byKey.values()]
 }
 
 // ---------------------------------------------------------------------------

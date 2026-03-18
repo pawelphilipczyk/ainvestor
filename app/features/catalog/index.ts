@@ -5,6 +5,8 @@ import type { Session } from 'remix/session'
 import type { CatalogEntry } from '../../lib/catalog.ts'
 import {
 	fetchCatalog,
+	mergeBankIntoCatalog,
+	parseBankJsonToCatalog,
 	parseCsvToCatalog,
 	saveCatalog,
 } from '../../lib/catalog.ts'
@@ -73,6 +75,34 @@ export const catalogController = {
 			await saveCatalog(session.token, session.gistId, imported)
 		} else {
 			guestCatalog = imported
+		}
+
+		return createRedirectResponse(routes.catalog.index.href())
+	},
+
+	async importJson(context: { request: Request; session: Session }) {
+		let json: unknown
+		try {
+			const text = await context.request.text()
+			json = text ? JSON.parse(text) : null
+		} catch {
+			return createRedirectResponse(routes.catalog.index.href())
+		}
+
+		const imported = parseBankJsonToCatalog(json)
+		if (imported.length === 0)
+			return createRedirectResponse(routes.catalog.index.href())
+
+		const session = getSessionData(context.session)
+		const existing = session?.gistId
+			? await fetchCatalog(session.token, session.gistId)
+			: guestCatalog
+		const merged = mergeBankIntoCatalog(existing, imported)
+
+		if (session?.gistId) {
+			await saveCatalog(session.token, session.gistId, merged)
+		} else {
+			guestCatalog = merged
 		}
 
 		return createRedirectResponse(routes.catalog.index.href())
@@ -252,15 +282,28 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
       </header>
 
       <section class="mt-6">
-        <h2 class="text-base font-semibold tracking-tight text-card-foreground">Import CSV</h2>
+        <h2 class="text-base font-semibold tracking-tight text-card-foreground">Import</h2>
         <p class="mt-0.5 text-xs text-muted-foreground">
-          Importing a new CSV replaces the current catalog (${catalog.length} ETF${catalog.length === 1 ? '' : 's'} stored).
+          Paste bank API JSON below to add ETFs (merges with existing). Or upload CSV to replace.
         </p>
+        <div
+          data-catalog-paste-zone
+          data-import-url="${routes.catalog.importJson.href()}"
+          class="mt-3"
+        >
+          <label for="pasteZone" class="sr-only">Paste bank API JSON</label>
+          <textarea
+            id="pasteZone"
+            rows="3"
+            placeholder="Paste fetch response JSON here (Ctrl+V) — imports on paste"
+            class="block w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          ></textarea>
+        </div>
         <form
           method="post"
           action="${routes.catalog.import.href()}"
           enctype="multipart/form-data"
-          class="mt-3 flex flex-wrap items-center gap-3"
+          class="mt-4 flex flex-wrap items-center gap-3"
         >
           <label class="sr-only" for="csvFile">CSV file</label>
           <input
@@ -268,14 +311,13 @@ BND,"Vanguard Total Bond Market ETF",bond,"US bond market",US9229088443</pre>
             name="csvFile"
             type="file"
             accept=".csv,text/csv"
-            required
             class="text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground hover:file:opacity-90 cursor-pointer"
           />
           <button
             type="submit"
             class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
-            Import
+            Import CSV (replaces catalog)
           </button>
         </form>
         ${emptyCatalogHint}
