@@ -41,11 +41,12 @@ describe('sidebar component', () => {
 		const result = String(appSidebar(null, 'portfolio'))
 		assert.match(result, /id="app-sidebar"/)
 		assert.match(result, /id="sidebar-backdrop"/)
+		assert.match(result, /href="\/catalog"/)
 		assert.match(result, /href="\/guidelines"/)
 	})
 
 	it('appSidebar() marks the current page with aria-current="page"', () => {
-		const result = String(appSidebar(null, 'guidelines'))
+		const result = String(appSidebar(null, 'catalog'))
 		assert.match(result, /aria-current="page"/)
 	})
 

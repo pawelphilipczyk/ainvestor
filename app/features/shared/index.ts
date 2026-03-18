@@ -12,6 +12,8 @@ import type { EtfType } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 // @ts-expect-error Runtime-only JS client entry module
+import { CatalogPasteInteractions } from '../catalog/catalog-paste.component.js'
+// @ts-expect-error Runtime-only JS client entry module
 import { EtfCardInteractions } from '../portfolio/etf-card.component.js'
 
 // ---------------------------------------------------------------------------
@@ -104,17 +106,22 @@ export function appTopBar(session: SessionData | null) {
 
 export function appSidebar(
 	session: SessionData | null,
-	currentPage: 'portfolio' | 'guidelines',
+	currentPage: 'portfolio' | 'guidelines' | 'catalog',
 ) {
 	const navLinks: Array<{
 		href: string
 		label: string
-		page: 'portfolio' | 'guidelines'
+		page: 'portfolio' | 'guidelines' | 'catalog'
 	}> = [
 		{
 			href: routes.portfolio.index.href(),
 			label: 'Portfolio',
 			page: 'portfolio',
+		},
+		{
+			href: routes.catalog.index.href(),
+			label: 'ETF Catalog',
+			page: 'catalog',
 		},
 		{
 			href: routes.guidelines.index.href(),
@@ -177,7 +184,7 @@ export function appSidebar(
 export async function pageShell(
 	title: string,
 	session: SessionData | null,
-	currentPage: 'portfolio' | 'guidelines',
+	currentPage: 'portfolio' | 'guidelines' | 'catalog',
 	body: ReturnType<typeof html>,
 ): Promise<ReturnType<typeof html>> {
 	const sidebarInteractions = await renderToString(
@@ -189,6 +196,10 @@ export async function pageShell(
 	const etfCardInteractions = await renderToString(
 		createElement(EtfCardInteractions, {}),
 	)
+	const catalogPasteInteractions =
+		currentPage === 'catalog'
+			? await renderToString(createElement(CatalogPasteInteractions, {}))
+			: ''
 
 	return html`
     <!doctype html>
@@ -285,6 +296,7 @@ export async function pageShell(
         ${html.raw`${sidebarInteractions}`}
         ${html.raw`${themeToggleInteractions}`}
         ${html.raw`${etfCardInteractions}`}
+        ${html.raw`${catalogPasteInteractions}`}
         <script type="module">
           import { run } from 'remix/component'
 
