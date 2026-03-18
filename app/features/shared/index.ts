@@ -1,4 +1,5 @@
 import { createElement } from 'remix/component'
+import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
 import { html } from 'remix/html-template'
 import type { Session } from 'remix/session'
@@ -7,6 +8,7 @@ import { renderComponent } from '../../components/render.ts'
 import { SidebarInteractions } from '../../components/sidebar.component.js'
 // @ts-expect-error Runtime-only JS client entry module
 import { ThemeToggleInteractions } from '../../components/theme-toggle.component.js'
+import { ThemeToggleButton } from '../../components/theme-toggle.tsx'
 import { isPreview } from '../../lib/gist.ts'
 import type { EtfType } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
@@ -70,10 +72,11 @@ export function formatValue(value: number, currency: string): string {
 // ---------------------------------------------------------------------------
 // Shared navigation components
 // ---------------------------------------------------------------------------
-export function appTopBar(session: SessionData | null) {
+export async function appTopBar(session: SessionData | null) {
 	const authIndicator = session
 		? html`<span class="hidden text-xs font-medium text-muted-foreground sm:inline">@${session.login}</span>`
 		: html``
+	const themeToggle = await themeToggleButton()
 	return html`
     <div class="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background px-4 py-2.5">
       <div class="flex items-center gap-3">
@@ -98,7 +101,7 @@ export function appTopBar(session: SessionData | null) {
       </div>
       <div class="flex items-center gap-3">
         ${authIndicator}
-        ${themeToggleButton()}
+        ${themeToggle}
       </div>
     </div>
   `
@@ -289,7 +292,7 @@ export async function pageShell(
       </head>
       <body class="min-h-screen bg-background font-sans text-foreground antialiased">
         ${appSidebar(session, currentPage)}
-        ${appTopBar(session)}
+        ${await appTopBar(session)}
         <div class="p-4">
           ${body}
         </div>
@@ -316,6 +319,7 @@ export async function pageShell(
   `
 }
 
-export function themeToggleButton() {
-	return renderComponent('theme-toggle')
+export async function themeToggleButton() {
+	const markup = await renderToString(jsx(ThemeToggleButton, {}))
+	return html.raw`${markup}`
 }
