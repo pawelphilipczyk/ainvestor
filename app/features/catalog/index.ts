@@ -2,6 +2,7 @@ import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
+import { renderComponent } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
 import type { SessionData } from '../../lib/session.ts'
@@ -210,17 +211,18 @@ async function renderCatalogPage(
                 class="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring w-64"
               />
             </div>
-            <div class="grid gap-1.5">
-              <label for="type" class="text-xs font-medium text-muted-foreground">Type</label>
-              <select
-                id="type"
-                name="type"
-                class="h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-              >
-                <option value="">All types</option>
-                ${ETF_TYPES.map((t) => `<option value="${t}"${typeFilter === t ? ' selected' : ''}>${t.replace('_', ' ')}</option>`).join('')}
-              </select>
-            </div>
+            ${renderComponent('select-input', {
+							id: 'type',
+							label: 'Type',
+							field_name: 'type',
+							children: [
+								'<option value="">All types</option>',
+								...ETF_TYPES.map(
+									(t) =>
+										`<option value="${t}"${typeFilter === t ? ' selected' : ''}>${t.replace('_', ' ')}</option>`,
+								),
+							].join(''),
+						})}
             <button
               type="submit"
               class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

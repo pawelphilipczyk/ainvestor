@@ -5,6 +5,7 @@ import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
+import { renderComponent } from '../../components/render.ts'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
 import { fetchGuidelines, saveGuidelines } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
@@ -188,16 +189,14 @@ async function renderGuidelinesPage(
               class="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
-          <div class="grid gap-2">
-            <label for="etfType" class="text-sm font-medium">Type</label>
-            <select
-              id="etfType"
-              name="etfType"
-              class="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              ${ETF_TYPES.map((t) => `<option value="${t}">${t.replace('_', ' ')}</option>`).join('')}
-            </select>
-          </div>
+          ${renderComponent('select-input', {
+						id: 'etfType',
+						label: 'Type',
+						field_name: 'etfType',
+						children: ETF_TYPES.map(
+							(t) => `<option value="${t}">${t.replace('_', ' ')}</option>`,
+						).join(''),
+					})}
         </div>
         <button
           type="submit"
