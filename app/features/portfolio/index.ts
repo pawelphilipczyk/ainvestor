@@ -1,4 +1,4 @@
-import { object, parseSafe, string } from 'remix/data-schema'
+import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import { html } from 'remix/html-template'
@@ -18,6 +18,8 @@ const CreateEtfSchema = object({
 	etfName: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
+	exchange: optional(string()),
+	quantity: optional(coerce.number().pipe(min(0))),
 })
 
 // ---------------------------------------------------------------------------
@@ -59,13 +61,16 @@ export const portfolioController = {
 		if (typeof raw.value === 'string') {
 			raw.value = raw.value.replace(/,/g, '')
 		}
+		if (typeof raw.quantity === 'string') {
+			raw.quantity = raw.quantity.replace(/,/g, '')
+		}
 
 		const result = parseSafe(CreateEtfSchema, raw)
 		if (!result.success) {
 			return createRedirectResponse(routes.portfolio.index.href())
 		}
 
-		const { etfName: name, value, currency } = result.value
+		const { etfName: name, value, currency, exchange, quantity } = result.value
 		const session = getSessionData(context.session)
 		const current = session?.gistId
 			? await fetchEtfs(session.token, session.gistId)
@@ -78,13 +83,25 @@ export const portfolioController = {
 				e.name.toLowerCase() === normalizedName &&
 				e.currency.toUpperCase() === normalizedCurrency,
 		)
-		const entry: EtfEntry =
-			existingIndex >= 0
-				? {
-						...current[existingIndex],
-						value: current[existingIndex].value + value,
-					}
-				: { id: crypto.randomUUID(), name, value, currency: normalizedCurrency }
+		const existing = existingIndex >= 0 ? current[existingIndex] : null
+		const entry: EtfEntry = existing
+			? {
+					...existing,
+					value: existing.value + value,
+					quantity:
+						existing.quantity !== undefined && quantity !== undefined
+							? existing.quantity + quantity
+							: (quantity ?? existing.quantity),
+					exchange: existing.exchange || exchange || undefined,
+				}
+			: {
+					id: crypto.randomUUID(),
+					name,
+					value,
+					currency: normalizedCurrency,
+					...(exchange ? { exchange } : {}),
+					...(quantity !== undefined ? { quantity } : {}),
+				}
 
 		const updated =
 			existingIndex >= 0
@@ -123,7 +140,7 @@ export const portfolioController = {
 			? await fetchEtfs(session.token, session.gistId)
 			: guestEntries
 
-		// Merge imported with existing (same name+currency: add values)
+		// Merge imported with existing (same name+currency: add values, quantity)
 		const byKey = new Map<string, EtfEntry>()
 		for (const e of current) {
 			byKey.set(`${e.name.toLowerCase()}:${e.currency}`, e)
@@ -132,7 +149,16 @@ export const portfolioController = {
 			const key = `${e.name.toLowerCase()}:${e.currency}`
 			const existing = byKey.get(key)
 			if (existing) {
-				byKey.set(key, { ...existing, value: existing.value + e.value })
+				const quantity =
+					existing.quantity !== undefined && e.quantity !== undefined
+						? existing.quantity + e.quantity
+						: (e.quantity ?? existing.quantity)
+				byKey.set(key, {
+					...existing,
+					value: existing.value + e.value,
+					quantity,
+					exchange: existing.exchange || e.exchange || undefined,
+				})
 			} else {
 				byKey.set(key, e)
 			}
@@ -182,6 +208,7 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 		label: 'ETF Name',
 		field_name: 'etfName',
 		placeholder: 'e.g. VTI',
+		required_attr: 'required',
 	})
 
 	const valueInput = renderComponent('number-input', {
@@ -189,6 +216,7 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 		label: 'Value',
 		field_name: 'value',
 		placeholder: 'e.g. 1200.50',
+		required_attr: 'required',
 	})
 
 	const currencySelect = renderComponent('select-input', {
@@ -211,6 +239,22 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 			.join(''),
 	})
 
+	const exchangeInput = renderComponent('text-input', {
+		id: 'exchange',
+		label: 'Exchange (optional)',
+		field_name: 'exchange',
+		placeholder: 'e.g. GBR-LSE, DEU-XETRA',
+		required_attr: '',
+	})
+
+	const quantityInput = renderComponent('number-input', {
+		id: 'quantity',
+		label: 'Quantity (optional)',
+		field_name: 'quantity',
+		placeholder: 'e.g. 186',
+		required_attr: '',
+	})
+
 	const addButton = renderComponent('submit-button', { children: 'Add ETF' })
 
 	const listContent =
@@ -225,10 +269,19 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 							},
 							import.meta.url,
 						)
+						const details = [
+							entry.quantity !== undefined
+								? `${entry.quantity.toLocaleString()} shares`
+								: '',
+							entry.exchange ?? '',
+						]
+							.filter(Boolean)
+							.join(' · ')
 						return renderComponent(
 							'etf-card',
 							{
 								name: entry.name,
+								details,
 								badge: String(badge),
 								dialog_id: `dialog-${entry.id}`,
 								delete_href: routes.portfolio.delete.href({ id: entry.id }),
@@ -257,6 +310,10 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
         <div class="grid grid-cols-2 gap-3">
           ${valueInput}
           ${currencySelect}
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          ${exchangeInput}
+          ${quantityInput}
         </div>
         ${addButton}
       </form>
