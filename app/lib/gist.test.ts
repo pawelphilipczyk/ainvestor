@@ -3,15 +3,15 @@ import { describe, it } from 'node:test'
 
 import {
 	buildGistBody,
-	GIST_DESCRIPTION,
 	GIST_FILENAME,
+	getGistDescription,
 	parseEtfsFromGist,
 } from './gist.ts'
 
 describe('gist', () => {
 	it('exports the expected constants', () => {
 		assert.equal(typeof GIST_FILENAME, 'string')
-		assert.equal(typeof GIST_DESCRIPTION, 'string')
+		assert.equal(typeof getGistDescription, 'function')
 	})
 
 	it('parseEtfsFromGist returns empty array for missing file', () => {
@@ -48,12 +48,36 @@ describe('gist', () => {
 		const entries = [{ id: 'abc-1', name: 'SPY', value: 500, currency: 'USD' }]
 		const body = buildGistBody(entries)
 
-		assert.equal(body.description, GIST_DESCRIPTION)
+		assert.equal(body.description, 'ai-investor-data')
 		assert.equal(body.public, false)
 		assert.ok(body.files[GIST_FILENAME])
 		assert.equal(
 			body.files[GIST_FILENAME].content,
 			JSON.stringify(entries, null, 2),
 		)
+	})
+
+	it('getGistDescription returns preview suffix when FLY_APP_NAME is ainvestor-preview', () => {
+		const prev = process.env.FLY_APP_NAME
+		try {
+			process.env.FLY_APP_NAME = 'ainvestor-preview'
+			assert.equal(getGistDescription(), 'ai-investor-preview-data')
+		} finally {
+			if (prev === undefined) delete process.env.FLY_APP_NAME
+			else process.env.FLY_APP_NAME = prev
+		}
+	})
+
+	it('getGistDescription returns base description for production or unset env', () => {
+		const prev = process.env.FLY_APP_NAME
+		try {
+			delete process.env.FLY_APP_NAME
+			assert.equal(getGistDescription(), 'ai-investor-data')
+			process.env.FLY_APP_NAME = 'ainvestor'
+			assert.equal(getGistDescription(), 'ai-investor-data')
+		} finally {
+			if (prev === undefined) delete process.env.FLY_APP_NAME
+			else process.env.FLY_APP_NAME = prev
+		}
 	})
 })

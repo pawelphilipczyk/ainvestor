@@ -1,5 +1,11 @@
 export const GIST_FILENAME = 'etfs.json'
-export const GIST_DESCRIPTION = 'ai-investor-data'
+
+/** Gist description for the current deployment environment. Preview uses separate gists from production. */
+export function getGistDescription(): string {
+	return process.env.FLY_APP_NAME === 'ainvestor-preview'
+		? 'ai-investor-preview-data'
+		: 'ai-investor-data'
+}
 
 export type EtfEntry = {
 	id: string
@@ -37,7 +43,7 @@ export function parseEtfsFromGist(gist: GistPayload): EtfEntry[] {
 /** Build the request body for creating or updating a gist. */
 export function buildGistBody(entries: EtfEntry[]): GistBody {
 	return {
-		description: GIST_DESCRIPTION,
+		description: getGistDescription(),
 		public: false,
 		files: {
 			[GIST_FILENAME]: {
@@ -75,7 +81,8 @@ export async function findOrCreateGist(token: string): Promise<string> {
 		id: string
 		description: string
 	}>
-	const existing = gists.find((g) => g.description === GIST_DESCRIPTION)
+	const description = getGistDescription()
+	const existing = gists.find((g) => g.description === description)
 	if (existing) return existing.id
 
 	// Create a new private gist with an empty ETF list
