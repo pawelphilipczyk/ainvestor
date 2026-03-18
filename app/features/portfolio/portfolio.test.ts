@@ -32,6 +32,8 @@ describe('Portfolio page', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /AI Investor/)
 		assert.match(body, /<form[^>]*method="post"[^>]*action="\/etfs"/)
+		assert.match(body, /Import from CSV/)
+		assert.match(body, /action="\/etfs\/import"/)
 	})
 
 	it('shows Preview chip in top bar when FLY_APP_NAME is ainvestor-preview', async () => {
@@ -109,6 +111,29 @@ describe('Portfolio page', () => {
 		assert.match(homeBody, /VTI/)
 		assert.match(homeBody, /1[,.]?200/)
 		assert.match(homeBody, /USD/)
+	})
+
+	it('imports portfolio from CSV with Polish headers', async () => {
+		const csv = `Papier;Giełda;Wartość;Waluta
+IBTA LN ETF;GBR-LSE;4087.48;PLN
+IQQH GR ETF;DEU-XETRA;3217.14;PLN`
+		const form = new FormData()
+		form.set('portfolioCsv', new Blob([csv], { type: 'text/csv' }), 'portfolio.csv')
+
+		const importResponse = await router.fetch(
+			new Request('http://localhost/etfs/import', {
+				method: 'POST',
+				body: form,
+			}),
+		)
+		assert.equal(importResponse.status, 302)
+
+		const homeResponse = await router.fetch('http://localhost/')
+		const homeBody = await homeResponse.text()
+		assert.match(homeBody, /IBTA LN ETF/)
+		assert.match(homeBody, /IQQH GR ETF/)
+		assert.match(homeBody, /4[,.]?087/)
+		assert.match(homeBody, /3[,.]?217/)
 	})
 
 	it('adds to existing ETF value when adding same name instead of replacing', async () => {
