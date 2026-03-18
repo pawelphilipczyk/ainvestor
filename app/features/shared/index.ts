@@ -3,7 +3,7 @@ import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
 import { html } from 'remix/html-template'
 import type { Session } from 'remix/session'
-import { renderComponent } from '../../components/render.ts'
+import { Sidebar } from '../../components/sidebar.tsx'
 // @ts-expect-error Runtime-only JS client entry module
 import { SidebarInteractions } from '../../components/sidebar.component.js'
 // @ts-expect-error Runtime-only JS client entry module
@@ -107,78 +107,32 @@ export async function appTopBar(session: SessionData | null) {
   `
 }
 
-export function appSidebar(
+export async function appSidebar(
 	session: SessionData | null,
 	currentPage: 'portfolio' | 'guidelines' | 'catalog',
 ) {
-	const navLinks: Array<{
-		href: string
-		label: string
-		page: 'portfolio' | 'guidelines' | 'catalog'
-	}> = [
+	const navLinks = [
 		{
 			href: routes.portfolio.index.href(),
 			label: 'Portfolio',
-			page: 'portfolio',
+			page: 'portfolio' as const,
 		},
 		{
 			href: routes.catalog.index.href(),
 			label: 'ETF Catalog',
-			page: 'catalog',
+			page: 'catalog' as const,
 		},
 		{
 			href: routes.guidelines.index.href(),
 			label: 'Investment Guidelines',
-			page: 'guidelines',
+			page: 'guidelines' as const,
 		},
 	]
 
-	const navItems = navLinks.map((link) => {
-		const isCurrent = link.page === currentPage
-		const ariaCurrent = isCurrent ? html.raw`aria-current="page"` : html.raw``
-		return html`
-      <a
-        href="${link.href}"
-        class="flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${isCurrent ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent hover:text-accent-foreground'}"
-        ${ariaCurrent}
-      >
-        ${link.label}
-      </a>
-    `
-	})
-
-	const authAction = session
-		? html`
-        <div class="border-t border-border pt-4">
-          <p class="mb-2 px-3 text-xs text-muted-foreground">Signed in as @${session.login}</p>
-          <form method="post" action="${routes.auth.logout.href()}">
-            <button
-              type="submit"
-              class="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-            >
-              Sign out
-            </button>
-          </form>
-        </div>
-      `
-		: html`
-        <div class="border-t border-border pt-4">
-          <a
-            href="${routes.auth.login.href()}"
-            class="flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
-          >
-            <svg class="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-              <path d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.531 1.032 1.531 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0 1 12 6.844a9.59 9.59 0 0 1 2.504.337c1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.02 10.02 0 0 0 22 12.017C22 6.484 17.522 2 12 2z"/>
-            </svg>
-            Sign in with GitHub
-          </a>
-        </div>
-      `
-
-	return renderComponent('sidebar', {
-		nav_items: navItems.map(String).join(''),
-		auth_action: String(authAction),
-	})
+	const markup = await renderToString(
+		jsx(Sidebar, { navLinks, currentPage, session }),
+	)
+	return html.raw`${markup}`
 }
 
 // ---------------------------------------------------------------------------
@@ -291,7 +245,7 @@ export async function pageShell(
         </script>
       </head>
       <body class="min-h-screen bg-background font-sans text-foreground antialiased">
-        ${appSidebar(session, currentPage)}
+        ${await appSidebar(session, currentPage)}
         ${await appTopBar(session)}
         <div class="p-4">
           ${body}
