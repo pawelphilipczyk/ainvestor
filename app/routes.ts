@@ -21,5 +21,6 @@ export const routes = route({
 	catalog: {
 		index: get('/catalog'),
 		import: post('/catalog/import'),
+		importJson: post('/catalog/import-json'),
 	},
 })
