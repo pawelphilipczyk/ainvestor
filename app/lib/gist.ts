@@ -15,6 +15,8 @@ export type EtfEntry = {
 	name: string
 	value: number
 	currency: string
+	exchange?: string
+	quantity?: number
 }
 
 type GistFile = {
