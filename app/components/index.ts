@@ -1,3 +1,4 @@
+export { AppTopBar } from './app-top-bar.tsx'
 export { NumberInput } from './number-input.tsx'
 export { SelectInput } from './select-input.tsx'
 export { SubmitButton } from './submit-button.tsx'

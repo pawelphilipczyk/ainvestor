@@ -606,6 +606,24 @@ let app = run(document, {
 
 **`<Frame>`** streams partial server UI into a page region and supports reload without full navigation.
 
+### This app's JSX usage
+
+**Component placement:**
+
+- **Shared components** (`app/components/`) — used across multiple features: `AppTopBar`, `Sidebar`, `ThemeToggleButton`, `SelectInput`, `TextInput`, `NumberInput`, `SubmitButton`
+- **Feature-specific pages** (`app/features/{feature}/`) — page body components: `PortfolioPage`, `GuidelinesPage`, `CatalogPage`, `AdvicePage`
+
+**Rendering pattern:** Page bodies are rendered with `renderToString(jsx(PageComponent, props))` and injected into the html shell via `html.raw`. The document shell (head, sidebar, top bar, scripts) stays as `remix/html-template` because Remix JSX does not support `dangerouslySetInnerHTML` for raw markup injection.
+
+```ts
+// In a feature controller
+const bodyMarkup = await renderToString(jsx(PortfolioPage, { entries, session }))
+const body = html.raw`${bodyMarkup}`
+return createHtmlResponse(await pageShell('Title', session, 'portfolio', body))
+```
+
+**Component signature:** Remix components use `(handle, setup) => (props) => JSX`. Sub-components used only within a page (e.g. table header rows) are plain functions or constants — not Remix components — to avoid the "must return a render function" requirement.
+
 ---
 
 ## DOM Event Handling — `remix/interaction`
@@ -796,7 +814,7 @@ Parse `FormData` once globally rather than in each handler.
 | `remix/fetch-router` | ✅ | Core router |
 | `remix/fetch-router/routes` | ✅ | `get()`, `post()` — all routes in `app/routes.ts` |
 | `remix/node-fetch-server` | ✅ | `server.ts` |
-| `remix/html-template` | ✅ | `html` tag used in all feature renderers |
+| `remix/html-template` | ✅ | Document shell; `html.raw` for injecting JSX-rendered page bodies |
 | `remix/response/html` | ✅ | `createHtmlResponse` |
 | `remix/response/redirect` | ✅ | `createRedirectResponse` |
 | `remix/form-data-middleware` | ✅ | `formData()` global middleware |
@@ -811,7 +829,8 @@ Parse `FormData` once globally rather than in each handler.
 | `remix/compression-middleware` | ✅ | `compression()` in production middleware stack |
 | `form()` shorthand | ✅ | guidelines routes use `form('guidelines')` |
 | `remix/headers` | ❌ | Not used yet |
-| `remix/component` | ✅ | JSX components (ThemeToggleButton), clientEntry islands (sidebar, theme-toggle, etf-card, catalog-paste) |
+| `remix/component` | ✅ | JSX page components (PortfolioPage, GuidelinesPage, etc.), shared layout (AppTopBar, Sidebar), clientEntry islands |
+| `remix/component/server` | ✅ | `renderToString()` — server-render JSX page bodies for injection via `html.raw` |
 | `remix/interaction` | ❌ | Using vanilla JS in island files |
 | `resources()` shorthand | ❌ | No RESTful resource collections yet |
 

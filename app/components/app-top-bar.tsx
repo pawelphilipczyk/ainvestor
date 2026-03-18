@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
-import { ThemeToggleButton } from '../../components/theme-toggle.tsx'
-import { isPreview } from '../../lib/gist.ts'
-import type { SessionData } from '../../lib/session.ts'
+import { isPreview } from '../lib/gist.ts'
+import type { SessionData } from '../lib/session.ts'
+import { ThemeToggleButton } from './theme-toggle.tsx'
 
 type AppTopBarProps = {
 	session: SessionData | null
@@ -9,6 +9,7 @@ type AppTopBarProps = {
 
 /**
  * Server-rendered top bar with sidebar toggle, title, auth indicator, and theme toggle.
+ * Shared layout component used across all pages.
  */
 export function AppTopBar(_handle: Handle, _setup?: unknown) {
 	return (props: AppTopBarProps) => (

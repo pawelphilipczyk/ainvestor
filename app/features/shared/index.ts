@@ -3,6 +3,7 @@ import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
 import { html } from 'remix/html-template'
 import type { Session } from 'remix/session'
+import { AppTopBar } from '../../components/index.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { SidebarInteractions } from '../../components/sidebar.component.js'
 import { Sidebar } from '../../components/sidebar.tsx'
@@ -16,7 +17,6 @@ import { routes } from '../../routes.ts'
 import { CatalogPasteInteractions } from '../catalog/catalog-paste.component.js'
 // @ts-expect-error Runtime-only JS client entry module
 import { EtfCardInteractions } from '../portfolio/etf-card.component.js'
-import { AppTopBar } from './app-top-bar.tsx'
 
 const NAV_LINKS = [
 	{
