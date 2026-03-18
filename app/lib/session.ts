@@ -7,10 +7,16 @@ export type SessionData = {
 	login: string
 }
 
+/** Non-empty secret for cookie signing. Web Crypto rejects zero-length keys. */
+function getSessionSecret(): string {
+	const raw = (process.env.SESSION_SECRET ?? '').trim()
+	return raw || 'dev-secret-change-me'
+}
+
 export const sessionCookie = createCookie('session', {
 	httpOnly: true,
 	sameSite: 'Lax',
-	secrets: [process.env.SESSION_SECRET ?? 'dev-secret-change-me'],
+	secrets: [getSessionSecret()],
 	maxAge: 86400,
 	secure: process.env.NODE_ENV === 'production',
 })

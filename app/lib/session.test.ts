@@ -86,4 +86,20 @@ describe('session', () => {
 			'destroyed session should clear the cookie',
 		)
 	})
+
+	it('cookie signing works when SESSION_SECRET is empty (preview env)', async () => {
+		const restore = process.env.SESSION_SECRET
+		process.env.SESSION_SECRET = ''
+		try {
+			const mod = await import(`./session.ts?t=${Date.now()}` as `${string}.ts`)
+			const session = await mod.sessionStorage.read(null)
+			session.set('token', 'x')
+			const value = await mod.sessionStorage.save(session)
+			if (value == null) throw new Error('expected save value')
+			const header = await mod.sessionCookie.serialize(value)
+			assert.ok(header.length > 0, 'serialize must not throw with empty secret')
+		} finally {
+			process.env.SESSION_SECRET = restore
+		}
+	})
 })
