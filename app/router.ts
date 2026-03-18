@@ -8,10 +8,6 @@ import { staticFiles } from 'remix/static-middleware'
 import { adviceHandler, setAdviceClient } from './features/advice/index.ts'
 import { authController } from './features/auth/index.ts'
 import {
-	catalogController,
-	resetGuestCatalog,
-} from './features/catalog/index.ts'
-import {
 	guidelinesController,
 	resetGuestGuidelines,
 } from './features/guidelines/index.ts'
@@ -22,12 +18,7 @@ import {
 import { sessionCookie, sessionStorage } from './lib/session.ts'
 import { routes } from './routes.ts'
 
-export {
-	resetEtfEntries,
-	resetGuestCatalog,
-	resetGuestGuidelines,
-	setAdviceClient,
-}
+export { resetEtfEntries, resetGuestGuidelines, setAdviceClient }
 
 const componentEntries = staticFiles('app', {
 	filter: (path) => path.endsWith('.component.js'),
@@ -71,5 +62,4 @@ router.get(routes.health, () => {
 router.map(routes.portfolio, portfolioController)
 router.map(routes.auth, authController)
 router.map(routes.guidelines, guidelinesController)
-router.map(routes.catalog, catalogController)
 router.post(routes.advice, adviceHandler)

@@ -316,12 +316,4 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(body, /href="\/guidelines"/)
 		assert.match(body, /Investment Guidelines/)
 	})
-
-	it('homepage has a link to the ETF catalog', async () => {
-		const response = await router.fetch('http://localhost/')
-		const body = await response.text()
-
-		assert.match(body, /href="\/catalog"/)
-		assert.match(body, /ETF Catalog/)
-	})
 })

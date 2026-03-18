@@ -18,9 +18,4 @@ export const routes = route({
 		...form('guidelines'),
 		delete: del('/guidelines/:id'),
 	},
-	catalog: {
-		index: get('/catalog'),
-		import: post('/catalog/import'),
-		importJson: post('/catalog/import-json'),
-	},
 })
