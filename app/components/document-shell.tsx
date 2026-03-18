@@ -1,18 +1,11 @@
 import type { Handle, RemixNode } from 'remix/component'
-// @ts-expect-error Runtime-only JS client entry module
-import { CatalogPasteInteractions } from '../features/catalog/catalog-paste.component.js'
-// @ts-expect-error Runtime-only JS client entry module
-import { EtfCardInteractions } from '../features/portfolio/etf-card.component.js'
 import { baseCss } from '../lib/document-styles.ts'
 import type { SessionData } from '../lib/session.ts'
 import { tailwindConfig } from '../lib/tailwind-config.ts'
 import { AppTopBar } from './app-top-bar.tsx'
-// @ts-expect-error Runtime-only JS client entry module
-import { SidebarInteractions } from './sidebar.component.js'
+import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
 import { NAV_LINKS } from './sidebar-nav.ts'
-// @ts-expect-error Runtime-only JS client entry module
-import { ThemeToggleInteractions } from './theme-toggle.component.js'
 
 const IMPORT_MAP = JSON.stringify({
 	imports: {
@@ -46,17 +39,11 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				<script type="importmap" innerHTML={IMPORT_MAP} />
 			</head>
 			<body class="min-h-screen bg-background font-sans text-foreground antialiased">
-				<Sidebar
-					navLinks={NAV_LINKS}
-					currentPage={props.currentPage}
-					session={props.session}
-				/>
-				<AppTopBar session={props.session} />
-				<div class="p-4">{props.children}</div>
-				<SidebarInteractions />
-				<ThemeToggleInteractions />
-				<EtfCardInteractions />
-				{props.currentPage === 'catalog' ? <CatalogPasteInteractions /> : null}
+				<SessionProvider session={props.session}>
+					<Sidebar navLinks={NAV_LINKS} currentPage={props.currentPage} />
+					<AppTopBar />
+					<div class="p-4">{props.children}</div>
+				</SessionProvider>
 				<script type="module" src="/entry.js" />
 			</body>
 		</html>

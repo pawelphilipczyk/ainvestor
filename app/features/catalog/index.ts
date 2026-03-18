@@ -90,7 +90,6 @@ async function renderCatalogPage(
 	const body = jsx(CatalogPage, {
 		catalog,
 		holdings,
-		session,
 		typeFilter,
 		query,
 	})

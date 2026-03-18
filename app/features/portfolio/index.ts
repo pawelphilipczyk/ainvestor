@@ -202,7 +202,7 @@ export const portfolioController = {
 // Page renderer
 // ---------------------------------------------------------------------------
 async function renderPage(entries: EtfEntry[], session: SessionData | null) {
-	const body = jsx(PortfolioPage, { entries, session })
+	const body = jsx(PortfolioPage, { entries })
 	return render({
 		title: 'AI Investor',
 		session,

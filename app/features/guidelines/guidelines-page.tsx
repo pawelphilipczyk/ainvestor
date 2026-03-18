@@ -1,16 +1,17 @@
 import type { Handle } from 'remix/component'
 import { SelectInput } from '../../components/index.ts'
+import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { ETF_TYPES } from '../../lib/guidelines.ts'
 import { routes } from '../../routes.ts'
 
 type GuidelinesPageProps = {
 	guidelines: EtfGuideline[]
-	session: { login: string } | null
 }
 
-export function GuidelinesPage(_handle: Handle, _setup?: unknown) {
+export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 	return (props: GuidelinesPageProps) => {
+		const session = handle.context.get(SessionProvider)?.session ?? null
 		const totalPct = props.guidelines.reduce((sum, g) => sum + g.targetPct, 0)
 		const remaining = Math.max(0, 100 - totalPct)
 
@@ -22,7 +23,7 @@ export function GuidelinesPage(_handle: Handle, _setup?: unknown) {
 					</h1>
 					<p class="mt-1 text-sm text-muted-foreground">
 						Set your target allocation.{' '}
-						{props.session
+						{session
 							? 'Saved to your private GitHub Gist.'
 							: 'Sign in to persist across sessions.'}
 					</p>

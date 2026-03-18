@@ -6,10 +6,24 @@ import { fileURLToPath } from 'node:url'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
 import { router } from '../router.ts'
+import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
 import { NAV_LINKS } from './sidebar-nav.ts'
 
 const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
+
+function renderSidebarWithSession(
+	navLinks: typeof NAV_LINKS,
+	currentPage: 'portfolio' | 'guidelines' | 'catalog',
+	session: { login: string } | null,
+) {
+	return renderToString(
+		jsx(SessionProvider, {
+			session,
+			children: jsx(Sidebar, { navLinks, currentPage }),
+		}),
+	)
+}
 
 describe('sidebar component', () => {
 	it('sidebar.tsx exists in app/components/', () => {
@@ -18,13 +32,7 @@ describe('sidebar component', () => {
 	})
 
 	it('Sidebar renders with nav links', async () => {
-		const result = await renderToString(
-			jsx(Sidebar, {
-				navLinks: NAV_LINKS,
-				currentPage: 'portfolio',
-				session: null,
-			}),
-		)
+		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
 		assert.match(result, /id="app-sidebar"/)
 		assert.match(result, /id="sidebar-backdrop"/)
 		assert.match(result, /href="\/catalog"/)
@@ -32,35 +40,21 @@ describe('sidebar component', () => {
 	})
 
 	it('Sidebar marks the current page with aria-current="page"', async () => {
-		const result = await renderToString(
-			jsx(Sidebar, {
-				navLinks: NAV_LINKS,
-				currentPage: 'catalog',
-				session: null,
-			}),
-		)
+		const result = await renderSidebarWithSession(NAV_LINKS, 'catalog', null)
 		assert.match(result, /aria-current="page"/)
 	})
 
 	it('Sidebar shows sign-in link when session is null', async () => {
-		const result = await renderToString(
-			jsx(Sidebar, {
-				navLinks: NAV_LINKS,
-				currentPage: 'portfolio',
-				session: null,
-			}),
-		)
+		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
 		assert.match(result, /Sign in with GitHub/)
 	})
 
 	it('Sidebar shows sign-out form when session is provided', async () => {
-		const result = await renderToString(
-			jsx(Sidebar, {
-				navLinks: NAV_LINKS,
-				currentPage: 'portfolio',
-				session: { login: 'alice', token: 'tok', gistId: null },
-			}),
-		)
+		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', {
+			login: 'alice',
+			token: 'tok',
+			gistId: null,
+		})
 		assert.match(result, /Sign out/)
 		assert.match(result, /@alice/)
 	})

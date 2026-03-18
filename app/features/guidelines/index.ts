@@ -116,7 +116,7 @@ async function renderGuidelinesPage(
 	guidelines: EtfGuideline[],
 	session: SessionData | null,
 ) {
-	const body = jsx(GuidelinesPage, { guidelines, session })
+	const body = jsx(GuidelinesPage, { guidelines })
 	return render({
 		title: 'AI Investor – Guidelines',
 		session,
