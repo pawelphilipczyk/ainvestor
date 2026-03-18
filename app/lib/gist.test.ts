@@ -5,6 +5,7 @@ import {
 	buildGistBody,
 	GIST_DESCRIPTION,
 	GIST_FILENAME,
+	getGistDescription,
 	parseEtfsFromGist,
 } from './gist.ts'
 
@@ -55,5 +56,29 @@ describe('gist', () => {
 			body.files[GIST_FILENAME].content,
 			JSON.stringify(entries, null, 2),
 		)
+	})
+
+	it('getGistDescription returns preview suffix when FLY_APP_NAME is ainvestor-preview', () => {
+		const prev = process.env.FLY_APP_NAME
+		try {
+			process.env.FLY_APP_NAME = 'ainvestor-preview'
+			assert.equal(getGistDescription(), 'ai-investor-data-preview')
+		} finally {
+			if (prev === undefined) delete process.env.FLY_APP_NAME
+			else process.env.FLY_APP_NAME = prev
+		}
+	})
+
+	it('getGistDescription returns base description for production or unset env', () => {
+		const prev = process.env.FLY_APP_NAME
+		try {
+			delete process.env.FLY_APP_NAME
+			assert.equal(getGistDescription(), GIST_DESCRIPTION)
+			process.env.FLY_APP_NAME = 'ainvestor'
+			assert.equal(getGistDescription(), GIST_DESCRIPTION)
+		} finally {
+			if (prev === undefined) delete process.env.FLY_APP_NAME
+			else process.env.FLY_APP_NAME = prev
+		}
 	})
 })
