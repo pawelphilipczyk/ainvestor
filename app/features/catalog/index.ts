@@ -52,7 +52,7 @@ export const catalogController = {
 		return renderCatalogPage(catalog, entries, session, typeFilter, query)
 	},
 
-	async importJson(context: { request: Request; session: Session }) {
+	async import(context: { request: Request; session: Session }) {
 		let json: unknown
 		try {
 			const text = await context.request.text()
@@ -255,7 +255,7 @@ async function renderCatalogPage(
         </p>
         <div
           data-catalog-paste-zone
-          data-import-url="${routes.catalog.importJson.href()}"
+          data-import-url="${routes.catalog.import.href()}"
           class="mt-3"
         >
           <label for="pasteZone" class="sr-only">Paste bank API JSON</label>

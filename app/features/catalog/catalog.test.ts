@@ -24,7 +24,7 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.match(body, /data-catalog-paste-zone/)
-		assert.match(body, /\/catalog\/import-json/)
+		assert.match(body, /\/catalog\/import/)
 	})
 
 	it('GET /catalog shows empty state hint when no catalog imported', async () => {
@@ -50,7 +50,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Portfolio/)
 	})
 
-	it('POST /catalog/import-json with bank API format merges into catalog', async () => {
+	it('POST /catalog/import with bank API format merges into catalog', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -67,7 +67,7 @@ describe('ETF Catalog page', () => {
 		})
 
 		const importResponse = await router.fetch(
-			new Request('http://localhost/catalog/import-json', {
+			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
 				headers: { 'Content-Type': 'application/json' },
@@ -98,7 +98,7 @@ describe('ETF Catalog page', () => {
 			total_count: 1,
 		})
 		await router.fetch(
-			new Request('http://localhost/catalog/import-json', {
+			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
 				headers: { 'Content-Type': 'application/json' },
@@ -133,7 +133,7 @@ describe('ETF Catalog page', () => {
 			total_count: 1,
 		})
 		await router.fetch(
-			new Request('http://localhost/catalog/import-json', {
+			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
 				headers: { 'Content-Type': 'application/json' },
@@ -157,7 +157,7 @@ describe('ETF Catalog page', () => {
 			total_count: 2,
 		})
 		await router.fetch(
-			new Request('http://localhost/catalog/import-json', {
+			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
 				headers: { 'Content-Type': 'application/json' },
@@ -191,7 +191,7 @@ describe('ETF Catalog page', () => {
 			total_count: 2,
 		})
 		await router.fetch(
-			new Request('http://localhost/catalog/import-json', {
+			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
 				headers: { 'Content-Type': 'application/json' },

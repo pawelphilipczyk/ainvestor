@@ -20,6 +20,6 @@ export const routes = route({
 	},
 	catalog: {
 		index: get('/catalog'),
-		importJson: post('/catalog/import-json'),
+		import: post('/catalog/import'),
 	},
 })
