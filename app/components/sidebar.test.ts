@@ -5,6 +5,7 @@ import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
+import type { SessionData } from '../lib/session.ts'
 import { router } from '../router.ts'
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
@@ -15,7 +16,7 @@ const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 function renderSidebarWithSession(
 	navLinks: typeof NAV_LINKS,
 	currentPage: 'portfolio' | 'guidelines' | 'catalog',
-	session: { login: string } | null,
+	session: SessionData | null,
 ) {
 	return renderToString(
 		jsx(SessionProvider, {
