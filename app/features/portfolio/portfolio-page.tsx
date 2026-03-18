@@ -6,12 +6,13 @@ import {
 	TextInput,
 } from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
-import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { routes } from '../../routes.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { EtfCardInteractions } from './etf-card.component.js'
-import { EtfCard } from './etf-card.tsx'
+// @ts-expect-error Runtime-only JS client entry module
+import { PortfolioFormEnhancement } from './portfolio-form-enhancement.component.js'
+import { PortfolioListFragment } from './portfolio-list-fragment.tsx'
 
 const CURRENCIES = [
 	'PLN',
@@ -58,10 +59,16 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 						)}
 					</header>
 
+					<div
+						id="portfolio-form-error"
+						role="alert"
+						class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+					/>
 					<form
 						method="post"
 						action={routes.portfolio.create.href()}
 						class="mt-6 grid gap-4"
+						data-fetch-submit
 					>
 						<TextInput
 							id="etfName"
@@ -142,32 +149,9 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 						</form>
 					</section>
 
-					{props.entries.length === 0 ? (
-						<p class="mt-4 text-sm text-muted-foreground">No ETFs added yet.</p>
-					) : (
-						<ul class="mt-4 grid gap-2">
-							{props.entries.map((entry) => {
-								const details = [
-									entry.quantity !== undefined
-										? `${entry.quantity.toLocaleString()} shares`
-										: '',
-									entry.exchange ?? '',
-								]
-									.filter(Boolean)
-									.join(' · ')
-								return (
-									<EtfCard
-										key={entry.id}
-										name={entry.name}
-										details={details}
-										badgeValue={formatValue(entry.value, entry.currency)}
-										dialogId={`dialog-${entry.id}`}
-										deleteHref={routes.portfolio.delete.href({ id: entry.id })}
-									/>
-								)
-							})}
-						</ul>
-					)}
+					<div id="portfolio-list">
+						<PortfolioListFragment entries={props.entries} />
+					</div>
 
 					<hr class="my-6 border-border" />
 
@@ -204,6 +188,7 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 					</section>
 				</main>
 				<EtfCardInteractions />
+				<PortfolioFormEnhancement />
 			</>
 		)
 	}

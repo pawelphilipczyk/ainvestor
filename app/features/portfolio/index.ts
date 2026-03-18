@@ -1,7 +1,9 @@
 import { jsx } from 'remix/component/jsx-runtime'
+import { renderToString } from 'remix/component/server'
 import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
+import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
@@ -11,6 +13,7 @@ import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+import { PortfolioListFragment } from './portfolio-list-fragment.tsx'
 import { PortfolioPage } from './portfolio-page.tsx'
 
 const CreateEtfSchema = object({
@@ -43,7 +46,19 @@ export const portfolioController = {
 		const entries = session?.gistId
 			? await fetchEtfs(session.token, session.gistId)
 			: guestEntries
-		return renderPage(entries, session)
+		const flashError = context.session.get('error') as string | undefined
+		return renderPage(entries, session, flashError)
+	},
+
+	async fragmentList(context: { request: Request; session: Session }) {
+		const session = getSessionData(context.session)
+		const entries = session?.gistId
+			? await fetchEtfs(session.token, session.gistId)
+			: guestEntries
+		const html = await renderToString(jsx(PortfolioListFragment, { entries }))
+		return createHtmlResponse(html, {
+			headers: { 'Cache-Control': 'no-store' },
+		})
 	},
 
 	async create(context: {
@@ -66,7 +81,11 @@ export const portfolioController = {
 
 		const result = parseSafe(CreateEtfSchema, raw)
 		if (!result.success) {
-			return createRedirectResponse(routes.portfolio.index.href())
+			const message = 'Please enter a valid ETF name and value (number >= 0).'
+			context.session.flash('error', message)
+			return createRedirectResponse(routes.portfolio.index.href(), {
+				headers: { 'X-Flash-Error': message },
+			})
 		}
 
 		const { etfName: name, value, currency, exchange, quantity } = result.value
@@ -201,13 +220,18 @@ export const portfolioController = {
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
-async function renderPage(entries: EtfEntry[], session: SessionData | null) {
+async function renderPage(
+	entries: EtfEntry[],
+	session: SessionData | null,
+	flashError?: string,
+) {
 	const body = jsx(PortfolioPage, { entries })
 	return render({
 		title: 'AI Investor',
 		session,
 		currentPage: 'portfolio',
 		body,
+		flashError,
 		init: { headers: { 'Cache-Control': 'no-store' } },
 	})
 }

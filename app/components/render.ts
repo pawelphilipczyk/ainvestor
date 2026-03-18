@@ -10,6 +10,7 @@ export type RenderOptions = {
 	session: SessionData | null
 	currentPage: 'portfolio' | 'guidelines' | 'catalog'
 	body: RemixNode
+	flashError?: string
 	init?: ResponseInit
 }
 
@@ -22,6 +23,7 @@ export async function render(options: RenderOptions): Promise<Response> {
 		title: options.title,
 		session: options.session,
 		currentPage: options.currentPage,
+		flashError: options.flashError,
 		children: options.body,
 	})
 
