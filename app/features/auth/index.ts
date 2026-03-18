@@ -1,9 +1,8 @@
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
-
+import { getClientId, getClientSecret } from '../../lib/auth.ts'
 import { findOrCreateGist } from '../../lib/gist.ts'
 import { routes } from '../../routes.ts'
-import { getClientId, getClientSecret } from '../shared/index.ts'
 
 export const authController = {
 	async login() {

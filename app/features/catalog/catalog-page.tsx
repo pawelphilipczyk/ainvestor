@@ -1,8 +1,9 @@
 import type { Handle } from 'remix/component'
 import { SelectInput } from '../../components/index.ts'
+import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
+import { ETF_TYPES } from '../../lib/guidelines.ts'
 import { routes } from '../../routes.ts'
-import { ETF_TYPES, formatValue } from '../shared/index.ts'
 import type { CatalogEntry } from './lib.ts'
 
 type CatalogPageProps = {

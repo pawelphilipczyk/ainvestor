@@ -2,21 +2,19 @@ import { createElement } from 'remix/component'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
 import { html } from 'remix/html-template'
-import type { Session } from 'remix/session'
-import { AppTopBar } from '../../components/index.ts'
 // @ts-expect-error Runtime-only JS client entry module
-import { SidebarInteractions } from '../../components/sidebar.component.js'
-import { Sidebar } from '../../components/sidebar.tsx'
+import { CatalogPasteInteractions } from '../features/catalog/catalog-paste.component.js'
 // @ts-expect-error Runtime-only JS client entry module
-import { ThemeToggleInteractions } from '../../components/theme-toggle.component.js'
-import { ThemeToggleButton } from '../../components/theme-toggle.tsx'
-import type { EtfType } from '../../lib/guidelines.ts'
-import type { SessionData } from '../../lib/session.ts'
-import { routes } from '../../routes.ts'
+import { EtfCardInteractions } from '../features/portfolio/etf-card.component.js'
+import type { SessionData } from '../lib/session.ts'
+import { routes } from '../routes.ts'
+import { AppTopBar } from './app-top-bar.tsx'
 // @ts-expect-error Runtime-only JS client entry module
-import { CatalogPasteInteractions } from '../catalog/catalog-paste.component.js'
+import { SidebarInteractions } from './sidebar.component.js'
+import { Sidebar } from './sidebar.tsx'
 // @ts-expect-error Runtime-only JS client entry module
-import { EtfCardInteractions } from '../portfolio/etf-card.component.js'
+import { ThemeToggleInteractions } from './theme-toggle.component.js'
+import { ThemeToggleButton } from './theme-toggle.tsx'
 
 const NAV_LINKS = [
 	{
@@ -36,60 +34,6 @@ const NAV_LINKS = [
 	},
 ]
 
-// ---------------------------------------------------------------------------
-// Config helpers (read at request time so env vars can be set in tests)
-// ---------------------------------------------------------------------------
-export function getClientId() {
-	return process.env.GH_CLIENT_ID ?? ''
-}
-export function getClientSecret() {
-	return process.env.GH_CLIENT_SECRET ?? ''
-}
-
-// ---------------------------------------------------------------------------
-// Session helper: read typed session data from the middleware-injected Session
-// ---------------------------------------------------------------------------
-export function getSessionData(session: Session): SessionData | null {
-	const token = session.get('token') as string | undefined
-	const login = session.get('login') as string | undefined
-	if (!token || !login) return null
-	return {
-		token,
-		gistId: (session.get('gistId') as string | undefined) ?? null,
-		login,
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Shared constants
-// ---------------------------------------------------------------------------
-export const ETF_TYPES: EtfType[] = [
-	'equity',
-	'bond',
-	'real_estate',
-	'commodity',
-	'mixed',
-	'money_market',
-]
-
-// ---------------------------------------------------------------------------
-// Formatting
-// ---------------------------------------------------------------------------
-export function formatValue(value: number, currency: string): string {
-	try {
-		return new Intl.NumberFormat('en-US', {
-			style: 'currency',
-			currency,
-			maximumFractionDigits: 2,
-		}).format(value)
-	} catch {
-		return `${value} ${currency}`
-	}
-}
-
-// ---------------------------------------------------------------------------
-// Shared navigation components
-// ---------------------------------------------------------------------------
 export async function appTopBar(session: SessionData | null) {
 	const markup = await renderToString(jsx(AppTopBar, { session }))
 	return html.raw`${markup}`
@@ -110,9 +54,6 @@ export async function themeToggleButton() {
 	return html.raw`${markup}`
 }
 
-// ---------------------------------------------------------------------------
-// Shared HTML shell
-// ---------------------------------------------------------------------------
 export async function pageShell(
 	title: string,
 	session: SessionData | null,

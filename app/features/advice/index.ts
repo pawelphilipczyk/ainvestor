@@ -5,14 +5,14 @@ import { minLength } from 'remix/data-schema/checks'
 import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import type { Session } from 'remix/session'
-
+import { pageShell } from '../../components/page-shell.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
+import { getSessionData } from '../../lib/session.ts'
 import type { AdviceClient } from '../../openai.ts'
 import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
-import { getSessionData, pageShell } from '../shared/index.ts'
 import { AdvicePage } from './advice-page.tsx'
 
 const AdviceSchema = object({

@@ -292,10 +292,16 @@ All UI-related files should follow this structure:
 app/
   components/
     app-top-bar.tsx      ← shared layout (top bar, sidebar toggle, theme)
+    page-shell.ts       ← document shell, appTopBar, appSidebar, themeToggleButton
     sidebar.tsx          ← shared navigation
     theme-toggle.tsx
     select-input.tsx     ← shared form fields
     *.component.js       ← clientEntry for interactive components
+  lib/
+    auth.ts              ← getClientId, getClientSecret
+    format.ts            ← formatValue
+    session.ts           ← getSessionData, SessionData
+    guidelines.ts        ← ETF_TYPES, EtfType
   features/
     portfolio/
       portfolio-page.tsx   ← feature-specific page body

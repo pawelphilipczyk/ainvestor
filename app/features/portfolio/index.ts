@@ -7,13 +7,13 @@ import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
-
+import { pageShell } from '../../components/page-shell.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, saveEtfs } from '../../lib/gist.ts'
 import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { SessionData } from '../../lib/session.ts'
+import { getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { getSessionData, pageShell } from '../shared/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
 
 const CreateEtfSchema = object({

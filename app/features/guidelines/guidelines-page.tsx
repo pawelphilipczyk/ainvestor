@@ -1,8 +1,8 @@
 import type { Handle } from 'remix/component'
 import { SelectInput } from '../../components/index.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
+import { ETF_TYPES } from '../../lib/guidelines.ts'
 import { routes } from '../../routes.ts'
-import { ETF_TYPES } from '../shared/index.ts'
 
 type GuidelinesPageProps = {
 	guidelines: EtfGuideline[]

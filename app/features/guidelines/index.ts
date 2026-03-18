@@ -7,26 +7,22 @@ import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
+import { pageShell } from '../../components/page-shell.ts'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
-import { fetchGuidelines, saveGuidelines } from '../../lib/guidelines.ts'
+import {
+	ETF_TYPES,
+	fetchGuidelines,
+	saveGuidelines,
+} from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
+import { getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { getSessionData, pageShell } from '../shared/index.ts'
 import { GuidelinesPage } from './guidelines-page.tsx'
-
-const ETF_TYPE_VALUES = [
-	'equity',
-	'bond',
-	'real_estate',
-	'commodity',
-	'mixed',
-	'money_market',
-] as const
 
 const CreateGuidelineSchema = object({
 	etfName: string().pipe(minLength(1)),
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
-	etfType: optional(enum_(ETF_TYPE_VALUES)),
+	etfType: optional(enum_(ETF_TYPES)),
 })
 
 // ---------------------------------------------------------------------------

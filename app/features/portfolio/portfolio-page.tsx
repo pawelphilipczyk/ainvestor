@@ -5,9 +5,9 @@ import {
 	SubmitButton,
 	TextInput,
 } from '../../components/index.ts'
+import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { routes } from '../../routes.ts'
-import { formatValue } from '../shared/index.ts'
 import { EtfCard } from './etf-card.tsx'
 
 const CURRENCIES = [

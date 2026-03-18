@@ -3,8 +3,8 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { appSidebar } from '../features/shared/index.ts'
 import { router } from '../router.ts'
+import { appSidebar } from './page-shell.ts'
 
 const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 

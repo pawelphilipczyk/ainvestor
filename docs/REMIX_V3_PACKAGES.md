@@ -610,8 +610,9 @@ let app = run(document, {
 
 **Component placement:**
 
-- **Shared components** (`app/components/`) — used across multiple features: `AppTopBar`, `Sidebar`, `ThemeToggleButton`, `SelectInput`, `TextInput`, `NumberInput`, `SubmitButton`
+- **Shared components** (`app/components/`) — layout and form fields: `AppTopBar`, `Sidebar`, `ThemeToggleButton`, `SelectInput`, `TextInput`, `NumberInput`, `SubmitButton`; `page-shell.ts` for document shell
 - **Feature-specific pages** (`app/features/{feature}/`) — page body components: `PortfolioPage`, `GuidelinesPage`, `CatalogPage`, `AdvicePage`
+- **Utilities** (`app/lib/`) — `auth.ts` (getClientId, getClientSecret), `format.ts` (formatValue), `session.ts` (getSessionData), `guidelines.ts` (ETF_TYPES)
 
 **Rendering pattern:** Page bodies are rendered with `renderToString(jsx(PageComponent, props))` and injected into the html shell via `html.raw`. The document shell (head, sidebar, top bar, scripts) stays as `remix/html-template` because Remix JSX does not support `dangerouslySetInnerHTML` for raw markup injection.
 
