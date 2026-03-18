@@ -147,21 +147,18 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 		label: 'Currency',
 		field_name: 'currency',
 		children: [
+			'PLN',
 			'USD',
 			'EUR',
 			'GBP',
 			'CHF',
-			'PLN',
 			'JPY',
 			'CAD',
 			'AUD',
 			'SEK',
 			'NOK',
 		]
-			.map(
-				(c) =>
-					`<option value="${c}"${c === 'PLN' ? ' selected' : ''}>${c}</option>`,
-			)
+			.map((c) => `<option value="${c}">${c}</option>`)
 			.join(''),
 	})
 

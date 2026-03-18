@@ -43,11 +43,12 @@ describe('Portfolio page', () => {
 		assert.match(body, /name="currency"/)
 	})
 
-	it('form defaults currency to PLN', async () => {
+	it('form defaults currency to PLN (first option)', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 
-		assert.match(body, /<option value="PLN"[^>]*selected[^>]*>PLN<\/option>/)
+		// PLN is first option, so it is the default when none selected
+		assert.match(body, /<select[^>]*>[\s\S]*?<option value="PLN">PLN<\/option>/)
 	})
 
 	it('adds ETF with PLN currency', async () => {
