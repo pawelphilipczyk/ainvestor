@@ -94,7 +94,7 @@ This repo includes `.github/workflows/deploy-fly.yml` to deploy automatically on
 
 Add these repository secrets in GitHub before relying on the workflow:
 
-- `FLY_API_TOKEN` (create with `fly tokens create deploy`)
+- `FLY_API_TOKEN` — use `fly tokens create org -o personal` (or your org name). An org-scoped token is required for PR preview deployments, which create new apps. It also works for production deploys.
 - `GH_CLIENT_ID` — your OAuth App client ID
 - `GH_CLIENT_SECRET` — your OAuth App client secret
 - `SESSION_SECRET` — a random string (generate with `openssl rand -hex 32`)
@@ -108,6 +108,7 @@ Also update the **Authorization callback URL** in your GitHub OAuth App to your 
 
 - **Triggers:** opened, reopened, or updated PRs
 - **Uses same secrets** as production (`FLY_API_TOKEN`, `GH_CLIENT_ID`, `GH_CLIENT_SECRET`, `SESSION_SECRET`)
+- **Token requirement:** `FLY_API_TOKEN` must be an **org-scoped token** (`fly tokens create org -o personal`), not an app-scoped deploy token. PR previews create new apps, which requires org-level permissions.
 - **Cleanup:** The preview app is destroyed when the PR is closed
 
 ### OAuth on preview apps
