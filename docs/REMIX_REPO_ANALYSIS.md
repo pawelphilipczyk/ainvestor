@@ -200,7 +200,7 @@ return createHtmlResponse(html`
 
 **Bookstore** uses JSX + `render()` utility that returns `createHtmlResponse(renderToStream(...))`.
 
-**Our app:** Uses `html` template tag throughout; `createHtmlResponse` for responses.
+**Our app:** Matches Bookstore. Full document is JSX (`DocumentShell` wrapping page body). `render()` returns `createHtmlResponse(renderToStream(document))`. Controllers pass page bodies as JSX children. Shared components in `app/components/`; feature-specific page components in `app/features/{feature}/`.
 
 ### 2.7 Method Override
 
@@ -251,11 +251,11 @@ return createHtmlResponse(html`
 
 | Aspect | Our App | Remix Examples |
 |--------|---------|----------------|
-| **Rendering** | HTML templates (`html` tag) + islands | Bookstore: full JSX; fetch-router demos: html templates |
+| **Rendering** | JSX page bodies + `html` shell + islands | Bookstore: full JSX; fetch-router demos: html templates |
 | **Data validation** | `parseSafe` + `Object.fromEntries(formData)` | Bookstore: `s.parse` + `f.object()` (FormData-native) |
 | **Session storage** | `createCookieSessionStorage` | Bookstore: `createFsSessionStorage`; demos: `createCookieSessionStorage` |
 | **Context access** | `context.session`, `context.formData` | Bookstore: `get(Session)`, `get(FormData)` via asyncContext |
-| **Components** | `clientEntry` + `renderToString` for islands | Bookstore: full JSX; fetch-router demos: minimal/no components |
+| **Components** | JSX page components + `clientEntry` islands; shared in `app/components/`, feature-specific in `app/features/` | Bookstore: full JSX; fetch-router demos: minimal/no components |
 | **Form shorthand** | `form('guidelines')` | Same; bookstore also uses `form('settings', { formMethod: 'PUT', names: { action: 'update' } })` |
 | **Resources** | Not used | Bookstore: `resources('orders')`, `resources('books')`, etc. |
 | **File uploads** | None | Bookstore: `uploadHandler` + `createFsFileStorage` |

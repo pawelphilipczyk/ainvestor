@@ -29,8 +29,8 @@ export {
 	setAdviceClient,
 }
 
-const componentEntries = staticFiles('app', {
-	filter: (path) => path.endsWith('.component.js'),
+const appStatic = staticFiles('app', {
+	filter: (path) => path.endsWith('.component.js') || path === 'entry.js',
 })
 
 const remixRuntime = staticFiles('node_modules', {
@@ -45,7 +45,7 @@ export const router = createRouter({
 	middleware:
 		process.env.NODE_ENV === 'development'
 			? [
-					componentEntries,
+					appStatic,
 					remixRuntime,
 					logger(),
 					formData(),
@@ -53,7 +53,7 @@ export const router = createRouter({
 					session(sessionCookie, sessionStorage),
 				]
 			: [
-					componentEntries,
+					appStatic,
 					remixRuntime,
 					compression(),
 					formData(),

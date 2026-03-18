@@ -81,9 +81,24 @@ Global CSS should be minimal and primarily support Tailwind.
 
 ## Component Architecture
 
-### Server-Rendered Component Partials
+### JSX Components (Remix `remix/component`)
 
-Reusable UI components are implemented as HTML partial templates rendered on the server.
+UI is built with **JSX components** rendered on the server via `remix/component`. Page bodies and the document shell are JSX; `render()` returns `createHtmlResponse(renderToStream(document))`.
+
+**Component placement:**
+
+| Location | Use case |
+|----------|----------|
+| `app/components/` | Shared components used across multiple features (e.g. `AppTopBar`, `Sidebar`, `SelectInput`, `ThemeToggleButton`) |
+| `app/features/{feature}/` | Feature-specific page components (e.g. `PortfolioPage`, `GuidelinesPage`, `CatalogPage`, `AdvicePage`) |
+
+**Rendering pattern:** Matches the Bookstore demo. The full document is JSX (`DocumentShell` wrapping page body). Controllers call `render({ title, session, currentPage, body: jsx(PageComponent, props) })`, which returns `createHtmlResponse(renderToStream(document))`. Page bodies are passed as JSX children.
+
+**Remix component signature:** Components use `(handle, setup) => (props) => JSX`. Sub-components used only within a page (e.g. `CatalogTableHeader`) are plain functions or constants — not Remix components — to avoid the "must return a render function" requirement.
+
+### Legacy: Server-Rendered Component Partials (deprecated)
+
+The following describes the legacy HTML partial approach, kept for reference. New components use JSX.
 
 Component directory:
 
@@ -91,7 +106,7 @@ Component directory:
 app/components/
 ```
 
-Example structure:
+Example structure (legacy):
 
 ```text
 app/components/
@@ -276,23 +291,33 @@ All UI-related files should follow this structure:
 ```text
 app/
   components/
-    button.html
-    modal.html
-    dropdown.html
-    dropdown.island.js   ← shared component islands live here
-  islands/
-    sidebar.js           ← global/shared islands live here
-    theme-toggle.js
+    app-top-bar.tsx      ← shared layout (top bar, sidebar toggle, theme)
+    document-shell.tsx   ← DocumentShell layout (head, sidebar, top bar, scripts)
+    render.ts            ← render() returns createHtmlResponse(renderToStream(...))
+    sidebar.tsx          ← shared navigation
+    theme-toggle.tsx
+    select-input.tsx     ← shared form fields
+    *.component.js       ← clientEntry for interactive components
+  lib/
+    auth.ts              ← getClientId, getClientSecret
+    format.ts            ← formatValue
+    session.ts           ← getSessionData, SessionData
+    guidelines.ts        ← ETF_TYPES, EtfType
   features/
     portfolio/
-      etf-card.html
-      etf-card.island.js ← feature-specific island next to its HTML
+      portfolio-page.tsx   ← feature-specific page body
+      etf-card.tsx
     guidelines/
-      inline-editor.html
-      inline-editor.island.js
+      guidelines-page.tsx
+    catalog/
+      catalog-page.tsx
+    advice/
+      advice-page.tsx
   styles/
     tailwind.css
 ```
+
+**Rule:** Shared components (used by ≥2 features) live in `app/components/`. Feature-specific components live in `app/features/{feature}/`.
 
 ---
 
@@ -331,14 +356,14 @@ This architecture aligns with the packages available in `remix@next`. Key Remix 
 
 | Package | Role in this architecture |
 |---|---|
-| `remix/html-template` | XSS-safe `html` tag for all server-rendered HTML |
 | `remix/response/html` | `createHtmlResponse()` — wraps HTML with proper headers |
 | `remix/response/redirect` | `createRedirectResponse()` — post-form redirect |
 | `remix/static-middleware` | Serve CSS, JS islands, and other static assets |
-| `remix/component` | Advanced island system (JSX + `clientEntry` + `<Frame>`) — opt-in for richer interactivity |
+| `remix/component` | JSX components for page bodies and shared UI; `clientEntry` for interactive islands |
+| `remix/component/server` | `renderToStream()` — full document streamed to response |
 | `remix/interaction` | Type-safe DOM events for islands (`on()`, `createContainer()`) |
 
-The manual `data-island` + `mount(el)` pattern is the default. For components requiring more complex state or server-streaming (`<Frame>`), prefer `remix/component` over custom solutions.
+**Rendering:** All page bodies and the document shell are JSX. `render()` returns `createHtmlResponse(renderToStream(document))`. See `REMIX_V3_PACKAGES.md` for the component rendering pattern.
 
 Refer to `REMIX_V3_PACKAGES.md` for the full package reference.
 

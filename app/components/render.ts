@@ -1,25 +1,29 @@
-import type { Handle } from '@remix-run/component'
+import type { RemixNode } from 'remix/component'
 import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
-import { html } from 'remix/html-template'
+import { renderToStream } from 'remix/component/server'
+import { createHtmlResponse } from 'remix/response/html'
+import type { SessionData } from '../lib/session.ts'
+import { DocumentShell } from './document-shell.tsx'
+
+export type RenderOptions = {
+	title: string
+	session: SessionData | null
+	currentPage: 'portfolio' | 'guidelines' | 'catalog'
+	body: RemixNode
+	init?: ResponseInit
+}
 
 /**
- * Matches Remix's function component shape from JSX.ElementType:
- * (handle: Handle<any>, setup: any) => (props: P) => RemixNode
+ * Renders a page with the document shell and returns an HTML response.
+ * Matches the Bookstore demo pattern: createHtmlResponse(renderToStream(...))
  */
-type RemixComponent<T extends object> = (
-	handle: Handle<Record<string, never>>,
-	setup: unknown,
-) => (props: T) => unknown
+export async function render(options: RenderOptions): Promise<Response> {
+	const document = jsx(DocumentShell, {
+		title: options.title,
+		session: options.session,
+		currentPage: options.currentPage,
+		children: options.body,
+	})
 
-/**
- * Renders a Remix JSX component to HTML. Use for form fields and other
- * server-rendered components.
- */
-export async function renderJsx<T extends object>(
-	component: RemixComponent<T>,
-	props: T,
-) {
-	const markup = await renderToString(jsx(component, props))
-	return html.raw`${markup}`
+	return createHtmlResponse(renderToStream(document), options.init)
 }

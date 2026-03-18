@@ -42,3 +42,7 @@ Before writing any JS/TS/CSS code, read:
 - When a task involves Remix routing, sessions, middleware, or HTTP utilities, `docs/REMIX_V3_PACKAGES.md` is the reference.
 - For all JS/TS/CSS formatting and lint rules, `docs/BIOME_RULES.md` is the reference. Run `npm run check` before committing.
 - Islands that are feature-specific live next to the feature HTML (`.island.js` suffix). Shared islands live in `app/islands/`.
+
+## Function signature rule
+
+- **Functions with more than 2 arguments:** Prefer a single object parameter instead of multiple positional parameters. Example: `render({ title, session, currentPage, body, init })` instead of `render(title, session, currentPage, body, init)`.

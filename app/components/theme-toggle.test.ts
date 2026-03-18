@@ -3,8 +3,10 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { themeToggleButton } from '../features/shared/index.ts'
+import { jsx } from 'remix/component/jsx-runtime'
+import { renderToString } from 'remix/component/server'
 import { router } from '../router.ts'
+import { ThemeToggleButton } from './theme-toggle.tsx'
 
 const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 
@@ -14,14 +16,14 @@ describe('theme-toggle component', () => {
 		assert.ok(existsSync(filePath), 'theme-toggle.tsx must exist')
 	})
 
-	it('themeToggleButton() renders output with data-theme-toggle and button (JSX)', async () => {
-		const result = String(await themeToggleButton())
+	it('ThemeToggleButton renders output with data-theme-toggle and button (JSX)', async () => {
+		const result = await renderToString(jsx(ThemeToggleButton, {}))
 		assert.match(result, /data-theme-toggle/)
 		assert.match(result, /<button/)
 	})
 
-	it('themeToggleButton() renders sun and moon SVG icons', async () => {
-		const result = String(await themeToggleButton())
+	it('ThemeToggleButton renders sun and moon SVG icons', async () => {
+		const result = await renderToString(jsx(ThemeToggleButton, {}))
 		assert.match(result, /dark:-rotate-90/, 'sun icon with dark variant')
 		assert.match(result, /dark:rotate-0/, 'moon icon with dark variant')
 	})

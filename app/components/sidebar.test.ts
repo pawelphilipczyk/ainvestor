@@ -3,10 +3,28 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { appSidebar } from '../features/shared/index.ts'
+import { jsx } from 'remix/component/jsx-runtime'
+import { renderToString } from 'remix/component/server'
+import type { SessionData } from '../lib/session.ts'
 import { router } from '../router.ts'
+import { SessionProvider } from './session-provider.tsx'
+import { Sidebar } from './sidebar.tsx'
+import { NAV_LINKS } from './sidebar-nav.ts'
 
 const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
+
+function renderSidebarWithSession(
+	navLinks: typeof NAV_LINKS,
+	currentPage: 'portfolio' | 'guidelines' | 'catalog',
+	session: SessionData | null,
+) {
+	return renderToString(
+		jsx(SessionProvider, {
+			session,
+			children: jsx(Sidebar, { navLinks, currentPage }),
+		}),
+	)
+}
 
 describe('sidebar component', () => {
 	it('sidebar.tsx exists in app/components/', () => {
@@ -14,55 +32,60 @@ describe('sidebar component', () => {
 		assert.ok(existsSync(filePath), 'sidebar.tsx must exist')
 	})
 
-	it('appSidebar() renders sidebar with nav links', async () => {
-		const result = String(await appSidebar(null, 'portfolio'))
+	it('Sidebar renders with nav links', async () => {
+		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
 		assert.match(result, /id="app-sidebar"/)
 		assert.match(result, /id="sidebar-backdrop"/)
 		assert.match(result, /href="\/catalog"/)
 		assert.match(result, /href="\/guidelines"/)
 	})
 
-	it('appSidebar() marks the current page with aria-current="page"', async () => {
-		const result = String(await appSidebar(null, 'catalog'))
+	it('Sidebar marks the current page with aria-current="page"', async () => {
+		const result = await renderSidebarWithSession(NAV_LINKS, 'catalog', null)
 		assert.match(result, /aria-current="page"/)
 	})
 
-	it('appSidebar() shows sign-in link when session is null', async () => {
-		const result = String(await appSidebar(null, 'portfolio'))
+	it('Sidebar shows sign-in link when session is null', async () => {
+		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
 		assert.match(result, /Sign in with GitHub/)
 	})
 
-	it('appSidebar() shows sign-out form when session is provided', async () => {
-		const result = String(
-			await appSidebar(
-				{ login: 'alice', token: 'tok', gistId: null },
-				'portfolio',
-			),
-		)
+	it('Sidebar shows sign-out form when session is provided', async () => {
+		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', {
+			login: 'alice',
+			token: 'tok',
+			gistId: null,
+		})
 		assert.match(result, /Sign out/)
 		assert.match(result, /@alice/)
 	})
 })
 
-describe('remix component runtime in page shell', () => {
+describe('remix component runtime in document', () => {
 	it('body no longer uses legacy data-island activation attributes', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 		assert.doesNotMatch(body, /data-island=/)
 	})
 
-	it('page shell includes import map for remix component runtime', async () => {
+	it('document includes import map for remix component runtime', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /"remix\/component": "\/remix\/dist\/component\.js"/)
+		assert.match(body, /"remix\/component":\s*"\/remix\/dist\/component\.js"/)
 		assert.match(
 			body,
-			/"@remix-run\/component": "\/@remix-run\/component\/dist\/index\.js"/,
+			/"@remix-run\/component":\s*"\/@remix-run\/component\/dist\/index\.js"/,
 		)
 	})
 
-	it('page shell boots remix component runtime with run(document, ...)', async () => {
+	it('document loads entry.js to boot remix component runtime', async () => {
 		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+		assert.match(body, /<script[^>]*type="module"[^>]*src="\/entry\.js"/)
+	})
+	it('GET /entry.js returns bootstrap with run(document, ...)', async () => {
+		const response = await router.fetch('http://localhost/entry.js')
+		assert.equal(response.status, 200)
 		const body = await response.text()
 		assert.match(body, /import \{ run \} from 'remix\/component'/)
 		assert.match(body, /run\(document, \{/)
