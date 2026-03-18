@@ -135,7 +135,7 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 		placeholder: 'e.g. VTI',
 	})
 
-	const valueInput = renderComponent('text-input', {
+	const valueInput = renderComponent('number-input', {
 		id: 'value',
 		label: 'Value',
 		field_name: 'value',
@@ -147,11 +147,11 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 		label: 'Currency',
 		field_name: 'currency',
 		children: [
+			'PLN',
 			'USD',
 			'EUR',
 			'GBP',
 			'CHF',
-			'PLN',
 			'JPY',
 			'CAD',
 			'AUD',
