@@ -9,7 +9,6 @@ import { Sidebar } from '../../components/sidebar.tsx'
 // @ts-expect-error Runtime-only JS client entry module
 import { ThemeToggleInteractions } from '../../components/theme-toggle.component.js'
 import { ThemeToggleButton } from '../../components/theme-toggle.tsx'
-import { isPreview } from '../../lib/gist.ts'
 import type { EtfType } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
@@ -17,6 +16,25 @@ import { routes } from '../../routes.ts'
 import { CatalogPasteInteractions } from '../catalog/catalog-paste.component.js'
 // @ts-expect-error Runtime-only JS client entry module
 import { EtfCardInteractions } from '../portfolio/etf-card.component.js'
+import { AppTopBar } from './app-top-bar.tsx'
+
+const NAV_LINKS = [
+	{
+		href: routes.portfolio.index.href(),
+		label: 'Portfolio',
+		page: 'portfolio' as const,
+	},
+	{
+		href: routes.catalog.index.href(),
+		label: 'ETF Catalog',
+		page: 'catalog' as const,
+	},
+	{
+		href: routes.guidelines.index.href(),
+		label: 'Investment Guidelines',
+		page: 'guidelines' as const,
+	},
+]
 
 // ---------------------------------------------------------------------------
 // Config helpers (read at request time so env vars can be set in tests)
@@ -73,65 +91,22 @@ export function formatValue(value: number, currency: string): string {
 // Shared navigation components
 // ---------------------------------------------------------------------------
 export async function appTopBar(session: SessionData | null) {
-	const authIndicator = session
-		? html`<span class="hidden text-xs font-medium text-muted-foreground sm:inline">@${session.login}</span>`
-		: html``
-	const themeToggle = await themeToggleButton()
-	return html`
-    <div class="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background px-4 py-2.5">
-      <div class="flex items-center gap-3">
-        <button
-          data-sidebar-toggle
-          type="button"
-          aria-label="Open navigation"
-          aria-expanded="false"
-          aria-controls="app-sidebar"
-          class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <svg class="h-4 w-4" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-            <line x1="4" y1="6" x2="20" y2="6"/>
-            <line x1="4" y1="12" x2="20" y2="12"/>
-            <line x1="4" y1="18" x2="20" y2="18"/>
-          </svg>
-        </button>
-        <div class="flex items-center gap-2">
-          <span class="text-sm font-semibold text-foreground">AI Investor</span>
-          ${isPreview() ? html`<span class="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/30 dark:text-amber-400" role="status">Preview</span>` : html``}
-        </div>
-      </div>
-      <div class="flex items-center gap-3">
-        ${authIndicator}
-        ${themeToggle}
-      </div>
-    </div>
-  `
+	const markup = await renderToString(jsx(AppTopBar, { session }))
+	return html.raw`${markup}`
 }
 
 export async function appSidebar(
 	session: SessionData | null,
 	currentPage: 'portfolio' | 'guidelines' | 'catalog',
 ) {
-	const navLinks = [
-		{
-			href: routes.portfolio.index.href(),
-			label: 'Portfolio',
-			page: 'portfolio' as const,
-		},
-		{
-			href: routes.catalog.index.href(),
-			label: 'ETF Catalog',
-			page: 'catalog' as const,
-		},
-		{
-			href: routes.guidelines.index.href(),
-			label: 'Investment Guidelines',
-			page: 'guidelines' as const,
-		},
-	]
-
 	const markup = await renderToString(
-		jsx(Sidebar, { navLinks, currentPage, session }),
+		jsx(Sidebar, { navLinks: NAV_LINKS, currentPage, session }),
 	)
+	return html.raw`${markup}`
+}
+
+export async function themeToggleButton() {
+	const markup = await renderToString(jsx(ThemeToggleButton, {}))
 	return html.raw`${markup}`
 }
 
@@ -271,9 +246,4 @@ export async function pageShell(
       </body>
     </html>
   `
-}
-
-export async function themeToggleButton() {
-	const markup = await renderToString(jsx(ThemeToggleButton, {}))
-	return html.raw`${markup}`
 }
