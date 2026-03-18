@@ -101,3 +101,20 @@ Add these repository secrets in GitHub before relying on the workflow:
 
 Also update the **Authorization callback URL** in your GitHub OAuth App to your Fly.io app URL:
 `https://ainvestor.fly.dev/auth/github/callback`
+
+## PR preview deployments
+
+`.github/workflows/fly-review.yml` deploys a live preview for each pull request. Each PR gets its own Fly app (e.g. `pr-42-ainvestor-org.fly.dev`) so you can review changes without affecting production.
+
+- **Triggers:** opened, reopened, or updated PRs
+- **Uses same secrets** as production (`FLY_API_TOKEN`, `GH_CLIENT_ID`, `GH_CLIENT_SECRET`, `SESSION_SECRET`)
+- **Cleanup:** The preview app is destroyed when the PR is closed
+
+### OAuth on preview apps
+
+GitHub OAuth Apps allow only one callback URL. Preview apps use different URLs per PR, so login will not work on previews unless you:
+
+1. Create a **separate OAuth App** for preview/staging, or
+2. Temporarily change your OAuth App callback URL to the preview URL when testing a specific PR
+
+Unauthenticated features (browsing, adding ETFs as guest) work on preview apps without OAuth configuration.

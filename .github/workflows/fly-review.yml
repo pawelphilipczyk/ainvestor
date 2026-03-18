@@ -1,0 +1,29 @@
+name: Deploy PR Preview
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+jobs:
+  review_app:
+    runs-on: ubuntu-latest
+    concurrency:
+      group: pr-${{ github.event.number }}
+      cancel-in-progress: true
+    environment:
+      name: pr-${{ github.event.number }}
+      url: ${{ steps.deploy.outputs.url }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Deploy PR preview to Fly.io
+        id: deploy
+        uses: superfly/fly-pr-review-apps@1.2.1
+        with:
+          config: fly.toml
+          region: waw
+          secrets: GH_CLIENT_ID=${{ secrets.GH_CLIENT_ID }} GH_CLIENT_SECRET=${{ secrets.GH_CLIENT_SECRET }} SESSION_SECRET=${{ secrets.SESSION_SECRET }}
