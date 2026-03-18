@@ -3,7 +3,6 @@ import { describe, it } from 'node:test'
 
 import {
 	buildGistBody,
-	GIST_DESCRIPTION,
 	GIST_FILENAME,
 	getGistDescription,
 	parseEtfsFromGist,
@@ -12,7 +11,7 @@ import {
 describe('gist', () => {
 	it('exports the expected constants', () => {
 		assert.equal(typeof GIST_FILENAME, 'string')
-		assert.equal(typeof GIST_DESCRIPTION, 'string')
+		assert.equal(typeof getGistDescription, 'function')
 	})
 
 	it('parseEtfsFromGist returns empty array for missing file', () => {
@@ -49,7 +48,7 @@ describe('gist', () => {
 		const entries = [{ id: 'abc-1', name: 'SPY', value: 500, currency: 'USD' }]
 		const body = buildGistBody(entries)
 
-		assert.equal(body.description, GIST_DESCRIPTION)
+		assert.equal(body.description, 'ai-investor-data')
 		assert.equal(body.public, false)
 		assert.ok(body.files[GIST_FILENAME])
 		assert.equal(
@@ -73,9 +72,9 @@ describe('gist', () => {
 		const prev = process.env.FLY_APP_NAME
 		try {
 			delete process.env.FLY_APP_NAME
-			assert.equal(getGistDescription(), GIST_DESCRIPTION)
+			assert.equal(getGistDescription(), 'ai-investor-data')
 			process.env.FLY_APP_NAME = 'ainvestor'
-			assert.equal(getGistDescription(), GIST_DESCRIPTION)
+			assert.equal(getGistDescription(), 'ai-investor-data')
 		} finally {
 			if (prev === undefined) delete process.env.FLY_APP_NAME
 			else process.env.FLY_APP_NAME = prev

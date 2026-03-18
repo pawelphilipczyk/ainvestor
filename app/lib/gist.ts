@@ -1,11 +1,10 @@
 export const GIST_FILENAME = 'etfs.json'
-export const GIST_DESCRIPTION = 'ai-investor-data'
 
 /** Gist description for the current deployment environment. Preview uses separate gists from production. */
 export function getGistDescription(): string {
 	return process.env.FLY_APP_NAME === 'ainvestor-preview'
 		? 'ai-investor-preview-data'
-		: GIST_DESCRIPTION
+		: 'ai-investor-data'
 }
 
 export type EtfEntry = {
