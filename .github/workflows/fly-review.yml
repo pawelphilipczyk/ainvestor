@@ -26,4 +26,4 @@ jobs:
         with:
           config: fly.toml
           region: fra
-          secrets: GH_CLIENT_ID=${{ secrets.GH_CLIENT_ID }} GH_CLIENT_SECRET=${{ secrets.GH_CLIENT_SECRET }} SESSION_SECRET=${{ secrets.SESSION_SECRET }}
+          secrets: GH_CLIENT_ID=${{ secrets.GH_CLIENT_ID_PREVIEW }} GH_CLIENT_SECRET=${{ secrets.GH_CLIENT_SECRET_PREVIEW }} SESSION_SECRET=${{ secrets.SESSION_SECRET }}

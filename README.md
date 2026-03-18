@@ -107,15 +107,16 @@ Also update the **Authorization callback URL** in your GitHub OAuth App to your 
 `.github/workflows/fly-review.yml` deploys a live preview for each pull request. Each PR gets its own Fly app (e.g. `pr-42-ainvestor-org.fly.dev`) so you can review changes without affecting production.
 
 - **Triggers:** opened, reopened, or updated PRs
-- **Uses same secrets** as production (`FLY_API_TOKEN`, `GH_CLIENT_ID`, `GH_CLIENT_SECRET`, `SESSION_SECRET`)
+- **Secrets:** `FLY_API_TOKEN`, `SESSION_SECRET`, plus `GH_CLIENT_ID_PREVIEW` and `GH_CLIENT_SECRET_PREVIEW` (see below)
 - **Token requirement:** `FLY_API_TOKEN` must be an **org-scoped token** (`fly tokens create org -o personal`), not an app-scoped deploy token. PR previews create new apps, which requires org-level permissions.
 - **Cleanup:** The preview app is destroyed when the PR is closed
 
 ### OAuth on preview apps
 
-GitHub OAuth Apps allow only one callback URL. Preview apps use different URLs per PR, so login will not work on previews unless you:
+GitHub OAuth Apps allow only one callback URL. Preview apps use different URLs per PR (`pr-27-...fly.dev`, `pr-28-...fly.dev`, etc.), so use a **separate OAuth App** for previews:
 
-1. Create a **separate OAuth App** for preview/staging, or
-2. Temporarily change your OAuth App callback URL to the preview URL when testing a specific PR
+1. Create a second OAuth App at [GitHub Developer Settings → OAuth Apps](https://github.com/settings/developers) (e.g. "AI Investor Preview")
+2. Set its **Authorization callback URL** to the preview app you want to test, e.g. `https://pr-27-pawelphilipczyk-ainvestor.fly.dev/auth/github/callback` (update when testing a different PR)
+3. Add these repository secrets: `GH_CLIENT_ID_PREVIEW`, `GH_CLIENT_SECRET_PREVIEW`
 
-Unauthenticated features (browsing, adding ETFs as guest) work on preview apps without OAuth configuration.
+The preview workflow uses these instead of the production OAuth credentials. Unauthenticated features (browsing, adding ETFs as guest) work without OAuth.
