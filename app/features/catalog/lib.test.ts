@@ -9,7 +9,7 @@ import {
 	parseCatalogFromGist,
 	parseCsvLine,
 	parseCsvToCatalog,
-} from './catalog.ts'
+} from './lib.ts'
 
 describe('parseCsvLine', () => {
 	it('splits a simple comma-separated line', () => {

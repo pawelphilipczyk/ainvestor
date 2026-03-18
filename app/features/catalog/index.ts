@@ -2,14 +2,6 @@ import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
-import type { CatalogEntry } from '../../lib/catalog.ts'
-import {
-	fetchCatalog,
-	mergeBankIntoCatalog,
-	parseBankJsonToCatalog,
-	parseCsvToCatalog,
-	saveCatalog,
-} from '../../lib/catalog.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
 import type { SessionData } from '../../lib/session.ts'
@@ -21,6 +13,14 @@ import {
 	getSessionData,
 	pageShell,
 } from '../shared/index.ts'
+import type { CatalogEntry } from './lib.ts'
+import {
+	fetchCatalog,
+	mergeBankIntoCatalog,
+	parseBankJsonToCatalog,
+	parseCsvToCatalog,
+	saveCatalog,
+} from './lib.ts'
 
 // ---------------------------------------------------------------------------
 // Guest state

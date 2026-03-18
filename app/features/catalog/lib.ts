@@ -1,4 +1,4 @@
-import type { EtfType } from './guidelines.ts'
+import type { EtfType } from '../../lib/guidelines.ts'
 
 export const CATALOG_FILENAME = 'catalog.json'
 
