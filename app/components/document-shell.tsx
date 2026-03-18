@@ -14,22 +14,6 @@ import { NAV_LINKS } from './sidebar-nav.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { ThemeToggleInteractions } from './theme-toggle.component.js'
 
-/** Client bootstrap: injected into <script type="module"> and executed by the browser. Must be a string for innerHTML. */
-const RUN_SCRIPT = `
-import { run } from 'remix/component'
-
-run(document, {
-  async loadModule(moduleUrl, exportName) {
-    const mod = await import(moduleUrl)
-    const loaded = mod[exportName]
-    if (typeof loaded !== 'function') {
-      throw new Error('Missing export ' + exportName + ' from ' + moduleUrl)
-    }
-    return loaded
-  },
-})
-`
-
 const IMPORT_MAP = JSON.stringify({
 	imports: {
 		'remix/component': '/remix/dist/component.js',
@@ -73,7 +57,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				<ThemeToggleInteractions />
 				<EtfCardInteractions />
 				{props.currentPage === 'catalog' ? <CatalogPasteInteractions /> : null}
-				<script type="module" innerHTML={RUN_SCRIPT} />
+				<script type="module" src="/entry.js" />
 			</body>
 		</html>
 	)

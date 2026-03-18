@@ -83,8 +83,14 @@ describe('remix component runtime in document', () => {
 		)
 	})
 
-	it('document boots remix component runtime with run(document, ...)', async () => {
+	it('document loads entry.js to boot remix component runtime', async () => {
 		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+		assert.match(body, /<script[^>]*type="module"[^>]*src="\/entry\.js"/)
+	})
+	it('GET /entry.js returns bootstrap with run(document, ...)', async () => {
+		const response = await router.fetch('http://localhost/entry.js')
+		assert.equal(response.status, 200)
 		const body = await response.text()
 		assert.match(body, /import \{ run \} from 'remix\/component'/)
 		assert.match(body, /run\(document, \{/)
