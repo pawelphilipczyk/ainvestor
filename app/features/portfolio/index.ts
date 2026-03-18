@@ -158,7 +158,10 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 			'SEK',
 			'NOK',
 		]
-			.map((c) => `<option value="${c}">${c}</option>`)
+			.map(
+				(c) =>
+					`<option value="${c}"${c === 'PLN' ? ' selected' : ''}>${c}</option>`,
+			)
 			.join(''),
 	})
 
