@@ -34,6 +34,22 @@ describe('Portfolio page', () => {
 		assert.match(body, /<form[^>]*method="post"[^>]*action="\/etfs"/)
 	})
 
+	it('shows Preview chip in top bar when FLY_APP_NAME is ainvestor-preview', async () => {
+		const prev = process.env.FLY_APP_NAME
+		try {
+			process.env.FLY_APP_NAME = 'ainvestor-preview'
+			const response = await router.fetch('http://localhost/')
+			const body = await response.text()
+
+			assert.equal(response.status, 200)
+			assert.match(body, /Preview/)
+			assert.match(body, /role="status"/)
+		} finally {
+			if (prev === undefined) delete process.env.FLY_APP_NAME
+			else process.env.FLY_APP_NAME = prev
+		}
+	})
+
 	it('form has name, value and currency fields', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
