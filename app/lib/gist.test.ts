@@ -62,7 +62,7 @@ describe('gist', () => {
 		const prev = process.env.FLY_APP_NAME
 		try {
 			process.env.FLY_APP_NAME = 'ainvestor-preview'
-			assert.equal(getGistDescription(), 'ai-investor-data-preview')
+			assert.equal(getGistDescription(), 'ai-investor-preview-data')
 		} finally {
 			if (prev === undefined) delete process.env.FLY_APP_NAME
 			else process.env.FLY_APP_NAME = prev

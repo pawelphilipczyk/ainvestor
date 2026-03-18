@@ -3,9 +3,9 @@ export const GIST_DESCRIPTION = 'ai-investor-data'
 
 /** Gist description for the current deployment environment. Preview uses separate gists from production. */
 export function getGistDescription(): string {
-	const suffix =
-		process.env.FLY_APP_NAME === 'ainvestor-preview' ? '-preview' : ''
-	return `${GIST_DESCRIPTION}${suffix}`
+	return process.env.FLY_APP_NAME === 'ainvestor-preview'
+		? 'ai-investor-preview-data'
+		: GIST_DESCRIPTION
 }
 
 export type EtfEntry = {
