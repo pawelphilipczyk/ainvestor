@@ -19,15 +19,12 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /ETF Catalog/)
 	})
 
-	it('GET /catalog shows import form and paste zone', async () => {
+	it('GET /catalog shows paste zone for bank API JSON', async () => {
 		const response = await router.fetch('http://localhost/catalog')
 		const body = await response.text()
 
 		assert.match(body, /data-catalog-paste-zone/)
-		assert.match(body, /\/catalog\/import-json/)
-		assert.match(body, /name="csvFile"/)
-		assert.match(body, /action="\/catalog\/import"/)
-		assert.match(body, /enctype="multipart\/form-data"/)
+		assert.match(body, /\/catalog\/import/)
 	})
 
 	it('GET /catalog shows empty state hint when no catalog imported', async () => {
@@ -53,49 +50,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Portfolio/)
 	})
 
-	it('POST /catalog/import with a CSV file stores catalog and redirects', async () => {
-		const csv =
-			'ticker,name,type,description\nVTI,Vanguard Total,equity,US broad market\nBND,Vanguard Bond,bond,US bonds'
-		const file = new File([csv], 'etfs.csv', { type: 'text/csv' })
-		const form = new FormData()
-		form.set('csvFile', file)
-
-		const importResponse = await router.fetch(
-			new Request('http://localhost/catalog/import', {
-				method: 'POST',
-				body: form,
-			}),
-		)
-
-		assert.equal(importResponse.status, 302)
-		assert.equal(importResponse.headers.get('location'), '/catalog')
-
-		const catalogResponse = await router.fetch('http://localhost/catalog')
-		const body = await catalogResponse.text()
-
-		assert.match(body, /VTI/)
-		assert.match(body, /Vanguard Total/)
-		assert.match(body, /BND/)
-		assert.match(body, /Vanguard Bond/)
-	})
-
-	it('POST /catalog/import with empty CSV redirects without error', async () => {
-		const file = new File([''], 'empty.csv', { type: 'text/csv' })
-		const form = new FormData()
-		form.set('csvFile', file)
-
-		const response = await router.fetch(
-			new Request('http://localhost/catalog/import', {
-				method: 'POST',
-				body: form,
-			}),
-		)
-
-		assert.equal(response.status, 302)
-		assert.equal(response.headers.get('location'), '/catalog')
-	})
-
-	it('POST /catalog/import-json with bank API format merges into catalog', async () => {
+	it('POST /catalog/import with bank API format merges into catalog', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -112,7 +67,7 @@ describe('ETF Catalog page', () => {
 		})
 
 		const importResponse = await router.fetch(
-			new Request('http://localhost/catalog/import-json', {
+			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
 				headers: { 'Content-Type': 'application/json' },
@@ -130,15 +85,23 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('catalog shows Your Holdings section when a holding matches a catalog ticker', async () => {
-		const csv =
-			'ticker,name,type,description\nVTI,Vanguard Total,equity,US broad market'
-		const file = new File([csv], 'etfs.csv', { type: 'text/csv' })
-		const importForm = new FormData()
-		importForm.set('csvFile', file)
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					fund_name: 'Vanguard Total',
+					ticker: 'VTI',
+					description: 'US broad market',
+					assets: 'akcje',
+				},
+			],
+			count: 1,
+			total_count: 1,
+		})
 		await router.fetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
-				body: importForm,
+				body: bankJson,
+				headers: { 'Content-Type': 'application/json' },
 			}),
 		)
 
@@ -158,14 +121,22 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('catalog page shows type filter and search form after import', async () => {
-		const csv = 'ticker,name,type\nVTI,Vanguard Total,equity'
-		const file = new File([csv], 'etfs.csv', { type: 'text/csv' })
-		const form = new FormData()
-		form.set('csvFile', file)
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					fund_name: 'Vanguard Total',
+					ticker: 'VTI',
+					assets: 'akcje',
+				},
+			],
+			count: 1,
+			total_count: 1,
+		})
 		await router.fetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
-				body: form,
+				body: bankJson,
+				headers: { 'Content-Type': 'application/json' },
 			}),
 		)
 
@@ -177,15 +148,19 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('catalog type filter narrows results', async () => {
-		const csv =
-			'ticker,name,type\nVTI,Vanguard Total,equity\nBND,Vanguard Bond,bond'
-		const file = new File([csv], 'etfs.csv', { type: 'text/csv' })
-		const form = new FormData()
-		form.set('csvFile', file)
+		const bankJson = JSON.stringify({
+			data: [
+				{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' },
+				{ fund_name: 'Vanguard Bond', ticker: 'BND', assets: 'obligacje' },
+			],
+			count: 2,
+			total_count: 2,
+		})
 		await router.fetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
-				body: form,
+				body: bankJson,
+				headers: { 'Content-Type': 'application/json' },
 			}),
 		)
 
@@ -197,15 +172,29 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('catalog text search narrows results', async () => {
-		const csv =
-			'ticker,name,type,description\nVTI,Vanguard Total,equity,US market\nBND,Vanguard Bond,bond,US bonds'
-		const file = new File([csv], 'etfs.csv', { type: 'text/csv' })
-		const form = new FormData()
-		form.set('csvFile', file)
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					fund_name: 'Vanguard Total',
+					ticker: 'VTI',
+					description: 'US market',
+					assets: 'akcje',
+				},
+				{
+					fund_name: 'Vanguard Bond',
+					ticker: 'BND',
+					description: 'US bonds',
+					assets: 'obligacje',
+				},
+			],
+			count: 2,
+			total_count: 2,
+		})
 		await router.fetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
-				body: form,
+				body: bankJson,
+				headers: { 'Content-Type': 'application/json' },
 			}),
 		)
 
