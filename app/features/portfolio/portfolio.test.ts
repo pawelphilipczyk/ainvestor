@@ -32,6 +32,8 @@ describe('Portfolio page', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /AI Investor/)
 		assert.match(body, /<form[^>]*method="post"[^>]*action="\/etfs"/)
+		assert.match(body, /Import from CSV/)
+		assert.match(body, /action="\/etfs\/import"/)
 	})
 
 	it('shows Preview chip in top bar when FLY_APP_NAME is ainvestor-preview', async () => {
@@ -50,13 +52,15 @@ describe('Portfolio page', () => {
 		}
 	})
 
-	it('form has name, value and currency fields', async () => {
+	it('form has name, value, currency, exchange and quantity fields', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 
 		assert.match(body, /name="etfName"/)
 		assert.match(body, /name="value"/)
 		assert.match(body, /name="currency"/)
+		assert.match(body, /name="exchange"/)
+		assert.match(body, /name="quantity"/)
 	})
 
 	it('form defaults currency to PLN (first option)', async () => {
@@ -90,6 +94,26 @@ describe('Portfolio page', () => {
 		assert.match(body, /id="value"[^>]*type="number"/)
 	})
 
+	it('adds ETF with exchange and quantity when provided', async () => {
+		const form = new FormData()
+		form.set('etfName', 'IBTA LN ETF')
+		form.set('value', '4087.48')
+		form.set('currency', 'PLN')
+		form.set('exchange', 'GBR-LSE')
+		form.set('quantity', '186')
+
+		const postResponse = await router.fetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+		)
+		assert.equal(postResponse.status, 302)
+
+		const homeResponse = await router.fetch('http://localhost/')
+		const homeBody = await homeResponse.text()
+		assert.match(homeBody, /IBTA LN ETF/)
+		assert.match(homeBody, /186 shares/)
+		assert.match(homeBody, /GBR-LSE/)
+	})
+
 	it('adds an ETF on form submit and displays it on homepage', async () => {
 		const form = new FormData()
 		form.set('etfName', 'VTI')
@@ -109,6 +133,37 @@ describe('Portfolio page', () => {
 		assert.match(homeBody, /VTI/)
 		assert.match(homeBody, /1[,.]?200/)
 		assert.match(homeBody, /USD/)
+	})
+
+	it('imports portfolio from CSV with Polish headers including exchange and quantity', async () => {
+		const csv = `Papier;Giełda;Liczba dostępna;Wartość;Waluta
+IBTA LN ETF;GBR-LSE;186;4087.48;PLN
+IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
+		const form = new FormData()
+		form.set(
+			'portfolioCsv',
+			new Blob([csv], { type: 'text/csv' }),
+			'portfolio.csv',
+		)
+
+		const importResponse = await router.fetch(
+			new Request('http://localhost/etfs/import', {
+				method: 'POST',
+				body: form,
+			}),
+		)
+		assert.equal(importResponse.status, 302)
+
+		const homeResponse = await router.fetch('http://localhost/')
+		const homeBody = await homeResponse.text()
+		assert.match(homeBody, /IBTA LN ETF/)
+		assert.match(homeBody, /IQQH GR ETF/)
+		assert.match(homeBody, /4[,.]?087/)
+		assert.match(homeBody, /3[,.]?217/)
+		assert.match(homeBody, /186 shares/)
+		assert.match(homeBody, /GBR-LSE/)
+		assert.match(homeBody, /81 shares/)
+		assert.match(homeBody, /DEU-XETRA/)
 	})
 
 	it('adds to existing ETF value when adding same name instead of replacing', async () => {

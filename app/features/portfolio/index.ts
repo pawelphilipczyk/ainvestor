@@ -1,4 +1,4 @@
-import { object, parseSafe, string } from 'remix/data-schema'
+import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import { html } from 'remix/html-template'
@@ -9,6 +9,7 @@ import type { Session } from 'remix/session'
 import { renderComponent } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, saveEtfs } from '../../lib/gist.ts'
+import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { formatValue, getSessionData, pageShell } from '../shared/index.ts'
@@ -17,6 +18,8 @@ const CreateEtfSchema = object({
 	etfName: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
+	exchange: optional(string()),
+	quantity: optional(coerce.number().pipe(min(0))),
 })
 
 // ---------------------------------------------------------------------------
@@ -58,13 +61,16 @@ export const portfolioController = {
 		if (typeof raw.value === 'string') {
 			raw.value = raw.value.replace(/,/g, '')
 		}
+		if (typeof raw.quantity === 'string') {
+			raw.quantity = raw.quantity.replace(/,/g, '')
+		}
 
 		const result = parseSafe(CreateEtfSchema, raw)
 		if (!result.success) {
 			return createRedirectResponse(routes.portfolio.index.href())
 		}
 
-		const { etfName: name, value, currency } = result.value
+		const { etfName: name, value, currency, exchange, quantity } = result.value
 		const session = getSessionData(context.session)
 		const current = session?.gistId
 			? await fetchEtfs(session.token, session.gistId)
@@ -77,18 +83,87 @@ export const portfolioController = {
 				e.name.toLowerCase() === normalizedName &&
 				e.currency.toUpperCase() === normalizedCurrency,
 		)
-		const entry: EtfEntry =
-			existingIndex >= 0
-				? {
-						...current[existingIndex],
-						value: current[existingIndex].value + value,
-					}
-				: { id: crypto.randomUUID(), name, value, currency: normalizedCurrency }
+		const existing = existingIndex >= 0 ? current[existingIndex] : null
+		const entry: EtfEntry = existing
+			? {
+					...existing,
+					value: existing.value + value,
+					quantity:
+						existing.quantity !== undefined && quantity !== undefined
+							? existing.quantity + quantity
+							: (quantity ?? existing.quantity),
+					exchange: existing.exchange || exchange || undefined,
+				}
+			: {
+					id: crypto.randomUUID(),
+					name,
+					value,
+					currency: normalizedCurrency,
+					...(exchange ? { exchange } : {}),
+					...(quantity !== undefined ? { quantity } : {}),
+				}
 
 		const updated =
 			existingIndex >= 0
 				? current.map((e, i) => (i === existingIndex ? entry : e))
 				: [entry, ...current]
+
+		if (session?.gistId) {
+			await saveEtfs(session.token, session.gistId, updated)
+		} else {
+			guestEntries = updated
+		}
+
+		return createRedirectResponse(routes.portfolio.index.href())
+	},
+
+	async import(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+	}) {
+		const form = context.formData
+		if (!form) return createRedirectResponse(routes.portfolio.index.href())
+
+		const file = form.get('portfolioCsv')
+		if (!file || typeof file === 'string')
+			return createRedirectResponse(routes.portfolio.index.href())
+
+		const bytes = await (file as Blob).arrayBuffer()
+		const csvText = decodeCsvBytes(bytes)
+		const imported = parsePortfolioCsv(csvText)
+		if (imported.length === 0)
+			return createRedirectResponse(routes.portfolio.index.href())
+
+		const session = getSessionData(context.session)
+		const current = session?.gistId
+			? await fetchEtfs(session.token, session.gistId)
+			: guestEntries
+
+		// Merge imported with existing (same name+currency: add values, quantity)
+		const byKey = new Map<string, EtfEntry>()
+		for (const e of current) {
+			byKey.set(`${e.name.toLowerCase()}:${e.currency}`, e)
+		}
+		for (const e of imported) {
+			const key = `${e.name.toLowerCase()}:${e.currency}`
+			const existing = byKey.get(key)
+			if (existing) {
+				const quantity =
+					existing.quantity !== undefined && e.quantity !== undefined
+						? existing.quantity + e.quantity
+						: (e.quantity ?? existing.quantity)
+				byKey.set(key, {
+					...existing,
+					value: existing.value + e.value,
+					quantity,
+					exchange: existing.exchange || e.exchange || undefined,
+				})
+			} else {
+				byKey.set(key, e)
+			}
+		}
+		const updated = Array.from(byKey.values())
 
 		if (session?.gistId) {
 			await saveEtfs(session.token, session.gistId, updated)
@@ -133,6 +208,7 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 		label: 'ETF Name',
 		field_name: 'etfName',
 		placeholder: 'e.g. VTI',
+		required_attr: 'required',
 	})
 
 	const valueInput = renderComponent('number-input', {
@@ -140,6 +216,7 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 		label: 'Value',
 		field_name: 'value',
 		placeholder: 'e.g. 1200.50',
+		required_attr: 'required',
 	})
 
 	const currencySelect = renderComponent('select-input', {
@@ -162,6 +239,22 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 			.join(''),
 	})
 
+	const exchangeInput = renderComponent('text-input', {
+		id: 'exchange',
+		label: 'Exchange (optional)',
+		field_name: 'exchange',
+		placeholder: 'e.g. GBR-LSE, DEU-XETRA',
+		required_attr: '',
+	})
+
+	const quantityInput = renderComponent('number-input', {
+		id: 'quantity',
+		label: 'Quantity (optional)',
+		field_name: 'quantity',
+		placeholder: 'e.g. 186',
+		required_attr: '',
+	})
+
 	const addButton = renderComponent('submit-button', { children: 'Add ETF' })
 
 	const listContent =
@@ -176,10 +269,19 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 							},
 							import.meta.url,
 						)
+						const details = [
+							entry.quantity !== undefined
+								? `${entry.quantity.toLocaleString()} shares`
+								: '',
+							entry.exchange ?? '',
+						]
+							.filter(Boolean)
+							.join(' · ')
 						return renderComponent(
 							'etf-card',
 							{
 								name: entry.name,
+								details,
 								badge: String(badge),
 								dialog_id: `dialog-${entry.id}`,
 								delete_href: routes.portfolio.delete.href({ id: entry.id }),
@@ -209,8 +311,45 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
           ${valueInput}
           ${currencySelect}
         </div>
+        <div class="grid grid-cols-2 gap-3">
+          ${exchangeInput}
+          ${quantityInput}
+        </div>
         ${addButton}
       </form>
+
+      <section class="mt-6">
+        <h2 class="text-base font-semibold tracking-tight text-card-foreground">Import from CSV</h2>
+        <p class="mt-0.5 text-xs text-muted-foreground">
+          Upload an eMAKLER/mBank portfolio export. Supported columns:
+        </p>
+        <pre class="mt-2 overflow-x-auto rounded bg-muted/50 px-3 py-2 text-xs text-muted-foreground">Papier;Giełda;Liczba dostępna (Blokady);Kurs;Waluta;Wartość;Waluta
+IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN</pre>
+        <p class="mt-1 text-xs text-muted-foreground">
+          Semicolon or comma. Polish headers (Papier, Giełda, Liczba dostępna, Wartość, Waluta). Windows-1250 encoding supported.
+        </p>
+        <form
+          method="post"
+          action="${routes.portfolio.import.href()}"
+          enctype="multipart/form-data"
+          class="mt-3 flex flex-wrap items-center gap-3"
+        >
+          <label class="sr-only" for="portfolioCsv">Portfolio CSV</label>
+          <input
+            id="portfolioCsv"
+            name="portfolioCsv"
+            type="file"
+            accept=".csv,text/csv"
+            class="text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground hover:file:opacity-90 cursor-pointer"
+          />
+          <button
+            type="submit"
+            class="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            Import
+          </button>
+        </form>
+      </section>
 
       ${listContent}
 

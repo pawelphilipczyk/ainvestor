@@ -5,6 +5,7 @@ export const routes = route({
 	portfolio: {
 		index: get('/'),
 		create: post('/etfs'),
+		import: post('/etfs/import'),
 		delete: del('/etfs/:id'),
 	},
 	auth: {
