@@ -3,9 +3,9 @@ import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
 import { html } from 'remix/html-template'
 import type { Session } from 'remix/session'
-import { Sidebar } from '../../components/sidebar.tsx'
 // @ts-expect-error Runtime-only JS client entry module
 import { SidebarInteractions } from '../../components/sidebar.component.js'
+import { Sidebar } from '../../components/sidebar.tsx'
 // @ts-expect-error Runtime-only JS client entry module
 import { ThemeToggleInteractions } from '../../components/theme-toggle.component.js'
 import { ThemeToggleButton } from '../../components/theme-toggle.tsx'

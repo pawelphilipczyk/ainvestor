@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
-import { routes } from '../routes.ts'
 import type { SessionData } from '../lib/session.ts'
+import { routes } from '../routes.ts'
 
 type NavLink = {
 	href: string
@@ -32,7 +32,9 @@ export function Sidebar(_handle: Handle, _setup?: unknown) {
 				class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-card transition-transform duration-200 ease-in-out"
 			>
 				<div class="flex items-center justify-between border-b border-border p-4">
-					<span class="text-sm font-semibold text-card-foreground">Navigation</span>
+					<span class="text-sm font-semibold text-card-foreground">
+						Navigation
+					</span>
 					<button
 						data-sidebar-close
 						type="button"
