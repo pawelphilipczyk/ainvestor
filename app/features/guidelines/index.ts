@@ -1,13 +1,10 @@
 import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
 import { enum_, object, optional, parseSafe, string } from 'remix/data-schema'
 import { max, min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
-import { html } from 'remix/html-template'
-import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
-import { pageShell } from '../../components/page-shell.ts'
+import { render } from '../../components/render.ts'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
 import {
 	ETF_TYPES,
@@ -119,11 +116,6 @@ async function renderGuidelinesPage(
 	guidelines: EtfGuideline[],
 	session: SessionData | null,
 ) {
-	const bodyMarkup = await renderToString(
-		jsx(GuidelinesPage, { guidelines, session }),
-	)
-	const body = html.raw`${bodyMarkup}`
-	return createHtmlResponse(
-		await pageShell('AI Investor – Guidelines', session, 'guidelines', body),
-	)
+	const body = jsx(GuidelinesPage, { guidelines, session })
+	return render('AI Investor – Guidelines', session, 'guidelines', body)
 }

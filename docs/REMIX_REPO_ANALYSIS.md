@@ -200,7 +200,7 @@ return createHtmlResponse(html`
 
 **Bookstore** uses JSX + `render()` utility that returns `createHtmlResponse(renderToStream(...))`.
 
-**Our app:** Document shell uses `html` template tag; page bodies are JSX rendered via `renderToString(jsx(PageComponent, props))` and injected with `html.raw`. Shared components in `app/components/`; feature-specific page components in `app/features/{feature}/`.
+**Our app:** Matches Bookstore. Full document is JSX (`DocumentShell` wrapping page body). `render()` returns `createHtmlResponse(renderToStream(document))`. Controllers pass page bodies as JSX children. Shared components in `app/components/`; feature-specific page components in `app/features/{feature}/`.
 
 ### 2.7 Method Override
 

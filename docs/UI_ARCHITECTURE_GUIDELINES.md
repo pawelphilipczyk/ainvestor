@@ -83,7 +83,7 @@ Global CSS should be minimal and primarily support Tailwind.
 
 ### JSX Components (Remix `remix/component`)
 
-UI is built with **JSX components** rendered on the server via `remix/component`. Page bodies and shared layout pieces are JSX; the document shell uses `remix/html-template` for the outer structure.
+UI is built with **JSX components** rendered on the server via `remix/component`. Page bodies and the document shell are JSX; `render()` returns `createHtmlResponse(renderToStream(document))`.
 
 **Component placement:**
 
@@ -92,7 +92,7 @@ UI is built with **JSX components** rendered on the server via `remix/component`
 | `app/components/` | Shared components used across multiple features (e.g. `AppTopBar`, `Sidebar`, `SelectInput`, `ThemeToggleButton`) |
 | `app/features/{feature}/` | Feature-specific page components (e.g. `PortfolioPage`, `GuidelinesPage`, `CatalogPage`, `AdvicePage`) |
 
-**Rendering pattern:** Page bodies are rendered with `renderToString(jsx(PageComponent, props))` and injected into the html shell via `html.raw`. The shell (head, sidebar, top bar, scripts) stays as `remix/html-template` because Remix JSX does not support `dangerouslySetInnerHTML` for raw markup injection.
+**Rendering pattern:** Matches the Bookstore demo. The full document is JSX (`DocumentShell` wrapping page body). Controllers call `render(title, session, currentPage, jsx(PageComponent, props))`, which returns `createHtmlResponse(renderToStream(document))`. Page bodies are passed as JSX children.
 
 **Remix component signature:** Components use `(handle, setup) => (props) => JSX`. Sub-components used only within a page (e.g. `CatalogTableHeader`) are plain functions or constants — not Remix components — to avoid the "must return a render function" requirement.
 
@@ -292,7 +292,8 @@ All UI-related files should follow this structure:
 app/
   components/
     app-top-bar.tsx      ← shared layout (top bar, sidebar toggle, theme)
-    page-shell.ts       ← document shell, appTopBar, appSidebar, themeToggleButton
+    document-shell.tsx   ← DocumentShell layout (head, sidebar, top bar, scripts)
+    render.ts            ← render() returns createHtmlResponse(renderToStream(...))
     sidebar.tsx          ← shared navigation
     theme-toggle.tsx
     select-input.tsx     ← shared form fields
@@ -355,15 +356,14 @@ This architecture aligns with the packages available in `remix@next`. Key Remix 
 
 | Package | Role in this architecture |
 |---|---|
-| `remix/html-template` | XSS-safe `html` tag for document shell; `html.raw` for injecting JSX-rendered page bodies |
 | `remix/response/html` | `createHtmlResponse()` — wraps HTML with proper headers |
 | `remix/response/redirect` | `createRedirectResponse()` — post-form redirect |
 | `remix/static-middleware` | Serve CSS, JS islands, and other static assets |
 | `remix/component` | JSX components for page bodies and shared UI; `clientEntry` for interactive islands |
-| `remix/component/server` | `renderToString()` — server-render JSX to HTML string |
+| `remix/component/server` | `renderToStream()` — full document streamed to response |
 | `remix/interaction` | Type-safe DOM events for islands (`on()`, `createContainer()`) |
 
-**JSX migration:** All page bodies (portfolio, guidelines, catalog, advice) are JSX. The document shell (head, sidebar, top bar, scripts) remains `remix/html-template` because Remix JSX does not support raw HTML injection. See `REMIX_V3_PACKAGES.md` for the component rendering pattern.
+**Rendering:** All page bodies and the document shell are JSX. `render()` returns `createHtmlResponse(renderToStream(document))`. See `REMIX_V3_PACKAGES.md` for the component rendering pattern.
 
 Refer to `REMIX_V3_PACKAGES.md` for the full package reference.
 

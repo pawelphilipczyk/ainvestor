@@ -1,10 +1,7 @@
 import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
-import { html } from 'remix/html-template'
-import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
-import { pageShell } from '../../components/page-shell.ts'
+import { render } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
 import type { SessionData } from '../../lib/session.ts'
@@ -90,17 +87,12 @@ async function renderCatalogPage(
 	typeFilter: string,
 	query: string,
 ) {
-	const bodyMarkup = await renderToString(
-		jsx(CatalogPage, {
-			catalog,
-			holdings,
-			session,
-			typeFilter,
-			query,
-		}),
-	)
-	const body = html.raw`${bodyMarkup}`
-	return createHtmlResponse(
-		await pageShell('AI Investor – ETF Catalog', session, 'catalog', body),
-	)
+	const body = jsx(CatalogPage, {
+		catalog,
+		holdings,
+		session,
+		typeFilter,
+		query,
+	})
+	return render('AI Investor – ETF Catalog', session, 'catalog', body)
 }

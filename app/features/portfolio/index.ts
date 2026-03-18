@@ -1,13 +1,10 @@
 import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
 import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
-import { html } from 'remix/html-template'
-import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
-import { pageShell } from '../../components/page-shell.ts'
+import { render } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, saveEtfs } from '../../lib/gist.ts'
 import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
@@ -205,14 +202,8 @@ export const portfolioController = {
 // Page renderer
 // ---------------------------------------------------------------------------
 async function renderPage(entries: EtfEntry[], session: SessionData | null) {
-	const bodyMarkup = await renderToString(
-		jsx(PortfolioPage, { entries, session }),
-	)
-	const body = html.raw`${bodyMarkup}`
-	return createHtmlResponse(
-		await pageShell('AI Investor', session, 'portfolio', body),
-		{
-			headers: { 'Cache-Control': 'no-store' },
-		},
-	)
+	const body = jsx(PortfolioPage, { entries, session })
+	return render('AI Investor', session, 'portfolio', body, {
+		headers: { 'Cache-Control': 'no-store' },
+	})
 }

@@ -1,11 +1,8 @@
 import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
 import { object, parseSafe, string } from 'remix/data-schema'
 import { minLength } from 'remix/data-schema/checks'
-import { html } from 'remix/html-template'
-import { createHtmlResponse } from 'remix/response/html'
 import type { Session } from 'remix/session'
-import { pageShell } from '../../components/page-shell.ts'
+import { render } from '../../components/render.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { getSessionData } from '../../lib/session.ts'
@@ -68,11 +65,6 @@ export async function adviceHandler(context: {
 		client,
 	)
 
-	const bodyMarkup = await renderToString(
-		jsx(AdvicePage, { cashAmount, advice }),
-	)
-	const body = html.raw`${bodyMarkup}`
-	return createHtmlResponse(
-		await pageShell('AI Investor – Advice', session, 'portfolio', body),
-	)
+	const body = jsx(AdvicePage, { cashAmount, advice })
+	return render('AI Investor – Advice', session, 'portfolio', body)
 }
