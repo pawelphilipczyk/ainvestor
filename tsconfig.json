@@ -1,5 +1,5 @@
 {
-	"include": ["server.ts", "app/**/*.ts"],
+	"include": ["server.ts", "app/**/*.ts", "app/**/*.tsx"],
 	"compilerOptions": {
 		"lib": ["DOM", "ES2022"],
 		"types": ["node"],
@@ -10,6 +10,8 @@
 		"verbatimModuleSyntax": true,
 		"noEmit": true,
 		"skipLibCheck": true,
-		"strict": true
+		"strict": true,
+		"jsx": "react-jsx",
+		"jsxImportSource": "remix/component"
 	}
 }

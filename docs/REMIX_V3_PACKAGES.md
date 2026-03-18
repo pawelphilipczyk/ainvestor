@@ -811,7 +811,7 @@ Parse `FormData` once globally rather than in each handler.
 | `remix/compression-middleware` | ✅ | `compression()` in production middleware stack |
 | `form()` shorthand | ✅ | guidelines routes use `form('guidelines')` |
 | `remix/headers` | ❌ | Not used yet |
-| `remix/component` | ❌ | Using manual `data-island` + `mount(el)` pattern |
+| `remix/component` | ✅ | JSX components (ThemeToggleButton), clientEntry islands (sidebar, theme-toggle, etf-card, catalog-paste) |
 | `remix/interaction` | ❌ | Using vanilla JS in island files |
 | `resources()` shorthand | ❌ | No RESTful resource collections yet |
 
