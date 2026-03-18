@@ -94,5 +94,10 @@ async function renderCatalogPage(
 		typeFilter,
 		query,
 	})
-	return render('AI Investor – ETF Catalog', session, 'catalog', body)
+	return render({
+		title: 'AI Investor – ETF Catalog',
+		session,
+		currentPage: 'catalog',
+		body,
+	})
 }

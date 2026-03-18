@@ -92,7 +92,7 @@ UI is built with **JSX components** rendered on the server via `remix/component`
 | `app/components/` | Shared components used across multiple features (e.g. `AppTopBar`, `Sidebar`, `SelectInput`, `ThemeToggleButton`) |
 | `app/features/{feature}/` | Feature-specific page components (e.g. `PortfolioPage`, `GuidelinesPage`, `CatalogPage`, `AdvicePage`) |
 
-**Rendering pattern:** Matches the Bookstore demo. The full document is JSX (`DocumentShell` wrapping page body). Controllers call `render(title, session, currentPage, jsx(PageComponent, props))`, which returns `createHtmlResponse(renderToStream(document))`. Page bodies are passed as JSX children.
+**Rendering pattern:** Matches the Bookstore demo. The full document is JSX (`DocumentShell` wrapping page body). Controllers call `render({ title, session, currentPage, body: jsx(PageComponent, props) })`, which returns `createHtmlResponse(renderToStream(document))`. Page bodies are passed as JSX children.
 
 **Remix component signature:** Components use `(handle, setup) => (props) => JSX`. Sub-components used only within a page (e.g. `CatalogTableHeader`) are plain functions or constants — not Remix components — to avoid the "must return a render function" requirement.
 

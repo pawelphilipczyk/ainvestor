@@ -619,7 +619,7 @@ let app = run(document, {
 ```ts
 // In a feature controller
 const body = jsx(PortfolioPage, { entries, session })
-return render('AI Investor', session, 'portfolio', body)
+return render({ title: 'AI Investor', session, currentPage: 'portfolio', body })
 ```
 
 **Component signature:** Remix components use `(handle, setup) => (props) => JSX`. Sub-components used only within a page (e.g. table header rows) are plain functions or constants — not Remix components — to avoid the "must return a render function" requirement.

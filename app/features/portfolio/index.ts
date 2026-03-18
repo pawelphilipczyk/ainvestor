@@ -203,7 +203,11 @@ export const portfolioController = {
 // ---------------------------------------------------------------------------
 async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 	const body = jsx(PortfolioPage, { entries, session })
-	return render('AI Investor', session, 'portfolio', body, {
-		headers: { 'Cache-Control': 'no-store' },
+	return render({
+		title: 'AI Investor',
+		session,
+		currentPage: 'portfolio',
+		body,
+		init: { headers: { 'Cache-Control': 'no-store' } },
 	})
 }

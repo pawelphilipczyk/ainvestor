@@ -5,23 +5,25 @@ import { createHtmlResponse } from 'remix/response/html'
 import type { SessionData } from '../lib/session.ts'
 import { DocumentShell } from './document-shell.tsx'
 
+export type RenderOptions = {
+	title: string
+	session: SessionData | null
+	currentPage: 'portfolio' | 'guidelines' | 'catalog'
+	body: RemixNode
+	init?: ResponseInit
+}
+
 /**
  * Renders a page with the document shell and returns an HTML response.
  * Matches the Bookstore demo pattern: createHtmlResponse(renderToStream(...))
  */
-export async function render(
-	title: string,
-	session: SessionData | null,
-	currentPage: 'portfolio' | 'guidelines' | 'catalog',
-	body: RemixNode,
-	init?: ResponseInit,
-): Promise<Response> {
+export async function render(options: RenderOptions): Promise<Response> {
 	const document = jsx(DocumentShell, {
-		title,
-		session,
-		currentPage,
-		children: body,
+		title: options.title,
+		session: options.session,
+		currentPage: options.currentPage,
+		children: options.body,
 	})
 
-	return createHtmlResponse(renderToStream(document), init)
+	return createHtmlResponse(renderToStream(document), options.init)
 }

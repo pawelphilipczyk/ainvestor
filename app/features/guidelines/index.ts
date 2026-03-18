@@ -117,5 +117,10 @@ async function renderGuidelinesPage(
 	session: SessionData | null,
 ) {
 	const body = jsx(GuidelinesPage, { guidelines, session })
-	return render('AI Investor – Guidelines', session, 'guidelines', body)
+	return render({
+		title: 'AI Investor – Guidelines',
+		session,
+		currentPage: 'guidelines',
+		body,
+	})
 }

@@ -66,5 +66,10 @@ export async function adviceHandler(context: {
 	)
 
 	const body = jsx(AdvicePage, { cashAmount, advice })
-	return render('AI Investor – Advice', session, 'portfolio', body)
+	return render({
+		title: 'AI Investor – Advice',
+		session,
+		currentPage: 'portfolio',
+		body,
+	})
 }

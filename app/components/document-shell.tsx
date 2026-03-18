@@ -14,6 +14,7 @@ import { NAV_LINKS } from './sidebar-nav.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { ThemeToggleInteractions } from './theme-toggle.component.js'
 
+/** Client bootstrap: injected into <script type="module"> and executed by the browser. Must be a string for innerHTML. */
 const RUN_SCRIPT = `
 import { run } from 'remix/component'
 
