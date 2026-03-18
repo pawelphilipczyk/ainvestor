@@ -43,6 +43,36 @@ describe('Portfolio page', () => {
 		assert.match(body, /name="currency"/)
 	})
 
+	it('form defaults currency to PLN', async () => {
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+
+		assert.match(body, /<option value="PLN"[^>]*selected[^>]*>PLN<\/option>/)
+	})
+
+	it('adds ETF with PLN currency', async () => {
+		const form = new FormData()
+		form.set('etfName', 'VTI')
+		form.set('value', '1000')
+		form.set('currency', 'PLN')
+
+		const postResponse = await router.fetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+		)
+		assert.equal(postResponse.status, 302)
+
+		const homeResponse = await router.fetch('http://localhost/')
+		const homeBody = await homeResponse.text()
+		assert.match(homeBody, /PLN/)
+	})
+
+	it('value field is a numeric input', async () => {
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+
+		assert.match(body, /id="value"[^>]*type="number"/)
+	})
+
 	it('adds an ETF on form submit and displays it on homepage', async () => {
 		const form = new FormData()
 		form.set('etfName', 'VTI')

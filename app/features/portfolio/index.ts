@@ -135,7 +135,7 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
 		placeholder: 'e.g. VTI',
 	})
 
-	const valueInput = renderComponent('text-input', {
+	const valueInput = renderComponent('number-input', {
 		id: 'value',
 		label: 'Value',
 		field_name: 'value',
