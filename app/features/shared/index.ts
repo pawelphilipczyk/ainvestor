@@ -1,4 +1,5 @@
 import { createElement } from 'remix/component'
+import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
 import { html } from 'remix/html-template'
 import type { Session } from 'remix/session'
@@ -319,6 +320,6 @@ export async function pageShell(
 }
 
 export async function themeToggleButton() {
-	const markup = await renderToString(createElement(ThemeToggleButton, {}))
+	const markup = await renderToString(jsx(ThemeToggleButton, {}))
 	return html.raw`${markup}`
 }
