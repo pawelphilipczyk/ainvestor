@@ -1,5 +1,5 @@
 app = "ainvestor"
-primary_region = "waw"
+primary_region = "fra"
 
 [env]
   PORT = "8080"
