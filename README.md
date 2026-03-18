@@ -104,19 +104,17 @@ Also update the **Authorization callback URL** in your GitHub OAuth App to your 
 
 ## PR preview deployments
 
-`.github/workflows/fly-review.yml` deploys a live preview for each pull request. Each PR gets its own Fly app (e.g. `pr-42-ainvestor-org.fly.dev`) so you can review changes without affecting production.
+`.github/workflows/fly-review.yml` deploys PR branches to a **single stable preview app** at `https://ainvestor-preview.fly.dev`. One URL for all PRs — no need to update OAuth callback when switching PRs.
 
 - **Triggers:** opened, reopened, or updated PRs
-- **Secrets:** `FLY_API_TOKEN`, `SESSION_SECRET`, plus `GH_CLIENT_ID_PREVIEW` and `GH_CLIENT_SECRET_PREVIEW` (see below)
-- **Token requirement:** `FLY_API_TOKEN` must be an **org-scoped token** (`fly tokens create org -o personal`), not an app-scoped deploy token. PR previews create new apps, which requires org-level permissions.
-- **Cleanup:** The preview app is destroyed when the PR is closed
+- **Preview URL:** `https://ainvestor-preview.fly.dev` (stable, never changes)
+- **Secrets:** `FLY_API_TOKEN` (org-scoped), `SESSION_SECRET`, `GH_CLIENT_ID_PREVIEW`, `GH_CLIENT_SECRET_PREVIEW`
+- **Note:** Only one PR is previewed at a time (the most recently pushed). Pushing to a different PR overwrites the preview.
 
-### OAuth on preview apps
+### OAuth on preview
 
-GitHub OAuth Apps allow only one callback URL. Preview apps use different URLs per PR (`pr-27-...fly.dev`, `pr-28-...fly.dev`, etc.), so use a **separate OAuth App** for previews:
+Create a separate OAuth App for previews with **Authorization callback URL** set once to:
 
-1. Create a second OAuth App at [GitHub Developer Settings → OAuth Apps](https://github.com/settings/developers) (e.g. "AI Investor Preview")
-2. Set its **Authorization callback URL** to the preview app you want to test, e.g. `https://pr-27-pawelphilipczyk-ainvestor.fly.dev/auth/github/callback` (update when testing a different PR)
-3. Add these repository secrets: `GH_CLIENT_ID_PREVIEW`, `GH_CLIENT_SECRET_PREVIEW`
+`https://ainvestor-preview.fly.dev/auth/github/callback`
 
-The preview workflow uses these instead of the production OAuth credentials. Unauthenticated features (browsing, adding ETFs as guest) work without OAuth.
+Add `GH_CLIENT_ID_PREVIEW` and `GH_CLIENT_SECRET_PREVIEW` as repository secrets. No need to change the callback URL when testing different PRs.
