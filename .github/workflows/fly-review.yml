@@ -1,0 +1,39 @@
+name: Deploy PR Preview
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize]
+
+concurrency:
+  group: deploy-preview
+  cancel-in-progress: true
+
+env:
+  FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+
+jobs:
+  preview:
+    runs-on: ubuntu-latest
+    environment:
+      name: preview
+      url: https://ainvestor-preview.fly.dev
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup flyctl
+        uses: superfly/flyctl-actions/setup-flyctl@v1.4
+
+      - name: Create preview app if needed
+        run: flyctl apps create ainvestor-preview || true
+
+      - name: Set preview app secrets
+        run: |
+          flyctl secrets set \
+            GH_CLIENT_ID="${{ secrets.GH_CLIENT_ID_PREVIEW }}" \
+            GH_CLIENT_SECRET="${{ secrets.GH_CLIENT_SECRET_PREVIEW }}" \
+            SESSION_SECRET="${{ secrets.SESSION_SECRET }}" \
+            --app ainvestor-preview
+
+      - name: Deploy to preview app
+        run: flyctl deploy --remote-only --config fly.preview.toml

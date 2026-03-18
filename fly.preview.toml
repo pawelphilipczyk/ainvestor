@@ -1,4 +1,6 @@
-app = "ainvestor"
+# Single preview app — stable URL for OAuth callback
+# Deploys the latest PR branch; only one PR preview at a time
+app = "ainvestor-preview"
 primary_region = "fra"
 
 [env]

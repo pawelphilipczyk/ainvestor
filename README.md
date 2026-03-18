@@ -94,10 +94,27 @@ This repo includes `.github/workflows/deploy-fly.yml` to deploy automatically on
 
 Add these repository secrets in GitHub before relying on the workflow:
 
-- `FLY_API_TOKEN` (create with `fly tokens create deploy`)
+- `FLY_API_TOKEN` — use `fly tokens create org -o personal` (or your org name). An org-scoped token is required for PR preview deployments, which create new apps. It also works for production deploys.
 - `GH_CLIENT_ID` — your OAuth App client ID
 - `GH_CLIENT_SECRET` — your OAuth App client secret
 - `SESSION_SECRET` — a random string (generate with `openssl rand -hex 32`)
 
 Also update the **Authorization callback URL** in your GitHub OAuth App to your Fly.io app URL:
 `https://ainvestor.fly.dev/auth/github/callback`
+
+## PR preview deployments
+
+`.github/workflows/fly-review.yml` deploys PR branches to a **single stable preview app** at `https://ainvestor-preview.fly.dev`. One URL for all PRs — no need to update OAuth callback when switching PRs.
+
+- **Triggers:** opened, reopened, or updated PRs
+- **Preview URL:** `https://ainvestor-preview.fly.dev` (stable, never changes)
+- **Secrets:** `FLY_API_TOKEN` (org-scoped), `SESSION_SECRET`, `GH_CLIENT_ID_PREVIEW`, `GH_CLIENT_SECRET_PREVIEW`
+- **Note:** Only one PR is previewed at a time (the most recently pushed). Pushing to a different PR overwrites the preview.
+
+### OAuth on preview
+
+Create a separate OAuth App for previews with **Authorization callback URL** set once to:
+
+`https://ainvestor-preview.fly.dev/auth/github/callback`
+
+Add `GH_CLIENT_ID_PREVIEW` and `GH_CLIENT_SECRET_PREVIEW` as repository secrets. No need to change the callback URL when testing different PRs.
