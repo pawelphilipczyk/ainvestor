@@ -321,7 +321,12 @@ async function renderPage(entries: EtfEntry[], session: SessionData | null) {
       <section class="mt-6">
         <h2 class="text-base font-semibold tracking-tight text-card-foreground">Import from CSV</h2>
         <p class="mt-0.5 text-xs text-muted-foreground">
-          Upload an eMAKLER/mBank portfolio export. Polish headers (Papier, Wartość, Waluta) and Windows-1250 encoding are supported.
+          Upload an eMAKLER/mBank portfolio export. Supported columns:
+        </p>
+        <pre class="mt-2 overflow-x-auto rounded bg-muted/50 px-3 py-2 text-xs text-muted-foreground">Papier;Giełda;Liczba dostępna (Blokady);Kurs;Waluta;Wartość;Waluta
+IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN</pre>
+        <p class="mt-1 text-xs text-muted-foreground">
+          Semicolon or comma. Polish headers (Papier, Giełda, Liczba dostępna, Wartość, Waluta). Windows-1250 encoding supported.
         </p>
         <form
           method="post"
