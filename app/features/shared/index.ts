@@ -7,6 +7,7 @@ import { renderComponent } from '../../components/render.ts'
 import { SidebarInteractions } from '../../components/sidebar.component.js'
 // @ts-expect-error Runtime-only JS client entry module
 import { ThemeToggleInteractions } from '../../components/theme-toggle.component.js'
+import { isPreview } from '../../lib/gist.ts'
 import type { EtfType } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
@@ -88,7 +89,10 @@ export function appTopBar(session: SessionData | null) {
             <line x1="4" y1="18" x2="20" y2="18"/>
           </svg>
         </button>
-        <span class="text-sm font-semibold text-foreground">AI Investor</span>
+        <div class="flex items-center gap-2">
+          <span class="text-sm font-semibold text-foreground">AI Investor</span>
+          ${isPreview() ? html`<span class="rounded-full bg-amber-500/20 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-500/30 dark:text-amber-400" role="status">Preview</span>` : html``}
+        </div>
       </div>
       <div class="flex items-center gap-3">
         ${authIndicator}
