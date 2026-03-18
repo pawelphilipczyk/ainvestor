@@ -1,3 +1,5 @@
+import { jsx } from 'remix/component/jsx-runtime'
+import { renderToString } from 'remix/component/server'
 import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
@@ -6,13 +8,20 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 
-import { renderComponent } from '../../components/render.ts'
+import {
+	NumberInput,
+	SelectInput,
+	SubmitButton,
+	TextInput,
+} from '../../components/index.ts'
+import { renderJsx } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, saveEtfs } from '../../lib/gist.ts'
 import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { formatValue, getSessionData, pageShell } from '../shared/index.ts'
+import { EtfCard } from './etf-card.tsx'
 
 const CreateEtfSchema = object({
 	etfName: string().pipe(minLength(1)),
@@ -203,92 +212,86 @@ export const portfolioController = {
 // Page renderer
 // ---------------------------------------------------------------------------
 async function renderPage(entries: EtfEntry[], session: SessionData | null) {
-	const etfNameInput = renderComponent('text-input', {
-		id: 'etfName',
-		label: 'ETF Name',
-		field_name: 'etfName',
-		placeholder: 'e.g. VTI',
-		required_attr: 'required',
-	})
-
-	const valueInput = renderComponent('number-input', {
-		id: 'value',
-		label: 'Value',
-		field_name: 'value',
-		placeholder: 'e.g. 1200.50',
-		required_attr: 'required',
-	})
-
-	const currencySelect = renderComponent('select-input', {
-		id: 'currency',
-		label: 'Currency',
-		field_name: 'currency',
-		children: [
-			'PLN',
-			'USD',
-			'EUR',
-			'GBP',
-			'CHF',
-			'JPY',
-			'CAD',
-			'AUD',
-			'SEK',
-			'NOK',
-		]
-			.map((c) => `<option value="${c}">${c}</option>`)
-			.join(''),
-	})
-
-	const exchangeInput = renderComponent('text-input', {
-		id: 'exchange',
-		label: 'Exchange (optional)',
-		field_name: 'exchange',
-		placeholder: 'e.g. GBR-LSE, DEU-XETRA',
-		required_attr: '',
-	})
-
-	const quantityInput = renderComponent('number-input', {
-		id: 'quantity',
-		label: 'Quantity (optional)',
-		field_name: 'quantity',
-		placeholder: 'e.g. 186',
-		required_attr: '',
-	})
-
-	const addButton = renderComponent('submit-button', { children: 'Add ETF' })
+	const [
+		etfNameInput,
+		valueInput,
+		currencySelect,
+		exchangeInput,
+		quantityInput,
+		addButton,
+	] = await Promise.all([
+		renderJsx(TextInput, {
+			id: 'etfName',
+			label: 'ETF Name',
+			fieldName: 'etfName',
+			placeholder: 'e.g. VTI',
+			required: true,
+		}),
+		renderJsx(NumberInput, {
+			id: 'value',
+			label: 'Value',
+			fieldName: 'value',
+			placeholder: 'e.g. 1200.50',
+			required: true,
+		}),
+		renderJsx(SelectInput, {
+			id: 'currency',
+			label: 'Currency',
+			fieldName: 'currency',
+			options: [
+				'PLN',
+				'USD',
+				'EUR',
+				'GBP',
+				'CHF',
+				'JPY',
+				'CAD',
+				'AUD',
+				'SEK',
+				'NOK',
+			].map((c) => ({ value: c, label: c })),
+		}),
+		renderJsx(TextInput, {
+			id: 'exchange',
+			label: 'Exchange (optional)',
+			fieldName: 'exchange',
+			placeholder: 'e.g. GBR-LSE, DEU-XETRA',
+		}),
+		renderJsx(NumberInput, {
+			id: 'quantity',
+			label: 'Quantity (optional)',
+			fieldName: 'quantity',
+			placeholder: 'e.g. 186',
+		}),
+		renderJsx(SubmitButton, { children: 'Add ETF' }),
+	])
 
 	const listContent =
 		entries.length === 0
 			? html`<p class="mt-4 text-sm text-muted-foreground">No ETFs added yet.</p>`
 			: html`<ul class="mt-4 grid gap-2">
-          ${entries.map((entry) => {
-						const badge = renderComponent(
-							'badge',
-							{
-								children: formatValue(entry.value, entry.currency),
-							},
-							import.meta.url,
-						)
-						const details = [
-							entry.quantity !== undefined
-								? `${entry.quantity.toLocaleString()} shares`
-								: '',
-							entry.exchange ?? '',
-						]
-							.filter(Boolean)
-							.join(' · ')
-						return renderComponent(
-							'etf-card',
-							{
-								name: entry.name,
-								details,
-								badge: String(badge),
-								dialog_id: `dialog-${entry.id}`,
-								delete_href: routes.portfolio.delete.href({ id: entry.id }),
-							},
-							import.meta.url,
-						)
-					})}
+          ${await Promise.all(
+						entries.map(async (entry) => {
+							const details = [
+								entry.quantity !== undefined
+									? `${entry.quantity.toLocaleString()} shares`
+									: '',
+								entry.exchange ?? '',
+							]
+								.filter(Boolean)
+								.join(' · ')
+							const markup = await renderToString(
+								jsx(EtfCard, {
+									name: entry.name,
+									details,
+									badgeValue: formatValue(entry.value, entry.currency),
+									dialogId: `dialog-${entry.id}`,
+									deleteHref: routes.portfolio.delete.href({ id: entry.id }),
+								}),
+							)
+							return html.raw`${markup}`
+						}),
+					)}
         </ul>`
 
 	const storageNote = session

@@ -5,7 +5,8 @@ import { html } from 'remix/html-template'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
-import { renderComponent } from '../../components/render.ts'
+import { SelectInput } from '../../components/index.ts'
+import { renderJsx } from '../../components/render.ts'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
 import { fetchGuidelines, saveGuidelines } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
@@ -189,13 +190,14 @@ async function renderGuidelinesPage(
               class="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
             />
           </div>
-          ${renderComponent('select-input', {
+          ${await renderJsx(SelectInput, {
 						id: 'etfType',
 						label: 'Type',
-						field_name: 'etfType',
-						children: ETF_TYPES.map(
-							(t) => `<option value="${t}">${t.replace('_', ' ')}</option>`,
-						).join(''),
+						fieldName: 'etfType',
+						options: ETF_TYPES.map((t) => ({
+							value: t,
+							label: t.replace('_', ' '),
+						})),
 					})}
         </div>
         <button

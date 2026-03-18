@@ -1,31 +1,25 @@
-import { readFileSync } from 'node:fs'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
-
+import type { Handle } from '@remix-run/component'
+import { jsx } from 'remix/component/jsx-runtime'
+import { renderToString } from 'remix/component/server'
 import { html } from 'remix/html-template'
 
-const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
+/**
+ * Matches Remix's function component shape from JSX.ElementType:
+ * (handle: Handle<any>, setup: any) => (props: P) => RemixNode
+ */
+type RemixComponent<T extends object> = (
+	handle: Handle<Record<string, never>>,
+	setup: unknown,
+) => (props: T) => unknown
 
 /**
- * Reads a component HTML file and replaces {{ placeholder }} tokens with
- * the provided slot values. Returns a SafeHtml value via html.raw so it
- * can be safely interpolated into other html`` templates without escaping.
- *
- * Pass an optional `dir` (import.meta.url of the calling module) to resolve
- * the component relative to a different folder (e.g. a feature folder).
+ * Renders a Remix JSX component to HTML. Use for form fields and other
+ * server-rendered components.
  */
-export function renderComponent(
-	name: string,
-	slots: Record<string, string> = {},
-	dir?: string,
+export async function renderJsx<T extends object>(
+	component: RemixComponent<T>,
+	props: T,
 ) {
-	const base = dir ? dirname(fileURLToPath(dir)) : componentsDir
-	const filePath = join(base, `${name}.html`)
-	let template = readFileSync(filePath, 'utf-8')
-
-	for (const [key, value] of Object.entries(slots)) {
-		template = template.replaceAll(`{{ ${key} }}`, value)
-	}
-
-	return html.raw`${template}`
+	const markup = await renderToString(jsx(component, props))
+	return html.raw`${markup}`
 }
