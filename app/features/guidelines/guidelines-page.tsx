@@ -1,5 +1,10 @@
 import type { Handle } from 'remix/component'
-import { SelectInput } from '../../components/index.ts'
+import {
+	NumberInput,
+	SelectInput,
+	SubmitButton,
+	TextInput,
+} from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { ETF_TYPES } from '../../lib/guidelines.ts'
@@ -36,36 +41,24 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					data-fragment-id="guidelines-list"
 					data-fragment-url="/fragments/guidelines-list"
 				>
-					<div class="grid gap-2">
-						<label for="etfName" class="text-sm font-medium">
-							ETF / Asset Name
-						</label>
-						<input
-							id="etfName"
-							name="etfName"
-							type="text"
-							required
-							placeholder="e.g. VTI"
-							class="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						/>
-					</div>
+					<TextInput
+						id="etfName"
+						label="ETF / Asset Name"
+						fieldName="etfName"
+						placeholder="e.g. VTI"
+						required={true}
+					/>
 					<div class="grid grid-cols-2 gap-3">
-						<div class="grid gap-2">
-							<label for="targetPct" class="text-sm font-medium">
-								Target %
-							</label>
-							<input
-								id="targetPct"
-								name="targetPct"
-								type="number"
-								min={1}
-								max={100}
-								step={0.1}
-								required
-								placeholder="e.g. 60"
-								class="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							/>
-						</div>
+						<NumberInput
+							id="targetPct"
+							label="Target %"
+							fieldName="targetPct"
+							placeholder="e.g. 60"
+							required={true}
+							min={1}
+							max={100}
+							step="0.1"
+						/>
 						<SelectInput
 							id="etfType"
 							label="Type"
@@ -76,12 +69,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 							}))}
 						/>
 					</div>
-					<button
-						type="submit"
-						class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					>
-						Add Guideline
-					</button>
+					<SubmitButton>Add Guideline</SubmitButton>
 				</form>
 
 				<div id="guidelines-list">
