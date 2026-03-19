@@ -18,6 +18,7 @@ export const routes = route({
 	guidelines: {
 		...form('guidelines'),
 		delete: del('/guidelines/:id'),
+		fragmentList: get('/fragments/guidelines-list'),
 	},
 	catalog: {
 		index: get('/catalog'),

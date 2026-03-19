@@ -214,9 +214,9 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.doesNotMatch(listBody, /data-island="features\/portfolio\/etf-card"/)
 	})
 
-	it('serves add-etf-form component entry', async () => {
+	it('serves fetch-submit component entry for form enhancement', async () => {
 		const res = await router.fetch(
-			'http://localhost/features/portfolio/add-etf-form/form-enhancement.component.js',
+			'http://localhost/islands/fetch-submit.component.js',
 		)
 		assert.equal(res.status, 200)
 		assert.match(res.headers.get('content-type') ?? '', /text\/javascript/)

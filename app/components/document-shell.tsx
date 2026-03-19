@@ -1,4 +1,6 @@
 import type { Handle, RemixNode } from 'remix/component'
+// @ts-expect-error Runtime-only JS client entry module
+import { FetchSubmitEnhancement } from '../islands/fetch-submit.component.js'
 import { baseCss } from '../lib/document-styles.ts'
 import type { SessionData } from '../lib/session.ts'
 import { tailwindConfig } from '../lib/tailwind-config.ts'
@@ -41,9 +43,22 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 			</head>
 			<body class="min-h-screen bg-background font-sans text-foreground antialiased">
 				<SessionProvider session={props.session}>
+					<div id="form-spinner" class="sr-only" aria-hidden="true">
+						<span
+							class="inline-flex items-center gap-2"
+							role="status"
+							aria-live="polite"
+						>
+							<span
+								class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+								aria-hidden="true"
+							/>
+							Loading…
+						</span>
+					</div>
 					<Sidebar navLinks={NAV_LINKS} currentPage={props.currentPage} />
 					<AppTopBar />
-					<div class="p-4">
+					<div id="page-content" class="p-4">
 						{props.flashError ? (
 							<div
 								role="alert"
@@ -55,6 +70,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 						{props.children}
 					</div>
 				</SessionProvider>
+				<FetchSubmitEnhancement />
 				<script type="module" src="/entry.js" />
 			</body>
 		</html>
