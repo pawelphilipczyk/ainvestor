@@ -94,6 +94,25 @@ describe('Portfolio page', () => {
 		assert.match(body, /id="value"[^>]*type="number"/)
 	})
 
+	it('adds ETF when exchange and quantity are left empty (optional fields)', async () => {
+		const form = new FormData()
+		form.set('etfName', 'VTI')
+		form.set('value', '1000')
+		form.set('currency', 'PLN')
+		form.set('exchange', '')
+		form.set('quantity', '')
+
+		const postResponse = await router.fetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+		)
+		assert.equal(postResponse.status, 302)
+
+		const homeResponse = await router.fetch('http://localhost/')
+		const homeBody = await homeResponse.text()
+		assert.match(homeBody, /VTI/)
+		assert.match(homeBody, /PLN/)
+	})
+
 	it('adds ETF with exchange and quantity when provided', async () => {
 		const form = new FormData()
 		form.set('etfName', 'IBTA LN ETF')

@@ -42,6 +42,9 @@ export const addEtfFormHandlers = {
 		if (typeof raw.quantity === 'string') {
 			raw.quantity = raw.quantity.replace(/,/g, '')
 		}
+		// Treat empty strings as absent for optional fields (HTML forms submit "" when blank)
+		if (raw.exchange === '') delete raw.exchange
+		if (raw.quantity === '') delete raw.quantity
 
 		const result = parseSafe(CreateEtfSchema, raw)
 		if (!result.success) {
