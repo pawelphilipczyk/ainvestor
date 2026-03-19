@@ -214,6 +214,14 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.doesNotMatch(listBody, /data-island="features\/portfolio\/etf-card"/)
 	})
 
+	it('serves add-etf-form component entry', async () => {
+		const res = await router.fetch(
+			'http://localhost/features/portfolio/add-etf-form/form-enhancement.component.js',
+		)
+		assert.equal(res.status, 200)
+		assert.match(res.headers.get('content-type') ?? '', /text\/javascript/)
+	})
+
 	it('serves etf-card component entry and hides old island endpoint', async () => {
 		const componentResponse = await router.fetch(
 			'http://localhost/features/portfolio/etf-card.component.js',
@@ -291,6 +299,47 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(afterBody, /No ETFs added yet/)
 	})
 
+	it('shows validation error when adding ETF with invalid data (full-page)', async () => {
+		const form = new FormData()
+		form.set('etfName', '')
+		form.set('value', '-1')
+		form.set('currency', 'PLN')
+		const res = await router.fetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+		)
+		assert.equal(res.status, 302)
+		const location = res.headers.get('Location')
+		const cookie = res.headers.get('Set-Cookie')
+		const homeRes = await router.fetch(
+			location
+				? new URL(location, 'http://localhost/').href
+				: 'http://localhost/',
+			{ headers: cookie ? { Cookie: cookie.split(';')[0] } : undefined },
+		)
+		const body = await homeRes.text()
+		assert.match(body, /Please enter a valid ETF name and value/)
+	})
+
+	it('returns 422 JSON when fetch sends Accept: application/json and validation fails', async () => {
+		const form = new FormData()
+		form.set('etfName', '')
+		form.set('value', '-1')
+		form.set('currency', 'PLN')
+		const res = await router.fetch(
+			new Request('http://localhost/etfs', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+		assert.equal(res.status, 422)
+		const data = await res.json()
+		assert.equal(
+			data.error,
+			'Please enter a valid ETF name and value (number >= 0).',
+		)
+	})
+
 	it('shows sign-in link when not authenticated', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
@@ -315,6 +364,27 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 
 		assert.match(body, /href="\/guidelines"/)
 		assert.match(body, /Investment Guidelines/)
+	})
+
+	it('GET /fragments/portfolio-list returns ETF list HTML fragment', async () => {
+		const form = new FormData()
+		form.set('etfName', 'VTI')
+		form.set('value', '1000')
+		form.set('currency', 'PLN')
+		await router.fetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+		)
+		const res = await router.fetch('http://localhost/fragments/portfolio-list')
+		const body = await res.text()
+		assert.equal(res.status, 200)
+		assert.match(body, /VTI/)
+		assert.match(body, /PLN/)
+	})
+
+	it('Add ETF form has data-fetch-submit for progressive enhancement', async () => {
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+		assert.match(body, /data-fetch-submit/)
 	})
 
 	it('homepage has a link to the ETF catalog', async () => {

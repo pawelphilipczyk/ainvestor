@@ -7,6 +7,7 @@ export const routes = route({
 		create: post('/etfs'),
 		import: post('/etfs/import'),
 		delete: del('/etfs/:id'),
+		fragmentList: get('/fragments/portfolio-list'),
 	},
 	auth: {
 		login: get('/auth/github'),

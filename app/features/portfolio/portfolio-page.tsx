@@ -1,38 +1,18 @@
 import type { Handle } from 'remix/component'
-import {
-	NumberInput,
-	SelectInput,
-	SubmitButton,
-	TextInput,
-} from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
-import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { routes } from '../../routes.ts'
+import { AddEtfForm, ListFragment } from './add-etf-form/index.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { EtfCardInteractions } from './etf-card.component.js'
-import { EtfCard } from './etf-card.tsx'
-
-const CURRENCIES = [
-	'PLN',
-	'USD',
-	'EUR',
-	'GBP',
-	'CHF',
-	'JPY',
-	'CAD',
-	'AUD',
-	'SEK',
-	'NOK',
-]
 
 type PortfolioPageProps = {
 	entries: EtfEntry[]
 }
 
 /**
- * Portfolio page main content: add ETF form, CSV import, list, and advice form.
- * Session from SessionProvider context. EtfCardInteractions co-located here.
+ * Portfolio page main content: add ETF form (from add-etf-form feature), CSV import,
+ * list, and advice form. Session from SessionProvider context.
  */
 export function PortfolioPage(handle: Handle, _setup?: unknown) {
 	return (props: PortfolioPageProps) => {
@@ -58,49 +38,7 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 						)}
 					</header>
 
-					<form
-						method="post"
-						action={routes.portfolio.create.href()}
-						class="mt-6 grid gap-4"
-					>
-						<TextInput
-							id="etfName"
-							label="ETF Name"
-							fieldName="etfName"
-							placeholder="e.g. VTI"
-							required={true}
-						/>
-						<div class="grid grid-cols-2 gap-3">
-							<NumberInput
-								id="value"
-								label="Value"
-								fieldName="value"
-								placeholder="e.g. 1200.50"
-								required={true}
-							/>
-							<SelectInput
-								id="currency"
-								label="Currency"
-								fieldName="currency"
-								options={CURRENCIES.map((c) => ({ value: c, label: c }))}
-							/>
-						</div>
-						<div class="grid grid-cols-2 gap-3">
-							<TextInput
-								id="exchange"
-								label="Exchange (optional)"
-								fieldName="exchange"
-								placeholder="e.g. GBR-LSE, DEU-XETRA"
-							/>
-							<NumberInput
-								id="quantity"
-								label="Quantity (optional)"
-								fieldName="quantity"
-								placeholder="e.g. 186"
-							/>
-						</div>
-						<SubmitButton>Add ETF</SubmitButton>
-					</form>
+					<AddEtfForm />
 
 					<section class="mt-6">
 						<h2 class="text-base font-semibold tracking-tight text-card-foreground">
@@ -142,32 +80,9 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 						</form>
 					</section>
 
-					{props.entries.length === 0 ? (
-						<p class="mt-4 text-sm text-muted-foreground">No ETFs added yet.</p>
-					) : (
-						<ul class="mt-4 grid gap-2">
-							{props.entries.map((entry) => {
-								const details = [
-									entry.quantity !== undefined
-										? `${entry.quantity.toLocaleString()} shares`
-										: '',
-									entry.exchange ?? '',
-								]
-									.filter(Boolean)
-									.join(' · ')
-								return (
-									<EtfCard
-										key={entry.id}
-										name={entry.name}
-										details={details}
-										badgeValue={formatValue(entry.value, entry.currency)}
-										dialogId={`dialog-${entry.id}`}
-										deleteHref={routes.portfolio.delete.href({ id: entry.id })}
-									/>
-								)
-							})}
-						</ul>
-					)}
+					<div id="portfolio-list">
+						<ListFragment entries={props.entries} />
+					</div>
 
 					<hr class="my-6 border-border" />
 

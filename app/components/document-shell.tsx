@@ -20,6 +20,7 @@ type DocumentShellProps = {
 	title: string
 	session: SessionData | null
 	currentPage: 'portfolio' | 'guidelines' | 'catalog'
+	flashError?: string
 	children: RemixNode
 }
 
@@ -42,7 +43,17 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				<SessionProvider session={props.session}>
 					<Sidebar navLinks={NAV_LINKS} currentPage={props.currentPage} />
 					<AppTopBar />
-					<div class="p-4">{props.children}</div>
+					<div class="p-4">
+						{props.flashError ? (
+							<div
+								role="alert"
+								class="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+							>
+								{props.flashError}
+							</div>
+						) : null}
+						{props.children}
+					</div>
 				</SessionProvider>
 				<script type="module" src="/entry.js" />
 			</body>
