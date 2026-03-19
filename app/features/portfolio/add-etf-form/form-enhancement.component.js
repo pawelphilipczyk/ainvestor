@@ -63,22 +63,21 @@ export const AddEtfFormEnhancement = clientEntry(
 								const res = await fetch(form.action, {
 									method: form.method,
 									body: new FormData(form),
-									redirect: 'manual',
+									redirect: 'follow',
+									headers: { Accept: 'application/json' },
 								})
-								if (res.status >= 300 && res.status < 400) {
-									const flashError = res.headers.get('X-Flash-Error')
-									if (flashError) {
-										showFormError(flashError)
-									} else {
-										const html = await fetchListFragment()
-										replaceListContent(html)
-										form.reset()
-									}
+								if (res.ok) {
+									const html = await fetchListFragment()
+									replaceListContent(html)
+									form.reset()
+								} else if (res.status === 422) {
+									const data = await res.json().catch(() => ({}))
+									showFormError(data.error || 'Please check your input.')
 								} else {
-									window.location.href = res.url || form.action
+									window.location.href = '/'
 								}
 							} catch {
-								window.location.href = form.action
+								window.location.href = '/'
 							} finally {
 								if (submitBtn instanceof HTMLElement && !wasDisabled) {
 									submitBtn.removeAttribute('disabled')

@@ -46,10 +46,17 @@ export const addEtfFormHandlers = {
 		const result = parseSafe(CreateEtfSchema, raw)
 		if (!result.success) {
 			const message = 'Please enter a valid ETF name and value (number >= 0).'
+			const prefersJson = context.request.headers
+				.get('Accept')
+				?.includes('application/json')
+			if (prefersJson) {
+				return new Response(JSON.stringify({ error: message }), {
+					status: 422,
+					headers: { 'Content-Type': 'application/json' },
+				})
+			}
 			context.session.flash('error', message)
-			return createRedirectResponse(routes.portfolio.index.href(), {
-				headers: { 'X-Flash-Error': message },
-			})
+			return createRedirectResponse(routes.portfolio.index.href())
 		}
 
 		const { etfName: name, value, currency, exchange, quantity } = result.value

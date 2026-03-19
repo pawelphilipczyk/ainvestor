@@ -299,7 +299,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(afterBody, /No ETFs added yet/)
 	})
 
-	it('shows validation error when adding ETF with invalid data', async () => {
+	it('shows validation error when adding ETF with invalid data (full-page)', async () => {
 		const form = new FormData()
 		form.set('etfName', '')
 		form.set('value', '-1')
@@ -308,10 +308,6 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 		assert.equal(res.status, 302)
-		assert.equal(
-			res.headers.get('X-Flash-Error'),
-			'Please enter a valid ETF name and value (number >= 0).',
-		)
 		const location = res.headers.get('Location')
 		const cookie = res.headers.get('Set-Cookie')
 		const homeRes = await router.fetch(
@@ -322,6 +318,26 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 		const body = await homeRes.text()
 		assert.match(body, /Please enter a valid ETF name and value/)
+	})
+
+	it('returns 422 JSON when fetch sends Accept: application/json and validation fails', async () => {
+		const form = new FormData()
+		form.set('etfName', '')
+		form.set('value', '-1')
+		form.set('currency', 'PLN')
+		const res = await router.fetch(
+			new Request('http://localhost/etfs', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+		assert.equal(res.status, 422)
+		const data = await res.json()
+		assert.equal(
+			data.error,
+			'Please enter a valid ETF name and value (number >= 0).',
+		)
 	})
 
 	it('shows sign-in link when not authenticated', async () => {
