@@ -216,7 +216,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 
 	it('serves fetch-submit component entry for form enhancement', async () => {
 		const res = await router.fetch(
-			'http://localhost/islands/fetch-submit.component.js',
+			'http://localhost/components/fetch-submit.component.js',
 		)
 		assert.equal(res.status, 200)
 		assert.match(res.headers.get('content-type') ?? '', /text\/javascript/)

@@ -1,10 +1,10 @@
 import type { Handle, RemixNode } from 'remix/component'
-// @ts-expect-error Runtime-only JS client entry module
-import { FetchSubmitEnhancement } from '../islands/fetch-submit.component.js'
 import { baseCss } from '../lib/document-styles.ts'
 import type { SessionData } from '../lib/session.ts'
 import { tailwindConfig } from '../lib/tailwind-config.ts'
 import { AppTopBar } from './app-top-bar.tsx'
+// @ts-expect-error Runtime-only JS client entry module
+import { FetchSubmitEnhancement } from './fetch-submit.component.js'
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
 import { NAV_LINKS } from './sidebar-nav.ts'

@@ -102,7 +102,7 @@ async function handleFetchSubmit(form, submitBtn) {
 }
 
 export const FetchSubmitEnhancement = clientEntry(
-	'/islands/fetch-submit.component.js#FetchSubmitEnhancement',
+	'/components/fetch-submit.component.js#FetchSubmitEnhancement',
 	function FetchSubmitEnhancement() {
 		return () =>
 			createElement('span', {
