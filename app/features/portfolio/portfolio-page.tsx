@@ -60,6 +60,9 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 							action={routes.portfolio.import.href()}
 							enctype="multipart/form-data"
 							class="mt-3 flex flex-wrap items-center gap-3"
+							data-fetch-submit
+							data-fragment-id="portfolio-list"
+							data-fragment-url="/fragments/portfolio-list"
 						>
 							<label class="sr-only" for="portfolioCsv">
 								Portfolio CSV
@@ -95,6 +98,8 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 							method="post"
 							action={routes.advice.href()}
 							class="mt-4 flex gap-2"
+							data-fetch-submit
+							data-replace-main
 						>
 							<label for="cashAmount" class="sr-only">
 								Available cash (USD)

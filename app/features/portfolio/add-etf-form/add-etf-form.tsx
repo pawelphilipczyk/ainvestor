@@ -6,8 +6,6 @@ import {
 	TextInput,
 } from '../../../components/index.ts'
 import { routes } from '../../../routes.ts'
-// @ts-expect-error Runtime-only JS client entry module
-import { AddEtfFormEnhancement } from './form-enhancement.component.js'
 
 const CURRENCIES = [
 	'PLN',
@@ -39,6 +37,10 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 				action={routes.portfolio.create.href()}
 				class="mt-6 grid gap-4"
 				data-fetch-submit
+				data-fragment-id="portfolio-list"
+				data-fragment-url="/fragments/portfolio-list"
+				data-reset-form
+				data-error-id="portfolio-form-error"
 			>
 				<TextInput
 					id="etfName"
@@ -78,8 +80,6 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 				</div>
 				<SubmitButton>Add ETF</SubmitButton>
 			</form>
-
-			<AddEtfFormEnhancement />
 		</>
 	)
 }

@@ -47,7 +47,13 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 							Cancel
 						</button>
 					</form>
-					<form method="post" action={props.deleteHref}>
+					<form
+						method="post"
+						action={props.deleteHref}
+						data-fetch-submit
+						data-fragment-id="portfolio-list"
+						data-fragment-url="/fragments/portfolio-list"
+					>
 						<input type="hidden" name="_method" value="DELETE" />
 						<button
 							type="submit"

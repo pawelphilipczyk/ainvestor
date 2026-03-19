@@ -76,7 +76,11 @@ export function Sidebar(handle: Handle, _setup?: unknown) {
 									<p class="mb-2 px-3 text-xs text-muted-foreground">
 										Signed in as @{session.login}
 									</p>
-									<form method="post" action={routes.auth.logout.href()}>
+									<form
+										method="post"
+										action={routes.auth.logout.href()}
+										data-fetch-submit
+									>
 										<button
 											type="submit"
 											class="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"

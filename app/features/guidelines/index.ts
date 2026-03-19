@@ -1,7 +1,9 @@
 import { jsx } from 'remix/component/jsx-runtime'
+import { renderToString } from 'remix/component/server'
 import { enum_, object, optional, parseSafe, string } from 'remix/data-schema'
 import { max, min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
+import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
@@ -14,6 +16,7 @@ import {
 import type { SessionData } from '../../lib/session.ts'
 import { getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 import { GuidelinesPage } from './guidelines-page.tsx'
 
 const CreateGuidelineSchema = object({
@@ -106,6 +109,19 @@ export const guidelinesController = {
 		}
 
 		return createRedirectResponse(routes.guidelines.index.href())
+	},
+
+	async fragmentList(context: { request: Request; session: Session }) {
+		const session = getSessionData(context.session)
+		const guidelines = session?.gistId
+			? await fetchGuidelines(session.token, session.gistId)
+			: guestGuidelines
+		const html = await renderToString(
+			jsx(GuidelinesListFragment, { guidelines }),
+		)
+		return createHtmlResponse(html, {
+			headers: { 'Cache-Control': 'no-store' },
+		})
 	},
 }
 

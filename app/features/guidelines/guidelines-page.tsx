@@ -4,6 +4,7 @@ import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { ETF_TYPES } from '../../lib/guidelines.ts'
 import { routes } from '../../routes.ts'
+import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 
 type GuidelinesPageProps = {
 	guidelines: EtfGuideline[]
@@ -12,8 +13,6 @@ type GuidelinesPageProps = {
 export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 	return (props: GuidelinesPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
-		const totalPct = props.guidelines.reduce((sum, g) => sum + g.targetPct, 0)
-		const remaining = Math.max(0, 100 - totalPct)
 
 		return (
 			<main class="mx-auto max-w-lg rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -33,6 +32,9 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					method="post"
 					action={routes.guidelines.action.href()}
 					class="mt-6 grid gap-4"
+					data-fetch-submit
+					data-fragment-id="guidelines-list"
+					data-fragment-url="/fragments/guidelines-list"
 				>
 					<div class="grid gap-2">
 						<label for="etfName" class="text-sm font-medium">
@@ -82,53 +84,9 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					</button>
 				</form>
 
-				<div class="mt-6 flex items-center justify-between text-xs text-muted-foreground">
-					<span>
-						Total allocated:{' '}
-						<strong class="text-foreground">{totalPct}%</strong>
-					</span>
-					<span>
-						Remaining: <strong class="text-foreground">{remaining}%</strong>
-					</span>
+				<div id="guidelines-list">
+					<GuidelinesListFragment guidelines={props.guidelines} />
 				</div>
-
-				{props.guidelines.length === 0 ? (
-					<p class="mt-4 text-sm text-muted-foreground">
-						No guidelines added yet.
-					</p>
-				) : (
-					<ul class="mt-4 grid gap-2">
-						{props.guidelines.map((g) => (
-							<li
-								key={g.id}
-								class="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
-							>
-								<div class="flex items-center gap-3">
-									<span class="font-medium">{g.etfName}</span>
-									<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-										{g.etfType}
-									</span>
-								</div>
-								<div class="flex items-center gap-4">
-									<span class="text-sm font-semibold">{g.targetPct}%</span>
-									<form
-										method="post"
-										action={routes.guidelines.delete.href({ id: g.id })}
-									>
-										<input type="hidden" name="_method" value="DELETE" />
-										<button
-											type="submit"
-											class="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-											aria-label={`Delete ${g.etfName} guideline`}
-										>
-											Remove
-										</button>
-									</form>
-								</div>
-							</li>
-						))}
-					</ul>
-				)}
 			</main>
 		)
 	}
