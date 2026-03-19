@@ -214,6 +214,14 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.doesNotMatch(listBody, /data-island="features\/portfolio\/etf-card"/)
 	})
 
+	it('serves add-etf-form component entry', async () => {
+		const res = await router.fetch(
+			'http://localhost/features/portfolio/add-etf-form/form-enhancement.component.js',
+		)
+		assert.equal(res.status, 200)
+		assert.match(res.headers.get('content-type') ?? '', /text\/javascript/)
+	})
+
 	it('serves etf-card component entry and hides old island endpoint', async () => {
 		const componentResponse = await router.fetch(
 			'http://localhost/features/portfolio/etf-card.component.js',

@@ -1,14 +1,14 @@
 import type { Handle } from 'remix/component'
-import { formatValue } from '../../lib/format.ts'
-import type { EtfEntry } from '../../lib/gist.ts'
-import { routes } from '../../routes.ts'
-import { EtfCard } from './etf-card.tsx'
+import { formatValue } from '../../../lib/format.ts'
+import type { EtfEntry } from '../../../lib/gist.ts'
+import { routes } from '../../../routes.ts'
+import { EtfCard } from '../etf-card.tsx'
 
 /**
  * Renders the ETF list as HTML fragment for progressive enhancement.
  * Used by GET /fragments/portfolio-list for fetch-based form updates.
  */
-export function PortfolioListFragment(_handle: Handle, _setup?: unknown) {
+export function ListFragment(_handle: Handle, _setup?: unknown) {
 	return (props: { entries?: EtfEntry[] }) => {
 		const entries = props.entries ?? []
 		if (entries.length === 0) {

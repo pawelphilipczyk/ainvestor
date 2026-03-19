@@ -31,14 +31,14 @@ function hideFormError() {
 	el.classList.add('hidden')
 }
 
-export const PortfolioFormEnhancement = clientEntry(
-	'/features/portfolio/portfolio-form-enhancement.component.js#PortfolioFormEnhancement',
-	function PortfolioFormEnhancement() {
+export const AddEtfFormEnhancement = clientEntry(
+	'/features/portfolio/add-etf-form/form-enhancement.component.js#AddEtfFormEnhancement',
+	function AddEtfFormEnhancement() {
 		return () =>
 			createElement('span', {
 				hidden: true,
 				'aria-hidden': 'true',
-				'data-component': 'portfolio-form-enhancement',
+				'data-component': 'add-etf-form-enhancement',
 				connect: (node, signal) => {
 					const doc = node.ownerDocument
 					const dispose = on(doc, {
