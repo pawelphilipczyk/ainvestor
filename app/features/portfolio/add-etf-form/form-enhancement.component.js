@@ -4,17 +4,17 @@ import { on } from 'remix/interaction'
 const FRAGMENT_URL = '/fragments/portfolio-list'
 const LIST_ID = 'portfolio-list'
 const ERROR_ID = 'portfolio-form-error'
-
-const SPINNER_HTML = `<span class="inline-flex items-center gap-2" role="status" aria-live="polite">
-	<span class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent" aria-hidden="true"></span>
-	Adding…
-</span>`
+const SPINNER_ID = 'add-etf-spinner'
 
 function setSubmitButtonLoading(button, loading) {
 	if (!(button instanceof HTMLElement)) return
 	if (loading) {
 		button.dataset.originalContent = button.innerHTML
-		button.innerHTML = SPINNER_HTML
+		const spinnerTemplate = document.getElementById(SPINNER_ID)
+		if (spinnerTemplate) {
+			button.innerHTML = ''
+			button.append(...spinnerTemplate.cloneNode(true).childNodes)
+		}
 		button.setAttribute('disabled', '')
 		button.setAttribute('aria-busy', 'true')
 	} else {

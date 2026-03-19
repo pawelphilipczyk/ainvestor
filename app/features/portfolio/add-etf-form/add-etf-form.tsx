@@ -79,6 +79,20 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 				<SubmitButton>Add ETF</SubmitButton>
 			</form>
 
+			<div id="add-etf-spinner" class="sr-only" aria-hidden="true">
+				<span
+					class="inline-flex items-center gap-2"
+					role="status"
+					aria-live="polite"
+				>
+					<span
+						class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+						aria-hidden="true"
+					/>
+					Adding…
+				</span>
+			</div>
+
 			<AddEtfFormEnhancement />
 		</>
 	)
