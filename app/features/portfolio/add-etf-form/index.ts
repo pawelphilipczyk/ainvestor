@@ -14,13 +14,25 @@ import { getGuestEntries, guestEntries } from '../state.ts'
 import { AddEtfForm } from './add-etf-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
 
-const CreateEtfSchema = object({
+export const CreateEtfSchema = object({
 	etfName: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
 	exchange: optional(string()),
 	quantity: optional(coerce.number().pipe(min(0))),
 })
+
+/** Treats empty strings as absent for optional fields (HTML forms submit "" when blank). */
+export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
+	if (typeof raw.value === 'string') {
+		raw.value = raw.value.replace(/,/g, '')
+	}
+	if (typeof raw.quantity === 'string') {
+		raw.quantity = raw.quantity.replace(/,/g, '')
+	}
+	if (raw.exchange === '') delete raw.exchange
+	if (raw.quantity === '') delete raw.quantity
+}
 
 export { AddEtfForm, ListFragment }
 
@@ -36,15 +48,7 @@ export const addEtfFormHandlers = {
 		const raw = Object.fromEntries(
 			form as unknown as Iterable<[string, FormDataEntryValue]>,
 		)
-		if (typeof raw.value === 'string') {
-			raw.value = raw.value.replace(/,/g, '')
-		}
-		if (typeof raw.quantity === 'string') {
-			raw.quantity = raw.quantity.replace(/,/g, '')
-		}
-		// Treat empty strings as absent for optional fields (HTML forms submit "" when blank)
-		if (raw.exchange === '') delete raw.exchange
-		if (raw.quantity === '') delete raw.quantity
+		normalizeAddEtfInput(raw)
 
 		const result = parseSafe(CreateEtfSchema, raw)
 		if (!result.success) {
