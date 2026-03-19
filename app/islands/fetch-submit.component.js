@@ -70,9 +70,11 @@ async function handleFetchSubmit(form, submitBtn) {
 				if (fragRes.ok) {
 					const html = await fragRes.text()
 					const container = document.getElementById(fragmentId)
-					if (container) container.innerHTML = html
+					if (container) {
+						container.innerHTML = html
+						if (resetForm) form.reset()
+					}
 				}
-				if (resetForm) form.reset()
 			} else if (replaceMain) {
 				const html = await res.text()
 				const parser = new DOMParser()
