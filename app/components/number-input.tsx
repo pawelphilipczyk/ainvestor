@@ -28,6 +28,7 @@ export function NumberInput(_handle: Handle, _setup?: unknown) {
 				name={props.fieldName}
 				type="number"
 				min={props.min ?? 0}
+				max={props.max}
 				step={props.step ?? 'any'}
 				required={props.required}
 				placeholder={props.placeholder}
