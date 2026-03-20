@@ -292,10 +292,10 @@ All UI-related files should follow this structure:
 app/
   components/
     app-branding.tsx     ← app name + Preview chip (sidebar, top bar on small screens)
-    app-top-bar.tsx      ← shared layout (top bar, sidebar toggle, sign-in)
+    app-top-bar.tsx      ← shared layout (top bar, sidebar toggle, sign-in, theme toggle)
     document-shell.tsx   ← DocumentShell layout (head, sidebar, top bar, scripts)
     render.ts            ← render() returns createHtmlResponse(renderToStream(...))
-    sidebar.tsx          ← shared navigation (header: branding + theme toggle)
+    sidebar.tsx          ← shared navigation (header: branding)
     theme-toggle.tsx
     select-input.tsx     ← shared form fields
     *.component.js       ← clientEntry for interactive components

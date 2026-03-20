@@ -60,7 +60,6 @@ describe('sidebar component', () => {
 		assert.match(result, /\bmin-h-14\b/)
 		assert.match(result, /\bpy-2\.5\b/)
 		assert.match(result, /AI Investor/)
-		assert.match(result, /data-theme-toggle/)
 	})
 
 	it('Sidebar shows sign-in link when session is null', async () => {
