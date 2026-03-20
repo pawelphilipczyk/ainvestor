@@ -28,19 +28,19 @@ function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 			<th class="pb-2 pr-4">Name</th>
 			<th class="pb-2 pr-4">Type</th>
 			<th class="pb-2 pr-4">Description</th>
-			<th class="pb-2 pr-4">ISIN</th>
-			<th class="pb-2 pr-4">Value</th>
+			<th class="pb-2">ISIN</th>
+			<th class="pb-2 pl-4 pr-4">Value</th>
 		</tr>
 	)
 }
 
 function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 	const valueCell = holding ? (
-		<td class="py-2 pr-4 text-sm font-medium text-foreground">
+		<td class="py-2 pl-4 pr-4 text-sm font-medium text-foreground">
 			{formatValue(holding.value, holding.currency)}
 		</td>
 	) : (
-		<td class="py-2 pr-4 text-sm text-muted-foreground">—</td>
+		<td class="py-2 pl-4 pr-4 text-sm text-muted-foreground">—</td>
 	)
 
 	return (
@@ -60,7 +60,7 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			<td class="max-w-xs truncate py-2 pr-4 text-sm text-muted-foreground">
 				{entry.description || '—'}
 			</td>
-			<td class="py-2 pr-4 font-mono text-xs text-muted-foreground">
+			<td class="py-2 font-mono text-xs text-muted-foreground">
 				{entry.isin ?? '—'}
 			</td>
 			{valueCell}
