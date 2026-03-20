@@ -1,31 +1,26 @@
 import type { Handle } from 'remix/component'
 
-export type FieldLabelVariant = 'field' | 'screenReader' | 'filter'
+const variantClass = {
+	field: 'mb-1 block text-sm font-semibold text-foreground',
+	screenReader: 'sr-only',
+	filter: 'mb-1 block text-xs font-medium text-muted-foreground',
+} as const
 
-const fieldClass = 'mb-1 block text-sm font-semibold text-foreground'
-const filterClass = 'mb-1 block text-xs font-medium text-muted-foreground'
-
-type FieldLabelProps = {
-	fieldId: string
-	variant?: FieldLabelVariant
-	children: string
-}
-
-function labelClassForVariant(variant: FieldLabelVariant): string {
-	if (variant === 'screenReader') return 'sr-only'
-	if (variant === 'filter') return filterClass
-	return fieldClass
-}
+export type FieldLabelVariant = keyof typeof variantClass
 
 /**
  * Server-rendered `<label>` for use next to {@link TextInput}, {@link NumberInput}, etc.
  * Layout (grid, gap, columns) stays in the parent.
  */
 export function FieldLabel(_handle: Handle, _setup?: unknown) {
-	return (props: FieldLabelProps) => {
-		const variant = props.variant ?? 'field'
+	return (props: {
+		fieldId: string
+		variant?: FieldLabelVariant
+		children: string
+	}) => {
+		const key = props.variant ?? 'field'
 		return (
-			<label for={props.fieldId} class={labelClassForVariant(variant)}>
+			<label for={props.fieldId} class={variantClass[key]}>
 				{props.children}
 			</label>
 		)
