@@ -14,7 +14,7 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 		const session = handle.context.get(SessionProvider)?.session ?? null
 		return (
 			<>
-				<div class="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background px-4 py-2.5">
+				<div class="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background px-4 py-2.5 md:ml-64">
 					<div class="flex items-center gap-3">
 						<button
 							data-sidebar-toggle
@@ -22,7 +22,7 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 							aria-label="Open navigation"
 							aria-expanded="false"
 							aria-controls="app-sidebar"
-							class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
 						>
 							<svg
 								class="h-4 w-4"
