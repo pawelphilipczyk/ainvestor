@@ -1,4 +1,5 @@
 import type { Handle, RemixNode } from 'remix/component'
+import type { AppPage } from '../lib/app-page.ts'
 import { baseCss } from '../lib/document-styles.ts'
 import type { SessionData } from '../lib/session.ts'
 import { tailwindConfig } from '../lib/tailwind-config.ts'
@@ -21,7 +22,7 @@ const IMPORT_MAP = JSON.stringify({
 type DocumentShellProps = {
 	title: string
 	session: SessionData | null
-	currentPage: 'portfolio' | 'advice' | 'guidelines' | 'catalog'
+	currentPage: AppPage
 	flashError?: string
 	children: RemixNode
 }

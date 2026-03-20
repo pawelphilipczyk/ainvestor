@@ -90,7 +90,7 @@ UI is built with **JSX components** rendered on the server via `remix/component`
 | Location | Use case |
 |----------|----------|
 | `app/components/` | Shared components used across multiple features (e.g. `AppTopBar`, `Sidebar`, `FieldLabel`, `TextInput`, `SelectInput`, `ThemeToggleButton`) |
-| `app/features/{feature}/` | Feature-specific page components (e.g. `PortfolioPage`, `GuidelinesPage`, `CatalogPage`, `AdvicePage`) |
+| `app/features/{feature}/` | Feature-specific page components (e.g. `PortfolioPage`, `GuidelinesPage`, `CatalogPage`, `AdvicePage`, `AdviceResultPage`) |
 
 **Rendering pattern:** Matches the Bookstore demo. The full document is JSX (`DocumentShell` wrapping page body). Controllers call `render({ title, session, currentPage, body: jsx(PageComponent, props) })`, which returns `createHtmlResponse(renderToStream(document))`. Page bodies are passed as JSX children.
 

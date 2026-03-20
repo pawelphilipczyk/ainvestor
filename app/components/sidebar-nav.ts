@@ -1,11 +1,10 @@
+import type { AppPage } from '../lib/app-page.ts'
 import { routes } from '../routes.ts'
-
-export type NavPage = 'portfolio' | 'advice' | 'guidelines' | 'catalog'
 
 export type NavLink = {
 	href: string
 	label: string
-	page: NavPage
+	page: AppPage
 }
 
 export const NAV_LINKS: NavLink[] = [
