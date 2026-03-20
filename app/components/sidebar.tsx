@@ -29,9 +29,9 @@ export function Sidebar(handle: Handle, _setup?: unknown) {
 					aria-label="Main navigation"
 					class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-card transition-transform duration-200 ease-in-out md:translate-x-0"
 				>
-					<div class="flex items-center justify-between border-b border-border p-4">
-						<span class="text-sm font-semibold text-card-foreground">
-							Navigation
+					<div class="flex min-h-14 items-center justify-between border-b border-border px-4 py-2.5">
+						<span class="text-sm font-semibold text-foreground md:sr-only">
+							AI Investor
 						</span>
 						<button
 							data-sidebar-close

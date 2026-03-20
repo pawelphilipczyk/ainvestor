@@ -14,7 +14,7 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 		const session = handle.context.get(SessionProvider)?.session ?? null
 		return (
 			<>
-				<div class="sticky top-0 z-30 flex items-center justify-between border-b border-border bg-background px-4 py-2.5 md:ml-64">
+				<div class="sticky top-0 z-30 flex min-h-14 items-center justify-between border-b border-border bg-background px-4 py-2.5 md:ml-64">
 					<div class="flex items-center gap-3">
 						<button
 							data-sidebar-toggle

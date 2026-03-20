@@ -55,6 +55,13 @@ describe('sidebar component', () => {
 		assert.match(result, /aria-current="page"/)
 	})
 
+	it('Sidebar drawer header uses same chrome height as top bar and site name', async () => {
+		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
+		assert.match(result, /\bmin-h-14\b/)
+		assert.match(result, /\bpy-2\.5\b/)
+		assert.match(result, /AI Investor/)
+	})
+
 	it('Sidebar shows sign-in link when session is null', async () => {
 		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
 		assert.match(result, /Sign in with GitHub/)
