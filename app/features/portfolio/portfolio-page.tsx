@@ -1,5 +1,9 @@
 import type { Handle } from 'remix/component'
-import { FieldLabel, NumberInput } from '../../components/index.ts'
+import {
+	FieldLabel,
+	NumberInput,
+	TextareaInput,
+} from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { routes } from '../../routes.ts'
@@ -12,8 +16,8 @@ type PortfolioPageProps = {
 }
 
 /**
- * Portfolio page main content: add ETF form (from add-etf-form feature), CSV import,
- * list, and advice form. Session from SessionProvider context.
+ * Portfolio page main content: CSV import (primary), list, optional manual add form,
+ * and advice form. Session from SessionProvider context.
  */
 export function PortfolioPage(handle: Handle, _setup?: unknown) {
 	return (props: PortfolioPageProps) => {
@@ -26,7 +30,8 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 							AI Investor
 						</h1>
 						<p class="mt-1 text-sm text-muted-foreground">
-							Add ETF names you already hold or want to buy.
+							Paste or upload a broker CSV to add what you already hold or want
+							to buy.
 						</p>
 						{session ? (
 							<p class="mt-1 text-xs text-muted-foreground">
@@ -39,45 +44,61 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 						)}
 					</header>
 
-					<AddEtfForm />
-
-					<section class="mt-6">
-						<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+					<section
+						class="mt-6 rounded-lg border border-primary/25 bg-primary/5 p-4 shadow-sm"
+						aria-labelledby="portfolio-import-heading"
+					>
+						<h2
+							id="portfolio-import-heading"
+							class="text-lg font-semibold tracking-tight text-card-foreground"
+						>
 							Import from CSV
 						</h2>
-						<p class="mt-0.5 text-xs text-muted-foreground">
-							Upload an eMAKLER/mBank portfolio export. Supported columns:
+						<p class="mt-1 text-xs text-muted-foreground">
+							eMAKLER/mBank exports and similar. Example columns:
 						</p>
-						<pre class="mt-2 overflow-x-auto rounded bg-muted/50 px-3 py-2 text-xs text-muted-foreground">
+						<pre class="mt-2 overflow-x-auto rounded border border-border/80 bg-card px-3 py-2 text-xs text-muted-foreground">
 							{`Papier;Giełda;Liczba dostępna (Blokady);Kurs;Waluta;Wartość;Waluta
 IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 						</pre>
-						<p class="mt-1 text-xs text-muted-foreground">
+						<p class="mt-2 text-xs text-muted-foreground">
 							Semicolon or comma. Polish headers (Papier, Giełda, Liczba
-							dostępna, Wartość, Waluta). Windows-1250 encoding supported.
+							dostępna, Wartość, Waluta). Windows-1250 encoding supported for
+							file uploads.
 						</p>
 						<form
 							method="post"
 							action={routes.portfolio.import.href()}
 							enctype="multipart/form-data"
-							class="mt-3 flex flex-wrap items-center gap-3"
+							class="mt-4 grid gap-4"
 							data-fetch-submit
 							data-fragment-id="portfolio-list"
 							data-fragment-url="/fragments/portfolio-list"
 						>
-							<FieldLabel fieldId="portfolioCsv" variant="screenReader">
-								Portfolio CSV
-							</FieldLabel>
-							<input
-								id="portfolioCsv"
-								name="portfolioCsv"
-								type="file"
-								accept=".csv,text/csv"
-								class="cursor-pointer text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground hover:file:opacity-90"
-							/>
+							<div class="grid gap-2">
+								<FieldLabel fieldId="portfolioCsvPaste">
+									Paste CSV here
+								</FieldLabel>
+								<TextareaInput
+									id="portfolioCsvPaste"
+									name="portfolioCsvPaste"
+									placeholder="Paste rows from your export (include the header row)…"
+									rows={6}
+								/>
+							</div>
+							<div class="grid gap-2">
+								<FieldLabel fieldId="portfolioCsv">Or upload a file</FieldLabel>
+								<input
+									id="portfolioCsv"
+									name="portfolioCsv"
+									type="file"
+									accept=".csv,text/csv"
+									class="cursor-pointer text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground hover:file:opacity-90"
+								/>
+							</div>
 							<button
 								type="submit"
-								class="rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								class="justify-self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 							>
 								Import
 							</button>
@@ -87,6 +108,13 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 					<div id="portfolio-list">
 						<ListFragment entries={props.entries} />
 					</div>
+
+					<details class="mt-6 rounded-lg border border-border bg-muted/20 p-4">
+						<summary class="cursor-pointer text-sm font-medium text-card-foreground outline-none marker:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+							Add one ETF manually
+						</summary>
+						<AddEtfForm />
+					</details>
 
 					<hr class="my-6 border-border" />
 
