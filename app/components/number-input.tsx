@@ -1,47 +1,39 @@
 import type { Handle } from 'remix/component'
-import { FieldLabel, type FieldLabelVariant } from './field-label.tsx'
-import { FORM_CONTROL_CLASS } from './form-field-classes.ts'
+
+const controlClass =
+	'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 type NumberInputProps = {
 	id: string
-	label: string
 	fieldName: string
 	placeholder: string
 	required?: boolean
 	min?: number
 	max?: number
 	step?: string
-	labelVariant?: FieldLabelVariant
-	inputClassName?: string
-	wrapClassName?: string
+	/** Extra Tailwind classes merged onto the control. */
+	class?: string
 }
 
 /**
- * Server-rendered number input field.
+ * Server-rendered number input (label is composed separately).
  */
 export function NumberInput(_handle: Handle, _setup?: unknown) {
 	return (props: NumberInputProps) => {
-		const labelVariant = props.labelVariant ?? 'field'
-		const controlClass =
-			`${FORM_CONTROL_CLASS} ${props.inputClassName ?? ''}`.trim()
+		const controlClassMerged = `${controlClass} ${props.class ?? ''}`.trim()
 		return (
-			<div class={props.wrapClassName}>
-				<FieldLabel fieldId={props.id} variant={labelVariant}>
-					{props.label}
-				</FieldLabel>
-				<input
-					id={props.id}
-					name={props.fieldName}
-					type="number"
-					min={props.min ?? 0}
-					max={props.max}
-					step={props.step ?? 'any'}
-					required={props.required}
-					placeholder={props.placeholder}
-					autocomplete="off"
-					class={controlClass}
-				/>
-			</div>
+			<input
+				id={props.id}
+				name={props.fieldName}
+				type="number"
+				min={props.min ?? 0}
+				max={props.max}
+				step={props.step ?? 'any'}
+				required={props.required}
+				placeholder={props.placeholder}
+				autocomplete="off"
+				class={controlClassMerged}
+			/>
 		)
 	}
 }

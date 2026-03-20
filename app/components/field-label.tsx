@@ -1,10 +1,9 @@
 import type { Handle } from 'remix/component'
-import {
-	FORM_LABEL_CLASS,
-	FORM_LABEL_FILTER_CLASS,
-} from './form-field-classes.ts'
 
 export type FieldLabelVariant = 'field' | 'screenReader' | 'filter'
+
+const fieldClass = 'mb-1 block text-sm font-semibold text-foreground'
+const filterClass = 'mb-1 block text-xs font-medium text-muted-foreground'
 
 type FieldLabelProps = {
 	fieldId: string
@@ -14,12 +13,13 @@ type FieldLabelProps = {
 
 function labelClassForVariant(variant: FieldLabelVariant): string {
 	if (variant === 'screenReader') return 'sr-only'
-	if (variant === 'filter') return FORM_LABEL_FILTER_CLASS
-	return FORM_LABEL_CLASS
+	if (variant === 'filter') return filterClass
+	return fieldClass
 }
 
 /**
- * Server-rendered `<label>` for form fields; keeps typography aligned with inputs.
+ * Server-rendered `<label>` for use next to {@link TextInput}, {@link NumberInput}, etc.
+ * Layout (grid, gap, columns) stays in the parent.
  */
 export function FieldLabel(_handle: Handle, _setup?: unknown) {
 	return (props: FieldLabelProps) => {

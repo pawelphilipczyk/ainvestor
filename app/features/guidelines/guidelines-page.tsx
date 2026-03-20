@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 import {
+	FieldLabel,
 	NumberInput,
 	SelectInput,
 	SubmitButton,
@@ -41,33 +42,39 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					data-fragment-id="guidelines-list"
 					data-fragment-url="/fragments/guidelines-list"
 				>
-					<TextInput
-						id="etfName"
-						label="ETF / Asset Name"
-						fieldName="etfName"
-						placeholder="e.g. VTI"
-						required={true}
-					/>
-					<div class="grid grid-cols-2 gap-3">
-						<NumberInput
-							id="targetPct"
-							label="Target %"
-							fieldName="targetPct"
-							placeholder="e.g. 60"
+					<div class="grid gap-2">
+						<FieldLabel fieldId="etfName">ETF / Asset Name</FieldLabel>
+						<TextInput
+							id="etfName"
+							fieldName="etfName"
+							placeholder="e.g. VTI"
 							required={true}
-							min={1}
-							max={100}
-							step="0.1"
 						/>
-						<SelectInput
-							id="etfType"
-							label="Type"
-							fieldName="etfType"
-							options={ETF_TYPES.map((t) => ({
-								value: t,
-								label: t.replace('_', ' '),
-							}))}
-						/>
+					</div>
+					<div class="grid grid-cols-2 gap-3">
+						<div class="grid gap-2">
+							<FieldLabel fieldId="targetPct">Target %</FieldLabel>
+							<NumberInput
+								id="targetPct"
+								fieldName="targetPct"
+								placeholder="e.g. 60"
+								required={true}
+								min={1}
+								max={100}
+								step="0.1"
+							/>
+						</div>
+						<div class="grid gap-2">
+							<FieldLabel fieldId="etfType">Type</FieldLabel>
+							<SelectInput
+								id="etfType"
+								fieldName="etfType"
+								options={ETF_TYPES.map((t) => ({
+									value: t,
+									label: t.replace('_', ' '),
+								}))}
+							/>
+						</div>
 					</div>
 					<SubmitButton>Add Guideline</SubmitButton>
 				</form>

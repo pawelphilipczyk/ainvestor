@@ -102,17 +102,19 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 							data-fetch-submit
 							data-replace-main
 						>
-							<NumberInput
-								id="cashAmount"
-								label="Available cash (USD)"
-								fieldName="cashAmount"
-								placeholder="e.g. 1000"
-								required={true}
-								min={1}
-								step="any"
-								labelVariant="screenReader"
-								wrapClassName="flex-1 min-w-0"
-							/>
+							<FieldLabel fieldId="cashAmount" variant="screenReader">
+								Available cash (USD)
+							</FieldLabel>
+							<div class="flex-1 min-w-0">
+								<NumberInput
+									id="cashAmount"
+									fieldName="cashAmount"
+									placeholder="e.g. 1000"
+									required={true}
+									min={1}
+									step="any"
+								/>
+							</div>
 							<button
 								type="submit"
 								class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

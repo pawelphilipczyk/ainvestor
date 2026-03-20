@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 import {
+	FieldLabel,
 	SelectInput,
 	TextareaInput,
 	TextInput,
@@ -123,13 +124,14 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							data-import-url={routes.catalog.import.href()}
 							class="mt-3"
 						>
+							<FieldLabel fieldId="pasteZone" variant="screenReader">
+								Paste bank API JSON
+							</FieldLabel>
 							<TextareaInput
 								id="pasteZone"
-								label="Paste bank API JSON"
 								placeholder="Paste fetch response JSON here (Ctrl+V) — imports on paste"
 								rows={3}
-								labelVariant="screenReader"
-								controlClassName="block max-w-xl"
+								class="block max-w-xl"
 							/>
 						</div>
 						{props.catalog.length === 0 ? (
@@ -150,30 +152,35 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							action={routes.catalog.index.href()}
 							class="mt-5 flex flex-wrap items-end gap-3"
 						>
-							<TextInput
-								id="q"
-								label="Search"
-								fieldName="q"
-								placeholder="Ticker, name, or description…"
-								value={props.query}
-								inputType="search"
-								labelVariant="filter"
-								size="compact"
-								inputClassName="w-64"
-							/>
-							<SelectInput
-								id="type"
-								label="Type"
-								fieldName="type"
-								options={[
-									{ value: '', label: 'All types' },
-									...ETF_TYPES.map((t) => ({
-										value: t,
-										label: t.replace('_', ' '),
-										selected: props.typeFilter === t,
-									})),
-								]}
-							/>
+							<div class="grid gap-1.5">
+								<FieldLabel fieldId="q" variant="filter">
+									Search
+								</FieldLabel>
+								<TextInput
+									id="q"
+									fieldName="q"
+									placeholder="Ticker, name, or description…"
+									value={props.query}
+									inputType="search"
+									size="compact"
+									class="w-64"
+								/>
+							</div>
+							<div class="grid gap-2">
+								<FieldLabel fieldId="type">Type</FieldLabel>
+								<SelectInput
+									id="type"
+									fieldName="type"
+									options={[
+										{ value: '', label: 'All types' },
+										...ETF_TYPES.map((t) => ({
+											value: t,
+											label: t.replace('_', ' '),
+											selected: props.typeFilter === t,
+										})),
+									]}
+								/>
+							</div>
 							<button
 								type="submit"
 								class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"

@@ -1,42 +1,34 @@
 import type { Handle } from 'remix/component'
-import { FieldLabel, type FieldLabelVariant } from './field-label.tsx'
-import { FORM_CONTROL_CLASS } from './form-field-classes.ts'
+
+const controlClass =
+	'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 type TextareaInputProps = {
 	id: string
-	label: string
 	placeholder: string
 	rows: number
 	/** Omit when the control is not part of a form submit (e.g. paste-only UI). */
 	fieldName?: string
 	required?: boolean
-	labelVariant?: Extract<FieldLabelVariant, 'field' | 'screenReader'>
-	controlClassName?: string
-	wrapClassName?: string
+	/** Extra Tailwind classes merged onto the control. */
+	class?: string
 }
 
 /**
- * Server-rendered textarea with the same label/control styling as TextInput.
+ * Server-rendered textarea (label is composed separately).
  */
 export function TextareaInput(_handle: Handle, _setup?: unknown) {
 	return (props: TextareaInputProps) => {
-		const labelVariant = props.labelVariant ?? 'field'
-		const controlClass =
-			`${FORM_CONTROL_CLASS} ${props.controlClassName ?? ''}`.trim()
+		const controlClassMerged = `${controlClass} ${props.class ?? ''}`.trim()
 		return (
-			<div class={props.wrapClassName}>
-				<FieldLabel fieldId={props.id} variant={labelVariant}>
-					{props.label}
-				</FieldLabel>
-				<textarea
-					id={props.id}
-					name={props.fieldName}
-					rows={props.rows}
-					required={props.required}
-					placeholder={props.placeholder}
-					class={controlClass}
-				/>
-			</div>
+			<textarea
+				id={props.id}
+				name={props.fieldName}
+				rows={props.rows}
+				required={props.required}
+				placeholder={props.placeholder}
+				class={controlClassMerged}
+			/>
 		)
 	}
 }
