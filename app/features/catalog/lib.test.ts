@@ -157,10 +157,35 @@ describe('parseBankJsonToCatalog', () => {
 		})
 		assert.equal(result[0].ticker, 'XMOV GR')
 	})
+
+	it('dedupes duplicate rows in the same paste (same ISIN)', () => {
+		const row = {
+			isin: 'IE00BGV5VR99',
+			fund_name: 'Xtrackers Future Mobility UCITS ETF 1C',
+			ticker: 'XMOV GR',
+			description: 'First',
+			assets: 'akcje',
+			sector: 'technologia',
+			id: 'id-a',
+		}
+		const result = parseBankJsonToCatalog({
+			data: [
+				row,
+				{
+					...row,
+					description: 'Second wins',
+					id: 'id-b',
+				},
+			],
+		})
+		assert.equal(result.length, 1)
+		assert.equal(result[0].id, 'id-a')
+		assert.equal(result[0].description, 'Second wins')
+	})
 })
 
 describe('mergeBankIntoCatalog', () => {
-	it('merges incoming into existing by isin+ticker', () => {
+	it('merges incoming into existing by ISIN (same fund, different ticker formatting)', () => {
 		const existing = [
 			{
 				id: 'uuid-1',
@@ -174,7 +199,7 @@ describe('mergeBankIntoCatalog', () => {
 		const incoming = [
 			{
 				id: 'IE00BGV5VR99_XMOV.GR',
-				ticker: 'XMOV',
+				ticker: 'XMOV GR',
 				name: 'New Name',
 				type: 'equity' as const,
 				description: 'Updated',
@@ -183,8 +208,37 @@ describe('mergeBankIntoCatalog', () => {
 		]
 		const merged = mergeBankIntoCatalog(existing, incoming)
 		assert.equal(merged.length, 1)
+		assert.equal(merged[0].id, 'uuid-1')
 		assert.equal(merged[0].name, 'New Name')
+		assert.equal(merged[0].ticker, 'XMOV GR')
 		assert.equal(merged[0].description, 'Updated')
+	})
+
+	it('merges ticker-only row into existing ISIN row when pasting an update', () => {
+		const existing = [
+			{
+				id: 'keep-me',
+				ticker: 'VTI',
+				name: 'Vanguard Total Stock',
+				type: 'equity' as const,
+				description: '',
+				isin: 'US9229087690',
+			},
+		]
+		const incoming = [
+			{
+				id: 'bank-row',
+				ticker: 'VTI',
+				name: 'Vanguard Total Stock Market ETF',
+				type: 'equity' as const,
+				description: 'Broader desc',
+			},
+		]
+		const merged = mergeBankIntoCatalog(existing, incoming)
+		assert.equal(merged.length, 1)
+		assert.equal(merged[0].id, 'keep-me')
+		assert.equal(merged[0].isin, 'US9229087690')
+		assert.equal(merged[0].name, 'Vanguard Total Stock Market ETF')
 	})
 
 	it('appends new entries', () => {

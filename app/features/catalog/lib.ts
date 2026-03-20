@@ -72,7 +72,7 @@ function normaliseTypeFromBank(assets: string, sector: string): EtfType {
 
 /**
  * Parse bank/investment website fetch response JSON into CatalogEntry array.
- * Extracts only investment-relevant fields; merges by bank id for deduplication.
+ * Extracts only investment-relevant fields; dedupes by ISIN or ticker within the batch.
  */
 export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 	if (!json || typeof json !== 'object') return []
@@ -116,24 +116,119 @@ export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 		}
 		entries.push(entry)
 	}
-	return entries
+	return dedupeCatalogBatch(entries)
 }
 
-function catalogMergeKey(entry: CatalogEntry): string {
-	return `${entry.isin ?? ''}_${entry.ticker}`
+/** Normalise ISIN for matching (trim, uppercase). */
+export function normalizeIsinForKey(isin: string | undefined): string | null {
+	if (!isin) return null
+	const s = isin.trim().toUpperCase()
+	return s.length === 0 ? null : s
+}
+
+/** Normalise ticker for stable merge keys (trim, uppercase, collapse spaces). */
+export function normalizeTickerForKey(ticker: string): string {
+	return ticker.trim().toUpperCase().replace(/\s+/g, ' ')
+}
+
+/**
+ * Stable key for catalog dedupe/merge: one row per ISIN when present,
+ * otherwise one row per normalised ticker (funds without ISIN in the feed).
+ */
+export function catalogMergeKey(entry: CatalogEntry): string {
+	const isin = normalizeIsinForKey(entry.isin)
+	if (isin) return `i:${isin}`
+	return `t:${normalizeTickerForKey(entry.ticker)}`
+}
+
+function mergeCatalogFields(
+	prev: CatalogEntry,
+	next: CatalogEntry,
+): CatalogEntry {
+	return { ...prev, ...next, id: prev.id }
+}
+
+function upsertCatalogEntryIntoMap(
+	byKey: Map<string, CatalogEntry>,
+	entry: CatalogEntry,
+) {
+	function findIsinKeyByTicker(ticker: string): string | undefined {
+		const norm = normalizeTickerForKey(ticker)
+		for (const [k, v] of byKey) {
+			if (k.startsWith('i:') && normalizeTickerForKey(v.ticker) === norm)
+				return k
+		}
+		return undefined
+	}
+
+	const isin = normalizeIsinForKey(entry.isin)
+	const ticker = normalizeTickerForKey(entry.ticker)
+
+	if (isin) {
+		const iKey = `i:${isin}`
+		const existingIsin = byKey.get(iKey)
+		if (existingIsin) {
+			byKey.set(iKey, mergeCatalogFields(existingIsin, entry))
+			return
+		}
+		const tKey = `t:${ticker}`
+		const tickerOnly = byKey.get(tKey)
+		if (tickerOnly) {
+			byKey.delete(tKey)
+			byKey.set(
+				iKey,
+				mergeCatalogFields(tickerOnly, { ...entry, id: tickerOnly.id }),
+			)
+			return
+		}
+		byKey.set(iKey, entry)
+		return
+	}
+
+	const tKey = `t:${ticker}`
+	const existingTicker = byKey.get(tKey)
+	if (existingTicker) {
+		byKey.set(tKey, mergeCatalogFields(existingTicker, entry))
+		return
+	}
+
+	const isinKey = findIsinKeyByTicker(ticker)
+	const isinRow = isinKey ? byKey.get(isinKey) : undefined
+	if (isinKey && isinRow) {
+		byKey.set(
+			isinKey,
+			mergeCatalogFields(isinRow, { ...entry, id: isinRow.id }),
+		)
+		return
+	}
+
+	byKey.set(tKey, entry)
+}
+
+/** Collapse duplicate rows in one import batch (same ISIN or same ticker-only key). */
+function dedupeCatalogBatch(entries: CatalogEntry[]): CatalogEntry[] {
+	const byKey = new Map<string, CatalogEntry>()
+	for (const e of entries) {
+		upsertCatalogEntryIntoMap(byKey, e)
+	}
+	return [...byKey.values()]
 }
 
 /**
  * Merge newly imported bank entries into existing catalog.
- * Matches by isin+ticker; incoming overwrites existing for same listing.
+ * Updates rows that match by ISIN (preferred) or by normalised ticker, without
+ * creating duplicate rows when ticker formatting differs or ISIN is added later.
  */
 export function mergeBankIntoCatalog(
 	existing: CatalogEntry[],
 	incoming: CatalogEntry[],
 ): CatalogEntry[] {
-	const byKey = new Map(existing.map((e) => [catalogMergeKey(e), e]))
+	const byKey = new Map<string, CatalogEntry>()
+	for (const e of existing) {
+		upsertCatalogEntryIntoMap(byKey, e)
+	}
 	for (const e of incoming) {
-		byKey.set(catalogMergeKey(e), e)
+		upsertCatalogEntryIntoMap(byKey, e)
 	}
 	return [...byKey.values()]
 }
