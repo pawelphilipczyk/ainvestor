@@ -29,7 +29,7 @@ function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 			<th class="pb-2 pr-4">Type</th>
 			<th class="pb-2 pr-4">Description</th>
 			<th class="pb-2 pr-4">ISIN</th>
-			<th class="pb-2">Value</th>
+			<th class="pb-2 pr-4">Value</th>
 		</tr>
 	)
 }
