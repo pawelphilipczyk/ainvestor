@@ -1,6 +1,6 @@
 import { routes } from '../routes.ts'
 
-export type NavPage = 'portfolio' | 'guidelines' | 'catalog'
+export type NavPage = 'portfolio' | 'advice' | 'guidelines' | 'catalog'
 
 export type NavLink = {
 	href: string
@@ -13,6 +13,11 @@ export const NAV_LINKS: NavLink[] = [
 		href: routes.portfolio.index.href(),
 		label: 'Portfolio',
 		page: 'portfolio',
+	},
+	{
+		href: routes.advice.index.href(),
+		label: 'Get Advice',
+		page: 'advice',
 	},
 	{
 		href: routes.catalog.index.href(),

@@ -14,7 +14,9 @@ export const routes = route({
 		callback: get('/auth/github/callback'),
 		logout: post('/auth/logout'),
 	},
-	advice: post('/advice'),
+	advice: {
+		...form('advice'),
+	},
 	guidelines: {
 		...form('guidelines'),
 		delete: del('/guidelines/:id'),

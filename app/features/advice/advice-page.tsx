@@ -8,7 +8,7 @@ type AdvicePageProps = {
 
 export function AdvicePage(_handle: Handle, _setup?: unknown) {
 	return (props: AdvicePageProps) => (
-		<main class="mx-auto max-w-lg rounded-xl border border-border bg-card p-6 shadow-sm">
+		<main class="mx-auto max-w-3xl rounded-xl border border-border bg-card p-6 shadow-sm">
 			<h1 class="text-2xl font-bold tracking-tight">Investment Advice</h1>
 			<p class="mt-1 text-sm text-muted-foreground">
 				Based on your portfolio and ${props.cashAmount} available.
@@ -17,10 +17,10 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 				{props.advice}
 			</div>
 			<a
-				href={routes.portfolio.index.href()}
+				href={routes.advice.index.href()}
 				class="mt-6 inline-block text-sm underline underline-offset-4"
 			>
-				← Back to portfolio
+				← Back to Get Advice
 			</a>
 		</main>
 	)

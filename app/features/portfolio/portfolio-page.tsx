@@ -1,8 +1,6 @@
 import type { Handle } from 'remix/component'
-import { FieldLabel, NumberInput } from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfEntry } from '../../lib/gist.ts'
-import { routes } from '../../routes.ts'
 import { AddEtfForm, ListFragment } from './add-etf-form/index.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { EtfCardInteractions } from './etf-card.component.js'
@@ -13,8 +11,8 @@ type PortfolioPageProps = {
 }
 
 /**
- * Portfolio page main content: CSV import (primary), list, optional manual add form,
- * and advice form. Session from SessionProvider context.
+ * Portfolio page main content: CSV import (primary), list, optional manual add form.
+ * Session from SessionProvider context.
  */
 export function PortfolioPage(handle: Handle, _setup?: unknown) {
 	return (props: PortfolioPageProps) => {
@@ -53,42 +51,6 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 						</summary>
 						<AddEtfForm />
 					</details>
-
-					<hr class="my-6 border-border" />
-
-					<section>
-						<h2 class="text-lg font-semibold tracking-tight">Get Advice</h2>
-						<p class="mt-1 text-sm text-muted-foreground">
-							Tell me how much cash you have and I'll suggest what to buy next.
-						</p>
-						<form
-							method="post"
-							action={routes.advice.href()}
-							class="mt-4 flex gap-2"
-							data-fetch-submit
-							data-replace-main
-						>
-							<FieldLabel fieldId="cashAmount" variant="screenReader">
-								Available cash (USD)
-							</FieldLabel>
-							<div class="flex-1 min-w-0">
-								<NumberInput
-									id="cashAmount"
-									name="cashAmount"
-									placeholder="e.g. 1000"
-									required={true}
-									min={1}
-									step="any"
-								/>
-							</div>
-							<button
-								type="submit"
-								class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							>
-								Ask AI
-							</button>
-						</form>
-					</section>
 				</main>
 				<EtfCardInteractions />
 			</>

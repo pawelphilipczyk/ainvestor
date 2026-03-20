@@ -8,7 +8,7 @@ import { DocumentShell } from './document-shell.tsx'
 export type RenderOptions = {
 	title: string
 	session: SessionData | null
-	currentPage: 'portfolio' | 'guidelines' | 'catalog'
+	currentPage: 'portfolio' | 'advice' | 'guidelines' | 'catalog'
 	body: RemixNode
 	flashError?: string
 	init?: ResponseInit

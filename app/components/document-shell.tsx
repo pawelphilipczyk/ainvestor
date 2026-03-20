@@ -21,7 +21,7 @@ const IMPORT_MAP = JSON.stringify({
 type DocumentShellProps = {
 	title: string
 	session: SessionData | null
-	currentPage: 'portfolio' | 'guidelines' | 'catalog'
+	currentPage: 'portfolio' | 'advice' | 'guidelines' | 'catalog'
 	flashError?: string
 	children: RemixNode
 }

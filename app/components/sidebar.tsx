@@ -7,7 +7,7 @@ import type { NavLink } from './sidebar-nav.ts'
 
 type SidebarProps = {
 	navLinks: NavLink[]
-	currentPage: 'portfolio' | 'guidelines' | 'catalog'
+	currentPage: 'portfolio' | 'advice' | 'guidelines' | 'catalog'
 }
 
 /**

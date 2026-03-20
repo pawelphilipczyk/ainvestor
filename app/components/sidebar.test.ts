@@ -15,7 +15,7 @@ const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 
 function renderSidebarWithSession(
 	navLinks: typeof NAV_LINKS,
-	currentPage: 'portfolio' | 'guidelines' | 'catalog',
+	currentPage: 'portfolio' | 'advice' | 'guidelines' | 'catalog',
 	session: SessionData | null,
 ) {
 	return renderToString(
@@ -36,6 +36,7 @@ describe('sidebar component', () => {
 		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
 		assert.match(result, /id="app-sidebar"/)
 		assert.match(result, /id="sidebar-backdrop"/)
+		assert.match(result, /href="\/advice"/)
 		assert.match(result, /href="\/catalog"/)
 		assert.match(result, /href="\/guidelines"/)
 	})

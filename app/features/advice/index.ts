@@ -10,6 +10,7 @@ import type { AdviceClient } from '../../openai.ts'
 import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
+import { AdviceFormPage } from './advice-form-page.tsx'
 import { AdvicePage } from './advice-page.tsx'
 
 const AdviceSchema = object({
@@ -26,50 +27,63 @@ export function setAdviceClient(client: AdviceClient | null) {
 }
 
 // ---------------------------------------------------------------------------
-// Handler
+// Controller
 // ---------------------------------------------------------------------------
-export async function adviceHandler(context: {
-	request: Request
-	session: Session
-	formData: FormData | null
-}) {
-	const form = context.formData
-	if (!form) {
-		return new Response('Bad request', { status: 400 })
-	}
+export const adviceController = {
+	async index(context: { request: Request; session: Session }) {
+		const session = getSessionData(context.session)
+		const body = jsx(AdviceFormPage, {})
+		return render({
+			title: 'AI Investor – Get Advice',
+			session,
+			currentPage: 'advice',
+			body,
+		})
+	},
 
-	const result = parseSafe(
-		AdviceSchema,
-		Object.fromEntries(
-			form as unknown as Iterable<[string, FormDataEntryValue]>,
-		),
-	)
-	if (!result.success) {
-		return new Response('cashAmount is required', { status: 400 })
-	}
-	const { cashAmount } = result.value
+	async action(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+	}) {
+		const form = context.formData
+		if (!form) {
+			return new Response('Bad request', { status: 400 })
+		}
 
-	const session = getSessionData(context.session)
-	const entries = session?.gistId
-		? await fetchEtfs(session.token, session.gistId)
-		: getGuestEntries()
-	const guidelines = session?.gistId
-		? await fetchGuidelines(session.token, session.gistId)
-		: getGuestGuidelines()
+		const result = parseSafe(
+			AdviceSchema,
+			Object.fromEntries(
+				form as unknown as Iterable<[string, FormDataEntryValue]>,
+			),
+		)
+		if (!result.success) {
+			return new Response('cashAmount is required', { status: 400 })
+		}
+		const { cashAmount } = result.value
 
-	const client = adviceClient ?? createDefaultClient()
-	const advice = await getInvestmentAdvice(
-		entries,
-		guidelines,
-		cashAmount,
-		client,
-	)
+		const session = getSessionData(context.session)
+		const entries = session?.gistId
+			? await fetchEtfs(session.token, session.gistId)
+			: getGuestEntries()
+		const guidelines = session?.gistId
+			? await fetchGuidelines(session.token, session.gistId)
+			: getGuestGuidelines()
 
-	const body = jsx(AdvicePage, { cashAmount, advice })
-	return render({
-		title: 'AI Investor – Advice',
-		session,
-		currentPage: 'portfolio',
-		body,
-	})
+		const client = adviceClient ?? createDefaultClient()
+		const advice = await getInvestmentAdvice(
+			entries,
+			guidelines,
+			cashAmount,
+			client,
+		)
+
+		const body = jsx(AdvicePage, { cashAmount, advice })
+		return render({
+			title: 'AI Investor – Advice',
+			session,
+			currentPage: 'advice',
+			body,
+		})
+	},
 }
