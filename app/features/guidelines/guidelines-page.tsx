@@ -1,5 +1,11 @@
 import type { Handle } from 'remix/component'
-import { SelectInput } from '../../components/index.ts'
+import {
+	FieldLabel,
+	NumberInput,
+	SelectInput,
+	SubmitButton,
+	TextInput,
+} from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { ETF_TYPES } from '../../lib/guidelines.ts'
@@ -37,51 +43,40 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					data-fragment-url="/fragments/guidelines-list"
 				>
 					<div class="grid gap-2">
-						<label for="etfName" class="text-sm font-medium">
-							ETF / Asset Name
-						</label>
-						<input
+						<FieldLabel fieldId="etfName">ETF / Asset Name</FieldLabel>
+						<TextInput
 							id="etfName"
 							name="etfName"
-							type="text"
-							required
 							placeholder="e.g. VTI"
-							class="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							required={true}
 						/>
 					</div>
 					<div class="grid grid-cols-2 gap-3">
 						<div class="grid gap-2">
-							<label for="targetPct" class="text-sm font-medium">
-								Target %
-							</label>
-							<input
+							<FieldLabel fieldId="targetPct">Target %</FieldLabel>
+							<NumberInput
 								id="targetPct"
 								name="targetPct"
-								type="number"
+								placeholder="e.g. 60"
+								required={true}
 								min={1}
 								max={100}
-								step={0.1}
-								required
-								placeholder="e.g. 60"
-								class="rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								step="0.1"
 							/>
 						</div>
-						<SelectInput
-							id="etfType"
-							label="Type"
-							fieldName="etfType"
-							options={ETF_TYPES.map((t) => ({
-								value: t,
-								label: t.replace('_', ' '),
-							}))}
-						/>
+						<div class="grid gap-2">
+							<FieldLabel fieldId="etfType">Type</FieldLabel>
+							<SelectInput
+								id="etfType"
+								name="etfType"
+								options={ETF_TYPES.map((t) => ({
+									value: t,
+									label: t.replace('_', ' '),
+								}))}
+							/>
+						</div>
 					</div>
-					<button
-						type="submit"
-						class="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					>
-						Add Guideline
-					</button>
+					<SubmitButton>Add Guideline</SubmitButton>
 				</form>
 
 				<div id="guidelines-list">

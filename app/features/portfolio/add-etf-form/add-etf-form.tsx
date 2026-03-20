@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 import {
+	FieldLabel,
 	NumberInput,
 	SelectInput,
 	SubmitButton,
@@ -42,41 +43,47 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 				data-reset-form
 				data-error-id="portfolio-form-error"
 			>
-				<TextInput
-					id="etfName"
-					label="ETF Name"
-					fieldName="etfName"
-					placeholder="e.g. VTI"
-					required={true}
-				/>
-				<div class="grid grid-cols-2 gap-3">
-					<NumberInput
-						id="value"
-						label="Value"
-						fieldName="value"
-						placeholder="e.g. 1200.50"
+				<div class="grid gap-2">
+					<FieldLabel fieldId="etfName">ETF Name</FieldLabel>
+					<TextInput
+						id="etfName"
+						name="etfName"
+						placeholder="e.g. VTI"
 						required={true}
-					/>
-					<SelectInput
-						id="currency"
-						label="Currency"
-						fieldName="currency"
-						options={CURRENCIES.map((c) => ({ value: c, label: c }))}
 					/>
 				</div>
 				<div class="grid grid-cols-2 gap-3">
-					<TextInput
-						id="exchange"
-						label="Exchange (optional)"
-						fieldName="exchange"
-						placeholder="e.g. GBR-LSE, DEU-XETRA"
-					/>
-					<NumberInput
-						id="quantity"
-						label="Quantity (optional)"
-						fieldName="quantity"
-						placeholder="e.g. 186"
-					/>
+					<div class="grid gap-2">
+						<FieldLabel fieldId="value">Value</FieldLabel>
+						<NumberInput
+							id="value"
+							name="value"
+							placeholder="e.g. 1200.50"
+							required={true}
+						/>
+					</div>
+					<div class="grid gap-2">
+						<FieldLabel fieldId="currency">Currency</FieldLabel>
+						<SelectInput
+							id="currency"
+							name="currency"
+							options={CURRENCIES.map((c) => ({ value: c, label: c }))}
+						/>
+					</div>
+				</div>
+				<div class="grid grid-cols-2 gap-3">
+					<div class="grid gap-2">
+						<FieldLabel fieldId="exchange">Exchange (optional)</FieldLabel>
+						<TextInput
+							id="exchange"
+							name="exchange"
+							placeholder="e.g. GBR-LSE, DEU-XETRA"
+						/>
+					</div>
+					<div class="grid gap-2">
+						<FieldLabel fieldId="quantity">Quantity (optional)</FieldLabel>
+						<NumberInput id="quantity" name="quantity" placeholder="e.g. 186" />
+					</div>
 				</div>
 				<SubmitButton>Add ETF</SubmitButton>
 			</form>

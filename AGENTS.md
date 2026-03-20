@@ -46,3 +46,11 @@ Before writing any JS/TS/CSS code, read:
 ## Function signature rule
 
 - **Functions with more than 2 arguments:** Prefer a single object parameter instead of multiple positional parameters. Example: `render({ title, session, currentPage, body, init })` instead of `render(title, session, currentPage, body, init)`.
+
+## TypeScript style
+
+- **Keep types simple:** Prefer small object literals, `as const` for fixed maps/unions, and `keyof typeof` over hand-maintained string union types when a single source of truth exists.
+- **Prefer inference:** Omit redundant annotations on locals and private helpers. For component props, **inline the props object** on the inner implementation. If another module needs the props type, derive it once: **`type FooProps = Parameters<ReturnType<typeof Foo>>[0]`** (do not hand-duplicate a parallel `type FooProps = { ... }`).
+- **When to annotate explicitly:** Public boundaries, `remix` discriminated props (e.g. inputs where `type` narrows other attributes), or places where inference produces `any` or overly wide types.
+
+- **Form controls:** Prefer **MDN / HTML attribute names** on props (`name`, `type`, `autocomplete`, `class`, …). Do not rename to `fieldName` or similar. Listing a small `type` shape for each wrapper is OK; avoid `...rest as Props<'input'>` — `Props<'input'>` from `remix/component` is a discriminated union, and spreading `rest` breaks narrowing (e.g. `role`, `list` on `<input>`).

@@ -1,5 +1,10 @@
 import type { Handle } from 'remix/component'
-import { SelectInput } from '../../components/index.ts'
+import {
+	FieldLabel,
+	SelectInput,
+	TextareaInput,
+	TextInput,
+} from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
@@ -119,14 +124,14 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							data-import-url={routes.catalog.import.href()}
 							class="mt-3"
 						>
-							<label for="pasteZone" class="sr-only">
+							<FieldLabel fieldId="pasteZone" variant="screenReader">
 								Paste bank API JSON
-							</label>
-							<textarea
+							</FieldLabel>
+							<TextareaInput
 								id="pasteZone"
-								rows={3}
 								placeholder="Paste fetch response JSON here (Ctrl+V) — imports on paste"
-								class="block w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								rows={3}
+								class="block max-w-xl"
 							/>
 						</div>
 						{props.catalog.length === 0 ? (
@@ -148,34 +153,34 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							class="mt-5 flex flex-wrap items-end gap-3"
 						>
 							<div class="grid gap-1.5">
-								<label
-									for="q"
-									class="text-xs font-medium text-muted-foreground"
-								>
+								<FieldLabel fieldId="q" variant="filter">
 									Search
-								</label>
-								<input
+								</FieldLabel>
+								<TextInput
 									id="q"
 									name="q"
-									type="search"
-									value={props.query}
 									placeholder="Ticker, name, or description…"
-									class="h-9 w-64 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									value={props.query}
+									type="search"
+									compact
+									class="w-64"
 								/>
 							</div>
-							<SelectInput
-								id="type"
-								label="Type"
-								fieldName="type"
-								options={[
-									{ value: '', label: 'All types' },
-									...ETF_TYPES.map((t) => ({
-										value: t,
-										label: t.replace('_', ' '),
-										selected: props.typeFilter === t,
-									})),
-								]}
-							/>
+							<div class="grid gap-2">
+								<FieldLabel fieldId="type">Type</FieldLabel>
+								<SelectInput
+									id="type"
+									name="type"
+									options={[
+										{ value: '', label: 'All types' },
+										...ETF_TYPES.map((t) => ({
+											value: t,
+											label: t.replace('_', ' '),
+											selected: props.typeFilter === t,
+										})),
+									]}
+								/>
+							</div>
 							<button
 								type="submit"
 								class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
