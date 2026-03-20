@@ -47,12 +47,23 @@ export const portfolioController = {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.portfolio.index.href())
 
-		const file = form.get('portfolioCsv')
-		if (!file || typeof file === 'string')
-			return createRedirectResponse(routes.portfolio.index.href())
+		const pasteRaw = form.get('portfolioCsvPaste')
+		const paste =
+			typeof pasteRaw === 'string' && pasteRaw.trim().length > 0
+				? pasteRaw.trim()
+				: null
 
-		const bytes = await (file as Blob).arrayBuffer()
-		const csvText = decodeCsvBytes(bytes)
+		const file = form.get('portfolioCsv')
+		let csvText: string | null = null
+
+		if (file && typeof file !== 'string' && (file as Blob).size > 0) {
+			const bytes = await (file as Blob).arrayBuffer()
+			csvText = decodeCsvBytes(bytes)
+		} else if (paste) {
+			csvText = paste
+		}
+
+		if (!csvText) return createRedirectResponse(routes.portfolio.index.href())
 		const imported = parsePortfolioCsv(csvText)
 		if (imported.length === 0)
 			return createRedirectResponse(routes.portfolio.index.href())
