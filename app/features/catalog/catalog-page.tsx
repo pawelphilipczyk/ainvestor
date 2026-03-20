@@ -149,55 +149,71 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					</section>
 
 					{props.catalog.length > 0 ? (
-						<form
-							method="get"
-							action={routes.catalog.index.href()}
-							class="mt-5 flex flex-wrap items-end gap-3"
-						>
-							<div class="grid gap-1.5">
-								<FieldLabel fieldId="q" variant="filter">
-									Search
-								</FieldLabel>
-								<TextInput
-									id="q"
-									name="q"
-									placeholder="Ticker, name, or description…"
-									value={props.query}
-									type="search"
-									compact
-									class="w-64"
-								/>
-							</div>
-							<div class="grid gap-2">
-								<FieldLabel fieldId="type">Type</FieldLabel>
-								<SelectInput
-									id="type"
-									name="type"
-									options={[
-										{ value: '', label: 'All types' },
-										...ETF_TYPES.map((t) => ({
-											value: t,
-											label: t.replace('_', ' '),
-											selected: props.typeFilter === t,
-										})),
-									]}
-								/>
-							</div>
-							<button
-								type="submit"
-								class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						<>
+							<form
+								method="get"
+								action={routes.catalog.index.href()}
+								class="mt-5 flex flex-wrap items-end gap-3"
 							>
-								Filter
-							</button>
-							{props.typeFilter || props.query ? (
-								<a
-									href={routes.catalog.index.href()}
-									class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
+								<div class="grid gap-1.5">
+									<FieldLabel fieldId="type" variant="filter">
+										Asset type
+									</FieldLabel>
+									<SelectInput
+										id="type"
+										name="type"
+										options={[
+											{ value: '', label: 'All types' },
+											...ETF_TYPES.map((t) => ({
+												value: t,
+												label: t.replace('_', ' '),
+												selected: props.typeFilter === t,
+											})),
+										]}
+									/>
+								</div>
+								<div class="grid gap-1.5">
+									<FieldLabel fieldId="q" variant="filter">
+										Search
+									</FieldLabel>
+									<TextInput
+										id="q"
+										name="q"
+										placeholder="Ticker, name, or description…"
+										value={props.query}
+										type="search"
+										compact
+										class="w-64"
+									/>
+								</div>
+								<button
+									type="submit"
+									class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 								>
-									Clear
-								</a>
-							) : null}
-						</form>
+									Filter
+								</button>
+								{props.typeFilter || props.query ? (
+									<a
+										href={routes.catalog.index.href()}
+										class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
+									>
+										Clear
+									</a>
+								) : null}
+							</form>
+							<p class="mt-3 text-sm text-muted-foreground">
+								{props.typeFilter || props.query ? (
+									<>
+										Showing {filtered.length} of {props.catalog.length} ETFs
+									</>
+								) : (
+									<>
+										{props.catalog.length} ETF
+										{props.catalog.length === 1 ? '' : 's'} in catalog
+									</>
+								)}
+							</p>
+						</>
 					) : null}
 
 					{ownedInCatalog.length > 0 ? (
@@ -237,10 +253,6 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									? 'Other Available ETFs'
 									: 'Available ETFs'}
 							</h2>
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{restOfCatalog.length} ETF
-								{restOfCatalog.length === 1 ? '' : 's'} listed.
-							</p>
 							<div class="mt-3 overflow-x-auto rounded-lg border border-border">
 								<table class="w-full table-auto border-collapse">
 									<thead class="bg-muted/40">
