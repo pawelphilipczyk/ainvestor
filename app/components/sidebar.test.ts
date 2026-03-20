@@ -43,7 +43,11 @@ describe('sidebar component', () => {
 	it('Sidebar is pinned open at md breakpoint and backdrop is overlay-only below md', async () => {
 		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
 		assert.match(result, /md:translate-x-0/)
-		assert.match(result, /md:hidden/)
+		assert.match(
+			result,
+			/id="sidebar-backdrop"[^>]*\bmd:hidden\b/,
+			'backdrop should hide the overlay at md+',
+		)
 	})
 
 	it('Sidebar marks the current page with aria-current="page"', async () => {

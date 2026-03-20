@@ -24,11 +24,7 @@ function closeSidebar(sidebar, backdrop, sidebarToggle, doc) {
 		doc.body.style.overflow = ''
 		return
 	}
-	sidebar.classList.add('-translate-x-full')
-	backdrop.classList.add('opacity-0', 'pointer-events-none')
-	backdrop.classList.remove('opacity-100')
-	sidebarToggle.setAttribute('aria-expanded', 'false')
-	doc.body.style.overflow = ''
+	resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc)
 }
 
 function resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc) {
@@ -87,7 +83,7 @@ export const SidebarInteractions = clientEntry(
 							}
 						},
 						keydown(event) {
-							if (event.key === 'Escape') {
+							if (event.key === 'Escape' && !isDesktop(doc)) {
 								closeSidebar(sidebar, backdrop, sidebarToggle, doc)
 							}
 						},
