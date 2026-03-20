@@ -145,6 +145,7 @@ describe('ETF Catalog page', () => {
 
 		assert.match(body, /name="q"/)
 		assert.match(body, /name="type"/)
+		assert.match(body, /1 ETF in catalog/)
 	})
 
 	it('catalog type filter narrows results', async () => {
@@ -169,6 +170,7 @@ describe('ETF Catalog page', () => {
 
 		assert.match(body, /BND/)
 		assert.doesNotMatch(body, /VTI/)
+		assert.match(body, /Showing 1 of 2 ETFs/)
 	})
 
 	it('catalog text search narrows results', async () => {
