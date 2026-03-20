@@ -2,10 +2,9 @@ import type { Handle } from 'remix/component'
 import { routes } from '../routes.ts'
 import { AppBranding } from './app-branding.tsx'
 import { SessionProvider } from './session-provider.tsx'
-// @ts-expect-error Runtime-only JS client entry module
 import { SidebarInteractions } from './sidebar.component.js'
 import type { NavLink } from './sidebar-nav.ts'
-// @ts-expect-error Runtime-only JS client entry module
+// @ts-expect-error TS7016 — runtime-only remix `clientEntry` (theme-toggle.component.js); `ThemeToggleButton` below is the SSR half of the same feature.
 import { ThemeToggleInteractions } from './theme-toggle.component.js'
 import { ThemeToggleButton } from './theme-toggle.tsx'
 
