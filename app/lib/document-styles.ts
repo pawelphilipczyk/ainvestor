@@ -37,5 +37,10 @@ export const baseCss = `@layer base {
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
   }
+  /* Default textarea min width follows cols (~20ch); cap to container on narrow viewports. */
+  textarea {
+    min-width: 0;
+    max-width: 100%;
+  }
 }
 `
