@@ -2,43 +2,38 @@ import type { Handle } from 'remix/component'
 import { FieldLabel, type FieldLabelVariant } from './field-label.tsx'
 import { FORM_CONTROL_CLASS } from './form-field-classes.ts'
 
-type NumberInputProps = {
+type TextareaInputProps = {
 	id: string
 	label: string
-	fieldName: string
 	placeholder: string
+	rows: number
+	/** Omit when the control is not part of a form submit (e.g. paste-only UI). */
+	fieldName?: string
 	required?: boolean
-	min?: number
-	max?: number
-	step?: string
-	labelVariant?: FieldLabelVariant
-	inputClassName?: string
+	labelVariant?: Extract<FieldLabelVariant, 'field' | 'screenReader'>
+	controlClassName?: string
 	wrapClassName?: string
 }
 
 /**
- * Server-rendered number input field.
+ * Server-rendered textarea with the same label/control styling as TextInput.
  */
-export function NumberInput(_handle: Handle, _setup?: unknown) {
-	return (props: NumberInputProps) => {
+export function TextareaInput(_handle: Handle, _setup?: unknown) {
+	return (props: TextareaInputProps) => {
 		const labelVariant = props.labelVariant ?? 'field'
 		const controlClass =
-			`${FORM_CONTROL_CLASS} ${props.inputClassName ?? ''}`.trim()
+			`${FORM_CONTROL_CLASS} ${props.controlClassName ?? ''}`.trim()
 		return (
 			<div class={props.wrapClassName}>
 				<FieldLabel fieldId={props.id} variant={labelVariant}>
 					{props.label}
 				</FieldLabel>
-				<input
+				<textarea
 					id={props.id}
 					name={props.fieldName}
-					type="number"
-					min={props.min ?? 0}
-					max={props.max}
-					step={props.step ?? 'any'}
+					rows={props.rows}
 					required={props.required}
 					placeholder={props.placeholder}
-					autocomplete="off"
 					class={controlClass}
 				/>
 			</div>

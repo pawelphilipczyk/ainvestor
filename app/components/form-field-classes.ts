@@ -7,6 +7,10 @@
 export const FORM_LABEL_CLASS =
 	'mb-1 block text-sm font-semibold text-foreground'
 
+/** Muted label for compact filter toolbars (e.g. catalog search). */
+export const FORM_LABEL_FILTER_CLASS =
+	'mb-1 block text-xs font-medium text-muted-foreground'
+
 /**
  * Default text-like controls: text, number, search, textarea — full width,
  * comfortable vertical padding.

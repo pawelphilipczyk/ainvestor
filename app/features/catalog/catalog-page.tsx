@@ -1,8 +1,8 @@
 import type { Handle } from 'remix/component'
 import {
-	FORM_CONTROL_CLASS,
-	FORM_CONTROL_COMPACT_CLASS,
 	SelectInput,
+	TextareaInput,
+	TextInput,
 } from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import { formatValue } from '../../lib/format.ts'
@@ -123,14 +123,13 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							data-import-url={routes.catalog.import.href()}
 							class="mt-3"
 						>
-							<label for="pasteZone" class="sr-only">
-								Paste bank API JSON
-							</label>
-							<textarea
+							<TextareaInput
 								id="pasteZone"
-								rows={3}
+								label="Paste bank API JSON"
 								placeholder="Paste fetch response JSON here (Ctrl+V) — imports on paste"
-								class={`block w-full max-w-xl ${FORM_CONTROL_CLASS}`}
+								rows={3}
+								labelVariant="screenReader"
+								controlClassName="block max-w-xl"
 							/>
 						</div>
 						{props.catalog.length === 0 ? (
@@ -151,22 +150,17 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							action={routes.catalog.index.href()}
 							class="mt-5 flex flex-wrap items-end gap-3"
 						>
-							<div class="grid gap-1.5">
-								<label
-									for="q"
-									class="text-xs font-medium text-muted-foreground"
-								>
-									Search
-								</label>
-								<input
-									id="q"
-									name="q"
-									type="search"
-									value={props.query}
-									placeholder="Ticker, name, or description…"
-									class={`w-64 ${FORM_CONTROL_COMPACT_CLASS}`}
-								/>
-							</div>
+							<TextInput
+								id="q"
+								label="Search"
+								fieldName="q"
+								placeholder="Ticker, name, or description…"
+								value={props.query}
+								inputType="search"
+								labelVariant="filter"
+								size="compact"
+								inputClassName="w-64"
+							/>
 							<SelectInput
 								id="type"
 								label="Type"

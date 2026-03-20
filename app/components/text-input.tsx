@@ -1,5 +1,9 @@
 import type { Handle } from 'remix/component'
-import { FORM_CONTROL_CLASS, FORM_LABEL_CLASS } from './form-field-classes.ts'
+import { FieldLabel, type FieldLabelVariant } from './field-label.tsx'
+import {
+	FORM_CONTROL_CLASS,
+	FORM_CONTROL_COMPACT_CLASS,
+} from './form-field-classes.ts'
 
 type TextInputProps = {
 	id: string
@@ -7,26 +11,42 @@ type TextInputProps = {
 	fieldName: string
 	placeholder: string
 	required?: boolean
+	labelVariant?: FieldLabelVariant
+	inputType?: 'text' | 'search'
+	/** Server-rendered value for controlled inputs (e.g. GET search). */
+	value?: string
+	size?: 'default' | 'compact'
+	inputClassName?: string
+	wrapClassName?: string
 }
 
 /**
- * Server-rendered text input field.
+ * Server-rendered text or search input field.
  */
 export function TextInput(_handle: Handle, _setup?: unknown) {
-	return (props: TextInputProps) => (
-		<div>
-			<label for={props.id} class={FORM_LABEL_CLASS}>
-				{props.label}
-			</label>
-			<input
-				id={props.id}
-				name={props.fieldName}
-				type="text"
-				required={props.required}
-				placeholder={props.placeholder}
-				autocomplete="off"
-				class={FORM_CONTROL_CLASS}
-			/>
-		</div>
-	)
+	return (props: TextInputProps) => {
+		const labelVariant = props.labelVariant ?? 'field'
+		const inputType = props.inputType ?? 'text'
+		const size = props.size ?? 'default'
+		const baseControl =
+			size === 'compact' ? FORM_CONTROL_COMPACT_CLASS : FORM_CONTROL_CLASS
+		const controlClass = `${baseControl} ${props.inputClassName ?? ''}`.trim()
+		return (
+			<div class={props.wrapClassName}>
+				<FieldLabel fieldId={props.id} variant={labelVariant}>
+					{props.label}
+				</FieldLabel>
+				<input
+					id={props.id}
+					name={props.fieldName}
+					type={inputType}
+					required={props.required}
+					placeholder={props.placeholder}
+					autocomplete="off"
+					class={controlClass}
+					{...(props.value !== undefined ? { value: props.value } : {})}
+				/>
+			</div>
+		)
+	}
 }

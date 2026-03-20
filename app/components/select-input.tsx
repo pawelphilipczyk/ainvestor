@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
+import { FieldLabel } from './field-label.tsx'
 import {
 	FORM_CONTROL_CLASS,
-	FORM_LABEL_CLASS,
 	FORM_SELECT_DECORATION_CLASS,
 } from './form-field-classes.ts'
 
@@ -24,9 +24,7 @@ type SelectInputProps = {
 export function SelectInput(_handle: Handle, _setup?: unknown) {
 	return (props: SelectInputProps) => (
 		<div>
-			<label for={props.id} class={FORM_LABEL_CLASS}>
-				{props.label}
-			</label>
+			<FieldLabel fieldId={props.id}>{props.label}</FieldLabel>
 			<select
 				id={props.id}
 				name={props.fieldName}

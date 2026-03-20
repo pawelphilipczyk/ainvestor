@@ -1,5 +1,5 @@
 import type { Handle } from 'remix/component'
-import { FORM_CONTROL_CLASS } from '../../components/index.ts'
+import { FieldLabel, NumberInput } from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { routes } from '../../routes.ts'
@@ -65,9 +65,9 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 							data-fragment-id="portfolio-list"
 							data-fragment-url="/fragments/portfolio-list"
 						>
-							<label class="sr-only" for="portfolioCsv">
+							<FieldLabel fieldId="portfolioCsv" variant="screenReader">
 								Portfolio CSV
-							</label>
+							</FieldLabel>
 							<input
 								id="portfolioCsv"
 								name="portfolioCsv"
@@ -102,18 +102,16 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 							data-fetch-submit
 							data-replace-main
 						>
-							<label for="cashAmount" class="sr-only">
-								Available cash (USD)
-							</label>
-							<input
+							<NumberInput
 								id="cashAmount"
-								name="cashAmount"
-								type="number"
+								label="Available cash (USD)"
+								fieldName="cashAmount"
+								placeholder="e.g. 1000"
+								required={true}
 								min={1}
 								step="any"
-								required
-								placeholder="e.g. 1000"
-								class={`flex-1 ${FORM_CONTROL_CLASS}`}
+								labelVariant="screenReader"
+								wrapClassName="flex-1 min-w-0"
 							/>
 							<button
 								type="submit"
