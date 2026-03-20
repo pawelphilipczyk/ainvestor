@@ -4,6 +4,7 @@ import { describe, it } from 'node:test'
 import {
 	buildCatalogGistPatch,
 	CATALOG_FILENAME,
+	catalogMergeKey,
 	mergeBankIntoCatalog,
 	parseBankJsonToCatalog,
 	parseCatalogFromGist,
@@ -158,7 +159,7 @@ describe('parseBankJsonToCatalog', () => {
 		assert.equal(result[0].ticker, 'XMOV GR')
 	})
 
-	it('dedupes duplicate rows in the same paste (same ISIN)', () => {
+	it('returns one row per data item; merge collapses duplicate keys', () => {
 		const row = {
 			isin: 'IE00BGV5VR99',
 			fund_name: 'Xtrackers Future Mobility UCITS ETF 1C',
@@ -168,7 +169,7 @@ describe('parseBankJsonToCatalog', () => {
 			sector: 'technologia',
 			id: 'id-a',
 		}
-		const result = parseBankJsonToCatalog({
+		const parsed = parseBankJsonToCatalog({
 			data: [
 				row,
 				{
@@ -178,9 +179,47 @@ describe('parseBankJsonToCatalog', () => {
 				},
 			],
 		})
-		assert.equal(result.length, 1)
-		assert.equal(result[0].id, 'id-a')
-		assert.equal(result[0].description, 'Second wins')
+		assert.equal(parsed.length, 2)
+		const merged = mergeBankIntoCatalog([], parsed)
+		assert.equal(merged.length, 1)
+		assert.equal(merged[0].id, 'id-a')
+		assert.equal(merged[0].description, 'Second wins')
+	})
+})
+
+describe('catalogMergeKey', () => {
+	it('matches same ISIN regardless of ticker string', () => {
+		const a = catalogMergeKey({
+			id: '1',
+			ticker: 'XMOV',
+			name: '',
+			type: 'equity',
+			description: '',
+			isin: 'IE00BGV5VR99',
+		})
+		const b = catalogMergeKey({
+			id: '2',
+			ticker: 'XMOV GR',
+			name: '',
+			type: 'equity',
+			description: '',
+			isin: 'IE00BGV5VR99',
+		})
+		assert.equal(a, b)
+		assert.equal(a, 'i:IE00BGV5VR99')
+	})
+
+	it('uses normalised ticker when ISIN is absent', () => {
+		assert.equal(
+			catalogMergeKey({
+				id: '1',
+				ticker: '  vti ',
+				name: '',
+				type: 'equity',
+				description: '',
+			}),
+			't:VTI',
+		)
 	})
 })
 
@@ -214,7 +253,7 @@ describe('mergeBankIntoCatalog', () => {
 		assert.equal(merged[0].description, 'Updated')
 	})
 
-	it('merges ticker-only row into existing ISIN row when pasting an update', () => {
+	it('does not merge ticker-only row with ISIN row (different merge keys)', () => {
 		const existing = [
 			{
 				id: 'keep-me',
@@ -235,10 +274,7 @@ describe('mergeBankIntoCatalog', () => {
 			},
 		]
 		const merged = mergeBankIntoCatalog(existing, incoming)
-		assert.equal(merged.length, 1)
-		assert.equal(merged[0].id, 'keep-me')
-		assert.equal(merged[0].isin, 'US9229087690')
-		assert.equal(merged[0].name, 'Vanguard Total Stock Market ETF')
+		assert.equal(merged.length, 2)
 	})
 
 	it('appends new entries', () => {

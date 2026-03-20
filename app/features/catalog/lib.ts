@@ -72,7 +72,8 @@ function normaliseTypeFromBank(assets: string, sector: string): EtfType {
 
 /**
  * Parse bank/investment website fetch response JSON into CatalogEntry array.
- * Extracts only investment-relevant fields; dedupes by ISIN or ticker within the batch.
+ * Extracts only investment-relevant fields. Duplicate rows collapse when merged
+ * (see {@link mergeBankIntoCatalog}).
  */
 export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 	if (!json || typeof json !== 'object') return []
@@ -116,108 +117,35 @@ export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 		}
 		entries.push(entry)
 	}
-	return dedupeCatalogBatch(entries)
+	return entries
 }
 
-/** Normalise ISIN for matching (trim, uppercase). */
-export function normalizeIsinForKey(isin: string | undefined): string | null {
+function normalizeIsinForMerge(isin: string | undefined): string | null {
 	if (!isin) return null
 	const s = isin.trim().toUpperCase()
 	return s.length === 0 ? null : s
 }
 
-/** Normalise ticker for stable merge keys (trim, uppercase, collapse spaces). */
-export function normalizeTickerForKey(ticker: string): string {
+function normalizeTickerForMerge(ticker: string): string {
 	return ticker.trim().toUpperCase().replace(/\s+/g, ' ')
 }
 
 /**
- * Stable key for catalog dedupe/merge: one row per ISIN when present,
- * otherwise one row per normalised ticker (funds without ISIN in the feed).
+ * Map key for merge/dedupe: one slot per ISIN when present, else per normalised ticker.
  */
 export function catalogMergeKey(entry: CatalogEntry): string {
-	const isin = normalizeIsinForKey(entry.isin)
+	const isin = normalizeIsinForMerge(entry.isin)
 	if (isin) return `i:${isin}`
-	return `t:${normalizeTickerForKey(entry.ticker)}`
+	return `t:${normalizeTickerForMerge(entry.ticker)}`
 }
 
-function mergeCatalogFields(
-	prev: CatalogEntry,
-	next: CatalogEntry,
-): CatalogEntry {
+function mergeCatalogRow(prev: CatalogEntry, next: CatalogEntry): CatalogEntry {
 	return { ...prev, ...next, id: prev.id }
 }
 
-function upsertCatalogEntryIntoMap(
-	byKey: Map<string, CatalogEntry>,
-	entry: CatalogEntry,
-) {
-	function findIsinKeyByTicker(ticker: string): string | undefined {
-		const norm = normalizeTickerForKey(ticker)
-		for (const [k, v] of byKey) {
-			if (k.startsWith('i:') && normalizeTickerForKey(v.ticker) === norm)
-				return k
-		}
-		return undefined
-	}
-
-	const isin = normalizeIsinForKey(entry.isin)
-	const ticker = normalizeTickerForKey(entry.ticker)
-
-	if (isin) {
-		const iKey = `i:${isin}`
-		const existingIsin = byKey.get(iKey)
-		if (existingIsin) {
-			byKey.set(iKey, mergeCatalogFields(existingIsin, entry))
-			return
-		}
-		const tKey = `t:${ticker}`
-		const tickerOnly = byKey.get(tKey)
-		if (tickerOnly) {
-			byKey.delete(tKey)
-			byKey.set(
-				iKey,
-				mergeCatalogFields(tickerOnly, { ...entry, id: tickerOnly.id }),
-			)
-			return
-		}
-		byKey.set(iKey, entry)
-		return
-	}
-
-	const tKey = `t:${ticker}`
-	const existingTicker = byKey.get(tKey)
-	if (existingTicker) {
-		byKey.set(tKey, mergeCatalogFields(existingTicker, entry))
-		return
-	}
-
-	const isinKey = findIsinKeyByTicker(ticker)
-	const isinRow = isinKey ? byKey.get(isinKey) : undefined
-	if (isinKey && isinRow) {
-		byKey.set(
-			isinKey,
-			mergeCatalogFields(isinRow, { ...entry, id: isinRow.id }),
-		)
-		return
-	}
-
-	byKey.set(tKey, entry)
-}
-
-/** Collapse duplicate rows in one import batch (same ISIN or same ticker-only key). */
-function dedupeCatalogBatch(entries: CatalogEntry[]): CatalogEntry[] {
-	const byKey = new Map<string, CatalogEntry>()
-	for (const e of entries) {
-		upsertCatalogEntryIntoMap(byKey, e)
-	}
-	return [...byKey.values()]
-}
-
 /**
- * Merge newly imported bank entries into existing catalog.
- * Updates rows that match by ISIN (preferred) or by normalised ticker, without
- * creating duplicate rows when ticker formatting differs or ISIN is added later.
+ * Merge imported rows into the catalog. Rows with the same merge key update
+ * the existing row (incoming fields win; `id` is kept from the first).
  */
 export function mergeBankIntoCatalog(
 	existing: CatalogEntry[],
@@ -225,10 +153,14 @@ export function mergeBankIntoCatalog(
 ): CatalogEntry[] {
 	const byKey = new Map<string, CatalogEntry>()
 	for (const e of existing) {
-		upsertCatalogEntryIntoMap(byKey, e)
+		const k = catalogMergeKey(e)
+		const prev = byKey.get(k)
+		byKey.set(k, prev ? mergeCatalogRow(prev, e) : e)
 	}
 	for (const e of incoming) {
-		upsertCatalogEntryIntoMap(byKey, e)
+		const k = catalogMergeKey(e)
+		const prev = byKey.get(k)
+		byKey.set(k, prev ? mergeCatalogRow(prev, e) : e)
 	}
 	return [...byKey.values()]
 }
