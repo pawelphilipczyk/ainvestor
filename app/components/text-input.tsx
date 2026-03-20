@@ -28,16 +28,35 @@ export function TextInput(_handle: Handle, _setup?: unknown) {
 		const size = props.size ?? 'default'
 		const base = size === 'compact' ? controlCompactClass : controlClass
 		const controlClassMerged = `${base} ${props.class ?? ''}`.trim()
+		const valueProps = props.value !== undefined ? { value: props.value } : {}
+
+		// Remix `AccessibleInputHTMLProps` discriminates on `type`; a single
+		// `type={union}` does not narrow and can require `list` for combobox.
+		if (inputType === 'search') {
+			return (
+				<input
+					id={props.id}
+					name={props.fieldName}
+					type="search"
+					required={props.required}
+					placeholder={props.placeholder}
+					autocomplete="off"
+					class={controlClassMerged}
+					{...valueProps}
+				/>
+			)
+		}
+
 		return (
 			<input
 				id={props.id}
 				name={props.fieldName}
-				type={inputType}
+				type="text"
 				required={props.required}
 				placeholder={props.placeholder}
 				autocomplete="off"
 				class={controlClassMerged}
-				{...(props.value !== undefined ? { value: props.value } : {})}
+				{...valueProps}
 			/>
 		)
 	}
