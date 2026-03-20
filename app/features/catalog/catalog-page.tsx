@@ -24,7 +24,7 @@ type CatalogPageProps = {
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 	return () => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-			<th class="pb-2 pr-4">Ticker</th>
+			<th class="pb-2 pl-4 pr-4">Ticker</th>
 			<th class="pb-2 pr-4">Name</th>
 			<th class="pb-2 pr-4">Type</th>
 			<th class="pb-2 pr-4">Description</th>
@@ -48,7 +48,9 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			key={entry.id}
 			class="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
 		>
-			<td class="py-2 pr-4 font-mono text-sm font-semibold">{entry.ticker}</td>
+			<td class="py-2 pl-4 pr-4 font-mono text-sm font-semibold">
+				{entry.ticker}
+			</td>
 			<td class="py-2 pr-4 text-sm">{entry.name}</td>
 			<td class="py-2 pr-4">
 				<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
