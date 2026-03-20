@@ -158,11 +158,11 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								</FieldLabel>
 								<TextInput
 									id="q"
-									fieldName="q"
+									name="q"
 									placeholder="Ticker, name, or description…"
 									value={props.query}
-									inputType="search"
-									size="compact"
+									type="search"
+									compact
 									class="w-64"
 								/>
 							</div>
@@ -170,7 +170,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								<FieldLabel fieldId="type">Type</FieldLabel>
 								<SelectInput
 									id="type"
-									fieldName="type"
+									name="type"
 									options={[
 										{ value: '', label: 'All types' },
 										...ETF_TYPES.map((t) => ({

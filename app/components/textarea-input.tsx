@@ -3,29 +3,54 @@ import type { Handle } from 'remix/component'
 const controlClasses =
 	'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
+/** Mirrors `<textarea>` attributes (see MDN). */
+type TextareaInputProps = {
+	id: string
+	placeholder?: string
+	rows: number
+	name?: string
+	required?: boolean
+	disabled?: boolean
+	form?: string
+	readOnly?: boolean
+	value?: string
+	defaultValue?: string
+	class?: string
+}
+
 /**
  * Server-rendered textarea (label is composed separately).
  */
 export function TextareaInput(_handle: Handle, _setup?: unknown) {
-	return (props: {
-		id: string
-		placeholder: string
-		rows: number
-		/** Omit when the control is not part of a form submit (e.g. paste-only UI). */
-		fieldName?: string
-		required?: boolean
-		/** Extra Tailwind classes merged onto the control. */
-		class?: string
-	}) => {
-		const inputClasses = `${controlClasses} ${props.class ?? ''}`.trim()
+	return (props: TextareaInputProps) => {
+		const {
+			class: classProp,
+			id,
+			name,
+			placeholder,
+			rows,
+			required,
+			disabled,
+			form,
+			readOnly,
+			value,
+			defaultValue,
+		} = props
+		const inputClasses = `${controlClasses} ${classProp ?? ''}`.trim()
+		const valueAttr = value !== undefined ? { value } : {}
 		return (
 			<textarea
-				id={props.id}
-				name={props.fieldName}
-				rows={props.rows}
-				required={props.required}
-				placeholder={props.placeholder}
+				id={id}
+				name={name}
+				placeholder={placeholder}
+				rows={rows}
+				required={required}
+				disabled={disabled}
+				form={form}
+				readOnly={readOnly}
+				defaultValue={defaultValue}
 				class={inputClasses}
+				{...valueAttr}
 			/>
 		)
 	}

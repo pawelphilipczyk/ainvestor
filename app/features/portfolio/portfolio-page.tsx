@@ -108,7 +108,7 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 							<div class="flex-1 min-w-0">
 								<NumberInput
 									id="cashAmount"
-									fieldName="cashAmount"
+									name="cashAmount"
 									placeholder="e.g. 1000"
 									required={true}
 									min={1}

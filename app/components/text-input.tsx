@@ -6,56 +6,84 @@ const controlClasses =
 const compactControlClasses =
 	'h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
+/** Mirrors common `<input>` attributes (see MDN); `compact` is layout-only. */
+type TextInputProps = {
+	id: string
+	name: string
+	placeholder?: string
+	required?: boolean
+	disabled?: boolean
+	value?: string
+	defaultValue?: string
+	form?: string
+	readOnly?: boolean
+	type?: 'text' | 'search'
+	/** Layout density; not HTML `size` (character width). */
+	compact?: boolean
+	class?: string
+	autocomplete?: string
+}
+
 /**
  * Server-rendered text or search input (label is composed separately).
  */
 export function TextInput(_handle: Handle, _setup?: unknown) {
-	return (props: {
-		id: string
-		fieldName: string
-		placeholder: string
-		required?: boolean
-		inputType?: 'text' | 'search'
-		/** Server-rendered value for controlled inputs (e.g. GET search). */
-		value?: string
-		size?: 'default' | 'compact'
-		/** Extra Tailwind classes merged onto the control. */
-		class?: string
-	}) => {
-		const inputType = props.inputType ?? 'text'
-		const size = props.size ?? 'default'
-		const sizeClasses =
-			size === 'compact' ? compactControlClasses : controlClasses
-		const inputClasses = `${sizeClasses} ${props.class ?? ''}`.trim()
-		const value = props.value !== undefined ? { value: props.value } : {}
+	return (props: TextInputProps) => {
+		const {
+			type: typeProp,
+			compact: compactProp,
+			class: classProp,
+			value,
+			autocomplete = 'off',
+			id,
+			name,
+			placeholder,
+			required,
+			disabled,
+			defaultValue,
+			form,
+			readOnly,
+		} = props
+		const inputType = typeProp ?? 'text'
+		const sizeClasses = compactProp ? compactControlClasses : controlClasses
+		const inputClasses = `${sizeClasses} ${classProp ?? ''}`.trim()
+		const valueAttr = value !== undefined ? { value } : {}
 
 		// Remix `AccessibleInputHTMLProps` discriminates on `type`; a single
 		// `type={union}` does not narrow and can require `list` for combobox.
 		if (inputType === 'search') {
 			return (
 				<input
-					id={props.id}
-					name={props.fieldName}
+					id={id}
+					name={name}
 					type="search"
-					required={props.required}
-					placeholder={props.placeholder}
-					autocomplete="off"
+					placeholder={placeholder}
+					required={required}
+					disabled={disabled}
+					defaultValue={defaultValue}
+					form={form}
+					readOnly={readOnly}
+					autocomplete={autocomplete}
 					class={inputClasses}
-					{...value}
+					{...valueAttr}
 				/>
 			)
 		}
 
 		return (
 			<input
-				id={props.id}
-				name={props.fieldName}
+				id={id}
+				name={name}
 				type="text"
-				required={props.required}
-				placeholder={props.placeholder}
-				autocomplete="off"
+				placeholder={placeholder}
+				required={required}
+				disabled={disabled}
+				defaultValue={defaultValue}
+				form={form}
+				readOnly={readOnly}
+				autocomplete={autocomplete}
 				class={inputClasses}
-				{...value}
+				{...valueAttr}
 			/>
 		)
 	}

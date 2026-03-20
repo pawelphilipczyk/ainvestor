@@ -47,7 +47,7 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 					<FieldLabel fieldId="etfName">ETF Name</FieldLabel>
 					<TextInput
 						id="etfName"
-						fieldName="etfName"
+						name="etfName"
 						placeholder="e.g. VTI"
 						required={true}
 					/>
@@ -57,7 +57,7 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 						<FieldLabel fieldId="value">Value</FieldLabel>
 						<NumberInput
 							id="value"
-							fieldName="value"
+							name="value"
 							placeholder="e.g. 1200.50"
 							required={true}
 						/>
@@ -66,7 +66,7 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 						<FieldLabel fieldId="currency">Currency</FieldLabel>
 						<SelectInput
 							id="currency"
-							fieldName="currency"
+							name="currency"
 							options={CURRENCIES.map((c) => ({ value: c, label: c }))}
 						/>
 					</div>
@@ -76,17 +76,13 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 						<FieldLabel fieldId="exchange">Exchange (optional)</FieldLabel>
 						<TextInput
 							id="exchange"
-							fieldName="exchange"
+							name="exchange"
 							placeholder="e.g. GBR-LSE, DEU-XETRA"
 						/>
 					</div>
 					<div class="grid gap-2">
 						<FieldLabel fieldId="quantity">Quantity (optional)</FieldLabel>
-						<NumberInput
-							id="quantity"
-							fieldName="quantity"
-							placeholder="e.g. 186"
-						/>
+						<NumberInput id="quantity" name="quantity" placeholder="e.g. 186" />
 					</div>
 				</div>
 				<SubmitButton>Add ETF</SubmitButton>

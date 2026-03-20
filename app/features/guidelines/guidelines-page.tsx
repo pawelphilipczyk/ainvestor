@@ -46,7 +46,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						<FieldLabel fieldId="etfName">ETF / Asset Name</FieldLabel>
 						<TextInput
 							id="etfName"
-							fieldName="etfName"
+							name="etfName"
 							placeholder="e.g. VTI"
 							required={true}
 						/>
@@ -56,7 +56,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 							<FieldLabel fieldId="targetPct">Target %</FieldLabel>
 							<NumberInput
 								id="targetPct"
-								fieldName="targetPct"
+								name="targetPct"
 								placeholder="e.g. 60"
 								required={true}
 								min={1}
@@ -68,7 +68,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 							<FieldLabel fieldId="etfType">Type</FieldLabel>
 							<SelectInput
 								id="etfType"
-								fieldName="etfType"
+								name="etfType"
 								options={ETF_TYPES.map((t) => ({
 									value: t,
 									label: t.replace('_', ' '),
