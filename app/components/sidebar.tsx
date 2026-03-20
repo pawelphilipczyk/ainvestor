@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
 import { routes } from '../routes.ts'
+import { AppBranding } from './app-branding.tsx'
 import { SessionProvider } from './session-provider.tsx'
-// @ts-expect-error Runtime-only JS client entry module
 import { SidebarInteractions } from './sidebar.component.js'
 import type { NavLink } from './sidebar-nav.ts'
 
@@ -12,7 +12,7 @@ type SidebarProps = {
 
 /**
  * Server-rendered sidebar navigation.
- * Session from DocumentShell context. Interactivity from SidebarInteractions (clientEntry).
+ * Session from DocumentShell context. Interactivity: SidebarInteractions (toggle/close).
  */
 export function Sidebar(handle: Handle, _setup?: unknown) {
 	return (props: SidebarProps) => {
@@ -29,15 +29,15 @@ export function Sidebar(handle: Handle, _setup?: unknown) {
 					aria-label="Main navigation"
 					class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-card transition-transform duration-200 ease-in-out md:translate-x-0"
 				>
-					<div class="flex items-center justify-between border-b border-border p-4">
-						<span class="text-sm font-semibold text-card-foreground">
-							Navigation
-						</span>
+					<div class="flex min-h-14 items-center justify-between gap-2 border-b border-border px-4 py-2.5">
+						<div class="flex min-w-0 flex-1 items-center gap-2">
+							<AppBranding />
+						</div>
 						<button
 							data-sidebar-close
 							type="button"
 							aria-label="Close navigation"
-							class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+							class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
 						>
 							<svg
 								class="h-4 w-4"

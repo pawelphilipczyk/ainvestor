@@ -1,3 +1,4 @@
+export { AppBranding } from './app-branding.tsx'
 export { AppTopBar } from './app-top-bar.tsx'
 export {
 	FieldLabel,
