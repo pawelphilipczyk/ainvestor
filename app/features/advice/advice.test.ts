@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import type { AdviceClient } from '../../openai.ts'
+import { setGuidelinesAnalysisClient } from '../../openai.ts'
 import { router } from '../../router.ts'
 import { resetGuestGuidelines } from '../guidelines/index.ts'
 import { resetEtfEntries } from '../portfolio/index.ts'
@@ -22,6 +23,7 @@ afterEach(() => {
 	resetEtfEntries()
 	resetGuestGuidelines()
 	setAdviceClient(null)
+	setGuidelinesAnalysisClient(null)
 })
 
 describe('Advice', () => {
@@ -131,6 +133,7 @@ describe('Advice', () => {
 	})
 
 	it('passes guidelines into the advice prompt when they exist', async () => {
+		setGuidelinesAnalysisClient(makeMockClient('Guidelines review.'))
 		let capturedUserMessage = ''
 		setAdviceClient({
 			chat: {

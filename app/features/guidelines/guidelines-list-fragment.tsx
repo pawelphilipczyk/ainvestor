@@ -35,9 +35,13 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 								class="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
 							>
 								<div class="flex items-center gap-3">
-									<span class="font-medium">{g.etfName}</span>
+									<span class="font-medium">
+										{g.kind === 'asset_class'
+											? `${g.etfType.replace('_', ' ')} (bucket)`
+											: g.etfName}
+									</span>
 									<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-										{g.etfType}
+										{g.kind === 'asset_class' ? 'asset class' : g.etfType}
 									</span>
 								</div>
 								<div class="flex items-center gap-4">
@@ -46,8 +50,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 										method="post"
 										action={routes.guidelines.delete.href({ id: g.id })}
 										data-fetch-submit
-										data-fragment-id="guidelines-list"
-										data-fragment-url="/fragments/guidelines-list"
+										data-replace-main
 									>
 										<input type="hidden" name="_method" value="DELETE" />
 										<button

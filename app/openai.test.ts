@@ -2,7 +2,7 @@ import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { EtfGuideline } from './lib/guidelines.ts'
 import type { AdviceClient, EtfEntry } from './openai.ts'
-import { getInvestmentAdvice } from './openai.ts'
+import { getGuidelinesAnalysis, getInvestmentAdvice } from './openai.ts'
 
 function makeMockClient(responseText: string): AdviceClient {
 	return {
@@ -104,8 +104,20 @@ describe('getInvestmentAdvice', () => {
 		}
 
 		const guidelines: EtfGuideline[] = [
-			{ id: 'g1', etfName: 'VTI', targetPct: 60, etfType: 'equity' },
-			{ id: 'g2', etfName: 'BND', targetPct: 30, etfType: 'bond' },
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 60,
+				etfType: 'equity',
+			},
+			{
+				id: 'g2',
+				kind: 'instrument',
+				etfName: 'BND',
+				targetPct: 30,
+				etfType: 'bond',
+			},
 		]
 
 		await getInvestmentAdvice([], guidelines, '1000', client)
@@ -132,5 +144,67 @@ describe('getInvestmentAdvice', () => {
 		await getInvestmentAdvice([], [], '500', client)
 
 		assert.doesNotMatch(capturedMessage, /target allocation/i)
+	})
+
+	it('formats hybrid asset-class and instrument lines in the user message', async () => {
+		let capturedMessage = ''
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						capturedMessage = params.messages[1].content
+						return { choices: [{ message: { content: 'advice' } }] }
+					},
+				},
+			},
+		}
+
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'a1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 60,
+				etfType: 'equity',
+			},
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 20,
+				etfType: 'equity',
+			},
+		]
+
+		await getInvestmentAdvice([], guidelines, '100', client)
+
+		assert.match(capturedMessage, /Asset class equity.*bucket/)
+		assert.match(capturedMessage, /VTI.*specific fund/)
+	})
+})
+
+describe('getGuidelinesAnalysis', () => {
+	it('returns a static message when guidelines are empty', async () => {
+		const client = makeMockClient('should not be used')
+		const text = await getGuidelinesAnalysis([], client)
+
+		assert.match(text, /No guidelines are set yet/)
+	})
+
+	it('returns analysis text from the LLM', async () => {
+		const client = makeMockClient('Reasonable diversification.')
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 100,
+				etfType: 'equity',
+			},
+		]
+
+		const text = await getGuidelinesAnalysis(guidelines, client)
+
+		assert.equal(text, 'Reasonable diversification.')
 	})
 })

@@ -1,26 +1,33 @@
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
 import { enum_, object, optional, parseSafe, string } from 'remix/data-schema'
-import { max, min, minLength } from 'remix/data-schema/checks'
+import { max, min } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
-import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
+import type {
+	EtfGuideline,
+	EtfType,
+	GuidelineKind,
+} from '../../lib/guidelines.ts'
 import {
 	ETF_TYPES,
 	fetchGuidelines,
+	GUIDELINE_KINDS,
 	saveGuidelines,
 } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getSessionData } from '../../lib/session.ts'
+import { getGuidelinesAnalysisWithDefault } from '../../openai.ts'
 import { routes } from '../../routes.ts'
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 import { GuidelinesPage } from './guidelines-page.tsx'
 
 const CreateGuidelineSchema = object({
-	etfName: string().pipe(minLength(1)),
+	kind: optional(enum_(GUIDELINE_KINDS)),
+	etfName: optional(string()),
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
 	etfType: optional(enum_(ETF_TYPES)),
 })
@@ -68,23 +75,33 @@ export const guidelinesController = {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
 
-		const { etfName, targetPct, etfType = 'equity' } = result.value
+		const kind = (result.value.kind ?? 'instrument') as GuidelineKind
+		const etfNameTrim = (result.value.etfName ?? '').trim()
+		if (kind === 'instrument' && etfNameTrim.length === 0) {
+			return createRedirectResponse(routes.guidelines.index.href())
+		}
+
+		const { targetPct, etfType = 'equity' } = result.value
 		const entry: EtfGuideline = {
 			id: crypto.randomUUID(),
-			etfName,
+			kind,
+			etfName: kind === 'asset_class' ? '' : etfNameTrim,
 			targetPct,
 			etfType: etfType as EtfType,
 		}
 		const session = getSessionData(context.session)
 
+		let updated: EtfGuideline[]
 		if (session?.gistId) {
 			const current = await fetchGuidelines(session.token, session.gistId)
-			await saveGuidelines(session.token, session.gistId, [entry, ...current])
+			updated = [entry, ...current]
+			await saveGuidelines(session.token, session.gistId, updated)
 		} else {
 			guestGuidelines = [entry, ...guestGuidelines]
+			updated = guestGuidelines
 		}
 
-		return createRedirectResponse(routes.guidelines.index.href())
+		return await respondWithGuidelinesPage(updated, session)
 	},
 
 	async delete(context: {
@@ -97,18 +114,17 @@ export const guidelinesController = {
 
 		const session = getSessionData(context.session)
 
+		let updated: EtfGuideline[]
 		if (session?.gistId) {
 			const current = await fetchGuidelines(session.token, session.gistId)
-			await saveGuidelines(
-				session.token,
-				session.gistId,
-				current.filter((g) => g.id !== id),
-			)
+			updated = current.filter((g) => g.id !== id)
+			await saveGuidelines(session.token, session.gistId, updated)
 		} else {
 			guestGuidelines = guestGuidelines.filter((g) => g.id !== id)
+			updated = guestGuidelines
 		}
 
-		return createRedirectResponse(routes.guidelines.index.href())
+		return await respondWithGuidelinesPage(updated, session)
 	},
 
 	async fragmentList(context: { request: Request; session: Session }) {
@@ -131,12 +147,29 @@ export const guidelinesController = {
 async function renderGuidelinesPage(
 	guidelines: EtfGuideline[],
 	session: SessionData | null,
+	options?: { analysis?: string; analysisError?: string },
 ) {
-	const body = jsx(GuidelinesPage, { guidelines })
+	const body = jsx(GuidelinesPage, { guidelines, ...options })
 	return render({
 		title: 'AI Investor – Guidelines',
 		session,
 		currentPage: 'guidelines',
 		body,
 	})
+}
+
+async function respondWithGuidelinesPage(
+	guidelines: EtfGuideline[],
+	session: SessionData | null,
+) {
+	let analysis: string | undefined
+	let analysisError: string | undefined
+	try {
+		analysis = await getGuidelinesAnalysisWithDefault(guidelines)
+	} catch (err) {
+		console.error('[guidelines] getGuidelinesAnalysisWithDefault failed', err)
+		analysisError =
+			"We couldn't generate a review right now. Your guidelines were saved."
+	}
+	return renderGuidelinesPage(guidelines, session, { analysis, analysisError })
 }

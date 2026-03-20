@@ -1,30 +1,51 @@
 import * as assert from 'node:assert/strict'
-import { afterEach, describe, it } from 'node:test'
+import { afterEach, beforeEach, describe, it } from 'node:test'
 
+import type { AdviceClient } from '../../openai.ts'
+import { setGuidelinesAnalysisClient } from '../../openai.ts'
 import { router } from '../../router.ts'
 import { resetGuestGuidelines } from './index.ts'
 
+function makeMockAnalysisClient(responseText: string): AdviceClient {
+	return {
+		chat: {
+			completions: {
+				create: async () => ({
+					choices: [{ message: { content: responseText } }],
+				}),
+			},
+		},
+	}
+}
+
 afterEach(() => {
 	resetGuestGuidelines()
+	setGuidelinesAnalysisClient(null)
 })
 
 describe('Guidelines page', () => {
+	beforeEach(() => {
+		setGuidelinesAnalysisClient(makeMockAnalysisClient('Review text.'))
+	})
+
 	it('GET /guidelines returns 200 with the guidelines form', async () => {
 		const response = await router.fetch('http://localhost/guidelines')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Guidelines/)
+		assert.match(body, /name="kind"/)
 		assert.match(body, /name="etfName"/)
 		assert.match(body, /name="targetPct"/)
 		assert.match(body, /name="etfType"/)
 	})
 
-	it('POST /guidelines adds a guideline and redirects', async () => {
+	it('POST /guidelines adds a guideline and returns HTML with analysis', async () => {
 		const form = new FormData()
 		form.set('etfName', 'VTI')
 		form.set('targetPct', '60')
 		form.set('etfType', 'equity')
+		form.set('kind', 'instrument')
 
 		const response = await router.fetch(
 			new Request('http://localhost/guidelines', {
@@ -32,9 +53,11 @@ describe('Guidelines page', () => {
 				body: form,
 			}),
 		)
+		const body = await response.text()
 
-		assert.equal(response.status, 302)
-		assert.equal(response.headers.get('location'), '/guidelines')
+		assert.equal(response.status, 200)
+		assert.match(body, /AI review/)
+		assert.match(body, /Review text\./)
 	})
 
 	it('added guideline appears on the guidelines page', async () => {
@@ -42,6 +65,7 @@ describe('Guidelines page', () => {
 		form.set('etfName', 'BND')
 		form.set('targetPct', '30')
 		form.set('etfType', 'bond')
+		form.set('kind', 'instrument')
 
 		await router.fetch(
 			new Request('http://localhost/guidelines', {
@@ -58,10 +82,11 @@ describe('Guidelines page', () => {
 		assert.match(body, /bond/)
 	})
 
-	it('POST /guidelines ignores submission with missing etfName', async () => {
+	it('POST /guidelines ignores submission with missing etfName for instrument', async () => {
 		const form = new FormData()
 		form.set('targetPct', '50')
 		form.set('etfType', 'equity')
+		form.set('kind', 'instrument')
 
 		const response = await router.fetch(
 			new Request('http://localhost/guidelines', {
@@ -77,11 +102,31 @@ describe('Guidelines page', () => {
 		assert.match(body, /No guidelines/)
 	})
 
+	it('POST /guidelines accepts asset_class without etfName', async () => {
+		const form = new FormData()
+		form.set('targetPct', '55')
+		form.set('etfType', 'equity')
+		form.set('kind', 'asset_class')
+
+		const response = await router.fetch(
+			new Request('http://localhost/guidelines', {
+				method: 'POST',
+				body: form,
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /equity \(bucket\)/)
+		assert.match(body, /AI review/)
+	})
+
 	it('DELETE /guidelines/:id removes the guideline via method override', async () => {
 		const addForm = new FormData()
 		addForm.set('etfName', 'VNQ')
 		addForm.set('targetPct', '10')
 		addForm.set('etfType', 'real_estate')
+		addForm.set('kind', 'instrument')
 		await router.fetch(
 			new Request('http://localhost/guidelines', {
 				method: 'POST',
@@ -104,7 +149,9 @@ describe('Guidelines page', () => {
 			}),
 		)
 
-		assert.equal(deleteResponse.status, 302)
+		assert.equal(deleteResponse.status, 200)
+		const deleteBody = await deleteResponse.text()
+		assert.match(deleteBody, /No guidelines are set yet/)
 
 		const afterBody = await (
 			await router.fetch('http://localhost/guidelines')
