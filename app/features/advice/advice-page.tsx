@@ -2,9 +2,13 @@ import type { Handle } from 'remix/component'
 import { FieldLabel, NumberInput } from '../../components/index.ts'
 import { routes } from '../../routes.ts'
 
-/** GET /advice: entry point for advice. POST responses use `AdviceResultPage`. */
+type AdvicePageProps = {
+	cashAmount?: string
+	advice?: string
+}
+
 export function AdvicePage(_handle: Handle, _setup?: unknown) {
-	return () => (
+	return (props: AdvicePageProps) => (
 		<main class="mx-auto max-w-3xl rounded-xl border border-border bg-card p-6 shadow-sm">
 			<header>
 				<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
@@ -32,6 +36,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						required={true}
 						min={1}
 						step="any"
+						defaultValue={props.cashAmount}
 					/>
 				</div>
 				<button
@@ -41,6 +46,19 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					Ask AI
 				</button>
 			</form>
+			{props.advice !== undefined && props.cashAmount !== undefined ? (
+				<section class="mt-8 border-t border-border pt-8" aria-live="polite">
+					<h2 class="text-lg font-semibold tracking-tight">
+						Investment Advice
+					</h2>
+					<p class="mt-1 text-sm text-muted-foreground">
+						Based on your portfolio and ${props.cashAmount} available.
+					</p>
+					<div class="mt-4 whitespace-pre-wrap text-sm leading-relaxed">
+						{props.advice}
+					</div>
+				</section>
+			) : null}
 		</main>
 	)
 }

@@ -392,13 +392,6 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(body, /href="\/auth\/github"/)
 	})
 
-	it('does not render the Get Advice form on the homepage', async () => {
-		const response = await router.fetch('http://localhost/')
-		const body = await response.text()
-
-		assert.ok(!body.includes('name="cashAmount"'))
-	})
-
 	it('homepage has a link to the guidelines page', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()

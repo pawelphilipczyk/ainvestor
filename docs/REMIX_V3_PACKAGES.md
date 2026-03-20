@@ -611,7 +611,7 @@ let app = run(document, {
 **Component placement:**
 
 - **Shared components** (`app/components/`) — layout and form fields: `AppTopBar`, `Sidebar`, `ThemeToggleButton`, `FieldLabel`, `SelectInput`, `TextInput`, `TextareaInput`, `NumberInput`, `SubmitButton`; `DocumentShell` (document layout), `render()` (response helper)
-- **Feature-specific pages** (`app/features/{feature}/`) — page body components: `PortfolioPage`, `GuidelinesPage`, `CatalogPage`, `AdvicePage`, `AdviceResultPage`
+- **Feature-specific pages** (`app/features/{feature}/`) — page body components: `PortfolioPage`, `GuidelinesPage`, `CatalogPage`, `AdvicePage`
 - **Utilities** (`app/lib/`) — `auth.ts` (getClientId, getClientSecret), `format.ts` (formatValue), `session.ts` (getSessionData), `guidelines.ts` (ETF_TYPES)
 
 **Rendering pattern:** Matches the Bookstore demo. The full document is JSX (`DocumentShell` wrapping page body). `render()` returns `createHtmlResponse(renderToStream(document))`. Page bodies are passed as JSX children — no `html.raw` or `renderToString` in controllers.

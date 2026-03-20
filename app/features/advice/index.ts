@@ -11,7 +11,6 @@ import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
 import { AdvicePage } from './advice-page.tsx'
-import { AdviceResultPage } from './advice-result-page.tsx'
 
 const AdviceSchema = object({
 	cashAmount: string().pipe(minLength(1)),
@@ -78,9 +77,9 @@ export const adviceController = {
 			client,
 		)
 
-		const body = jsx(AdviceResultPage, { cashAmount, advice })
+		const body = jsx(AdvicePage, { cashAmount, advice })
 		return render({
-			title: 'AI Investor – Advice',
+			title: 'AI Investor – Get Advice',
 			session,
 			currentPage: 'advice',
 			body,
