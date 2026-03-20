@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
 
-const controlClass =
+const controlClasses =
 	'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 /**
@@ -17,7 +17,7 @@ export function TextareaInput(_handle: Handle, _setup?: unknown) {
 		/** Extra Tailwind classes merged onto the control. */
 		class?: string
 	}) => {
-		const controlClassMerged = `${controlClass} ${props.class ?? ''}`.trim()
+		const inputClasses = `${controlClasses} ${props.class ?? ''}`.trim()
 		return (
 			<textarea
 				id={props.id}
@@ -25,7 +25,7 @@ export function TextareaInput(_handle: Handle, _setup?: unknown) {
 				rows={props.rows}
 				required={props.required}
 				placeholder={props.placeholder}
-				class={controlClassMerged}
+				class={inputClasses}
 			/>
 		)
 	}

@@ -1,9 +1,9 @@
 import type { Handle } from 'remix/component'
 
-const controlClass =
+const controlClasses =
 	'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
-const controlCompactClass =
+const compactControlClasses =
 	'h-9 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 /**
@@ -24,9 +24,10 @@ export function TextInput(_handle: Handle, _setup?: unknown) {
 	}) => {
 		const inputType = props.inputType ?? 'text'
 		const size = props.size ?? 'default'
-		const base = size === 'compact' ? controlCompactClass : controlClass
-		const controlClassMerged = `${base} ${props.class ?? ''}`.trim()
-		const valueProps = props.value !== undefined ? { value: props.value } : {}
+		const sizeClasses =
+			size === 'compact' ? compactControlClasses : controlClasses
+		const inputClasses = `${sizeClasses} ${props.class ?? ''}`.trim()
+		const value = props.value !== undefined ? { value: props.value } : {}
 
 		// Remix `AccessibleInputHTMLProps` discriminates on `type`; a single
 		// `type={union}` does not narrow and can require `list` for combobox.
@@ -39,8 +40,8 @@ export function TextInput(_handle: Handle, _setup?: unknown) {
 					required={props.required}
 					placeholder={props.placeholder}
 					autocomplete="off"
-					class={controlClassMerged}
-					{...valueProps}
+					class={inputClasses}
+					{...value}
 				/>
 			)
 		}
@@ -53,8 +54,8 @@ export function TextInput(_handle: Handle, _setup?: unknown) {
 				required={props.required}
 				placeholder={props.placeholder}
 				autocomplete="off"
-				class={controlClassMerged}
-				{...valueProps}
+				class={inputClasses}
+				{...value}
 			/>
 		)
 	}
