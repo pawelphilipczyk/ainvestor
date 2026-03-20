@@ -72,7 +72,8 @@ function normaliseTypeFromBank(assets: string, sector: string): EtfType {
 
 /**
  * Parse bank/investment website fetch response JSON into CatalogEntry array.
- * Extracts only investment-relevant fields; merges by bank id for deduplication.
+ * Extracts only investment-relevant fields. Duplicate rows collapse when merged
+ * (see {@link mergeBankIntoCatalog}).
  */
 export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 	if (!json || typeof json !== 'object') return []
@@ -119,21 +120,47 @@ export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 	return entries
 }
 
-function catalogMergeKey(entry: CatalogEntry): string {
-	return `${entry.isin ?? ''}_${entry.ticker}`
+function normalizeIsinForMerge(isin: string | undefined): string | null {
+	if (!isin) return null
+	const s = isin.trim().toUpperCase()
+	return s.length === 0 ? null : s
+}
+
+function normalizeTickerForMerge(ticker: string): string {
+	return ticker.trim().toUpperCase().replace(/\s+/g, ' ')
 }
 
 /**
- * Merge newly imported bank entries into existing catalog.
- * Matches by isin+ticker; incoming overwrites existing for same listing.
+ * Map key for merge/dedupe: one slot per ISIN when present, else per normalised ticker.
+ */
+export function catalogMergeKey(entry: CatalogEntry): string {
+	const isin = normalizeIsinForMerge(entry.isin)
+	if (isin) return `i:${isin}`
+	return `t:${normalizeTickerForMerge(entry.ticker)}`
+}
+
+function mergeCatalogRow(prev: CatalogEntry, next: CatalogEntry): CatalogEntry {
+	return { ...prev, ...next, id: prev.id }
+}
+
+/**
+ * Merge imported rows into the catalog. Rows with the same merge key update
+ * the existing row (incoming fields win; `id` is kept from the first).
  */
 export function mergeBankIntoCatalog(
 	existing: CatalogEntry[],
 	incoming: CatalogEntry[],
 ): CatalogEntry[] {
-	const byKey = new Map(existing.map((e) => [catalogMergeKey(e), e]))
+	const byKey = new Map<string, CatalogEntry>()
+	for (const e of existing) {
+		const k = catalogMergeKey(e)
+		const prev = byKey.get(k)
+		byKey.set(k, prev ? mergeCatalogRow(prev, e) : e)
+	}
 	for (const e of incoming) {
-		byKey.set(catalogMergeKey(e), e)
+		const k = catalogMergeKey(e)
+		const prev = byKey.get(k)
+		byKey.set(k, prev ? mergeCatalogRow(prev, e) : e)
 	}
 	return [...byKey.values()]
 }
