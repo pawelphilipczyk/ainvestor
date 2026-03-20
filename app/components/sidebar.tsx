@@ -22,12 +22,12 @@ export function Sidebar(handle: Handle, _setup?: unknown) {
 				<div
 					id="sidebar-backdrop"
 					aria-hidden="true"
-					class="fixed inset-0 z-40 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200"
+					class="fixed inset-0 z-40 bg-black/50 opacity-0 pointer-events-none transition-opacity duration-200 md:hidden"
 				/>
 				<aside
 					id="app-sidebar"
 					aria-label="Main navigation"
-					class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-card transition-transform duration-200 ease-in-out"
+					class="fixed inset-y-0 left-0 z-50 flex w-64 -translate-x-full flex-col border-r border-border bg-card transition-transform duration-200 ease-in-out md:translate-x-0"
 				>
 					<div class="flex items-center justify-between border-b border-border p-4">
 						<span class="text-sm font-semibold text-card-foreground">
@@ -37,7 +37,7 @@ export function Sidebar(handle: Handle, _setup?: unknown) {
 							data-sidebar-close
 							type="button"
 							aria-label="Close navigation"
-							class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							class="inline-flex h-9 w-9 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
 						>
 							<svg
 								class="h-4 w-4"

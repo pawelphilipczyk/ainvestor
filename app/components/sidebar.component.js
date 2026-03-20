@@ -1,7 +1,17 @@
 import { clientEntry, createElement } from 'remix/component'
 import { on } from 'remix/interaction'
 
+/** Matches Tailwind `md:` (tablet / iPad portrait and up). */
+const DESKTOP_MEDIA = '(min-width: 768px)'
+
+function isDesktop(doc) {
+	const win = doc.defaultView
+	if (!win) return false
+	return win.matchMedia(DESKTOP_MEDIA).matches
+}
+
 function openSidebar(sidebar, backdrop, sidebarToggle, doc) {
+	if (isDesktop(doc)) return
 	sidebar.classList.remove('-translate-x-full')
 	backdrop.classList.remove('opacity-0', 'pointer-events-none')
 	backdrop.classList.add('opacity-100')
@@ -10,6 +20,18 @@ function openSidebar(sidebar, backdrop, sidebarToggle, doc) {
 }
 
 function closeSidebar(sidebar, backdrop, sidebarToggle, doc) {
+	if (isDesktop(doc)) {
+		doc.body.style.overflow = ''
+		return
+	}
+	sidebar.classList.add('-translate-x-full')
+	backdrop.classList.add('opacity-0', 'pointer-events-none')
+	backdrop.classList.remove('opacity-100')
+	sidebarToggle.setAttribute('aria-expanded', 'false')
+	doc.body.style.overflow = ''
+}
+
+function resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc) {
 	sidebar.classList.add('-translate-x-full')
 	backdrop.classList.add('opacity-0', 'pointer-events-none')
 	backdrop.classList.remove('opacity-100')
@@ -38,8 +60,17 @@ export const SidebarInteractions = clientEntry(
 						return
 					}
 
+					const mq = doc.defaultView?.matchMedia(DESKTOP_MEDIA)
+					const onBreakpoint = () => {
+						if (mq?.matches) {
+							resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc)
+						}
+					}
+					mq?.addEventListener('change', onBreakpoint)
+
 					const dispose = on(doc, {
 						click(event) {
+							if (isDesktop(doc)) return
 							const target = event.target
 							if (!(target instanceof Element)) return
 
@@ -61,7 +92,11 @@ export const SidebarInteractions = clientEntry(
 							}
 						},
 					})
-					signal.addEventListener('abort', dispose, { once: true })
+					const cleanup = () => {
+						dispose()
+						mq?.removeEventListener('change', onBreakpoint)
+					}
+					signal.addEventListener('abort', cleanup, { once: true })
 				},
 			})
 	},

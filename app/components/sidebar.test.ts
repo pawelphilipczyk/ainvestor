@@ -40,6 +40,12 @@ describe('sidebar component', () => {
 		assert.match(result, /href="\/guidelines"/)
 	})
 
+	it('Sidebar is pinned open at md breakpoint and backdrop is overlay-only below md', async () => {
+		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
+		assert.match(result, /md:translate-x-0/)
+		assert.match(result, /md:hidden/)
+	})
+
 	it('Sidebar marks the current page with aria-current="page"', async () => {
 		const result = await renderSidebarWithSession(NAV_LINKS, 'catalog', null)
 		assert.match(result, /aria-current="page"/)
@@ -82,6 +88,12 @@ describe('remix component runtime in document', () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 		assert.match(body, /<script[^>]*type="module"[^>]*src="\/entry\.js"/)
+	})
+
+	it('document offsets main column beside fixed sidebar from md breakpoint', async () => {
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+		assert.match(body, /id="page-content"[^>]*\bmd:ml-64\b/)
 	})
 	it('GET /entry.js returns bootstrap with run(document, ...)', async () => {
 		const response = await router.fetch('http://localhost/entry.js')
