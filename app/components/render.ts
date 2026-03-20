@@ -2,13 +2,14 @@ import type { RemixNode } from 'remix/component'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToStream } from 'remix/component/server'
 import { createHtmlResponse } from 'remix/response/html'
+import type { AppPage } from '../lib/app-page.ts'
 import type { SessionData } from '../lib/session.ts'
 import { DocumentShell } from './document-shell.tsx'
 
 export type RenderOptions = {
 	title: string
 	session: SessionData | null
-	currentPage: 'portfolio' | 'guidelines' | 'catalog'
+	currentPage: AppPage
 	body: RemixNode
 	flashError?: string
 	init?: ResponseInit

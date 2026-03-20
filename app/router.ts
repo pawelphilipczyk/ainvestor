@@ -5,7 +5,7 @@ import { logger } from 'remix/logger-middleware'
 import { methodOverride } from 'remix/method-override-middleware'
 import { session } from 'remix/session-middleware'
 import { staticFiles } from 'remix/static-middleware'
-import { adviceHandler, setAdviceClient } from './features/advice/index.ts'
+import { adviceController, setAdviceClient } from './features/advice/index.ts'
 import { authController } from './features/auth/index.ts'
 import {
 	catalogController,
@@ -72,4 +72,4 @@ router.map(routes.portfolio, portfolioController)
 router.map(routes.auth, authController)
 router.map(routes.guidelines, guidelinesController)
 router.map(routes.catalog, catalogController)
-router.post(routes.advice, adviceHandler)
+router.map(routes.advice, adviceController)

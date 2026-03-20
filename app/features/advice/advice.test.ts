@@ -25,7 +25,17 @@ afterEach(() => {
 })
 
 describe('Advice', () => {
-	it('returns 400 when cashAmount is missing', async () => {
+	it('GET /advice renders the Get Advice form page', async () => {
+		const response = await router.fetch('http://localhost/advice')
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Get Advice/)
+		assert.match(body, /name="cashAmount"/)
+		assert.match(body, /action="\/advice"/)
+	})
+
+	it('returns 400 with AdvicePage HTML when cashAmount is missing', async () => {
 		setAdviceClient(makeMockClient('irrelevant'))
 
 		const response = await router.fetch(
@@ -34,8 +44,40 @@ describe('Advice', () => {
 				body: new FormData(),
 			}),
 		)
+		const body = await response.text()
 
 		assert.equal(response.status, 400)
+		assert.match(body, /Get Advice/)
+		assert.match(body, /role="alert"/)
+		assert.match(body, /Enter a valid cash amount \(USD\)\./)
+	})
+
+	it('returns 503 with AdvicePage HTML when the advice client throws', async () => {
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => {
+						throw new Error('simulated API failure')
+					},
+				},
+			},
+		})
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+
+		const response = await router.fetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 503)
+		assert.match(body, /Get Advice/)
+		assert.match(body, /role="alert"/)
+		assert.match(
+			body,
+			/We couldn't get advice right now\. Please try again in a moment\./,
+		)
 	})
 
 	it('returns advice HTML from the LLM when cashAmount is provided', async () => {

@@ -5,7 +5,7 @@ import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
-import { getSessionData } from '../../lib/session.ts'
+import { getSessionData, type SessionData } from '../../lib/session.ts'
 import type { AdviceClient } from '../../openai.ts'
 import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
@@ -15,6 +15,20 @@ import { AdvicePage } from './advice-page.tsx'
 const AdviceSchema = object({
 	cashAmount: string().pipe(minLength(1)),
 })
+
+function renderAdviceResponse(
+	session: SessionData | null,
+	props: { cashAmount?: string; advice?: string; error?: string },
+	init?: ResponseInit,
+) {
+	return render({
+		title: 'AI Investor – Get Advice',
+		session,
+		currentPage: 'advice',
+		body: jsx(AdvicePage, props),
+		init,
+	})
+}
 
 // ---------------------------------------------------------------------------
 // Advice client (injectable for tests)
@@ -26,50 +40,79 @@ export function setAdviceClient(client: AdviceClient | null) {
 }
 
 // ---------------------------------------------------------------------------
-// Handler
+// Controller
 // ---------------------------------------------------------------------------
-export async function adviceHandler(context: {
-	request: Request
-	session: Session
-	formData: FormData | null
-}) {
-	const form = context.formData
-	if (!form) {
-		return new Response('Bad request', { status: 400 })
-	}
+export const adviceController = {
+	async index(context: { request: Request; session: Session }) {
+		const session = getSessionData(context.session)
+		return renderAdviceResponse(session, {})
+	},
 
-	const result = parseSafe(
-		AdviceSchema,
-		Object.fromEntries(
-			form as unknown as Iterable<[string, FormDataEntryValue]>,
-		),
-	)
-	if (!result.success) {
-		return new Response('cashAmount is required', { status: 400 })
-	}
-	const { cashAmount } = result.value
+	async action(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+	}) {
+		const session = getSessionData(context.session)
+		const form = context.formData
+		if (!form) {
+			return renderAdviceResponse(
+				session,
+				{
+					error: 'Could not read your form. Please try again.',
+				},
+				{ status: 400 },
+			)
+		}
 
-	const session = getSessionData(context.session)
-	const entries = session?.gistId
-		? await fetchEtfs(session.token, session.gistId)
-		: getGuestEntries()
-	const guidelines = session?.gistId
-		? await fetchGuidelines(session.token, session.gistId)
-		: getGuestGuidelines()
+		const result = parseSafe(
+			AdviceSchema,
+			Object.fromEntries(
+				form as unknown as Iterable<[string, FormDataEntryValue]>,
+			),
+		)
+		if (!result.success) {
+			const raw = form.get('cashAmount')
+			const cashAmount =
+				typeof raw === 'string' && raw.length > 0 ? raw : undefined
+			return renderAdviceResponse(
+				session,
+				{
+					cashAmount,
+					error: 'Enter a valid cash amount (USD).',
+				},
+				{ status: 400 },
+			)
+		}
+		const { cashAmount } = result.value
 
-	const client = adviceClient ?? createDefaultClient()
-	const advice = await getInvestmentAdvice(
-		entries,
-		guidelines,
-		cashAmount,
-		client,
-	)
+		const entries = session?.gistId
+			? await fetchEtfs(session.token, session.gistId)
+			: getGuestEntries()
+		const guidelines = session?.gistId
+			? await fetchGuidelines(session.token, session.gistId)
+			: getGuestGuidelines()
 
-	const body = jsx(AdvicePage, { cashAmount, advice })
-	return render({
-		title: 'AI Investor – Advice',
-		session,
-		currentPage: 'portfolio',
-		body,
-	})
+		const client = adviceClient ?? createDefaultClient()
+		try {
+			const advice = await getInvestmentAdvice(
+				entries,
+				guidelines,
+				cashAmount,
+				client,
+			)
+			return renderAdviceResponse(session, { cashAmount, advice })
+		} catch (err) {
+			console.error('[advice] getInvestmentAdvice failed', err)
+			return renderAdviceResponse(
+				session,
+				{
+					cashAmount,
+					error:
+						"We couldn't get advice right now. Please try again in a moment.",
+				},
+				{ status: 503 },
+			)
+		}
+	},
 }

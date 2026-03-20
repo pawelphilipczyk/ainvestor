@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import type { AppPage } from '../lib/app-page.ts'
 import { routes } from '../routes.ts'
 import { AppBranding } from './app-branding.tsx'
 import { SessionProvider } from './session-provider.tsx'
@@ -7,7 +8,7 @@ import type { NavLink } from './sidebar-nav.ts'
 
 type SidebarProps = {
 	navLinks: NavLink[]
-	currentPage: 'portfolio' | 'guidelines' | 'catalog'
+	currentPage: AppPage
 }
 
 /**

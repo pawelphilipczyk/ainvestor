@@ -5,6 +5,7 @@ import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
+import type { AppPage } from '../lib/app-page.ts'
 import type { SessionData } from '../lib/session.ts'
 import { router } from '../router.ts'
 import { SessionProvider } from './session-provider.tsx'
@@ -15,7 +16,7 @@ const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 
 function renderSidebarWithSession(
 	navLinks: typeof NAV_LINKS,
-	currentPage: 'portfolio' | 'guidelines' | 'catalog',
+	currentPage: AppPage,
 	session: SessionData | null,
 ) {
 	return renderToString(
@@ -36,6 +37,7 @@ describe('sidebar component', () => {
 		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
 		assert.match(result, /id="app-sidebar"/)
 		assert.match(result, /id="sidebar-backdrop"/)
+		assert.match(result, /href="\/advice"/)
 		assert.match(result, /href="\/catalog"/)
 		assert.match(result, /href="\/guidelines"/)
 	})

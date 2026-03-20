@@ -392,15 +392,6 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(body, /href="\/auth\/github"/)
 	})
 
-	it('renders advice form section on the homepage', async () => {
-		const response = await router.fetch('http://localhost/')
-		const body = await response.text()
-
-		assert.match(body, /Get Advice/)
-		assert.match(body, /name="cashAmount"/)
-		assert.match(body, /action="\/advice"/)
-	})
-
 	it('homepage has a link to the guidelines page', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
