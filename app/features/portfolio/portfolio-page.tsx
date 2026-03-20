@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import { FORM_CONTROL_CLASS } from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { routes } from '../../routes.ts'
@@ -112,7 +113,7 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 								step="any"
 								required
 								placeholder="e.g. 1000"
-								class="flex-1 rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								class={`flex-1 ${FORM_CONTROL_CLASS}`}
 							/>
 							<button
 								type="submit"

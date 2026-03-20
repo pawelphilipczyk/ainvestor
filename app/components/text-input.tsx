@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import { FORM_CONTROL_CLASS, FORM_LABEL_CLASS } from './form-field-classes.ts'
 
 type TextInputProps = {
 	id: string
@@ -14,10 +15,7 @@ type TextInputProps = {
 export function TextInput(_handle: Handle, _setup?: unknown) {
 	return (props: TextInputProps) => (
 		<div>
-			<label
-				for={props.id}
-				class="mb-1 block text-sm font-semibold text-foreground"
-			>
+			<label for={props.id} class={FORM_LABEL_CLASS}>
 				{props.label}
 			</label>
 			<input
@@ -27,7 +25,7 @@ export function TextInput(_handle: Handle, _setup?: unknown) {
 				required={props.required}
 				placeholder={props.placeholder}
 				autocomplete="off"
-				class="w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus:border-ring focus:outline-none focus:ring-1 focus:ring-ring"
+				class={FORM_CONTROL_CLASS}
 			/>
 		</div>
 	)

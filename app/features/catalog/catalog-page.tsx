@@ -1,5 +1,9 @@
 import type { Handle } from 'remix/component'
-import { SelectInput } from '../../components/index.ts'
+import {
+	FORM_CONTROL_CLASS,
+	FORM_CONTROL_COMPACT_CLASS,
+	SelectInput,
+} from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
@@ -126,7 +130,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								id="pasteZone"
 								rows={3}
 								placeholder="Paste fetch response JSON here (Ctrl+V) — imports on paste"
-								class="block w-full max-w-xl rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								class={`block w-full max-w-xl ${FORM_CONTROL_CLASS}`}
 							/>
 						</div>
 						{props.catalog.length === 0 ? (
@@ -160,7 +164,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									type="search"
 									value={props.query}
 									placeholder="Ticker, name, or description…"
-									class="h-9 w-64 rounded-md border border-input bg-background px-3 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									class={`w-64 ${FORM_CONTROL_COMPACT_CLASS}`}
 								/>
 							</div>
 							<SelectInput
