@@ -32,12 +32,12 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 				method="post"
 				action={routes.portfolio.import.href()}
 				enctype="multipart/form-data"
-				class="mt-4 grid gap-4"
+				class="mt-4 grid min-w-0 gap-4"
 				data-fetch-submit
 				data-fragment-id="portfolio-list"
 				data-fragment-url={routes.portfolio.fragmentList.href()}
 			>
-				<div class="grid gap-2">
+				<div class="grid min-w-0 gap-2">
 					<FieldLabel fieldId="portfolioCsvPaste">Paste CSV here</FieldLabel>
 					<TextareaInput
 						id="portfolioCsvPaste"

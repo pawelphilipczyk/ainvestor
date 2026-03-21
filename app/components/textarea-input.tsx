@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
 
 const controlClasses =
-	'w-full min-w-0 max-w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
+	'box-border block w-full min-w-0 max-w-full resize-y rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
 /** Mirrors `<textarea>` attributes (see MDN). */
 type TextareaInputProps = {
@@ -40,6 +40,7 @@ export function TextareaInput(_handle: Handle, _setup?: unknown) {
 		const valueAttr = value !== undefined ? { value } : {}
 		return (
 			<textarea
+				cols={1}
 				id={id}
 				name={name}
 				placeholder={placeholder}
