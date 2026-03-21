@@ -160,9 +160,8 @@ describe('Advice', () => {
 		const guidelineForm = new FormData()
 		guidelineForm.set('instrumentTicker', 'VTI')
 		guidelineForm.set('targetPct', '60')
-		guidelineForm.set('kind', 'instrument')
 		await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: guidelineForm,
 			}),

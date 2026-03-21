@@ -33,30 +33,29 @@ afterEach(() => {
 })
 
 describe('Guidelines page', () => {
-	it('GET /guidelines returns 200 with the guidelines form', async () => {
+	it('GET /guidelines returns 200 with two boxed forms', async () => {
 		await seedGuestCatalog()
 		const response = await router.fetch('http://localhost/guidelines')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Guidelines/)
-		assert.match(body, /name="kind"/)
+		assert.match(body, /action="\/guidelines\/instrument"/)
+		assert.match(body, /action="\/guidelines\/asset-class"/)
 		assert.match(body, /name="instrumentTicker"/)
-		assert.match(body, /name="targetPct"/)
-		assert.match(body, /name="assetClassType"/)
-		assert.match(body, /guidelines-panel-instrument/)
-		assert.match(body, /guidelines-panel-asset-class/)
+		assert.match(body, /Specific ETF target/)
+		assert.match(body, /Asset class bucket/)
+		assert.match(body, /bg-muted\/20/)
 	})
 
-	it('POST /guidelines adds a guideline and redirects', async () => {
+	it('POST /guidelines/instrument adds a guideline and redirects', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('instrumentTicker', 'VTI')
 		form.set('targetPct', '60')
-		form.set('kind', 'instrument')
 
 		const response = await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
 			}),
@@ -71,10 +70,9 @@ describe('Guidelines page', () => {
 		const form = new FormData()
 		form.set('instrumentTicker', 'BND')
 		form.set('targetPct', '30')
-		form.set('kind', 'instrument')
 
 		await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
 			}),
@@ -88,14 +86,13 @@ describe('Guidelines page', () => {
 		assert.match(body, /bond/)
 	})
 
-	it('POST /guidelines ignores submission with missing instrument ticker', async () => {
+	it('POST /guidelines/instrument ignores missing ticker', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('targetPct', '50')
-		form.set('kind', 'instrument')
 
 		const response = await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
 			}),
@@ -108,15 +105,14 @@ describe('Guidelines page', () => {
 		assert.match(body, /No guidelines/)
 	})
 
-	it('POST /guidelines rejects unknown ticker', async () => {
+	it('POST /guidelines/instrument rejects unknown ticker', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('instrumentTicker', 'ZZZZ')
 		form.set('targetPct', '10')
-		form.set('kind', 'instrument')
 
 		const response = await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
 			}),
@@ -129,15 +125,14 @@ describe('Guidelines page', () => {
 		assert.match(body, /No guidelines/)
 	})
 
-	it('POST /guidelines accepts asset_class without instrument ticker', async () => {
+	it('POST /guidelines/asset-class adds a bucket guideline', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('targetPct', '55')
 		form.set('assetClassType', 'equity')
-		form.set('kind', 'asset_class')
 
 		const response = await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/asset-class', {
 				method: 'POST',
 				body: form,
 			}),
@@ -155,9 +150,8 @@ describe('Guidelines page', () => {
 		const addForm = new FormData()
 		addForm.set('instrumentTicker', 'VNQ')
 		addForm.set('targetPct', '10')
-		addForm.set('kind', 'instrument')
 		await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: addForm,
 			}),

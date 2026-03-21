@@ -1,20 +1,15 @@
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
-import { enum_, object, optional, parseSafe, string } from 'remix/data-schema'
+import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { max, min } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
-import type {
-	EtfGuideline,
-	EtfType,
-	GuidelineKind,
-} from '../../lib/guidelines.ts'
+import type { EtfGuideline } from '../../lib/guidelines.ts'
 import {
 	fetchGuidelines,
-	GUIDELINE_KINDS,
 	isEtfType,
 	saveGuidelines,
 } from '../../lib/guidelines.ts'
@@ -32,11 +27,14 @@ import {
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 import { GuidelinesPage } from './guidelines-page.tsx'
 
-const CreateGuidelineSchema = object({
-	kind: optional(enum_(GUIDELINE_KINDS)),
-	targetPct: coerce.number().pipe(min(0.001), max(100)),
-	assetClassType: optional(string()),
+const InstrumentGuidelineSchema = object({
 	instrumentTicker: optional(string()),
+	targetPct: coerce.number().pipe(min(0.001), max(100)),
+})
+
+const AssetClassGuidelineSchema = object({
+	assetClassType: optional(string()),
+	targetPct: coerce.number().pipe(min(0.001), max(100)),
 })
 
 // ---------------------------------------------------------------------------
@@ -50,6 +48,18 @@ export function resetGuestGuidelines() {
 
 export function getGuestGuidelines(): EtfGuideline[] {
 	return guestGuidelines
+}
+
+async function persistGuideline(
+	entry: EtfGuideline,
+	session: SessionData | null,
+) {
+	if (session?.gistId) {
+		const current = await fetchGuidelines(session.token, session.gistId)
+		await saveGuidelines(session.token, session.gistId, [entry, ...current])
+	} else {
+		guestGuidelines = [entry, ...guestGuidelines]
+	}
 }
 
 // ---------------------------------------------------------------------------
@@ -69,7 +79,7 @@ export const guidelinesController = {
 		return renderGuidelinesPage(guidelines, session, catalog)
 	},
 
-	async action(context: {
+	async instrument(context: {
 		request: Request
 		session: Session
 		formData: FormData | null
@@ -78,7 +88,7 @@ export const guidelinesController = {
 		if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
 		const result = parseSafe(
-			CreateGuidelineSchema,
+			InstrumentGuidelineSchema,
 			Object.fromEntries(
 				form as unknown as Iterable<[string, FormDataEntryValue]>,
 			),
@@ -87,7 +97,50 @@ export const guidelinesController = {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
 
-		const kind = (result.value.kind ?? 'instrument') as GuidelineKind
+		const session = getSessionData(context.session)
+		const catalog = session?.gistId
+			? await fetchCatalog(session.token, session.gistId)
+			: getGuestCatalog()
+
+		const ticker = (result.value.instrumentTicker ?? '').trim()
+		if (!ticker) {
+			return createRedirectResponse(routes.guidelines.index.href())
+		}
+		const match = findCatalogEntryByTicker(catalog, ticker)
+		if (!match) {
+			return createRedirectResponse(routes.guidelines.index.href())
+		}
+
+		const { targetPct } = result.value
+		const entry: EtfGuideline = {
+			id: crypto.randomUUID(),
+			kind: 'instrument',
+			etfName: match.ticker,
+			targetPct,
+			etfType: match.type,
+		}
+
+		await persistGuideline(entry, session)
+		return createRedirectResponse(routes.guidelines.index.href())
+	},
+
+	async assetClass(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+	}) {
+		const form = context.formData
+		if (!form) return createRedirectResponse(routes.guidelines.index.href())
+
+		const result = parseSafe(
+			AssetClassGuidelineSchema,
+			Object.fromEntries(
+				form as unknown as Iterable<[string, FormDataEntryValue]>,
+			),
+		)
+		if (!result.success) {
+			return createRedirectResponse(routes.guidelines.index.href())
+		}
 
 		const session = getSessionData(context.session)
 		const catalog = session?.gistId
@@ -97,45 +150,21 @@ export const guidelinesController = {
 			assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
 		)
 
-		let etfType: EtfType
-		let etfName: string
-
-		if (kind === 'asset_class') {
-			const raw = (result.value.assetClassType ?? '').trim()
-			if (!raw || !isEtfType(raw) || !allowedAssetClasses.has(raw)) {
-				return createRedirectResponse(routes.guidelines.index.href())
-			}
-			etfType = raw
-			etfName = ''
-		} else {
-			const ticker = (result.value.instrumentTicker ?? '').trim()
-			if (!ticker) {
-				return createRedirectResponse(routes.guidelines.index.href())
-			}
-			const match = findCatalogEntryByTicker(catalog, ticker)
-			if (!match) {
-				return createRedirectResponse(routes.guidelines.index.href())
-			}
-			etfType = match.type
-			etfName = match.ticker
+		const raw = (result.value.assetClassType ?? '').trim()
+		if (!raw || !isEtfType(raw) || !allowedAssetClasses.has(raw)) {
+			return createRedirectResponse(routes.guidelines.index.href())
 		}
 
 		const { targetPct } = result.value
 		const entry: EtfGuideline = {
 			id: crypto.randomUUID(),
-			kind,
-			etfName,
+			kind: 'asset_class',
+			etfName: '',
 			targetPct,
-			etfType,
+			etfType: raw,
 		}
 
-		if (session?.gistId) {
-			const current = await fetchGuidelines(session.token, session.gistId)
-			await saveGuidelines(session.token, session.gistId, [entry, ...current])
-		} else {
-			guestGuidelines = [entry, ...guestGuidelines]
-		}
-
+		await persistGuideline(entry, session)
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
