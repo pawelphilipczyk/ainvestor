@@ -8,7 +8,7 @@ import { routes } from '../../../routes.ts'
 export function ImportEtfForm(_handle: Handle, _setup?: unknown) {
 	return () => (
 		<section
-			class="mt-6 min-w-0 rounded-lg border border-primary/25 bg-primary/5 p-4 shadow-sm"
+			class="mt-6 min-w-0 overflow-x-hidden rounded-lg border border-primary/25 bg-primary/5 p-4 shadow-sm"
 			aria-labelledby="portfolio-import-heading"
 		>
 			<h2
@@ -39,12 +39,14 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 			>
 				<div class="grid min-w-0 gap-2">
 					<FieldLabel fieldId="portfolioCsvPaste">Paste CSV here</FieldLabel>
-					<TextareaInput
-						id="portfolioCsvPaste"
-						name="portfolioCsvPaste"
-						placeholder="Paste rows from your export (include the header row)…"
-						rows={6}
-					/>
+					<div class="min-w-0 max-w-full overflow-hidden">
+						<TextareaInput
+							id="portfolioCsvPaste"
+							name="portfolioCsvPaste"
+							placeholder="Paste rows from your export (include the header row)…"
+							rows={6}
+						/>
+					</div>
 				</div>
 				<div class="grid gap-2">
 					<FieldLabel fieldId="portfolioCsv">Or upload a file</FieldLabel>

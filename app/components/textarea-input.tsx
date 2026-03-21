@@ -51,6 +51,12 @@ export function TextareaInput(_handle: Handle, _setup?: unknown) {
 				readOnly={readOnly}
 				defaultValue={defaultValue}
 				class={inputClasses}
+				style={{
+					boxSizing: 'border-box',
+					minWidth: 0,
+					maxWidth: '100%',
+					width: '100%',
+				}}
 				{...valueAttr}
 			/>
 		)

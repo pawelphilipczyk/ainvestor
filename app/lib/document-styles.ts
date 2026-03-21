@@ -37,10 +37,17 @@ export const baseCss = `@layer base {
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
   }
-  /* Default textarea min width follows cols (~20ch); cap to container on narrow viewports. */
+  /*
+   * Textareas default to a large intrinsic min width (~cols). Keep them inside the
+   * layout box even when utility CSS fails to load (CDN) or percentage width quirks apply.
+   */
   textarea {
+    box-sizing: border-box;
     min-width: 0;
     max-width: 100%;
+  }
+  html {
+    overflow-x: clip;
   }
 }
 `
