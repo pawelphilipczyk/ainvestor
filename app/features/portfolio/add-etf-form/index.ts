@@ -20,7 +20,6 @@ export const CreateEtfSchema = object({
 	instrumentTicker: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
-	exchange: optional(string()),
 	quantity: optional(coerce.number().pipe(min(0))),
 })
 
@@ -32,7 +31,6 @@ export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
 	if (typeof raw.quantity === 'string') {
 		raw.quantity = raw.quantity.replace(/,/g, '')
 	}
-	if (raw.exchange === '') delete raw.exchange
 	if (raw.quantity === '') delete raw.quantity
 }
 
@@ -69,8 +67,7 @@ export const addEtfFormHandlers = {
 			return createRedirectResponse(routes.portfolio.index.href())
 		}
 
-		const { instrumentTicker, value, currency, exchange, quantity } =
-			result.value
+		const { instrumentTicker, value, currency, quantity } = result.value
 		const session = getSessionData(context.session)
 		const catalog = session?.gistId
 			? await fetchCatalog(session.token, session.gistId)
@@ -103,7 +100,6 @@ export const addEtfFormHandlers = {
 						existing.quantity !== undefined && quantity !== undefined
 							? existing.quantity + quantity
 							: (quantity ?? existing.quantity),
-					exchange: existing.exchange || exchange || undefined,
 				}
 			: {
 					id: crypto.randomUUID(),
@@ -111,7 +107,6 @@ export const addEtfFormHandlers = {
 					ticker,
 					value,
 					currency: normalizedCurrency,
-					...(exchange ? { exchange } : {}),
 					...(quantity !== undefined ? { quantity } : {}),
 				}
 

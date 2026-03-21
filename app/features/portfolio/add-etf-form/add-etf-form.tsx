@@ -4,7 +4,6 @@ import {
 	NumberInput,
 	SelectInput,
 	SubmitButton,
-	TextInput,
 } from '../../../components/index.ts'
 import { routes } from '../../../routes.ts'
 
@@ -88,23 +87,9 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 							/>
 						</div>
 					</div>
-					<div class="grid grid-cols-2 gap-3">
-						<div class="grid gap-2">
-							<FieldLabel fieldId="exchange">Exchange (optional)</FieldLabel>
-							<TextInput
-								id="exchange"
-								name="exchange"
-								placeholder="e.g. GBR-LSE, DEU-XETRA"
-							/>
-						</div>
-						<div class="grid gap-2">
-							<FieldLabel fieldId="quantity">Quantity (optional)</FieldLabel>
-							<NumberInput
-								id="quantity"
-								name="quantity"
-								placeholder="e.g. 186"
-							/>
-						</div>
+					<div class="grid gap-2">
+						<FieldLabel fieldId="quantity">Quantity (optional)</FieldLabel>
+						<NumberInput id="quantity" name="quantity" placeholder="e.g. 186" />
 					</div>
 					<SubmitButton>Add ETF</SubmitButton>
 				</form>

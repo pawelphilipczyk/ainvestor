@@ -75,14 +75,13 @@ describe('Portfolio page', () => {
 		}
 	})
 
-	it('form has name, value, currency, exchange and quantity fields', async () => {
+	it('form has instrument, value, currency, and quantity fields', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 
 		assert.match(body, /name="instrumentTicker"/)
 		assert.match(body, /name="value"/)
 		assert.match(body, /name="currency"/)
-		assert.match(body, /name="exchange"/)
 		assert.match(body, /name="quantity"/)
 	})
 
@@ -118,13 +117,12 @@ describe('Portfolio page', () => {
 		assert.match(body, /id="value"[^>]*type="number"/)
 	})
 
-	it('adds ETF when exchange and quantity are left empty (optional fields)', async () => {
+	it('adds ETF when optional quantity is left empty', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('instrumentTicker', 'VTI')
 		form.set('value', '1000')
 		form.set('currency', 'PLN')
-		form.set('exchange', '')
 		form.set('quantity', '')
 
 		const postResponse = await router.fetch(
@@ -138,13 +136,12 @@ describe('Portfolio page', () => {
 		assert.match(homeBody, /PLN/)
 	})
 
-	it('adds ETF with exchange and quantity when provided', async () => {
+	it('adds ETF with optional quantity when provided', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('instrumentTicker', 'IBTA')
 		form.set('value', '4087.48')
 		form.set('currency', 'PLN')
-		form.set('exchange', 'GBR-LSE')
 		form.set('quantity', '186')
 
 		const postResponse = await router.fetch(
@@ -156,7 +153,6 @@ describe('Portfolio page', () => {
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /IBTA LN ETF/)
 		assert.match(homeBody, /186 shares/)
-		assert.match(homeBody, /GBR-LSE/)
 	})
 
 	it('adds an ETF on form submit and displays it on homepage', async () => {
