@@ -1,6 +1,7 @@
 import { jsx } from 'remix/component/jsx-runtime'
-import { object, parseSafe, string } from 'remix/data-schema'
+import { parseSafe, string } from 'remix/data-schema'
 import { minLength } from 'remix/data-schema/checks'
+import * as f from 'remix/data-schema/form-data'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
@@ -12,8 +13,10 @@ import { getGuestGuidelines } from '../guidelines/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
 import { AdvicePage } from './advice-page.tsx'
 
-const AdviceSchema = object({
-	cashAmount: string().pipe(minLength(1)),
+const cashAmountSchema = string().pipe(minLength(1))
+
+const AdviceFormSchema = f.object({
+	cashAmount: f.field(cashAmountSchema),
 })
 
 function renderAdviceResponse(
@@ -65,12 +68,7 @@ export const adviceController = {
 			)
 		}
 
-		const result = parseSafe(
-			AdviceSchema,
-			Object.fromEntries(
-				form as unknown as Iterable<[string, FormDataEntryValue]>,
-			),
-		)
+		const result = parseSafe(AdviceFormSchema, form)
 		if (!result.success) {
 			const raw = form.get('cashAmount')
 			const cashAmount =

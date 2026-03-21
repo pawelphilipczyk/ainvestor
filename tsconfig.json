@@ -1,6 +1,10 @@
 {
 	"include": ["server.ts", "app/**/*.ts", "app/**/*.tsx"],
 	"compilerOptions": {
+		"baseUrl": ".",
+		"paths": {
+			"remix/data-schema/form-data": ["app/lib/remix-data-schema-form-data.ts"]
+		},
 		"lib": ["DOM", "ES2022"],
 		"types": ["node"],
 		"target": "ES2022",
