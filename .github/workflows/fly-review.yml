@@ -27,13 +27,5 @@ jobs:
       - name: Create preview app if needed
         run: flyctl apps create ainvestor-preview || true
 
-      - name: Set preview app secrets
-        run: |
-          flyctl secrets set \
-            GH_CLIENT_ID="${{ secrets.GH_CLIENT_ID_PREVIEW }}" \
-            GH_CLIENT_SECRET="${{ secrets.GH_CLIENT_SECRET_PREVIEW }}" \
-            SESSION_SECRET="${{ secrets.SESSION_SECRET }}" \
-            --app ainvestor-preview
-
       - name: Deploy to preview app
         run: flyctl deploy --remote-only --config fly.preview.toml
