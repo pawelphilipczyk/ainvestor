@@ -71,10 +71,11 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 export function CatalogPage(handle: Handle, _setup?: unknown) {
 	return (props: CatalogPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
+		const holdingKey = (s: string) => s.toUpperCase()
 		const holdingsByTicker = new Map(
 			props.holdings.flatMap((e) => {
-				const pairs: [string, EtfEntry][] = [[e.name.toUpperCase(), e]]
-				if (e.ticker) pairs.push([e.ticker.toUpperCase(), e])
+				const pairs: [string, EtfEntry][] = [[holdingKey(e.name), e]]
+				if (e.ticker) pairs.push([holdingKey(e.ticker), e])
 				return pairs
 			}),
 		)
@@ -91,10 +92,10 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 		})
 
 		const ownedInCatalog = filtered.filter((e) =>
-			holdingsByTicker.has(e.ticker),
+			holdingsByTicker.has(holdingKey(e.ticker)),
 		)
 		const restOfCatalog = filtered.filter(
-			(e) => !holdingsByTicker.has(e.ticker),
+			(e) => !holdingsByTicker.has(holdingKey(e.ticker)),
 		)
 
 		return (
@@ -238,7 +239,10 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									</thead>
 									<tbody>
 										{ownedInCatalog.map((e) =>
-											renderCatalogRow(e, holdingsByTicker.get(e.ticker)),
+											renderCatalogRow(
+												e,
+												holdingsByTicker.get(holdingKey(e.ticker)),
+											),
 										)}
 									</tbody>
 								</table>

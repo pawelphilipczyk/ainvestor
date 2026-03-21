@@ -7,11 +7,18 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 import type { EtfEntry } from '../../../lib/gist.ts'
-import { fetchEtfs, saveEtfs } from '../../../lib/gist.ts'
+import {
+	fetchEtfs,
+	fetchPortfolioSnapshot,
+	saveEtfs,
+} from '../../../lib/gist.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
 import { getGuestCatalog } from '../../catalog/guest-catalog.ts'
-import { fetchCatalog, findCatalogEntryByTicker } from '../../catalog/lib.ts'
+import {
+	type CatalogEntry,
+	findCatalogEntryByTicker,
+} from '../../catalog/lib.ts'
 import { getGuestEntries, guestEntries } from '../state.ts'
 import { AddEtfForm } from './add-etf-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
@@ -69,26 +76,54 @@ export const addEtfFormHandlers = {
 
 		const { instrumentTicker, value, currency, quantity } = result.value
 		const session = getSessionData(context.session)
-		const catalog = session?.gistId
-			? await fetchCatalog(session.token, session.gistId)
-			: getGuestCatalog()
+		let catalog: CatalogEntry[]
+		let current: EtfEntry[]
+		if (session?.gistId) {
+			const snapshot = await fetchPortfolioSnapshot(
+				session.token,
+				session.gistId,
+			)
+			catalog = snapshot.catalog
+			current = snapshot.entries
+		} else {
+			catalog = getGuestCatalog()
+			current = getGuestEntries()
+		}
 		const match = findCatalogEntryByTicker(catalog, instrumentTicker)
 		if (!match) {
+			const message =
+				'Selected catalog entry not found. Update your catalog or pick another fund.'
+			const prefersJson = context.request.headers
+				.get('Accept')
+				?.includes('application/json')
+			if (prefersJson) {
+				return new Response(
+					JSON.stringify({
+						error: message,
+						instrumentTicker: instrumentTicker.trim(),
+						...(session?.gistId ? { gistId: session.gistId } : {}),
+					}),
+					{
+						status: 422,
+						headers: { 'Content-Type': 'application/json' },
+					},
+				)
+			}
+			context.session.flash('error', message)
 			return createRedirectResponse(routes.portfolio.index.href())
 		}
 		const name = match.name
 
-		const current = session?.gistId
-			? await fetchEtfs(session.token, session.gistId)
-			: getGuestEntries()
-
 		const normalizedName = name.toLowerCase()
 		const normalizedCurrency = currency.toUpperCase()
-		const existingIndex = current.findIndex(
-			(e) =>
-				e.name.toLowerCase() === normalizedName &&
-				e.currency.toUpperCase() === normalizedCurrency,
-		)
+		const normalizedTicker = match.ticker.toUpperCase()
+		const existingIndex = current.findIndex((e) => {
+			if (e.currency.toUpperCase() !== normalizedCurrency) return false
+			if (e.ticker) {
+				return e.ticker.toUpperCase() === normalizedTicker
+			}
+			return e.name.toLowerCase() === normalizedName
+		})
 		const existing = existingIndex >= 0 ? current[existingIndex] : null
 		const ticker = match.ticker
 		const entry: EtfEntry = existing

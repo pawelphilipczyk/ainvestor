@@ -1,3 +1,8 @@
+import {
+	type CatalogEntry,
+	parseCatalogFromGist,
+} from '../features/catalog/lib.ts'
+
 export const GIST_FILENAME = 'etfs.json'
 
 /** Whether the app is running in the preview deployment (ainvestor-preview.fly.dev). */
@@ -118,6 +123,24 @@ export async function fetchEtfs(
 	if (!res.ok) return []
 	const gist = (await res.json()) as GistPayload
 	return parseEtfsFromGist(gist)
+}
+
+/**
+ * One GitHub Gist GET: portfolio holdings (`etfs.json`) and catalog (`catalog.json`).
+ */
+export async function fetchPortfolioSnapshot(
+	token: string,
+	gistId: string,
+): Promise<{ entries: EtfEntry[]; catalog: CatalogEntry[] }> {
+	const res = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+		headers: githubHeaders(token),
+	})
+	if (!res.ok) return { entries: [], catalog: [] }
+	const gist = (await res.json()) as GistPayload
+	return {
+		entries: parseEtfsFromGist(gist),
+		catalog: parseCatalogFromGist(gist),
+	}
 }
 
 /** Save ETF entries to a gist by ID. */

@@ -105,9 +105,13 @@ describe('Portfolio page', () => {
 		)
 		assert.equal(postResponse.status, 302)
 
-		const homeResponse = await router.fetch('http://localhost/')
-		const homeBody = await homeResponse.text()
-		assert.match(homeBody, /PLN/)
+		const fragmentRes = await router.fetch(
+			'http://localhost/fragments/portfolio-list',
+		)
+		assert.equal(fragmentRes.status, 200)
+		const fragmentBody = await fragmentRes.text()
+		assert.match(fragmentBody, /VTI/)
+		assert.match(fragmentBody, /PLN/)
 	})
 
 	it('value field is a numeric input', async () => {
