@@ -12,7 +12,7 @@ import {
 describe('guidelines', () => {
 	it('formatEtfTypeLabel replaces all underscores in ETF types', () => {
 		assert.equal(formatEtfTypeLabel('real_estate'), 'real estate')
-		assert.equal(formatEtfTypeLabel('equity'), 'equity')
+		assert.equal(formatEtfTypeLabel('money_market'), 'money market')
 	})
 
 	it('GUIDELINES_FILENAME is a non-empty string', () => {
@@ -73,11 +73,11 @@ describe('guidelines', () => {
 		])
 	})
 
-	it('normalizeGuideline parses asset_class rows', () => {
+	it('normalizeGuideline clears etfName for asset_class rows', () => {
 		const g = normalizeGuideline({
 			id: 'a1',
 			kind: 'asset_class',
-			etfName: '',
+			etfName: '  ignored  ',
 			targetPct: 60,
 			etfType: 'equity',
 		})
