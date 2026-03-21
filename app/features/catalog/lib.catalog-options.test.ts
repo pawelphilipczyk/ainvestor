@@ -9,7 +9,7 @@ import {
 
 describe('assetClassSelectOptionsFromCatalog', () => {
 	it('returns unique types from catalog in ETF_TYPES order', () => {
-		const catalog: CatalogEntry[] = [
+		const catalog = [
 			{
 				id: '1',
 				ticker: 'B',
@@ -31,7 +31,7 @@ describe('assetClassSelectOptionsFromCatalog', () => {
 				type: 'equity',
 				description: '',
 			},
-		]
+		] satisfies CatalogEntry[]
 		assert.deepEqual(uniqueEtfTypesFromCatalog(catalog), ['equity', 'bond'])
 		const opts = assetClassSelectOptionsFromCatalog(catalog)
 		assert.deepEqual(

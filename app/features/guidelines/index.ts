@@ -76,7 +76,7 @@ export const guidelinesController = {
 				? fetchCatalog(session.token, session.gistId)
 				: getGuestCatalog(),
 		])
-		return renderGuidelinesPage(guidelines, session, catalog)
+		return renderGuidelinesPage({ guidelines, session, catalog })
 	},
 
 	async instrument(context: {
@@ -209,11 +209,12 @@ export const guidelinesController = {
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
-async function renderGuidelinesPage(
-	guidelines: EtfGuideline[],
-	session: SessionData | null,
-	catalog: CatalogEntry[],
-) {
+async function renderGuidelinesPage(params: {
+	guidelines: EtfGuideline[]
+	session: SessionData | null
+	catalog: CatalogEntry[]
+}) {
+	const { guidelines, session, catalog } = params
 	const assetClassOptions = assetClassSelectOptionsFromCatalog(catalog)
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(GuidelinesPage, {
