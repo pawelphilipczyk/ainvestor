@@ -20,7 +20,6 @@ import {
 } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getSessionData } from '../../lib/session.ts'
-import { getGuidelinesAnalysisWithDefault } from '../../openai.ts'
 import { routes } from '../../routes.ts'
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 import { GuidelinesPage } from './guidelines-page.tsx'
@@ -91,17 +90,14 @@ export const guidelinesController = {
 		}
 		const session = getSessionData(context.session)
 
-		let updated: EtfGuideline[]
 		if (session?.gistId) {
 			const current = await fetchGuidelines(session.token, session.gistId)
-			updated = [entry, ...current]
-			await saveGuidelines(session.token, session.gistId, updated)
+			await saveGuidelines(session.token, session.gistId, [entry, ...current])
 		} else {
 			guestGuidelines = [entry, ...guestGuidelines]
-			updated = guestGuidelines
 		}
 
-		return await respondWithGuidelinesPage(updated, session)
+		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
 	async delete(context: {
@@ -114,17 +110,18 @@ export const guidelinesController = {
 
 		const session = getSessionData(context.session)
 
-		let updated: EtfGuideline[]
 		if (session?.gistId) {
 			const current = await fetchGuidelines(session.token, session.gistId)
-			updated = current.filter((g) => g.id !== id)
-			await saveGuidelines(session.token, session.gistId, updated)
+			await saveGuidelines(
+				session.token,
+				session.gistId,
+				current.filter((g) => g.id !== id),
+			)
 		} else {
 			guestGuidelines = guestGuidelines.filter((g) => g.id !== id)
-			updated = guestGuidelines
 		}
 
-		return await respondWithGuidelinesPage(updated, session)
+		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
 	async fragmentList(context: { request: Request; session: Session }) {
@@ -147,29 +144,12 @@ export const guidelinesController = {
 async function renderGuidelinesPage(
 	guidelines: EtfGuideline[],
 	session: SessionData | null,
-	options?: { analysis?: string; analysisError?: string },
 ) {
-	const body = jsx(GuidelinesPage, { guidelines, ...options })
+	const body = jsx(GuidelinesPage, { guidelines })
 	return render({
 		title: 'AI Investor – Guidelines',
 		session,
 		currentPage: 'guidelines',
 		body,
 	})
-}
-
-async function respondWithGuidelinesPage(
-	guidelines: EtfGuideline[],
-	session: SessionData | null,
-) {
-	let analysis: string | undefined
-	let analysisError: string | undefined
-	try {
-		analysis = await getGuidelinesAnalysisWithDefault(guidelines)
-	} catch (err) {
-		console.error('[guidelines] getGuidelinesAnalysisWithDefault failed', err)
-		analysisError =
-			"We couldn't generate a review right now. Your guidelines were saved."
-	}
-	return renderGuidelinesPage(guidelines, session, { analysis, analysisError })
 }

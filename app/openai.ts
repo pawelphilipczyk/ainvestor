@@ -16,17 +16,6 @@ If no target allocation is set, recommend based on diversification, risk balance
 Keep your answer concise – two to four paragraphs maximum.
 Do not provide legal or tax advice; only portfolio allocation guidance.`
 
-const GUIDELINES_REVIEW_SYSTEM = `You review ETF target allocation guidelines. The user may set asset-class
-buckets (broad category percentages) and/or specific fund targets. In a short response (one to three paragraphs),
-comment on balance and diversification, whether percentages add up sensibly, and whether asset-class and
-fund-level lines complement each other or conflict. Do not give legal or tax advice.`
-
-let guidelinesAnalysisClient: AdviceClient | null = null
-
-export function setGuidelinesAnalysisClient(client: AdviceClient | null) {
-	guidelinesAnalysisClient = client
-}
-
 export function formatGuidelineLine(g: EtfGuideline): string {
 	if (g.kind === 'asset_class') {
 		return `- Asset class ${g.etfType.replace('_', ' ')}: ${g.targetPct}% (bucket)`
@@ -47,38 +36,6 @@ export type AdviceClient = {
 
 export function createDefaultClient(): AdviceClient {
 	return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-}
-
-export async function getGuidelinesAnalysis(
-	guidelines: EtfGuideline[],
-	client: AdviceClient,
-): Promise<string> {
-	if (guidelines.length === 0) {
-		return 'No guidelines are set yet. Add at least one target to get a review.'
-	}
-
-	const lines = guidelines.map(formatGuidelineLine).join('\n')
-	const userMessage = `Here are my target allocation guidelines:\n${lines}\n\nBriefly review this mix.`
-
-	const response = await client.chat.completions.create({
-		model: 'gpt-4o-mini',
-		messages: [
-			{ role: 'system', content: GUIDELINES_REVIEW_SYSTEM },
-			{ role: 'user', content: userMessage },
-		],
-	})
-
-	return response.choices[0]?.message?.content ?? 'No analysis available.'
-}
-
-/** Uses the injectable analysis client when set (e.g. in tests). */
-export async function getGuidelinesAnalysisWithDefault(
-	guidelines: EtfGuideline[],
-): Promise<string> {
-	return getGuidelinesAnalysis(
-		guidelines,
-		guidelinesAnalysisClient ?? createDefaultClient(),
-	)
 }
 
 export async function getInvestmentAdvice(

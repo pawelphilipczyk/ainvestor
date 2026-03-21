@@ -2,7 +2,7 @@ import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { EtfGuideline } from './lib/guidelines.ts'
 import type { AdviceClient, EtfEntry } from './openai.ts'
-import { getGuidelinesAnalysis, getInvestmentAdvice } from './openai.ts'
+import { getInvestmentAdvice } from './openai.ts'
 
 function makeMockClient(responseText: string): AdviceClient {
 	return {
@@ -180,31 +180,5 @@ describe('getInvestmentAdvice', () => {
 
 		assert.match(capturedMessage, /Asset class equity.*bucket/)
 		assert.match(capturedMessage, /VTI.*specific fund/)
-	})
-})
-
-describe('getGuidelinesAnalysis', () => {
-	it('returns a static message when guidelines are empty', async () => {
-		const client = makeMockClient('should not be used')
-		const text = await getGuidelinesAnalysis([], client)
-
-		assert.match(text, /No guidelines are set yet/)
-	})
-
-	it('returns analysis text from the LLM', async () => {
-		const client = makeMockClient('Reasonable diversification.')
-		const guidelines: EtfGuideline[] = [
-			{
-				id: 'g1',
-				kind: 'instrument',
-				etfName: 'VTI',
-				targetPct: 100,
-				etfType: 'equity',
-			},
-		]
-
-		const text = await getGuidelinesAnalysis(guidelines, client)
-
-		assert.equal(text, 'Reasonable diversification.')
 	})
 })

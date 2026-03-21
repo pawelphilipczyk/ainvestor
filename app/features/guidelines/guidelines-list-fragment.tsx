@@ -50,7 +50,8 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 										method="post"
 										action={routes.guidelines.delete.href({ id: g.id })}
 										data-fetch-submit
-										data-replace-main
+										data-fragment-id="guidelines-list"
+										data-fragment-url="/fragments/guidelines-list"
 									>
 										<input type="hidden" name="_method" value="DELETE" />
 										<button

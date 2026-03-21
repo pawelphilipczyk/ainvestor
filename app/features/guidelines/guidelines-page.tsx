@@ -14,8 +14,6 @@ import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 
 type GuidelinesPageProps = {
 	guidelines: EtfGuideline[]
-	analysis?: string
-	analysisError?: string
 }
 
 export function GuidelinesPage(handle: Handle, _setup?: unknown) {
@@ -41,7 +39,8 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					action={routes.guidelines.action.href()}
 					class="mt-6 grid gap-4"
 					data-fetch-submit
-					data-replace-main
+					data-fragment-id="guidelines-list"
+					data-fragment-url="/fragments/guidelines-list"
 					data-reset-form
 				>
 					<div class="grid gap-2">
@@ -101,29 +100,6 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 				<div id="guidelines-list">
 					<GuidelinesListFragment guidelines={props.guidelines} />
 				</div>
-
-				{props.analysis || props.analysisError ? (
-					<section
-						class="mt-8 rounded-lg border border-border bg-muted/30 p-4"
-						aria-labelledby="guidelines-review-heading"
-					>
-						<h2
-							id="guidelines-review-heading"
-							class="text-lg font-semibold text-foreground"
-						>
-							AI review
-						</h2>
-						{props.analysisError ? (
-							<p class="mt-2 text-sm text-destructive" role="alert">
-								{props.analysisError}
-							</p>
-						) : (
-							<p class="mt-2 whitespace-pre-wrap text-sm text-muted-foreground">
-								{props.analysis}
-							</p>
-						)}
-					</section>
-				) : null}
 			</main>
 		)
 	}
