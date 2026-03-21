@@ -18,7 +18,9 @@ export const routes = route({
 		...form('advice'),
 	},
 	guidelines: {
-		...form('guidelines'),
+		index: get('/guidelines'),
+		instrument: post('/guidelines/instrument'),
+		assetClass: post('/guidelines/asset-class'),
 		delete: del('/guidelines/:id'),
 		fragmentList: get('/fragments/guidelines-list'),
 	},

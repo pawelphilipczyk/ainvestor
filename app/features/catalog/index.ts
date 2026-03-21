@@ -26,6 +26,10 @@ export function resetGuestCatalog() {
 	guestCatalog = []
 }
 
+export function getGuestCatalog(): CatalogEntry[] {
+	return guestCatalog
+}
+
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------

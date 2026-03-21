@@ -1,33 +1,61 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
-
 import { router } from '../../router.ts'
+import { resetGuestCatalog } from '../catalog/index.ts'
 import { resetGuestGuidelines } from './index.ts'
+
+async function seedGuestCatalog() {
+	const bankJson = JSON.stringify({
+		data: [
+			{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' },
+			{ fund_name: 'Vanguard Bond', ticker: 'BND', assets: 'obligacje' },
+			{
+				fund_name: 'VNQ',
+				ticker: 'VNQ',
+				assets: 'akcje',
+				sector: 'nieruchomości',
+			},
+		],
+		count: 3,
+	})
+	await router.fetch(
+		new Request('http://localhost/catalog/import', {
+			method: 'POST',
+			body: bankJson,
+			headers: { 'Content-Type': 'application/json' },
+		}),
+	)
+}
 
 afterEach(() => {
 	resetGuestGuidelines()
+	resetGuestCatalog()
 })
 
 describe('Guidelines page', () => {
-	it('GET /guidelines returns 200 with the guidelines form', async () => {
+	it('GET /guidelines returns 200 with two boxed forms', async () => {
+		await seedGuestCatalog()
 		const response = await router.fetch('http://localhost/guidelines')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Guidelines/)
-		assert.match(body, /name="etfName"/)
-		assert.match(body, /name="targetPct"/)
-		assert.match(body, /name="etfType"/)
+		assert.match(body, /action="\/guidelines\/instrument"/)
+		assert.match(body, /action="\/guidelines\/asset-class"/)
+		assert.match(body, /name="instrumentTicker"/)
+		assert.match(body, /Specific ETF target/)
+		assert.match(body, /Asset class bucket/)
+		assert.match(body, /bg-muted\/20/)
 	})
 
-	it('POST /guidelines adds a guideline and redirects', async () => {
+	it('POST /guidelines/instrument adds a guideline and redirects', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'VTI')
+		form.set('instrumentTicker', 'VTI')
 		form.set('targetPct', '60')
-		form.set('etfType', 'equity')
 
 		const response = await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
 			}),
@@ -38,13 +66,13 @@ describe('Guidelines page', () => {
 	})
 
 	it('added guideline appears on the guidelines page', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'BND')
+		form.set('instrumentTicker', 'BND')
 		form.set('targetPct', '30')
-		form.set('etfType', 'bond')
 
 		await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
 			}),
@@ -58,13 +86,13 @@ describe('Guidelines page', () => {
 		assert.match(body, /bond/)
 	})
 
-	it('POST /guidelines ignores submission with missing etfName', async () => {
+	it('POST /guidelines/instrument ignores missing ticker', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('targetPct', '50')
-		form.set('etfType', 'equity')
 
 		const response = await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
 			}),
@@ -77,13 +105,53 @@ describe('Guidelines page', () => {
 		assert.match(body, /No guidelines/)
 	})
 
+	it('POST /guidelines/instrument rejects unknown ticker', async () => {
+		await seedGuestCatalog()
+		const form = new FormData()
+		form.set('instrumentTicker', 'ZZZZ')
+		form.set('targetPct', '10')
+
+		const response = await router.fetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: form,
+			}),
+		)
+
+		assert.equal(response.status, 302)
+
+		const page = await router.fetch('http://localhost/guidelines')
+		const body = await page.text()
+		assert.match(body, /No guidelines/)
+	})
+
+	it('POST /guidelines/asset-class adds a bucket guideline', async () => {
+		await seedGuestCatalog()
+		const form = new FormData()
+		form.set('targetPct', '55')
+		form.set('assetClassType', 'equity')
+
+		const response = await router.fetch(
+			new Request('http://localhost/guidelines/asset-class', {
+				method: 'POST',
+				body: form,
+			}),
+		)
+
+		assert.equal(response.status, 302)
+
+		const page = await router.fetch('http://localhost/guidelines')
+		const body = await page.text()
+		assert.match(body, /equity \(bucket\)/)
+	})
+
 	it('DELETE /guidelines/:id removes the guideline via method override', async () => {
+		await seedGuestCatalog()
 		const addForm = new FormData()
-		addForm.set('etfName', 'VNQ')
+		addForm.set('instrumentTicker', 'VNQ')
 		addForm.set('targetPct', '10')
-		addForm.set('etfType', 'real_estate')
 		await router.fetch(
-			new Request('http://localhost/guidelines', {
+			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: addForm,
 			}),
@@ -105,6 +173,7 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(deleteResponse.status, 302)
+		assert.equal(deleteResponse.headers.get('location'), '/guidelines')
 
 		const afterBody = await (
 			await router.fetch('http://localhost/guidelines')

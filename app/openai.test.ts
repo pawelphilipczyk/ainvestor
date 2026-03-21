@@ -104,8 +104,20 @@ describe('getInvestmentAdvice', () => {
 		}
 
 		const guidelines: EtfGuideline[] = [
-			{ id: 'g1', etfName: 'VTI', targetPct: 60, etfType: 'equity' },
-			{ id: 'g2', etfName: 'BND', targetPct: 30, etfType: 'bond' },
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 60,
+				etfType: 'equity',
+			},
+			{
+				id: 'g2',
+				kind: 'instrument',
+				etfName: 'BND',
+				targetPct: 30,
+				etfType: 'bond',
+			},
 		]
 
 		await getInvestmentAdvice([], guidelines, '1000', client)
@@ -132,5 +144,41 @@ describe('getInvestmentAdvice', () => {
 		await getInvestmentAdvice([], [], '500', client)
 
 		assert.doesNotMatch(capturedMessage, /target allocation/i)
+	})
+
+	it('formats hybrid asset-class and instrument lines in the user message', async () => {
+		let capturedMessage = ''
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						capturedMessage = params.messages[1].content
+						return { choices: [{ message: { content: 'advice' } }] }
+					},
+				},
+			},
+		}
+
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'a1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 60,
+				etfType: 'equity',
+			},
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 20,
+				etfType: 'equity',
+			},
+		]
+
+		await getInvestmentAdvice([], guidelines, '100', client)
+
+		assert.match(capturedMessage, /Asset class equity.*bucket/)
+		assert.match(capturedMessage, /VTI.*specific fund/)
 	})
 })

@@ -17,11 +17,56 @@ export const ETF_TYPES = [
 	'money_market',
 ] as const satisfies readonly EtfType[]
 
+/** Human-readable ETF category label (e.g. real_estate → real estate). */
+export function formatEtfTypeLabel(etfType: EtfType): string {
+	return etfType.replaceAll('_', ' ')
+}
+
+export type GuidelineKind = 'asset_class' | 'instrument'
+
+export const GUIDELINE_KINDS = [
+	'asset_class',
+	'instrument',
+] as const satisfies readonly GuidelineKind[]
+
 export type EtfGuideline = {
 	id: string
+	/** Asset-class bucket vs a specific fund target (hybrid model). */
+	kind: GuidelineKind
 	etfName: string
 	targetPct: number
 	etfType: EtfType
+}
+
+export function isEtfType(value: unknown): value is EtfType {
+	return (
+		typeof value === 'string' &&
+		(ETF_TYPES as readonly string[]).includes(value)
+	)
+}
+
+/** Normalize gist JSON rows (legacy rows omit `kind` → instrument). */
+export function normalizeGuideline(raw: unknown): EtfGuideline | null {
+	if (!raw || typeof raw !== 'object') return null
+	const o = raw as Record<string, unknown>
+	if (typeof o.id !== 'string' || typeof o.targetPct !== 'number') return null
+	if (!isEtfType(o.etfType)) return null
+
+	const kind: GuidelineKind =
+		o.kind === 'asset_class' || o.kind === 'instrument' ? o.kind : 'instrument'
+
+	let etfName = typeof o.etfName === 'string' ? o.etfName.trim() : ''
+	if (kind === 'instrument' && etfName.length === 0) return null
+
+	if (kind === 'asset_class') etfName = ''
+
+	return {
+		id: o.id,
+		kind,
+		etfName,
+		targetPct: o.targetPct,
+		etfType: o.etfType,
+	}
 }
 
 type GistFile = {
@@ -38,7 +83,10 @@ export function parseGuidelinesFromGist(gist: GistPayload): EtfGuideline[] {
 	if (!file || !file.content) return []
 	try {
 		const parsed = JSON.parse(file.content)
-		return Array.isArray(parsed) ? (parsed as EtfGuideline[]) : []
+		if (!Array.isArray(parsed)) return []
+		return parsed
+			.map(normalizeGuideline)
+			.filter((g): g is EtfGuideline => g !== null)
 	} catch {
 		return []
 	}
