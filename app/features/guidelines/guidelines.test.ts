@@ -4,6 +4,29 @@ import { router } from '../../router.ts'
 import { resetGuestCatalog } from '../catalog/index.ts'
 import { resetGuestGuidelines } from './index.ts'
 
+async function seedGuestCatalog() {
+	const bankJson = JSON.stringify({
+		data: [
+			{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' },
+			{ fund_name: 'Vanguard Bond', ticker: 'BND', assets: 'obligacje' },
+			{
+				fund_name: 'VNQ',
+				ticker: 'VNQ',
+				assets: 'akcje',
+				sector: 'nieruchomości',
+			},
+		],
+		count: 3,
+	})
+	await router.fetch(
+		new Request('http://localhost/catalog/import', {
+			method: 'POST',
+			body: bankJson,
+			headers: { 'Content-Type': 'application/json' },
+		}),
+	)
+}
+
 afterEach(() => {
 	resetGuestGuidelines()
 	resetGuestCatalog()
@@ -11,24 +34,25 @@ afterEach(() => {
 
 describe('Guidelines page', () => {
 	it('GET /guidelines returns 200 with the guidelines form', async () => {
+		await seedGuestCatalog()
 		const response = await router.fetch('http://localhost/guidelines')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Guidelines/)
 		assert.match(body, /name="kind"/)
-		assert.match(body, /name="etfName"/)
+		assert.match(body, /name="instrumentTicker"/)
 		assert.match(body, /name="targetPct"/)
-		assert.match(body, /name="etfType"/)
 		assert.match(body, /name="assetClassType"/)
-		assert.match(body, /Asset class \(from your catalog\)/)
+		assert.match(body, /guidelines-panel-instrument/)
+		assert.match(body, /guidelines-panel-asset-class/)
 	})
 
 	it('POST /guidelines adds a guideline and redirects', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'VTI')
+		form.set('instrumentTicker', 'VTI')
 		form.set('targetPct', '60')
-		form.set('etfType', 'equity')
 		form.set('kind', 'instrument')
 
 		const response = await router.fetch(
@@ -43,10 +67,10 @@ describe('Guidelines page', () => {
 	})
 
 	it('added guideline appears on the guidelines page', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'BND')
+		form.set('instrumentTicker', 'BND')
 		form.set('targetPct', '30')
-		form.set('etfType', 'bond')
 		form.set('kind', 'instrument')
 
 		await router.fetch(
@@ -64,10 +88,10 @@ describe('Guidelines page', () => {
 		assert.match(body, /bond/)
 	})
 
-	it('POST /guidelines ignores submission with missing etfName for instrument', async () => {
+	it('POST /guidelines ignores submission with missing instrument ticker', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('targetPct', '50')
-		form.set('etfType', 'equity')
 		form.set('kind', 'instrument')
 
 		const response = await router.fetch(
@@ -84,7 +108,29 @@ describe('Guidelines page', () => {
 		assert.match(body, /No guidelines/)
 	})
 
-	it('POST /guidelines accepts asset_class without etfName', async () => {
+	it('POST /guidelines rejects unknown ticker', async () => {
+		await seedGuestCatalog()
+		const form = new FormData()
+		form.set('instrumentTicker', 'ZZZZ')
+		form.set('targetPct', '10')
+		form.set('kind', 'instrument')
+
+		const response = await router.fetch(
+			new Request('http://localhost/guidelines', {
+				method: 'POST',
+				body: form,
+			}),
+		)
+
+		assert.equal(response.status, 302)
+
+		const page = await router.fetch('http://localhost/guidelines')
+		const body = await page.text()
+		assert.match(body, /No guidelines/)
+	})
+
+	it('POST /guidelines accepts asset_class without instrument ticker', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('targetPct', '55')
 		form.set('assetClassType', 'equity')
@@ -105,10 +151,10 @@ describe('Guidelines page', () => {
 	})
 
 	it('DELETE /guidelines/:id removes the guideline via method override', async () => {
+		await seedGuestCatalog()
 		const addForm = new FormData()
-		addForm.set('etfName', 'VNQ')
+		addForm.set('instrumentTicker', 'VNQ')
 		addForm.set('targetPct', '10')
-		addForm.set('etfType', 'real_estate')
 		addForm.set('kind', 'instrument')
 		await router.fetch(
 			new Request('http://localhost/guidelines', {

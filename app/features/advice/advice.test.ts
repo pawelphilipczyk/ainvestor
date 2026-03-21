@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import type { AdviceClient } from '../../openai.ts'
 import { router } from '../../router.ts'
+import { resetGuestCatalog } from '../catalog/index.ts'
 import { resetGuestGuidelines } from '../guidelines/index.ts'
 import { resetEtfEntries } from '../portfolio/index.ts'
 import { setAdviceClient } from './index.ts'
@@ -21,6 +22,7 @@ function makeMockClient(responseText: string): AdviceClient {
 afterEach(() => {
 	resetEtfEntries()
 	resetGuestGuidelines()
+	resetGuestCatalog()
 	setAdviceClient(null)
 })
 
@@ -143,10 +145,22 @@ describe('Advice', () => {
 			},
 		})
 
+		const bankJson = JSON.stringify({
+			data: [{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' }],
+			count: 1,
+		})
+		await router.fetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: bankJson,
+				headers: { 'Content-Type': 'application/json' },
+			}),
+		)
+
 		const guidelineForm = new FormData()
-		guidelineForm.set('etfName', 'VTI')
+		guidelineForm.set('instrumentTicker', 'VTI')
 		guidelineForm.set('targetPct', '60')
-		guidelineForm.set('etfType', 'equity')
+		guidelineForm.set('kind', 'instrument')
 		await router.fetch(
 			new Request('http://localhost/guidelines', {
 				method: 'POST',

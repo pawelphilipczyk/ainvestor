@@ -57,6 +57,28 @@ export function assetClassSelectOptionsFromCatalog(
 	}))
 }
 
+/** Lookup by ticker (case-insensitive). */
+export function findCatalogEntryByTicker(
+	catalog: CatalogEntry[],
+	ticker: string,
+): CatalogEntry | undefined {
+	const t = ticker.trim().toUpperCase()
+	if (!t) return undefined
+	return catalog.find((e) => e.ticker.toUpperCase() === t)
+}
+
+/** Options for picking a specific fund from the catalog (guidelines instrument rows). */
+export function instrumentSelectOptionsFromCatalog(
+	catalog: CatalogEntry[],
+): { value: string; label: string }[] {
+	return [...catalog]
+		.sort((a, b) => a.ticker.localeCompare(b.ticker))
+		.map((e) => ({
+			value: e.ticker,
+			label: `${e.ticker} — ${e.name}`,
+		}))
+}
+
 // ---------------------------------------------------------------------------
 // Bank API JSON parsing
 // ---------------------------------------------------------------------------

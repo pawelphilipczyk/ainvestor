@@ -4,22 +4,32 @@ import {
 	NumberInput,
 	SelectInput,
 	SubmitButton,
-	TextInput,
 } from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
-import { ETF_TYPES, formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { routes } from '../../routes.ts'
+// @ts-expect-error Runtime-only JS client entry module
+import { GuidelinesFormToggle } from './guidelines-form.component.js'
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 
 type GuidelinesPageProps = {
 	guidelines: EtfGuideline[]
 	assetClassOptions: { value: EtfType; label: string }[]
+	instrumentOptions: { value: string; label: string }[]
 }
 
 export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 	return (props: GuidelinesPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
+
+		const instrumentPlaceholder =
+			props.instrumentOptions.length === 0
+				? 'No funds in catalog — import on ETF Catalog'
+				: 'Select a fund…'
+		const instrumentSelectOptions = [
+			{ value: '', label: instrumentPlaceholder },
+			...props.instrumentOptions,
+		]
 
 		return (
 			<main class="mx-auto max-w-lg rounded-xl border border-border bg-card p-6 shadow-sm">
@@ -55,22 +65,37 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 							]}
 						/>
 					</div>
-					<div class="grid gap-2">
-						<FieldLabel fieldId="etfName">
-							Fund / ticker (for specific ETF only)
+
+					<fieldset
+						id="guidelines-panel-instrument"
+						class="m-0 grid gap-2 border-0 p-0"
+					>
+						<FieldLabel fieldId="instrumentTicker">
+							Fund from catalog
 						</FieldLabel>
-						<TextInput
-							id="etfName"
-							name="etfName"
-							placeholder="e.g. VTI — leave blank for asset-class only"
-							autocomplete="off"
+						<SelectInput
+							id="instrumentTicker"
+							name="instrumentTicker"
+							options={instrumentSelectOptions}
 						/>
 						<p class="text-xs text-muted-foreground">
-							Asset-class rows set a target share for the whole category;
-							specific ETF rows name a fund you want at a given weight.
+							Category is taken from the fund’s row in your catalog. Add funds
+							on the{' '}
+							<a
+								href={routes.catalog.index.href()}
+								class="font-medium text-primary underline underline-offset-2"
+							>
+								ETF Catalog
+							</a>{' '}
+							page if this list is empty.
 						</p>
-					</div>
-					<div class="grid gap-2">
+					</fieldset>
+
+					<fieldset
+						id="guidelines-panel-asset-class"
+						class="m-0 hidden grid gap-2 border-0 p-0"
+						disabled={true}
+					>
 						<FieldLabel fieldId="assetClassType">
 							Asset class (from your catalog)
 						</FieldLabel>
@@ -90,34 +115,23 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 							</a>{' '}
 							page to populate this list.
 						</p>
+					</fieldset>
+
+					<div class="grid gap-2">
+						<FieldLabel fieldId="targetPct">Target %</FieldLabel>
+						<NumberInput
+							id="targetPct"
+							name="targetPct"
+							placeholder="e.g. 60"
+							required={true}
+							min={1}
+							max={100}
+							step="0.1"
+						/>
 					</div>
-					<div class="grid grid-cols-2 gap-3">
-						<div class="grid gap-2">
-							<FieldLabel fieldId="targetPct">Target %</FieldLabel>
-							<NumberInput
-								id="targetPct"
-								name="targetPct"
-								placeholder="e.g. 60"
-								required={true}
-								min={1}
-								max={100}
-								step="0.1"
-							/>
-						</div>
-						<div class="grid gap-2">
-							<FieldLabel fieldId="etfType">
-								ETF category (specific funds)
-							</FieldLabel>
-							<SelectInput
-								id="etfType"
-								name="etfType"
-								options={ETF_TYPES.map((t) => ({
-									value: t,
-									label: formatEtfTypeLabel(t),
-								}))}
-							/>
-						</div>
-					</div>
+
+					<GuidelinesFormToggle />
+
 					<SubmitButton>Add Guideline</SubmitButton>
 				</form>
 

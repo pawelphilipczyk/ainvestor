@@ -26,16 +26,17 @@ import type { CatalogEntry } from '../catalog/lib.ts'
 import {
 	assetClassSelectOptionsFromCatalog,
 	fetchCatalog,
+	findCatalogEntryByTicker,
+	instrumentSelectOptionsFromCatalog,
 } from '../catalog/lib.ts'
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 import { GuidelinesPage } from './guidelines-page.tsx'
 
 const CreateGuidelineSchema = object({
 	kind: optional(enum_(GUIDELINE_KINDS)),
-	etfName: optional(string()),
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
-	etfType: optional(string()),
 	assetClassType: optional(string()),
+	instrumentTicker: optional(string()),
 })
 
 // ---------------------------------------------------------------------------
@@ -87,10 +88,6 @@ export const guidelinesController = {
 		}
 
 		const kind = (result.value.kind ?? 'instrument') as GuidelineKind
-		const etfNameTrim = (result.value.etfName ?? '').trim()
-		if (kind === 'instrument' && etfNameTrim.length === 0) {
-			return createRedirectResponse(routes.guidelines.index.href())
-		}
 
 		const session = getSessionData(context.session)
 		const catalog = session?.gistId
@@ -101,25 +98,33 @@ export const guidelinesController = {
 		)
 
 		let etfType: EtfType
+		let etfName: string
+
 		if (kind === 'asset_class') {
 			const raw = (result.value.assetClassType ?? '').trim()
 			if (!raw || !isEtfType(raw) || !allowedAssetClasses.has(raw)) {
 				return createRedirectResponse(routes.guidelines.index.href())
 			}
 			etfType = raw
+			etfName = ''
 		} else {
-			const raw = (result.value.etfType ?? 'equity').trim()
-			if (!isEtfType(raw)) {
+			const ticker = (result.value.instrumentTicker ?? '').trim()
+			if (!ticker) {
 				return createRedirectResponse(routes.guidelines.index.href())
 			}
-			etfType = raw
+			const match = findCatalogEntryByTicker(catalog, ticker)
+			if (!match) {
+				return createRedirectResponse(routes.guidelines.index.href())
+			}
+			etfType = match.type
+			etfName = match.ticker
 		}
 
 		const { targetPct } = result.value
 		const entry: EtfGuideline = {
 			id: crypto.randomUUID(),
 			kind,
-			etfName: kind === 'asset_class' ? '' : etfNameTrim,
+			etfName,
 			targetPct,
 			etfType,
 		}
@@ -181,7 +186,12 @@ async function renderGuidelinesPage(
 	catalog: CatalogEntry[],
 ) {
 	const assetClassOptions = assetClassSelectOptionsFromCatalog(catalog)
-	const body = jsx(GuidelinesPage, { guidelines, assetClassOptions })
+	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
+	const body = jsx(GuidelinesPage, {
+		guidelines,
+		assetClassOptions,
+		instrumentOptions,
+	})
 	return render({
 		title: 'AI Investor – Guidelines',
 		session,
