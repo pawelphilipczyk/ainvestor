@@ -8,7 +8,7 @@ import { routes } from '../../../routes.ts'
 export function ImportEtfForm(_handle: Handle, _setup?: unknown) {
 	return () => (
 		<section
-			class="mt-6 rounded-lg border border-primary/25 bg-primary/5 p-4 shadow-sm"
+			class="mt-6 min-w-0 rounded-lg border border-primary/25 bg-primary/5 p-4 shadow-sm"
 			aria-labelledby="portfolio-import-heading"
 		>
 			<h2

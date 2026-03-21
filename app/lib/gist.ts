@@ -13,6 +13,8 @@ export function getGistDescription(): string {
 export type EtfEntry = {
 	id: string
 	name: string
+	/** Present when the row was added from the catalog (matches catalog ticker). */
+	ticker?: string
 	value: number
 	currency: string
 	exchange?: string

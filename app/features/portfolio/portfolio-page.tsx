@@ -8,6 +8,7 @@ import { ImportEtfForm } from './import-etf-form/index.ts'
 
 type PortfolioPageProps = {
 	entries: EtfEntry[]
+	instrumentOptions: { value: string; label: string }[]
 }
 
 /**
@@ -49,7 +50,7 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 						<summary class="cursor-pointer text-sm font-medium text-card-foreground outline-none marker:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
 							Add one ETF manually
 						</summary>
-						<AddEtfForm />
+						<AddEtfForm instrumentOptions={props.instrumentOptions} />
 					</details>
 				</main>
 				<EtfCardInteractions />

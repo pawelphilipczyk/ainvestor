@@ -6,7 +6,7 @@ import { CreateEtfSchema, normalizeAddEtfInput } from './index.ts'
 describe('CreateEtfSchema with optional field preprocessing', () => {
 	it('accepts empty exchange and quantity when normalized to absent', () => {
 		const raw: Record<string, unknown> = {
-			etfName: 'VTI',
+			instrumentTicker: 'VTI',
 			value: '1000',
 			currency: 'PLN',
 			exchange: '',

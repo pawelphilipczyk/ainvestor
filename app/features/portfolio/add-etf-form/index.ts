@@ -10,12 +10,14 @@ import type { EtfEntry } from '../../../lib/gist.ts'
 import { fetchEtfs, saveEtfs } from '../../../lib/gist.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
+import { getGuestCatalog } from '../../catalog/guest-catalog.ts'
+import { fetchCatalog, findCatalogEntryByTicker } from '../../catalog/lib.ts'
 import { getGuestEntries, guestEntries } from '../state.ts'
 import { AddEtfForm } from './add-etf-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
 
 export const CreateEtfSchema = object({
-	etfName: string().pipe(minLength(1)),
+	instrumentTicker: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
 	exchange: optional(string()),
@@ -52,7 +54,8 @@ export const addEtfFormHandlers = {
 
 		const result = parseSafe(CreateEtfSchema, raw)
 		if (!result.success) {
-			const message = 'Please enter a valid ETF name and value (number >= 0).'
+			const message =
+				'Please select a fund from your catalog and enter a valid value (number >= 0).'
 			const prefersJson = context.request.headers
 				.get('Accept')
 				?.includes('application/json')
@@ -66,8 +69,18 @@ export const addEtfFormHandlers = {
 			return createRedirectResponse(routes.portfolio.index.href())
 		}
 
-		const { etfName: name, value, currency, exchange, quantity } = result.value
+		const { instrumentTicker, value, currency, exchange, quantity } =
+			result.value
 		const session = getSessionData(context.session)
+		const catalog = session?.gistId
+			? await fetchCatalog(session.token, session.gistId)
+			: getGuestCatalog()
+		const match = findCatalogEntryByTicker(catalog, instrumentTicker)
+		if (!match) {
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
+		const name = match.name
+
 		const current = session?.gistId
 			? await fetchEtfs(session.token, session.gistId)
 			: getGuestEntries()
@@ -80,9 +93,11 @@ export const addEtfFormHandlers = {
 				e.currency.toUpperCase() === normalizedCurrency,
 		)
 		const existing = existingIndex >= 0 ? current[existingIndex] : null
+		const ticker = match.ticker
 		const entry: EtfEntry = existing
 			? {
 					...existing,
+					ticker: existing.ticker ?? ticker,
 					value: existing.value + value,
 					quantity:
 						existing.quantity !== undefined && quantity !== undefined
@@ -93,6 +108,7 @@ export const addEtfFormHandlers = {
 			: {
 					id: crypto.randomUUID(),
 					name,
+					ticker,
 					value,
 					currency: normalizedCurrency,
 					...(exchange ? { exchange } : {}),

@@ -72,7 +72,11 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 	return (props: CatalogPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
 		const holdingsByTicker = new Map(
-			props.holdings.map((e) => [e.name.toUpperCase(), e]),
+			props.holdings.flatMap((e) => {
+				const pairs: [string, EtfEntry][] = [[e.name.toUpperCase(), e]]
+				if (e.ticker) pairs.push([e.ticker.toUpperCase(), e])
+				return pairs
+			}),
 		)
 
 		const filtered = props.catalog.filter((entry) => {

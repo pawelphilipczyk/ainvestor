@@ -8,6 +8,12 @@ import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+import { getGuestCatalog } from '../catalog/guest-catalog.ts'
+import type { CatalogEntry } from '../catalog/lib.ts'
+import {
+	fetchCatalog,
+	instrumentSelectOptionsFromCatalog,
+} from '../catalog/lib.ts'
 import { addEtfFormHandlers } from './add-etf-form/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
 import { guestEntries } from './state.ts'
@@ -20,11 +26,14 @@ export { getGuestEntries, resetEtfEntries } from './state.ts'
 export const portfolioController = {
 	async index(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
-		const entries = session?.gistId
-			? await fetchEtfs(session.token, session.gistId)
-			: guestEntries
+		const [entries, catalog] = await Promise.all([
+			session?.gistId ? fetchEtfs(session.token, session.gistId) : guestEntries,
+			session?.gistId
+				? fetchCatalog(session.token, session.gistId)
+				: getGuestCatalog(),
+		])
 		const flashError = context.session.get('error') as string | undefined
-		return renderPage(entries, session, flashError)
+		return renderPage(entries, session, flashError, catalog)
 	},
 
 	async fragmentList(context: { request: Request; session: Session }) {
@@ -142,8 +151,10 @@ async function renderPage(
 	entries: EtfEntry[],
 	session: SessionData | null,
 	flashError?: string,
+	catalog: CatalogEntry[] = [],
 ) {
-	const body = jsx(PortfolioPage, { entries })
+	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
+	const body = jsx(PortfolioPage, { entries, instrumentOptions })
 	return render({
 		title: 'AI Investor',
 		session,
