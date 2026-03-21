@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
+import type { CatalogEntry } from './lib.ts'
 import {
 	assetClassSelectOptionsFromCatalog,
 	uniqueEtfTypesFromCatalog,
@@ -8,7 +9,7 @@ import {
 
 describe('assetClassSelectOptionsFromCatalog', () => {
 	it('returns unique types from catalog in ETF_TYPES order', () => {
-		const catalog = [
+		const catalog: CatalogEntry[] = [
 			{
 				id: '1',
 				ticker: 'B',
