@@ -108,8 +108,18 @@ Also update the **Authorization callback URL** in your GitHub OAuth App to your 
 
 - **Triggers:** opened, reopened, or updated PRs
 - **Preview URL:** `https://ainvestor-preview.fly.dev` (stable, never changes)
-- **Secrets:** `FLY_API_TOKEN` (org-scoped), `SESSION_SECRET`, `GH_CLIENT_ID_PREVIEW`, `GH_CLIENT_SECRET_PREVIEW`
+- **Secrets:** `FLY_API_TOKEN` (org-scoped) is required for the workflow. `SESSION_SECRET`, `GH_CLIENT_ID_PREVIEW`, and `GH_CLIENT_SECRET_PREVIEW` are used for **one-time** configuration of the preview Fly app (see below); the workflow does not push them on every run so deploys stay fast.
 - **Note:** Only one PR is previewed at a time (the most recently pushed). Pushing to a different PR overwrites the preview.
+
+Configure Fly secrets for the preview app **once** (after creating the app or when rotating credentials):
+
+```bash
+flyctl secrets set \
+  GH_CLIENT_ID="<from GH_CLIENT_ID_PREVIEW>" \
+  GH_CLIENT_SECRET="<from GH_CLIENT_SECRET_PREVIEW>" \
+  SESSION_SECRET="<from SESSION_SECRET>" \
+  --app ainvestor-preview
+```
 
 ### OAuth on preview
 

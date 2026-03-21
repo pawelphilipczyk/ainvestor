@@ -1,2 +1,17 @@
-node_modules
+.git
+.github
+AGENTS.md
 README.md
+docs
+node_modules
+**/*.test.ts
+
+# Local env and secrets (never ship in build context)
+.env
+.env.*
+.env.local
+.env.production
+.envrc
+.secret
+*.pem
+*.key

@@ -14,12 +14,12 @@
 	},
 	"dependencies": {
 		"openai": "^6.29.0",
-		"remix": "next"
+		"remix": "next",
+		"tsx": "^4.20.5"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.7",
 		"@types/node": "^24.5.2",
-		"tsx": "^4.20.5",
 		"typescript": "^5.9.2"
 	}
 }
