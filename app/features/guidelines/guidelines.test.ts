@@ -1,11 +1,12 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
-
 import { router } from '../../router.ts'
+import { resetGuestCatalog } from '../catalog/index.ts'
 import { resetGuestGuidelines } from './index.ts'
 
 afterEach(() => {
 	resetGuestGuidelines()
+	resetGuestCatalog()
 })
 
 describe('Guidelines page', () => {
@@ -19,6 +20,8 @@ describe('Guidelines page', () => {
 		assert.match(body, /name="etfName"/)
 		assert.match(body, /name="targetPct"/)
 		assert.match(body, /name="etfType"/)
+		assert.match(body, /name="assetClassType"/)
+		assert.match(body, /Asset class \(from your catalog\)/)
 	})
 
 	it('POST /guidelines adds a guideline and redirects', async () => {
@@ -84,7 +87,7 @@ describe('Guidelines page', () => {
 	it('POST /guidelines accepts asset_class without etfName', async () => {
 		const form = new FormData()
 		form.set('targetPct', '55')
-		form.set('etfType', 'equity')
+		form.set('assetClassType', 'equity')
 		form.set('kind', 'asset_class')
 
 		const response = await router.fetch(

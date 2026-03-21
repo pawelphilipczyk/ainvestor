@@ -7,13 +7,14 @@ import {
 	TextInput,
 } from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
-import type { EtfGuideline } from '../../lib/guidelines.ts'
-import { ETF_TYPES } from '../../lib/guidelines.ts'
+import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
+import { ETF_TYPES, formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { routes } from '../../routes.ts'
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 
 type GuidelinesPageProps = {
 	guidelines: EtfGuideline[]
+	assetClassOptions: { value: EtfType; label: string }[]
 }
 
 export function GuidelinesPage(handle: Handle, _setup?: unknown) {
@@ -69,6 +70,27 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 							specific ETF rows name a fund you want at a given weight.
 						</p>
 					</div>
+					<div class="grid gap-2">
+						<FieldLabel fieldId="assetClassType">
+							Asset class (from your catalog)
+						</FieldLabel>
+						<SelectInput
+							id="assetClassType"
+							name="assetClassType"
+							options={props.assetClassOptions}
+						/>
+						<p class="text-xs text-muted-foreground">
+							Options are the fund types present in your ETF catalog. Import or
+							paste funds on the{' '}
+							<a
+								href={routes.catalog.index.href()}
+								class="font-medium text-primary underline underline-offset-2"
+							>
+								ETF Catalog
+							</a>{' '}
+							page to populate this list.
+						</p>
+					</div>
 					<div class="grid grid-cols-2 gap-3">
 						<div class="grid gap-2">
 							<FieldLabel fieldId="targetPct">Target %</FieldLabel>
@@ -83,13 +105,15 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 							/>
 						</div>
 						<div class="grid gap-2">
-							<FieldLabel fieldId="etfType">Type</FieldLabel>
+							<FieldLabel fieldId="etfType">
+								ETF category (specific funds)
+							</FieldLabel>
 							<SelectInput
 								id="etfType"
 								name="etfType"
 								options={ETF_TYPES.map((t) => ({
 									value: t,
-									label: t.replace('_', ' '),
+									label: formatEtfTypeLabel(t),
 								}))}
 							/>
 						</div>

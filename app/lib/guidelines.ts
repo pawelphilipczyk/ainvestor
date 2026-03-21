@@ -38,7 +38,7 @@ export type EtfGuideline = {
 	etfType: EtfType
 }
 
-function isEtfType(value: unknown): value is EtfType {
+export function isEtfType(value: unknown): value is EtfType {
 	return (
 		typeof value === 'string' &&
 		(ETF_TYPES as readonly string[]).includes(value)

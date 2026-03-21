@@ -1,4 +1,8 @@
-import type { EtfType } from '../../lib/guidelines.ts'
+import {
+	ETF_TYPES,
+	type EtfType,
+	formatEtfTypeLabel,
+} from '../../lib/guidelines.ts'
 
 export const CATALOG_FILENAME = 'catalog.json'
 
@@ -27,6 +31,30 @@ export type CatalogEntry = {
 	fund_size?: string
 	/** ESG-compliant. */
 	esg?: boolean
+}
+
+/** Unique ETF types present in the catalog, in canonical `ETF_TYPES` order. */
+export function uniqueEtfTypesFromCatalog(catalog: CatalogEntry[]): EtfType[] {
+	const seen = new Set<EtfType>()
+	for (const e of catalog) {
+		seen.add(e.type)
+	}
+	return ETF_TYPES.filter((t) => seen.has(t))
+}
+
+/**
+ * Dropdown options for asset-class guidelines: types that appear in the catalog.
+ * When the catalog is empty, falls back to all `ETF_TYPES` so the form still works.
+ */
+export function assetClassSelectOptionsFromCatalog(
+	catalog: CatalogEntry[],
+): { value: EtfType; label: string }[] {
+	const types = uniqueEtfTypesFromCatalog(catalog)
+	const ordered = types.length > 0 ? types : [...ETF_TYPES]
+	return ordered.map((t) => ({
+		value: t,
+		label: formatEtfTypeLabel(t),
+	}))
 }
 
 // ---------------------------------------------------------------------------

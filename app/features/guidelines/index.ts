@@ -13,14 +13,20 @@ import type {
 	GuidelineKind,
 } from '../../lib/guidelines.ts'
 import {
-	ETF_TYPES,
 	fetchGuidelines,
 	GUIDELINE_KINDS,
+	isEtfType,
 	saveGuidelines,
 } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+import { getGuestCatalog } from '../catalog/index.ts'
+import type { CatalogEntry } from '../catalog/lib.ts'
+import {
+	assetClassSelectOptionsFromCatalog,
+	fetchCatalog,
+} from '../catalog/lib.ts'
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 import { GuidelinesPage } from './guidelines-page.tsx'
 
@@ -28,7 +34,8 @@ const CreateGuidelineSchema = object({
 	kind: optional(enum_(GUIDELINE_KINDS)),
 	etfName: optional(string()),
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
-	etfType: optional(enum_(ETF_TYPES)),
+	etfType: optional(string()),
+	assetClassType: optional(string()),
 })
 
 // ---------------------------------------------------------------------------
@@ -50,10 +57,15 @@ export function getGuestGuidelines(): EtfGuideline[] {
 export const guidelinesController = {
 	async index(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
-		const guidelines = session?.gistId
-			? await fetchGuidelines(session.token, session.gistId)
-			: guestGuidelines
-		return renderGuidelinesPage(guidelines, session)
+		const [guidelines, catalog] = await Promise.all([
+			session?.gistId
+				? fetchGuidelines(session.token, session.gistId)
+				: guestGuidelines,
+			session?.gistId
+				? fetchCatalog(session.token, session.gistId)
+				: getGuestCatalog(),
+		])
+		return renderGuidelinesPage(guidelines, session, catalog)
 	},
 
 	async action(context: {
@@ -80,15 +92,37 @@ export const guidelinesController = {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
 
-		const { targetPct, etfType = 'equity' } = result.value
+		const session = getSessionData(context.session)
+		const catalog = session?.gistId
+			? await fetchCatalog(session.token, session.gistId)
+			: getGuestCatalog()
+		const allowedAssetClasses = new Set(
+			assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
+		)
+
+		let etfType: EtfType
+		if (kind === 'asset_class') {
+			const raw = (result.value.assetClassType ?? '').trim()
+			if (!raw || !isEtfType(raw) || !allowedAssetClasses.has(raw)) {
+				return createRedirectResponse(routes.guidelines.index.href())
+			}
+			etfType = raw
+		} else {
+			const raw = (result.value.etfType ?? 'equity').trim()
+			if (!isEtfType(raw)) {
+				return createRedirectResponse(routes.guidelines.index.href())
+			}
+			etfType = raw
+		}
+
+		const { targetPct } = result.value
 		const entry: EtfGuideline = {
 			id: crypto.randomUUID(),
 			kind,
 			etfName: kind === 'asset_class' ? '' : etfNameTrim,
 			targetPct,
-			etfType: etfType as EtfType,
+			etfType,
 		}
-		const session = getSessionData(context.session)
 
 		if (session?.gistId) {
 			const current = await fetchGuidelines(session.token, session.gistId)
@@ -144,8 +178,10 @@ export const guidelinesController = {
 async function renderGuidelinesPage(
 	guidelines: EtfGuideline[],
 	session: SessionData | null,
+	catalog: CatalogEntry[],
 ) {
-	const body = jsx(GuidelinesPage, { guidelines })
+	const assetClassOptions = assetClassSelectOptionsFromCatalog(catalog)
+	const body = jsx(GuidelinesPage, { guidelines, assetClassOptions })
 	return render({
 		title: 'AI Investor – Guidelines',
 		session,
