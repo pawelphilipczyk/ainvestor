@@ -1,6 +1,7 @@
 import OpenAI from 'openai'
 import type { EtfEntry } from './lib/gist.ts'
 import type { EtfGuideline } from './lib/guidelines.ts'
+import { formatEtfTypeLabel } from './lib/guidelines.ts'
 
 export type { EtfEntry }
 
@@ -18,9 +19,9 @@ Do not provide legal or tax advice; only portfolio allocation guidance.`
 
 export function formatGuidelineLine(g: EtfGuideline): string {
 	if (g.kind === 'asset_class') {
-		return `- Asset class ${g.etfType.replace('_', ' ')}: ${g.targetPct}% (bucket)`
+		return `- Asset class ${formatEtfTypeLabel(g.etfType)}: ${g.targetPct}% (bucket)`
 	}
-	return `- ${g.etfName} (${g.etfType}): ${g.targetPct}% (specific fund)`
+	return `- ${g.etfName} (${formatEtfTypeLabel(g.etfType)}): ${g.targetPct}% (specific fund)`
 }
 
 export type AdviceClient = {

@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
+import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { routes } from '../../routes.ts'
 
 /**
@@ -37,11 +38,13 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 								<div class="flex items-center gap-3">
 									<span class="font-medium">
 										{g.kind === 'asset_class'
-											? `${g.etfType.replace('_', ' ')} (bucket)`
+											? `${formatEtfTypeLabel(g.etfType)} (bucket)`
 											: g.etfName}
 									</span>
 									<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-										{g.kind === 'asset_class' ? 'asset class' : g.etfType}
+										{g.kind === 'asset_class'
+											? 'asset class'
+											: formatEtfTypeLabel(g.etfType)}
 									</span>
 								</div>
 								<div class="flex items-center gap-4">
@@ -57,7 +60,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 										<button
 											type="submit"
 											class="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-											aria-label={`Delete ${g.etfName} guideline`}
+											aria-label={`Delete ${g.kind === 'asset_class' ? `${formatEtfTypeLabel(g.etfType)} bucket` : g.etfName} guideline`}
 										>
 											Remove
 										</button>

@@ -17,6 +17,11 @@ export const ETF_TYPES = [
 	'money_market',
 ] as const satisfies readonly EtfType[]
 
+/** Human-readable ETF category label (e.g. real_estate → real estate). */
+export function formatEtfTypeLabel(etfType: EtfType): string {
+	return etfType.replaceAll('_', ' ')
+}
+
 export type GuidelineKind = 'asset_class' | 'instrument'
 
 export const GUIDELINE_KINDS = [

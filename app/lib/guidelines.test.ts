@@ -3,12 +3,18 @@ import { describe, it } from 'node:test'
 import type { EtfGuideline } from './guidelines.ts'
 import {
 	buildGuidelinesGistPatch,
+	formatEtfTypeLabel,
 	GUIDELINES_FILENAME,
 	normalizeGuideline,
 	parseGuidelinesFromGist,
 } from './guidelines.ts'
 
 describe('guidelines', () => {
+	it('formatEtfTypeLabel replaces all underscores in ETF types', () => {
+		assert.equal(formatEtfTypeLabel('real_estate'), 'real estate')
+		assert.equal(formatEtfTypeLabel('equity'), 'equity')
+	})
+
 	it('GUIDELINES_FILENAME is a non-empty string', () => {
 		assert.equal(typeof GUIDELINES_FILENAME, 'string')
 		assert.ok(GUIDELINES_FILENAME.length > 0)
