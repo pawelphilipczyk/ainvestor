@@ -51,7 +51,9 @@ describe('Advice', () => {
 		assert.equal(response.status, 400)
 		assert.match(body, /Get Advice/)
 		assert.match(body, /role="alert"/)
+		assert.match(body, /<summary[^>]*>/)
 		assert.match(body, /Enter a valid cash amount \(USD\)\./)
+		assert.match(body, /cashAmount:/)
 	})
 
 	it('returns 503 with AdvicePage HTML when the advice client throws', async () => {
@@ -80,6 +82,8 @@ describe('Advice', () => {
 			body,
 			/We couldn't get advice right now\. Please try again in a moment\./,
 		)
+		assert.match(body, /<summary[^>]*>/)
+		assert.match(body, /simulated API failure/)
 	})
 
 	it('returns advice HTML from the LLM when cashAmount is provided', async () => {

@@ -1,4 +1,5 @@
 import { jsx } from 'remix/component/jsx-runtime'
+import type { Issue } from 'remix/data-schema'
 import { object, parseSafe, string } from 'remix/data-schema'
 import { minLength } from 'remix/data-schema/checks'
 import type { Session } from 'remix/session'
@@ -16,9 +17,23 @@ const AdviceSchema = object({
 	cashAmount: string().pipe(minLength(1)),
 })
 
+function formatSchemaIssues(issues: ReadonlyArray<Issue>): string {
+	return issues
+		.map((issue) => {
+			const path =
+				issue.path && issue.path.length > 0 ? issue.path.join('.') : '(root)'
+			return `${path}: ${issue.message}`
+		})
+		.join('\n')
+}
+
 function renderAdviceResponse(
 	session: SessionData | null,
-	props: { cashAmount?: string; advice?: string; error?: string },
+	props: {
+		cashAmount?: string
+		advice?: string
+		formError?: { summary: string; detail?: string }
+	},
 	init?: ResponseInit,
 ) {
 	return render({
@@ -59,7 +74,11 @@ export const adviceController = {
 			return renderAdviceResponse(
 				session,
 				{
-					error: 'Could not read your form. Please try again.',
+					formError: {
+						summary: 'Could not read your form. Please try again.',
+						detail:
+							'The server did not receive parseable form data for this request.',
+					},
 				},
 				{ status: 400 },
 			)
@@ -79,7 +98,10 @@ export const adviceController = {
 				session,
 				{
 					cashAmount,
-					error: 'Enter a valid cash amount (USD).',
+					formError: {
+						summary: 'Enter a valid cash amount (USD).',
+						detail: formatSchemaIssues(result.issues),
+					},
 				},
 				{ status: 400 },
 			)
@@ -104,12 +126,19 @@ export const adviceController = {
 			return renderAdviceResponse(session, { cashAmount, advice })
 		} catch (err) {
 			console.error('[advice] getInvestmentAdvice failed', err)
+			const detail =
+				err instanceof Error
+					? `${err.message}\n${err.stack ?? ''}`.trim()
+					: String(err)
 			return renderAdviceResponse(
 				session,
 				{
 					cashAmount,
-					error:
-						"We couldn't get advice right now. Please try again in a moment.",
+					formError: {
+						summary:
+							"We couldn't get advice right now. Please try again in a moment.",
+						detail,
+					},
 				},
 				{ status: 503 },
 			)

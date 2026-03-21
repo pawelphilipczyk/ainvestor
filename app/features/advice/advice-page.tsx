@@ -2,10 +2,15 @@ import type { Handle } from 'remix/component'
 import { FieldLabel, NumberInput } from '../../components/index.ts'
 import { routes } from '../../routes.ts'
 
+type FormError = {
+	summary: string
+	detail?: string
+}
+
 type AdvicePageProps = {
 	cashAmount?: string
 	advice?: string
-	error?: string
+	formError?: FormError
 }
 
 export function AdvicePage(_handle: Handle, _setup?: unknown) {
@@ -26,12 +31,23 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 				data-fetch-submit
 				data-replace-main
 			>
-				{props.error ? (
+				{props.formError ? (
 					<div
 						role="alert"
 						class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
 					>
-						{props.error}
+						{props.formError.detail ? (
+							<details>
+								<summary class="cursor-pointer list-outside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+									{props.formError.summary}
+								</summary>
+								<pre class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-destructive/20 pt-3 font-mono text-xs leading-relaxed text-destructive/90">
+									{props.formError.detail}
+								</pre>
+							</details>
+						) : (
+							props.formError.summary
+						)}
 					</div>
 				) : null}
 				<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
