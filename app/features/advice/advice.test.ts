@@ -110,8 +110,20 @@ describe('Advice', () => {
 			},
 		})
 
+		const bankJson = JSON.stringify({
+			data: [{ fund_name: 'VXUS', ticker: 'VXUS', assets: 'akcje' }],
+			count: 1,
+		})
+		await router.fetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: bankJson,
+				headers: { 'Content-Type': 'application/json' },
+			}),
+		)
+
 		const addForm = new FormData()
-		addForm.set('etfName', 'VXUS')
+		addForm.set('instrumentTicker', 'VXUS')
 		addForm.set('value', '3000')
 		addForm.set('currency', 'USD')
 		await router.fetch(

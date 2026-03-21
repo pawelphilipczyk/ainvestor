@@ -8,7 +8,7 @@ import { routes } from '../../../routes.ts'
 export function ImportEtfForm(_handle: Handle, _setup?: unknown) {
 	return () => (
 		<section
-			class="mt-6 rounded-lg border border-primary/25 bg-primary/5 p-4 shadow-sm"
+			class="mt-6 min-w-0 rounded-lg border border-primary/25 bg-primary/5 p-4 shadow-sm"
 			aria-labelledby="portfolio-import-heading"
 		>
 			<h2
@@ -35,7 +35,7 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 				class="mt-4 grid gap-4"
 				data-fetch-submit
 				data-fragment-id="portfolio-list"
-				data-fragment-url="/fragments/portfolio-list"
+				data-fragment-url={routes.portfolio.fragmentList.href()}
 			>
 				<div class="grid gap-2">
 					<FieldLabel fieldId="portfolioCsvPaste">Paste CSV here</FieldLabel>

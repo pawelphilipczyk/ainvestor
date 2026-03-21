@@ -2,11 +2,32 @@ import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
 import { router } from '../../router.ts'
+import { resetGuestCatalog } from '../catalog/index.ts'
 import { resetEtfEntries } from './index.ts'
 
 afterEach(() => {
 	resetEtfEntries()
+	resetGuestCatalog()
 })
+
+/** Seeds guest catalog with tickers used in manual-add portfolio tests. */
+async function seedGuestCatalog() {
+	const bankJson = JSON.stringify({
+		data: [
+			{ fund_name: 'VTI', ticker: 'VTI', assets: 'akcje' },
+			{ fund_name: 'IBTA LN ETF', ticker: 'IBTA', assets: 'akcje' },
+			{ fund_name: 'IQQH GR ETF', ticker: 'IQQH', assets: 'akcje' },
+		],
+		count: 3,
+	})
+	await router.fetch(
+		new Request('http://localhost/catalog/import', {
+			method: 'POST',
+			body: bankJson,
+			headers: { 'Content-Type': 'application/json' },
+		}),
+	)
+}
 
 describe('Health endpoint', () => {
 	it('returns ok', async () => {
@@ -54,14 +75,13 @@ describe('Portfolio page', () => {
 		}
 	})
 
-	it('form has name, value, currency, exchange and quantity fields', async () => {
+	it('form has instrument, value, currency, and quantity fields', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 
-		assert.match(body, /name="etfName"/)
+		assert.match(body, /name="instrumentTicker"/)
 		assert.match(body, /name="value"/)
 		assert.match(body, /name="currency"/)
-		assert.match(body, /name="exchange"/)
 		assert.match(body, /name="quantity"/)
 	})
 
@@ -74,8 +94,9 @@ describe('Portfolio page', () => {
 	})
 
 	it('adds ETF with PLN currency', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'VTI')
+		form.set('instrumentTicker', 'VTI')
 		form.set('value', '1000')
 		form.set('currency', 'PLN')
 
@@ -84,9 +105,13 @@ describe('Portfolio page', () => {
 		)
 		assert.equal(postResponse.status, 302)
 
-		const homeResponse = await router.fetch('http://localhost/')
-		const homeBody = await homeResponse.text()
-		assert.match(homeBody, /PLN/)
+		const fragmentRes = await router.fetch(
+			'http://localhost/fragments/portfolio-list',
+		)
+		assert.equal(fragmentRes.status, 200)
+		const fragmentBody = await fragmentRes.text()
+		assert.match(fragmentBody, /VTI/)
+		assert.match(fragmentBody, /PLN/)
 	})
 
 	it('value field is a numeric input', async () => {
@@ -96,12 +121,12 @@ describe('Portfolio page', () => {
 		assert.match(body, /id="value"[^>]*type="number"/)
 	})
 
-	it('adds ETF when exchange and quantity are left empty (optional fields)', async () => {
+	it('adds ETF when optional quantity is left empty', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'VTI')
+		form.set('instrumentTicker', 'VTI')
 		form.set('value', '1000')
 		form.set('currency', 'PLN')
-		form.set('exchange', '')
 		form.set('quantity', '')
 
 		const postResponse = await router.fetch(
@@ -115,12 +140,12 @@ describe('Portfolio page', () => {
 		assert.match(homeBody, /PLN/)
 	})
 
-	it('adds ETF with exchange and quantity when provided', async () => {
+	it('adds ETF with optional quantity when provided', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'IBTA LN ETF')
+		form.set('instrumentTicker', 'IBTA')
 		form.set('value', '4087.48')
 		form.set('currency', 'PLN')
-		form.set('exchange', 'GBR-LSE')
 		form.set('quantity', '186')
 
 		const postResponse = await router.fetch(
@@ -132,12 +157,12 @@ describe('Portfolio page', () => {
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /IBTA LN ETF/)
 		assert.match(homeBody, /186 shares/)
-		assert.match(homeBody, /GBR-LSE/)
 	})
 
 	it('adds an ETF on form submit and displays it on homepage', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'VTI')
+		form.set('instrumentTicker', 'VTI')
 		form.set('value', '1200.50')
 		form.set('currency', 'USD')
 
@@ -210,8 +235,9 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('adds to existing ETF value when adding same name instead of replacing', async () => {
+		await seedGuestCatalog()
 		const form1 = new FormData()
-		form1.set('etfName', 'VTI')
+		form1.set('instrumentTicker', 'VTI')
 		form1.set('value', '1200')
 		form1.set('currency', 'USD')
 
@@ -220,7 +246,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 
 		const form2 = new FormData()
-		form2.set('etfName', 'VTI')
+		form2.set('instrumentTicker', 'VTI')
 		form2.set('value', '500')
 		form2.set('currency', 'USD')
 
@@ -243,8 +269,9 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('portfolio page no longer uses legacy etf-card data-island hooks', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'VTI')
+		form.set('instrumentTicker', 'VTI')
 		form.set('value', '1000')
 		form.set('currency', 'USD')
 
@@ -293,8 +320,9 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('uses explicit readable colors for the sell confirmation cancel button', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'VTI')
+		form.set('instrumentTicker', 'VTI')
 		form.set('value', '1000')
 		form.set('currency', 'USD')
 
@@ -312,8 +340,9 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('DELETE /etfs/:id removes the ETF via method override', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'VTI')
+		form.set('instrumentTicker', 'VTI')
 		form.set('value', '1000')
 		form.set('currency', 'USD')
 
@@ -344,7 +373,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 
 	it('shows validation error when adding ETF with invalid data (full-page)', async () => {
 		const form = new FormData()
-		form.set('etfName', '')
+		form.set('instrumentTicker', '')
 		form.set('value', '-1')
 		form.set('currency', 'PLN')
 		const res = await router.fetch(
@@ -360,12 +389,15 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			{ headers: cookie ? { Cookie: cookie.split(';')[0] } : undefined },
 		)
 		const body = await homeRes.text()
-		assert.match(body, /Please enter a valid ETF name and value/)
+		assert.match(
+			body,
+			/Please select a fund from your catalog and enter a valid value/,
+		)
 	})
 
 	it('returns 422 JSON when fetch sends Accept: application/json and validation fails', async () => {
 		const form = new FormData()
-		form.set('etfName', '')
+		form.set('instrumentTicker', '')
 		form.set('value', '-1')
 		form.set('currency', 'PLN')
 		const res = await router.fetch(
@@ -379,7 +411,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		const data = await res.json()
 		assert.equal(
 			data.error,
-			'Please enter a valid ETF name and value (number >= 0).',
+			'Please select a fund from your catalog and enter a valid value (number >= 0).',
 		)
 	})
 
@@ -401,8 +433,9 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('GET /fragments/portfolio-list returns ETF list HTML fragment', async () => {
+		await seedGuestCatalog()
 		const form = new FormData()
-		form.set('etfName', 'VTI')
+		form.set('instrumentTicker', 'VTI')
 		form.set('value', '1000')
 		form.set('currency', 'PLN')
 		await router.fetch(

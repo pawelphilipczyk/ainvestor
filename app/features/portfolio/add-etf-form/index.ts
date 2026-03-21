@@ -7,18 +7,26 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 import type { EtfEntry } from '../../../lib/gist.ts'
-import { fetchEtfs, saveEtfs } from '../../../lib/gist.ts'
+import {
+	fetchEtfs,
+	fetchPortfolioSnapshot,
+	saveEtfs,
+} from '../../../lib/gist.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
+import { getGuestCatalog } from '../../catalog/guest-catalog.ts'
+import {
+	type CatalogEntry,
+	findCatalogEntryByTicker,
+} from '../../catalog/lib.ts'
 import { getGuestEntries, guestEntries } from '../state.ts'
 import { AddEtfForm } from './add-etf-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
 
 export const CreateEtfSchema = object({
-	etfName: string().pipe(minLength(1)),
+	instrumentTicker: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
-	exchange: optional(string()),
 	quantity: optional(coerce.number().pipe(min(0))),
 })
 
@@ -30,7 +38,6 @@ export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
 	if (typeof raw.quantity === 'string') {
 		raw.quantity = raw.quantity.replace(/,/g, '')
 	}
-	if (raw.exchange === '') delete raw.exchange
 	if (raw.quantity === '') delete raw.quantity
 }
 
@@ -52,7 +59,8 @@ export const addEtfFormHandlers = {
 
 		const result = parseSafe(CreateEtfSchema, raw)
 		if (!result.success) {
-			const message = 'Please enter a valid ETF name and value (number >= 0).'
+			const message =
+				'Please select a fund from your catalog and enter a valid value (number >= 0).'
 			const prefersJson = context.request.headers
 				.get('Accept')
 				?.includes('application/json')
@@ -66,36 +74,74 @@ export const addEtfFormHandlers = {
 			return createRedirectResponse(routes.portfolio.index.href())
 		}
 
-		const { etfName: name, value, currency, exchange, quantity } = result.value
+		const { instrumentTicker, value, currency, quantity } = result.value
 		const session = getSessionData(context.session)
-		const current = session?.gistId
-			? await fetchEtfs(session.token, session.gistId)
-			: getGuestEntries()
+		let catalog: CatalogEntry[]
+		let current: EtfEntry[]
+		if (session?.gistId) {
+			const snapshot = await fetchPortfolioSnapshot(
+				session.token,
+				session.gistId,
+			)
+			catalog = snapshot.catalog
+			current = snapshot.entries
+		} else {
+			catalog = getGuestCatalog()
+			current = getGuestEntries()
+		}
+		const match = findCatalogEntryByTicker(catalog, instrumentTicker)
+		if (!match) {
+			const message =
+				'Selected catalog entry not found. Update your catalog or pick another fund.'
+			const prefersJson = context.request.headers
+				.get('Accept')
+				?.includes('application/json')
+			if (prefersJson) {
+				return new Response(
+					JSON.stringify({
+						error: message,
+						instrumentTicker: instrumentTicker.trim(),
+						...(session?.gistId ? { gistId: session.gistId } : {}),
+					}),
+					{
+						status: 422,
+						headers: { 'Content-Type': 'application/json' },
+					},
+				)
+			}
+			context.session.flash('error', message)
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
+		const name = match.name
 
 		const normalizedName = name.toLowerCase()
 		const normalizedCurrency = currency.toUpperCase()
-		const existingIndex = current.findIndex(
-			(e) =>
-				e.name.toLowerCase() === normalizedName &&
-				e.currency.toUpperCase() === normalizedCurrency,
-		)
+		const normalizedTicker = match.ticker.toUpperCase()
+		const existingIndex = current.findIndex((e) => {
+			if (e.currency.toUpperCase() !== normalizedCurrency) return false
+			if (e.ticker) {
+				return e.ticker.toUpperCase() === normalizedTicker
+			}
+			return e.name.toLowerCase() === normalizedName
+		})
 		const existing = existingIndex >= 0 ? current[existingIndex] : null
+		const ticker = match.ticker
 		const entry: EtfEntry = existing
 			? {
 					...existing,
+					ticker: existing.ticker ?? ticker,
 					value: existing.value + value,
 					quantity:
 						existing.quantity !== undefined && quantity !== undefined
 							? existing.quantity + quantity
 							: (quantity ?? existing.quantity),
-					exchange: existing.exchange || exchange || undefined,
 				}
 			: {
 					id: crypto.randomUUID(),
 					name,
+					ticker,
 					value,
 					currency: normalizedCurrency,
-					...(exchange ? { exchange } : {}),
 					...(quantity !== undefined ? { quantity } : {}),
 				}
 

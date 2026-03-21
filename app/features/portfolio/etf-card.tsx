@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import { routes } from '../../routes.ts'
 import { Badge } from './badge.tsx'
 
 type EtfCardProps = {
@@ -52,7 +53,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						action={props.deleteHref}
 						data-fetch-submit
 						data-fragment-id="portfolio-list"
-						data-fragment-url="/fragments/portfolio-list"
+						data-fragment-url={routes.portfolio.fragmentList.href()}
 					>
 						<input type="hidden" name="_method" value="DELETE" />
 						<button

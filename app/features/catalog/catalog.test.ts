@@ -106,7 +106,7 @@ describe('ETF Catalog page', () => {
 		)
 
 		const addForm = new FormData()
-		addForm.set('etfName', 'VTI')
+		addForm.set('instrumentTicker', 'VTI')
 		addForm.set('value', '5000')
 		addForm.set('currency', 'USD')
 		await router.fetch(
