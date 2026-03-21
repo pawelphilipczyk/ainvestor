@@ -9,6 +9,11 @@ import { getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
 import { CatalogPage } from './catalog-page.tsx'
+import {
+	getGuestCatalog,
+	resetGuestCatalog,
+	setGuestCatalog,
+} from './guest-catalog.ts'
 import type { CatalogEntry } from './lib.ts'
 import {
 	fetchCatalog,
@@ -17,18 +22,7 @@ import {
 	saveCatalog,
 } from './lib.ts'
 
-// ---------------------------------------------------------------------------
-// Guest state
-// ---------------------------------------------------------------------------
-let guestCatalog: CatalogEntry[] = []
-
-export function resetGuestCatalog() {
-	guestCatalog = []
-}
-
-export function getGuestCatalog(): CatalogEntry[] {
-	return guestCatalog
-}
+export { getGuestCatalog, resetGuestCatalog }
 
 // ---------------------------------------------------------------------------
 // Controller
@@ -43,7 +37,7 @@ export const catalogController = {
 		const [catalog, entries] = await Promise.all([
 			session?.gistId
 				? fetchCatalog(session.token, session.gistId)
-				: guestCatalog,
+				: getGuestCatalog(),
 			session?.gistId
 				? fetchEtfs(session.token, session.gistId)
 				: getGuestEntries(),
@@ -68,13 +62,13 @@ export const catalogController = {
 		const session = getSessionData(context.session)
 		const existing = session?.gistId
 			? await fetchCatalog(session.token, session.gistId)
-			: guestCatalog
+			: getGuestCatalog()
 		const merged = mergeBankIntoCatalog(existing, imported)
 
 		if (session?.gistId) {
 			await saveCatalog(session.token, session.gistId, merged)
 		} else {
-			guestCatalog = merged
+			setGuestCatalog(merged)
 		}
 
 		return createRedirectResponse(routes.catalog.index.href())

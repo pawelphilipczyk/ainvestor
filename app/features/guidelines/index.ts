@@ -16,7 +16,7 @@ import {
 import type { SessionData } from '../../lib/session.ts'
 import { getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { getGuestCatalog } from '../catalog/index.ts'
+import { getGuestCatalog } from '../catalog/guest-catalog.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import {
 	assetClassSelectOptionsFromCatalog,
