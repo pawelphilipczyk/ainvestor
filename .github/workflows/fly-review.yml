@@ -2,7 +2,7 @@ name: Deploy PR Preview
 
 on:
   pull_request:
-    types: [opened, reopened, synchronize]
+    types: [opened, reopened, synchronize, ready_for_review]
 
 concurrency:
   group: deploy-preview
@@ -13,6 +13,7 @@ env:
 
 jobs:
   preview:
+    if: github.event.pull_request.draft == false
     runs-on: ubuntu-latest
     environment:
       name: preview
