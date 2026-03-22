@@ -88,6 +88,20 @@ async function handleFetchSubmit(form, submitBtn) {
 			} else {
 				window.location.href = res.url
 			}
+		} else if (replaceMain) {
+			const html = await res.text()
+			const parser = new DOMParser()
+			const doc = parser.parseFromString(html, 'text/html')
+			const main = doc.querySelector('main')
+			const pageContent = document.getElementById('page-content')
+			if (main && pageContent) {
+				pageContent.innerHTML = main.outerHTML
+			} else {
+				// Keep the fetched HTML (e.g. error page) instead of replaying as GET.
+				document.open()
+				document.write(html)
+				document.close()
+			}
 		} else if (res.status === 422 && errorId) {
 			const data = await res.json().catch(() => ({}))
 			showError(data.error || 'Please check your input.')
