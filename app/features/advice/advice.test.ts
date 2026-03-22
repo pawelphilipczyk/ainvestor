@@ -86,6 +86,36 @@ describe('Advice', () => {
 		assert.match(body, /simulated API failure/)
 	})
 
+	it('returns 503 with AdvicePage HTML when the default OpenAI client cannot be created', async () => {
+		const prevKey = process.env.OPENAI_API_KEY
+		delete process.env.OPENAI_API_KEY
+
+		try {
+			const form = new FormData()
+			form.set('cashAmount', '100')
+
+			const response = await router.fetch(
+				new Request('http://localhost/advice', { method: 'POST', body: form }),
+			)
+			const body = await response.text()
+
+			assert.equal(response.status, 503)
+			assert.match(body, /Get Advice/)
+			assert.match(body, /role="alert"/)
+			assert.match(
+				body,
+				/We couldn't get advice right now\. Please try again in a moment\./,
+			)
+			assert.match(body, /Missing credentials/)
+		} finally {
+			if (prevKey === undefined) {
+				delete process.env.OPENAI_API_KEY
+			} else {
+				process.env.OPENAI_API_KEY = prevKey
+			}
+		}
+	})
+
 	it('returns advice HTML from the LLM when cashAmount is provided', async () => {
 		setAdviceClient(makeMockClient('Buy VTI for broad market exposure.'))
 

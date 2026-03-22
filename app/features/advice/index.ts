@@ -115,8 +115,8 @@ export const adviceController = {
 			? await fetchGuidelines(session.token, session.gistId)
 			: getGuestGuidelines()
 
-		const client = adviceClient ?? createDefaultClient()
 		try {
+			const client = adviceClient ?? createDefaultClient()
 			const advice = await getInvestmentAdvice(
 				entries,
 				guidelines,
@@ -125,7 +125,7 @@ export const adviceController = {
 			)
 			return renderAdviceResponse(session, { cashAmount, advice })
 		} catch (err) {
-			console.error('[advice] getInvestmentAdvice failed', err)
+			console.error('[advice] request failed', err)
 			const detail =
 				err instanceof Error
 					? `${err.message}\n${err.stack ?? ''}`.trim()
