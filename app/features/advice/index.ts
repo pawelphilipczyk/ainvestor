@@ -4,11 +4,12 @@ import { object, parseSafe, string } from 'remix/data-schema'
 import { minLength } from 'remix/data-schema/checks'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
-import { fetchEtfs } from '../../lib/gist.ts'
+import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { getSessionData, type SessionData } from '../../lib/session.ts'
 import type { AdviceClient } from '../../openai.ts'
 import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
+import { getGuestCatalog } from '../catalog/guest-catalog.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
 import { AdvicePage } from './advice-page.tsx'
@@ -108,9 +109,9 @@ export const adviceController = {
 		}
 		const { cashAmount } = result.value
 
-		const entries = session?.gistId
-			? await fetchEtfs(session.token, session.gistId)
-			: getGuestEntries()
+		const { entries, catalog } = session?.gistId
+			? await fetchPortfolioSnapshot(session.token, session.gistId)
+			: { entries: getGuestEntries(), catalog: getGuestCatalog() }
 		const guidelines = session?.gistId
 			? await fetchGuidelines(session.token, session.gistId)
 			: getGuestGuidelines()
@@ -122,6 +123,7 @@ export const adviceController = {
 				guidelines,
 				cashAmount,
 				client,
+				catalog,
 			)
 			return renderAdviceResponse(session, { cashAmount, advice })
 		} catch (err) {
