@@ -97,7 +97,10 @@ async function handleFetchSubmit(form, submitBtn) {
 			if (main && pageContent) {
 				pageContent.innerHTML = main.outerHTML
 			} else {
-				window.location.href = res.url || '/'
+				// Keep the fetched HTML (e.g. error page) instead of replaying as GET.
+				document.open()
+				document.write(html)
+				document.close()
 			}
 		} else if (res.status === 422 && errorId) {
 			const data = await res.json().catch(() => ({}))

@@ -106,7 +106,8 @@ describe('Advice', () => {
 				body,
 				/We couldn't get advice right now\. Please try again in a moment\./,
 			)
-			assert.match(body, /Missing credentials/)
+			assert.match(body, /<details>/)
+			assert.match(body, /<summary[^>]*>/)
 		} finally {
 			if (prevKey === undefined) {
 				delete process.env.OPENAI_API_KEY

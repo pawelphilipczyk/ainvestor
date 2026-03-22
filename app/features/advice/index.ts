@@ -126,9 +126,12 @@ export const adviceController = {
 			return renderAdviceResponse(session, { cashAmount, advice })
 		} catch (err) {
 			console.error('[advice] request failed', err)
+			const exposeStack = process.env.NODE_ENV !== 'production'
 			const detail =
 				err instanceof Error
-					? `${err.message}\n${err.stack ?? ''}`.trim()
+					? exposeStack
+						? `${err.message}\n${err.stack ?? ''}`.trim()
+						: err.message
 					: String(err)
 			return renderAdviceResponse(
 				session,
