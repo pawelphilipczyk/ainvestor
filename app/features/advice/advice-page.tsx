@@ -34,11 +34,11 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 				{props.formError ? (
 					<div
 						role="alert"
-						class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+						class="rounded-md border border-destructive/50 bg-destructive/10 py-3 pl-6 pr-4 text-sm text-destructive"
 					>
 						{props.formError.detail ? (
 							<details>
-								<summary class="cursor-pointer list-outside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+								<summary class="cursor-pointer list-inside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
 									{props.formError.summary}
 								</summary>
 								<pre class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-destructive/20 pt-3 font-mono text-xs leading-relaxed text-destructive/90">
