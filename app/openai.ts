@@ -1,9 +1,13 @@
 import OpenAI from 'openai'
+import {
+	type AdviceDocument,
+	parseAdviceDocument,
+} from './features/advice/advice-document.ts'
 import type { EtfEntry } from './lib/gist.ts'
 import type { EtfGuideline } from './lib/guidelines.ts'
 import { formatEtfTypeLabel } from './lib/guidelines.ts'
 
-export type { EtfEntry }
+export type { AdviceDocument, EtfEntry }
 
 const SYSTEM_PROMPT = `You are a financial advisor specialising in ETF portfolio allocation.
 The user may set a hybrid target allocation: asset-class buckets (e.g. a percentage for all equities)
@@ -14,8 +18,23 @@ The user will describe their target allocation (if set), their current holdings,
 Compare the current holdings against the target allocation and recommend which ETF to buy next
 to move the portfolio closest to the stated targets — prioritising the asset furthest below its target percentage.
 If no target allocation is set, recommend based on diversification, risk balance, and long-term growth.
-Keep your answer concise – two to four paragraphs maximum.
-Do not provide legal or tax advice; only portfolio allocation guidance.`
+Keep written guidance concise (roughly two to four short paragraphs total across paragraph blocks).
+Do not provide legal or tax advice; only portfolio allocation guidance.
+
+You MUST respond with a single JSON object only (no markdown code fences, no extra text). Shape:
+{
+  "blocks": [
+    { "type": "paragraph", "text": "..." },
+    { "type": "etf_proposals", "caption": "optional short heading", "rows": [
+      { "name": "Fund name", "ticker": "VTI", "amountUsd": 500, "note": "optional rationale" }
+    ]}
+  ]
+}
+Rules:
+- Include at least one block. Use "paragraph" for narrative and optional "etf_proposals" for a proposed purchases table.
+- "etf_proposals.rows" may be empty if a table is not needed.
+- "amountUsd" is optional; omit or use null when not giving a dollar amount.
+- Use plain text in "text" and "note" fields (no HTML tags).`
 
 export function formatGuidelineLine(g: EtfGuideline): string {
 	if (g.kind === 'asset_class') {
@@ -30,6 +49,7 @@ export type AdviceClient = {
 			create: (params: {
 				model: string
 				messages: { role: 'system' | 'user'; content: string }[]
+				response_format?: { type: 'json_object' }
 			}) => Promise<{ choices: { message: { content: string | null } }[] }>
 		}
 	}
@@ -44,7 +64,7 @@ export async function getInvestmentAdvice(
 	guidelines: EtfGuideline[],
 	cashAmount: string,
 	client: AdviceClient,
-): Promise<string> {
+): Promise<AdviceDocument> {
 	const holdingsList =
 		holdings.length === 0
 			? 'No ETFs recorded yet.'
@@ -66,7 +86,9 @@ export async function getInvestmentAdvice(
 			{ role: 'system', content: SYSTEM_PROMPT },
 			{ role: 'user', content: userMessage },
 		],
+		response_format: { type: 'json_object' },
 	})
 
-	return response.choices[0]?.message?.content ?? 'No advice available.'
+	const content = response.choices[0]?.message?.content
+	return parseAdviceDocument(content)
 }

@@ -4,6 +4,10 @@ import type { EtfGuideline } from './lib/guidelines.ts'
 import type { AdviceClient, EtfEntry } from './openai.ts'
 import { getInvestmentAdvice } from './openai.ts'
 
+function adviceJsonParagraph(text: string): string {
+	return JSON.stringify({ blocks: [{ type: 'paragraph', text }] })
+}
+
 function makeMockClient(responseText: string): AdviceClient {
 	return {
 		chat: {
@@ -17,15 +21,32 @@ function makeMockClient(responseText: string): AdviceClient {
 }
 
 describe('getInvestmentAdvice', () => {
-	it('returns the advice text from the LLM', async () => {
-		const client = makeMockClient('Buy more VTI for broad diversification.')
+	it('returns paragraph blocks from the LLM JSON response', async () => {
+		const client = makeMockClient(
+			adviceJsonParagraph('Buy more VTI for broad diversification.'),
+		)
 		const holdings: EtfEntry[] = [
 			{ id: '1', name: 'VTI', value: 5000, currency: 'USD' },
 		]
 
 		const advice = await getInvestmentAdvice(holdings, [], '1000', client)
 
-		assert.equal(advice, 'Buy more VTI for broad diversification.')
+		const first = advice.blocks[0]
+		assert.equal(first?.type, 'paragraph')
+		if (first?.type === 'paragraph') {
+			assert.equal(first.text, 'Buy more VTI for broad diversification.')
+		}
+	})
+
+	it('falls back to a single paragraph when the model returns plain text', async () => {
+		const client = makeMockClient('Plain text without JSON.')
+		const advice = await getInvestmentAdvice([], [], '100', client)
+
+		const first = advice.blocks[0]
+		assert.equal(first?.type, 'paragraph')
+		if (first?.type === 'paragraph') {
+			assert.equal(first.text, 'Plain text without JSON.')
+		}
 	})
 
 	it('describes holdings with name, value and currency', async () => {
@@ -35,7 +56,9 @@ describe('getInvestmentAdvice', () => {
 				completions: {
 					create: async (params) => {
 						capturedMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'advice' } }] }
+						return {
+							choices: [{ message: { content: adviceJsonParagraph('x') } }],
+						}
 					},
 				},
 			},
@@ -62,7 +85,13 @@ describe('getInvestmentAdvice', () => {
 				completions: {
 					create: async (params) => {
 						capturedMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'Start with VTI.' } }] }
+						return {
+							choices: [
+								{
+									message: { content: adviceJsonParagraph('Start with VTI.') },
+								},
+							],
+						}
 					},
 				},
 			},
@@ -87,7 +116,11 @@ describe('getInvestmentAdvice', () => {
 
 		const advice = await getInvestmentAdvice([], [], '100', client)
 
-		assert.equal(advice, 'No advice available.')
+		const first = advice.blocks[0]
+		assert.equal(first?.type, 'paragraph')
+		if (first?.type === 'paragraph') {
+			assert.equal(first.text, 'No advice available.')
+		}
 	})
 
 	it('includes guidelines as target allocation in the user message', async () => {
@@ -97,7 +130,11 @@ describe('getInvestmentAdvice', () => {
 				completions: {
 					create: async (params) => {
 						capturedMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'advice' } }] }
+						return {
+							choices: [
+								{ message: { content: adviceJsonParagraph('advice') } },
+							],
+						}
 					},
 				},
 			},
@@ -135,7 +172,11 @@ describe('getInvestmentAdvice', () => {
 				completions: {
 					create: async (params) => {
 						capturedMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'advice' } }] }
+						return {
+							choices: [
+								{ message: { content: adviceJsonParagraph('advice') } },
+							],
+						}
 					},
 				},
 			},
@@ -153,7 +194,11 @@ describe('getInvestmentAdvice', () => {
 				completions: {
 					create: async (params) => {
 						capturedMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'advice' } }] }
+						return {
+							choices: [
+								{ message: { content: adviceJsonParagraph('advice') } },
+							],
+						}
 					},
 				},
 			},

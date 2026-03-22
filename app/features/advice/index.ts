@@ -11,6 +11,7 @@ import type { AdviceClient } from '../../openai.ts'
 import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
+import type { AdviceDocument } from './advice-document.ts'
 import { AdvicePage } from './advice-page.tsx'
 
 const AdviceSchema = object({
@@ -31,7 +32,7 @@ function renderAdviceResponse(
 	session: SessionData | null,
 	props: {
 		cashAmount?: string
-		advice?: string
+		advice?: AdviceDocument
 		formError?: { summary: string; detail?: string }
 	},
 	init?: ResponseInit,

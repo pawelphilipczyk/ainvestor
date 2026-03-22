@@ -1,6 +1,7 @@
 import type { Handle } from 'remix/component'
 import { FieldLabel, NumberInput } from '../../components/index.ts'
 import { routes } from '../../routes.ts'
+import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
 
 type FormError = {
 	summary: string
@@ -9,8 +10,95 @@ type FormError = {
 
 type AdvicePageProps = {
 	cashAmount?: string
-	advice?: string
+	advice?: AdviceDocument
 	formError?: FormError
+}
+
+function formatUsd(amount: number): string {
+	return new Intl.NumberFormat('en-US', {
+		style: 'currency',
+		currency: 'USD',
+	}).format(amount)
+}
+
+function renderAdviceBlock(block: AdviceBlock) {
+	if (block.type === 'paragraph') {
+		return (
+			<div class="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
+				{block.text}
+			</div>
+		)
+	}
+
+	return (
+		<section class="space-y-2">
+			{block.caption ? (
+				<h3 class="text-base font-semibold tracking-tight text-card-foreground">
+					{block.caption}
+				</h3>
+			) : null}
+			{block.rows.length === 0 ? (
+				<p class="text-sm text-muted-foreground">
+					No specific ETF proposals in this response.
+				</p>
+			) : (
+				<div class="overflow-x-auto rounded-lg border border-border">
+					<table class="w-full table-auto border-collapse text-sm">
+						<caption class="sr-only">Proposed ETF investments</caption>
+						<thead class="bg-muted/40">
+							<tr>
+								<th
+									scope="col"
+									class="px-3 py-2 text-left font-medium text-card-foreground"
+								>
+									Fund
+								</th>
+								<th
+									scope="col"
+									class="px-3 py-2 text-left font-medium text-card-foreground"
+								>
+									Ticker
+								</th>
+								<th
+									scope="col"
+									class="px-3 py-2 text-right font-medium text-card-foreground"
+								>
+									Amount
+								</th>
+								<th
+									scope="col"
+									class="px-3 py-2 text-left font-medium text-card-foreground"
+								>
+									Note
+								</th>
+							</tr>
+						</thead>
+						<tbody>
+							{block.rows.map((row) => (
+								<tr
+									key={`${row.name}-${row.ticker ?? ''}-${row.amountUsd ?? ''}`}
+									class="border-t border-border"
+								>
+									<td class="px-3 py-2 text-card-foreground">{row.name}</td>
+									<td class="px-3 py-2 text-muted-foreground">
+										{row.ticker ?? '—'}
+									</td>
+									<td class="px-3 py-2 text-right tabular-nums text-card-foreground">
+										{row.amountUsd !== undefined
+											? formatUsd(row.amountUsd)
+											: '—'}
+									</td>
+									<td class="px-3 py-2 text-muted-foreground">
+										{row.note ?? '—'}
+									</td>
+								</tr>
+							))}
+						</tbody>
+					</table>
+				</div>
+			)}
+		</section>
+	)
 }
 
 export function AdvicePage(_handle: Handle, _setup?: unknown) {
@@ -81,8 +169,10 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					<p class="mt-1 text-sm text-muted-foreground">
 						Based on your portfolio and ${props.cashAmount} available.
 					</p>
-					<div class="mt-4 whitespace-pre-wrap text-sm leading-relaxed">
-						{props.advice}
+					<div class="mt-4 space-y-6">
+						{props.advice.blocks.map((block, i) => (
+							<div key={`${block.type}-${i}`}>{renderAdviceBlock(block)}</div>
+						))}
 					</div>
 				</section>
 			) : null}

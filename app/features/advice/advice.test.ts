@@ -8,11 +8,24 @@ import { resetEtfEntries } from '../portfolio/index.ts'
 import { setAdviceClient } from './index.ts'
 
 function makeMockClient(responseText: string): AdviceClient {
+	const content = (() => {
+		try {
+			const parsed = JSON.parse(responseText) as unknown
+			if (parsed !== null && typeof parsed === 'object' && 'blocks' in parsed) {
+				return responseText
+			}
+		} catch {
+			// plain text from tests → wrap as paragraph block JSON
+		}
+		return JSON.stringify({
+			blocks: [{ type: 'paragraph', text: responseText }],
+		})
+	})()
 	return {
 		chat: {
 			completions: {
 				create: async () => ({
-					choices: [{ message: { content: responseText } }],
+					choices: [{ message: { content: content } }],
 				}),
 			},
 		},
@@ -129,7 +142,49 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
+		assert.match(body, /Investment Advice/)
 		assert.match(body, /Buy VTI for broad market exposure\./)
+	})
+
+	it('renders an ETF proposals table when the model returns etf_proposals blocks', async () => {
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'paragraph',
+							text: 'Consider adding to international exposure.',
+						},
+						{
+							type: 'etf_proposals',
+							caption: 'Suggested purchases',
+							rows: [
+								{
+									name: 'Vanguard Total International Stock',
+									ticker: 'VXUS',
+									amountUsd: 400,
+									note: 'Broad ex-US equities',
+								},
+							],
+						},
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '500')
+
+		const response = await router.fetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Suggested purchases/)
+		assert.match(body, /VXUS/)
+		assert.match(body, /\$400\.00/)
+		assert.match(body, /Broad ex-US equities/)
 	})
 
 	it('includes current ETF holdings in the advice context', async () => {
