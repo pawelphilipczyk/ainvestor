@@ -47,6 +47,7 @@ describe('Advice', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /Get Advice/)
 		assert.match(body, /name="cashAmount"/)
+		assert.match(body, /name="cashCurrency"/)
 		assert.match(body, /action="\/advice"/)
 	})
 
@@ -65,7 +66,7 @@ describe('Advice', () => {
 		assert.match(body, /Get Advice/)
 		assert.match(body, /role="alert"/)
 		assert.match(body, /<summary[^>]*>/)
-		assert.match(body, /Enter a valid cash amount \(USD\)\./)
+		assert.match(body, /Enter a valid cash amount and currency\./)
 		assert.match(body, /cashAmount:/)
 	})
 
@@ -162,7 +163,8 @@ describe('Advice', () => {
 								{
 									name: 'Vanguard Total International Stock',
 									ticker: 'VXUS',
-									amountUsd: 400,
+									amount: 400,
+									currency: 'PLN',
 									note: 'Broad ex-US equities',
 								},
 							],
@@ -183,7 +185,8 @@ describe('Advice', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /Suggested purchases/)
 		assert.match(body, /VXUS/)
-		assert.match(body, /\$400\.00/)
+		assert.match(body, /400\.00/)
+		assert.match(body, /PLN/)
 		assert.match(body, /Broad ex-US equities/)
 	})
 
@@ -231,7 +234,7 @@ describe('Advice', () => {
 
 		assert.match(capturedUserMessage, /VXUS/)
 		assert.match(capturedUserMessage, /3000 USD/)
-		assert.match(capturedUserMessage, /\$500/)
+		assert.match(capturedUserMessage, /500 PLN/)
 	})
 
 	it('passes guidelines into the advice prompt when they exist', async () => {

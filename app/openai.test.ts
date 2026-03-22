@@ -29,7 +29,13 @@ describe('getInvestmentAdvice', () => {
 			{ id: '1', name: 'VTI', value: 5000, currency: 'USD' },
 		]
 
-		const advice = await getInvestmentAdvice(holdings, [], '1000', client)
+		const advice = await getInvestmentAdvice({
+			holdings,
+			guidelines: [],
+			cashAmount: '1000',
+			cashCurrency: 'PLN',
+			client,
+		})
 
 		const first = advice.blocks[0]
 		assert.equal(first?.type, 'paragraph')
@@ -40,7 +46,13 @@ describe('getInvestmentAdvice', () => {
 
 	it('falls back to a single paragraph when the model returns plain text', async () => {
 		const client = makeMockClient('Plain text without JSON.')
-		const advice = await getInvestmentAdvice([], [], '100', client)
+		const advice = await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			client,
+		})
 
 		const first = advice.blocks[0]
 		assert.equal(first?.type, 'paragraph')
@@ -69,13 +81,19 @@ describe('getInvestmentAdvice', () => {
 			{ id: '2', name: 'VXUS', value: 2000, currency: 'EUR' },
 		]
 
-		await getInvestmentAdvice(holdings, [], '500', client)
+		await getInvestmentAdvice({
+			holdings,
+			guidelines: [],
+			cashAmount: '500',
+			cashCurrency: 'PLN',
+			client,
+		})
 
 		assert.match(capturedMessage, /VTI/)
 		assert.match(capturedMessage, /5000 USD/)
 		assert.match(capturedMessage, /VXUS/)
 		assert.match(capturedMessage, /2000 EUR/)
-		assert.match(capturedMessage, /\$500/)
+		assert.match(capturedMessage, /500 PLN/)
 	})
 
 	it('handles empty holdings gracefully', async () => {
@@ -97,10 +115,16 @@ describe('getInvestmentAdvice', () => {
 			},
 		}
 
-		await getInvestmentAdvice([], [], '2000', client)
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '2000',
+			cashCurrency: 'PLN',
+			client,
+		})
 
 		assert.match(capturedMessage, /No ETFs recorded yet/)
-		assert.match(capturedMessage, /\$2000/)
+		assert.match(capturedMessage, /2000 PLN/)
 	})
 
 	it('returns fallback text when LLM returns null content', async () => {
@@ -114,7 +138,13 @@ describe('getInvestmentAdvice', () => {
 			},
 		}
 
-		const advice = await getInvestmentAdvice([], [], '100', client)
+		const advice = await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			client,
+		})
 
 		const first = advice.blocks[0]
 		assert.equal(first?.type, 'paragraph')
@@ -157,7 +187,13 @@ describe('getInvestmentAdvice', () => {
 			},
 		]
 
-		await getInvestmentAdvice([], guidelines, '1000', client)
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines,
+			cashAmount: '1000',
+			cashCurrency: 'PLN',
+			client,
+		})
 
 		assert.match(capturedMessage, /VTI.*60%/)
 		assert.match(capturedMessage, /BND.*30%/)
@@ -182,7 +218,13 @@ describe('getInvestmentAdvice', () => {
 			},
 		}
 
-		await getInvestmentAdvice([], [], '500', client)
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '500',
+			cashCurrency: 'PLN',
+			client,
+		})
 
 		assert.doesNotMatch(capturedMessage, /target allocation/i)
 	})
@@ -221,7 +263,13 @@ describe('getInvestmentAdvice', () => {
 			},
 		]
 
-		await getInvestmentAdvice([], guidelines, '100', client)
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines,
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			client,
+		})
 
 		assert.match(capturedMessage, /Asset class equity.*bucket/)
 		assert.match(capturedMessage, /VTI.*specific fund/)

@@ -26,14 +26,14 @@ You MUST respond with a single JSON object only (no markdown code fences, no ext
   "blocks": [
     { "type": "paragraph", "text": "..." },
     { "type": "etf_proposals", "caption": "optional short heading", "rows": [
-      { "name": "Fund name", "ticker": "VTI", "amountUsd": 500, "note": "optional rationale" }
+      { "name": "Fund name", "ticker": "VTI", "amount": 500, "currency": "USD", "note": "optional rationale" }
     ]}
   ]
 }
 Rules:
 - Include at least one block. Use "paragraph" for narrative and optional "etf_proposals" for a proposed purchases table.
 - "etf_proposals.rows" may be empty if a table is not needed.
-- "amountUsd" is optional; omit or use null when not giving a dollar amount.
+- "amount" and "currency" are optional for each row; when you suggest a purchase amount, include both "amount" (number) and "currency" (ISO code: PLN, USD, EUR, GBP, CHF, JPY, CAD, AUD, SEK, or NOK).
 - Use plain text in "text" and "note" fields (no HTML tags).`
 
 export function formatGuidelineLine(g: EtfGuideline): string {
@@ -59,12 +59,15 @@ export function createDefaultClient(): AdviceClient {
 	return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 }
 
-export async function getInvestmentAdvice(
-	holdings: EtfEntry[],
-	guidelines: EtfGuideline[],
-	cashAmount: string,
-	client: AdviceClient,
-): Promise<AdviceDocument> {
+export async function getInvestmentAdvice(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+	cashAmount: string
+	cashCurrency: string
+	client: AdviceClient
+}): Promise<AdviceDocument> {
+	const { holdings, guidelines, cashAmount, cashCurrency, client } = params
+
 	const holdingsList =
 		holdings.length === 0
 			? 'No ETFs recorded yet.'
@@ -78,7 +81,7 @@ export async function getInvestmentAdvice(
 	const userMessage =
 		`${guidelinesSection}` +
 		`My current holdings:\n${holdingsList}\n\n` +
-		`I have $${cashAmount} available to invest. What should I buy next?`
+		`I have ${cashAmount} ${cashCurrency} available to invest. What should I buy next?`
 
 	const response = await client.chat.completions.create({
 		model: 'gpt-4o-mini',

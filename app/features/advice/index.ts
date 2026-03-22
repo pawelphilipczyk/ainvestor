@@ -1,9 +1,10 @@
 import { jsx } from 'remix/component/jsx-runtime'
 import type { Issue } from 'remix/data-schema'
-import { object, parseSafe, string } from 'remix/data-schema'
+import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
 import { minLength } from 'remix/data-schema/checks'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
+import { CURRENCIES } from '../../lib/currencies.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { getSessionData, type SessionData } from '../../lib/session.ts'
@@ -16,6 +17,7 @@ import { AdvicePage } from './advice-page.tsx'
 
 const AdviceSchema = object({
 	cashAmount: string().pipe(minLength(1)),
+	cashCurrency: defaulted(enum_(CURRENCIES), 'PLN'),
 })
 
 function formatSchemaIssues(issues: ReadonlyArray<Issue>): string {
@@ -32,6 +34,7 @@ function renderAdviceResponse(
 	session: SessionData | null,
 	props: {
 		cashAmount?: string
+		cashCurrency?: string
 		advice?: AdviceDocument
 		formError?: { summary: string; detail?: string }
 	},
@@ -85,29 +88,39 @@ export const adviceController = {
 			)
 		}
 
-		const result = parseSafe(
-			AdviceSchema,
-			Object.fromEntries(
-				form as unknown as Iterable<[string, FormDataEntryValue]>,
-			),
+		const rawEntries = Object.fromEntries(
+			form as unknown as Iterable<[string, FormDataEntryValue]>,
 		)
+		const formPayload = {
+			...rawEntries,
+			cashCurrency:
+				typeof rawEntries.cashCurrency === 'string' &&
+				rawEntries.cashCurrency.length > 0
+					? rawEntries.cashCurrency
+					: undefined,
+		}
+		const result = parseSafe(AdviceSchema, formPayload)
 		if (!result.success) {
 			const raw = form.get('cashAmount')
 			const cashAmount =
 				typeof raw === 'string' && raw.length > 0 ? raw : undefined
+			const rawCur = form.get('cashCurrency')
+			const cashCurrency =
+				typeof rawCur === 'string' && rawCur.length > 0 ? rawCur : 'PLN'
 			return renderAdviceResponse(
 				session,
 				{
 					cashAmount,
+					cashCurrency,
 					formError: {
-						summary: 'Enter a valid cash amount (USD).',
+						summary: 'Enter a valid cash amount and currency.',
 						detail: formatSchemaIssues(result.issues),
 					},
 				},
 				{ status: 400 },
 			)
 		}
-		const { cashAmount } = result.value
+		const { cashAmount, cashCurrency } = result.value
 
 		const entries = session?.gistId
 			? await fetchEtfs(session.token, session.gistId)
@@ -118,13 +131,18 @@ export const adviceController = {
 
 		try {
 			const client = adviceClient ?? createDefaultClient()
-			const advice = await getInvestmentAdvice(
-				entries,
+			const advice = await getInvestmentAdvice({
+				holdings: entries,
 				guidelines,
 				cashAmount,
+				cashCurrency,
 				client,
-			)
-			return renderAdviceResponse(session, { cashAmount, advice })
+			})
+			return renderAdviceResponse(session, {
+				cashAmount,
+				cashCurrency,
+				advice,
+			})
 		} catch (err) {
 			console.error('[advice] request failed', err)
 			const exposeStack = process.env.NODE_ENV !== 'production'
@@ -138,6 +156,7 @@ export const adviceController = {
 				session,
 				{
 					cashAmount,
+					cashCurrency,
 					formError: {
 						summary:
 							"We couldn't get advice right now. Please try again in a moment.",
