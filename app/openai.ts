@@ -1,10 +1,14 @@
 import OpenAI from 'openai'
+import {
+	type AdviceDocument,
+	parseAdviceDocument,
+} from './features/advice/advice-document.ts'
 import type { CatalogEntry } from './features/catalog/lib.ts'
 import type { EtfEntry } from './lib/gist.ts'
 import type { EtfGuideline } from './lib/guidelines.ts'
 import { formatEtfTypeLabel } from './lib/guidelines.ts'
 
-export type { EtfEntry }
+export type { AdviceDocument, EtfEntry }
 
 const SYSTEM_PROMPT = `You are a financial advisor specialising in ETF portfolio allocation.
 The user may set a hybrid target allocation: asset-class buckets (e.g. a percentage for all equities)
@@ -13,35 +17,47 @@ alongside those buckets — note any overlap or tension and prioritise moving th
 the stated targets without double-counting.
 
 You receive: target allocation (if any), a numeric allocation summary by asset type, the full ETF
-catalog with performance and cost fields, current holdings, and available cash. Base every specific
-ETF recommendation on the catalog data provided. When you cite performance, risk, or cost, use
-only values present in that catalog — do not invent figures.
+catalog with performance and cost fields, current holdings, and available cash (amount and currency).
+Base every specific ETF recommendation on the catalog data provided. When you cite performance, risk,
+or cost, use only values present in that catalog — do not invent figures.
 
-Use these exact top-level Markdown section headings (in this order):
+You MUST respond with a single JSON object only (no markdown code fences, no extra text). Shape:
+{
+  "blocks": [
+    { "type": "paragraph", "text": "..." },
+    { "type": "etf_proposals", "caption": "optional short heading", "rows": [
+      { "name": "Fund name", "ticker": "VTI", "amount": 500, "currency": "USD", "note": "optional rationale" }
+    ]}
+  ]
+}
+
+Cover this substance across your blocks (paragraph text can use headings and bullets inside the string):
 
 ## Current state analysis
+- In one paragraph block, use only bullet lines (each line starting with "- ").
+- Describe the user's current allocation by asset type (equities, bonds, real estate, commodities,
+  mixed, money market) using percentages and amounts consistent with the allocation context supplied.
+- If targets exist, add bullets for buckets or specific funds that are over- or under-weight.
+- Aim for roughly 4–12 bullets total in that paragraph block.
 
-- Write **only bullet points** in this section (no narrative paragraphs).
-- Describe the user's **current allocation by asset type** (equities, bonds, real estate, commodities,
-  mixed, money market), using percentages and amounts consistent with the allocation context supplied.
-- If targets exist, add bullets that say which buckets or specific funds are **over- or under-weight**
-  relative to those targets.
-- Aim for roughly **4–12 bullets** total.
+## Next best picks
+- In paragraph block(s), give at most 3 numbered picks (1. 2. 3.).
+- Each pick must start with a line \`TICKER — Full fund name\` using tickers that appear in the ETF
+  catalog in the user's message. If the catalog is empty, explain that no specific ETFs can be named
+  and stay at asset-class level only.
+- Under each ticker line, one short explanation of why this buy helps; mention relevant catalog
+  performance data when those fields exist.
+- At least one pick should often be adding to a fund the user already holds when that restores balance;
+  remaining pick(s) may be new ETFs from the catalog. Order picks by impact.
 
-## Next best picks to buy
+Optional: use "etf_proposals" for a table of concrete purchase amounts.
 
-- Give **at most 3** numbered picks (1. 2. 3.).
-- Each pick must start with a line **\`TICKER — Full fund name\`** using tickers that appear in the
-  ETF catalog in the user's message. If the catalog is empty, explain that no specific ETFs can be
-  named and stay at asset-class level only.
-- Under each ticker line, one short paragraph (or a few short sentences) explaining **why** this buy
-  helps (rebalancing toward guidelines, diversification, filling a gap). **Mention relevant catalog
-  performance data** for that fund (e.g. annual rate of return, return/risk, volatility, expense ratio)
-  when those fields exist in the catalog.
-- **At least one** pick should often be **adding to a fund the user already holds** when that move
-  clearly restores balance toward the investment guidelines; the remaining pick(s) may be **new
-  ETFs from the catalog** that address the same gap if the user does not yet own a suitable name.
-- Order picks by impact: what moves the portfolio closest to targets / best diversification first.
+Rules:
+- Include at least one block. Use "paragraph" for narrative and optional "etf_proposals" for rows.
+- "etf_proposals.rows" may be empty if a table is not needed.
+- "amount" and "currency" are optional for each row; when you suggest a purchase amount, include both
+  "amount" (number) and "currency" (ISO code: PLN, USD, EUR, GBP, CHF, JPY, CAD, AUD, SEK, or NOK).
+- Use plain text in "text" and "note" fields (no HTML tags).
 
 Do not provide legal or tax advice; only portfolio allocation guidance.`
 
@@ -58,6 +74,7 @@ export type AdviceClient = {
 			create: (params: {
 				model: string
 				messages: { role: 'system' | 'user'; content: string }[]
+				response_format?: { type: 'json_object' }
 			}) => Promise<{ choices: { message: { content: string | null } }[] }>
 		}
 	}
@@ -146,13 +163,17 @@ export function formatCatalogForAdvice(catalog: CatalogEntry[]): string {
 		.join('\n')
 }
 
-export async function getInvestmentAdvice(
-	holdings: EtfEntry[],
-	guidelines: EtfGuideline[],
-	cashAmount: string,
-	client: AdviceClient,
-	catalog: CatalogEntry[],
-): Promise<string> {
+export async function getInvestmentAdvice(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+	cashAmount: string
+	cashCurrency: string
+	catalog: CatalogEntry[]
+	client: AdviceClient
+}): Promise<AdviceDocument> {
+	const { holdings, guidelines, cashAmount, cashCurrency, catalog, client } =
+		params
+
 	const holdingsList =
 		holdings.length === 0
 			? 'No ETFs recorded yet.'
@@ -171,7 +192,7 @@ export async function getInvestmentAdvice(
 		`---\nAllocation context (use for "Current state analysis" bullets; do not invent percentages beyond this summary):\n${allocationBlock}\n\n` +
 		`---\nETF catalog (recommend only tickers from this list; cite performance/cost from these lines):\n${catalogBlock}\n\n` +
 		`---\nMy current holdings (line items):\n${holdingsList}\n\n` +
-		`I have $${cashAmount} available to invest. Follow the response structure in your system instructions.`
+		`I have ${cashAmount} ${cashCurrency} available to invest. Respond using the JSON block structure in your system instructions.`
 
 	const response = await client.chat.completions.create({
 		model: 'gpt-4o-mini',
@@ -179,7 +200,9 @@ export async function getInvestmentAdvice(
 			{ role: 'system', content: SYSTEM_PROMPT },
 			{ role: 'user', content: userMessage },
 		],
+		response_format: { type: 'json_object' },
 	})
 
-	return response.choices[0]?.message?.content ?? 'No advice available.'
+	const content = response.choices[0]?.message?.content ?? null
+	return parseAdviceDocument(content)
 }

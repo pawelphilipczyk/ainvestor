@@ -5,24 +5,12 @@ import {
 	SelectInput,
 	SubmitButton,
 } from '../../../components/index.ts'
+import { CURRENCIES } from '../../../lib/currencies.ts'
 import { routes } from '../../../routes.ts'
 
 type AddEtfFormProps = {
 	instrumentOptions: { value: string; label: string }[]
 }
-
-const CURRENCIES = [
-	'PLN',
-	'USD',
-	'EUR',
-	'GBP',
-	'CHF',
-	'JPY',
-	'CAD',
-	'AUD',
-	'SEK',
-	'NOK',
-]
 
 /**
  * Add ETF form feature: form UI and progressive enhancement.

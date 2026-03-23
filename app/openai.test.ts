@@ -9,6 +9,10 @@ import {
 	getInvestmentAdvice,
 } from './openai.ts'
 
+function adviceJsonParagraph(text: string): string {
+	return JSON.stringify({ blocks: [{ type: 'paragraph', text }] })
+}
+
 function makeMockClient(responseText: string): AdviceClient {
 	return {
 		chat: {
@@ -22,15 +26,46 @@ function makeMockClient(responseText: string): AdviceClient {
 }
 
 describe('getInvestmentAdvice', () => {
-	it('returns the advice text from the LLM', async () => {
-		const client = makeMockClient('Buy more VTI for broad diversification.')
+	it('returns paragraph blocks from the LLM JSON response', async () => {
+		const client = makeMockClient(
+			adviceJsonParagraph('Buy more VTI for broad diversification.'),
+		)
 		const holdings: EtfEntry[] = [
 			{ id: '1', name: 'VTI', value: 5000, currency: 'USD' },
 		]
 
-		const advice = await getInvestmentAdvice(holdings, [], '1000', client, [])
+		const advice = await getInvestmentAdvice({
+			holdings,
+			guidelines: [],
+			cashAmount: '1000',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
 
-		assert.equal(advice, 'Buy more VTI for broad diversification.')
+		const first = advice.blocks[0]
+		assert.equal(first?.type, 'paragraph')
+		if (first?.type === 'paragraph') {
+			assert.equal(first.text, 'Buy more VTI for broad diversification.')
+		}
+	})
+
+	it('falls back to a single paragraph when the model returns plain text', async () => {
+		const client = makeMockClient('Plain text without JSON.')
+		const advice = await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
+
+		const first = advice.blocks[0]
+		assert.equal(first?.type, 'paragraph')
+		if (first?.type === 'paragraph') {
+			assert.equal(first.text, 'Plain text without JSON.')
+		}
 	})
 
 	it('describes holdings with name, value and currency', async () => {
@@ -40,7 +75,9 @@ describe('getInvestmentAdvice', () => {
 				completions: {
 					create: async (params) => {
 						capturedMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'advice' } }] }
+						return {
+							choices: [{ message: { content: adviceJsonParagraph('x') } }],
+						}
 					},
 				},
 			},
@@ -51,13 +88,20 @@ describe('getInvestmentAdvice', () => {
 			{ id: '2', name: 'VXUS', value: 2000, currency: 'EUR' },
 		]
 
-		await getInvestmentAdvice(holdings, [], '500', client, [])
+		await getInvestmentAdvice({
+			holdings,
+			guidelines: [],
+			cashAmount: '500',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
 
 		assert.match(capturedMessage, /VTI/)
 		assert.match(capturedMessage, /5000 USD/)
 		assert.match(capturedMessage, /VXUS/)
 		assert.match(capturedMessage, /2000 EUR/)
-		assert.match(capturedMessage, /\$500/)
+		assert.match(capturedMessage, /500 PLN/)
 	})
 
 	it('handles empty holdings gracefully', async () => {
@@ -67,16 +111,29 @@ describe('getInvestmentAdvice', () => {
 				completions: {
 					create: async (params) => {
 						capturedMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'Start with VTI.' } }] }
+						return {
+							choices: [
+								{
+									message: { content: adviceJsonParagraph('Start with VTI.') },
+								},
+							],
+						}
 					},
 				},
 			},
 		}
 
-		await getInvestmentAdvice([], [], '2000', client, [])
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '2000',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
 
 		assert.match(capturedMessage, /No ETFs recorded yet/)
-		assert.match(capturedMessage, /\$2000/)
+		assert.match(capturedMessage, /2000 PLN/)
 	})
 
 	it('returns fallback text when LLM returns null content', async () => {
@@ -90,9 +147,47 @@ describe('getInvestmentAdvice', () => {
 			},
 		}
 
-		const advice = await getInvestmentAdvice([], [], '100', client, [])
+		const advice = await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
 
-		assert.equal(advice, 'No advice available.')
+		const first = advice.blocks[0]
+		assert.equal(first?.type, 'paragraph')
+		if (first?.type === 'paragraph') {
+			assert.equal(first.text, 'No advice available.')
+		}
+	})
+
+	it('returns fallback text when LLM returns an empty choices array', async () => {
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async () => ({
+						choices: [],
+					}),
+				},
+			},
+		}
+
+		const advice = await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
+
+		const first = advice.blocks[0]
+		assert.equal(first?.type, 'paragraph')
+		if (first?.type === 'paragraph') {
+			assert.equal(first.text, 'No advice available.')
+		}
 	})
 
 	it('includes guidelines as target allocation in the user message', async () => {
@@ -102,7 +197,11 @@ describe('getInvestmentAdvice', () => {
 				completions: {
 					create: async (params) => {
 						capturedMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'advice' } }] }
+						return {
+							choices: [
+								{ message: { content: adviceJsonParagraph('advice') } },
+							],
+						}
 					},
 				},
 			},
@@ -125,7 +224,14 @@ describe('getInvestmentAdvice', () => {
 			},
 		]
 
-		await getInvestmentAdvice([], guidelines, '1000', client, [])
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines,
+			cashAmount: '1000',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
 
 		assert.match(capturedMessage, /VTI.*60%/)
 		assert.match(capturedMessage, /BND.*30%/)
@@ -140,13 +246,24 @@ describe('getInvestmentAdvice', () => {
 				completions: {
 					create: async (params) => {
 						capturedMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'advice' } }] }
+						return {
+							choices: [
+								{ message: { content: adviceJsonParagraph('advice') } },
+							],
+						}
 					},
 				},
 			},
 		}
 
-		await getInvestmentAdvice([], [], '500', client, [])
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '500',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
 
 		assert.doesNotMatch(capturedMessage, /target allocation/i)
 	})
@@ -158,7 +275,11 @@ describe('getInvestmentAdvice', () => {
 				completions: {
 					create: async (params) => {
 						capturedMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'advice' } }] }
+						return {
+							choices: [
+								{ message: { content: adviceJsonParagraph('advice') } },
+							],
+						}
 					},
 				},
 			},
@@ -181,7 +302,14 @@ describe('getInvestmentAdvice', () => {
 			},
 		]
 
-		await getInvestmentAdvice([], guidelines, '100', client, [])
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines,
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
 
 		assert.match(capturedMessage, /Asset class equity.*bucket/)
 		assert.match(capturedMessage, /VTI.*specific fund/)
@@ -212,13 +340,16 @@ describe('getInvestmentAdvice', () => {
 			},
 		]
 
-		await getInvestmentAdvice(
-			[{ id: '1', name: 'VTI', ticker: 'VTI', value: 5000, currency: 'USD' }],
-			[],
-			'250',
-			client,
+		await getInvestmentAdvice({
+			holdings: [
+				{ id: '1', name: 'VTI', ticker: 'VTI', value: 5000, currency: 'USD' },
+			],
+			guidelines: [],
+			cashAmount: '250',
+			cashCurrency: 'PLN',
 			catalog,
-		)
+			client,
+		})
 
 		assert.match(capturedMessage, /Allocation context/)
 		assert.match(capturedMessage, /ETF catalog/)
@@ -240,13 +371,14 @@ describe('getInvestmentAdvice', () => {
 			},
 		}
 
-		await getInvestmentAdvice(
-			[{ id: '1', name: 'FOO', value: 100, currency: 'USD' }],
-			[],
-			'50',
+		await getInvestmentAdvice({
+			holdings: [{ id: '1', name: 'FOO', value: 100, currency: 'USD' }],
+			guidelines: [],
+			cashAmount: '50',
+			cashCurrency: 'PLN',
+			catalog: [],
 			client,
-			[],
-		)
+		})
 
 		assert.match(capturedMessage, /No ETF catalog entries/)
 	})
