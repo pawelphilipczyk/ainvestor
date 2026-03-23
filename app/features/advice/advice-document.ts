@@ -59,9 +59,12 @@ export type AdviceDocument = {
 
 /**
  * Parse model output: valid JSON matching {@link AdviceDocumentSchema}, or a single paragraph fallback.
+ * Treats `null` and `undefined` like empty (e.g. missing `choices[0]` from the API).
  */
-export function parseAdviceDocument(raw: string | null): AdviceDocument {
-	if (raw === null || raw.trim() === '') {
+export function parseAdviceDocument(
+	raw: string | null | undefined,
+): AdviceDocument {
+	if (raw == null || raw.trim() === '') {
 		return { blocks: [{ type: 'paragraph', text: 'No advice available.' }] }
 	}
 	let parsed: unknown

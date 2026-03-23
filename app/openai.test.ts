@@ -163,6 +163,33 @@ describe('getInvestmentAdvice', () => {
 		}
 	})
 
+	it('returns fallback text when LLM returns an empty choices array', async () => {
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async () => ({
+						choices: [],
+					}),
+				},
+			},
+		}
+
+		const advice = await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
+
+		const first = advice.blocks[0]
+		assert.equal(first?.type, 'paragraph')
+		if (first?.type === 'paragraph') {
+			assert.equal(first.text, 'No advice available.')
+		}
+	})
+
 	it('includes guidelines as target allocation in the user message', async () => {
 		let capturedMessage = ''
 		const client: AdviceClient = {

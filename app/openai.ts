@@ -203,6 +203,6 @@ export async function getInvestmentAdvice(params: {
 		response_format: { type: 'json_object' },
 	})
 
-	const content = response.choices[0]?.message?.content
+	const content = response.choices[0]?.message?.content ?? null
 	return parseAdviceDocument(content)
 }
