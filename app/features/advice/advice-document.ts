@@ -57,51 +57,6 @@ export type AdviceDocument = {
 	blocks: AdviceBlock[]
 }
 
-/** Legacy model output used `amountUsd` only; map to `amount` + `currency`. */
-function migrateLegacyAdviceDocument(input: unknown): unknown {
-	if (typeof input !== 'object' || input === null || !('blocks' in input)) {
-		return input
-	}
-	const doc = input as { blocks: unknown[] }
-	return {
-		...doc,
-		blocks: doc.blocks.map((block) => {
-			if (
-				typeof block !== 'object' ||
-				block === null ||
-				(block as { type: string }).type !== 'etf_proposals'
-			) {
-				return block
-			}
-			const b = block as {
-				type: string
-				caption?: string
-				rows: unknown[]
-			}
-			return {
-				...b,
-				rows: b.rows.map((row) => {
-					if (typeof row !== 'object' || row === null) return row
-					const r = row as Record<string, unknown>
-					if (
-						'amountUsd' in r &&
-						r.amountUsd !== undefined &&
-						r.amount === undefined
-					) {
-						const { amountUsd, ...rest } = r
-						return {
-							...rest,
-							amount: amountUsd,
-							currency: 'USD',
-						}
-					}
-					return row
-				}),
-			}
-		}),
-	}
-}
-
 /**
  * Parse model output: valid JSON matching {@link AdviceDocumentSchema}, or a single paragraph fallback.
  */
@@ -115,8 +70,7 @@ export function parseAdviceDocument(raw: string | null): AdviceDocument {
 	} catch {
 		return { blocks: [{ type: 'paragraph', text: raw }] }
 	}
-	const migrated = migrateLegacyAdviceDocument(parsed)
-	const result = parseSafe(AdviceDocumentSchema, migrated)
+	const result = parseSafe(AdviceDocumentSchema, parsed)
 	if (!result.success) {
 		return { blocks: [{ type: 'paragraph', text: raw }] }
 	}
