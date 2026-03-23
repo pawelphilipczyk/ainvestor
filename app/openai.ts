@@ -16,8 +16,16 @@ and/or specific fund targets. When both exist, treat fund-level targets as refin
 alongside those buckets — note any overlap or tension and prioritise moving the portfolio toward
 the stated targets without double-counting.
 
-You receive: target allocation (if any), a numeric allocation summary by asset type, the full ETF
-catalog with performance and cost fields, current holdings, and available cash (amount and currency).
+You receive: target allocation (if any), a numeric allocation summary by asset type (from **ETF line
+items only**), the full ETF catalog with performance and cost fields, current holdings, and a separate
+**deployable cash** figure (amount and currency).
+
+**Cash is new money to invest**, not part of the ETF holdings total and not "all assets combined."
+The allocation summary describes **existing ETF positions**; do not add the user's cash into that total
+or treat cash as the portfolio denominator for those percentages. Your job is to suggest how to **deploy
+that cash** (new purchases or adds to held funds) so the portfolio **moves toward** the target
+guidelines — not to rebalance as if the only capital were the cash amount.
+
 Base every specific ETF recommendation on the catalog data provided. When you cite performance, risk,
 or cost, use only values present in that catalog — do not invent figures.
 
@@ -50,7 +58,9 @@ Cover this substance across your blocks (paragraph text can use headings and bul
 - At least one pick should often be adding to a fund the user already holds when that restores balance;
   remaining pick(s) may be new ETFs from the catalog. Order picks by impact.
 
-Optional: use "etf_proposals" for a table of concrete purchase amounts.
+Optional: use "etf_proposals" for a table of concrete purchase amounts. When you include amounts,
+they should **deploy the user's stated cash** (same currency when sensible); they are **not** a full
+portfolio rebalance on total net worth.
 
 Rules:
 - Include at least one block. Use "paragraph" for narrative and optional "etf_proposals" for rows.
@@ -110,7 +120,7 @@ export function formatAllocationContext(
 	catalog: CatalogEntry[],
 ): string {
 	if (holdings.length === 0) {
-		return 'No ETF holdings recorded yet — portfolio invested allocation is 0% (100% cash until you add positions).'
+		return 'No ETF holdings recorded yet — this summary shows 0% in ETFs. Any deployable cash the user states separately is new money to allocate into ETFs, not an ETF holding total.'
 	}
 	const total = holdings.reduce((s, h) => s + h.value, 0)
 	if (total <= 0) {
@@ -125,7 +135,7 @@ export function formatAllocationContext(
 		sums.set(label, (sums.get(label) ?? 0) + h.value)
 	}
 	const lines: string[] = [
-		`Total portfolio value (sum of holding values): ${total.toFixed(2)} (values as stored; mixed currencies may apply).`,
+		`Total ETF position value (sum of holding line items only; excludes any deployable cash the user states separately): ${total.toFixed(2)} (values as stored; mixed currencies may apply).`,
 		'Approximate share by asset type (each holding mapped via catalog ticker/name when possible):',
 	]
 	for (const [label, sum] of [...sums.entries()].sort((a, b) => b[1] - a[1])) {
@@ -192,7 +202,8 @@ export async function getInvestmentAdvice(params: {
 		`---\nAllocation context (use for "Current state analysis" bullets; do not invent percentages beyond this summary):\n${allocationBlock}\n\n` +
 		`---\nETF catalog (recommend only tickers from this list; cite performance/cost from these lines):\n${catalogBlock}\n\n` +
 		`---\nMy current holdings (line items):\n${holdingsList}\n\n` +
-		`I have ${cashAmount} ${cashCurrency} available to invest. Respond using the JSON block structure in your system instructions.`
+		`---\nDeployable cash — new money to put into ETFs only (not included in the ETF totals above; allocate this amount across purchases to move toward my targets):\n${cashAmount} ${cashCurrency}\n\n` +
+		`Respond using the JSON block structure in your system instructions.`
 
 	const response = await client.chat.completions.create({
 		model: 'gpt-4o-mini',

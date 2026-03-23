@@ -352,6 +352,8 @@ describe('getInvestmentAdvice', () => {
 		})
 
 		assert.match(capturedMessage, /Allocation context/)
+		assert.match(capturedMessage, /Deployable cash/)
+		assert.match(capturedMessage, /not included in the ETF totals above/i)
 		assert.match(capturedMessage, /ETF catalog/)
 		assert.match(capturedMessage, /VTI — Vanguard Total Stock Market/)
 		assert.match(capturedMessage, /annual rate of return: 7\.5%/)
