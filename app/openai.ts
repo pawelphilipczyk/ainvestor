@@ -19,14 +19,16 @@ Inputs: target allocation (if any), ETF-only allocation summary, ETF catalog, cu
 merge it into current-state percentage denominators. Use it only as capital to **buy** (new funds or
 adds to held tickers).
 
-**When the user provided target allocation percentages, that mix is the end state to optimise for.**
-Your recommendations must **close the gap** to those targets: reason with numbers (current weights vs
-target, which buckets or named funds are underweight). Allocate the full deployable cash across buys
-that **maximise alignment** with the guidelines—prioritise the largest shortfalls first, split cash
-across multiple buys when needed, and aim for the **tightest fit** the cash allows (state approximate
-post-purchase weights or remaining gap in bullets when helpful). Do not settle for vague "diversification"
-if targets are explicit. Hybrid rules: asset-class buckets plus specific fund lines—resolve overlap,
-no double-counting.
+**When the user provided target allocation percentages, those % are the desired mix of the *entire*
+ETF portfolio *after* this cash is invested** — i.e. each line's target share of
+**(current holding values + this deployable cash, once fully deployed into ETFs)**. They are **not**
+the split of the new cash alone; do not allocate 60/40 of *only* the deposit to match a 60/40 target.
+Work backwards from the end state: from holdings + planned buys, estimate **post-purchase** weights
+(by asset class and, where relevant, by named fund) and choose buys so those **whole-portfolio**
+percentages land on the targets as closely as this cash allows. If one currency, use one combined
+total; if mixed, state a reasonable assumption and still reason in **post-buy portfolio %** vs targets.
+Prioritise the largest gaps in that **post-buy** picture. Hybrid rules: asset-class buckets plus
+specific fund lines—resolve overlap, no double-counting.
 
 **When there are no targets**, suggest prudent deployment from the catalog consistent with holdings.
 
@@ -46,8 +48,9 @@ Cover this substance across your blocks (paragraph text can use headings and bul
 
 ## Current state analysis
 - One paragraph block, bullet lines only ("- ").
-- Mirror the allocation context (by asset type). **If targets exist:** quantify under/over-weight vs
-  each target (percent points or amounts) so the reader sees exactly what the cash deployment fixes.
+- Mirror the allocation context (by asset type). **If targets exist:** show **before** (current ETF
+  weights) and **after** your proposed buys: approximate **post-purchase whole-portfolio %** vs each
+  target (not just how you split the cash). Quantify remaining gap if targets cannot be fully reached.
 - Roughly 4–12 bullets.
 
 ## Next best picks
@@ -59,8 +62,9 @@ Cover this substance across your blocks (paragraph text can use headings and bul
   guideline alignment.
 
 **etf_proposals (use when targets or cash deployment should be concrete):** rows should **fully deploy**
-the user's cash (same currency; say so if FX mixing forces approximation). Amounts are **this deposit
-only**, not a whole-portfolio rebalance. Sum of row amounts ≈ deployable cash unless you explain rounding.
+the user's cash (same currency; say so if FX mixing forces approximation). Sums are **only this inflow**
+(no assumed sells); **justify** row sizes so **post-purchase total portfolio** (holdings + buys) best
+matches the guideline %. Sum of row amounts ≈ deployable cash unless you explain rounding.
 
 Rules:
 - Include at least one block. Use "paragraph" for narrative and optional "etf_proposals" for rows.
@@ -193,11 +197,11 @@ export async function getInvestmentAdvice(params: {
 	const guidelinesSection =
 		guidelines.length === 0
 			? ''
-			: `My target allocation (this is the mix to optimise toward for the whole portfolio):\n${guidelines.map(formatGuidelineLine).join('\n')}\n\n`
+			: `My target allocation (each line is the **target share of my total ETF portfolio after** I invest the deployable cash below — i.e. (existing holdings + these purchases), **not** the split of the new cash alone):\n${guidelines.map(formatGuidelineLine).join('\n')}\n\n`
 
 	const guidelineCashObjective =
 		guidelines.length > 0
-			? 'Deploy this cash across buys that **minimise gap to the target allocation**—largest shortfalls first, split the cash when several targets are underweight; state how each buy moves current % toward target.\n\n'
+			? 'Choose buys so **after** investing this cash, my **whole ETF portfolio** (holdings + buys) matches those targets as closely as possible; show approximate post-purchase % vs each target.\n\n'
 			: ''
 
 	const allocationBlock = formatAllocationContext(holdings, catalog)

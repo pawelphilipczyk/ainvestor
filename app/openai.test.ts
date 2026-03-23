@@ -237,7 +237,8 @@ describe('getInvestmentAdvice', () => {
 		assert.match(capturedMessage, /BND.*30%/)
 		assert.match(capturedMessage, /equity/)
 		assert.match(capturedMessage, /bond/)
-		assert.match(capturedMessage, /minimise gap to the target allocation/i)
+		assert.match(capturedMessage, /split of the new cash alone/i)
+		assert.match(capturedMessage, /whole ETF portfolio/i)
 	})
 
 	it('omits the target allocation block when guidelines are empty', async () => {
@@ -267,10 +268,7 @@ describe('getInvestmentAdvice', () => {
 		})
 
 		assert.doesNotMatch(capturedMessage, /target allocation/i)
-		assert.doesNotMatch(
-			capturedMessage,
-			/minimise gap to the target allocation/i,
-		)
+		assert.doesNotMatch(capturedMessage, /whole ETF portfolio/i)
 	})
 
 	it('formats hybrid asset-class and instrument lines in the user message', async () => {
