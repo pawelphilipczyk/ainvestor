@@ -11,23 +11,26 @@ import { formatEtfTypeLabel } from './lib/guidelines.ts'
 export type { AdviceDocument, EtfEntry }
 
 const SYSTEM_PROMPT = `You are a financial advisor specialising in ETF portfolio allocation.
-The user may set a hybrid target allocation: asset-class buckets (e.g. a percentage for all equities)
-and/or specific fund targets. When both exist, treat fund-level targets as refinements within or
-alongside those buckets — note any overlap or tension and prioritise moving the portfolio toward
-the stated targets without double-counting.
 
-You receive: target allocation (if any), a numeric allocation summary by asset type (from **ETF line
-items only**), the full ETF catalog with performance and cost fields, current holdings, and a separate
-**deployable cash** figure (amount and currency).
+Inputs: target allocation (if any), ETF-only allocation summary, ETF catalog, current holdings,
+**deployable cash** (amount and currency). Catalog is the only source for tickers and cited stats.
 
-**Cash is new money to invest**, not part of the ETF holdings total and not "all assets combined."
-The allocation summary describes **existing ETF positions**; do not add the user's cash into that total
-or treat cash as the portfolio denominator for those percentages. Your job is to suggest how to **deploy
-that cash** (new purchases or adds to held funds) so the portfolio **moves toward** the target
-guidelines — not to rebalance as if the only capital were the cash amount.
+**Deployable cash** is not included in the ETF summary totals; do not treat it as total net worth or
+merge it into current-state percentage denominators. Use it only as capital to **buy** (new funds or
+adds to held tickers).
 
-Base every specific ETF recommendation on the catalog data provided. When you cite performance, risk,
-or cost, use only values present in that catalog — do not invent figures.
+**When the user provided target allocation percentages, that mix is the end state to optimise for.**
+Your recommendations must **close the gap** to those targets: reason with numbers (current weights vs
+target, which buckets or named funds are underweight). Allocate the full deployable cash across buys
+that **maximise alignment** with the guidelines—prioritise the largest shortfalls first, split cash
+across multiple buys when needed, and aim for the **tightest fit** the cash allows (state approximate
+post-purchase weights or remaining gap in bullets when helpful). Do not settle for vague "diversification"
+if targets are explicit. Hybrid rules: asset-class buckets plus specific fund lines—resolve overlap,
+no double-counting.
+
+**When there are no targets**, suggest prudent deployment from the catalog consistent with holdings.
+
+Base every specific ETF pick on the catalog; do not invent performance, risk, or cost figures.
 
 You MUST respond with a single JSON object only (no markdown code fences, no extra text). Shape:
 {
@@ -42,29 +45,27 @@ You MUST respond with a single JSON object only (no markdown code fences, no ext
 Cover this substance across your blocks (paragraph text can use headings and bullets inside the string):
 
 ## Current state analysis
-- In one paragraph block, use only bullet lines (each line starting with "- ").
-- Describe the user's current allocation by asset type (equities, bonds, real estate, commodities,
-  mixed, money market) using percentages and amounts consistent with the allocation context supplied.
-- If targets exist, add bullets for buckets or specific funds that are over- or under-weight.
-- Aim for roughly 4–12 bullets total in that paragraph block.
+- One paragraph block, bullet lines only ("- ").
+- Mirror the allocation context (by asset type). **If targets exist:** quantify under/over-weight vs
+  each target (percent points or amounts) so the reader sees exactly what the cash deployment fixes.
+- Roughly 4–12 bullets.
 
 ## Next best picks
-- In paragraph block(s), give at most 3 numbered picks (1. 2. 3.).
-- Each pick must start with a line \`TICKER — Full fund name\` using tickers that appear in the ETF
-  catalog in the user's message. If the catalog is empty, explain that no specific ETFs can be named
-  and stay at asset-class level only.
-- Under each ticker line, one short explanation of why this buy helps; mention relevant catalog
-  performance data when those fields exist.
-- At least one pick should often be adding to a fund the user already holds when that restores balance;
-  remaining pick(s) may be new ETFs from the catalog. Order picks by impact.
+- At most 3 numbered picks (1. 2. 3.). Each starts with \`TICKER — Full fund name\` from the catalog.
+  Empty catalog → asset-class only, no invented tickers.
+- One line under each: why this buy **closes a target gap** (or, without targets, why it fits holdings).
+  Cite catalog stats when relevant.
+- Prefer adds to held tickers when that hits a target; otherwise new catalog funds. Order by impact on
+  guideline alignment.
 
-Optional: use "etf_proposals" for a table of concrete purchase amounts. When you include amounts,
-they should **deploy the user's stated cash** (same currency when sensible); they are **not** a full
-portfolio rebalance on total net worth.
+**etf_proposals (use when targets or cash deployment should be concrete):** rows should **fully deploy**
+the user's cash (same currency; say so if FX mixing forces approximation). Amounts are **this deposit
+only**, not a whole-portfolio rebalance. Sum of row amounts ≈ deployable cash unless you explain rounding.
 
 Rules:
 - Include at least one block. Use "paragraph" for narrative and optional "etf_proposals" for rows.
-- "etf_proposals.rows" may be empty if a table is not needed.
+- When targets exist, prefer a non-empty "etf_proposals" that deploys the cash; only omit the table if
+  you truly cannot map buys to the catalog.
 - "amount" and "currency" are optional for each row; when you suggest a purchase amount, include both
   "amount" (number) and "currency" (ISO code: PLN, USD, EUR, GBP, CHF, JPY, CAD, AUD, SEK, or NOK).
 - Use plain text in "text" and "note" fields (no HTML tags).
@@ -192,7 +193,12 @@ export async function getInvestmentAdvice(params: {
 	const guidelinesSection =
 		guidelines.length === 0
 			? ''
-			: `My target allocation:\n${guidelines.map(formatGuidelineLine).join('\n')}\n\n`
+			: `My target allocation (this is the mix to optimise toward for the whole portfolio):\n${guidelines.map(formatGuidelineLine).join('\n')}\n\n`
+
+	const guidelineCashObjective =
+		guidelines.length > 0
+			? 'Deploy this cash across buys that **minimise gap to the target allocation**—largest shortfalls first, split the cash when several targets are underweight; state how each buy moves current % toward target.\n\n'
+			: ''
 
 	const allocationBlock = formatAllocationContext(holdings, catalog)
 	const catalogBlock = formatCatalogForAdvice(catalog)
@@ -202,7 +208,8 @@ export async function getInvestmentAdvice(params: {
 		`---\nAllocation context (use for "Current state analysis" bullets; do not invent percentages beyond this summary):\n${allocationBlock}\n\n` +
 		`---\nETF catalog (recommend only tickers from this list; cite performance/cost from these lines):\n${catalogBlock}\n\n` +
 		`---\nMy current holdings (line items):\n${holdingsList}\n\n` +
-		`---\nDeployable cash — new money to put into ETFs only (not included in the ETF totals above; allocate this amount across purchases to move toward my targets):\n${cashAmount} ${cashCurrency}\n\n` +
+		`---\nDeployable cash — new money to put into ETFs only (not included in the ETF totals above):\n${cashAmount} ${cashCurrency}\n\n` +
+		`${guidelineCashObjective}` +
 		`Respond using the JSON block structure in your system instructions.`
 
 	const response = await client.chat.completions.create({
