@@ -1,8 +1,13 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import type { CatalogEntry } from './features/catalog/lib.ts'
 import type { EtfGuideline } from './lib/guidelines.ts'
 import type { AdviceClient, EtfEntry } from './openai.ts'
-import { getInvestmentAdvice } from './openai.ts'
+import {
+	formatAllocationContext,
+	formatCatalogForAdvice,
+	getInvestmentAdvice,
+} from './openai.ts'
 
 function adviceJsonParagraph(text: string): string {
 	return JSON.stringify({ blocks: [{ type: 'paragraph', text }] })
@@ -34,6 +39,7 @@ describe('getInvestmentAdvice', () => {
 			guidelines: [],
 			cashAmount: '1000',
 			cashCurrency: 'PLN',
+			catalog: [],
 			client,
 		})
 
@@ -51,6 +57,7 @@ describe('getInvestmentAdvice', () => {
 			guidelines: [],
 			cashAmount: '100',
 			cashCurrency: 'PLN',
+			catalog: [],
 			client,
 		})
 
@@ -86,6 +93,7 @@ describe('getInvestmentAdvice', () => {
 			guidelines: [],
 			cashAmount: '500',
 			cashCurrency: 'PLN',
+			catalog: [],
 			client,
 		})
 
@@ -120,6 +128,7 @@ describe('getInvestmentAdvice', () => {
 			guidelines: [],
 			cashAmount: '2000',
 			cashCurrency: 'PLN',
+			catalog: [],
 			client,
 		})
 
@@ -143,6 +152,7 @@ describe('getInvestmentAdvice', () => {
 			guidelines: [],
 			cashAmount: '100',
 			cashCurrency: 'PLN',
+			catalog: [],
 			client,
 		})
 
@@ -192,6 +202,7 @@ describe('getInvestmentAdvice', () => {
 			guidelines,
 			cashAmount: '1000',
 			cashCurrency: 'PLN',
+			catalog: [],
 			client,
 		})
 
@@ -223,6 +234,7 @@ describe('getInvestmentAdvice', () => {
 			guidelines: [],
 			cashAmount: '500',
 			cashCurrency: 'PLN',
+			catalog: [],
 			client,
 		})
 
@@ -268,10 +280,126 @@ describe('getInvestmentAdvice', () => {
 			guidelines,
 			cashAmount: '100',
 			cashCurrency: 'PLN',
+			catalog: [],
 			client,
 		})
 
 		assert.match(capturedMessage, /Asset class equity.*bucket/)
 		assert.match(capturedMessage, /VTI.*specific fund/)
+	})
+
+	it('includes allocation context and ETF catalog in the user message', async () => {
+		let capturedMessage = ''
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						capturedMessage = params.messages[1].content
+						return { choices: [{ message: { content: 'ok' } }] }
+					},
+				},
+			},
+		}
+
+		const catalog: CatalogEntry[] = [
+			{
+				id: 'c1',
+				ticker: 'VTI',
+				name: 'Vanguard Total Stock Market',
+				type: 'equity',
+				description: 'US broad market',
+				rate_of_return: 7.5,
+				return_risk: '1.2',
+			},
+		]
+
+		await getInvestmentAdvice({
+			holdings: [
+				{ id: '1', name: 'VTI', ticker: 'VTI', value: 5000, currency: 'USD' },
+			],
+			guidelines: [],
+			cashAmount: '250',
+			cashCurrency: 'PLN',
+			catalog,
+			client,
+		})
+
+		assert.match(capturedMessage, /Allocation context/)
+		assert.match(capturedMessage, /ETF catalog/)
+		assert.match(capturedMessage, /VTI — Vanguard Total Stock Market/)
+		assert.match(capturedMessage, /annual rate of return: 7\.5%/)
+		assert.match(capturedMessage, /equity/)
+	})
+
+	it('includes empty-catalog guidance when the catalog has no rows', async () => {
+		let capturedMessage = ''
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						capturedMessage = params.messages[1].content
+						return { choices: [{ message: { content: 'ok' } }] }
+					},
+				},
+			},
+		}
+
+		await getInvestmentAdvice({
+			holdings: [{ id: '1', name: 'FOO', value: 100, currency: 'USD' }],
+			guidelines: [],
+			cashAmount: '50',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
+
+		assert.match(capturedMessage, /No ETF catalog entries/)
+	})
+})
+
+describe('formatAllocationContext', () => {
+	it('groups holdings by catalog asset type', () => {
+		const catalog: CatalogEntry[] = [
+			{
+				id: 'c1',
+				ticker: 'VTI',
+				name: 'US',
+				type: 'equity',
+				description: '',
+			},
+			{
+				id: 'c2',
+				ticker: 'BND',
+				name: 'Bond',
+				type: 'bond',
+				description: '',
+			},
+		]
+		const holdings: EtfEntry[] = [
+			{ id: 'a', name: 'VTI', ticker: 'VTI', value: 6000, currency: 'USD' },
+			{ id: 'b', name: 'BND', ticker: 'BND', value: 4000, currency: 'USD' },
+		]
+		const out = formatAllocationContext(holdings, catalog)
+		assert.match(out, /equity.*60/)
+		assert.match(out, /bond.*40/)
+	})
+})
+
+describe('formatCatalogForAdvice', () => {
+	it('includes performance fields when present', () => {
+		const catalog: CatalogEntry[] = [
+			{
+				id: 'c1',
+				ticker: 'X',
+				name: 'Test',
+				type: 'equity',
+				description: 'd',
+				rate_of_return: 5,
+				volatility: '10%',
+			},
+		]
+		const out = formatCatalogForAdvice(catalog)
+		assert.match(out, /annual rate of return: 5%/)
+		assert.match(out, /volatility: 10%/)
 	})
 })

@@ -235,6 +235,8 @@ describe('Advice', () => {
 		assert.match(capturedUserMessage, /VXUS/)
 		assert.match(capturedUserMessage, /3000 USD/)
 		assert.match(capturedUserMessage, /500 PLN/)
+		assert.match(capturedUserMessage, /ETF catalog/)
+		assert.match(capturedUserMessage, /Allocation context/)
 	})
 
 	it('passes guidelines into the advice prompt when they exist', async () => {

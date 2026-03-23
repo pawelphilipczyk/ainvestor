@@ -5,11 +5,12 @@ import { minLength } from 'remix/data-schema/checks'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
-import { fetchEtfs } from '../../lib/gist.ts'
+import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { getSessionData, type SessionData } from '../../lib/session.ts'
 import type { AdviceClient } from '../../openai.ts'
 import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
+import { getGuestCatalog } from '../catalog/guest-catalog.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
 import type { AdviceDocument } from './advice-document.ts'
@@ -122,9 +123,9 @@ export const adviceController = {
 		}
 		const { cashAmount, cashCurrency } = result.value
 
-		const entries = session?.gistId
-			? await fetchEtfs(session.token, session.gistId)
-			: getGuestEntries()
+		const { entries, catalog } = session?.gistId
+			? await fetchPortfolioSnapshot(session.token, session.gistId)
+			: { entries: getGuestEntries(), catalog: getGuestCatalog() }
 		const guidelines = session?.gistId
 			? await fetchGuidelines(session.token, session.gistId)
 			: getGuestGuidelines()
@@ -136,6 +137,7 @@ export const adviceController = {
 				guidelines,
 				cashAmount,
 				cashCurrency,
+				catalog,
 				client,
 			})
 			return renderAdviceResponse(session, {
