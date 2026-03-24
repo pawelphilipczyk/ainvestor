@@ -674,6 +674,90 @@ describe('computeAdviceAllocationDiagnostics', () => {
 		assert.equal(byType.get('bond'), 40)
 	})
 
+	it('infers etfType from instrument guideline when catalog has no match', () => {
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 100,
+				etfType: 'equity',
+			},
+		]
+		const diag = computeAdviceAllocationDiagnostics({
+			holdings: [
+				{ id: 'h1', name: 'VTI', ticker: 'VTI', value: 5000, currency: 'PLN' },
+			],
+			guidelines,
+			cashAmount: '5000',
+			cashCurrency: 'PLN',
+			catalog: [],
+		})
+		assert.ok(diag)
+		const eq = diag.rows.find((r) => r.etfType === 'equity')
+		assert.ok(eq)
+		assert.equal(eq.currentAmt, 5000)
+	})
+
+	it('returns null when a valued holding cannot be mapped to a targeted type', () => {
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 100,
+				etfType: 'equity',
+			},
+		]
+		assert.equal(
+			computeAdviceAllocationDiagnostics({
+				holdings: [
+					{
+						id: 'h1',
+						name: 'Unknown Fund',
+						ticker: 'ZZZ',
+						value: 1000,
+						currency: 'PLN',
+					},
+				],
+				guidelines,
+				cashAmount: '100',
+				cashCurrency: 'PLN',
+				catalog: [],
+			}),
+			null,
+		)
+	})
+
+	it('diagnostics row shows normalized target % with raw ratio when guideline sum ≠ 100', () => {
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 40,
+				etfType: 'equity',
+			},
+			{
+				id: 'g2',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 40,
+				etfType: 'bond',
+			},
+		]
+		const block = formatAdviceAllocationDiagnosticsBlock({
+			holdings: [],
+			guidelines,
+			cashAmount: '1000',
+			cashCurrency: 'PLN',
+			catalog: [],
+		})
+		assert.ok(block)
+		assert.match(block, /equity: target 50\.00% \(40\/80\)/)
+		assert.match(block, /bond: target 50\.00% \(40\/80\)/)
+	})
+
 	it('formatAggregatedGuidelineBucketsBlock lists combined class totals', () => {
 		const block = formatAggregatedGuidelineBucketsBlock([
 			{

@@ -308,6 +308,42 @@ function findCatalogMatch(
 	)
 }
 
+/**
+ * When the catalog has no row, match a holding to an **instrument** guideline by the same
+ * ticker/name rules as `findCatalogMatch` (etfName plays the role of catalog ticker + name).
+ */
+function findInstrumentGuidelineEtfType(
+	h: EtfEntry,
+	guidelines: EtfGuideline[],
+): EtfType | undefined {
+	for (const g of guidelines) {
+		if (g.kind !== 'instrument') continue
+		const fromTicker = h.ticker?.trim()
+		if (fromTicker) {
+			const u = fromTicker.toUpperCase()
+			if (g.etfName.trim().toUpperCase() === u) return g.etfType
+		}
+		const name = h.name.trim()
+		if (!name) continue
+		const lower = name.toLowerCase()
+		const en = g.etfName.trim()
+		if (en.toUpperCase() === name.toUpperCase() || en.toLowerCase() === lower) {
+			return g.etfType
+		}
+	}
+	return undefined
+}
+
+function resolveHoldingEtfTypeForAdviceDiagnostics(
+	h: EtfEntry,
+	catalog: CatalogEntry[],
+	guidelines: EtfGuideline[],
+): EtfType {
+	const c = findCatalogMatch(h, catalog)
+	if (c) return c.type
+	return findInstrumentGuidelineEtfType(h, guidelines) ?? 'mixed'
+}
+
 export type AdviceBucketDiagnostic = {
 	/** Human label, e.g. "equity". */
 	label: string
@@ -359,8 +395,14 @@ export function computeAdviceAllocationDiagnostics(params: {
 
 	const currentByType = new Map<EtfType, number>()
 	for (const h of params.holdings) {
-		const c = findCatalogMatch(h, params.catalog)
-		const t: EtfType = c?.type ?? 'mixed'
+		const t = resolveHoldingEtfTypeForAdviceDiagnostics(
+			h,
+			params.catalog,
+			params.guidelines,
+		)
+		if (h.value > 0 && (t === 'mixed' || !targetPctByType.has(t))) {
+			return null
+		}
 		currentByType.set(t, (currentByType.get(t) ?? 0) + h.value)
 	}
 
@@ -409,13 +451,18 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 		'Server allocation diagnostics (authoritative numbers — restate these in "Current state analysis" before ETF names; do not contradict):',
 		'- **Buy-only:** these figures assume **no sales** — only the deployable cash is deployed; overweight buckets may stay above target until more cash is added.',
 		`- Post-investment portfolio total used below: ${postTotal.toFixed(2)} ${currency} (holdings + deployable cash).`,
-		`- Guideline target % per row are **sums by asset type** (instrument + bucket lines combined); normalized against total guideline sum ${targetPctSum.toFixed(2)}% (each row scaled if the sum is not exactly 100).`,
-		'Per asset-class bucket: target % (user), current value, target value at post-total, minimum buy to reach target without selling (0 if already at/above target):',
+		`- Guideline target % per row are **sums by asset type** (instrument + bucket lines combined). Each row shows **normalized % of post-total** (= raw type sum ÷ total guideline sum × 100); raw sums are in parentheses when the line total ≠ 100%.`,
+		'Per asset-class bucket: target % (normalized of post-total), current value, target value at post-total, minimum buy to reach target without selling (0 if already at/above target):',
 	]
 
 	for (const r of rows) {
+		const normalizedPct = (r.targetPct / targetPctSum) * 100
+		const targetPctLabel =
+			Math.abs(targetPctSum - 100) < 0.000_001
+				? `${normalizedPct.toFixed(2)}%`
+				: `${normalizedPct.toFixed(2)}% (${r.targetPct}/${targetPctSum})`
 		lines.push(
-			`- ${r.label}: target ${r.targetPct}% → ${r.targetAmtPost.toFixed(2)} ${currency} at post-total; currently ${r.currentAmt.toFixed(2)} ${currency}; minimum buy (if underweight) ${r.idealBuyMin.toFixed(2)} ${currency}`,
+			`- ${r.label}: target ${targetPctLabel} → ${r.targetAmtPost.toFixed(2)} ${currency} at post-total; currently ${r.currentAmt.toFixed(2)} ${currency}; minimum buy (if underweight) ${r.idealBuyMin.toFixed(2)} ${currency}`,
 		)
 	}
 
