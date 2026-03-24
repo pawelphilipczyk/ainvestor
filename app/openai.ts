@@ -6,7 +6,7 @@ import {
 import type { CatalogEntry } from './features/catalog/lib.ts'
 import type { EtfEntry } from './lib/gist.ts'
 import type { EtfGuideline } from './lib/guidelines.ts'
-import { formatEtfTypeLabel } from './lib/guidelines.ts'
+import { type EtfType, formatEtfTypeLabel } from './lib/guidelines.ts'
 
 export type { AdviceDocument, EtfEntry }
 
@@ -36,6 +36,11 @@ If the user message contains **"Arithmetic for totals (authoritative"**, copy th
 pre-investment holdings sum, deployable cash, and **post-investment total portfolio value** — do not
 recalculate a different total (e.g. do not confuse target percentages with the portfolio denominator).
 If it flags mixed currencies or unparsed cash, obey that constraint.
+
+If **"Server allocation diagnostics"** is present, it is a **buy-only numerical plan by asset-class
+bucket** (from the server). Lead "Current state analysis" with those numbers (current vs target at
+post-total, minimum buys, recommended deployment of this cash). Then map buckets to catalog ETFs;
+**etf_proposals** amounts must match the deployment line items (± rounding).
 
 Base every specific ETF pick on the catalog; do not invent performance, risk, or cost figures.
 
@@ -244,6 +249,151 @@ function findCatalogMatch(
 	)
 }
 
+export type AdviceBucketDiagnostic = {
+	/** Human label, e.g. "equity". */
+	label: string
+	etfType: EtfType
+	targetPct: number
+	currentAmt: number
+	/** Target currency value after full cash deployment (post-total × target %). */
+	targetAmtPost: number
+	/** max(0, targetAmtPost - currentAmt); buy-only, no sells. */
+	idealBuyMin: number
+}
+
+/**
+ * Dollar diagnostics for **asset-class-only** guidelines (sums ~100%).
+ * Returns null if hybrid/instrument-only, mixed holdings currency, bad cash, or non-computable.
+ */
+export function computeAdviceAllocationDiagnostics(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+	cashAmount: string
+	cashCurrency: string
+	catalog: CatalogEntry[]
+}): {
+	postTotal: number
+	currency: string
+	rows: AdviceBucketDiagnostic[]
+	sumIdealBuyMin: number
+	targetPctSum: number
+} | null {
+	const cashNum = parseAdviceCashAmount(params.cashAmount)
+	if (cashNum === null) return null
+
+	const {
+		total: holdingsTotal,
+		currency: holdingsCurrency,
+		mixed,
+	} = sumHoldingsValues(params.holdings)
+	if (mixed) return null
+	if (params.holdings.length > 0 && holdingsCurrency !== params.cashCurrency) {
+		return null
+	}
+
+	const assetClass = params.guidelines.filter((g) => g.kind === 'asset_class')
+	const instruments = params.guidelines.filter((g) => g.kind === 'instrument')
+	if (assetClass.length === 0 || instruments.length > 0) return null
+
+	const targetPctSum = assetClass.reduce((s, g) => s + g.targetPct, 0)
+	if (targetPctSum <= 0) return null
+
+	const currentByType = new Map<EtfType, number>()
+	for (const h of params.holdings) {
+		const c = findCatalogMatch(h, params.catalog)
+		const t: EtfType = c?.type ?? 'mixed'
+		currentByType.set(t, (currentByType.get(t) ?? 0) + h.value)
+	}
+
+	const postTotal = holdingsTotal + cashNum
+	const rows: AdviceBucketDiagnostic[] = assetClass.map((g) => {
+		const scale = g.targetPct / targetPctSum
+		const targetAmtPost = postTotal * scale
+		const currentAmt = currentByType.get(g.etfType) ?? 0
+		const idealBuyMin = Math.max(0, targetAmtPost - currentAmt)
+		return {
+			label: formatEtfTypeLabel(g.etfType),
+			etfType: g.etfType,
+			targetPct: g.targetPct,
+			currentAmt,
+			targetAmtPost,
+			idealBuyMin,
+		}
+	})
+
+	const sumIdealBuyMin = rows.reduce((s, r) => s + r.idealBuyMin, 0)
+	return {
+		postTotal,
+		currency: params.cashCurrency,
+		rows,
+		sumIdealBuyMin,
+		targetPctSum,
+	}
+}
+
+export function formatAdviceAllocationDiagnosticsBlock(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+	cashAmount: string
+	cashCurrency: string
+	catalog: CatalogEntry[]
+}): string | null {
+	const diag = computeAdviceAllocationDiagnostics(params)
+	if (!diag) return null
+
+	const { postTotal, currency, rows, sumIdealBuyMin, targetPctSum } = diag
+	const lines: string[] = [
+		'---',
+		'Server allocation diagnostics (authoritative numbers — restate these in "Current state analysis" before ETF names; do not contradict):',
+		`- Post-investment portfolio total used below: ${postTotal.toFixed(2)} ${currency} (holdings + deployable cash).`,
+		`- Guideline target % are normalized against sum ${targetPctSum.toFixed(2)}% (each row scaled so weights match user targets if the sum is not exactly 100).`,
+		'Per asset-class bucket: target % (user), current value, target value at post-total, minimum buy to reach target without selling (0 if already at/above target):',
+	]
+
+	for (const r of rows) {
+		lines.push(
+			`- ${r.label}: target ${r.targetPct}% → ${r.targetAmtPost.toFixed(2)} ${currency} at post-total; currently ${r.currentAmt.toFixed(2)} ${currency}; minimum buy (if underweight) ${r.idealBuyMin.toFixed(2)} ${currency}`,
+		)
+	}
+
+	const cashNum = parseAdviceCashAmount(params.cashAmount) ?? 0
+	const eps = 0.01
+
+	if (sumIdealBuyMin > cashNum + eps) {
+		const posSum = rows.reduce((s, r) => s + r.idealBuyMin, 0)
+		lines.push(
+			`- Not enough cash to fully reach all targets with buys only: minimum buys sum to ${sumIdealBuyMin.toFixed(2)} ${currency} but deployable cash is ${cashNum.toFixed(2)} ${currency}.`,
+			`- **Recommended deployment of this cash** (proportional to those minimum buys among underweight buckets; 0 where minimum buy is 0):`,
+		)
+		for (const r of rows) {
+			const share = posSum > eps ? (r.idealBuyMin / posSum) * cashNum : 0
+			lines.push(`  - ${r.label}: deploy ~${share.toFixed(2)} ${currency}`)
+		}
+	} else {
+		lines.push(
+			`- Minimum buys to hit targets sum to ${sumIdealBuyMin.toFixed(2)} ${currency} (≤ deployable ${cashNum.toFixed(2)} ${currency}).`,
+		)
+		const remainder = cashNum - sumIdealBuyMin
+		if (remainder > eps) {
+			lines.push(
+				`- After those minimum buys, remaining cash ${remainder.toFixed(2)} ${currency}: add across buckets in proportion to target % to preserve the mix.`,
+			)
+			for (const r of rows) {
+				const extra = remainder * (r.targetPct / targetPctSum)
+				lines.push(
+					`  - ${r.label}: +~${extra.toFixed(2)} ${currency} from remainder`,
+				)
+			}
+		}
+	}
+
+	lines.push(
+		'Map these buckets to specific ETFs from the catalog (same asset type). etf_proposals row amounts should align with the deployment figures above.',
+	)
+
+	return lines.join('\n')
+}
+
 /** Server-side allocation summary so the model can mirror it in bullet form. */
 export function formatAllocationContext(
 	holdings: EtfEntry[],
@@ -336,6 +486,13 @@ export async function getInvestmentAdvice(params: {
 		cashAmount,
 		cashCurrency,
 	})
+	const diagnosticsBlock = formatAdviceAllocationDiagnosticsBlock({
+		holdings,
+		guidelines,
+		cashAmount,
+		cashCurrency,
+		catalog,
+	})
 
 	const userMessage =
 		`${guidelinesSection}` +
@@ -344,6 +501,7 @@ export async function getInvestmentAdvice(params: {
 		`---\nMy current holdings (line items):\n${holdingsList}\n\n` +
 		`---\nDeployable cash — new money to put into ETFs only (not included in the ETF totals above):\n${cashAmount} ${cashCurrency}\n\n` +
 		`${arithmeticBlock}\n\n` +
+		`${diagnosticsBlock ? `${diagnosticsBlock}\n\n` : ''}` +
 		`${guidelineCashObjective}` +
 		`Respond using the JSON block structure in your system instructions.`
 
