@@ -1,6 +1,11 @@
 import type { Handle } from 'remix/component'
 import { FieldLabel, NumberInput, SelectInput } from '../../components/index.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
+import {
+	ADVICE_MODEL_IDS,
+	type AdviceModelId,
+	DEFAULT_ADVICE_MODEL,
+} from '../../openai.ts'
 import { routes } from '../../routes.ts'
 import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
 
@@ -12,11 +17,23 @@ type FormError = {
 type AdvicePageProps = {
 	cashAmount?: string
 	cashCurrency?: string
+	selectedModel?: AdviceModelId
 	advice?: AdviceDocument
 	formError?: FormError
 }
 
 const currencyOptions = CURRENCIES.map((c) => ({ value: c, label: c }))
+
+const modelLabels: Record<AdviceModelId, string> = {
+	'gpt-5.4-mini': 'GPT-5.4 Mini',
+	'gpt-5.4-nano': 'GPT-5.4 Nano',
+	'gpt-5.4': 'GPT-5.4',
+}
+
+const modelOptions = ADVICE_MODEL_IDS.map((id) => ({
+	value: id,
+	label: modelLabels[id],
+}))
 
 function formatAmountNumber(amount: number): string {
 	return new Intl.NumberFormat('en-US', {
@@ -123,6 +140,7 @@ function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
 export function AdvicePage(_handle: Handle, _setup?: unknown) {
 	return (props: AdvicePageProps) => {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
+		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 		return (
 			<main class="mx-auto max-w-3xl rounded-xl border border-border bg-card p-6 shadow-sm">
 				<header>
@@ -179,6 +197,15 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								name="cashCurrency"
 								options={currencyOptions}
 								value={cashCurrency}
+							/>
+						</div>
+						<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
+							<FieldLabel fieldId="adviceModel">Model</FieldLabel>
+							<SelectInput
+								id="adviceModel"
+								name="adviceModel"
+								options={modelOptions}
+								value={selectedModel}
 							/>
 						</div>
 						<button

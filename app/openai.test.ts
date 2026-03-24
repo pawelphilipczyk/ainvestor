@@ -54,6 +54,55 @@ describe('getInvestmentAdvice', () => {
 		}
 	})
 
+	it('uses gpt-5.4-mini by default and forwards the chosen model to the client', async () => {
+		let defaultModel = ''
+		const defaultClient: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						defaultModel = params.model
+						return {
+							choices: [{ message: { content: adviceJsonParagraph('ok') } }],
+						}
+					},
+				},
+			},
+		}
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client: defaultClient,
+		})
+		assert.equal(defaultModel, 'gpt-5.4-mini')
+
+		let chosenModel = ''
+		const trackingClient: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						chosenModel = params.model
+						return {
+							choices: [{ message: { content: adviceJsonParagraph('ok') } }],
+						}
+					},
+				},
+			},
+		}
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client: trackingClient,
+			model: 'gpt-5.4',
+		})
+		assert.equal(chosenModel, 'gpt-5.4')
+	})
+
 	it('falls back to a single paragraph when the model returns plain text', async () => {
 		const client = makeMockClient('Plain text without JSON.')
 		const advice = await getInvestmentAdvice({
