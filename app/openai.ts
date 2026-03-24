@@ -32,6 +32,11 @@ specific fund lines—resolve overlap, no double-counting.
 
 **When there are no targets**, suggest prudent deployment from the catalog consistent with holdings.
 
+If the user message contains **"Arithmetic for totals (authoritative"**, copy those figures exactly for
+pre-investment holdings sum, deployable cash, and **post-investment total portfolio value** — do not
+recalculate a different total (e.g. do not confuse target percentages with the portfolio denominator).
+If it flags mixed currencies or unparsed cash, obey that constraint.
+
 Base every specific ETF pick on the catalog; do not invent performance, risk, or cost figures.
 
 You MUST respond with a single JSON object only (no markdown code fences, no extra text). Shape:
@@ -97,6 +102,126 @@ export type AdviceClient = {
 
 export function createDefaultClient(): AdviceClient {
 	return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+}
+
+/**
+ * Parse user-entered deployable cash for advice arithmetic (totals in the prompt).
+ * Accepts plain numbers, spaces, and common thousand/decimal separators.
+ */
+export function parseAdviceCashAmount(raw: string): number | null {
+	const trimmed = raw.trim()
+	if (!trimmed) return null
+	const compact = trimmed.replace(/\s+/g, '')
+	const hasComma = compact.includes(',')
+	const hasDot = compact.includes('.')
+	let normalized = compact
+	if (hasComma && hasDot) {
+		const lastComma = compact.lastIndexOf(',')
+		const lastDot = compact.lastIndexOf('.')
+		if (lastComma > lastDot) {
+			normalized = compact.replace(/\./g, '').replace(',', '.')
+		} else {
+			normalized = compact.replace(/,/g, '')
+		}
+	} else if (hasComma && !hasDot) {
+		const parts = compact.split(',')
+		if (parts.length === 2 && parts[1].length <= 2 && parts[1].length > 0) {
+			normalized = `${parts[0]}.${parts[1]}`
+		} else {
+			normalized = compact.replace(/,/g, '')
+		}
+	}
+	const n = Number.parseFloat(normalized)
+	if (!Number.isFinite(n) || n < 0) return null
+	return n
+}
+
+function sumHoldingsValues(holdings: EtfEntry[]): {
+	total: number
+	currency: string | null
+	mixed: boolean
+} {
+	if (holdings.length === 0) {
+		return { total: 0, currency: null, mixed: false }
+	}
+	const firstCur = holdings[0].currency
+	const mixed = holdings.some((h) => h.currency !== firstCur)
+	if (mixed) {
+		return { total: 0, currency: null, mixed: true }
+	}
+	const total = holdings.reduce((s, h) => s + h.value, 0)
+	return { total, currency: firstCur, mixed: false }
+}
+
+/** Authoritative pre/post totals so the model does not invent wrong portfolio sums. */
+export function formatPostInvestmentTotalsBlock(params: {
+	holdings: EtfEntry[]
+	cashAmount: string
+	cashCurrency: string
+}): string {
+	const cashNum = parseAdviceCashAmount(params.cashAmount)
+	const {
+		total: holdingsTotal,
+		currency: holdingsCurrency,
+		mixed,
+	} = sumHoldingsValues(params.holdings)
+
+	const lines: string[] = [
+		'---',
+		'Arithmetic for totals (authoritative — copy these numbers into "Current state analysis"; do not substitute different portfolio or post-investment totals):',
+	]
+
+	if (cashNum === null) {
+		lines.push(
+			`- Could not parse deployable cash "${params.cashAmount}" as a non-negative number; do not state a numeric post-investment total until the user fixes the amount.`,
+		)
+		return lines.join('\n')
+	}
+
+	lines.push(
+		`- Deployable cash (parsed): ${cashNum.toFixed(2)} ${params.cashCurrency}`,
+	)
+
+	if (mixed) {
+		lines.push(
+			'- Holding line items use mixed currencies; do not add holdings + cash into one total. Describe pre/post in each currency separately or give qualitative guidance only.',
+		)
+		return lines.join('\n')
+	}
+
+	if (params.holdings.length === 0) {
+		lines.push(
+			'- Sum of ETF holding values (pre-investment): 0 (no positions).',
+		)
+		if (params.cashCurrency !== holdingsCurrency && holdingsCurrency !== null) {
+			lines.push(
+				`- Cash currency (${params.cashCurrency}) differs from holding currency; do not add into one total without conversion.`,
+			)
+			return lines.join('\n')
+		}
+		const post = cashNum
+		lines.push(
+			`- **After fully investing this deployable cash into ETFs, total ETF portfolio value = ${post.toFixed(2)} ${params.cashCurrency}** (all new money in this scenario).`,
+		)
+		return lines.join('\n')
+	}
+
+	lines.push(
+		`- Sum of ETF holding line-item values (pre-investment, excludes deployable cash): ${holdingsTotal.toFixed(2)} ${holdingsCurrency ?? params.cashCurrency}`,
+	)
+
+	if (holdingsCurrency !== params.cashCurrency) {
+		lines.push(
+			`- Cash is in ${params.cashCurrency} but holdings are in ${holdingsCurrency}; do not add into one combined total without an explicit FX assumption.`,
+		)
+		return lines.join('\n')
+	}
+
+	const postTotal = holdingsTotal + cashNum
+	lines.push(
+		`- **After fully investing this deployable cash into ETFs, total ETF portfolio value = ${holdingsTotal.toFixed(2)} + ${cashNum.toFixed(2)} = ${postTotal.toFixed(2)} ${params.cashCurrency}**`,
+	)
+	return lines.join('\n')
 }
 
 function findCatalogMatch(
@@ -206,6 +331,11 @@ export async function getInvestmentAdvice(params: {
 
 	const allocationBlock = formatAllocationContext(holdings, catalog)
 	const catalogBlock = formatCatalogForAdvice(catalog)
+	const arithmeticBlock = formatPostInvestmentTotalsBlock({
+		holdings,
+		cashAmount,
+		cashCurrency,
+	})
 
 	const userMessage =
 		`${guidelinesSection}` +
@@ -213,6 +343,7 @@ export async function getInvestmentAdvice(params: {
 		`---\nETF catalog (recommend only tickers from this list; cite performance/cost from these lines):\n${catalogBlock}\n\n` +
 		`---\nMy current holdings (line items):\n${holdingsList}\n\n` +
 		`---\nDeployable cash — new money to put into ETFs only (not included in the ETF totals above):\n${cashAmount} ${cashCurrency}\n\n` +
+		`${arithmeticBlock}\n\n` +
 		`${guidelineCashObjective}` +
 		`Respond using the JSON block structure in your system instructions.`
 

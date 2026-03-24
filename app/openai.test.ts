@@ -6,7 +6,9 @@ import type { AdviceClient, EtfEntry } from './openai.ts'
 import {
 	formatAllocationContext,
 	formatCatalogForAdvice,
+	formatPostInvestmentTotalsBlock,
 	getInvestmentAdvice,
+	parseAdviceCashAmount,
 } from './openai.ts'
 
 function adviceJsonParagraph(text: string): string {
@@ -355,6 +357,7 @@ describe('getInvestmentAdvice', () => {
 		})
 
 		assert.match(capturedMessage, /Allocation context/)
+		assert.match(capturedMessage, /Arithmetic for totals \(authoritative/)
 		assert.match(capturedMessage, /Deployable cash/)
 		assert.match(capturedMessage, /not included in the ETF totals above/i)
 		assert.match(capturedMessage, /ETF catalog/)
@@ -414,6 +417,49 @@ describe('formatAllocationContext', () => {
 		const out = formatAllocationContext(holdings, catalog)
 		assert.match(out, /equity.*60/)
 		assert.match(out, /bond.*40/)
+	})
+})
+
+describe('parseAdviceCashAmount', () => {
+	it('parses integers and decimals with common separators', () => {
+		assert.equal(parseAdviceCashAmount('2000'), 2000)
+		assert.equal(parseAdviceCashAmount(' 2000 '), 2000)
+		assert.equal(parseAdviceCashAmount('2,000'), 2000)
+		assert.equal(parseAdviceCashAmount('2000.50'), 2000.5)
+		assert.equal(parseAdviceCashAmount('2.000,50'), 2000.5)
+	})
+
+	it('returns null for empty or invalid', () => {
+		assert.equal(parseAdviceCashAmount(''), null)
+		assert.equal(parseAdviceCashAmount('abc'), null)
+		assert.equal(parseAdviceCashAmount('-1'), null)
+	})
+})
+
+describe('formatPostInvestmentTotalsBlock', () => {
+	it('sums holdings and cash in one currency for post-investment total', () => {
+		const holdings: EtfEntry[] = [
+			{ id: '1', name: 'BND', value: 1000, currency: 'PLN' },
+		]
+		const out = formatPostInvestmentTotalsBlock({
+			holdings,
+			cashAmount: '2000',
+			cashCurrency: 'PLN',
+		})
+		assert.match(out, /1000\.00 \+ 2000\.00 = 3000\.00 PLN/)
+	})
+
+	it('does not combine totals when cash currency differs from holdings', () => {
+		const holdings: EtfEntry[] = [
+			{ id: '1', name: 'BND', value: 1000, currency: 'USD' },
+		]
+		const out = formatPostInvestmentTotalsBlock({
+			holdings,
+			cashAmount: '2000',
+			cashCurrency: 'PLN',
+		})
+		assert.doesNotMatch(out, /= 3000/)
+		assert.match(out, /do not add into one combined total/i)
 	})
 })
 
