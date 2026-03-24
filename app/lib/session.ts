@@ -3,9 +3,12 @@ import type { Session } from 'remix/session'
 import { createCookieSessionStorage } from 'remix/session/cookie-storage'
 
 export type SessionData = {
-	token: string
+	/** GitHub OAuth token; null when signed in but pending allowlist approval. */
+	token: string | null
 	gistId: string | null
 	login: string
+	/** Present when `APPROVED_GITHUB_LOGINS` is set and this login is not on the list. */
+	approvalStatus?: 'pending'
 }
 
 /** Non-empty secret for cookie signing. Web Crypto rejects zero-length keys. */
@@ -28,10 +31,46 @@ export const sessionStorage = createCookieSessionStorage()
 export function getSessionData(session: Session): SessionData | null {
 	const token = session.get('token') as string | undefined
 	const login = session.get('login') as string | undefined
-	if (!token || !login) return null
+	if (!login || !token) return null
+	const approvalStatus = session.get('approvalStatus') as 'pending' | undefined
 	return {
 		token,
 		gistId: (session.get('gistId') as string | undefined) ?? null,
 		login,
+		...(approvalStatus === 'pending' ? { approvalStatus: 'pending' } : {}),
 	}
+}
+
+/** Signed in with GitHub (including pending approval) — has `login` but may lack `token`. */
+export function getSessionIdentity(
+	session: Session,
+): Pick<SessionData, 'login' | 'approvalStatus'> | null {
+	const login = session.get('login') as string | undefined
+	if (!login) return null
+	const approvalStatus = session.get('approvalStatus') as 'pending' | undefined
+	return {
+		login,
+		...(approvalStatus === 'pending' ? { approvalStatus: 'pending' } : {}),
+	}
+}
+
+/** Session for layout (nav, shell): approved user, or pending-approval identity. */
+export function getLayoutSession(session: Session): SessionData | null {
+	const full = getSessionData(session)
+	if (full) return full
+	const identity = getSessionIdentity(session)
+	if (!identity) return null
+	return {
+		token: null,
+		gistId: null,
+		login: identity.login,
+		...(identity.approvalStatus === 'pending'
+			? { approvalStatus: 'pending' }
+			: {}),
+	}
+}
+
+/** True when the session can read/write the private GitHub Gist (not guest, not pending). */
+export function sessionUsesGithubGist(session: SessionData | null): boolean {
+	return Boolean(session?.token && session.gistId)
 }

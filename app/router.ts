@@ -3,6 +3,7 @@ import { createRouter } from 'remix/fetch-router'
 import { formData } from 'remix/form-data-middleware'
 import { logger } from 'remix/logger-middleware'
 import { methodOverride } from 'remix/method-override-middleware'
+import type { Session } from 'remix/session'
 import { session } from 'remix/session-middleware'
 import { staticFiles } from 'remix/static-middleware'
 import { adviceController, setAdviceClient } from './features/advice/index.ts'
@@ -19,6 +20,7 @@ import {
 	portfolioController,
 	resetEtfEntries,
 } from './features/portfolio/index.ts'
+import { stripGithubTokenIfUnapproved } from './lib/approved-users.ts'
 import { sessionCookie, sessionStorage } from './lib/session.ts'
 import { routes } from './routes.ts'
 
@@ -41,6 +43,16 @@ const remixRuntime = staticFiles('node_modules', {
 		path.startsWith('@remix-run/interaction/dist/'),
 })
 
+function enforceGithubApproval() {
+	return async (
+		context: { session: Session },
+		next: () => Promise<Response>,
+	) => {
+		stripGithubTokenIfUnapproved(context.session)
+		return next()
+	}
+}
+
 export const router = createRouter({
 	middleware:
 		process.env.NODE_ENV === 'development'
@@ -51,6 +63,7 @@ export const router = createRouter({
 					formData(),
 					methodOverride(),
 					session(sessionCookie, sessionStorage),
+					enforceGithubApproval(),
 				]
 			: [
 					appStatic,
@@ -59,6 +72,7 @@ export const router = createRouter({
 					formData(),
 					methodOverride(),
 					session(sessionCookie, sessionStorage),
+					enforceGithubApproval(),
 				],
 })
 
