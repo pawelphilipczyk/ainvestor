@@ -6,20 +6,54 @@ import {
 import type { CatalogEntry } from './features/catalog/lib.ts'
 import type { EtfEntry } from './lib/gist.ts'
 import type { EtfGuideline } from './lib/guidelines.ts'
-import { formatEtfTypeLabel } from './lib/guidelines.ts'
+import { type EtfType, formatEtfTypeLabel } from './lib/guidelines.ts'
 
 export type { AdviceDocument, EtfEntry }
 
-const SYSTEM_PROMPT = `You are a financial advisor specialising in ETF portfolio allocation.
-The user may set a hybrid target allocation: asset-class buckets (e.g. a percentage for all equities)
-and/or specific fund targets. When both exist, treat fund-level targets as refinements within or
-alongside those buckets — note any overlap or tension and prioritise moving the portfolio toward
-the stated targets without double-counting.
+const BUY_ONLY_USER_BLOCK = `---
+Hard constraint (mandatory): I **cannot sell** any ETF holdings — I may **only add** new purchases with the deployable cash. Do **not** recommend selling, trimming, reducing, redeeming, switching out of, or exiting any position. Overweight sleeves stay as-is; rebalance **only** by buying underweights. If some guideline targets cannot be reached without selling, say that clearly and get **as close as possible** with buys only.
 
-You receive: target allocation (if any), a numeric allocation summary by asset type, the full ETF
-catalog with performance and cost fields, current holdings, and available cash (amount and currency).
-Base every specific ETF recommendation on the catalog data provided. When you cite performance, risk,
-or cost, use only values present in that catalog — do not invent figures.
+`
+
+const SYSTEM_PROMPT = `You are a financial advisor specialising in ETF portfolio allocation.
+
+Inputs: target allocation (if any), ETF-only allocation summary, ETF catalog, current holdings,
+**deployable cash** (amount and currency). Catalog is the only source for tickers and cited stats.
+
+**Hard constraint — buy only:** The user **never sells**. Recommend **only purchases** (new ETFs or
+adds to held tickers). Never suggest selling, trimming, reducing, redeeming, exiting, or rotating out of
+holdings to rebalance. Overweight buckets: acknowledge the gap but **do not** propose selling; only buy
+underweights with the cash. If targets are unreachable without sells, state that and optimise **buy-only**
+closeness.
+
+**Deployable cash** is not included in the ETF summary totals; do not treat it as total net worth or
+merge it into current-state percentage denominators. Use it only as capital to **buy** (new funds or
+adds to held tickers).
+
+**When the user provided target allocation percentages, those % are the desired mix of the *entire*
+ETF portfolio *after* this cash is invested** — i.e. each line's target share of
+**(current holding values + this deployable cash, once fully deployed into ETFs)**. They are **not**
+the split of the new cash alone; do not allocate 60/40 of *only* the deposit to match a 60/40 target.
+Work backwards from the end state: from holdings + planned buys, estimate **post-purchase** weights
+(by asset class and, where relevant, by named fund) and choose buys so those **whole-portfolio**
+percentages land on the targets as closely as this cash allows. If one currency, use one combined
+total; if mixed, state a reasonable assumption and still reason in **post-buy portfolio %** vs targets.
+Prioritise the largest gaps in that **post-buy** picture. Hybrid rules: asset-class buckets plus
+specific fund lines—resolve overlap, no double-counting.
+
+**When there are no targets**, suggest prudent deployment from the catalog consistent with holdings.
+
+If the user message contains **"Arithmetic for totals (authoritative"**, copy those figures exactly for
+pre-investment holdings sum, deployable cash, and **post-investment total portfolio value** — do not
+recalculate a different total (e.g. do not confuse target percentages with the portfolio denominator).
+If it flags mixed currencies or unparsed cash, obey that constraint.
+
+If **"Server allocation diagnostics"** is present, it is a **buy-only numerical plan by asset-class
+bucket** (from the server). Lead "Current state analysis" with those numbers (current vs target at
+post-total, minimum buys, recommended deployment of this cash). Then map buckets to catalog ETFs;
+**etf_proposals** amounts must match the deployment line items (± rounding).
+
+Base every specific ETF pick on the catalog; do not invent performance, risk, or cost figures.
 
 You MUST respond with a single JSON object only (no markdown code fences, no extra text). Shape:
 {
@@ -34,27 +68,31 @@ You MUST respond with a single JSON object only (no markdown code fences, no ext
 Cover this substance across your blocks (paragraph text can use headings and bullets inside the string):
 
 ## Current state analysis
-- In one paragraph block, use only bullet lines (each line starting with "- ").
-- Describe the user's current allocation by asset type (equities, bonds, real estate, commodities,
-  mixed, money market) using percentages and amounts consistent with the allocation context supplied.
-- If targets exist, add bullets for buckets or specific funds that are over- or under-weight.
-- Aim for roughly 4–12 bullets total in that paragraph block.
+- One paragraph block, bullet lines only ("- ").
+- Mirror the allocation context (by asset type). **If targets exist:** show **before** (current ETF
+  weights) and **after** your proposed buys: approximate **post-purchase whole-portfolio %** vs each
+  target (not just how you split the cash). Quantify remaining gap if targets cannot be fully reached.
+- Roughly 4–12 bullets.
 
 ## Next best picks
-- In paragraph block(s), give at most 3 numbered picks (1. 2. 3.).
-- Each pick must start with a line \`TICKER — Full fund name\` using tickers that appear in the ETF
-  catalog in the user's message. If the catalog is empty, explain that no specific ETFs can be named
-  and stay at asset-class level only.
-- Under each ticker line, one short explanation of why this buy helps; mention relevant catalog
-  performance data when those fields exist.
-- At least one pick should often be adding to a fund the user already holds when that restores balance;
-  remaining pick(s) may be new ETFs from the catalog. Order picks by impact.
+- At most 3 numbered picks (1. 2. 3.). Each starts with \`TICKER — Full fund name\` from the catalog.
+  Empty catalog → asset-class only, no invented tickers.
+- One line under each: why this buy **closes a target gap** (or, without targets, why it fits holdings).
+  Cite catalog stats when relevant.
+- Prefer adds to held tickers when that hits a target; otherwise new catalog funds. Order by impact on
+  guideline alignment.
 
-Optional: use "etf_proposals" for a table of concrete purchase amounts.
+**etf_proposals (use when targets or cash deployment should be concrete):** rows should **fully deploy**
+the user's cash (same currency; say so if FX mixing forces approximation). Sums are **only this inflow**
+(positive purchase amounts only — **never** negative or "sell" rows); **justify** row sizes so
+**post-purchase total portfolio** (holdings + buys) best matches the guideline % under the buy-only rule.
+Sum of row amounts ≈ deployable cash unless you explain rounding.
 
 Rules:
+- **Never** recommend or imply selling; violations invalidate the response.
 - Include at least one block. Use "paragraph" for narrative and optional "etf_proposals" for rows.
-- "etf_proposals.rows" may be empty if a table is not needed.
+- When targets exist, prefer a non-empty "etf_proposals" that deploys the cash; only omit the table if
+  you truly cannot map buys to the catalog.
 - "amount" and "currency" are optional for each row; when you suggest a purchase amount, include both
   "amount" (number) and "currency" (ISO code: PLN, USD, EUR, GBP, CHF, JPY, CAD, AUD, SEK, or NOK).
 - Use plain text in "text" and "note" fields (no HTML tags).
@@ -84,6 +122,126 @@ export function createDefaultClient(): AdviceClient {
 	return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 }
 
+/**
+ * Parse user-entered deployable cash for advice arithmetic (totals in the prompt).
+ * Accepts plain numbers, spaces, and common thousand/decimal separators.
+ */
+export function parseAdviceCashAmount(raw: string): number | null {
+	const trimmed = raw.trim()
+	if (!trimmed) return null
+	const compact = trimmed.replace(/\s+/g, '')
+	const hasComma = compact.includes(',')
+	const hasDot = compact.includes('.')
+	let normalized = compact
+	if (hasComma && hasDot) {
+		const lastComma = compact.lastIndexOf(',')
+		const lastDot = compact.lastIndexOf('.')
+		if (lastComma > lastDot) {
+			normalized = compact.replace(/\./g, '').replace(',', '.')
+		} else {
+			normalized = compact.replace(/,/g, '')
+		}
+	} else if (hasComma && !hasDot) {
+		const parts = compact.split(',')
+		if (parts.length === 2 && parts[1].length <= 2 && parts[1].length > 0) {
+			normalized = `${parts[0]}.${parts[1]}`
+		} else {
+			normalized = compact.replace(/,/g, '')
+		}
+	}
+	const n = Number.parseFloat(normalized)
+	if (!Number.isFinite(n) || n < 0) return null
+	return n
+}
+
+function sumHoldingsValues(holdings: EtfEntry[]): {
+	total: number
+	currency: string | null
+	mixed: boolean
+} {
+	if (holdings.length === 0) {
+		return { total: 0, currency: null, mixed: false }
+	}
+	const firstCur = holdings[0].currency
+	const mixed = holdings.some((h) => h.currency !== firstCur)
+	if (mixed) {
+		return { total: 0, currency: null, mixed: true }
+	}
+	const total = holdings.reduce((s, h) => s + h.value, 0)
+	return { total, currency: firstCur, mixed: false }
+}
+
+/** Authoritative pre/post totals so the model does not invent wrong portfolio sums. */
+export function formatPostInvestmentTotalsBlock(params: {
+	holdings: EtfEntry[]
+	cashAmount: string
+	cashCurrency: string
+}): string {
+	const cashNum = parseAdviceCashAmount(params.cashAmount)
+	const {
+		total: holdingsTotal,
+		currency: holdingsCurrency,
+		mixed,
+	} = sumHoldingsValues(params.holdings)
+
+	const lines: string[] = [
+		'---',
+		'Arithmetic for totals (authoritative — copy these numbers into "Current state analysis"; do not substitute different portfolio or post-investment totals):',
+	]
+
+	if (cashNum === null) {
+		lines.push(
+			`- Could not parse deployable cash "${params.cashAmount}" as a non-negative number; do not state a numeric post-investment total until the user fixes the amount.`,
+		)
+		return lines.join('\n')
+	}
+
+	lines.push(
+		`- Deployable cash (parsed): ${cashNum.toFixed(2)} ${params.cashCurrency}`,
+	)
+
+	if (mixed) {
+		lines.push(
+			'- Holding line items use mixed currencies; do not add holdings + cash into one total. Describe pre/post in each currency separately or give qualitative guidance only.',
+		)
+		return lines.join('\n')
+	}
+
+	if (params.holdings.length === 0) {
+		lines.push(
+			'- Sum of ETF holding values (pre-investment): 0 (no positions).',
+		)
+		if (params.cashCurrency !== holdingsCurrency && holdingsCurrency !== null) {
+			lines.push(
+				`- Cash currency (${params.cashCurrency}) differs from holding currency; do not add into one total without conversion.`,
+			)
+			return lines.join('\n')
+		}
+		const post = cashNum
+		lines.push(
+			`- **After fully investing this deployable cash into ETFs, total ETF portfolio value = ${post.toFixed(2)} ${params.cashCurrency}** (all new money in this scenario).`,
+		)
+		return lines.join('\n')
+	}
+
+	lines.push(
+		`- Sum of ETF holding line-item values (pre-investment, excludes deployable cash): ${holdingsTotal.toFixed(2)} ${holdingsCurrency ?? params.cashCurrency}`,
+	)
+
+	if (holdingsCurrency !== params.cashCurrency) {
+		lines.push(
+			`- Cash is in ${params.cashCurrency} but holdings are in ${holdingsCurrency}; do not add into one combined total without an explicit FX assumption.`,
+		)
+		return lines.join('\n')
+	}
+
+	const postTotal = holdingsTotal + cashNum
+	lines.push(
+		`- **After fully investing this deployable cash into ETFs, total ETF portfolio value = ${holdingsTotal.toFixed(2)} + ${cashNum.toFixed(2)} = ${postTotal.toFixed(2)} ${params.cashCurrency}**`,
+	)
+	return lines.join('\n')
+}
+
 function findCatalogMatch(
 	h: EtfEntry,
 	catalog: CatalogEntry[],
@@ -104,13 +262,159 @@ function findCatalogMatch(
 	)
 }
 
+export type AdviceBucketDiagnostic = {
+	/** Human label, e.g. "equity". */
+	label: string
+	etfType: EtfType
+	targetPct: number
+	currentAmt: number
+	/** Target currency value after full cash deployment (post-total × target %). */
+	targetAmtPost: number
+	/** max(0, targetAmtPost - currentAmt); buy-only, no sells. */
+	idealBuyMin: number
+}
+
+/**
+ * Dollar diagnostics for **asset-class-only** guidelines (sums ~100%).
+ * Returns null if hybrid/instrument-only, mixed holdings currency, bad cash, or non-computable.
+ */
+export function computeAdviceAllocationDiagnostics(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+	cashAmount: string
+	cashCurrency: string
+	catalog: CatalogEntry[]
+}): {
+	postTotal: number
+	currency: string
+	rows: AdviceBucketDiagnostic[]
+	sumIdealBuyMin: number
+	targetPctSum: number
+} | null {
+	const cashNum = parseAdviceCashAmount(params.cashAmount)
+	if (cashNum === null) return null
+
+	const {
+		total: holdingsTotal,
+		currency: holdingsCurrency,
+		mixed,
+	} = sumHoldingsValues(params.holdings)
+	if (mixed) return null
+	if (params.holdings.length > 0 && holdingsCurrency !== params.cashCurrency) {
+		return null
+	}
+
+	const assetClass = params.guidelines.filter((g) => g.kind === 'asset_class')
+	const instruments = params.guidelines.filter((g) => g.kind === 'instrument')
+	if (assetClass.length === 0 || instruments.length > 0) return null
+
+	const targetPctSum = assetClass.reduce((s, g) => s + g.targetPct, 0)
+	if (targetPctSum <= 0) return null
+
+	const currentByType = new Map<EtfType, number>()
+	for (const h of params.holdings) {
+		const c = findCatalogMatch(h, params.catalog)
+		const t: EtfType = c?.type ?? 'mixed'
+		currentByType.set(t, (currentByType.get(t) ?? 0) + h.value)
+	}
+
+	const postTotal = holdingsTotal + cashNum
+	const rows: AdviceBucketDiagnostic[] = assetClass.map((g) => {
+		const scale = g.targetPct / targetPctSum
+		const targetAmtPost = postTotal * scale
+		const currentAmt = currentByType.get(g.etfType) ?? 0
+		const idealBuyMin = Math.max(0, targetAmtPost - currentAmt)
+		return {
+			label: formatEtfTypeLabel(g.etfType),
+			etfType: g.etfType,
+			targetPct: g.targetPct,
+			currentAmt,
+			targetAmtPost,
+			idealBuyMin,
+		}
+	})
+
+	const sumIdealBuyMin = rows.reduce((s, r) => s + r.idealBuyMin, 0)
+	return {
+		postTotal,
+		currency: params.cashCurrency,
+		rows,
+		sumIdealBuyMin,
+		targetPctSum,
+	}
+}
+
+export function formatAdviceAllocationDiagnosticsBlock(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+	cashAmount: string
+	cashCurrency: string
+	catalog: CatalogEntry[]
+}): string | null {
+	const diag = computeAdviceAllocationDiagnostics(params)
+	if (!diag) return null
+
+	const { postTotal, currency, rows, sumIdealBuyMin, targetPctSum } = diag
+	const lines: string[] = [
+		'---',
+		'Server allocation diagnostics (authoritative numbers — restate these in "Current state analysis" before ETF names; do not contradict):',
+		'- **Buy-only:** these figures assume **no sales** — only the deployable cash is deployed; overweight buckets may stay above target until more cash is added.',
+		`- Post-investment portfolio total used below: ${postTotal.toFixed(2)} ${currency} (holdings + deployable cash).`,
+		`- Guideline target % are normalized against sum ${targetPctSum.toFixed(2)}% (each row scaled so weights match user targets if the sum is not exactly 100).`,
+		'Per asset-class bucket: target % (user), current value, target value at post-total, minimum buy to reach target without selling (0 if already at/above target):',
+	]
+
+	for (const r of rows) {
+		lines.push(
+			`- ${r.label}: target ${r.targetPct}% → ${r.targetAmtPost.toFixed(2)} ${currency} at post-total; currently ${r.currentAmt.toFixed(2)} ${currency}; minimum buy (if underweight) ${r.idealBuyMin.toFixed(2)} ${currency}`,
+		)
+	}
+
+	const cashNum = parseAdviceCashAmount(params.cashAmount) ?? 0
+	const eps = 0.01
+
+	if (sumIdealBuyMin > cashNum + eps) {
+		const posSum = rows.reduce((s, r) => s + r.idealBuyMin, 0)
+		lines.push(
+			`- Not enough cash to fully reach all targets with buys only: minimum buys sum to ${sumIdealBuyMin.toFixed(2)} ${currency} but deployable cash is ${cashNum.toFixed(2)} ${currency}.`,
+			`- **Recommended deployment of this cash** (proportional to those minimum buys among underweight buckets; 0 where minimum buy is 0):`,
+		)
+		for (const r of rows) {
+			const share = posSum > eps ? (r.idealBuyMin / posSum) * cashNum : 0
+			lines.push(`  - ${r.label}: deploy ~${share.toFixed(2)} ${currency}`)
+		}
+	} else {
+		lines.push(
+			`- Minimum buys to hit targets sum to ${sumIdealBuyMin.toFixed(2)} ${currency} (≤ deployable ${cashNum.toFixed(2)} ${currency}).`,
+		)
+		const remainder = cashNum - sumIdealBuyMin
+		if (remainder > eps) {
+			lines.push(
+				`- After those minimum buys, remaining cash ${remainder.toFixed(2)} ${currency}: add across buckets in proportion to target % to preserve the mix.`,
+			)
+			for (const r of rows) {
+				const extra = remainder * (r.targetPct / targetPctSum)
+				lines.push(
+					`  - ${r.label}: +~${extra.toFixed(2)} ${currency} from remainder`,
+				)
+			}
+		}
+	}
+
+	lines.push(
+		'Map these buckets to specific ETFs from the catalog (same asset type). etf_proposals row amounts should align with the deployment figures above.',
+	)
+
+	return lines.join('\n')
+}
+
 /** Server-side allocation summary so the model can mirror it in bullet form. */
 export function formatAllocationContext(
 	holdings: EtfEntry[],
 	catalog: CatalogEntry[],
 ): string {
 	if (holdings.length === 0) {
-		return 'No ETF holdings recorded yet — portfolio invested allocation is 0% (100% cash until you add positions).'
+		return 'No ETF holdings recorded yet — this summary shows 0% in ETFs. Any deployable cash the user states separately is new money to allocate into ETFs, not an ETF holding total.'
 	}
 	const total = holdings.reduce((s, h) => s + h.value, 0)
 	if (total <= 0) {
@@ -125,7 +429,7 @@ export function formatAllocationContext(
 		sums.set(label, (sums.get(label) ?? 0) + h.value)
 	}
 	const lines: string[] = [
-		`Total portfolio value (sum of holding values): ${total.toFixed(2)} (values as stored; mixed currencies may apply).`,
+		`Total ETF position value (sum of holding line items only; excludes any deployable cash the user states separately): ${total.toFixed(2)} (values as stored; mixed currencies may apply).`,
 		'Approximate share by asset type (each holding mapped via catalog ticker/name when possible):',
 	]
 	for (const [label, sum] of [...sums.entries()].sort((a, b) => b[1] - a[1])) {
@@ -182,17 +486,39 @@ export async function getInvestmentAdvice(params: {
 	const guidelinesSection =
 		guidelines.length === 0
 			? ''
-			: `My target allocation:\n${guidelines.map(formatGuidelineLine).join('\n')}\n\n`
+			: `My target allocation (each line is the **target share of my total ETF portfolio after** I invest the deployable cash below — i.e. (existing holdings + these purchases), **not** the split of the new cash alone):\n${guidelines.map(formatGuidelineLine).join('\n')}\n\n`
+
+	const guidelineCashObjective =
+		guidelines.length > 0
+			? 'Choose buys so **after** investing this cash, my **whole ETF portfolio** (holdings + buys) matches those targets as closely as **buy-only** allows (no selling); show approximate post-purchase % vs each target.\n\n'
+			: ''
 
 	const allocationBlock = formatAllocationContext(holdings, catalog)
 	const catalogBlock = formatCatalogForAdvice(catalog)
+	const arithmeticBlock = formatPostInvestmentTotalsBlock({
+		holdings,
+		cashAmount,
+		cashCurrency,
+	})
+	const diagnosticsBlock = formatAdviceAllocationDiagnosticsBlock({
+		holdings,
+		guidelines,
+		cashAmount,
+		cashCurrency,
+		catalog,
+	})
 
 	const userMessage =
 		`${guidelinesSection}` +
 		`---\nAllocation context (use for "Current state analysis" bullets; do not invent percentages beyond this summary):\n${allocationBlock}\n\n` +
 		`---\nETF catalog (recommend only tickers from this list; cite performance/cost from these lines):\n${catalogBlock}\n\n` +
 		`---\nMy current holdings (line items):\n${holdingsList}\n\n` +
-		`I have ${cashAmount} ${cashCurrency} available to invest. Respond using the JSON block structure in your system instructions.`
+		`---\nDeployable cash — new money to put into ETFs only (not included in the ETF totals above):\n${cashAmount} ${cashCurrency}\n\n` +
+		`${arithmeticBlock}\n\n` +
+		`${diagnosticsBlock ? `${diagnosticsBlock}\n\n` : ''}` +
+		`${guidelineCashObjective}` +
+		`${BUY_ONLY_USER_BLOCK}` +
+		`Respond using the JSON block structure in your system instructions.`
 
 	const response = await client.chat.completions.create({
 		model: 'gpt-4o-mini',

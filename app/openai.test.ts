@@ -4,9 +4,13 @@ import type { CatalogEntry } from './features/catalog/lib.ts'
 import type { EtfGuideline } from './lib/guidelines.ts'
 import type { AdviceClient, EtfEntry } from './openai.ts'
 import {
+	computeAdviceAllocationDiagnostics,
+	formatAdviceAllocationDiagnosticsBlock,
 	formatAllocationContext,
 	formatCatalogForAdvice,
+	formatPostInvestmentTotalsBlock,
 	getInvestmentAdvice,
+	parseAdviceCashAmount,
 } from './openai.ts'
 
 function adviceJsonParagraph(text: string): string {
@@ -237,6 +241,8 @@ describe('getInvestmentAdvice', () => {
 		assert.match(capturedMessage, /BND.*30%/)
 		assert.match(capturedMessage, /equity/)
 		assert.match(capturedMessage, /bond/)
+		assert.match(capturedMessage, /split of the new cash alone/i)
+		assert.match(capturedMessage, /whole ETF portfolio/i)
 	})
 
 	it('omits the target allocation block when guidelines are empty', async () => {
@@ -266,6 +272,7 @@ describe('getInvestmentAdvice', () => {
 		})
 
 		assert.doesNotMatch(capturedMessage, /target allocation/i)
+		assert.doesNotMatch(capturedMessage, /whole ETF portfolio/i)
 	})
 
 	it('formats hybrid asset-class and instrument lines in the user message', async () => {
@@ -352,10 +359,99 @@ describe('getInvestmentAdvice', () => {
 		})
 
 		assert.match(capturedMessage, /Allocation context/)
+		assert.match(capturedMessage, /Arithmetic for totals \(authoritative/)
+		assert.match(capturedMessage, /Deployable cash/)
+		assert.match(capturedMessage, /not included in the ETF totals above/i)
 		assert.match(capturedMessage, /ETF catalog/)
 		assert.match(capturedMessage, /VTI — Vanguard Total Stock Market/)
 		assert.match(capturedMessage, /annual rate of return: 7\.5%/)
 		assert.match(capturedMessage, /equity/)
+	})
+
+	it('includes server allocation diagnostics when guidelines are asset-class only', async () => {
+		let capturedMessage = ''
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						capturedMessage = params.messages[1].content
+						return { choices: [{ message: { content: 'ok' } }] }
+					},
+				},
+			},
+		}
+
+		const catalog: CatalogEntry[] = [
+			{
+				id: 'c1',
+				ticker: 'X',
+				name: 'Eq',
+				type: 'equity',
+				description: '',
+			},
+			{
+				id: 'c2',
+				ticker: 'Y',
+				name: 'Bd',
+				type: 'bond',
+				description: '',
+			},
+		]
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 60,
+				etfType: 'equity',
+			},
+			{
+				id: 'g2',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 40,
+				etfType: 'bond',
+			},
+		]
+
+		await getInvestmentAdvice({
+			holdings: [
+				{ id: '1', name: 'X', ticker: 'X', value: 4000, currency: 'PLN' },
+			],
+			guidelines,
+			cashAmount: '1000',
+			cashCurrency: 'PLN',
+			catalog,
+			client,
+		})
+
+		assert.match(capturedMessage, /Server allocation diagnostics/)
+	})
+
+	it('includes mandatory buy-only constraint in the user message', async () => {
+		let capturedMessage = ''
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						capturedMessage = params.messages[1].content
+						return { choices: [{ message: { content: 'ok' } }] }
+					},
+				},
+			},
+		}
+
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
+
+		assert.match(capturedMessage, /Hard constraint \(mandatory\)/)
+		assert.match(capturedMessage, /\*\*cannot sell\*\*/i)
 	})
 
 	it('includes empty-catalog guidance when the catalog has no rows', async () => {
@@ -409,6 +505,164 @@ describe('formatAllocationContext', () => {
 		const out = formatAllocationContext(holdings, catalog)
 		assert.match(out, /equity.*60/)
 		assert.match(out, /bond.*40/)
+	})
+})
+
+describe('parseAdviceCashAmount', () => {
+	it('parses integers and decimals with common separators', () => {
+		assert.equal(parseAdviceCashAmount('2000'), 2000)
+		assert.equal(parseAdviceCashAmount(' 2000 '), 2000)
+		assert.equal(parseAdviceCashAmount('2,000'), 2000)
+		assert.equal(parseAdviceCashAmount('2000.50'), 2000.5)
+		assert.equal(parseAdviceCashAmount('2.000,50'), 2000.5)
+	})
+
+	it('returns null for empty or invalid', () => {
+		assert.equal(parseAdviceCashAmount(''), null)
+		assert.equal(parseAdviceCashAmount('abc'), null)
+		assert.equal(parseAdviceCashAmount('-1'), null)
+	})
+})
+
+describe('computeAdviceAllocationDiagnostics', () => {
+	it('matches buy-only proportional deployment when cash is below sum of minimum buys (30/40/30 example)', () => {
+		const catalog: CatalogEntry[] = [
+			{
+				id: '1',
+				ticker: 'A',
+				name: 'A',
+				type: 'equity',
+				description: '',
+			},
+			{
+				id: '2',
+				ticker: 'B',
+				name: 'B',
+				type: 'bond',
+				description: '',
+			},
+			{
+				id: '3',
+				ticker: 'C',
+				name: 'C',
+				type: 'commodity',
+				description: '',
+			},
+		]
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 30,
+				etfType: 'equity',
+			},
+			{
+				id: 'g2',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 40,
+				etfType: 'bond',
+			},
+			{
+				id: 'g3',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 30,
+				etfType: 'commodity',
+			},
+		]
+		const holdings: EtfEntry[] = [
+			{ id: 'h1', name: 'A', ticker: 'A', value: 2000, currency: 'PLN' },
+			{ id: 'h2', name: 'B', ticker: 'B', value: 3000, currency: 'PLN' },
+			{ id: 'h3', name: 'C', ticker: 'C', value: 5000, currency: 'PLN' },
+		]
+		const diag = computeAdviceAllocationDiagnostics({
+			holdings,
+			guidelines,
+			cashAmount: '5000',
+			cashCurrency: 'PLN',
+			catalog,
+		})
+		assert.ok(diag)
+		assert.equal(diag.postTotal, 15000)
+		const eq = diag.rows.find((r) => r.etfType === 'equity')
+		const bd = diag.rows.find((r) => r.etfType === 'bond')
+		const cm = diag.rows.find((r) => r.etfType === 'commodity')
+		assert.ok(eq && bd && cm)
+		assert.equal(eq.idealBuyMin, 2500)
+		assert.equal(bd.idealBuyMin, 3000)
+		assert.equal(cm.idealBuyMin, 0)
+		assert.equal(diag.sumIdealBuyMin, 5500)
+
+		const block = formatAdviceAllocationDiagnosticsBlock({
+			holdings,
+			guidelines,
+			cashAmount: '5000',
+			cashCurrency: 'PLN',
+			catalog,
+		})
+		assert.ok(block)
+		assert.match(block, /Server allocation diagnostics/)
+		assert.match(block, /Buy-only/)
+		assert.match(block, /deploy ~2272\.73 PLN/)
+		assert.match(block, /deploy ~2727\.27 PLN/)
+	})
+
+	it('returns null when guidelines include instrument rows (hybrid)', () => {
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 50,
+				etfType: 'equity',
+			},
+			{
+				id: 'g2',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 50,
+				etfType: 'equity',
+			},
+		]
+		assert.equal(
+			computeAdviceAllocationDiagnostics({
+				holdings: [],
+				guidelines,
+				cashAmount: '100',
+				cashCurrency: 'PLN',
+				catalog: [],
+			}),
+			null,
+		)
+	})
+})
+
+describe('formatPostInvestmentTotalsBlock', () => {
+	it('sums holdings and cash in one currency for post-investment total', () => {
+		const holdings: EtfEntry[] = [
+			{ id: '1', name: 'BND', value: 1000, currency: 'PLN' },
+		]
+		const out = formatPostInvestmentTotalsBlock({
+			holdings,
+			cashAmount: '2000',
+			cashCurrency: 'PLN',
+		})
+		assert.match(out, /1000\.00 \+ 2000\.00 = 3000\.00 PLN/)
+	})
+
+	it('does not combine totals when cash currency differs from holdings', () => {
+		const holdings: EtfEntry[] = [
+			{ id: '1', name: 'BND', value: 1000, currency: 'USD' },
+		]
+		const out = formatPostInvestmentTotalsBlock({
+			holdings,
+			cashAmount: '2000',
+			cashCurrency: 'PLN',
+		})
+		assert.doesNotMatch(out, /= 3000/)
+		assert.match(out, /do not add into one combined total/i)
 	})
 })
 
