@@ -428,6 +428,32 @@ describe('getInvestmentAdvice', () => {
 		assert.match(capturedMessage, /Server allocation diagnostics/)
 	})
 
+	it('includes mandatory buy-only constraint in the user message', async () => {
+		let capturedMessage = ''
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						capturedMessage = params.messages[1].content
+						return { choices: [{ message: { content: 'ok' } }] }
+					},
+				},
+			},
+		}
+
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
+
+		assert.match(capturedMessage, /Hard constraint \(mandatory\)/)
+		assert.match(capturedMessage, /\*\*cannot sell\*\*/i)
+	})
+
 	it('includes empty-catalog guidance when the catalog has no rows', async () => {
 		let capturedMessage = ''
 		const client: AdviceClient = {
@@ -578,6 +604,7 @@ describe('computeAdviceAllocationDiagnostics', () => {
 		})
 		assert.ok(block)
 		assert.match(block, /Server allocation diagnostics/)
+		assert.match(block, /Buy-only/)
 		assert.match(block, /deploy ~2272\.73 PLN/)
 		assert.match(block, /deploy ~2727\.27 PLN/)
 	})

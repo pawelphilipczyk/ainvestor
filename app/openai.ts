@@ -10,10 +10,21 @@ import { type EtfType, formatEtfTypeLabel } from './lib/guidelines.ts'
 
 export type { AdviceDocument, EtfEntry }
 
+const BUY_ONLY_USER_BLOCK = `---
+Hard constraint (mandatory): I **cannot sell** any ETF holdings — I may **only add** new purchases with the deployable cash. Do **not** recommend selling, trimming, reducing, redeeming, switching out of, or exiting any position. Overweight sleeves stay as-is; rebalance **only** by buying underweights. If some guideline targets cannot be reached without selling, say that clearly and get **as close as possible** with buys only.
+
+`
+
 const SYSTEM_PROMPT = `You are a financial advisor specialising in ETF portfolio allocation.
 
 Inputs: target allocation (if any), ETF-only allocation summary, ETF catalog, current holdings,
 **deployable cash** (amount and currency). Catalog is the only source for tickers and cited stats.
+
+**Hard constraint — buy only:** The user **never sells**. Recommend **only purchases** (new ETFs or
+adds to held tickers). Never suggest selling, trimming, reducing, redeeming, exiting, or rotating out of
+holdings to rebalance. Overweight buckets: acknowledge the gap but **do not** propose selling; only buy
+underweights with the cash. If targets are unreachable without sells, state that and optimise **buy-only**
+closeness.
 
 **Deployable cash** is not included in the ETF summary totals; do not treat it as total net worth or
 merge it into current-state percentage denominators. Use it only as capital to **buy** (new funds or
@@ -73,10 +84,12 @@ Cover this substance across your blocks (paragraph text can use headings and bul
 
 **etf_proposals (use when targets or cash deployment should be concrete):** rows should **fully deploy**
 the user's cash (same currency; say so if FX mixing forces approximation). Sums are **only this inflow**
-(no assumed sells); **justify** row sizes so **post-purchase total portfolio** (holdings + buys) best
-matches the guideline %. Sum of row amounts ≈ deployable cash unless you explain rounding.
+(positive purchase amounts only — **never** negative or "sell" rows); **justify** row sizes so
+**post-purchase total portfolio** (holdings + buys) best matches the guideline % under the buy-only rule.
+Sum of row amounts ≈ deployable cash unless you explain rounding.
 
 Rules:
+- **Never** recommend or imply selling; violations invalidate the response.
 - Include at least one block. Use "paragraph" for narrative and optional "etf_proposals" for rows.
 - When targets exist, prefer a non-empty "etf_proposals" that deploys the cash; only omit the table if
   you truly cannot map buys to the catalog.
@@ -345,6 +358,7 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 	const lines: string[] = [
 		'---',
 		'Server allocation diagnostics (authoritative numbers — restate these in "Current state analysis" before ETF names; do not contradict):',
+		'- **Buy-only:** these figures assume **no sales** — only the deployable cash is deployed; overweight buckets may stay above target until more cash is added.',
 		`- Post-investment portfolio total used below: ${postTotal.toFixed(2)} ${currency} (holdings + deployable cash).`,
 		`- Guideline target % are normalized against sum ${targetPctSum.toFixed(2)}% (each row scaled so weights match user targets if the sum is not exactly 100).`,
 		'Per asset-class bucket: target % (user), current value, target value at post-total, minimum buy to reach target without selling (0 if already at/above target):',
@@ -476,7 +490,7 @@ export async function getInvestmentAdvice(params: {
 
 	const guidelineCashObjective =
 		guidelines.length > 0
-			? 'Choose buys so **after** investing this cash, my **whole ETF portfolio** (holdings + buys) matches those targets as closely as possible; show approximate post-purchase % vs each target.\n\n'
+			? 'Choose buys so **after** investing this cash, my **whole ETF portfolio** (holdings + buys) matches those targets as closely as **buy-only** allows (no selling); show approximate post-purchase % vs each target.\n\n'
 			: ''
 
 	const allocationBlock = formatAllocationContext(holdings, catalog)
@@ -503,6 +517,7 @@ export async function getInvestmentAdvice(params: {
 		`${arithmeticBlock}\n\n` +
 		`${diagnosticsBlock ? `${diagnosticsBlock}\n\n` : ''}` +
 		`${guidelineCashObjective}` +
+		`${BUY_ONLY_USER_BLOCK}` +
 		`Respond using the JSON block structure in your system instructions.`
 
 	const response = await client.chat.completions.create({
