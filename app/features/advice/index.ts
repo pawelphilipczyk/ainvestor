@@ -7,7 +7,11 @@ import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
-import { getSessionData, type SessionData } from '../../lib/session.ts'
+import {
+	getLayoutSession,
+	getSessionData,
+	type SessionData,
+} from '../../lib/session.ts'
 import type { AdviceClient, AdviceModelId } from '../../openai.ts'
 import {
 	ADVICE_MODEL_IDS,
@@ -45,6 +49,7 @@ function renderAdviceResponse(
 		selectedModel?: AdviceModelId
 		advice?: AdviceDocument
 		formError?: { summary: string; detail?: string }
+		pendingApproval?: boolean
 	},
 	init?: ResponseInit,
 ) {
@@ -71,8 +76,9 @@ export function setAdviceClient(client: AdviceClient | null) {
 // ---------------------------------------------------------------------------
 export const adviceController = {
 	async index(context: { request: Request; session: Session }) {
-		const session = getSessionData(context.session)
-		return renderAdviceResponse(session, {})
+		const layoutSession = getLayoutSession(context.session)
+		const pendingApproval = layoutSession?.approvalStatus === 'pending'
+		return renderAdviceResponse(layoutSession, { pendingApproval })
 	},
 
 	async action(context: {
@@ -81,11 +87,14 @@ export const adviceController = {
 		formData: FormData | null
 	}) {
 		const session = getSessionData(context.session)
+		const layoutSession = getLayoutSession(context.session)
+		const pendingApproval = layoutSession?.approvalStatus === 'pending'
 		const form = context.formData
 		if (!form) {
 			return renderAdviceResponse(
-				session,
+				layoutSession,
 				{
+					pendingApproval,
 					formError: {
 						summary: 'Could not read your form. Please try again.',
 						detail:
@@ -128,8 +137,9 @@ export const adviceController = {
 					? (rawModel as AdviceModelId)
 					: DEFAULT_ADVICE_MODEL
 			return renderAdviceResponse(
-				session,
+				layoutSession,
 				{
+					pendingApproval,
 					cashAmount,
 					cashCurrency,
 					selectedModel,
@@ -143,12 +153,31 @@ export const adviceController = {
 		}
 		const { cashAmount, cashCurrency, adviceModel } = result.value
 
-		const { entries, catalog } = session?.gistId
-			? await fetchPortfolioSnapshot(session.token, session.gistId)
-			: { entries: getGuestEntries(), catalog: getGuestCatalog() }
-		const guidelines = session?.gistId
-			? await fetchGuidelines(session.token, session.gistId)
-			: getGuestGuidelines()
+		if (pendingApproval) {
+			return renderAdviceResponse(
+				layoutSession,
+				{
+					pendingApproval: true,
+					cashAmount,
+					cashCurrency,
+					selectedModel: adviceModel,
+					formError: {
+						summary:
+							'Your account is not approved yet. You cannot request advice until an administrator adds your GitHub username to the allow list.',
+					},
+				},
+				{ status: 403 },
+			)
+		}
+
+		const { entries, catalog } =
+			session?.gistId && session.token
+				? await fetchPortfolioSnapshot(session.token, session.gistId)
+				: { entries: getGuestEntries(), catalog: getGuestCatalog() }
+		const guidelines =
+			session?.gistId && session.token
+				? await fetchGuidelines(session.token, session.gistId)
+				: getGuestGuidelines()
 
 		try {
 			const client = adviceClient ?? createDefaultClient()
@@ -161,7 +190,8 @@ export const adviceController = {
 				client,
 				model: adviceModel,
 			})
-			return renderAdviceResponse(session, {
+			return renderAdviceResponse(layoutSession, {
+				pendingApproval,
 				cashAmount,
 				cashCurrency,
 				selectedModel: adviceModel,
@@ -177,8 +207,9 @@ export const adviceController = {
 						: err.message
 					: String(err)
 			return renderAdviceResponse(
-				session,
+				layoutSession,
 				{
+					pendingApproval,
 					cashAmount,
 					cashCurrency,
 					selectedModel: adviceModel,

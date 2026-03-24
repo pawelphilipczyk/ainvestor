@@ -7,6 +7,7 @@ import {
 } from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
+import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 
@@ -37,9 +38,11 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					</h1>
 					<p class="mt-1 text-sm text-muted-foreground">
 						Set your target allocation.{' '}
-						{session
+						{sessionUsesGithubGist(session)
 							? 'Saved to your private GitHub Gist.'
-							: 'Sign in to persist across sessions.'}
+							: session?.approvalStatus === 'pending'
+								? 'Account pending approval — guidelines are not saved to GitHub yet.'
+								: 'Sign in to persist across sessions.'}
 					</p>
 				</header>
 

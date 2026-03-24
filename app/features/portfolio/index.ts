@@ -6,7 +6,7 @@ import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, fetchPortfolioSnapshot, saveEtfs } from '../../lib/gist.ts'
 import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { SessionData } from '../../lib/session.ts'
-import { getSessionData } from '../../lib/session.ts'
+import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { getGuestCatalog } from '../catalog/guest-catalog.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
@@ -23,17 +23,23 @@ export { getGuestEntries, resetEtfEntries } from './state.ts'
 export const portfolioController = {
 	async index(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
+		const layoutSession = getLayoutSession(context.session)
 		const flashError = context.session.get('error') as string | undefined
-		if (session?.gistId) {
+		if (session?.gistId && session.token) {
 			const { entries, catalog } = await fetchPortfolioSnapshot(
 				session.token,
 				session.gistId,
 			)
-			return renderPage({ entries, session, flashError, catalog })
+			return renderPage({
+				entries,
+				session: layoutSession,
+				flashError,
+				catalog,
+			})
 		}
 		return renderPage({
 			entries: guestEntries,
-			session,
+			session: layoutSession,
 			flashError,
 			catalog: getGuestCatalog(),
 		})
@@ -81,9 +87,10 @@ export const portfolioController = {
 			return createRedirectResponse(routes.portfolio.index.href())
 
 		const session = getSessionData(context.session)
-		const current = session?.gistId
-			? await fetchEtfs(session.token, session.gistId)
-			: guestEntries
+		const current =
+			session?.gistId && session.token
+				? await fetchEtfs(session.token, session.gistId)
+				: guestEntries
 
 		// Merge imported with existing (same name+currency: add values, quantity)
 		const byKey = new Map<string, EtfEntry>()
@@ -110,7 +117,7 @@ export const portfolioController = {
 		}
 		const updated = Array.from(byKey.values())
 
-		if (session?.gistId) {
+		if (session?.gistId && session.token) {
 			await saveEtfs(session.token, session.gistId, updated)
 		} else {
 			guestEntries.length = 0
@@ -130,7 +137,7 @@ export const portfolioController = {
 
 		const session = getSessionData(context.session)
 
-		if (session?.gistId) {
+		if (session?.gistId && session.token) {
 			const current = await fetchEtfs(session.token, session.gistId)
 			await saveEtfs(
 				session.token,

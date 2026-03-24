@@ -78,7 +78,7 @@ export const addEtfFormHandlers = {
 		const session = getSessionData(context.session)
 		let catalog: CatalogEntry[]
 		let current: EtfEntry[]
-		if (session?.gistId) {
+		if (session?.gistId && session.token) {
 			const snapshot = await fetchPortfolioSnapshot(
 				session.token,
 				session.gistId,
@@ -101,7 +101,9 @@ export const addEtfFormHandlers = {
 					JSON.stringify({
 						error: message,
 						instrumentTicker: instrumentTicker.trim(),
-						...(session?.gistId ? { gistId: session.gistId } : {}),
+						...(session?.gistId && session.token
+							? { gistId: session.gistId }
+							: {}),
 					}),
 					{
 						status: 422,
@@ -150,7 +152,7 @@ export const addEtfFormHandlers = {
 				? current.map((e, i) => (i === existingIndex ? entry : e))
 				: [entry, ...current]
 
-		if (session?.gistId) {
+		if (session?.gistId && session.token) {
 			await saveEtfs(session.token, session.gistId, updated)
 		} else {
 			guestEntries.length = 0
@@ -162,9 +164,10 @@ export const addEtfFormHandlers = {
 
 	async fragmentList(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
-		const entries = session?.gistId
-			? await fetchEtfs(session.token, session.gistId)
-			: getGuestEntries()
+		const entries =
+			session?.gistId && session.token
+				? await fetchEtfs(session.token, session.gistId)
+				: getGuestEntries()
 		const html = await renderToString(jsx(ListFragment, { entries }))
 		return createHtmlResponse(html, {
 			headers: { 'Cache-Control': 'no-store' },

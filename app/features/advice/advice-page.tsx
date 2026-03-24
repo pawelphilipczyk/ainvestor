@@ -20,6 +20,7 @@ type AdvicePageProps = {
 	selectedModel?: AdviceModelId
 	advice?: AdviceDocument
 	formError?: FormError
+	pendingApproval?: boolean
 }
 
 const currencyOptions = CURRENCIES.map((c) => ({ value: c, label: c }))
@@ -141,6 +142,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 	return (props: AdvicePageProps) => {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
+		const pendingApproval = props.pendingApproval === true
 		return (
 			<main class="mx-auto max-w-3xl rounded-xl border border-border bg-card p-6 shadow-sm">
 				<header>
@@ -151,6 +153,22 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						Tell me how much cash you have and I'll suggest what to buy next.
 					</p>
 				</header>
+				{pendingApproval ? (
+					<div
+						role="status"
+						class="mt-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-card-foreground"
+					>
+						<p class="font-medium">Account pending approval</p>
+						<p class="mt-1 text-muted-foreground">
+							You signed in with GitHub, but this deployment only allows listed
+							users. Ask an administrator to add your GitHub username to{' '}
+							<code class="rounded bg-muted px-1 py-0.5 font-mono text-xs">
+								APPROVED_GITHUB_LOGINS
+							</code>
+							, then sign out and sign in again.
+						</p>
+					</div>
+				) : null}
 				<form
 					method="post"
 					action={routes.advice.action.href()}
@@ -188,6 +206,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								min={1}
 								step="any"
 								defaultValue={props.cashAmount}
+								disabled={pendingApproval}
 							/>
 						</div>
 						<div class="grid w-full gap-2 sm:w-36">
@@ -197,6 +216,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								name="cashCurrency"
 								options={currencyOptions}
 								value={cashCurrency}
+								disabled={pendingApproval}
 							/>
 						</div>
 						<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
@@ -206,11 +226,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								name="adviceModel"
 								options={modelOptions}
 								value={selectedModel}
+								disabled={pendingApproval}
 							/>
 						</div>
 						<button
 							type="submit"
-							class="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							disabled={pendingApproval}
+							class="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
 						>
 							Ask AI
 						</button>

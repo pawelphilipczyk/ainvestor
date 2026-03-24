@@ -1,6 +1,7 @@
 import type { Handle } from 'remix/component'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfEntry } from '../../lib/gist.ts'
+import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { AddEtfForm, ListFragment } from './add-etf-form/index.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { EtfCardInteractions } from './etf-card.component.js'
@@ -29,9 +30,13 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 							Paste or upload a broker CSV to add what you already hold or want
 							to buy.
 						</p>
-						{session ? (
+						{sessionUsesGithubGist(session) ? (
 							<p class="mt-1 text-xs text-muted-foreground">
 								Saved to your private GitHub Gist
+							</p>
+						) : session?.approvalStatus === 'pending' ? (
+							<p class="mt-1 text-xs text-muted-foreground">
+								Account pending approval — portfolio is not saved to GitHub yet
 							</p>
 						) : (
 							<p class="mt-1 text-xs text-muted-foreground">

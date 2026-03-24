@@ -14,7 +14,7 @@ import {
 	saveGuidelines,
 } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
-import { getSessionData } from '../../lib/session.ts'
+import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { getGuestCatalog } from '../catalog/guest-catalog.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
@@ -54,7 +54,7 @@ async function persistGuideline(
 	entry: EtfGuideline,
 	session: SessionData | null,
 ) {
-	if (session?.gistId) {
+	if (session?.gistId && session.token) {
 		const current = await fetchGuidelines(session.token, session.gistId)
 		await saveGuidelines(session.token, session.gistId, [entry, ...current])
 	} else {
@@ -68,15 +68,16 @@ async function persistGuideline(
 export const guidelinesController = {
 	async index(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
+		const layoutSession = getLayoutSession(context.session)
 		const [guidelines, catalog] = await Promise.all([
-			session?.gistId
+			session?.gistId && session.token
 				? fetchGuidelines(session.token, session.gistId)
 				: guestGuidelines,
-			session?.gistId
+			session?.gistId && session.token
 				? fetchCatalog(session.token, session.gistId)
 				: getGuestCatalog(),
 		])
-		return renderGuidelinesPage({ guidelines, session, catalog })
+		return renderGuidelinesPage({ guidelines, session: layoutSession, catalog })
 	},
 
 	async instrument(context: {
@@ -98,9 +99,10 @@ export const guidelinesController = {
 		}
 
 		const session = getSessionData(context.session)
-		const catalog = session?.gistId
-			? await fetchCatalog(session.token, session.gistId)
-			: getGuestCatalog()
+		const catalog =
+			session?.gistId && session.token
+				? await fetchCatalog(session.token, session.gistId)
+				: getGuestCatalog()
 
 		const ticker = (result.value.instrumentTicker ?? '').trim()
 		if (!ticker) {
@@ -143,9 +145,10 @@ export const guidelinesController = {
 		}
 
 		const session = getSessionData(context.session)
-		const catalog = session?.gistId
-			? await fetchCatalog(session.token, session.gistId)
-			: getGuestCatalog()
+		const catalog =
+			session?.gistId && session.token
+				? await fetchCatalog(session.token, session.gistId)
+				: getGuestCatalog()
 		const allowedAssetClasses = new Set(
 			assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
 		)
@@ -178,7 +181,7 @@ export const guidelinesController = {
 
 		const session = getSessionData(context.session)
 
-		if (session?.gistId) {
+		if (session?.gistId && session.token) {
 			const current = await fetchGuidelines(session.token, session.gistId)
 			await saveGuidelines(
 				session.token,
@@ -194,9 +197,10 @@ export const guidelinesController = {
 
 	async fragmentList(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
-		const guidelines = session?.gistId
-			? await fetchGuidelines(session.token, session.gistId)
-			: guestGuidelines
+		const guidelines =
+			session?.gistId && session.token
+				? await fetchGuidelines(session.token, session.gistId)
+				: guestGuidelines
 		const html = await renderToString(
 			jsx(GuidelinesListFragment, { guidelines }),
 		)

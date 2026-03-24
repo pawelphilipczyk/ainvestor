@@ -5,7 +5,7 @@ import { render } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
 import type { SessionData } from '../../lib/session.ts'
-import { getSessionData } from '../../lib/session.ts'
+import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
 import { CatalogPage } from './catalog-page.tsx'
@@ -34,16 +34,17 @@ export const catalogController = {
 		const query = url.searchParams.get('q') ?? ''
 
 		const session = getSessionData(context.session)
+		const layoutSession = getLayoutSession(context.session)
 		const [catalog, entries] = await Promise.all([
-			session?.gistId
+			session?.gistId && session.token
 				? fetchCatalog(session.token, session.gistId)
 				: getGuestCatalog(),
-			session?.gistId
+			session?.gistId && session.token
 				? fetchEtfs(session.token, session.gistId)
 				: getGuestEntries(),
 		])
 
-		return renderCatalogPage(catalog, entries, session, typeFilter, query)
+		return renderCatalogPage(catalog, entries, layoutSession, typeFilter, query)
 	},
 
 	async import(context: { request: Request; session: Session }) {
@@ -60,12 +61,13 @@ export const catalogController = {
 			return createRedirectResponse(routes.catalog.index.href())
 
 		const session = getSessionData(context.session)
-		const existing = session?.gistId
-			? await fetchCatalog(session.token, session.gistId)
-			: getGuestCatalog()
+		const existing =
+			session?.gistId && session.token
+				? await fetchCatalog(session.token, session.gistId)
+				: getGuestCatalog()
 		const merged = mergeBankIntoCatalog(existing, imported)
 
-		if (session?.gistId) {
+		if (session?.gistId && session.token) {
 			await saveCatalog(session.token, session.gistId, merged)
 		} else {
 			setGuestCatalog(merged)

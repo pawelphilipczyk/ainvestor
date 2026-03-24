@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
+import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import type { AdviceClient } from '../../openai.ts'
 import { router } from '../../router.ts'
 import { resetGuestCatalog } from '../catalog/index.ts'
@@ -37,6 +38,7 @@ afterEach(() => {
 	resetGuestGuidelines()
 	resetGuestCatalog()
 	setAdviceClient(null)
+	delete process.env.APPROVED_GITHUB_LOGINS
 })
 
 describe('Advice', () => {
@@ -50,6 +52,55 @@ describe('Advice', () => {
 		assert.match(body, /name="cashCurrency"/)
 		assert.match(body, /name="adviceModel"/)
 		assert.match(body, /action="\/advice"/)
+	})
+
+	it('GET /advice shows pending approval when session login is not on allowlist', async () => {
+		process.env.APPROVED_GITHUB_LOGINS = 'someone-else'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'pending-user')
+		session.set('approvalStatus', 'pending')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookieHeader = await sessionCookie.serialize(value)
+		const cookie = cookieHeader.split(';')[0]
+
+		const response = await router.fetch('http://localhost/advice', {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Account pending approval/)
+		assert.match(body, /APPROVED_GITHUB_LOGINS/)
+		assert.match(body, /disabled/)
+	})
+
+	it('POST /advice returns 403 for pending-approval session', async () => {
+		process.env.APPROVED_GITHUB_LOGINS = 'admin'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'stranger')
+		session.set('approvalStatus', 'pending')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookieHeader = await sessionCookie.serialize(value)
+		const cookie = cookieHeader.split(';')[0]
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+		setAdviceClient(makeMockClient('should not run'))
+
+		const response = await router.fetch(
+			new Request('http://localhost/advice', {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 403)
+		assert.match(body, /not approved yet/)
+		assert.doesNotMatch(body, /Investment Advice/)
 	})
 
 	it('returns 400 with AdvicePage HTML when cashAmount is missing', async () => {
