@@ -99,6 +99,17 @@ Rules:
 
 Do not provide legal or tax advice; only portfolio allocation guidance.`
 
+/** OpenAI chat models offered for ETF advice (user-selectable; default is mini). */
+export const ADVICE_MODEL_IDS = [
+	'gpt-5.4-mini',
+	'gpt-5.4-nano',
+	'gpt-5.4',
+] as const
+
+export type AdviceModelId = (typeof ADVICE_MODEL_IDS)[number]
+
+export const DEFAULT_ADVICE_MODEL: AdviceModelId = 'gpt-5.4-mini'
+
 export function formatGuidelineLine(g: EtfGuideline): string {
 	if (g.kind === 'asset_class') {
 		return `- Asset class ${formatEtfTypeLabel(g.etfType)}: ${g.targetPct}% (bucket)`
@@ -474,9 +485,17 @@ export async function getInvestmentAdvice(params: {
 	cashCurrency: string
 	catalog: CatalogEntry[]
 	client: AdviceClient
+	model?: AdviceModelId
 }): Promise<AdviceDocument> {
-	const { holdings, guidelines, cashAmount, cashCurrency, catalog, client } =
-		params
+	const {
+		holdings,
+		guidelines,
+		cashAmount,
+		cashCurrency,
+		catalog,
+		client,
+		model = DEFAULT_ADVICE_MODEL,
+	} = params
 
 	const holdingsList =
 		holdings.length === 0
@@ -521,7 +540,7 @@ export async function getInvestmentAdvice(params: {
 		`Respond using the JSON block structure in your system instructions.`
 
 	const response = await client.chat.completions.create({
-		model: 'gpt-4o-mini',
+		model,
 		messages: [
 			{ role: 'system', content: SYSTEM_PROMPT },
 			{ role: 'user', content: userMessage },

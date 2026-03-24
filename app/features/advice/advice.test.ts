@@ -48,6 +48,7 @@ describe('Advice', () => {
 		assert.match(body, /Get Advice/)
 		assert.match(body, /name="cashAmount"/)
 		assert.match(body, /name="cashCurrency"/)
+		assert.match(body, /name="adviceModel"/)
 		assert.match(body, /action="\/advice"/)
 	})
 
@@ -285,5 +286,32 @@ describe('Advice', () => {
 
 		assert.match(capturedUserMessage, /VTI.*60%/)
 		assert.match(capturedUserMessage, /equity/)
+	})
+
+	it('passes the selected advice model to the OpenAI client', async () => {
+		let capturedModel = ''
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async (params) => {
+						capturedModel = params.model
+						return { choices: [{ message: { content: 'advice' } }] }
+					},
+				},
+			},
+		})
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+		form.set('adviceModel', 'gpt-5.4-nano')
+
+		const response = await router.fetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.equal(capturedModel, 'gpt-5.4-nano')
+		assert.match(body, /value="gpt-5.4-nano"/)
 	})
 })

@@ -8,8 +8,13 @@ import { CURRENCIES } from '../../lib/currencies.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { getSessionData, type SessionData } from '../../lib/session.ts'
-import type { AdviceClient } from '../../openai.ts'
-import { createDefaultClient, getInvestmentAdvice } from '../../openai.ts'
+import type { AdviceClient, AdviceModelId } from '../../openai.ts'
+import {
+	ADVICE_MODEL_IDS,
+	createDefaultClient,
+	DEFAULT_ADVICE_MODEL,
+	getInvestmentAdvice,
+} from '../../openai.ts'
 import { getGuestCatalog } from '../catalog/guest-catalog.ts'
 import { getGuestGuidelines } from '../guidelines/index.ts'
 import { getGuestEntries } from '../portfolio/index.ts'
@@ -19,6 +24,7 @@ import { AdvicePage } from './advice-page.tsx'
 const AdviceSchema = object({
 	cashAmount: string().pipe(minLength(1)),
 	cashCurrency: defaulted(enum_(CURRENCIES), 'PLN'),
+	adviceModel: defaulted(enum_(ADVICE_MODEL_IDS), DEFAULT_ADVICE_MODEL),
 })
 
 function formatSchemaIssues(issues: ReadonlyArray<Issue>): string {
@@ -36,6 +42,7 @@ function renderAdviceResponse(
 	props: {
 		cashAmount?: string
 		cashCurrency?: string
+		selectedModel?: AdviceModelId
 		advice?: AdviceDocument
 		formError?: { summary: string; detail?: string }
 	},
@@ -99,6 +106,11 @@ export const adviceController = {
 				rawEntries.cashCurrency.length > 0
 					? rawEntries.cashCurrency
 					: undefined,
+			adviceModel:
+				typeof rawEntries.adviceModel === 'string' &&
+				rawEntries.adviceModel.length > 0
+					? rawEntries.adviceModel
+					: undefined,
 		}
 		const result = parseSafe(AdviceSchema, formPayload)
 		if (!result.success) {
@@ -108,11 +120,19 @@ export const adviceController = {
 			const rawCur = form.get('cashCurrency')
 			const cashCurrency =
 				typeof rawCur === 'string' && rawCur.length > 0 ? rawCur : 'PLN'
+			const rawModel = form.get('adviceModel')
+			const selectedModel =
+				typeof rawModel === 'string' &&
+				rawModel.length > 0 &&
+				(ADVICE_MODEL_IDS as readonly string[]).includes(rawModel)
+					? (rawModel as AdviceModelId)
+					: DEFAULT_ADVICE_MODEL
 			return renderAdviceResponse(
 				session,
 				{
 					cashAmount,
 					cashCurrency,
+					selectedModel,
 					formError: {
 						summary: 'Enter a valid cash amount and currency.',
 						detail: formatSchemaIssues(result.issues),
@@ -121,7 +141,7 @@ export const adviceController = {
 				{ status: 400 },
 			)
 		}
-		const { cashAmount, cashCurrency } = result.value
+		const { cashAmount, cashCurrency, adviceModel } = result.value
 
 		const { entries, catalog } = session?.gistId
 			? await fetchPortfolioSnapshot(session.token, session.gistId)
@@ -139,10 +159,12 @@ export const adviceController = {
 				cashCurrency,
 				catalog,
 				client,
+				model: adviceModel,
 			})
 			return renderAdviceResponse(session, {
 				cashAmount,
 				cashCurrency,
+				selectedModel: adviceModel,
 				advice,
 			})
 		} catch (err) {
@@ -159,6 +181,7 @@ export const adviceController = {
 				{
 					cashAmount,
 					cashCurrency,
+					selectedModel: adviceModel,
 					formError: {
 						summary:
 							"We couldn't get advice right now. Please try again in a moment.",
