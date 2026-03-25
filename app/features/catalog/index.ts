@@ -4,16 +4,15 @@ import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
+import {
+	getGuestCatalog,
+	getGuestEtfs,
+	setGuestCatalog,
+} from '../../lib/guest-session-state.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { getGuestEntries } from '../portfolio/index.ts'
 import { CatalogPage } from './catalog-page.tsx'
-import {
-	getGuestCatalog,
-	resetGuestCatalog,
-	setGuestCatalog,
-} from './guest-catalog.ts'
 import type { CatalogEntry } from './lib.ts'
 import {
 	fetchCatalog,
@@ -22,7 +21,7 @@ import {
 	saveCatalog,
 } from './lib.ts'
 
-export { getGuestCatalog, resetGuestCatalog }
+export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-session-fetch.ts'
 
 // ---------------------------------------------------------------------------
 // Controller
@@ -38,13 +37,19 @@ export const catalogController = {
 		const [catalog, entries] = await Promise.all([
 			session?.gistId && session.token
 				? fetchCatalog(session.token, session.gistId)
-				: getGuestCatalog(),
+				: getGuestCatalog(context.session),
 			session?.gistId && session.token
 				? fetchEtfs(session.token, session.gistId)
-				: getGuestEntries(),
+				: getGuestEtfs(context.session),
 		])
 
-		return renderCatalogPage(catalog, entries, layoutSession, typeFilter, query)
+		return renderCatalogPage({
+			catalog,
+			entries,
+			session: layoutSession,
+			typeFilter,
+			query,
+		})
 	},
 
 	async import(context: { request: Request; session: Session }) {
@@ -64,13 +69,13 @@ export const catalogController = {
 		const existing =
 			session?.gistId && session.token
 				? await fetchCatalog(session.token, session.gistId)
-				: getGuestCatalog()
+				: getGuestCatalog(context.session)
 		const merged = mergeBankIntoCatalog(existing, imported)
 
 		if (session?.gistId && session.token) {
 			await saveCatalog(session.token, session.gistId, merged)
 		} else {
-			setGuestCatalog(merged)
+			setGuestCatalog(context.session, merged)
 		}
 
 		return createRedirectResponse(routes.catalog.index.href())
@@ -80,16 +85,17 @@ export const catalogController = {
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
-async function renderCatalogPage(
-	catalog: CatalogEntry[],
-	holdings: EtfEntry[],
-	session: SessionData | null,
-	typeFilter: string,
-	query: string,
-) {
+async function renderCatalogPage(params: {
+	catalog: CatalogEntry[]
+	entries: EtfEntry[]
+	session: SessionData | null
+	typeFilter: string
+	query: string
+}) {
+	const { catalog, entries, session, typeFilter, query } = params
 	const body = jsx(CatalogPage, {
 		catalog,
-		holdings,
+		holdings: entries,
 		typeFilter,
 		query,
 	})

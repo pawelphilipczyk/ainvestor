@@ -53,12 +53,33 @@ export const authController = {
 				Accept: 'application/vnd.github+json',
 			},
 		})
-		const user = (await userRes.json()) as { login: string }
+		const userJson = (await userRes.json()) as {
+			login?: string
+			message?: string
+		}
+		const login =
+			typeof userJson.login === 'string' && userJson.login.length > 0
+				? userJson.login
+				: null
+
+		if (!userRes.ok || !login) {
+			console.error(
+				'[auth] GitHub user fetch failed',
+				userRes.status,
+				userJson.message ?? userJson,
+			)
+			context.session.regenerateId()
+			context.session.unset('token')
+			context.session.unset('gistId')
+			context.session.unset('login')
+			context.session.unset('approvalStatus')
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
 
 		context.session.regenerateId()
-		context.session.set('login', user.login)
+		context.session.set('login', login)
 
-		if (!isGithubLoginApproved(user.login)) {
+		if (!isGithubLoginApproved(login)) {
 			context.session.unset('token')
 			context.session.unset('gistId')
 			context.session.set('approvalStatus', 'pending')

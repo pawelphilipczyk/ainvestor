@@ -9,8 +9,14 @@ import {
 	stripGithubTokenIfUnapproved,
 } from './approved-users.ts'
 
+const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
+
 afterEach(() => {
-	delete process.env.APPROVED_GITHUB_LOGINS
+	if (originalApprovedGithubLogins === undefined) {
+		delete process.env.APPROVED_GITHUB_LOGINS
+	} else {
+		process.env.APPROVED_GITHUB_LOGINS = originalApprovedGithubLogins
+	}
 })
 
 describe('approved-users', () => {

@@ -2,18 +2,10 @@ import type { Session } from 'remix/session'
 
 import { APPROVED_GITHUB_LOGINS } from './approved-github-logins.ts'
 
-function parseEnvAllowlist(raw: string): Set<string> {
+/** Lowercase trimmed non-empty strings from an iterable of raw tokens. */
+function normalizedLoginSet(parts: Iterable<string>): Set<string> {
 	const set = new Set<string>()
-	for (const part of raw.split(/[\s,]+/)) {
-		if (part.length > 0) set.add(part.toLowerCase())
-	}
-	return set
-}
-
-/** Normalize logins to a lowercase set (empty array → empty set). */
-export function approvedGithubLoginSet(logins: readonly string[]): Set<string> {
-	const set = new Set<string>()
-	for (const raw of logins) {
+	for (const raw of parts) {
 		const part = raw.trim()
 		if (part.length > 0) set.add(part.toLowerCase())
 	}
@@ -23,7 +15,12 @@ export function approvedGithubLoginSet(logins: readonly string[]): Set<string> {
 function envGithubAllowlistSet(): Set<string> {
 	const raw = (process.env.APPROVED_GITHUB_LOGINS ?? '').trim()
 	if (!raw) return new Set()
-	return parseEnvAllowlist(raw)
+	return normalizedLoginSet(raw.split(/[\s,]+/))
+}
+
+/** Normalize logins to a lowercase set (empty array → empty set). */
+export function approvedGithubLoginSet(logins: readonly string[]): Set<string> {
+	return normalizedLoginSet(logins)
 }
 
 /**

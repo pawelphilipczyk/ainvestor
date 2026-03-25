@@ -1,0 +1,60 @@
+import { router } from '../router.ts'
+
+let testSessionCookie: string | undefined
+
+/** Clears the in-memory session cookie jar (call from test afterEach). */
+export function resetTestSessionCookieJar(): void {
+	testSessionCookie = undefined
+}
+
+function applySetCookie(response: Response): void {
+	const anyHeaders = response.headers as Headers & {
+		getSetCookie?: () => string[]
+	}
+	const lines =
+		typeof anyHeaders.getSetCookie === 'function'
+			? anyHeaders.getSetCookie()
+			: []
+	if (lines.length > 0) {
+		for (const line of lines) {
+			if (line.startsWith('session=')) {
+				testSessionCookie = line.split(';')[0]
+				return
+			}
+		}
+		return
+	}
+	const single = response.headers.get('Set-Cookie')
+	if (single?.startsWith('session=')) {
+		testSessionCookie = single.split(';')[0]
+	}
+}
+
+/**
+ * `router.fetch` with a sticky session cookie so multi-step guest tests stay on
+ * one browser session (isolated from other tests via resetTestSessionCookieJar).
+ */
+export async function testSessionFetch(
+	input: RequestInfo | URL,
+	init?: RequestInit,
+): Promise<Response> {
+	const req = new Request(input, init)
+	const headers = new Headers(req.headers)
+	if (testSessionCookie) {
+		headers.set('Cookie', testSessionCookie)
+	}
+	const nextInit: RequestInit & { duplex?: 'half' } = {
+		method: req.method,
+		headers,
+		redirect: req.redirect,
+		signal: req.signal,
+	}
+	if (req.body) {
+		nextInit.body = req.body
+		nextInit.duplex = 'half'
+	}
+	const forwarded = new Request(req.url, nextInit)
+	const response = await router.fetch(forwarded)
+	applySetCookie(response)
+	return response
+}

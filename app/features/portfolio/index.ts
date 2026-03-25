@@ -4,18 +4,21 @@ import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, fetchPortfolioSnapshot, saveEtfs } from '../../lib/gist.ts'
+import {
+	getGuestCatalog,
+	getGuestEtfs,
+	setGuestEtfs,
+} from '../../lib/guest-session-state.ts'
 import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { getGuestCatalog } from '../catalog/guest-catalog.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import { instrumentSelectOptionsFromCatalog } from '../catalog/lib.ts'
 import { addEtfFormHandlers } from './add-etf-form/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
-import { guestEntries } from './state.ts'
 
-export { getGuestEntries, resetEtfEntries } from './state.ts'
+export { resetEtfEntries } from './state.ts'
 
 // ---------------------------------------------------------------------------
 // Controller
@@ -38,10 +41,10 @@ export const portfolioController = {
 			})
 		}
 		return renderPage({
-			entries: guestEntries,
+			entries: getGuestEtfs(context.session),
 			session: layoutSession,
 			flashError,
-			catalog: getGuestCatalog(),
+			catalog: getGuestCatalog(context.session),
 		})
 	},
 
@@ -90,7 +93,7 @@ export const portfolioController = {
 		const current =
 			session?.gistId && session.token
 				? await fetchEtfs(session.token, session.gistId)
-				: guestEntries
+				: getGuestEtfs(context.session)
 
 		// Merge imported with existing (same name+currency: add values, quantity)
 		const byKey = new Map<string, EtfEntry>()
@@ -120,8 +123,7 @@ export const portfolioController = {
 		if (session?.gistId && session.token) {
 			await saveEtfs(session.token, session.gistId, updated)
 		} else {
-			guestEntries.length = 0
-			guestEntries.push(...updated)
+			setGuestEtfs(context.session, updated)
 		}
 
 		return createRedirectResponse(routes.portfolio.index.href())
@@ -145,9 +147,8 @@ export const portfolioController = {
 				current.filter((e) => e.id !== id),
 			)
 		} else {
-			const filtered = guestEntries.filter((e) => e.id !== id)
-			guestEntries.length = 0
-			guestEntries.push(...filtered)
+			const filtered = getGuestEtfs(context.session).filter((e) => e.id !== id)
+			setGuestEtfs(context.session, filtered)
 		}
 
 		return createRedirectResponse(routes.portfolio.index.href())
