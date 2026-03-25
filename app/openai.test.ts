@@ -4,8 +4,10 @@ import type { CatalogEntry } from './features/catalog/lib.ts'
 import type { EtfGuideline } from './lib/guidelines.ts'
 import type { AdviceClient, EtfEntry } from './openai.ts'
 import {
+	aggregateGuidelineTargetsByEtfType,
 	computeAdviceAllocationDiagnostics,
 	formatAdviceAllocationDiagnosticsBlock,
+	formatAggregatedGuidelineBucketsBlock,
 	formatAllocationContext,
 	formatCatalogForAdvice,
 	formatPostInvestmentTotalsBlock,
@@ -369,6 +371,9 @@ describe('getInvestmentAdvice', () => {
 
 		assert.match(capturedMessage, /Asset class equity.*bucket/)
 		assert.match(capturedMessage, /VTI.*specific fund/)
+		assert.match(capturedMessage, /Effective target % by asset class/)
+		assert.match(capturedMessage, /equity: \*\*80%\*\*/)
+		assert.match(capturedMessage, /Server allocation diagnostics/)
 	})
 
 	it('includes allocation context and ETF catalog in the user message', async () => {
@@ -417,7 +422,7 @@ describe('getInvestmentAdvice', () => {
 		assert.match(capturedMessage, /equity/)
 	})
 
-	it('includes server allocation diagnostics when guidelines are asset-class only', async () => {
+	it('includes server allocation diagnostics for asset-class bucket guidelines', async () => {
 		let capturedMessage = ''
 		const client: AdviceClient = {
 			chat: {
@@ -658,7 +663,7 @@ describe('computeAdviceAllocationDiagnostics', () => {
 		assert.match(block, /deploy ~2727\.27 PLN/)
 	})
 
-	it('returns null when guidelines include instrument rows (hybrid)', () => {
+	it('aggregates hybrid equity bucket + instrument into one class target (100% equity)', () => {
 		const guidelines: EtfGuideline[] = [
 			{
 				id: 'g1',
@@ -675,9 +680,95 @@ describe('computeAdviceAllocationDiagnostics', () => {
 				etfType: 'equity',
 			},
 		]
+		const diag = computeAdviceAllocationDiagnostics({
+			holdings: [],
+			guidelines,
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+		})
+		assert.ok(diag)
+		assert.equal(diag.rows.length, 1)
+		assert.equal(diag.rows[0]?.etfType, 'equity')
+		assert.equal(diag.rows[0]?.targetPct, 100)
+		assert.equal(diag.targetPctSum, 100)
+	})
+
+	it('sums multiple instrument lines of the same type into one bucket', () => {
+		const { byType, sumAll } = aggregateGuidelineTargetsByEtfType([
+			{
+				id: 'a',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 40,
+				etfType: 'equity',
+			},
+			{
+				id: 'b',
+				kind: 'instrument',
+				etfName: 'VXUS',
+				targetPct: 20,
+				etfType: 'equity',
+			},
+			{
+				id: 'c',
+				kind: 'instrument',
+				etfName: 'BND',
+				targetPct: 40,
+				etfType: 'bond',
+			},
+		])
+		assert.equal(sumAll, 100)
+		assert.equal(byType.get('equity'), 60)
+		assert.equal(byType.get('bond'), 40)
+	})
+
+	it('infers etfType from instrument guideline when catalog has no match', () => {
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 100,
+				etfType: 'equity',
+			},
+		]
+		const diag = computeAdviceAllocationDiagnostics({
+			holdings: [
+				{ id: 'h1', name: 'VTI', ticker: 'VTI', value: 5000, currency: 'PLN' },
+			],
+			guidelines,
+			cashAmount: '5000',
+			cashCurrency: 'PLN',
+			catalog: [],
+		})
+		assert.ok(diag)
+		const eq = diag.rows.find((r) => r.etfType === 'equity')
+		assert.ok(eq)
+		assert.equal(eq.currentAmt, 5000)
+	})
+
+	it('returns null when a valued holding cannot be mapped to a targeted type', () => {
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 100,
+				etfType: 'equity',
+			},
+		]
 		assert.equal(
 			computeAdviceAllocationDiagnostics({
-				holdings: [],
+				holdings: [
+					{
+						id: 'h1',
+						name: 'Unknown Fund',
+						ticker: 'ZZZ',
+						value: 1000,
+						currency: 'PLN',
+					},
+				],
 				guidelines,
 				cashAmount: '100',
 				cashCurrency: 'PLN',
@@ -685,6 +776,64 @@ describe('computeAdviceAllocationDiagnostics', () => {
 			}),
 			null,
 		)
+	})
+
+	it('diagnostics row shows normalized target % with raw ratio when guideline sum ≠ 100', () => {
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 40,
+				etfType: 'equity',
+			},
+			{
+				id: 'g2',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 40,
+				etfType: 'bond',
+			},
+		]
+		const block = formatAdviceAllocationDiagnosticsBlock({
+			holdings: [],
+			guidelines,
+			cashAmount: '1000',
+			cashCurrency: 'PLN',
+			catalog: [],
+		})
+		assert.ok(block)
+		assert.match(block, /equity: target 50\.00% \(40\/80\)/)
+		assert.match(block, /bond: target 50\.00% \(40\/80\)/)
+	})
+
+	it('formatAggregatedGuidelineBucketsBlock lists combined class totals', () => {
+		const block = formatAggregatedGuidelineBucketsBlock([
+			{
+				id: 'a',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 30,
+				etfType: 'equity',
+			},
+			{
+				id: 'b',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 30,
+				etfType: 'equity',
+			},
+			{
+				id: 'c',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 40,
+				etfType: 'bond',
+			},
+		])
+		assert.ok(block)
+		assert.match(block, /equity: \*\*60%\*\*/)
+		assert.match(block, /bond: \*\*40%\*\*/)
 	})
 })
 

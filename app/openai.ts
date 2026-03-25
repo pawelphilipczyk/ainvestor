@@ -38,8 +38,13 @@ Work backwards from the end state: from holdings + planned buys, estimate **post
 (by asset class and, where relevant, by named fund) and choose buys so those **whole-portfolio**
 percentages land on the targets as closely as this cash allows. If one currency, use one combined
 total; if mixed, state a reasonable assumption and still reason in **post-buy portfolio %** vs targets.
-Prioritise the largest gaps in that **post-buy** picture. Hybrid rules: asset-class buckets plus
-specific fund lines—resolve overlap, no double-counting.
+Prioritise the largest gaps in that **post-buy** picture. **Per asset type (equity, bond, etc.), every
+guideline line with that type counts toward one combined bucket target:** add the **target %** of all
+asset-class bucket lines and all named-fund (instrument) lines that share the same type. The
+**effective target for that class** is that sum (normalize against the sum of **all** guideline lines
+if totals are not 100%). Named-fund lines are **part of** that bucket — do not treat class and fund
+targets as independent stacks that both need full weight; compare **post-purchase** class weight to
+the **aggregated** class total, and fund-level targets within the same type to their lines.
 
 **When there are no targets**, suggest prudent deployment from the catalog consistent with holdings.
 
@@ -114,7 +119,48 @@ export function formatGuidelineLine(g: EtfGuideline): string {
 	if (g.kind === 'asset_class') {
 		return `- Asset class ${formatEtfTypeLabel(g.etfType)}: ${g.targetPct}% (bucket)`
 	}
-	return `- ${g.etfName} (${formatEtfTypeLabel(g.etfType)}): ${g.targetPct}% (specific fund)`
+	return `- ${g.etfName} (${formatEtfTypeLabel(g.etfType)}): ${g.targetPct}% (specific fund — counts toward the **${formatEtfTypeLabel(g.etfType)}** class total together with any other lines of the same type)`
+}
+
+/**
+ * Sum guideline target % by `etfType` (instrument + asset_class rows both contribute).
+ * `sumAll` is the sum of every line — used as the normalization denominator for bucket scaling.
+ */
+export function aggregateGuidelineTargetsByEtfType(
+	guidelines: EtfGuideline[],
+): {
+	byType: Map<EtfType, number>
+	sumAll: number
+} {
+	const byType = new Map<EtfType, number>()
+	let sumAll = 0
+	for (const g of guidelines) {
+		sumAll += g.targetPct
+		byType.set(g.etfType, (byType.get(g.etfType) ?? 0) + g.targetPct)
+	}
+	return { byType, sumAll }
+}
+
+export function formatAggregatedGuidelineBucketsBlock(
+	guidelines: EtfGuideline[],
+): string | null {
+	if (guidelines.length === 0) return null
+	const { byType, sumAll } = aggregateGuidelineTargetsByEtfType(guidelines)
+	if (sumAll <= 0) return null
+	const parts = [...byType.entries()]
+		.filter(([, pct]) => pct > 0)
+		.sort((a, b) => b[1] - a[1])
+		.map(
+			([t, pct]) =>
+				`- ${formatEtfTypeLabel(t)}: **${pct}%** (sum of all guideline lines with this type)`,
+		)
+	const lines = [
+		'---',
+		'**Effective target % by asset class** (instrument lines and asset-class lines **combine** by asset type; use these bucket totals for post-portfolio class weights — do not double-count):',
+		...parts,
+		`- Sum of all guideline line targets: ${sumAll}% (use as denominator when scaling to 100% or to the post-investment portfolio).`,
+	]
+	return lines.join('\n')
 }
 
 export type AdviceClient = {
@@ -273,6 +319,42 @@ function findCatalogMatch(
 	)
 }
 
+/**
+ * When the catalog has no row, match a holding to an **instrument** guideline by the same
+ * ticker/name rules as `findCatalogMatch` (etfName plays the role of catalog ticker + name).
+ */
+function findInstrumentGuidelineEtfType(
+	h: EtfEntry,
+	guidelines: EtfGuideline[],
+): EtfType | undefined {
+	for (const g of guidelines) {
+		if (g.kind !== 'instrument') continue
+		const fromTicker = h.ticker?.trim()
+		if (fromTicker) {
+			const u = fromTicker.toUpperCase()
+			if (g.etfName.trim().toUpperCase() === u) return g.etfType
+		}
+		const name = h.name.trim()
+		if (!name) continue
+		const lower = name.toLowerCase()
+		const en = g.etfName.trim()
+		if (en.toUpperCase() === name.toUpperCase() || en.toLowerCase() === lower) {
+			return g.etfType
+		}
+	}
+	return undefined
+}
+
+function resolveHoldingEtfTypeForAdviceDiagnostics(
+	h: EtfEntry,
+	catalog: CatalogEntry[],
+	guidelines: EtfGuideline[],
+): EtfType {
+	const c = findCatalogMatch(h, catalog)
+	if (c) return c.type
+	return findInstrumentGuidelineEtfType(h, guidelines) ?? 'mixed'
+}
+
 export type AdviceBucketDiagnostic = {
 	/** Human label, e.g. "equity". */
 	label: string
@@ -286,8 +368,9 @@ export type AdviceBucketDiagnostic = {
 }
 
 /**
- * Dollar diagnostics for **asset-class-only** guidelines (sums ~100%).
- * Returns null if hybrid/instrument-only, mixed holdings currency, bad cash, or non-computable.
+ * Dollar diagnostics by **aggregated asset-class bucket** (every guideline line counts toward its
+ * `etfType`; same-type lines are summed). Returns null if no guidelines, mixed currency, bad cash,
+ * or non-computable.
  */
 export function computeAdviceAllocationDiagnostics(params: {
 	holdings: EtfEntry[]
@@ -315,35 +398,43 @@ export function computeAdviceAllocationDiagnostics(params: {
 		return null
 	}
 
-	const assetClass = params.guidelines.filter((g) => g.kind === 'asset_class')
-	const instruments = params.guidelines.filter((g) => g.kind === 'instrument')
-	if (assetClass.length === 0 || instruments.length > 0) return null
+	if (params.guidelines.length === 0) return null
 
-	const targetPctSum = assetClass.reduce((s, g) => s + g.targetPct, 0)
+	const { byType: targetPctByType, sumAll: targetPctSum } =
+		aggregateGuidelineTargetsByEtfType(params.guidelines)
 	if (targetPctSum <= 0) return null
 
 	const currentByType = new Map<EtfType, number>()
 	for (const h of params.holdings) {
-		const c = findCatalogMatch(h, params.catalog)
-		const t: EtfType = c?.type ?? 'mixed'
+		const t = resolveHoldingEtfTypeForAdviceDiagnostics(
+			h,
+			params.catalog,
+			params.guidelines,
+		)
+		if (h.value > 0 && (t === 'mixed' || !targetPctByType.has(t))) {
+			return null
+		}
 		currentByType.set(t, (currentByType.get(t) ?? 0) + h.value)
 	}
 
 	const postTotal = holdingsTotal + cashNum
-	const rows: AdviceBucketDiagnostic[] = assetClass.map((g) => {
-		const scale = g.targetPct / targetPctSum
-		const targetAmtPost = postTotal * scale
-		const currentAmt = currentByType.get(g.etfType) ?? 0
-		const idealBuyMin = Math.max(0, targetAmtPost - currentAmt)
-		return {
-			label: formatEtfTypeLabel(g.etfType),
-			etfType: g.etfType,
-			targetPct: g.targetPct,
-			currentAmt,
-			targetAmtPost,
-			idealBuyMin,
-		}
-	})
+	const rows: AdviceBucketDiagnostic[] = [...targetPctByType.entries()]
+		.filter(([, pct]) => pct > 0)
+		.sort((a, b) => b[1] - a[1])
+		.map(([etfType, combinedTargetPct]) => {
+			const scale = combinedTargetPct / targetPctSum
+			const targetAmtPost = postTotal * scale
+			const currentAmt = currentByType.get(etfType) ?? 0
+			const idealBuyMin = Math.max(0, targetAmtPost - currentAmt)
+			return {
+				label: formatEtfTypeLabel(etfType),
+				etfType,
+				targetPct: combinedTargetPct,
+				currentAmt,
+				targetAmtPost,
+				idealBuyMin,
+			}
+		})
 
 	const sumIdealBuyMin = rows.reduce((s, r) => s + r.idealBuyMin, 0)
 	return {
@@ -371,13 +462,18 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 		'Server allocation diagnostics (authoritative numbers — restate these in "Current state analysis" before ETF names; do not contradict):',
 		'- **Buy-only:** these figures assume **no sales** — only the deployable cash is deployed; overweight buckets may stay above target until more cash is added.',
 		`- Post-investment portfolio total used below: ${postTotal.toFixed(2)} ${currency} (holdings + deployable cash).`,
-		`- Guideline target % are normalized against sum ${targetPctSum.toFixed(2)}% (each row scaled so weights match user targets if the sum is not exactly 100).`,
-		'Per asset-class bucket: target % (user), current value, target value at post-total, minimum buy to reach target without selling (0 if already at/above target):',
+		`- Guideline target % per row are **sums by asset type** (instrument + bucket lines combined). Each row shows **normalized % of post-total** (= raw type sum ÷ total guideline sum × 100); raw sums are in parentheses when the line total ≠ 100%.`,
+		'Per asset-class bucket: target % (normalized of post-total), current value, target value at post-total, minimum buy to reach target without selling (0 if already at/above target):',
 	]
 
 	for (const r of rows) {
+		const normalizedPct = (r.targetPct / targetPctSum) * 100
+		const targetPctLabel =
+			Math.abs(targetPctSum - 100) < 0.000_001
+				? `${normalizedPct.toFixed(2)}%`
+				: `${normalizedPct.toFixed(2)}% (${r.targetPct}/${targetPctSum})`
 		lines.push(
-			`- ${r.label}: target ${r.targetPct}% → ${r.targetAmtPost.toFixed(2)} ${currency} at post-total; currently ${r.currentAmt.toFixed(2)} ${currency}; minimum buy (if underweight) ${r.idealBuyMin.toFixed(2)} ${currency}`,
+			`- ${r.label}: target ${targetPctLabel} → ${r.targetAmtPost.toFixed(2)} ${currency} at post-total; currently ${r.currentAmt.toFixed(2)} ${currency}; minimum buy (if underweight) ${r.idealBuyMin.toFixed(2)} ${currency}`,
 		)
 	}
 
@@ -502,10 +598,11 @@ export async function getInvestmentAdvice(params: {
 			? 'No ETFs recorded yet.'
 			: holdings.map((h) => `- ${h.name}: ${h.value} ${h.currency}`).join('\n')
 
+	const aggregatedBuckets = formatAggregatedGuidelineBucketsBlock(guidelines)
 	const guidelinesSection =
 		guidelines.length === 0
 			? ''
-			: `My target allocation (each line is the **target share of my total ETF portfolio after** I invest the deployable cash below — i.e. (existing holdings + these purchases), **not** the split of the new cash alone):\n${guidelines.map(formatGuidelineLine).join('\n')}\n\n`
+			: `My target allocation (each line is the **target share of my total ETF portfolio after** I invest the deployable cash below — i.e. (existing holdings + these purchases), **not** the split of the new cash alone):\n${guidelines.map(formatGuidelineLine).join('\n')}\n\n${aggregatedBuckets ? `${aggregatedBuckets}\n\n` : ''}`
 
 	const guidelineCashObjective =
 		guidelines.length > 0
