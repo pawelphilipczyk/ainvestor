@@ -1,5 +1,6 @@
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
+import { isGithubLoginApproved } from '../../lib/approved-users.ts'
 import { getClientId, getClientSecret } from '../../lib/auth.ts'
 import { findOrCreateGist } from '../../lib/gist.ts'
 import { routes } from '../../routes.ts'
@@ -52,14 +53,43 @@ export const authController = {
 				Accept: 'application/vnd.github+json',
 			},
 		})
-		const user = (await userRes.json()) as { login: string }
+		const userJson = (await userRes.json()) as {
+			login?: string
+			message?: string
+		}
+		const login =
+			typeof userJson.login === 'string' && userJson.login.length > 0
+				? userJson.login
+				: null
 
-		const gistId = await findOrCreateGist(token)
+		if (!userRes.ok || !login) {
+			console.error(
+				'[auth] GitHub user fetch failed',
+				userRes.status,
+				userJson.message ?? userJson,
+			)
+			context.session.regenerateId()
+			context.session.unset('token')
+			context.session.unset('gistId')
+			context.session.unset('login')
+			context.session.unset('approvalStatus')
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
 
 		context.session.regenerateId()
+		context.session.set('login', login)
+
+		if (!isGithubLoginApproved(login)) {
+			context.session.unset('token')
+			context.session.unset('gistId')
+			context.session.set('approvalStatus', 'pending')
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
+
+		const gistId = await findOrCreateGist(token)
 		context.session.set('token', token)
 		context.session.set('gistId', gistId)
-		context.session.set('login', user.login)
+		context.session.unset('approvalStatus')
 
 		return createRedirectResponse(routes.portfolio.index.href())
 	},

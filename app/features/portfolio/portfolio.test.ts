@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
-import { router } from '../../router.ts'
+import { testSessionFetch } from '../../lib/test-session-fetch.ts'
 import { resetGuestCatalog } from '../catalog/index.ts'
 import { resetEtfEntries } from './index.ts'
 
@@ -20,7 +20,7 @@ async function seedGuestCatalog() {
 		],
 		count: 3,
 	})
-	await router.fetch(
+	await testSessionFetch(
 		new Request('http://localhost/catalog/import', {
 			method: 'POST',
 			body: bankJson,
@@ -31,7 +31,7 @@ async function seedGuestCatalog() {
 
 describe('Health endpoint', () => {
 	it('returns ok', async () => {
-		const response = await router.fetch('http://localhost/health')
+		const response = await testSessionFetch('http://localhost/health')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
@@ -41,13 +41,13 @@ describe('Health endpoint', () => {
 
 describe('Portfolio page', () => {
 	it('GET / sets Cache-Control: no-store so browsers always fetch a fresh ETF list', async () => {
-		const response = await router.fetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/')
 
 		assert.equal(response.headers.get('cache-control'), 'no-store')
 	})
 
 	it('renders the homepage and ETF form', async () => {
-		const response = await router.fetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
@@ -63,7 +63,7 @@ describe('Portfolio page', () => {
 		const prev = process.env.FLY_APP_NAME
 		try {
 			process.env.FLY_APP_NAME = 'ainvestor-preview'
-			const response = await router.fetch('http://localhost/')
+			const response = await testSessionFetch('http://localhost/')
 			const body = await response.text()
 
 			assert.equal(response.status, 200)
@@ -76,7 +76,7 @@ describe('Portfolio page', () => {
 	})
 
 	it('form has instrument, value, currency, and quantity fields', async () => {
-		const response = await router.fetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 
 		assert.match(body, /name="instrumentTicker"/)
@@ -86,7 +86,7 @@ describe('Portfolio page', () => {
 	})
 
 	it('form defaults currency to PLN (first option)', async () => {
-		const response = await router.fetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 
 		// PLN is first option, so it is the default when none selected
@@ -100,12 +100,12 @@ describe('Portfolio page', () => {
 		form.set('value', '1000')
 		form.set('currency', 'PLN')
 
-		const postResponse = await router.fetch(
+		const postResponse = await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 		assert.equal(postResponse.status, 302)
 
-		const fragmentRes = await router.fetch(
+		const fragmentRes = await testSessionFetch(
 			'http://localhost/fragments/portfolio-list',
 		)
 		assert.equal(fragmentRes.status, 200)
@@ -115,7 +115,7 @@ describe('Portfolio page', () => {
 	})
 
 	it('value field is a numeric input', async () => {
-		const response = await router.fetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 
 		assert.match(body, /id="value"[^>]*type="number"/)
@@ -129,12 +129,12 @@ describe('Portfolio page', () => {
 		form.set('currency', 'PLN')
 		form.set('quantity', '')
 
-		const postResponse = await router.fetch(
+		const postResponse = await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 		assert.equal(postResponse.status, 302)
 
-		const homeResponse = await router.fetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/')
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /VTI/)
 		assert.match(homeBody, /PLN/)
@@ -148,12 +148,12 @@ describe('Portfolio page', () => {
 		form.set('currency', 'PLN')
 		form.set('quantity', '186')
 
-		const postResponse = await router.fetch(
+		const postResponse = await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 		assert.equal(postResponse.status, 302)
 
-		const homeResponse = await router.fetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/')
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /IBTA LN ETF/)
 		assert.match(homeBody, /186 shares/)
@@ -166,14 +166,14 @@ describe('Portfolio page', () => {
 		form.set('value', '1200.50')
 		form.set('currency', 'USD')
 
-		const postResponse = await router.fetch(
+		const postResponse = await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 
 		assert.equal(postResponse.status, 302)
 		assert.equal(postResponse.headers.get('location'), '/')
 
-		const homeResponse = await router.fetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/')
 		const homeBody = await homeResponse.text()
 
 		assert.match(homeBody, /VTI/)
@@ -187,7 +187,7 @@ IBTA LN ETF;GBR-LSE;186;4087.48;PLN`
 		const form = new FormData()
 		form.set('portfolioCsvPaste', csv)
 
-		const importResponse = await router.fetch(
+		const importResponse = await testSessionFetch(
 			new Request('http://localhost/etfs/import', {
 				method: 'POST',
 				body: form,
@@ -195,7 +195,7 @@ IBTA LN ETF;GBR-LSE;186;4087.48;PLN`
 		)
 		assert.equal(importResponse.status, 302)
 
-		const homeResponse = await router.fetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/')
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /IBTA LN ETF/)
 		assert.match(homeBody, /4[,.]?087/)
@@ -214,7 +214,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			'portfolio.csv',
 		)
 
-		const importResponse = await router.fetch(
+		const importResponse = await testSessionFetch(
 			new Request('http://localhost/etfs/import', {
 				method: 'POST',
 				body: form,
@@ -222,7 +222,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 		assert.equal(importResponse.status, 302)
 
-		const homeResponse = await router.fetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/')
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /IBTA LN ETF/)
 		assert.match(homeBody, /IQQH GR ETF/)
@@ -241,7 +241,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form1.set('value', '1200')
 		form1.set('currency', 'USD')
 
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form1 }),
 		)
 
@@ -250,11 +250,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form2.set('value', '500')
 		form2.set('currency', 'USD')
 
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form2 }),
 		)
 
-		const homeResponse = await router.fetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/')
 		const homeBody = await homeResponse.text()
 
 		assert.match(homeBody, /VTI/)
@@ -275,17 +275,17 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('value', '1000')
 		form.set('currency', 'USD')
 
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 
-		const listResponse = await router.fetch('http://localhost/')
+		const listResponse = await testSessionFetch('http://localhost/')
 		const listBody = await listResponse.text()
 		assert.doesNotMatch(listBody, /data-island="features\/portfolio\/etf-card"/)
 	})
 
 	it('serves fetch-submit component entry for form enhancement', async () => {
-		const res = await router.fetch(
+		const res = await testSessionFetch(
 			'http://localhost/components/fetch-submit.component.js',
 		)
 		assert.equal(res.status, 200)
@@ -293,7 +293,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('serves etf-card component entry and hides old island endpoint', async () => {
-		const componentResponse = await router.fetch(
+		const componentResponse = await testSessionFetch(
 			'http://localhost/features/portfolio/etf-card.component.js',
 		)
 		assert.equal(componentResponse.status, 200)
@@ -301,14 +301,14 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			componentResponse.headers.get('content-type') ?? '',
 			/text\/javascript/,
 		)
-		const legacyResponse = await router.fetch(
+		const legacyResponse = await testSessionFetch(
 			'http://localhost/features/portfolio/etf-card.island.js',
 		)
 		assert.equal(legacyResponse.status, 404)
 	})
 
 	it('ETF card component entry uses remix component + interaction APIs', async () => {
-		const componentResponse = await router.fetch(
+		const componentResponse = await testSessionFetch(
 			'http://localhost/features/portfolio/etf-card.component.js',
 		)
 		const componentBody = await componentResponse.text()
@@ -326,11 +326,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('value', '1000')
 		form.set('currency', 'USD')
 
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 
-		const response = await router.fetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 
 		assert.match(
@@ -346,11 +346,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('value', '1000')
 		form.set('currency', 'USD')
 
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 
-		const listResponse = await router.fetch('http://localhost/')
+		const listResponse = await testSessionFetch('http://localhost/')
 		const listBody = await listResponse.text()
 		const idMatch = listBody.match(/action="\/etfs\/([a-f0-9-]+)"/)
 		assert.ok(idMatch, 'delete form action should be present')
@@ -358,7 +358,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 
 		const deleteForm = new FormData()
 		deleteForm.set('_method', 'DELETE')
-		const deleteResponse = await router.fetch(
+		const deleteResponse = await testSessionFetch(
 			new Request(`http://localhost/etfs/${id}`, {
 				method: 'POST',
 				body: deleteForm,
@@ -367,7 +367,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 
 		assert.equal(deleteResponse.status, 302)
 
-		const afterBody = await (await router.fetch('http://localhost/')).text()
+		const afterBody = await (await testSessionFetch('http://localhost/')).text()
 		assert.match(afterBody, /No ETFs added yet/)
 	})
 
@@ -376,13 +376,13 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('instrumentTicker', '')
 		form.set('value', '-1')
 		form.set('currency', 'PLN')
-		const res = await router.fetch(
+		const res = await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 		assert.equal(res.status, 302)
 		const location = res.headers.get('Location')
 		const cookie = res.headers.get('Set-Cookie')
-		const homeRes = await router.fetch(
+		const homeRes = await testSessionFetch(
 			location
 				? new URL(location, 'http://localhost/').href
 				: 'http://localhost/',
@@ -400,7 +400,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('instrumentTicker', '')
 		form.set('value', '-1')
 		form.set('currency', 'PLN')
-		const res = await router.fetch(
+		const res = await testSessionFetch(
 			new Request('http://localhost/etfs', {
 				method: 'POST',
 				body: form,
@@ -416,7 +416,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('shows sign-in link when not authenticated', async () => {
-		const response = await router.fetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
@@ -425,7 +425,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('homepage has a link to the guidelines page', async () => {
-		const response = await router.fetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 
 		assert.match(body, /href="\/guidelines"/)
@@ -438,10 +438,12 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('instrumentTicker', 'VTI')
 		form.set('value', '1000')
 		form.set('currency', 'PLN')
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
-		const res = await router.fetch('http://localhost/fragments/portfolio-list')
+		const res = await testSessionFetch(
+			'http://localhost/fragments/portfolio-list',
+		)
 		const body = await res.text()
 		assert.equal(res.status, 200)
 		assert.match(body, /VTI/)
@@ -449,13 +451,13 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('Add ETF form has data-fetch-submit for progressive enhancement', async () => {
-		const response = await router.fetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 		assert.match(body, /data-fetch-submit/)
 	})
 
 	it('homepage has a link to the ETF catalog', async () => {
-		const response = await router.fetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 
 		assert.match(body, /href="\/catalog"/)

@@ -22,6 +22,9 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 						{session ? (
 							<span class="hidden text-xs font-medium text-muted-foreground sm:inline">
 								@{session.login}
+								{session.approvalStatus === 'pending' ? (
+									<span class="ml-1 text-amber-500/90">(pending)</span>
+								) : null}
 							</span>
 						) : (
 							<a

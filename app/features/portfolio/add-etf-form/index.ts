@@ -12,14 +12,17 @@ import {
 	fetchPortfolioSnapshot,
 	saveEtfs,
 } from '../../../lib/gist.ts'
+import {
+	getGuestCatalog,
+	getGuestEtfs,
+	setGuestEtfs,
+} from '../../../lib/guest-session-state.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
-import { getGuestCatalog } from '../../catalog/guest-catalog.ts'
 import {
 	type CatalogEntry,
 	findCatalogEntryByTicker,
 } from '../../catalog/lib.ts'
-import { getGuestEntries, guestEntries } from '../state.ts'
 import { AddEtfForm } from './add-etf-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
 
@@ -78,7 +81,7 @@ export const addEtfFormHandlers = {
 		const session = getSessionData(context.session)
 		let catalog: CatalogEntry[]
 		let current: EtfEntry[]
-		if (session?.gistId) {
+		if (session?.gistId && session.token) {
 			const snapshot = await fetchPortfolioSnapshot(
 				session.token,
 				session.gistId,
@@ -86,8 +89,8 @@ export const addEtfFormHandlers = {
 			catalog = snapshot.catalog
 			current = snapshot.entries
 		} else {
-			catalog = getGuestCatalog()
-			current = getGuestEntries()
+			catalog = getGuestCatalog(context.session)
+			current = getGuestEtfs(context.session)
 		}
 		const match = findCatalogEntryByTicker(catalog, instrumentTicker)
 		if (!match) {
@@ -101,7 +104,9 @@ export const addEtfFormHandlers = {
 					JSON.stringify({
 						error: message,
 						instrumentTicker: instrumentTicker.trim(),
-						...(session?.gistId ? { gistId: session.gistId } : {}),
+						...(session?.gistId && session.token
+							? { gistId: session.gistId }
+							: {}),
 					}),
 					{
 						status: 422,
@@ -150,11 +155,10 @@ export const addEtfFormHandlers = {
 				? current.map((e, i) => (i === existingIndex ? entry : e))
 				: [entry, ...current]
 
-		if (session?.gistId) {
+		if (session?.gistId && session.token) {
 			await saveEtfs(session.token, session.gistId, updated)
 		} else {
-			guestEntries.length = 0
-			guestEntries.push(...updated)
+			setGuestEtfs(context.session, updated)
 		}
 
 		return createRedirectResponse(routes.portfolio.index.href())
@@ -162,9 +166,10 @@ export const addEtfFormHandlers = {
 
 	async fragmentList(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
-		const entries = session?.gistId
-			? await fetchEtfs(session.token, session.gistId)
-			: getGuestEntries()
+		const entries =
+			session?.gistId && session.token
+				? await fetchEtfs(session.token, session.gistId)
+				: getGuestEtfs(context.session)
 		const html = await renderToString(jsx(ListFragment, { entries }))
 		return createHtmlResponse(html, {
 			headers: { 'Cache-Control': 'no-store' },

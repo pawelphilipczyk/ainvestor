@@ -1,8 +1,9 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
-import { router } from '../../router.ts'
-import { resetGuestCatalog } from '../catalog/index.ts'
-import { resetGuestGuidelines } from './index.ts'
+import {
+	resetTestSessionCookieJar,
+	testSessionFetch,
+} from '../../lib/test-session-fetch.ts'
 
 async function seedGuestCatalog() {
 	const bankJson = JSON.stringify({
@@ -18,7 +19,7 @@ async function seedGuestCatalog() {
 		],
 		count: 3,
 	})
-	await router.fetch(
+	await testSessionFetch(
 		new Request('http://localhost/catalog/import', {
 			method: 'POST',
 			body: bankJson,
@@ -28,14 +29,13 @@ async function seedGuestCatalog() {
 }
 
 afterEach(() => {
-	resetGuestGuidelines()
-	resetGuestCatalog()
+	resetTestSessionCookieJar()
 })
 
 describe('Guidelines page', () => {
 	it('GET /guidelines returns 200 with two boxed forms', async () => {
 		await seedGuestCatalog()
-		const response = await router.fetch('http://localhost/guidelines')
+		const response = await testSessionFetch('http://localhost/guidelines')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
@@ -54,7 +54,7 @@ describe('Guidelines page', () => {
 		form.set('instrumentTicker', 'VTI')
 		form.set('targetPct', '60')
 
-		const response = await router.fetch(
+		const response = await testSessionFetch(
 			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
@@ -71,14 +71,14 @@ describe('Guidelines page', () => {
 		form.set('instrumentTicker', 'BND')
 		form.set('targetPct', '30')
 
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
 			}),
 		)
 
-		const response = await router.fetch('http://localhost/guidelines')
+		const response = await testSessionFetch('http://localhost/guidelines')
 		const body = await response.text()
 
 		assert.match(body, /BND/)
@@ -91,7 +91,7 @@ describe('Guidelines page', () => {
 		const form = new FormData()
 		form.set('targetPct', '50')
 
-		const response = await router.fetch(
+		const response = await testSessionFetch(
 			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
@@ -100,7 +100,7 @@ describe('Guidelines page', () => {
 
 		assert.equal(response.status, 302)
 
-		const page = await router.fetch('http://localhost/guidelines')
+		const page = await testSessionFetch('http://localhost/guidelines')
 		const body = await page.text()
 		assert.match(body, /No guidelines/)
 	})
@@ -111,7 +111,7 @@ describe('Guidelines page', () => {
 		form.set('instrumentTicker', 'ZZZZ')
 		form.set('targetPct', '10')
 
-		const response = await router.fetch(
+		const response = await testSessionFetch(
 			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
@@ -120,7 +120,7 @@ describe('Guidelines page', () => {
 
 		assert.equal(response.status, 302)
 
-		const page = await router.fetch('http://localhost/guidelines')
+		const page = await testSessionFetch('http://localhost/guidelines')
 		const body = await page.text()
 		assert.match(body, /No guidelines/)
 	})
@@ -131,7 +131,7 @@ describe('Guidelines page', () => {
 		form.set('targetPct', '55')
 		form.set('assetClassType', 'equity')
 
-		const response = await router.fetch(
+		const response = await testSessionFetch(
 			new Request('http://localhost/guidelines/asset-class', {
 				method: 'POST',
 				body: form,
@@ -140,7 +140,7 @@ describe('Guidelines page', () => {
 
 		assert.equal(response.status, 302)
 
-		const page = await router.fetch('http://localhost/guidelines')
+		const page = await testSessionFetch('http://localhost/guidelines')
 		const body = await page.text()
 		assert.match(body, /equity \(bucket\)/)
 	})
@@ -150,14 +150,14 @@ describe('Guidelines page', () => {
 		const addForm = new FormData()
 		addForm.set('instrumentTicker', 'VNQ')
 		addForm.set('targetPct', '10')
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: addForm,
 			}),
 		)
 
-		const listResponse = await router.fetch('http://localhost/guidelines')
+		const listResponse = await testSessionFetch('http://localhost/guidelines')
 		const listBody = await listResponse.text()
 		const idMatch = listBody.match(/action="\/guidelines\/([a-f0-9-]+)"/)
 		assert.ok(idMatch, 'delete form action should be present')
@@ -165,7 +165,7 @@ describe('Guidelines page', () => {
 
 		const deleteForm = new FormData()
 		deleteForm.set('_method', 'DELETE')
-		const deleteResponse = await router.fetch(
+		const deleteResponse = await testSessionFetch(
 			new Request(`http://localhost/guidelines/${id}`, {
 				method: 'POST',
 				body: deleteForm,
@@ -176,7 +176,7 @@ describe('Guidelines page', () => {
 		assert.equal(deleteResponse.headers.get('location'), '/guidelines')
 
 		const afterBody = await (
-			await router.fetch('http://localhost/guidelines')
+			await testSessionFetch('http://localhost/guidelines')
 		).text()
 		assert.match(afterBody, /No guidelines/)
 	})

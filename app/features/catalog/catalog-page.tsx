@@ -9,6 +9,7 @@ import { SessionProvider } from '../../components/session-provider.tsx'
 import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { ETF_TYPES } from '../../lib/guidelines.ts'
+import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { CatalogPasteInteractions } from './catalog-paste.component.js'
@@ -108,9 +109,13 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 						<p class="mt-1 text-sm text-muted-foreground">
 							Import your broker's ETF list and browse what's available.
 						</p>
-						{session ? (
+						{sessionUsesGithubGist(session) ? (
 							<p class="mt-0.5 text-xs text-muted-foreground">
 								Catalog saved to your private GitHub Gist.
+							</p>
+						) : session?.approvalStatus === 'pending' ? (
+							<p class="mt-0.5 text-xs text-muted-foreground">
+								Account pending approval — catalog is not saved to GitHub yet.
 							</p>
 						) : (
 							<p class="mt-0.5 text-xs text-muted-foreground">

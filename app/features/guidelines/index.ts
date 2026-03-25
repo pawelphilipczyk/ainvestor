@@ -7,6 +7,11 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
+import {
+	getGuestCatalog,
+	getGuestGuidelines,
+	setGuestGuidelines,
+} from '../../lib/guest-session-state.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import {
 	fetchGuidelines,
@@ -14,9 +19,8 @@ import {
 	saveGuidelines,
 } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
-import { getSessionData } from '../../lib/session.ts'
+import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { getGuestCatalog } from '../catalog/guest-catalog.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import {
 	assetClassSelectOptionsFromCatalog,
@@ -37,28 +41,20 @@ const AssetClassGuidelineSchema = object({
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
 })
 
-// ---------------------------------------------------------------------------
-// Guest state
-// ---------------------------------------------------------------------------
-let guestGuidelines: EtfGuideline[] = []
-
-export function resetGuestGuidelines() {
-	guestGuidelines = []
-}
-
-export function getGuestGuidelines(): EtfGuideline[] {
-	return guestGuidelines
-}
-
-async function persistGuideline(
-	entry: EtfGuideline,
-	session: SessionData | null,
-) {
-	if (session?.gistId) {
+async function persistGuideline(params: {
+	entry: EtfGuideline
+	session: SessionData | null
+	remixSession: Session
+}) {
+	const { entry, session, remixSession } = params
+	if (session?.gistId && session.token) {
 		const current = await fetchGuidelines(session.token, session.gistId)
 		await saveGuidelines(session.token, session.gistId, [entry, ...current])
 	} else {
-		guestGuidelines = [entry, ...guestGuidelines]
+		setGuestGuidelines(remixSession, [
+			entry,
+			...getGuestGuidelines(remixSession),
+		])
 	}
 }
 
@@ -68,15 +64,16 @@ async function persistGuideline(
 export const guidelinesController = {
 	async index(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
+		const layoutSession = getLayoutSession(context.session)
 		const [guidelines, catalog] = await Promise.all([
-			session?.gistId
+			session?.gistId && session.token
 				? fetchGuidelines(session.token, session.gistId)
-				: guestGuidelines,
-			session?.gistId
+				: getGuestGuidelines(context.session),
+			session?.gistId && session.token
 				? fetchCatalog(session.token, session.gistId)
-				: getGuestCatalog(),
+				: getGuestCatalog(context.session),
 		])
-		return renderGuidelinesPage({ guidelines, session, catalog })
+		return renderGuidelinesPage({ guidelines, session: layoutSession, catalog })
 	},
 
 	async instrument(context: {
@@ -98,9 +95,10 @@ export const guidelinesController = {
 		}
 
 		const session = getSessionData(context.session)
-		const catalog = session?.gistId
-			? await fetchCatalog(session.token, session.gistId)
-			: getGuestCatalog()
+		const catalog =
+			session?.gistId && session.token
+				? await fetchCatalog(session.token, session.gistId)
+				: getGuestCatalog(context.session)
 
 		const ticker = (result.value.instrumentTicker ?? '').trim()
 		if (!ticker) {
@@ -120,7 +118,11 @@ export const guidelinesController = {
 			etfType: match.type,
 		}
 
-		await persistGuideline(entry, session)
+		await persistGuideline({
+			entry,
+			session,
+			remixSession: context.session,
+		})
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
@@ -143,9 +145,10 @@ export const guidelinesController = {
 		}
 
 		const session = getSessionData(context.session)
-		const catalog = session?.gistId
-			? await fetchCatalog(session.token, session.gistId)
-			: getGuestCatalog()
+		const catalog =
+			session?.gistId && session.token
+				? await fetchCatalog(session.token, session.gistId)
+				: getGuestCatalog(context.session)
 		const allowedAssetClasses = new Set(
 			assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
 		)
@@ -164,7 +167,11 @@ export const guidelinesController = {
 			etfType: raw,
 		}
 
-		await persistGuideline(entry, session)
+		await persistGuideline({
+			entry,
+			session,
+			remixSession: context.session,
+		})
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
@@ -178,7 +185,7 @@ export const guidelinesController = {
 
 		const session = getSessionData(context.session)
 
-		if (session?.gistId) {
+		if (session?.gistId && session.token) {
 			const current = await fetchGuidelines(session.token, session.gistId)
 			await saveGuidelines(
 				session.token,
@@ -186,7 +193,10 @@ export const guidelinesController = {
 				current.filter((g) => g.id !== id),
 			)
 		} else {
-			guestGuidelines = guestGuidelines.filter((g) => g.id !== id)
+			setGuestGuidelines(
+				context.session,
+				getGuestGuidelines(context.session).filter((g) => g.id !== id),
+			)
 		}
 
 		return createRedirectResponse(routes.guidelines.index.href())
@@ -194,9 +204,10 @@ export const guidelinesController = {
 
 	async fragmentList(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
-		const guidelines = session?.gistId
-			? await fetchGuidelines(session.token, session.gistId)
-			: guestGuidelines
+		const guidelines =
+			session?.gistId && session.token
+				? await fetchGuidelines(session.token, session.gistId)
+				: getGuestGuidelines(context.session)
 		const html = await renderToString(
 			jsx(GuidelinesListFragment, { guidelines }),
 		)

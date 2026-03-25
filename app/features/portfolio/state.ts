@@ -1,12 +1,8 @@
-import type { EtfEntry } from '../../lib/gist.ts'
-
-/** Guest ETF entries when not authenticated. Shared by portfolio and add-etf-form. */
-export let guestEntries: EtfEntry[] = []
-
-export function resetEtfEntries() {
-	guestEntries = []
-}
-
-export function getGuestEntries(): EtfEntry[] {
-	return guestEntries
-}
+/**
+ * @deprecated Use `resetTestSessionCookieJar` — this clears the in-memory test
+ * cookie jar (and test-only guest guideline store), not ETF rows only.
+ */
+export {
+	resetTestSessionCookieJar,
+	resetTestSessionCookieJar as resetEtfEntries,
+} from '../../lib/test-session-fetch.ts'

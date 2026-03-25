@@ -1,11 +1,14 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
+import { sessionCookie, sessionStorage } from '../../lib/session.ts'
+import {
+	resetTestSessionCookieJar,
+	testSessionFetch,
+} from '../../lib/test-session-fetch.ts'
 import type { AdviceClient } from '../../openai.ts'
-import { router } from '../../router.ts'
-import { resetGuestCatalog } from '../catalog/index.ts'
-import { resetGuestGuidelines } from '../guidelines/index.ts'
-import { resetEtfEntries } from '../portfolio/index.ts'
 import { setAdviceClient } from './index.ts'
+
+const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
 
 function makeMockClient(responseText: string): AdviceClient {
 	const content = (() => {
@@ -33,15 +36,18 @@ function makeMockClient(responseText: string): AdviceClient {
 }
 
 afterEach(() => {
-	resetEtfEntries()
-	resetGuestGuidelines()
-	resetGuestCatalog()
+	resetTestSessionCookieJar()
 	setAdviceClient(null)
+	if (originalApprovedGithubLogins === undefined) {
+		delete process.env.APPROVED_GITHUB_LOGINS
+	} else {
+		process.env.APPROVED_GITHUB_LOGINS = originalApprovedGithubLogins
+	}
 })
 
 describe('Advice', () => {
 	it('GET /advice renders the Get Advice form page', async () => {
-		const response = await router.fetch('http://localhost/advice')
+		const response = await testSessionFetch('http://localhost/advice')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
@@ -52,10 +58,69 @@ describe('Advice', () => {
 		assert.match(body, /action="\/advice"/)
 	})
 
+	it('GET /advice shows pending approval when session login is not on allowlist', async () => {
+		process.env.APPROVED_GITHUB_LOGINS = 'someone-else'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'pending-user')
+		session.set('approvalStatus', 'pending')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookieHeader = await sessionCookie.serialize(value)
+		const cookie = cookieHeader.split(';')[0]
+
+		const response = await testSessionFetch('http://localhost/advice', {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Account pending approval/)
+		assert.match(body, /approved-github-logins\.ts/)
+		assert.match(body, /disabled/)
+	})
+
+	it('POST /advice returns 403 for pending-approval session', async () => {
+		process.env.APPROVED_GITHUB_LOGINS = 'admin'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'stranger')
+		session.set('approvalStatus', 'pending')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookieHeader = await sessionCookie.serialize(value)
+		const cookie = cookieHeader.split(';')[0]
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => {
+						throw new Error(
+							'advice client must not be called for pending users',
+						)
+					},
+				},
+			},
+		})
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/advice', {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 403)
+		assert.match(body, /not approved yet/)
+		assert.doesNotMatch(body, /Investment Advice/)
+	})
+
 	it('returns 400 with AdvicePage HTML when cashAmount is missing', async () => {
 		setAdviceClient(makeMockClient('irrelevant'))
 
-		const response = await router.fetch(
+		const response = await testSessionFetch(
 			new Request('http://localhost/advice', {
 				method: 'POST',
 				body: new FormData(),
@@ -85,7 +150,7 @@ describe('Advice', () => {
 		const form = new FormData()
 		form.set('cashAmount', '100')
 
-		const response = await router.fetch(
+		const response = await testSessionFetch(
 			new Request('http://localhost/advice', { method: 'POST', body: form }),
 		)
 		const body = await response.text()
@@ -109,7 +174,7 @@ describe('Advice', () => {
 			const form = new FormData()
 			form.set('cashAmount', '100')
 
-			const response = await router.fetch(
+			const response = await testSessionFetch(
 				new Request('http://localhost/advice', { method: 'POST', body: form }),
 			)
 			const body = await response.text()
@@ -138,7 +203,7 @@ describe('Advice', () => {
 		const form = new FormData()
 		form.set('cashAmount', '1000')
 
-		const response = await router.fetch(
+		const response = await testSessionFetch(
 			new Request('http://localhost/advice', { method: 'POST', body: form }),
 		)
 		const body = await response.text()
@@ -178,7 +243,7 @@ describe('Advice', () => {
 		const form = new FormData()
 		form.set('cashAmount', '500')
 
-		const response = await router.fetch(
+		const response = await testSessionFetch(
 			new Request('http://localhost/advice', { method: 'POST', body: form }),
 		)
 		const body = await response.text()
@@ -208,7 +273,7 @@ describe('Advice', () => {
 			data: [{ fund_name: 'VXUS', ticker: 'VXUS', assets: 'akcje' }],
 			count: 1,
 		})
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
@@ -220,13 +285,13 @@ describe('Advice', () => {
 		addForm.set('instrumentTicker', 'VXUS')
 		addForm.set('value', '3000')
 		addForm.set('currency', 'USD')
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
 		)
 
 		const adviceForm = new FormData()
 		adviceForm.set('cashAmount', '500')
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/advice', {
 				method: 'POST',
 				body: adviceForm,
@@ -257,7 +322,7 @@ describe('Advice', () => {
 			data: [{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' }],
 			count: 1,
 		})
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
@@ -268,7 +333,7 @@ describe('Advice', () => {
 		const guidelineForm = new FormData()
 		guidelineForm.set('instrumentTicker', 'VTI')
 		guidelineForm.set('targetPct', '60')
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: guidelineForm,
@@ -277,7 +342,7 @@ describe('Advice', () => {
 
 		const adviceForm = new FormData()
 		adviceForm.set('cashAmount', '1000')
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/advice', {
 				method: 'POST',
 				body: adviceForm,
@@ -305,7 +370,7 @@ describe('Advice', () => {
 		form.set('cashAmount', '100')
 		form.set('adviceModel', 'gpt-5.4-nano')
 
-		const response = await router.fetch(
+		const response = await testSessionFetch(
 			new Request('http://localhost/advice', { method: 'POST', body: form }),
 		)
 		const body = await response.text()

@@ -6,8 +6,17 @@ import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
+import {
+	getGuestCatalog,
+	getGuestEtfs,
+	getGuestGuidelines,
+} from '../../lib/guest-session-state.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
-import { getSessionData, type SessionData } from '../../lib/session.ts'
+import {
+	getLayoutSession,
+	getSessionData,
+	type SessionData,
+} from '../../lib/session.ts'
 import type { AdviceClient, AdviceModelId } from '../../openai.ts'
 import {
 	ADVICE_MODEL_IDS,
@@ -15,9 +24,6 @@ import {
 	DEFAULT_ADVICE_MODEL,
 	getInvestmentAdvice,
 } from '../../openai.ts'
-import { getGuestCatalog } from '../catalog/guest-catalog.ts'
-import { getGuestGuidelines } from '../guidelines/index.ts'
-import { getGuestEntries } from '../portfolio/index.ts'
 import type { AdviceDocument } from './advice-document.ts'
 import { AdvicePage } from './advice-page.tsx'
 
@@ -37,23 +43,24 @@ function formatSchemaIssues(issues: ReadonlyArray<Issue>): string {
 		.join('\n')
 }
 
-function renderAdviceResponse(
-	session: SessionData | null,
+function renderAdviceResponse(options: {
+	session: SessionData | null
 	props: {
 		cashAmount?: string
 		cashCurrency?: string
 		selectedModel?: AdviceModelId
 		advice?: AdviceDocument
 		formError?: { summary: string; detail?: string }
-	},
-	init?: ResponseInit,
-) {
+		pendingApproval?: boolean
+	}
+	init?: ResponseInit
+}) {
 	return render({
 		title: 'AI Investor – Get Advice',
-		session,
+		session: options.session,
 		currentPage: 'advice',
-		body: jsx(AdvicePage, props),
-		init,
+		body: jsx(AdvicePage, options.props),
+		init: options.init,
 	})
 }
 
@@ -71,8 +78,12 @@ export function setAdviceClient(client: AdviceClient | null) {
 // ---------------------------------------------------------------------------
 export const adviceController = {
 	async index(context: { request: Request; session: Session }) {
-		const session = getSessionData(context.session)
-		return renderAdviceResponse(session, {})
+		const layoutSession = getLayoutSession(context.session)
+		const pendingApproval = layoutSession?.approvalStatus === 'pending'
+		return renderAdviceResponse({
+			session: layoutSession,
+			props: { pendingApproval },
+		})
 	},
 
 	async action(context: {
@@ -81,19 +92,22 @@ export const adviceController = {
 		formData: FormData | null
 	}) {
 		const session = getSessionData(context.session)
+		const layoutSession = getLayoutSession(context.session)
+		const pendingApproval = layoutSession?.approvalStatus === 'pending'
 		const form = context.formData
 		if (!form) {
-			return renderAdviceResponse(
-				session,
-				{
+			return renderAdviceResponse({
+				session: layoutSession,
+				props: {
+					pendingApproval,
 					formError: {
 						summary: 'Could not read your form. Please try again.',
 						detail:
 							'The server did not receive parseable form data for this request.',
 					},
 				},
-				{ status: 400 },
-			)
+				init: { status: 400 },
+			})
 		}
 
 		const rawEntries = Object.fromEntries(
@@ -127,9 +141,10 @@ export const adviceController = {
 				(ADVICE_MODEL_IDS as readonly string[]).includes(rawModel)
 					? (rawModel as AdviceModelId)
 					: DEFAULT_ADVICE_MODEL
-			return renderAdviceResponse(
-				session,
-				{
+			return renderAdviceResponse({
+				session: layoutSession,
+				props: {
+					pendingApproval,
 					cashAmount,
 					cashCurrency,
 					selectedModel,
@@ -138,17 +153,39 @@ export const adviceController = {
 						detail: formatSchemaIssues(result.issues),
 					},
 				},
-				{ status: 400 },
-			)
+				init: { status: 400 },
+			})
 		}
 		const { cashAmount, cashCurrency, adviceModel } = result.value
 
-		const { entries, catalog } = session?.gistId
-			? await fetchPortfolioSnapshot(session.token, session.gistId)
-			: { entries: getGuestEntries(), catalog: getGuestCatalog() }
-		const guidelines = session?.gistId
-			? await fetchGuidelines(session.token, session.gistId)
-			: getGuestGuidelines()
+		if (pendingApproval) {
+			return renderAdviceResponse({
+				session: layoutSession,
+				props: {
+					pendingApproval: true,
+					cashAmount,
+					cashCurrency,
+					selectedModel: adviceModel,
+					formError: {
+						summary:
+							'Your account is not approved yet. You cannot request advice until your GitHub username is added to app/lib/approved-github-logins.ts and deployed.',
+					},
+				},
+				init: { status: 403 },
+			})
+		}
+
+		const { entries, catalog } =
+			session?.gistId && session.token
+				? await fetchPortfolioSnapshot(session.token, session.gistId)
+				: {
+						entries: getGuestEtfs(context.session),
+						catalog: getGuestCatalog(context.session),
+					}
+		const guidelines =
+			session?.gistId && session.token
+				? await fetchGuidelines(session.token, session.gistId)
+				: getGuestGuidelines(context.session)
 
 		try {
 			const client = adviceClient ?? createDefaultClient()
@@ -161,11 +198,15 @@ export const adviceController = {
 				client,
 				model: adviceModel,
 			})
-			return renderAdviceResponse(session, {
-				cashAmount,
-				cashCurrency,
-				selectedModel: adviceModel,
-				advice,
+			return renderAdviceResponse({
+				session: layoutSession,
+				props: {
+					pendingApproval,
+					cashAmount,
+					cashCurrency,
+					selectedModel: adviceModel,
+					advice,
+				},
 			})
 		} catch (err) {
 			console.error('[advice] request failed', err)
@@ -176,9 +217,10 @@ export const adviceController = {
 						? `${err.message}\n${err.stack ?? ''}`.trim()
 						: err.message
 					: String(err)
-			return renderAdviceResponse(
-				session,
-				{
+			return renderAdviceResponse({
+				session: layoutSession,
+				props: {
+					pendingApproval,
 					cashAmount,
 					cashCurrency,
 					selectedModel: adviceModel,
@@ -188,8 +230,8 @@ export const adviceController = {
 						detail,
 					},
 				},
-				{ status: 503 },
-			)
+				init: { status: 503 },
+			})
 		}
 	},
 }

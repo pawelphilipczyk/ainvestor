@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
-import { router } from '../../router.ts'
+import { testSessionFetch } from '../../lib/test-session-fetch.ts'
 import { resetEtfEntries } from '../portfolio/index.ts'
 import { resetGuestCatalog } from './index.ts'
 
@@ -12,7 +12,7 @@ afterEach(() => {
 
 describe('ETF Catalog page', () => {
 	it('GET /catalog returns 200 with page title', async () => {
-		const response = await router.fetch('http://localhost/catalog')
+		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
@@ -20,7 +20,7 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('GET /catalog shows paste zone for bank API JSON', async () => {
-		const response = await router.fetch('http://localhost/catalog')
+		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
 		assert.match(body, /data-catalog-paste-zone/)
@@ -28,14 +28,14 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('GET /catalog shows empty state hint when no catalog imported', async () => {
-		const response = await router.fetch('http://localhost/catalog')
+		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
 		assert.match(body, /No catalog imported yet/)
 	})
 
 	it('GET /catalog renders theme toggle button hook without escaped HTML text', async () => {
-		const response = await router.fetch('http://localhost/catalog')
+		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
 		assert.match(body, /<button[^>]*data-theme-toggle/)
@@ -43,7 +43,7 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('GET /catalog has a link back to the portfolio', async () => {
-		const response = await router.fetch('http://localhost/catalog')
+		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
 		assert.match(body, /href="\/"/)
@@ -66,7 +66,7 @@ describe('ETF Catalog page', () => {
 			total_count: 1,
 		})
 
-		const importResponse = await router.fetch(
+		const importResponse = await testSessionFetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
@@ -77,7 +77,7 @@ describe('ETF Catalog page', () => {
 		assert.equal(importResponse.status, 302)
 		assert.equal(importResponse.headers.get('location'), '/catalog')
 
-		const catalogResponse = await router.fetch('http://localhost/catalog')
+		const catalogResponse = await testSessionFetch('http://localhost/catalog')
 		const body = await catalogResponse.text()
 
 		assert.match(body, /XMOV GR/)
@@ -97,7 +97,7 @@ describe('ETF Catalog page', () => {
 			count: 1,
 			total_count: 1,
 		})
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
@@ -109,11 +109,11 @@ describe('ETF Catalog page', () => {
 		addForm.set('instrumentTicker', 'VTI')
 		addForm.set('value', '5000')
 		addForm.set('currency', 'USD')
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
 		)
 
-		const response = await router.fetch('http://localhost/catalog')
+		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
 		assert.match(body, /Your Holdings/)
@@ -132,7 +132,7 @@ describe('ETF Catalog page', () => {
 			count: 1,
 			total_count: 1,
 		})
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
@@ -140,7 +140,7 @@ describe('ETF Catalog page', () => {
 			}),
 		)
 
-		const response = await router.fetch('http://localhost/catalog')
+		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
 		assert.match(body, /name="q"/)
@@ -157,7 +157,7 @@ describe('ETF Catalog page', () => {
 			count: 2,
 			total_count: 2,
 		})
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
@@ -165,7 +165,9 @@ describe('ETF Catalog page', () => {
 			}),
 		)
 
-		const response = await router.fetch('http://localhost/catalog?type=bond')
+		const response = await testSessionFetch(
+			'http://localhost/catalog?type=bond',
+		)
 		const body = await response.text()
 
 		assert.match(body, /BND/)
@@ -192,7 +194,7 @@ describe('ETF Catalog page', () => {
 			count: 2,
 			total_count: 2,
 		})
-		await router.fetch(
+		await testSessionFetch(
 			new Request('http://localhost/catalog/import', {
 				method: 'POST',
 				body: bankJson,
@@ -200,7 +202,7 @@ describe('ETF Catalog page', () => {
 			}),
 		)
 
-		const response = await router.fetch('http://localhost/catalog?q=bond')
+		const response = await testSessionFetch('http://localhost/catalog?q=bond')
 		const body = await response.text()
 
 		assert.match(body, /BND/)

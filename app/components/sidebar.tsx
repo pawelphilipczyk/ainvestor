@@ -76,6 +76,12 @@ export function Sidebar(handle: Handle, _setup?: unknown) {
 								<div class="border-t border-border pt-4">
 									<p class="mb-2 px-3 text-xs text-muted-foreground">
 										Signed in as @{session.login}
+										{session.approvalStatus === 'pending' ? (
+											<span class="mt-0.5 block text-amber-500/90">
+												Approval pending — ask an admin to add you to the allow
+												list.
+											</span>
+										) : null}
 									</p>
 									<form
 										method="post"
