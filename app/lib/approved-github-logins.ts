@@ -7,4 +7,4 @@
  *
  * To get access: add your GitHub login here and open a pull request.
  */
-export const APPROVED_GITHUB_LOGINS: readonly string[] = []
+export const APPROVED_GITHUB_LOGINS: readonly string[] = ['pawelphilipczyk']

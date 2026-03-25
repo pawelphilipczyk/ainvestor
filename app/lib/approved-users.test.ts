@@ -46,9 +46,8 @@ describe('approved-users', () => {
 		assert.ok(set.has('carol'))
 	})
 
-	it('rejects every login when file and env lists are empty', () => {
+	it('rejects unknown logins when env allowlist is unset', () => {
 		delete process.env.APPROVED_GITHUB_LOGINS
-		assert.equal(getApprovedGithubLoginsSet().size, 0)
 		assert.equal(isGithubLoginApproved('Anyone'), false)
 	})
 
