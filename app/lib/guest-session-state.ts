@@ -5,15 +5,22 @@ import type { EtfEntry } from './gist.ts'
 import type { EtfGuideline } from './guidelines.ts'
 
 const KEY = 'guestState'
+const GUIDELINES_REF_KEY = 'guestGuidelinesRef'
 
 type GuestState = {
 	etfs: EtfEntry[]
 	catalog: CatalogEntry[]
-	guidelines: EtfGuideline[]
+}
+
+/** Server-side guest guidelines (cookie holds only `guestGuidelinesRef`). */
+const guidelinesByRef = new Map<string, EtfGuideline[]>()
+
+export function clearGuestGuidelinesServerStore(): void {
+	guidelinesByRef.clear()
 }
 
 function emptyState(): GuestState {
-	return { etfs: [], catalog: [], guidelines: [] }
+	return { etfs: [], catalog: [] }
 }
 
 function readState(session: Session): GuestState {
@@ -24,7 +31,6 @@ function readState(session: Session): GuestState {
 		return {
 			etfs: Array.isArray(v.etfs) ? v.etfs : [],
 			catalog: Array.isArray(v.catalog) ? v.catalog : [],
-			guidelines: Array.isArray(v.guidelines) ? v.guidelines : [],
 		}
 	} catch {
 		return emptyState()
@@ -59,14 +65,19 @@ export function setGuestCatalog(
 }
 
 export function getGuestGuidelines(session: Session): EtfGuideline[] {
-	return readState(session).guidelines
+	const ref = session.get(GUIDELINES_REF_KEY) as string | undefined
+	if (!ref) return []
+	return guidelinesByRef.get(ref) ?? []
 }
 
 export function setGuestGuidelines(
 	session: Session,
 	guidelines: EtfGuideline[],
 ): void {
-	const s = readState(session)
-	s.guidelines = guidelines
-	writeState(session, s)
+	let ref = session.get(GUIDELINES_REF_KEY) as string | undefined
+	if (!ref) {
+		ref = `g_${crypto.randomUUID()}`
+		session.set(GUIDELINES_REF_KEY, ref)
+	}
+	guidelinesByRef.set(ref, guidelines)
 }

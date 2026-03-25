@@ -1,11 +1,11 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
-import { testSessionFetch } from '../../lib/test-session-fetch.ts'
+import {
+	resetTestSessionCookieJar,
+	testSessionFetch,
+} from '../../lib/test-session-fetch.ts'
 import type { AdviceClient } from '../../openai.ts'
-import { resetGuestCatalog } from '../catalog/index.ts'
-import { resetGuestGuidelines } from '../guidelines/index.ts'
-import { resetEtfEntries } from '../portfolio/index.ts'
 import { setAdviceClient } from './index.ts'
 
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
@@ -36,9 +36,7 @@ function makeMockClient(responseText: string): AdviceClient {
 }
 
 afterEach(() => {
-	resetEtfEntries()
-	resetGuestGuidelines()
-	resetGuestCatalog()
+	resetTestSessionCookieJar()
 	setAdviceClient(null)
 	if (originalApprovedGithubLogins === undefined) {
 		delete process.env.APPROVED_GITHUB_LOGINS
@@ -93,7 +91,17 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '100')
-		setAdviceClient(makeMockClient('should not run'))
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => {
+						throw new Error(
+							'advice client must not be called for pending users',
+						)
+					},
+				},
+			},
+		})
 
 		const response = await testSessionFetch(
 			new Request('http://localhost/advice', {

@@ -18,7 +18,7 @@ import { instrumentSelectOptionsFromCatalog } from '../catalog/lib.ts'
 import { addEtfFormHandlers } from './add-etf-form/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
 
-export { resetEtfEntries } from './state.ts'
+export { resetEtfEntries, resetTestSessionCookieJar } from './state.ts'
 
 // ---------------------------------------------------------------------------
 // Controller

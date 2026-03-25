@@ -1,10 +1,13 @@
 import { router } from '../router.ts'
+import { clearGuestGuidelinesServerStore } from './guest-session-state.ts'
 
 let testSessionCookie: string | undefined
 
 /** Clears the in-memory session cookie jar (call from test afterEach). */
 export function resetTestSessionCookieJar(): void {
 	testSessionCookie = undefined
+	/** Test-only teardown; also clears server-side guest guideline map (session holds ref only). */
+	clearGuestGuidelinesServerStore()
 }
 
 function applySetCookie(response: Response): void {

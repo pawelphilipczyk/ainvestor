@@ -20,7 +20,6 @@ import {
 } from '../../lib/guidelines.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
-import { resetTestSessionCookieJar } from '../../lib/test-session-fetch.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import {
@@ -42,15 +41,12 @@ const AssetClassGuidelineSchema = object({
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
 })
 
-export function resetGuestGuidelines() {
-	resetTestSessionCookieJar()
-}
-
-async function persistGuideline(
-	entry: EtfGuideline,
-	session: SessionData | null,
-	remixSession: Session,
-) {
+async function persistGuideline(params: {
+	entry: EtfGuideline
+	session: SessionData | null
+	remixSession: Session
+}) {
+	const { entry, session, remixSession } = params
 	if (session?.gistId && session.token) {
 		const current = await fetchGuidelines(session.token, session.gistId)
 		await saveGuidelines(session.token, session.gistId, [entry, ...current])
@@ -122,7 +118,11 @@ export const guidelinesController = {
 			etfType: match.type,
 		}
 
-		await persistGuideline(entry, session, context.session)
+		await persistGuideline({
+			entry,
+			session,
+			remixSession: context.session,
+		})
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
@@ -167,7 +167,11 @@ export const guidelinesController = {
 			etfType: raw,
 		}
 
-		await persistGuideline(entry, session, context.session)
+		await persistGuideline({
+			entry,
+			session,
+			remixSession: context.session,
+		})
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 

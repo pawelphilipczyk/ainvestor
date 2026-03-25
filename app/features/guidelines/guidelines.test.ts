@@ -1,8 +1,9 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
-import { testSessionFetch } from '../../lib/test-session-fetch.ts'
-import { resetGuestCatalog } from '../catalog/index.ts'
-import { resetGuestGuidelines } from './index.ts'
+import {
+	resetTestSessionCookieJar,
+	testSessionFetch,
+} from '../../lib/test-session-fetch.ts'
 
 async function seedGuestCatalog() {
 	const bankJson = JSON.stringify({
@@ -28,8 +29,7 @@ async function seedGuestCatalog() {
 }
 
 afterEach(() => {
-	resetGuestGuidelines()
-	resetGuestCatalog()
+	resetTestSessionCookieJar()
 })
 
 describe('Guidelines page', () => {

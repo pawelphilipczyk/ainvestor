@@ -12,10 +12,7 @@ import {
 	catalogController,
 	resetGuestCatalog,
 } from './features/catalog/index.ts'
-import {
-	guidelinesController,
-	resetGuestGuidelines,
-} from './features/guidelines/index.ts'
+import { guidelinesController } from './features/guidelines/index.ts'
 import {
 	portfolioController,
 	resetEtfEntries,
@@ -24,12 +21,7 @@ import { stripGithubTokenIfUnapproved } from './lib/approved-users.ts'
 import { sessionCookie, sessionStorage } from './lib/session.ts'
 import { routes } from './routes.ts'
 
-export {
-	resetEtfEntries,
-	resetGuestCatalog,
-	resetGuestGuidelines,
-	setAdviceClient,
-}
+export { resetEtfEntries, resetGuestCatalog, setAdviceClient }
 
 const appStatic = staticFiles('app', {
 	filter: (path) => path.endsWith('.component.js') || path === 'entry.js',
