@@ -5,7 +5,6 @@ import { APPROVED_GITHUB_LOGINS } from './approved-github-logins.ts'
 import {
 	approvedGithubLoginSet,
 	getApprovedGithubLoginsSet,
-	isGithubLoginApprovalEnforced,
 	isGithubLoginApproved,
 	stripGithubTokenIfUnapproved,
 } from './approved-users.ts'
@@ -22,34 +21,32 @@ describe('approved-users', () => {
 		}
 	})
 
-	it('approvedGithubLoginSet returns null for empty input', () => {
-		assert.equal(approvedGithubLoginSet([]), null)
-		assert.equal(approvedGithubLoginSet(['', '  ', '\t']), null)
+	it('approvedGithubLoginSet returns empty set for empty or whitespace-only entries', () => {
+		assert.equal(approvedGithubLoginSet([]).size, 0)
+		assert.equal(approvedGithubLoginSet(['', '  ', '\t']).size, 0)
 	})
 
 	it('approvedGithubLoginSet normalizes to lowercase and trims', () => {
 		const set = approvedGithubLoginSet(['Alice', ' BOB '])
-		assert.ok(set)
 		assert.ok(set.has('alice'))
 		assert.ok(set.has('bob'))
 	})
 
-	it('getApprovedGithubLoginsSet merges env entries when env is non-empty', () => {
+	it('getApprovedGithubLoginsSet merges env entries with file list', () => {
 		process.env.APPROVED_GITHUB_LOGINS = 'Alice, BOB\tcarol'
 		const set = getApprovedGithubLoginsSet()
-		assert.ok(set)
 		assert.ok(set.has('alice'))
 		assert.ok(set.has('bob'))
 		assert.ok(set.has('carol'))
 	})
 
-	it('isGithubLoginApproved allows any login when allowlist is off', () => {
+	it('rejects every login when file and env lists are empty', () => {
 		delete process.env.APPROVED_GITHUB_LOGINS
-		assert.equal(isGithubLoginApprovalEnforced(), false)
-		assert.equal(isGithubLoginApproved('Anyone'), true)
+		assert.equal(getApprovedGithubLoginsSet().size, 0)
+		assert.equal(isGithubLoginApproved('Anyone'), false)
 	})
 
-	it('isGithubLoginApproved is case-insensitive when allowlist is on', () => {
+	it('isGithubLoginApproved is case-insensitive when allowlist has entries', () => {
 		process.env.APPROVED_GITHUB_LOGINS = 'OctoCat'
 		assert.equal(isGithubLoginApproved('octocat'), true)
 		assert.equal(isGithubLoginApproved('other'), false)
@@ -78,10 +75,15 @@ describe('approved-users', () => {
 		assert.equal(session.get('gistId'), 'gist1')
 	})
 
-	it('isGithubLoginApprovalEnforced is true when env allowlist is set', () => {
+	it('stripGithubTokenIfUnapproved clears token when merged allowlist is empty', () => {
 		delete process.env.APPROVED_GITHUB_LOGINS
-		assert.equal(isGithubLoginApprovalEnforced(), false)
-		process.env.APPROVED_GITHUB_LOGINS = 'x'
-		assert.equal(isGithubLoginApprovalEnforced(), true)
+		const session = createSession()
+		session.set('login', 'anyone')
+		session.set('token', 'secret')
+		session.set('gistId', 'gist1')
+		stripGithubTokenIfUnapproved(session)
+		assert.equal(session.get('token'), undefined)
+		assert.equal(session.get('gistId'), undefined)
+		assert.equal(session.get('approvalStatus'), 'pending')
 	})
 })

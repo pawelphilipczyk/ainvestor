@@ -1,9 +1,6 @@
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
-import {
-	isGithubLoginApprovalEnforced,
-	isGithubLoginApproved,
-} from '../../lib/approved-users.ts'
+import { isGithubLoginApproved } from '../../lib/approved-users.ts'
 import { getClientId, getClientSecret } from '../../lib/auth.ts'
 import { findOrCreateGist } from '../../lib/gist.ts'
 import { routes } from '../../routes.ts'
@@ -61,9 +58,7 @@ export const authController = {
 		context.session.regenerateId()
 		context.session.set('login', user.login)
 
-		const enforced = isGithubLoginApprovalEnforced()
-		const approved = isGithubLoginApproved(user.login)
-		if (enforced && !approved) {
+		if (!isGithubLoginApproved(user.login)) {
 			context.session.unset('token')
 			context.session.unset('gistId')
 			context.session.set('approvalStatus', 'pending')
