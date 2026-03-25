@@ -1,11 +1,12 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { createSession } from 'remix/session'
-
+import { APPROVED_GITHUB_LOGINS } from './approved-github-logins.ts'
 import {
+	approvedGithubLoginSet,
+	getApprovedGithubLoginsSet,
 	isGithubLoginApprovalEnforced,
 	isGithubLoginApproved,
-	parseApprovedGithubLogins,
 	stripGithubTokenIfUnapproved,
 } from './approved-users.ts'
 
@@ -14,16 +15,28 @@ afterEach(() => {
 })
 
 describe('approved-users', () => {
-	it('parseApprovedGithubLogins returns null when env is unset or blank', () => {
-		delete process.env.APPROVED_GITHUB_LOGINS
-		assert.equal(parseApprovedGithubLogins(), null)
-		process.env.APPROVED_GITHUB_LOGINS = '   '
-		assert.equal(parseApprovedGithubLogins(), null)
+	it('APPROVED_GITHUB_LOGINS export is a string array', () => {
+		assert.ok(Array.isArray(APPROVED_GITHUB_LOGINS))
+		for (const login of APPROVED_GITHUB_LOGINS) {
+			assert.equal(typeof login, 'string')
+		}
 	})
 
-	it('parseApprovedGithubLogins normalizes to lowercase and splits on comma/whitespace', () => {
+	it('approvedGithubLoginSet returns null for empty input', () => {
+		assert.equal(approvedGithubLoginSet([]), null)
+		assert.equal(approvedGithubLoginSet(['', '  ', '\t']), null)
+	})
+
+	it('approvedGithubLoginSet normalizes to lowercase and trims', () => {
+		const set = approvedGithubLoginSet(['Alice', ' BOB '])
+		assert.ok(set)
+		assert.ok(set.has('alice'))
+		assert.ok(set.has('bob'))
+	})
+
+	it('getApprovedGithubLoginsSet merges env entries when env is non-empty', () => {
 		process.env.APPROVED_GITHUB_LOGINS = 'Alice, BOB\tcarol'
-		const set = parseApprovedGithubLogins()
+		const set = getApprovedGithubLoginsSet()
 		assert.ok(set)
 		assert.ok(set.has('alice'))
 		assert.ok(set.has('bob'))
@@ -32,6 +45,7 @@ describe('approved-users', () => {
 
 	it('isGithubLoginApproved allows any login when allowlist is off', () => {
 		delete process.env.APPROVED_GITHUB_LOGINS
+		assert.equal(isGithubLoginApprovalEnforced(), false)
 		assert.equal(isGithubLoginApproved('Anyone'), true)
 	})
 
@@ -64,7 +78,7 @@ describe('approved-users', () => {
 		assert.equal(session.get('gistId'), 'gist1')
 	})
 
-	it('isGithubLoginApprovalEnforced reflects non-empty allowlist', () => {
+	it('isGithubLoginApprovalEnforced is true when env allowlist is set', () => {
 		delete process.env.APPROVED_GITHUB_LOGINS
 		assert.equal(isGithubLoginApprovalEnforced(), false)
 		process.env.APPROVED_GITHUB_LOGINS = 'x'

@@ -163,7 +163,7 @@ export const adviceController = {
 					selectedModel: adviceModel,
 					formError: {
 						summary:
-							'Your account is not approved yet. You cannot request advice until an administrator adds your GitHub username to the allow list.',
+							'Your account is not approved yet. You cannot request advice until your GitHub username is added to app/lib/approved-github-logins.ts and deployed.',
 					},
 				},
 				{ status: 403 },

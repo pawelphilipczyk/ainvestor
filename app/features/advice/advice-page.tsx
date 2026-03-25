@@ -160,12 +160,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					>
 						<p class="font-medium">Account pending approval</p>
 						<p class="mt-1 text-muted-foreground">
-							You signed in with GitHub, but this deployment only allows listed
-							users. Ask an administrator to add your GitHub username to{' '}
+							You signed in with GitHub, but this app only allows listed users.
+							Add your GitHub username to{' '}
 							<code class="rounded bg-muted px-1 py-0.5 font-mono text-xs">
-								APPROVED_GITHUB_LOGINS
-							</code>
-							, then sign out and sign in again.
+								app/lib/approved-github-logins.ts
+							</code>{' '}
+							in a pull request. After it is merged and deployed, sign out and
+							sign in again.
 						</p>
 					</div>
 				) : null}

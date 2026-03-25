@@ -71,7 +71,7 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Account pending approval/)
-		assert.match(body, /APPROVED_GITHUB_LOGINS/)
+		assert.match(body, /approved-github-logins\.ts/)
 		assert.match(body, /disabled/)
 	})
 

@@ -7,7 +7,7 @@ export type SessionData = {
 	token: string | null
 	gistId: string | null
 	login: string
-	/** Present when `APPROVED_GITHUB_LOGINS` is set and this login is not on the list. */
+	/** Present when login allowlist is active and this login is not on the list. */
 	approvalStatus?: 'pending'
 }
 
