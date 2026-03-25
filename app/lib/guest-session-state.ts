@@ -13,7 +13,30 @@ type GuestState = {
 }
 
 /** Server-side guest guidelines (cookie holds only `guestGuidelinesRef`). */
+const MAX_GUEST_GUIDELINE_REFS = 2000
+
+/** LRU by insertion order: get/set moves key to the end; evict from the front when full. */
 const guidelinesByRef = new Map<string, EtfGuideline[]>()
+
+function guidelinesCacheGet(ref: string): EtfGuideline[] | undefined {
+	const rows = guidelinesByRef.get(ref)
+	if (rows === undefined) return undefined
+	guidelinesByRef.delete(ref)
+	guidelinesByRef.set(ref, rows)
+	return rows
+}
+
+function guidelinesCacheSet(ref: string, guidelines: EtfGuideline[]): void {
+	if (guidelinesByRef.has(ref)) {
+		guidelinesByRef.delete(ref)
+	} else if (guidelinesByRef.size >= MAX_GUEST_GUIDELINE_REFS) {
+		const first = guidelinesByRef.keys().next()
+		if (!first.done && first.value !== undefined) {
+			guidelinesByRef.delete(first.value)
+		}
+	}
+	guidelinesByRef.set(ref, guidelines)
+}
 
 export function clearGuestGuidelinesServerStore(): void {
 	guidelinesByRef.clear()
@@ -67,7 +90,7 @@ export function setGuestCatalog(
 export function getGuestGuidelines(session: Session): EtfGuideline[] {
 	const ref = session.get(GUIDELINES_REF_KEY) as string | undefined
 	if (!ref) return []
-	return guidelinesByRef.get(ref) ?? []
+	return guidelinesCacheGet(ref) ?? []
 }
 
 export function setGuestGuidelines(
@@ -79,5 +102,5 @@ export function setGuestGuidelines(
 		ref = `g_${crypto.randomUUID()}`
 		session.set(GUIDELINES_REF_KEY, ref)
 	}
-	guidelinesByRef.set(ref, guidelines)
+	guidelinesCacheSet(ref, guidelines)
 }
