@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 import {
+	Card,
 	FieldLabel,
 	SubmitButton,
 	TextareaInput,
@@ -11,8 +12,9 @@ import { routes } from '../../../routes.ts'
  */
 export function ImportEtfForm(_handle: Handle, _setup?: unknown) {
 	return () => (
-		<section
-			class="mt-6 min-w-0 rounded-lg border border-primary/25 bg-primary/5 p-4 shadow-sm"
+		<Card
+			variant="muted"
+			class="min-w-0 p-4"
 			aria-labelledby="portfolio-import-heading"
 		>
 			<h2
@@ -63,6 +65,6 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 				</div>
 				<SubmitButton>Import</SubmitButton>
 			</form>
-		</section>
+		</Card>
 	)
 }

@@ -45,7 +45,8 @@ describe('Guidelines page', () => {
 		assert.match(body, /name="instrumentTicker"/)
 		assert.match(body, /Specific ETF target/)
 		assert.match(body, /Asset class bucket/)
-		assert.match(body, /bg-muted\/20/)
+		assert.match(body, /Remaining:\s*<strong[^>]*>100%<\/strong>/)
+		assert.match(body, /No guidelines added yet\./)
 	})
 
 	it('POST /guidelines/instrument adds a guideline and redirects', async () => {

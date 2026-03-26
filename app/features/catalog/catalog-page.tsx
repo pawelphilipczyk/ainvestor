@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 import {
+	Card,
 	FieldLabel,
 	SelectInput,
 	SubmitButton,
@@ -102,69 +103,73 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 
 		return (
 			<>
-				<main class="mx-auto max-w-5xl rounded-xl border border-border bg-card p-6 shadow-sm">
-					<header>
-						<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-							ETF Catalog
-						</h1>
-						<p class="mt-1 text-sm text-muted-foreground">
-							Import your broker's ETF list and browse what's available.
-						</p>
-						{sessionUsesGithubGist(session) ? (
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								Catalog saved to your private GitHub Gist.
+				<main class="mx-auto grid max-w-5xl gap-6">
+					<Card class="p-6">
+						<header>
+							<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
+								ETF Catalog
+							</h1>
+							<p class="mt-1 text-sm text-muted-foreground">
+								Import your broker's ETF list and browse what's available.
 							</p>
-						) : session?.approvalStatus === 'pending' ? (
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								Account pending approval — catalog is not saved to GitHub yet.
-							</p>
-						) : (
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								Sign in to persist catalog across sessions.
-							</p>
-						)}
-					</header>
+							{sessionUsesGithubGist(session) ? (
+								<p class="mt-0.5 text-xs text-muted-foreground">
+									Catalog saved to your private GitHub Gist.
+								</p>
+							) : session?.approvalStatus === 'pending' ? (
+								<p class="mt-0.5 text-xs text-muted-foreground">
+									Account pending approval — catalog is not saved to GitHub yet.
+								</p>
+							) : (
+								<p class="mt-0.5 text-xs text-muted-foreground">
+									Sign in to persist catalog across sessions.
+								</p>
+							)}
+						</header>
+					</Card>
 
-					<section class="mt-6">
-						<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-							Import
-						</h2>
-						<p class="mt-0.5 text-xs text-muted-foreground">
-							Paste bank API JSON below to add ETFs (merges with existing).
-						</p>
-						<div
-							data-catalog-paste-zone
-							data-import-url={routes.catalog.import.href()}
-							class="mt-3"
-						>
-							<FieldLabel fieldId="pasteZone" variant="screenReader">
-								Paste bank API JSON
-							</FieldLabel>
-							<TextareaInput
-								id="pasteZone"
-								placeholder="Paste fetch response JSON here (Ctrl+V) — imports on paste"
-								rows={3}
-								class="block max-w-xl"
-							/>
-						</div>
-						{props.catalog.length === 0 ? (
-							<div class="mt-4 rounded-lg border border-dashed border-border bg-muted/30 p-4 text-sm text-muted-foreground">
-								<p class="font-medium text-foreground">
-									No catalog imported yet.
-								</p>
-								<p class="mt-1">
-									Paste bank API JSON above to add ETFs to your catalog.
-								</p>
+					<Card variant="muted" class="p-4">
+						<section>
+							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+								Import
+							</h2>
+							<p class="mt-0.5 text-xs text-muted-foreground">
+								Paste bank API JSON below to add ETFs (merges with existing).
+							</p>
+							<div
+								data-catalog-paste-zone
+								data-import-url={routes.catalog.import.href()}
+								class="mt-3"
+							>
+								<FieldLabel fieldId="pasteZone" variant="screenReader">
+									Paste bank API JSON
+								</FieldLabel>
+								<TextareaInput
+									id="pasteZone"
+									placeholder="Paste fetch response JSON here (Ctrl+V) — imports on paste"
+									rows={3}
+									class="block max-w-xl"
+								/>
 							</div>
-						) : null}
-					</section>
+							{props.catalog.length === 0 ? (
+								<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
+									<p class="font-medium text-foreground">
+										No catalog imported yet.
+									</p>
+									<p class="mt-1">
+										Paste bank API JSON above to add ETFs to your catalog.
+									</p>
+								</div>
+							) : null}
+						</section>
+					</Card>
 
 					{props.catalog.length > 0 ? (
-						<>
+						<Card variant="muted" class="p-4">
 							<form
 								method="get"
 								action={routes.catalog.index.href()}
-								class="mt-5 flex flex-wrap items-end gap-3"
+								class="flex flex-wrap items-end gap-3"
 							>
 								<div class="grid gap-1.5">
 									<FieldLabel fieldId="type" variant="filter">
@@ -221,61 +226,69 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									</>
 								)}
 							</p>
-						</>
+						</Card>
 					) : null}
 
 					{ownedInCatalog.length > 0 ? (
-						<section class="mt-6">
-							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-								Your Holdings
-							</h2>
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								ETFs in this catalog that you already own.
-							</p>
-							<div class="mt-3 overflow-x-auto rounded-lg border border-border">
-								<table class="w-full table-auto border-collapse">
-									<thead class="bg-muted/40 px-4">
-										<tr>
-											<td colspan={6} class="h-1" />
-										</tr>
-										<CatalogTableHeader />
-									</thead>
-									<tbody>
-										{ownedInCatalog.map((e) =>
-											renderCatalogRow(
-												e,
-												holdingsByTicker.get(holdingKey(e.ticker)),
-											),
-										)}
-									</tbody>
-								</table>
-							</div>
-						</section>
+						<Card class="p-4">
+							<section>
+								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+									Your Holdings
+								</h2>
+								<p class="mt-0.5 text-xs text-muted-foreground">
+									ETFs in this catalog that you already own.
+								</p>
+								<div class="mt-3 overflow-x-auto rounded-lg border border-border">
+									<table class="w-full table-auto border-collapse">
+										<thead class="bg-muted/40 px-4">
+											<tr>
+												<td colspan={6} class="h-1" />
+											</tr>
+											<CatalogTableHeader />
+										</thead>
+										<tbody>
+											{ownedInCatalog.map((e) =>
+												renderCatalogRow(
+													e,
+													holdingsByTicker.get(holdingKey(e.ticker)),
+												),
+											)}
+										</tbody>
+									</table>
+								</div>
+							</section>
+						</Card>
 					) : null}
 
 					{restOfCatalog.length === 0 && ownedInCatalog.length === 0 ? (
-						<p class="mt-4 text-sm text-muted-foreground">
-							No ETFs match your search.
-						</p>
+						<Card class="p-4">
+							<p class="text-sm text-muted-foreground">
+								No ETFs match your search.
+							</p>
+						</Card>
 					) : restOfCatalog.length > 0 ? (
-						<section class="mt-6">
-							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-								{ownedInCatalog.length > 0
-									? 'Other Available ETFs'
-									: 'Available ETFs'}
-							</h2>
-							<div class="mt-3 overflow-x-auto rounded-lg border border-border">
-								<table class="w-full table-auto border-collapse">
-									<thead class="bg-muted/40">
-										<tr>
-											<td colspan={6} class="h-1" />
-										</tr>
-										<CatalogTableHeader />
-									</thead>
-									<tbody>{restOfCatalog.map((e) => renderCatalogRow(e))}</tbody>
-								</table>
-							</div>
-						</section>
+						<Card class="p-4">
+							<section>
+								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+									{ownedInCatalog.length > 0
+										? 'Other Available ETFs'
+										: 'Available ETFs'}
+								</h2>
+								<div class="mt-3 overflow-x-auto rounded-lg border border-border">
+									<table class="w-full table-auto border-collapse">
+										<thead class="bg-muted/40">
+											<tr>
+												<td colspan={6} class="h-1" />
+											</tr>
+											<CatalogTableHeader />
+										</thead>
+										<tbody>
+											{restOfCatalog.map((e) => renderCatalogRow(e))}
+										</tbody>
+									</table>
+								</div>
+							</section>
+						</Card>
 					) : null}
 				</main>
 				<CatalogPasteInteractions />
