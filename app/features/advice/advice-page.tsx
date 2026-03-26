@@ -1,5 +1,10 @@
 import type { Handle } from 'remix/component'
-import { FieldLabel, NumberInput, SelectInput } from '../../components/index.ts'
+import {
+	FieldLabel,
+	NumberInput,
+	SelectInput,
+	SubmitButton,
+} from '../../components/index.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import {
 	ADVICE_MODEL_IDS,
@@ -230,13 +235,12 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								disabled={pendingApproval}
 							/>
 						</div>
-						<button
-							type="submit"
+						<SubmitButton
 							disabled={pendingApproval}
-							class="shrink-0 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50"
+							class="sm:!w-auto sm:shrink-0"
 						>
 							Ask AI
-						</button>
+						</SubmitButton>
 					</div>
 				</form>
 				{props.advice !== undefined && props.cashAmount ? (

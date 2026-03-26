@@ -42,7 +42,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				<style type="text/tailwindcss" innerHTML={baseCss} />
 				<script type="importmap" innerHTML={IMPORT_MAP} />
 			</head>
-			<body class="min-h-screen bg-background font-sans text-foreground antialiased">
+			<body class="min-h-screen overflow-x-hidden bg-background font-sans text-foreground antialiased">
 				<SessionProvider session={props.session}>
 					<div id="form-spinner" class="sr-only" aria-hidden="true">
 						<span
@@ -59,7 +59,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					</div>
 					<Sidebar navLinks={NAV_LINKS} currentPage={props.currentPage} />
 					<AppTopBar />
-					<div id="page-content" class="p-4 md:ml-64">
+					<div id="page-content" class="min-w-0 p-4 md:ml-64">
 						{props.flashError ? (
 							<div
 								role="alert"
