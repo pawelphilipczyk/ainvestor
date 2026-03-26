@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/component'
 
 const variantClasses = {
 	default: 'bg-card',
@@ -23,11 +23,10 @@ export function getCardClassNames(props?: {
 export function Card(_handle: Handle, _setup?: unknown) {
 	return (props: {
 		as?: CardElement
-		children?: unknown
+		children?: RemixNode
 		variant?: CardVariant
 		class?: string
 		id?: string
-		role?: string
 		'aria-labelledby'?: string
 		'aria-live'?: 'polite' | 'assertive' | 'off'
 	}) => {
@@ -35,7 +34,6 @@ export function Card(_handle: Handle, _setup?: unknown) {
 		return (
 			<Tag
 				id={props.id}
-				role={props.role}
 				aria-labelledby={props['aria-labelledby']}
 				aria-live={props['aria-live']}
 				class={getCardClassNames({
