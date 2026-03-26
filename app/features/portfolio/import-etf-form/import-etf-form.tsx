@@ -44,6 +44,7 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 						name="portfolioCsvPaste"
 						placeholder="Paste rows from your export (include the header row)…"
 						rows={6}
+						class="block max-w-xl"
 					/>
 				</div>
 				<div class="grid min-w-0 gap-2">
