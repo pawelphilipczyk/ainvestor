@@ -106,7 +106,7 @@ describe('remix component runtime in document', () => {
 	it('document offsets main column beside fixed sidebar from md breakpoint', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /id="page-content"[^>]*\bmd:ml-64\b/)
+		assert.match(body, /id="page-content"[^>]*\bmin-w-0\b[^>]*\bmd:ml-64\b/)
 	})
 	it('GET /entry.js returns bootstrap with run(document, ...)', async () => {
 		const response = await router.fetch('http://localhost/entry.js')
