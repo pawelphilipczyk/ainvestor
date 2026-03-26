@@ -42,7 +42,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				<style type="text/tailwindcss" innerHTML={baseCss} />
 				<script type="importmap" innerHTML={IMPORT_MAP} />
 			</head>
-			<body class="min-h-screen bg-background font-sans text-foreground antialiased">
+			<body class="min-h-screen overflow-x-hidden bg-background font-sans text-foreground antialiased">
 				<SessionProvider session={props.session}>
 					<div id="form-spinner" class="sr-only" aria-hidden="true">
 						<span

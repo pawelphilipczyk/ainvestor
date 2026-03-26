@@ -16,12 +16,16 @@ type EtfCardProps = {
  */
 export function EtfCard(_handle: Handle, _setup?: unknown) {
 	return (props: EtfCardProps) => (
-		<li class="flex items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3">
-			<div class="flex min-w-0 flex-col gap-0.5">
-				<strong class="font-semibold text-card-foreground">{props.name}</strong>
-				<span class="text-xs text-muted-foreground">{props.details}</span>
+		<li class="flex min-w-0 items-center justify-between gap-3 rounded-md border border-border bg-card px-4 py-3">
+			<div class="flex min-w-0 flex-1 flex-col gap-0.5">
+				<strong class="truncate font-semibold text-card-foreground">
+					{props.name}
+				</strong>
+				<span class="truncate text-xs text-muted-foreground">
+					{props.details}
+				</span>
 			</div>
-			<div class="flex items-center gap-3">
+			<div class="flex shrink-0 items-center gap-3">
 				<Badge>{props.badgeValue}</Badge>
 				<button
 					type="button"

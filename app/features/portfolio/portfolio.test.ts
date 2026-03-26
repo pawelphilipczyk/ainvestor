@@ -51,6 +51,11 @@ describe('Portfolio page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
+		assert.match(
+			body,
+			/<body[^>]*\boverflow-x-hidden\b/,
+			'body should clip horizontal overflow so narrow viewports do not scroll sideways',
+		)
 		assert.match(body, /AI Investor/)
 		assert.match(body, /<form[^>]*method="post"[^>]*action="\/etfs"/)
 		assert.match(body, /Import from CSV/)
