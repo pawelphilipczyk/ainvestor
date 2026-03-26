@@ -1,5 +1,9 @@
 import type { Handle } from 'remix/component'
-import { FieldLabel, TextareaInput } from '../../../components/index.ts'
+import {
+	FieldLabel,
+	SubmitButton,
+	TextareaInput,
+} from '../../../components/index.ts'
 import { routes } from '../../../routes.ts'
 
 /**
@@ -57,12 +61,7 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 						class="cursor-pointer text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground hover:file:opacity-90"
 					/>
 				</div>
-				<button
-					type="submit"
-					class="justify-self-start rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-				>
-					Import
-				</button>
+				<SubmitButton>Import</SubmitButton>
 			</form>
 		</section>
 	)
