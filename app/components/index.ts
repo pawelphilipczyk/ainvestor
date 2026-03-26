@@ -1,6 +1,6 @@
 export { AppBranding } from './app-branding.tsx'
 export { AppTopBar } from './app-top-bar.tsx'
-export { Card, getCardClassNames, type CardVariant } from './card.tsx'
+export { Card, type CardVariant, getCardClassNames } from './card.tsx'
 export {
 	FieldLabel,
 	type FieldLabelVariant,
