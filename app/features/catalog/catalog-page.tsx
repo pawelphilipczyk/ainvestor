@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import {
 	FieldLabel,
 	SelectInput,
+	SubmitButton,
 	TextareaInput,
 	TextInput,
 } from '../../components/index.ts'
@@ -196,12 +197,9 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 										class="w-64"
 									/>
 								</div>
-								<button
-									type="submit"
-									class="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								>
+								<SubmitButton class="!h-9 !w-auto shrink-0 !py-0 text-sm font-medium">
 									Filter
-								</button>
+								</SubmitButton>
 								{props.typeFilter || props.query ? (
 									<a
 										href={routes.catalog.index.href()}
