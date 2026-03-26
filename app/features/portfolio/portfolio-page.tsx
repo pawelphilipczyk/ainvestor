@@ -21,7 +21,7 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 		const session = handle.context.get(SessionProvider)?.session ?? null
 		return (
 			<>
-				<main class="mx-auto max-w-lg rounded-xl border border-border bg-card p-6 shadow-sm">
+				<main class="mx-auto min-w-0 max-w-lg rounded-xl border border-border bg-card p-6 shadow-sm">
 					<header>
 						<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
 							AI Investor
