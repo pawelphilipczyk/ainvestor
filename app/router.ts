@@ -13,6 +13,7 @@ import {
 	resetGuestCatalog,
 } from './features/catalog/index.ts'
 import { guidelinesController } from './features/guidelines/index.ts'
+import { homeController } from './features/intro/index.ts'
 import {
 	portfolioController,
 	resetEtfEntries,
@@ -74,6 +75,7 @@ router.get(routes.health, () => {
 	})
 })
 
+router.map(routes.home, homeController)
 router.map(routes.portfolio, portfolioController)
 router.map(routes.auth, authController)
 router.map(routes.guidelines, guidelinesController)

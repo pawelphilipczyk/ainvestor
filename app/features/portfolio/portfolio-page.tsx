@@ -26,7 +26,7 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 					<Card class="p-6">
 						<header>
 							<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-								AI Investor
+								Portfolio
 							</h1>
 							<p class="mt-1 text-sm text-muted-foreground">
 								Paste or upload a broker CSV to add what you already hold or
