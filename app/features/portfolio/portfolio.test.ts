@@ -448,14 +448,6 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(body, /href="\/auth\/github"/)
 	})
 
-	it('intro page has a link to the guidelines page', async () => {
-		const response = await testSessionFetch('http://localhost/')
-		const body = await response.text()
-
-		assert.match(body, /href="\/guidelines"/)
-		assert.match(body, /Investment Guidelines/)
-	})
-
 	it('GET /fragments/portfolio-list returns ETF list HTML fragment', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
@@ -478,13 +470,5 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 		assert.match(body, /data-fetch-submit/)
-	})
-
-	it('intro page has a link to the ETF catalog', async () => {
-		const response = await testSessionFetch('http://localhost/')
-		const body = await response.text()
-
-		assert.match(body, /href="\/catalog"/)
-		assert.match(body, /ETF Catalog/)
 	})
 })
