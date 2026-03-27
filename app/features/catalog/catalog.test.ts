@@ -46,7 +46,7 @@ describe('ETF Catalog page', () => {
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
-		assert.match(body, /href="\/"/)
+		assert.match(body, /href="\/portfolio"/)
 		assert.match(body, /Portfolio/)
 	})
 

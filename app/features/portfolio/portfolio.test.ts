@@ -39,15 +39,32 @@ describe('Health endpoint', () => {
 	})
 })
 
-describe('Portfolio page', () => {
-	it('GET / sets Cache-Control: no-store so browsers always fetch a fresh ETF list', async () => {
+describe('Intro page', () => {
+	it('GET / lists the four main sections as card links', async () => {
 		const response = await testSessionFetch('http://localhost/')
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /href="\/portfolio"/)
+		assert.match(body, /href="\/advice"/)
+		assert.match(body, /href="\/catalog"/)
+		assert.match(body, /href="\/guidelines"/)
+		assert.match(body, /Portfolio/)
+		assert.match(body, /Get Advice/)
+		assert.match(body, /ETF Catalog/)
+		assert.match(body, /Investment Guidelines/)
+	})
+})
+
+describe('Portfolio page', () => {
+	it('GET /portfolio sets Cache-Control: no-store so browsers always fetch a fresh ETF list', async () => {
+		const response = await testSessionFetch('http://localhost/portfolio')
 
 		assert.equal(response.headers.get('cache-control'), 'no-store')
 	})
 
-	it('renders the homepage and ETF form', async () => {
-		const response = await testSessionFetch('http://localhost/')
+	it('renders the portfolio page and ETF form', async () => {
+		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
@@ -68,7 +85,7 @@ describe('Portfolio page', () => {
 		const prev = process.env.FLY_APP_NAME
 		try {
 			process.env.FLY_APP_NAME = 'ainvestor-preview'
-			const response = await testSessionFetch('http://localhost/')
+			const response = await testSessionFetch('http://localhost/portfolio')
 			const body = await response.text()
 
 			assert.equal(response.status, 200)
@@ -81,7 +98,7 @@ describe('Portfolio page', () => {
 	})
 
 	it('form has instrument, value, currency, and quantity fields', async () => {
-		const response = await testSessionFetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 
 		assert.match(body, /name="instrumentTicker"/)
@@ -91,7 +108,7 @@ describe('Portfolio page', () => {
 	})
 
 	it('form defaults currency to PLN (first option)', async () => {
-		const response = await testSessionFetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 
 		// PLN is first option, so it is the default when none selected
@@ -120,7 +137,7 @@ describe('Portfolio page', () => {
 	})
 
 	it('value field is a numeric input', async () => {
-		const response = await testSessionFetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 
 		assert.match(body, /id="value"[^>]*type="number"/)
@@ -139,7 +156,7 @@ describe('Portfolio page', () => {
 		)
 		assert.equal(postResponse.status, 302)
 
-		const homeResponse = await testSessionFetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/portfolio')
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /VTI/)
 		assert.match(homeBody, /PLN/)
@@ -158,13 +175,13 @@ describe('Portfolio page', () => {
 		)
 		assert.equal(postResponse.status, 302)
 
-		const homeResponse = await testSessionFetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/portfolio')
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /IBTA LN ETF/)
 		assert.match(homeBody, /186 shares/)
 	})
 
-	it('adds an ETF on form submit and displays it on homepage', async () => {
+	it('adds an ETF on form submit and displays it on the portfolio page', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('instrumentTicker', 'VTI')
@@ -176,9 +193,9 @@ describe('Portfolio page', () => {
 		)
 
 		assert.equal(postResponse.status, 302)
-		assert.equal(postResponse.headers.get('location'), '/')
+		assert.equal(postResponse.headers.get('location'), '/portfolio')
 
-		const homeResponse = await testSessionFetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/portfolio')
 		const homeBody = await homeResponse.text()
 
 		assert.match(homeBody, /VTI/)
@@ -200,7 +217,7 @@ IBTA LN ETF;GBR-LSE;186;4087.48;PLN`
 		)
 		assert.equal(importResponse.status, 302)
 
-		const homeResponse = await testSessionFetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/portfolio')
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /IBTA LN ETF/)
 		assert.match(homeBody, /4[,.]?087/)
@@ -227,7 +244,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 		assert.equal(importResponse.status, 302)
 
-		const homeResponse = await testSessionFetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/portfolio')
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /IBTA LN ETF/)
 		assert.match(homeBody, /IQQH GR ETF/)
@@ -259,7 +276,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			new Request('http://localhost/etfs', { method: 'POST', body: form2 }),
 		)
 
-		const homeResponse = await testSessionFetch('http://localhost/')
+		const homeResponse = await testSessionFetch('http://localhost/portfolio')
 		const homeBody = await homeResponse.text()
 
 		assert.match(homeBody, /VTI/)
@@ -284,7 +301,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 
-		const listResponse = await testSessionFetch('http://localhost/')
+		const listResponse = await testSessionFetch('http://localhost/portfolio')
 		const listBody = await listResponse.text()
 		assert.doesNotMatch(listBody, /data-island="features\/portfolio\/etf-card"/)
 	})
@@ -335,7 +352,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 
-		const response = await testSessionFetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 
 		assert.match(
@@ -355,7 +372,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
 
-		const listResponse = await testSessionFetch('http://localhost/')
+		const listResponse = await testSessionFetch('http://localhost/portfolio')
 		const listBody = await listResponse.text()
 		const idMatch = listBody.match(/action="\/etfs\/([a-f0-9-]+)"/)
 		assert.ok(idMatch, 'delete form action should be present')
@@ -372,7 +389,9 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 
 		assert.equal(deleteResponse.status, 302)
 
-		const afterBody = await (await testSessionFetch('http://localhost/')).text()
+		const afterBody = await (
+			await testSessionFetch('http://localhost/portfolio')
+		).text()
 		assert.match(afterBody, /No ETFs added yet/)
 	})
 
@@ -390,7 +409,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		const homeRes = await testSessionFetch(
 			location
 				? new URL(location, 'http://localhost/').href
-				: 'http://localhost/',
+				: 'http://localhost/portfolio',
 			{ headers: cookie ? { Cookie: cookie.split(';')[0] } : undefined },
 		)
 		const body = await homeRes.text()
@@ -429,7 +448,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(body, /href="\/auth\/github"/)
 	})
 
-	it('homepage has a link to the guidelines page', async () => {
+	it('intro page has a link to the guidelines page', async () => {
 		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 
@@ -456,12 +475,12 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('Add ETF form has data-fetch-submit for progressive enhancement', async () => {
-		const response = await testSessionFetch('http://localhost/')
+		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 		assert.match(body, /data-fetch-submit/)
 	})
 
-	it('homepage has a link to the ETF catalog', async () => {
+	it('intro page has a link to the ETF catalog', async () => {
 		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 

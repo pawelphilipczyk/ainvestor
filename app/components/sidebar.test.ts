@@ -37,6 +37,7 @@ describe('sidebar component', () => {
 		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
 		assert.match(result, /id="app-sidebar"/)
 		assert.match(result, /id="sidebar-backdrop"/)
+		assert.match(result, /href="\/portfolio"/)
 		assert.match(result, /href="\/advice"/)
 		assert.match(result, /href="\/catalog"/)
 		assert.match(result, /href="\/guidelines"/)

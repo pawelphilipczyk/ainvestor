@@ -2,8 +2,11 @@ import { del, form, get, post, route } from 'remix/fetch-router/routes'
 
 export const routes = route({
 	health: get('/health'),
-	portfolio: {
+	home: {
 		index: get('/'),
+	},
+	portfolio: {
+		index: get('/portfolio'),
 		create: post('/etfs'),
 		import: post('/etfs/import'),
 		delete: del('/etfs/:id'),

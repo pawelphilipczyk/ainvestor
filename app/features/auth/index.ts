@@ -20,7 +20,7 @@ export const authController = {
 	async callback(context: { request: Request; session: Session }) {
 		const url = new URL(context.request.url)
 		const code = url.searchParams.get('code')
-		if (!code) return createRedirectResponse(routes.portfolio.index.href())
+		if (!code) return createRedirectResponse(routes.home.index.href())
 
 		const tokenRes = await fetch(
 			'https://github.com/login/oauth/access_token',
@@ -38,14 +38,13 @@ export const authController = {
 			},
 		)
 
-		if (!tokenRes.ok)
-			return createRedirectResponse(routes.portfolio.index.href())
+		if (!tokenRes.ok) return createRedirectResponse(routes.home.index.href())
 		const tokenData = (await tokenRes.json()) as {
 			access_token?: string
 			error?: string
 		}
 		const token = tokenData.access_token
-		if (!token) return createRedirectResponse(routes.portfolio.index.href())
+		if (!token) return createRedirectResponse(routes.home.index.href())
 
 		const userRes = await fetch('https://api.github.com/user', {
 			headers: {
@@ -73,7 +72,7 @@ export const authController = {
 			context.session.unset('gistId')
 			context.session.unset('login')
 			context.session.unset('approvalStatus')
-			return createRedirectResponse(routes.portfolio.index.href())
+			return createRedirectResponse(routes.home.index.href())
 		}
 
 		context.session.regenerateId()
@@ -83,7 +82,7 @@ export const authController = {
 			context.session.unset('token')
 			context.session.unset('gistId')
 			context.session.set('approvalStatus', 'pending')
-			return createRedirectResponse(routes.portfolio.index.href())
+			return createRedirectResponse(routes.home.index.href())
 		}
 
 		const gistId = await findOrCreateGist(token)
@@ -91,11 +90,11 @@ export const authController = {
 		context.session.set('gistId', gistId)
 		context.session.unset('approvalStatus')
 
-		return createRedirectResponse(routes.portfolio.index.href())
+		return createRedirectResponse(routes.home.index.href())
 	},
 
 	logout(context: { session: Session }) {
 		context.session.destroy()
-		return createRedirectResponse(routes.portfolio.index.href())
+		return createRedirectResponse(routes.home.index.href())
 	},
 }
