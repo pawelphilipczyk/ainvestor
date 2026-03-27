@@ -5,9 +5,10 @@ import { renderToString } from 'remix/component/server'
 import { AppBranding } from './app-branding.tsx'
 
 describe('AppBranding', () => {
-	it('renders app name', async () => {
+	it('renders app name as home link', async () => {
 		const result = await renderToString(jsx(AppBranding, {}))
 		assert.match(result, /AI Investor/)
+		assert.match(result, /href="\/"/)
 	})
 
 	it('renders Preview chip when FLY_APP_NAME is ainvestor-preview', async () => {
