@@ -6,7 +6,9 @@ import {
 	SelectInput,
 	SubmitButton,
 } from '../../components/index.ts'
+import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { CURRENCIES } from '../../lib/currencies.ts'
+import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceModelId,
@@ -151,16 +153,12 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 		const pendingApproval = props.pendingApproval === true
 		return (
 			<main class="mx-auto grid max-w-3xl gap-6">
-				<Card class="p-6">
-					<header>
-						<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-							Get Advice
-						</h1>
-						<p class="mt-1 text-sm text-muted-foreground">
-							Tell me how much cash you have and I'll suggest what to buy next.
-						</p>
-					</header>
-				</Card>
+				<SectionIntroCard
+					page="advice"
+					variant="page"
+					title={SECTION_INTROS.advice.title}
+					description={SECTION_INTROS.advice.description}
+				/>
 				{pendingApproval ? (
 					<div
 						role="status"
