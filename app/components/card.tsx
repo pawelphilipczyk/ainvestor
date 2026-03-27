@@ -26,22 +26,19 @@ export function Card(_handle: Handle, _setup?: unknown) {
 		children?: RemixNode
 		variant?: CardVariant
 		class?: string
-		id?: string
-		'aria-labelledby'?: string
-		'aria-live'?: 'polite' | 'assertive' | 'off'
+		[key: string]: unknown
 	}) => {
-		const Tag = props.as ?? 'section'
+		const { as, children, variant, class: className, ...rest } = props
+		const Tag = as ?? 'section'
 		return (
 			<Tag
-				id={props.id}
-				aria-labelledby={props['aria-labelledby']}
-				aria-live={props['aria-live']}
+				{...rest}
 				class={getCardClassNames({
-					variant: props.variant,
-					className: props.class,
+					variant: variant,
+					className: className,
 				})}
 			>
-				{props.children}
+				{children}
 			</Tag>
 		)
 	}
