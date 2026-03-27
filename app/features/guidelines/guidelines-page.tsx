@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 import {
+	Card,
 	FieldLabel,
 	NumberInput,
 	SelectInput,
@@ -31,23 +32,26 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 		]
 
 		return (
-			<main class="mx-auto max-w-lg rounded-xl border border-border bg-card p-6 shadow-sm">
-				<header>
-					<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-						Investment Guidelines
-					</h1>
-					<p class="mt-1 text-sm text-muted-foreground">
-						Set your target allocation.{' '}
-						{sessionUsesGithubGist(session)
-							? 'Saved to your private GitHub Gist.'
-							: session?.approvalStatus === 'pending'
-								? 'Account pending approval — guidelines are not saved to GitHub yet.'
-								: 'Sign in to persist across sessions.'}
-					</p>
-				</header>
+			<main class="mx-auto grid max-w-lg gap-6">
+				<Card class="p-6">
+					<header>
+						<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
+							Investment Guidelines
+						</h1>
+						<p class="mt-1 text-sm text-muted-foreground">
+							Set your target allocation.{' '}
+							{sessionUsesGithubGist(session)
+								? 'Saved to your private GitHub Gist.'
+								: session?.approvalStatus === 'pending'
+									? 'Account pending approval — guidelines are not saved to GitHub yet.'
+									: 'Sign in to persist across sessions.'}
+						</p>
+					</header>
+				</Card>
 
-				<section
-					class="mt-6 rounded-lg border border-border bg-muted/20 p-4"
+				<Card
+					variant="muted"
+					class="p-4"
 					aria-labelledby="guidelines-etf-heading"
 				>
 					<h2
@@ -91,10 +95,11 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						</div>
 						<SubmitButton>Add ETF guideline</SubmitButton>
 					</form>
-				</section>
+				</Card>
 
-				<section
-					class="mt-6 rounded-lg border border-border bg-muted/20 p-4"
+				<Card
+					variant="muted"
+					class="p-4"
 					aria-labelledby="guidelines-bucket-heading"
 				>
 					<h2
@@ -138,9 +143,9 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						</div>
 						<SubmitButton>Add asset-class guideline</SubmitButton>
 					</form>
-				</section>
+				</Card>
 
-				<p class="mt-4 text-xs text-muted-foreground">
+				<p class="text-xs text-muted-foreground">
 					Import or paste funds on the{' '}
 					<a
 						href={routes.catalog.index.href()}
@@ -151,7 +156,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					to populate both lists.
 				</p>
 
-				<div id="guidelines-list" class="mt-6">
+				<div id="guidelines-list">
 					<GuidelinesListFragment guidelines={props.guidelines} />
 				</div>
 			</main>

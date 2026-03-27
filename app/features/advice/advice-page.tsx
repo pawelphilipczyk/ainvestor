@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 import {
+	Card,
 	FieldLabel,
 	NumberInput,
 	SelectInput,
@@ -149,15 +150,17 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 		const pendingApproval = props.pendingApproval === true
 		return (
-			<main class="mx-auto max-w-3xl rounded-xl border border-border bg-card p-6 shadow-sm">
-				<header>
-					<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-						Get Advice
-					</h1>
-					<p class="mt-1 text-sm text-muted-foreground">
-						Tell me how much cash you have and I'll suggest what to buy next.
-					</p>
-				</header>
+			<main class="mx-auto grid max-w-3xl gap-6">
+				<Card class="p-6">
+					<header>
+						<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
+							Get Advice
+						</h1>
+						<p class="mt-1 text-sm text-muted-foreground">
+							Tell me how much cash you have and I'll suggest what to buy next.
+						</p>
+					</header>
+				</Card>
 				{pendingApproval ? (
 					<div
 						role="status"
@@ -175,77 +178,79 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</p>
 					</div>
 				) : null}
-				<form
-					method="post"
-					action={routes.advice.action.href()}
-					class="mt-6 space-y-4"
-					data-fetch-submit
-					data-replace-main
-				>
-					{props.formError ? (
-						<div
-							role="alert"
-							class="rounded-md border border-destructive/50 bg-destructive/10 py-3 pl-6 pr-4 text-sm text-destructive"
-						>
-							{props.formError.detail ? (
-								<details>
-									<summary class="cursor-pointer list-inside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-										{props.formError.summary}
-									</summary>
-									<pre class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-destructive/20 pt-3 font-mono text-xs leading-relaxed text-destructive/90">
-										{props.formError.detail}
-									</pre>
-								</details>
-							) : (
-								props.formError.summary
-							)}
-						</div>
-					) : null}
-					<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
-						<div class="grid min-w-0 flex-1 gap-2">
-							<FieldLabel fieldId="cashAmount">Available cash</FieldLabel>
-							<NumberInput
-								id="cashAmount"
-								name="cashAmount"
-								placeholder="e.g. 1000"
-								required={true}
-								min={1}
-								step="any"
-								defaultValue={props.cashAmount}
+				<Card variant="muted" class="p-6">
+					<form
+						method="post"
+						action={routes.advice.action.href()}
+						class="space-y-4"
+						data-fetch-submit
+						data-replace-main
+					>
+						{props.formError ? (
+							<div
+								role="alert"
+								class="rounded-md border border-destructive/50 bg-destructive/10 py-3 pl-6 pr-4 text-sm text-destructive"
+							>
+								{props.formError.detail ? (
+									<details>
+										<summary class="cursor-pointer list-inside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+											{props.formError.summary}
+										</summary>
+										<pre class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-destructive/20 pt-3 font-mono text-xs leading-relaxed text-destructive/90">
+											{props.formError.detail}
+										</pre>
+									</details>
+								) : (
+									props.formError.summary
+								)}
+							</div>
+						) : null}
+						<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+							<div class="grid min-w-0 flex-1 gap-2">
+								<FieldLabel fieldId="cashAmount">Available cash</FieldLabel>
+								<NumberInput
+									id="cashAmount"
+									name="cashAmount"
+									placeholder="e.g. 1000"
+									required={true}
+									min={1}
+									step="any"
+									defaultValue={props.cashAmount}
+									disabled={pendingApproval}
+								/>
+							</div>
+							<div class="grid w-full gap-2 sm:w-36">
+								<FieldLabel fieldId="cashCurrency">Currency</FieldLabel>
+								<SelectInput
+									id="cashCurrency"
+									name="cashCurrency"
+									options={currencyOptions}
+									value={cashCurrency}
+									disabled={pendingApproval}
+								/>
+							</div>
+							<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
+								<FieldLabel fieldId="adviceModel">Model</FieldLabel>
+								<SelectInput
+									id="adviceModel"
+									name="adviceModel"
+									options={modelOptions}
+									value={selectedModel}
+									disabled={pendingApproval}
+								/>
+							</div>
+							<SubmitButton
 								disabled={pendingApproval}
-							/>
+								class="sm:!w-auto sm:shrink-0"
+							>
+								Ask AI
+							</SubmitButton>
 						</div>
-						<div class="grid w-full gap-2 sm:w-36">
-							<FieldLabel fieldId="cashCurrency">Currency</FieldLabel>
-							<SelectInput
-								id="cashCurrency"
-								name="cashCurrency"
-								options={currencyOptions}
-								value={cashCurrency}
-								disabled={pendingApproval}
-							/>
-						</div>
-						<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
-							<FieldLabel fieldId="adviceModel">Model</FieldLabel>
-							<SelectInput
-								id="adviceModel"
-								name="adviceModel"
-								options={modelOptions}
-								value={selectedModel}
-								disabled={pendingApproval}
-							/>
-						</div>
-						<SubmitButton
-							disabled={pendingApproval}
-							class="sm:!w-auto sm:shrink-0"
-						>
-							Ask AI
-						</SubmitButton>
-					</div>
-				</form>
+					</form>
+				</Card>
 				{props.advice !== undefined && props.cashAmount ? (
-					<section class="mt-8 border-t border-border pt-8" aria-live="polite">
-						<h2 class="text-lg font-semibold tracking-tight">
+					<Card class="p-6" aria-live="polite">
+						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
 							Investment Advice
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
@@ -259,7 +264,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								</div>
 							))}
 						</div>
-					</section>
+					</Card>
 				) : null}
 			</main>
 		)

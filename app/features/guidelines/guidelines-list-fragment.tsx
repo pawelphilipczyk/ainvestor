@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import { Card } from '../../components/index.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { routes } from '../../routes.ts'
@@ -13,8 +14,8 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 		const remaining = Math.max(0, 100 - totalPct)
 
 		return (
-			<>
-				<div class="mt-6 flex items-center justify-between text-xs text-muted-foreground">
+			<Card class="p-4">
+				<div class="flex items-center justify-between text-xs text-muted-foreground">
 					<span>
 						Total allocated:{' '}
 						<strong class="text-foreground">{totalPct}%</strong>
@@ -31,9 +32,10 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 				) : (
 					<ul class="mt-4 grid gap-2">
 						{guidelines.map((g) => (
-							<li
+							<Card
+								as="li"
 								key={g.id}
-								class="flex items-center justify-between rounded-lg border border-border bg-card px-4 py-3"
+								class="flex items-center justify-between px-4 py-3"
 							>
 								<div class="flex items-center gap-3">
 									<span class="font-medium">
@@ -66,11 +68,11 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 										</button>
 									</form>
 								</div>
-							</li>
+							</Card>
 						))}
 					</ul>
 				)}
-			</>
+			</Card>
 		)
 	}
 }
