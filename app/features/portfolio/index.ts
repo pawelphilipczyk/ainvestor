@@ -170,7 +170,7 @@ async function renderPage(params: RenderPortfolioPageParams) {
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(PortfolioPage, { entries, instrumentOptions })
 	return render({
-		title: 'AI Investor',
+		title: 'AI Investor – Portfolio',
 		session,
 		currentPage: 'portfolio',
 		body,

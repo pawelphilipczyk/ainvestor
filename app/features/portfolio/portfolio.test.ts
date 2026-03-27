@@ -73,7 +73,7 @@ describe('Portfolio page', () => {
 			/<body[^>]*\boverflow-x-hidden\b/,
 			'body should clip horizontal overflow so narrow viewports do not scroll sideways',
 		)
-		assert.match(body, /AI Investor/)
+		assert.match(body, /<h1[^>]*>\s*Portfolio\s*<\/h1>/)
 		assert.match(body, /<form[^>]*method="post"[^>]*action="\/etfs"/)
 		assert.match(body, /Import from CSV/)
 		assert.match(body, /action="\/etfs\/import"/)
