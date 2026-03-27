@@ -63,6 +63,13 @@ Base every specific ETF pick on the catalog; do not invent performance, risk, or
 You MUST respond with a single JSON object only (no markdown code fences, no extra text). Shape:
 {
   "blocks": [
+    { "type": "capital_snapshot", "segments": [
+      { "role": "holdings", "label": "Current ETF holdings", "amount": 10000, "currency": "USD" },
+      { "role": "cash", "label": "Deployable cash", "amount": 2000, "currency": "USD" }
+    ], "postTotal": { "label": "Total portfolio (holdings + cash)", "amount": 12000, "currency": "USD" } },
+    { "type": "guideline_bars", "caption": "optional short heading", "rows": [
+      { "label": "Equities (bucket)", "targetPct": 60, "currentPct": 45, "postBuyPct": 58 }
+    ]},
     { "type": "paragraph", "text": "..." },
     { "type": "etf_proposals", "caption": "optional short heading", "rows": [
       { "name": "Fund name", "ticker": "VTI", "amount": 500, "currency": "USD", "note": "optional rationale" }
@@ -70,13 +77,32 @@ You MUST respond with a single JSON object only (no markdown code fences, no ext
   ]
 }
 
+**Block order:** Prefer **capital_snapshot** first, then **guideline_bars** (when guidelines exist), then
+the narrative **paragraph**, then **etf_proposals** when you have concrete purchase rows.
+
+**capital_snapshot (opening summary bar):** Use figures from **"Arithmetic for totals (authoritative"** in
+the user message when present — same currency for **holdings** and **cash** segments; **amount** values
+must match that block. Exactly one segment with **role** "holdings" and one with "cash" when both are
+known. **postTotal** is optional; when set, **amount** should match holdings + deployable cash (pre-buy
+total portfolio value before your buys are applied — i.e. sum of the two segments). **label** strings
+are short human labels (you may adjust wording).
+
+**guideline_bars:** Include when the user has allocation guidelines. **rows** cover each relevant bucket
+(asset class and/or named-fund lines aggregated as in the buy-only rules). **targetPct**, **currentPct**,
+and **postBuyPct** are **whole-portfolio percentages** (0–100), aligned with the same aggregation you use
+in analysis. **postBuyPct** is optional but strongly preferred when you propose buys — it is the estimated
+weight **after** your **etf_proposals** are applied. Omit **guideline_bars** entirely when there are no
+targets.
+
 Cover this substance across your blocks (paragraph text can use headings and bullets inside the string):
 
 ## Current state analysis
-- One paragraph block, bullet lines only ("- ").
-- Mirror the allocation context (by asset type). **If targets exist:** show **before** (current ETF
-  weights) and **after** your proposed buys: approximate **post-purchase whole-portfolio %** vs each
-  target (not just how you split the cash). Quantify remaining gap if targets cannot be fully reached.
+- One paragraph block **after** the visual blocks, bullet lines only ("- ").
+- Do **not** repeat the same numeric snapshot already shown in **capital_snapshot** and **guideline_bars**
+  (no duplicate holdings/cash totals or per-bucket % tables); use bullets for interpretation, remaining
+  gaps, and buy-only caveats.
+- Mirror the allocation context (by asset type). **If targets exist:** reference **before** vs **after**
+  your proposed buys where helpful; quantify remaining gap if targets cannot be fully reached.
 - Roughly 4–12 bullets.
 
 ## Next best picks
@@ -95,7 +121,8 @@ Sum of row amounts ≈ deployable cash unless you explain rounding.
 
 Rules:
 - **Never** recommend or imply selling; violations invalidate the response.
-- Include at least one block. Use "paragraph" for narrative and optional "etf_proposals" for rows.
+- Include at least one block. Use **capital_snapshot** and **guideline_bars** for the visual opening when
+  applicable; use "paragraph" for narrative and optional "etf_proposals" for rows.
 - When targets exist, prefer a non-empty "etf_proposals" that deploys the cash; only omit the table if
   you truly cannot map buys to the catalog.
 - "amount" and "currency" are optional for each row; when you suggest a purchase amount, include both

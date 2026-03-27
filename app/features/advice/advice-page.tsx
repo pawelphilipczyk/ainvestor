@@ -49,15 +49,189 @@ function formatAmountNumber(amount: number): string {
 	}).format(amount)
 }
 
-function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
-	if (block.type === 'paragraph') {
-		return (
-			<div class="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
-				{block.text}
-			</div>
-		)
-	}
+function formatPctOneDecimal(n: number): string {
+	return `${new Intl.NumberFormat('en-US', {
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 1,
+	}).format(n)}%`
+}
 
+function clampPct(n: number): number {
+	if (Number.isNaN(n)) {
+		return 0
+	}
+	return Math.min(100, Math.max(0, n))
+}
+
+function renderCapitalSnapshot(block: {
+	type: 'capital_snapshot'
+	segments: Array<{
+		role: 'holdings' | 'cash'
+		label: string
+		amount: number
+		currency: string
+	}>
+	postTotal?: { label: string; amount: number; currency: string }
+}) {
+	const total = block.segments.reduce((sum, s) => sum + s.amount, 0)
+	const safeTotal = total > 0 ? total : 1
+	const headingId = 'advice-capital-snapshot-heading'
+
+	return (
+		<section class="space-y-3" aria-labelledby={headingId}>
+			<h3
+				id={headingId}
+				class="text-base font-semibold tracking-tight text-card-foreground"
+			>
+				Portfolio mix
+			</h3>
+			<p class="sr-only">
+				Stacked bar: share of current ETF holdings versus deployable cash before
+				new purchases.
+			</p>
+			<div
+				class="flex h-5 w-full overflow-hidden rounded-md border border-border bg-muted/30"
+				role="img"
+				aria-label={`Holdings and cash share of ${formatAmountNumber(total)} combined (same currency).`}
+			>
+				{block.segments.map((seg, i) => (
+					<div
+						key={`${seg.role}-${seg.label}-${i}`}
+						class={
+							seg.role === 'holdings'
+								? 'min-w-0 bg-primary'
+								: 'min-w-0 bg-secondary'
+						}
+						style={{ width: `${(seg.amount / safeTotal) * 100}%` }}
+						title={`${seg.label}: ${formatAmountNumber(seg.amount)} ${seg.currency}`}
+					/>
+				))}
+			</div>
+			<ul class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-card-foreground">
+				{block.segments.map((seg) => (
+					<li key={`${seg.role}-${seg.label}`} class="flex items-center gap-2">
+						<span
+							class={
+								seg.role === 'holdings'
+									? 'inline-block size-2.5 shrink-0 rounded-sm bg-primary'
+									: 'inline-block size-2.5 shrink-0 rounded-sm bg-secondary'
+							}
+							aria-hidden
+						/>
+						<span class="font-medium">{seg.label}</span>
+						<span class="tabular-nums text-muted-foreground">
+							{formatAmountNumber(seg.amount)} {seg.currency}
+						</span>
+					</li>
+				))}
+			</ul>
+			{block.postTotal ? (
+				<p class="text-sm text-muted-foreground">
+					<span class="font-medium text-card-foreground">
+						{block.postTotal.label}:
+					</span>{' '}
+					<span class="tabular-nums">
+						{formatAmountNumber(block.postTotal.amount)}{' '}
+						{block.postTotal.currency}
+					</span>
+				</p>
+			) : null}
+		</section>
+	)
+}
+
+function renderGuidelineBars(block: {
+	type: 'guideline_bars'
+	caption?: string
+	rows: Array<{
+		label: string
+		targetPct: number
+		currentPct: number
+		postBuyPct?: number
+	}>
+}) {
+	const headingId = 'advice-guideline-bars-heading'
+	const titleText = block.caption ?? 'Guideline alignment'
+
+	return (
+		<section class="space-y-4" aria-labelledby={headingId}>
+			<h3
+				id={headingId}
+				class="text-base font-semibold tracking-tight text-card-foreground"
+			>
+				{titleText}
+			</h3>
+			{block.rows.length === 0 ? (
+				<p class="text-sm text-muted-foreground">
+					No guideline comparison rows in this response.
+				</p>
+			) : (
+				<>
+					<ul class="space-y-4">
+						{block.rows.map((row) => {
+							const currentW = clampPct(row.currentPct)
+							const postW =
+								row.postBuyPct !== undefined ? clampPct(row.postBuyPct) : null
+							const targetPos = clampPct(row.targetPct)
+							const summary = `Current ${formatPctOneDecimal(row.currentPct)}, target ${formatPctOneDecimal(row.targetPct)}${row.postBuyPct !== undefined ? `, after proposed buys ${formatPctOneDecimal(row.postBuyPct)}` : ''}.`
+							return (
+								<li key={row.label} class="space-y-1.5">
+									<div class="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-sm">
+										<span class="font-medium text-card-foreground">
+											{row.label}
+										</span>
+										<span class="tabular-nums text-muted-foreground">
+											{formatPctOneDecimal(row.currentPct)} →{' '}
+											{formatPctOneDecimal(row.targetPct)}
+											{row.postBuyPct !== undefined
+												? ` → ${formatPctOneDecimal(row.postBuyPct)}`
+												: null}
+										</span>
+									</div>
+									<div
+										class="relative h-3 w-full overflow-hidden rounded-md bg-muted/80"
+										role="img"
+										aria-label={summary}
+									>
+										{postW !== null ? (
+											<div
+												class="absolute inset-y-0 left-0 bg-accent/40"
+												style={{ width: `${postW}%` }}
+												aria-hidden
+											/>
+										) : null}
+										<div
+											class="absolute inset-y-0 left-0 bg-primary/75"
+											style={{ width: `${currentW}%` }}
+											aria-hidden
+										/>
+										<div
+											class="pointer-events-none absolute inset-y-0 w-px bg-card-foreground/90"
+											style={{
+												left: `${targetPos}%`,
+												transform: 'translateX(-50%)',
+											}}
+											aria-hidden
+										/>
+									</div>
+								</li>
+							)
+						})}
+					</ul>
+					<p class="text-xs text-muted-foreground">
+						Solid bar: current portfolio weight. Lighter bar behind: after
+						proposed buys (when shown). Vertical line: target.
+					</p>
+				</>
+			)}
+		</section>
+	)
+}
+
+function renderEtfProposals(
+	block: Extract<AdviceBlock, { type: 'etf_proposals' }>,
+	defaultCashCurrency: string,
+) {
 	return (
 		<section class="space-y-2">
 			{block.caption ? (
@@ -142,6 +316,23 @@ function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
 			)}
 		</section>
 	)
+}
+
+function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
+	if (block.type === 'paragraph') {
+		return (
+			<div class="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
+				{block.text}
+			</div>
+		)
+	}
+	if (block.type === 'capital_snapshot') {
+		return renderCapitalSnapshot(block)
+	}
+	if (block.type === 'guideline_bars') {
+		return renderGuidelineBars(block)
+	}
+	return renderEtfProposals(block, defaultCashCurrency)
 }
 
 export function AdvicePage(_handle: Handle, _setup?: unknown) {

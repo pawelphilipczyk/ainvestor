@@ -21,10 +21,45 @@ const etfProposalRowSchema = object({
 	note: optional(string()),
 })
 
+const capitalSegmentRoleSchema = enum_(['holdings', 'cash'] as const)
+
+const capitalSnapshotSegmentSchema = object({
+	role: capitalSegmentRoleSchema,
+	label: string().pipe(minLength(1)),
+	amount: number(),
+	currency: enum_(CURRENCIES),
+})
+
+const capitalSnapshotPostTotalSchema = object({
+	label: string().pipe(minLength(1)),
+	amount: number(),
+	currency: enum_(CURRENCIES),
+})
+
+const guidelineBarRowSchema = object({
+	label: string().pipe(minLength(1)),
+	targetPct: number(),
+	currentPct: number(),
+	postBuyPct: optional(number()),
+})
+
 const adviceBlockSchema = variant('type', {
 	paragraph: object({
 		type: literal('paragraph'),
 		text: string().pipe(minLength(1)),
+	}),
+	capital_snapshot: object({
+		type: literal('capital_snapshot'),
+		segments: array(capitalSnapshotSegmentSchema).refine(
+			(s) => s.length > 0,
+			'At least one segment',
+		),
+		postTotal: optional(capitalSnapshotPostTotalSchema),
+	}),
+	guideline_bars: object({
+		type: literal('guideline_bars'),
+		caption: optional(string()),
+		rows: array(guidelineBarRowSchema),
 	}),
 	etf_proposals: object({
 		type: literal('etf_proposals'),
@@ -51,7 +86,25 @@ export type AdviceEtfProposalsBlock = {
 	caption?: string
 	rows: AdviceEtfProposalRow[]
 }
-export type AdviceBlock = AdviceParagraphBlock | AdviceEtfProposalsBlock
+export type AdviceCapitalSnapshotSegment = InferOutput<
+	typeof capitalSnapshotSegmentSchema
+>
+export type AdviceCapitalSnapshotBlock = {
+	type: 'capital_snapshot'
+	segments: AdviceCapitalSnapshotSegment[]
+	postTotal?: InferOutput<typeof capitalSnapshotPostTotalSchema>
+}
+export type AdviceGuidelineBarRow = InferOutput<typeof guidelineBarRowSchema>
+export type AdviceGuidelineBarsBlock = {
+	type: 'guideline_bars'
+	caption?: string
+	rows: AdviceGuidelineBarRow[]
+}
+export type AdviceBlock =
+	| AdviceParagraphBlock
+	| AdviceCapitalSnapshotBlock
+	| AdviceGuidelineBarsBlock
+	| AdviceEtfProposalsBlock
 
 export type AdviceDocument = {
 	blocks: AdviceBlock[]
