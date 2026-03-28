@@ -208,12 +208,12 @@ export function createDefaultClient(): AdviceClient {
 }
 
 import {
-	MONEY_AMOUNT_HTML_PATTERN,
-	parseMoneyAmountString,
-} from './lib/money-input.ts'
+	LOCALE_DECIMAL_HTML_PATTERN,
+	parseLocaleDecimalString,
+} from './lib/locale-decimal-input.ts'
 
-export const ADVICE_CASH_AMOUNT_HTML_PATTERN = MONEY_AMOUNT_HTML_PATTERN
-export const parseAdviceCashAmount = parseMoneyAmountString
+export const ADVICE_CASH_AMOUNT_HTML_PATTERN = LOCALE_DECIMAL_HTML_PATTERN
+export const parseAdviceCashAmount = parseLocaleDecimalString
 
 function sumHoldingsValues(holdings: EtfEntry[]): {
 	total: number

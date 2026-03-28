@@ -1,16 +1,17 @@
 /**
- * Shared money-style amount entry: HTML constraint validation and parsing
- * (locale-friendly separators, non-negative).
+ * Locale-friendly decimal entry for HTML forms: constraint validation and parsing
+ * (spaces, thousand/decimal separators). Used for money amounts, percentages, and
+ * other numeric fields that share `inputmode="decimal"` + the same `pattern`.
  */
 
-/** HTML `pattern` (full value matched; implicit anchors). Same rules as {@link parseMoneyAmountString}. */
-export const MONEY_AMOUNT_HTML_PATTERN = String.raw`(?=.*\d)[\d\s.,]+`
+/** HTML `pattern` (full value matched; implicit anchors). Same rules as {@link parseLocaleDecimalString}. */
+export const LOCALE_DECIMAL_HTML_PATTERN = String.raw`(?=.*\d)[\d\s.,]+`
 
 /**
- * Parse a user-entered money-like amount: spaces, thousand/decimal separators.
- * Returns null for empty or invalid or negative values.
+ * Parse a user-entered locale-style decimal: spaces, thousand/decimal separators.
+ * Returns null for empty, invalid, or negative values.
  */
-export function parseMoneyAmountString(raw: string): number | null {
+export function parseLocaleDecimalString(raw: string): number | null {
 	const trimmed = raw.trim()
 	if (!trimmed) return null
 	const compact = trimmed.replace(/\s+/g, '')

@@ -6,6 +6,7 @@ import * as coerce from 'remix/data-schema/coerce'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
+import { objectFromFormData } from '../../../lib/form-data-payload.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
 import {
 	fetchEtfs,
@@ -18,7 +19,7 @@ import {
 	setGuestEtfs,
 } from '../../../lib/guest-session-state.ts'
 import { t } from '../../../lib/i18n.ts'
-import { parseMoneyAmountString } from '../../../lib/money-input.ts'
+import { parseLocaleDecimalString } from '../../../lib/locale-decimal-input.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
 import {
@@ -38,7 +39,7 @@ export const CreateEtfSchema = object({
 /** Treats empty strings as absent for optional fields (HTML forms submit "" when blank). */
 export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
 	if (typeof raw.value === 'string') {
-		const parsed = parseMoneyAmountString(raw.value)
+		const parsed = parseLocaleDecimalString(raw.value)
 		raw.value = parsed === null ? raw.value : String(parsed)
 	}
 	if (typeof raw.quantity === 'string') {
@@ -58,12 +59,10 @@ export const addEtfFormHandlers = {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.portfolio.index.href())
 
-		const raw = Object.fromEntries(
-			form as unknown as Iterable<[string, FormDataEntryValue]>,
-		)
-		normalizeAddEtfInput(raw)
+		const formPayload = objectFromFormData(form)
+		normalizeAddEtfInput(formPayload)
 
-		const result = parseSafe(CreateEtfSchema, raw)
+		const result = parseSafe(CreateEtfSchema, formPayload)
 		if (!result.success) {
 			const message = t('errors.portfolio.addInvalid')
 			const prefersJson = context.request.headers
