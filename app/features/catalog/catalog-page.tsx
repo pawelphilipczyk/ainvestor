@@ -34,23 +34,23 @@ const catalogTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 	return () => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-			<th class="pb-2 pl-4 pr-4">Ticker</th>
-			<th class={`pb-2 pr-4 align-bottom ${catalogTextColMax}`}>Name</th>
-			<th class="pb-2 pr-4">Type</th>
-			<th class={`pb-2 pr-4 align-bottom ${catalogTextColMax}`}>Description</th>
-			<th class="pb-2">ISIN</th>
-			<th class="pb-2 pl-4 pr-4">Value</th>
+			<th class="pb-2 pl-4 pr-4 align-top">Ticker</th>
+			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>Name</th>
+			<th class="pb-2 pr-4 align-top">Type</th>
+			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>Description</th>
+			<th class="pb-2 align-top">ISIN</th>
+			<th class="pb-2 pl-4 pr-4 align-top">Value</th>
 		</tr>
 	)
 }
 
 function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 	const valueCell = holding ? (
-		<td class="py-2 pl-4 pr-4 text-sm font-medium text-foreground">
+		<td class="py-2 pl-4 pr-4 align-top text-sm font-medium text-foreground">
 			{formatValue(holding.value, holding.currency)}
 		</td>
 	) : (
-		<td class="py-2 pl-4 pr-4 text-sm text-muted-foreground">—</td>
+		<td class="py-2 pl-4 pr-4 align-top text-sm text-muted-foreground">—</td>
 	)
 
 	return (
@@ -58,7 +58,7 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			key={entry.id}
 			class="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
 		>
-			<td class="py-2 pl-4 pr-4 font-mono text-sm font-semibold">
+			<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold">
 				{entry.ticker}
 			</td>
 			<td
@@ -76,7 +76,7 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			>
 				{entry.description || '—'}
 			</td>
-			<td class="py-2 font-mono text-xs text-muted-foreground">
+			<td class="py-2 align-top font-mono text-xs text-muted-foreground">
 				{entry.isin ?? '—'}
 			</td>
 			{valueCell}
