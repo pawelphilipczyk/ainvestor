@@ -28,13 +28,16 @@ type CatalogPageProps = {
 	query: string
 }
 
+/** Keeps long fund names and descriptions readable (wrap) without forcing huge table width. */
+const catalogTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
+
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 	return () => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
 			<th class="pb-2 pl-4 pr-4">Ticker</th>
-			<th class="pb-2 pr-4">Name</th>
+			<th class={`pb-2 pr-4 align-bottom ${catalogTextColMax}`}>Name</th>
 			<th class="pb-2 pr-4">Type</th>
-			<th class="pb-2 pr-4">Description</th>
+			<th class={`pb-2 pr-4 align-bottom ${catalogTextColMax}`}>Description</th>
 			<th class="pb-2">ISIN</th>
 			<th class="pb-2 pl-4 pr-4">Value</th>
 		</tr>
@@ -58,13 +61,19 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			<td class="py-2 pl-4 pr-4 font-mono text-sm font-semibold">
 				{entry.ticker}
 			</td>
-			<td class="py-2 pr-4 text-sm">{entry.name}</td>
-			<td class="py-2 pr-4">
+			<td
+				class={`py-2 pr-4 align-top text-sm break-words ${catalogTextColMax}`}
+			>
+				{entry.name}
+			</td>
+			<td class="py-2 pr-4 align-top">
 				<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
 					{entry.type.replace('_', ' ')}
 				</span>
 			</td>
-			<td class="max-w-xs truncate py-2 pr-4 text-sm text-muted-foreground">
+			<td
+				class={`py-2 pr-4 align-top text-sm break-words text-muted-foreground ${catalogTextColMax}`}
+			>
 				{entry.description || '—'}
 			</td>
 			<td class="py-2 font-mono text-xs text-muted-foreground">

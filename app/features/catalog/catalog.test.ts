@@ -145,13 +145,13 @@ describe('ETF Catalog page', () => {
 
 		assert.match(
 			body,
-			/<main class="[^"]*\bmin-w-0\b/,
+			/<main\b[^>]*\bclass="[^"]*\bmin-w-0\b[^"]*"/,
 			'main needs min-w-0 so the page column can shrink below table intrinsic width',
 		)
 		assert.match(
 			body,
-			/data-scrollable-table-frame/,
-			'catalog tables use ScrollableTableFrame for horizontal scroll on narrow viewports',
+			/<div\b(?=[^>]*\bdata-scrollable-table-frame\b)(?=[^>]*\bclass="(?=[^"]*\bmin-w-0\b)(?=[^"]*\boverflow-x-auto\b)[^"]*")[^>]*>/,
+			'scrollable table frame needs min-w-0 and overflow-x-auto on class (any order)',
 		)
 		assert.match(
 			body,
