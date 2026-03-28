@@ -1,10 +1,5 @@
 import type { Handle } from 'remix/component'
-import {
-	Card,
-	FieldLabel,
-	NumberInput,
-	SubmitButton,
-} from '../../components/index.ts'
+import { Card, FieldLabel, NumberInput } from '../../components/index.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import {
 	formatEtfTypeLabel,
@@ -50,64 +45,61 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 							const targetFieldId = `guideline-target-${g.id}`
 							const targetErrorId = `guidelines-target-${g.id}-error`
 							const targetPctDisplay = String(g.targetPct)
+							const ghostActionClass =
+								'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
 							return (
-								<Card
-									as="li"
-									key={g.id}
-									class="flex flex-col gap-3 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-								>
-									<div class="flex min-w-0 items-center gap-3">
-										<span class="font-medium">{rowLabel}</span>
-										<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-											{g.kind === 'asset_class'
-												? t('guidelines.list.kind.assetClass')
-												: formatEtfTypeLabel(g.etfType)}
-										</span>
-									</div>
-									<div class="flex min-w-0 flex-1 flex-col gap-2 sm:max-w-md sm:items-end">
-										<div
-											id={targetErrorId}
-											role="alert"
-											class="hidden w-full rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-										/>
-										<div class="flex flex-wrap items-end gap-2 sm:justify-end">
+								<Card as="li" key={g.id} class="flex flex-col gap-2 px-4 py-3">
+									<div
+										id={targetErrorId}
+										role="alert"
+										class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
+									/>
+									<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
+										<div class="flex min-w-0 flex-1 items-center gap-3">
+											<span class="font-medium">{rowLabel}</span>
+											<span class="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+												{g.kind === 'asset_class'
+													? t('guidelines.list.kind.assetClass')
+													: formatEtfTypeLabel(g.etfType)}
+											</span>
+										</div>
+										<div class="flex shrink-0 items-center gap-3">
 											<form
 												method="post"
 												action={routes.guidelines.updateTarget.href({
 													id: g.id,
 												})}
-												class="flex flex-wrap items-end gap-2"
+												class="flex items-center gap-2"
 												data-fetch-submit
 												data-fragment-id="guidelines-list"
 												data-fragment-url="/fragments/guidelines-list"
 												data-error-id={targetErrorId}
 											>
-												<div class="grid gap-1">
-													<FieldLabel
-														fieldId={targetFieldId}
-														variant="screenReader"
-													>
-														{format(t('guidelines.list.targetPctLabel'), {
-															label: rowLabel,
-														})}
-													</FieldLabel>
-													<NumberInput
-														id={targetFieldId}
-														name="targetPct"
-														class="w-[5.5rem]"
-														defaultValue={targetPctDisplay}
-														required={true}
-														inputMode="decimal"
-														pattern={LOCALE_DECIMAL_HTML_PATTERN}
-													/>
-												</div>
-												<SubmitButton class="!w-auto px-3 py-1.5 text-xs">
+												<FieldLabel
+													fieldId={targetFieldId}
+													variant="screenReader"
+												>
+													{format(t('guidelines.list.targetPctLabel'), {
+														label: rowLabel,
+													})}
+												</FieldLabel>
+												<NumberInput
+													id={targetFieldId}
+													name="targetPct"
+													class="w-[5.5rem]"
+													defaultValue={targetPctDisplay}
+													required={true}
+													inputMode="decimal"
+													pattern={LOCALE_DECIMAL_HTML_PATTERN}
+												/>
+												<button type="submit" class={ghostActionClass}>
 													{t('guidelines.list.saveTarget')}
-												</SubmitButton>
+												</button>
 											</form>
 											<form
 												method="post"
 												action={routes.guidelines.delete.href({ id: g.id })}
+												class="flex items-center"
 												data-fetch-submit
 												data-fragment-id="guidelines-list"
 												data-fragment-url="/fragments/guidelines-list"
@@ -115,7 +107,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 												<input type="hidden" name="_method" value="DELETE" />
 												<button
 													type="submit"
-													class="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+													class={ghostActionClass}
 													aria-label={
 														g.kind === 'asset_class'
 															? format(t('guidelines.list.deleteAria.bucket'), {
