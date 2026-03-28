@@ -76,5 +76,29 @@ export const baseCss = `@layer base {
     min-width: 0;
     max-width: 100%;
   }
+
+  /* Fetch-submit and other enhancements set aria-busy on submit controls while in flight. */
+  html:not(.dark) button[type='submit'][aria-busy='true'],
+  html:not(.dark) input[type='submit'][aria-busy='true'] {
+    background-color: hsl(var(--foreground));
+    color: hsl(var(--muted-foreground));
+    border-color: hsl(var(--border));
+    border-width: 1px;
+    border-style: solid;
+  }
+
+  html.dark button[type='submit'][aria-busy='true'],
+  html.dark input[type='submit'][aria-busy='true'] {
+    background-color: hsl(var(--card));
+    color: hsl(var(--muted-foreground));
+    border-color: hsl(var(--border));
+    border-width: 1px;
+    border-style: solid;
+  }
+
+  button[type='submit'][aria-busy='true'] .submit-button-busy-label,
+  input[type='submit'][aria-busy='true'] .submit-button-busy-label {
+    color: hsl(var(--muted-foreground));
+  }
 }
 `

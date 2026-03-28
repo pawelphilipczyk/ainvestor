@@ -1,7 +1,7 @@
 import { clientEntry, createElement } from 'remix/component'
 import { on } from 'remix/interaction'
 
-const SPINNER_ID = 'form-spinner'
+const SPINNER_ICON_ID = 'form-spinner-icon'
 const CLIENT_MESSAGES_ID = 'ui-client-messages'
 
 function readClientMessages() {
@@ -17,12 +17,21 @@ function readClientMessages() {
 
 function setSubmitButtonLoading(button, loading) {
 	if (!(button instanceof HTMLElement)) return
-	const spinnerTemplate = document.getElementById(SPINNER_ID)
-	if (!spinnerTemplate) return
+	const spinnerHost = document.getElementById(SPINNER_ICON_ID)
+	if (!spinnerHost) return
 	if (loading) {
 		button.dataset.originalContent = button.innerHTML
+		const row = button.ownerDocument.createElement('span')
+		row.className =
+			'inline-flex w-full max-w-full items-center justify-center gap-2'
+		const spinner = spinnerHost.firstElementChild?.cloneNode(true)
+		const label = button.ownerDocument.createElement('span')
+		label.className = 'submit-button-busy-label min-w-0 flex-1 text-center'
+		label.innerHTML = button.innerHTML
 		button.innerHTML = ''
-		button.append(...spinnerTemplate.cloneNode(true).childNodes)
+		if (spinner) row.append(spinner)
+		row.append(label)
+		button.append(row)
 		button.setAttribute('disabled', '')
 		button.setAttribute('aria-busy', 'true')
 	} else {
