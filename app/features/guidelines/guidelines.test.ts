@@ -258,7 +258,7 @@ describe('Guidelines page', () => {
 		assert.match(body, /bond/)
 	})
 
-	it('guidelines list fragment shows target as a compact percent field', async () => {
+	it('guidelines list fragment shows compact target field and delete dialog', async () => {
 		await seedGuestCatalog()
 		const add = new FormData()
 		add.set('instrumentTicker', 'VTI')
@@ -278,6 +278,12 @@ describe('Guidelines page', () => {
 		assert.match(html, /value="25"/)
 		assert.match(html, /!w-16/)
 		assert.match(html, /<span[^>]*aria-hidden="true"[^>]*>\s*%\s*<\/span>/)
+		assert.match(html, /<dialog\b[^>]*id="guideline-delete-dialog-/)
+		assert.match(html, /class="[^"]*guideline-delete-trigger/)
+		assert.match(
+			html,
+			/Remove the[\s\S]*?guideline\?[\s\S]*?name="_method"[\s\S]*?value="DELETE"/,
+		)
 	})
 
 	it('POST /guidelines/:id/target updates target % and keeps total within 100', async () => {
