@@ -275,6 +275,60 @@ describe('Advice', () => {
 		assert.match(body, /Narrative only/)
 	})
 
+	it('renders guideline_bars with default heading when caption is omitted', async () => {
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'capital_snapshot',
+							segments: [
+								{
+									role: 'holdings',
+									label: 'Current ETF holdings',
+									amount: 1000,
+									currency: 'USD',
+								},
+								{
+									role: 'cash',
+									label: 'Deployable cash',
+									amount: 500,
+									currency: 'USD',
+								},
+							],
+						},
+						{
+							type: 'guideline_bars',
+							rows: [
+								{
+									label: 'Bonds',
+									targetPct: 40,
+									currentPct: 30,
+									postBuyPct: 35,
+								},
+							],
+						},
+						{ type: 'paragraph', text: '- Note.\n\n1. BND — pick.' },
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '500')
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Portfolio mix/)
+		assert.match(body, /Guideline alignment/)
+		assert.match(body, /Bonds/)
+		assert.match(body, /Note/)
+	})
+
 	it('renders an ETF proposals table when the model returns etf_proposals blocks', async () => {
 		setAdviceClient(
 			makeMockClient(

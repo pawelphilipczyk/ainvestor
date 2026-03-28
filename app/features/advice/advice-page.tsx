@@ -63,16 +63,9 @@ function clampPct(n: number): number {
 	return Math.min(100, Math.max(0, n))
 }
 
-function renderCapitalSnapshot(block: {
-	type: 'capital_snapshot'
-	segments: Array<{
-		role: 'holdings' | 'cash'
-		label: string
-		amount: number
-		currency: string
-	}>
-	postTotal?: { label: string; amount: number; currency: string }
-}) {
+function renderCapitalSnapshot(
+	block: Extract<AdviceBlock, { type: 'capital_snapshot' }>,
+) {
 	const total = block.segments.reduce((sum, s) => sum + s.amount, 0)
 	const safeTotal = total > 0 ? total : 1
 	const headingId = 'advice-capital-snapshot-heading'
@@ -140,16 +133,9 @@ function renderCapitalSnapshot(block: {
 	)
 }
 
-function renderGuidelineBars(block: {
-	type: 'guideline_bars'
-	caption?: string
-	rows: Array<{
-		label: string
-		targetPct: number
-		currentPct: number
-		postBuyPct?: number
-	}>
-}) {
+function renderGuidelineBars(
+	block: Extract<AdviceBlock, { type: 'guideline_bars' }>,
+) {
 	const headingId = 'advice-guideline-bars-heading'
 	const titleText = block.caption ?? 'Guideline alignment'
 
