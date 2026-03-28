@@ -278,6 +278,8 @@ describe('Guidelines page', () => {
 		assert.match(html, /value="25"/)
 		assert.match(html, /!w-16/)
 		assert.match(html, /<span[^>]*aria-hidden="true"[^>]*>\s*%\s*<\/span>/)
+		assert.match(html, /bg-primary\/75/)
+		assert.match(html, /role="img"/)
 		assert.match(html, /<dialog\b[^>]*id="guideline-delete-dialog-/)
 		assert.match(html, /class="[^"]*guideline-delete-trigger/)
 		assert.match(
