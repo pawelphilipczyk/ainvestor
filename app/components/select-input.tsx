@@ -3,8 +3,7 @@ import type { Handle } from 'remix/component'
 const controlClasses =
 	'w-full rounded-md border border-input bg-background px-3 py-2 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm'
 
-const selectDecorationClasses =
-	"cursor-pointer appearance-none bg-no-repeat pr-8 [background-image:url('data:image/svg+xml;charset=utf-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%2224%22%20height%3D%2224%22%20viewBox%3D%220%200%2024%2024%22%20fill%3D%22none%22%20stroke%3D%226b7280%22%20stroke-width%3D%222%22%3E%3Cpath%20d%3D%22M6%209l6%206%206-6%22%2F%3E%3C%2Fsvg%3E')] [background-position:right_0.5rem_center] [background-size:1.25rem]"
+const selectWithChevronClasses = 'cursor-pointer appearance-none pr-10'
 
 /** Mirrors `<select>` attributes; `options` replaces `<option>` children. */
 type SelectInputProps = {
@@ -38,25 +37,40 @@ export function SelectInput(_handle: Handle, _setup?: unknown) {
 			size,
 		} = props
 		const selectClasses =
-			`${controlClasses} ${selectDecorationClasses} ${classProp ?? ''}`.trim()
+			`${controlClasses} ${selectWithChevronClasses} ${classProp ?? ''}`.trim()
 		return (
-			<select
-				id={id}
-				name={name}
-				disabled={disabled}
-				form={form}
-				value={value}
-				multiple={multiple}
-				required={required}
-				size={size}
-				class={selectClasses}
-			>
-				{options.map((opt) => (
-					<option value={opt.value} selected={opt.selected}>
-						{opt.label}
-					</option>
-				))}
-			</select>
+			<div class="relative w-full">
+				<select
+					id={id}
+					name={name}
+					disabled={disabled}
+					form={form}
+					value={value}
+					multiple={multiple}
+					required={required}
+					size={size}
+					class={`peer ${selectClasses}`.trim()}
+				>
+					{options.map((opt) => (
+						<option value={opt.value} selected={opt.selected}>
+							{opt.label}
+						</option>
+					))}
+				</select>
+				<svg
+					class="pointer-events-none absolute right-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground peer-disabled:opacity-50"
+					xmlns="http://www.w3.org/2000/svg"
+					viewBox="0 0 24 24"
+					fill="none"
+					stroke="currentColor"
+					stroke-width="2"
+					stroke-linecap="round"
+					stroke-linejoin="round"
+					aria-hidden="true"
+				>
+					<path d="M6 9l6 6 6-6" />
+				</svg>
+			</div>
 		)
 	}
 }
