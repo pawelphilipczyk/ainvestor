@@ -12,6 +12,8 @@ describe('parseLocaleDecimalString', () => {
 		assert.equal(parseLocaleDecimalString('2,000'), 2000)
 		assert.equal(parseLocaleDecimalString('2000.50'), 2000.5)
 		assert.equal(parseLocaleDecimalString('2.000,50'), 2000.5)
+		assert.equal(parseLocaleDecimalString('12,5'), 12.5)
+		assert.equal(parseLocaleDecimalString(' 12,5 '), 12.5)
 	})
 
 	it('returns null for empty or invalid', () => {
