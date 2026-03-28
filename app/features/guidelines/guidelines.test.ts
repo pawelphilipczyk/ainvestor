@@ -276,10 +276,7 @@ describe('Guidelines page', () => {
 		assert.equal(frag.status, 200)
 		assert.match(html, /value="25"/)
 		assert.match(html, /!w-16/)
-		assert.match(
-			html,
-			/<span[^>]*aria-hidden="true"[^>]*>\s*%\s*<\/span>/,
-		)
+		assert.match(html, /<span[^>]*aria-hidden="true"[^>]*>\s*%\s*<\/span>/)
 	})
 
 	it('POST /guidelines/:id/target updates target % and keeps total within 100', async () => {
