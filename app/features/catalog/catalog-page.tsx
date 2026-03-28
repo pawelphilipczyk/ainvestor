@@ -105,7 +105,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 
 		return (
 			<>
-				<main class="mx-auto grid max-w-5xl gap-6">
+				<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
 					<SectionIntroCard
 						page="catalog"
 						variant="page"
@@ -237,7 +237,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								<p class="mt-0.5 text-xs text-muted-foreground">
 									ETFs in this catalog that you already own.
 								</p>
-								<div class="mt-3 overflow-x-auto rounded-lg border border-border">
+								<div class="mt-3 min-w-0 overflow-x-auto rounded-lg border border-border">
 									<table class="w-full table-auto border-collapse">
 										<thead class="bg-muted/40 px-4">
 											<tr>
@@ -273,7 +273,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 										? 'Other Available ETFs'
 										: 'Available ETFs'}
 								</h2>
-								<div class="mt-3 overflow-x-auto rounded-lg border border-border">
+								<div class="mt-3 min-w-0 overflow-x-auto rounded-lg border border-border">
 									<table class="w-full table-auto border-collapse">
 										<thead class="bg-muted/40">
 											<tr>

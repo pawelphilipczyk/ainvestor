@@ -120,6 +120,41 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /5[,.]?000/)
 	})
 
+	it('catalog constrains table width so wide rows scroll inside the card', async () => {
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					fund_name: 'Vanguard Total',
+					ticker: 'VTI',
+					assets: 'akcje',
+				},
+			],
+			count: 1,
+			total_count: 1,
+		})
+		await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: bankJson,
+				headers: { 'Content-Type': 'application/json' },
+			}),
+		)
+
+		const response = await testSessionFetch('http://localhost/catalog')
+		const body = await response.text()
+
+		assert.match(
+			body,
+			/<main class="[^"]*\bmin-w-0\b/,
+			'main needs min-w-0 so the page column can shrink below table intrinsic width',
+		)
+		assert.match(
+			body,
+			/min-w-0 overflow-x-auto/,
+			'table wrapper needs min-w-0 so overflow-x-scroll applies inside the viewport',
+		)
+	})
+
 	it('catalog page shows type filter and search form after import', async () => {
 		const bankJson = JSON.stringify({
 			data: [
