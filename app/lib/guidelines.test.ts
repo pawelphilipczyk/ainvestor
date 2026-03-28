@@ -7,6 +7,8 @@ import {
 	GUIDELINES_FILENAME,
 	normalizeGuideline,
 	parseGuidelinesFromGist,
+	sumGuidelineTargetPct,
+	wouldGuidelineTotalExceedCap,
 } from './guidelines.ts'
 
 describe('guidelines', () => {
@@ -95,6 +97,46 @@ describe('guidelines', () => {
 			files: { [GUIDELINES_FILENAME]: { content: 'not-json!!!' } },
 		})
 		assert.deepEqual(result, [])
+	})
+
+	it('sumGuidelineTargetPct sums all rows', () => {
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 60,
+				etfType: 'equity',
+			},
+			{
+				id: 'g2',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 40.5,
+				etfType: 'bond',
+			},
+		]
+		assert.equal(sumGuidelineTargetPct(guidelines), 100.5)
+	})
+
+	it('wouldGuidelineTotalExceedCap is false when new total is at most 100', () => {
+		const existing: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 60,
+				etfType: 'equity',
+			},
+		]
+		assert.equal(
+			wouldGuidelineTotalExceedCap({ existing, additionalPct: 40 }),
+			false,
+		)
+		assert.equal(
+			wouldGuidelineTotalExceedCap({ existing, additionalPct: 40.01 }),
+			true,
+		)
 	})
 
 	it('buildGuidelinesGistPatch produces a PATCH-ready body', () => {

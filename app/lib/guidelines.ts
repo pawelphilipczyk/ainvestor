@@ -45,6 +45,24 @@ export type EtfGuideline = {
 	etfType: EtfType
 }
 
+const GUIDELINE_TOTAL_EPS = 1e-9
+
+/** Sum of all guideline `targetPct` values (instrument + bucket rows). */
+export function sumGuidelineTargetPct(guidelines: EtfGuideline[]): number {
+	return guidelines.reduce((sum, g) => sum + g.targetPct, 0)
+}
+
+/** True if adding `additionalPct` to `existing` would push the total above 100%. */
+export function wouldGuidelineTotalExceedCap(params: {
+	existing: EtfGuideline[]
+	additionalPct: number
+}): boolean {
+	return (
+		sumGuidelineTargetPct(params.existing) + params.additionalPct >
+		100 + GUIDELINE_TOTAL_EPS
+	)
+}
+
 export function isEtfType(value: unknown): value is EtfType {
 	return (
 		typeof value === 'string' &&
