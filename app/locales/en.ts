@@ -164,6 +164,7 @@ export const en = {
 	'guidelines.list.bucketSuffix': '(bucket)',
 	'guidelines.list.remove': 'Remove',
 	'guidelines.list.saveTarget': 'Save',
+	'guidelines.list.targetPctSuffix': '%',
 	'guidelines.list.targetPctLabel': 'Target percent for {label}',
 	'guidelines.list.deleteAria.instrument': 'Delete {name} guideline',
 	'guidelines.list.deleteAria.bucket': 'Delete {label} bucket guideline',

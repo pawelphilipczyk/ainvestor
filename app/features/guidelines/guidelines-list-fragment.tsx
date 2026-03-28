@@ -3,6 +3,7 @@ import { Card, FieldLabel, NumberInput } from '../../components/index.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import {
 	formatEtfTypeLabel,
+	formatGuidelineTargetPctForInput,
 	sumGuidelineTargetPct,
 } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
@@ -44,7 +45,9 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 									: g.etfName
 							const targetFieldId = `guideline-target-${g.id}`
 							const targetErrorId = `guidelines-target-${g.id}-error`
-							const targetPctDisplay = String(g.targetPct)
+							const targetPctDisplay = formatGuidelineTargetPctForInput(
+								g.targetPct,
+							)
 							const ghostActionClass =
 								'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
 							return (
@@ -55,7 +58,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 										class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 									/>
 									<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-										<div class="flex min-w-0 flex-1 items-center gap-3">
+										<div class="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
 											<span class="font-medium">{rowLabel}</span>
 											<span class="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
 												{g.kind === 'asset_class'
@@ -63,13 +66,13 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 													: formatEtfTypeLabel(g.etfType)}
 											</span>
 										</div>
-										<div class="flex shrink-0 items-center gap-3">
+										<div class="flex w-full min-w-0 shrink-0 items-center justify-end gap-3 sm:w-auto sm:justify-start">
 											<form
 												method="post"
 												action={routes.guidelines.updateTarget.href({
 													id: g.id,
 												})}
-												class="flex items-center gap-2"
+												class="inline-flex max-w-full items-center gap-2"
 												data-fetch-submit
 												data-fragment-id="guidelines-list"
 												data-fragment-url={routes.guidelines.fragmentList.href()}
@@ -83,15 +86,23 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 														label: rowLabel,
 													})}
 												</FieldLabel>
-												<NumberInput
-													id={targetFieldId}
-													name="targetPct"
-													class="w-[5.5rem]"
-													defaultValue={targetPctDisplay}
-													required={true}
-													inputMode="decimal"
-													pattern={LOCALE_DECIMAL_HTML_PATTERN}
-												/>
+												<span class="inline-flex max-w-full items-center gap-1">
+													<NumberInput
+														id={targetFieldId}
+														name="targetPct"
+														class="!w-16 shrink-0"
+														value={targetPctDisplay}
+														required={true}
+														inputMode="decimal"
+														pattern={LOCALE_DECIMAL_HTML_PATTERN}
+													/>
+													<span
+														class="shrink-0 text-sm tabular-nums text-muted-foreground"
+														aria-hidden="true"
+													>
+														{t('guidelines.list.targetPctSuffix')}
+													</span>
+												</span>
 												<button type="submit" class={ghostActionClass}>
 													{t('guidelines.list.saveTarget')}
 												</button>
