@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
+import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
 	resetTestSessionCookieJar,
@@ -55,7 +56,18 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Get Advice/)
-		assert.match(body, /name="cashAmount"/)
+		const cashInput = body.match(
+			/<input\b[^>]*\bid="cashAmount-buy-next"[^>]*>/,
+		)
+		assert.ok(cashInput, 'expected #cashAmount-buy-next input')
+		assert.match(cashInput[0], /type="text"/)
+		assert.match(cashInput[0], /name="cashAmount"/)
+		assert.match(cashInput[0], /inputmode="decimal"/)
+		assert.match(cashInput[0], /\brequired\b/)
+		assert.ok(
+			cashInput[0].includes(`pattern="${LOCALE_DECIMAL_HTML_PATTERN}"`),
+			'expected pattern to match deployable cash HTML constraint',
+		)
 		assert.match(body, /name="cashCurrency"/)
 		assert.match(body, /name="adviceModel"/)
 		assert.match(body, /name="analysisMode"/)
