@@ -2,6 +2,8 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
+	getScrollableTableClassNames,
+	ScrollableTableFrame,
 	SelectInput,
 	SubmitButton,
 	TextareaInput,
@@ -229,7 +231,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					) : null}
 
 					{ownedInCatalog.length > 0 ? (
-						<Card class="p-4">
+						<Card class="min-w-0 p-4">
 							<section>
 								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 									Your Holdings
@@ -237,8 +239,8 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								<p class="mt-0.5 text-xs text-muted-foreground">
 									ETFs in this catalog that you already own.
 								</p>
-								<div class="mt-3 min-w-0 overflow-x-auto rounded-lg border border-border">
-									<table class="w-full table-auto border-collapse">
+								<ScrollableTableFrame class="mt-3">
+									<table class={getScrollableTableClassNames()}>
 										<thead class="bg-muted/40 px-4">
 											<tr>
 												<td colspan={6} class="h-1" />
@@ -254,7 +256,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 											)}
 										</tbody>
 									</table>
-								</div>
+								</ScrollableTableFrame>
 							</section>
 						</Card>
 					) : null}
@@ -266,15 +268,15 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							</p>
 						</Card>
 					) : restOfCatalog.length > 0 ? (
-						<Card class="p-4">
+						<Card class="min-w-0 p-4">
 							<section>
 								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 									{ownedInCatalog.length > 0
 										? 'Other Available ETFs'
 										: 'Available ETFs'}
 								</h2>
-								<div class="mt-3 min-w-0 overflow-x-auto rounded-lg border border-border">
-									<table class="w-full table-auto border-collapse">
+								<ScrollableTableFrame class="mt-3">
+									<table class={getScrollableTableClassNames()}>
 										<thead class="bg-muted/40">
 											<tr>
 												<td colspan={6} class="h-1" />
@@ -285,7 +287,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 											{restOfCatalog.map((e) => renderCatalogRow(e))}
 										</tbody>
 									</table>
-								</div>
+								</ScrollableTableFrame>
 							</section>
 						</Card>
 					) : null}

@@ -120,7 +120,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /5[,.]?000/)
 	})
 
-	it('catalog constrains table width so wide rows scroll inside the card', async () => {
+	it('catalog uses scrollable table frame (min-w-full w-max) for horizontal scroll', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -150,8 +150,13 @@ describe('ETF Catalog page', () => {
 		)
 		assert.match(
 			body,
-			/min-w-0 overflow-x-auto/,
-			'table wrapper needs min-w-0 so overflow-x-scroll applies inside the viewport',
+			/data-scrollable-table-frame/,
+			'catalog tables use ScrollableTableFrame for horizontal scroll on narrow viewports',
+		)
+		assert.match(
+			body,
+			/\bmin-w-full w-max table-auto\b/,
+			'table needs intrinsic min width so the frame can scroll horizontally',
 		)
 	})
 

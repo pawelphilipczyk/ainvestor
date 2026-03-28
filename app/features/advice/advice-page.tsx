@@ -2,7 +2,9 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
+	getScrollableTableClassNames,
 	NumberInput,
+	ScrollableTableFrame,
 	SelectInput,
 	SubmitButton,
 } from '../../components/index.ts'
@@ -293,8 +295,8 @@ function renderEtfProposals(
 					No specific ETF proposals in this response.
 				</p>
 			) : (
-				<div class="max-w-full overflow-x-auto rounded-lg border border-border">
-					<table class="w-full table-auto border-collapse text-sm">
+				<ScrollableTableFrame>
+					<table class={getScrollableTableClassNames('text-sm')}>
 						<caption class="sr-only">Proposed ETF investments</caption>
 						<thead class="bg-muted/40">
 							<tr>
@@ -361,7 +363,7 @@ function renderEtfProposals(
 							})}
 						</tbody>
 					</table>
-				</div>
+				</ScrollableTableFrame>
 			)}
 		</section>
 	)
