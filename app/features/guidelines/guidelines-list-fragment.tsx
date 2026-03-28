@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import { Card, FieldLabel, NumberInput } from '../../components/index.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import {
+	clampGuidelineBarPct,
 	formatEtfTypeLabel,
 	formatGuidelineTargetPctForInput,
 	sumGuidelineTargetPct,
@@ -9,6 +10,11 @@ import {
 import { format, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { routes } from '../../routes.ts'
+
+const guidelineSaveGhostClass =
+	'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground'
+const guidelineRemoveGhostClass =
+	'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
 
 /**
  * Renders the guidelines list and summary as HTML fragment for fetch-based form updates.
@@ -48,8 +54,11 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 							const targetPctDisplay = formatGuidelineTargetPctForInput(
 								g.targetPct,
 							)
-							const ghostActionClass =
-								'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
+							const barW = clampGuidelineBarPct(g.targetPct)
+							const shareBarLabel = format(t('guidelines.list.shareBarAria'), {
+								pct: targetPctDisplay,
+								label: rowLabel,
+							})
 							return (
 								<Card as="li" key={g.id} class="flex flex-col gap-2 px-4 py-3">
 									<div
@@ -57,116 +66,122 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 										role="alert"
 										class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 									/>
-									<div class="flex flex-wrap items-center gap-x-4 gap-y-2">
-										<div class="flex min-w-0 flex-1 basis-full items-center gap-3 sm:basis-auto">
-											<span class="font-medium">{rowLabel}</span>
-											<span class="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-												{g.kind === 'asset_class'
-													? t('guidelines.list.kind.assetClass')
-													: formatEtfTypeLabel(g.etfType)}
+									<div
+										class="relative h-3 w-full min-w-0 max-w-full overflow-hidden rounded-md bg-muted/80"
+										role="img"
+										aria-label={shareBarLabel}
+									>
+										<div
+											class="absolute inset-y-0 left-0 bg-primary/75"
+											style={{ width: `${barW}%` }}
+											aria-hidden
+										/>
+									</div>
+									<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+										<span class="font-medium">{rowLabel}</span>
+										<span class="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+											{g.kind === 'asset_class'
+												? t('guidelines.list.kind.assetClass')
+												: formatEtfTypeLabel(g.etfType)}
+										</span>
+									</div>
+									<div class="flex min-w-0 items-center justify-between gap-3">
+										<form
+											method="post"
+											action={routes.guidelines.updateTarget.href({
+												id: g.id,
+											})}
+											class="inline-flex min-w-0 items-center gap-2"
+											data-fetch-submit
+											data-fragment-id="guidelines-list"
+											data-fragment-url={routes.guidelines.fragmentList.href()}
+											data-error-id={targetErrorId}
+										>
+											<FieldLabel
+												fieldId={targetFieldId}
+												variant="screenReader"
+											>
+												{format(t('guidelines.list.targetPctLabel'), {
+													label: rowLabel,
+												})}
+											</FieldLabel>
+											<span class="inline-flex min-w-0 items-center gap-1">
+												<NumberInput
+													id={targetFieldId}
+													name="targetPct"
+													class="!w-16 shrink-0"
+													value={targetPctDisplay}
+													required={true}
+													inputMode="decimal"
+													pattern={LOCALE_DECIMAL_HTML_PATTERN}
+												/>
+												<span
+													class="shrink-0 text-sm tabular-nums text-muted-foreground"
+													aria-hidden="true"
+												>
+													{t('guidelines.list.targetPctSuffix')}
+												</span>
 											</span>
-										</div>
-										<div class="flex w-full min-w-0 shrink-0 items-center justify-end gap-3 sm:w-auto sm:justify-start">
+											<button type="submit" class={guidelineSaveGhostClass}>
+												{t('guidelines.list.saveTarget')}
+											</button>
+										</form>
+										<button
+											type="button"
+											class={`guideline-delete-trigger shrink-0 ${guidelineRemoveGhostClass}`}
+											aria-label={
+												g.kind === 'asset_class'
+													? format(t('guidelines.list.deleteAria.bucket'), {
+															label: formatEtfTypeLabel(g.etfType),
+														})
+													: format(t('guidelines.list.deleteAria.instrument'), {
+															name: g.etfName,
+														})
+											}
+											data-dialog-id={`guideline-delete-dialog-${g.id}`}
+										>
+											{t('guidelines.list.remove')}
+										</button>
+									</div>
+									<dialog
+										id={`guideline-delete-dialog-${g.id}`}
+										class="rounded-lg border border-border bg-card p-4 shadow-lg backdrop:bg-black/50"
+										aria-labelledby={`guideline-delete-dialog-label-${g.id}`}
+									>
+										<p
+											id={`guideline-delete-dialog-label-${g.id}`}
+											class="mb-4 text-sm text-card-foreground"
+										>
+											{format(t('guidelines.list.deleteConfirm'), {
+												label: rowLabel,
+											})}
+										</p>
+										<div class="flex justify-end gap-2">
+											<form method="dialog">
+												<button
+													type="submit"
+													class="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-card-foreground transition-colors hover:bg-accent"
+												>
+													{t('guidelines.list.deleteCancel')}
+												</button>
+											</form>
 											<form
 												method="post"
-												action={routes.guidelines.updateTarget.href({
-													id: g.id,
-												})}
-												class="inline-flex max-w-full items-center gap-2"
+												action={routes.guidelines.delete.href({ id: g.id })}
 												data-fetch-submit
 												data-fragment-id="guidelines-list"
 												data-fragment-url={routes.guidelines.fragmentList.href()}
-												data-error-id={targetErrorId}
 											>
-												<FieldLabel
-													fieldId={targetFieldId}
-													variant="screenReader"
+												<input type="hidden" name="_method" value="DELETE" />
+												<button
+													type="submit"
+													class="rounded-md bg-destructive px-3 py-1.5 text-sm text-white hover:opacity-90"
 												>
-													{format(t('guidelines.list.targetPctLabel'), {
-														label: rowLabel,
-													})}
-												</FieldLabel>
-												<span class="inline-flex max-w-full items-center gap-1">
-													<NumberInput
-														id={targetFieldId}
-														name="targetPct"
-														class="!w-16 shrink-0"
-														value={targetPctDisplay}
-														required={true}
-														inputMode="decimal"
-														pattern={LOCALE_DECIMAL_HTML_PATTERN}
-													/>
-													<span
-														class="shrink-0 text-sm tabular-nums text-muted-foreground"
-														aria-hidden="true"
-													>
-														{t('guidelines.list.targetPctSuffix')}
-													</span>
-												</span>
-												<button type="submit" class={ghostActionClass}>
-													{t('guidelines.list.saveTarget')}
+													{t('guidelines.list.remove')}
 												</button>
 											</form>
-											<button
-												type="button"
-												class={`guideline-delete-trigger ${ghostActionClass}`}
-												aria-label={
-													g.kind === 'asset_class'
-														? format(t('guidelines.list.deleteAria.bucket'), {
-																label: formatEtfTypeLabel(g.etfType),
-															})
-														: format(
-																t('guidelines.list.deleteAria.instrument'),
-																{
-																	name: g.etfName,
-																},
-															)
-												}
-												data-dialog-id={`guideline-delete-dialog-${g.id}`}
-											>
-												{t('guidelines.list.remove')}
-											</button>
-											<dialog
-												id={`guideline-delete-dialog-${g.id}`}
-												class="rounded-lg border border-border bg-card p-4 shadow-lg backdrop:bg-black/50"
-											>
-												<p class="mb-4 text-sm text-card-foreground">
-													{format(t('guidelines.list.deleteConfirm'), {
-														label: rowLabel,
-													})}
-												</p>
-												<div class="flex justify-end gap-2">
-													<form method="dialog">
-														<button
-															type="submit"
-															class="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-card-foreground transition-colors hover:bg-accent"
-														>
-															{t('guidelines.list.deleteCancel')}
-														</button>
-													</form>
-													<form
-														method="post"
-														action={routes.guidelines.delete.href({ id: g.id })}
-														data-fetch-submit
-														data-fragment-id="guidelines-list"
-														data-fragment-url={routes.guidelines.fragmentList.href()}
-													>
-														<input
-															type="hidden"
-															name="_method"
-															value="DELETE"
-														/>
-														<button
-															type="submit"
-															class="rounded-md bg-destructive px-3 py-1.5 text-sm text-white hover:opacity-90"
-														>
-															{t('guidelines.list.remove')}
-														</button>
-													</form>
-												</div>
-											</dialog>
 										</div>
-									</div>
+									</dialog>
 								</Card>
 							)
 						})}

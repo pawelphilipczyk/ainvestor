@@ -166,6 +166,7 @@ export const en = {
 	'guidelines.list.saveTarget': 'Save',
 	'guidelines.list.targetPctSuffix': '%',
 	'guidelines.list.targetPctLabel': 'Target percent for {label}',
+	'guidelines.list.shareBarAria': 'Target {pct}% of portfolio for {label}',
 	'guidelines.list.deleteAria.instrument': 'Delete {name} guideline',
 	'guidelines.list.deleteAria.bucket': 'Delete {label} bucket guideline',
 	'guidelines.list.deleteConfirm': 'Remove the {label} guideline?',
