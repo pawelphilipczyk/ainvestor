@@ -181,6 +181,16 @@ export type AdviceAnalysisMode = (typeof ADVICE_ANALYSIS_MODES)[number]
 
 export const DEFAULT_ADVICE_ANALYSIS_MODE: AdviceAnalysisMode = 'buy_next'
 
+/** Normalize tab / mode strings from URLs or stale props to a known analysis mode. */
+export function normalizeAdviceAnalysisTab(
+	tab: string | undefined | null,
+): AdviceAnalysisMode {
+	if (tab === 'portfolio_review' || tab === 'buy_next') {
+		return tab
+	}
+	return DEFAULT_ADVICE_ANALYSIS_MODE
+}
+
 /** OpenAI chat models offered for ETF advice (user-selectable; default is mini). */
 export const ADVICE_MODEL_IDS = [
 	'gpt-5.4-mini',

@@ -5,6 +5,17 @@ import { renderToString } from 'remix/component/server'
 import { TabLink, TabsNav } from './tabs-nav.tsx'
 
 describe('TabsNav', () => {
+	it('throws when TabLink is rendered outside TabsNav', async () => {
+		await assert.rejects(
+			renderToString(
+				jsx(TabLink, { id: 'orphan', href: '/', children: 'Alone' }),
+			),
+			(err: unknown) =>
+				err instanceof Error &&
+				err.message === 'TabLink must be used inside TabsNav',
+		)
+	})
+
 	it('passes nav props through and sets aria-current on the active TabLink', async () => {
 		const html = await renderToString(
 			jsx(TabsNav, {

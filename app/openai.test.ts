@@ -12,6 +12,7 @@ import {
 	formatCatalogForAdvice,
 	formatPostInvestmentTotalsBlock,
 	getInvestmentAdvice,
+	normalizeAdviceAnalysisTab,
 	parseAdviceCashAmount,
 } from './openai.ts'
 
@@ -635,6 +636,20 @@ describe('formatAllocationContext', () => {
 		const out = formatAllocationContext(holdings, catalog)
 		assert.match(out, /equity.*60/)
 		assert.match(out, /bond.*40/)
+	})
+})
+
+describe('normalizeAdviceAnalysisTab', () => {
+	it('returns known modes and defaults for unknown', () => {
+		assert.equal(normalizeAdviceAnalysisTab('buy_next'), 'buy_next')
+		assert.equal(
+			normalizeAdviceAnalysisTab('portfolio_review'),
+			'portfolio_review',
+		)
+		assert.equal(normalizeAdviceAnalysisTab(undefined), 'buy_next')
+		assert.equal(normalizeAdviceAnalysisTab(null), 'buy_next')
+		assert.equal(normalizeAdviceAnalysisTab(''), 'buy_next')
+		assert.equal(normalizeAdviceAnalysisTab('nope'), 'buy_next')
 	})
 })
 

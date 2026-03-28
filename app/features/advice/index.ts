@@ -30,6 +30,7 @@ import {
 	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
 	getInvestmentAdvice,
+	normalizeAdviceAnalysisTab,
 } from '../../openai.ts'
 import { routes } from '../../routes.ts'
 import type { AdviceDocument } from './advice-document.ts'
@@ -47,7 +48,7 @@ const AdviceSchema = object({
 
 function parseAdviceTabParam(url: string): AdviceAnalysisMode {
 	const tab = new URL(url).searchParams.get('tab')
-	return tab === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
+	return normalizeAdviceAnalysisTab(tab)
 }
 
 function formatSchemaIssues(issues: ReadonlyArray<Issue>): string {
@@ -223,10 +224,7 @@ export const adviceController = {
 				init: { status: 400 },
 			})
 		}
-		const cashAmount =
-			analysisMode === 'portfolio_review' && trimmedCash === ''
-				? '0'
-				: trimmedCash
+		const cashAmount = trimmedCash
 
 		if (pendingApproval) {
 			return renderAdviceResponse({

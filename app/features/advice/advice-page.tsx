@@ -20,6 +20,8 @@ import {
 	type AdviceModelId,
 	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
+	normalizeAdviceAnalysisTab,
+	parseAdviceCashAmount,
 } from '../../openai.ts'
 import { routes } from '../../routes.ts'
 import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
@@ -417,7 +419,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 	return (props: AdvicePageProps) => {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
-		const activeTab = props.activeTab ?? DEFAULT_ADVICE_ANALYSIS_MODE
+		const activeTab = normalizeAdviceAnalysisTab(props.activeTab)
 		const resultMode =
 			props.advice !== undefined
 				? (props.lastAnalysisMode ??
@@ -644,14 +646,19 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
 							{resultMode === 'portfolio_review'
-								? props.cashAmount &&
-									props.cashAmount.trim() !== '' &&
-									props.cashAmount.trim() !== '0'
-									? format(t('advice.result.subtitleReviewWithCash'), {
-											amount: props.cashAmount,
-											currency: cashCurrency,
-										})
-									: t('advice.result.subtitleReviewGuidelinesOnly')
+								? (() => {
+										const raw = props.cashAmount?.trim() ?? ''
+										const parsed =
+											raw === '' ? null : parseAdviceCashAmount(raw)
+										const hasPositiveCash =
+											parsed !== null && Number.isFinite(parsed) && parsed > 0
+										return hasPositiveCash
+											? format(t('advice.result.subtitleReviewWithCash'), {
+													amount: raw,
+													currency: cashCurrency,
+												})
+											: t('advice.result.subtitleReviewGuidelinesOnly')
+									})()
 								: format(t('advice.result.subtitle'), {
 										amount: props.cashAmount ?? '',
 										currency: cashCurrency,
