@@ -77,7 +77,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						class="mt-4 grid gap-4"
 						data-fetch-submit
 						data-fragment-id="guidelines-list"
-						data-fragment-url="/fragments/guidelines-list"
+						data-fragment-url={routes.guidelines.fragmentList.href()}
 						data-reset-form
 						data-error-id="guidelines-instrument-form-error"
 					>
@@ -133,7 +133,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						class="mt-4 grid gap-4"
 						data-fetch-submit
 						data-fragment-id="guidelines-list"
-						data-fragment-url="/fragments/guidelines-list"
+						data-fragment-url={routes.guidelines.fragmentList.href()}
 						data-reset-form
 						data-error-id="guidelines-asset-class-form-error"
 					>

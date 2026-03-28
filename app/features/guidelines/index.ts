@@ -1,3 +1,4 @@
+import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
 import { object, optional, parseSafe, string } from 'remix/data-schema'
@@ -46,6 +47,10 @@ const AssetClassGuidelineSchema = object({
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
 })
 
+const UpdateGuidelineTargetSchema = object({
+	targetPct: coerce.number().pipe(min(0.001), max(100)),
+})
+
 /** Same locale rules as other decimal form fields (HTML `pattern` + {@link parseLocaleDecimalString}). */
 function normalizeGuidelineTargetPctInput(raw: Record<string, unknown>): void {
 	if (typeof raw.targetPct === 'string') {
@@ -60,6 +65,11 @@ function formatPctForMessage(value: number): string {
 	return String(rounded)
 }
 
+/** Matches fetch-submit (`Accept: application/json`) vs full page navigation. */
+function prefersJson(request: Request): boolean {
+	return request.headers.get('Accept')?.includes('application/json') ?? false
+}
+
 function guidelinesTotalCapErrorResponse(params: {
 	request: Request
 	session: Session
@@ -70,10 +80,68 @@ function guidelinesTotalCapErrorResponse(params: {
 		current: formatPctForMessage(params.currentTotal),
 		added: formatPctForMessage(params.addedPct),
 	})
-	const prefersJson = params.request.headers
-		.get('Accept')
-		?.includes('application/json')
-	if (prefersJson) {
+	if (prefersJson(params.request)) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	params.session.flash('error', message)
+	return createRedirectResponse(routes.guidelines.index.href())
+}
+
+function pathSegmentKey(
+	segment: PropertyKey | StandardSchemaV1.PathSegment,
+): string {
+	if (typeof segment === 'object' && segment !== null && 'key' in segment) {
+		return String(segment.key)
+	}
+	return String(segment)
+}
+
+function formatGuidelineTargetSchemaIssues(
+	issues: ReadonlyArray<StandardSchemaV1.Issue>,
+): { error: string; details: { path: string; message: string }[] } {
+	const details = issues.map((issue) => ({
+		path: issue.path?.length ? issue.path.map(pathSegmentKey).join('.') : '',
+		message: issue.message,
+	}))
+	const fromIssues = details
+		.map((d) => d.message)
+		.filter(Boolean)
+		.join(' ')
+	const error =
+		fromIssues.length > 0 ? fromIssues : t('errors.guidelines.targetPctInvalid')
+	return { error, details }
+}
+
+function guidelinesUpdateSchemaValidationResponse(params: {
+	request: Request
+	session: Session
+	issues: ReadonlyArray<StandardSchemaV1.Issue>
+}): Response {
+	const { error, details } = formatGuidelineTargetSchemaIssues(params.issues)
+	if (prefersJson(params.request)) {
+		return new Response(JSON.stringify({ error, issues: details }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	params.session.flash('error', error)
+	return createRedirectResponse(routes.guidelines.index.href())
+}
+
+function guidelinesUpdateCapErrorResponse(params: {
+	request: Request
+	session: Session
+	newPct: number
+	resultingTotal: number
+}): Response {
+	const message = format(t('errors.guidelines.updateTotalExceeds100'), {
+		newPct: formatPctForMessage(params.newPct),
+		total: formatPctForMessage(params.resultingTotal),
+	})
+	if (prefersJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
@@ -129,6 +197,75 @@ async function persistGuideline(params: {
 		})
 	}
 	setGuestGuidelines(remixSession, [entry, ...current])
+	return null
+}
+
+/**
+ * Updates one guideline's `targetPct` after cap check. Returns null on success,
+ * or a Response on failure (missing row redirect, cap 422/flash, etc.).
+ */
+async function updateGuidelineTarget(params: {
+	id: string
+	newPct: number
+	session: SessionData | null
+	remixSession: Session
+	request: Request
+}): Promise<Response | null> {
+	const { id, newPct, session, remixSession, request } = params
+
+	if (session?.gistId && session.token) {
+		const current = await fetchGuidelines(session.token, session.gistId)
+		const existing = current.find((g) => g.id === id)
+		if (!existing) {
+			return createRedirectResponse(routes.guidelines.index.href())
+		}
+		const others = current.filter((g) => g.id !== id)
+		const resultingTotal = sumGuidelineTargetPct(others) + newPct
+		if (
+			wouldGuidelineTotalExceedCap({
+				existing: others,
+				additionalPct: newPct,
+			})
+		) {
+			return guidelinesUpdateCapErrorResponse({
+				request,
+				session: remixSession,
+				newPct,
+				resultingTotal,
+			})
+		}
+		await saveGuidelines(
+			session.token,
+			session.gistId,
+			current.map((g) => (g.id === id ? { ...g, targetPct: newPct } : g)),
+		)
+		return null
+	}
+
+	const current = getGuestGuidelines(remixSession)
+	const existing = current.find((g) => g.id === id)
+	if (!existing) {
+		return createRedirectResponse(routes.guidelines.index.href())
+	}
+	const others = current.filter((g) => g.id !== id)
+	const resultingTotal = sumGuidelineTargetPct(others) + newPct
+	if (
+		wouldGuidelineTotalExceedCap({
+			existing: others,
+			additionalPct: newPct,
+		})
+	) {
+		return guidelinesUpdateCapErrorResponse({
+			request,
+			session: remixSession,
+			newPct,
+			resultingTotal,
+		})
+	}
+	setGuestGuidelines(
+		remixSession,
+		current.map((g) => (g.id === id ? { ...g, targetPct: newPct } : g)),
+	)
 	return null
 }
 
@@ -250,6 +387,42 @@ export const guidelinesController = {
 			request: context.request,
 		})
 		if (capError) return capError
+		return createRedirectResponse(routes.guidelines.index.href())
+	},
+
+	async updateTarget(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+		params: unknown
+	}) {
+		const id = (context.params as Record<string, string>).id
+		if (!id) return createRedirectResponse(routes.guidelines.index.href())
+
+		const form = context.formData
+		if (!form) return createRedirectResponse(routes.guidelines.index.href())
+
+		const formPayload = objectFromFormData(form)
+		normalizeGuidelineTargetPctInput(formPayload)
+		const result = parseSafe(UpdateGuidelineTargetSchema, formPayload)
+		if (!result.success) {
+			return guidelinesUpdateSchemaValidationResponse({
+				request: context.request,
+				session: context.session,
+				issues: result.issues,
+			})
+		}
+
+		const session = getSessionData(context.session)
+		const persistError = await updateGuidelineTarget({
+			id,
+			newPct: result.value.targetPct,
+			session,
+			remixSession: context.session,
+			request: context.request,
+		})
+		if (persistError) return persistError
+
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
