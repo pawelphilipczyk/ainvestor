@@ -32,6 +32,7 @@ describe('LOCALE_DECIMAL_HTML_PATTERN', () => {
 		const re = new RegExp(`^(?:${LOCALE_DECIMAL_HTML_PATTERN})$`)
 		assert.equal(re.test('2000'), true)
 		assert.equal(re.test('2,000.50'), true)
+		assert.equal(re.test('2.000,50'), true)
 		assert.equal(re.test('abc'), false)
 		assert.equal(re.test(''), false)
 	})
