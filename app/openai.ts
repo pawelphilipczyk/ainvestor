@@ -207,44 +207,13 @@ export function createDefaultClient(): AdviceClient {
 	return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 }
 
-/**
- * HTML `pattern` for advice deployable cash (full value is matched; implicit anchors).
- * Character set matches what {@link parseAdviceCashAmount} can normalize (digits, `.`, `,`, spaces);
- * at least one digit is required. Does not allow a leading minus (parser rejects negatives).
- */
-export const ADVICE_CASH_AMOUNT_HTML_PATTERN = String.raw`(?=.*\d)[\d\s.,]+`
+import {
+	MONEY_AMOUNT_HTML_PATTERN,
+	parseMoneyAmountString,
+} from './lib/money-input.ts'
 
-/**
- * Parse user-entered deployable cash for advice arithmetic (totals in the prompt).
- * Accepts plain numbers, spaces, and common thousand/decimal separators.
- */
-export function parseAdviceCashAmount(raw: string): number | null {
-	const trimmed = raw.trim()
-	if (!trimmed) return null
-	const compact = trimmed.replace(/\s+/g, '')
-	const hasComma = compact.includes(',')
-	const hasDot = compact.includes('.')
-	let normalized = compact
-	if (hasComma && hasDot) {
-		const lastComma = compact.lastIndexOf(',')
-		const lastDot = compact.lastIndexOf('.')
-		if (lastComma > lastDot) {
-			normalized = compact.replace(/\./g, '').replace(',', '.')
-		} else {
-			normalized = compact.replace(/,/g, '')
-		}
-	} else if (hasComma && !hasDot) {
-		const parts = compact.split(',')
-		if (parts.length === 2 && parts[1].length <= 2 && parts[1].length > 0) {
-			normalized = `${parts[0]}.${parts[1]}`
-		} else {
-			normalized = compact.replace(/,/g, '')
-		}
-	}
-	const n = Number.parseFloat(normalized)
-	if (!Number.isFinite(n) || n < 0) return null
-	return n
-}
+export const ADVICE_CASH_AMOUNT_HTML_PATTERN = MONEY_AMOUNT_HTML_PATTERN
+export const parseAdviceCashAmount = parseMoneyAmountString
 
 function sumHoldingsValues(holdings: EtfEntry[]): {
 	total: number

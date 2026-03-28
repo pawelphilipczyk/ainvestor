@@ -136,13 +136,14 @@ describe('Portfolio page', () => {
 		assert.match(fragmentBody, /PLN/)
 	})
 
-	it('value field is a numeric input', async () => {
+	it('value field uses money-style decimal input', async () => {
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 
 		const valueInput = body.match(/<input\b[^>]*\bid="value"[^>]*>/)
 		assert.ok(valueInput, 'expected #value input')
-		assert.match(valueInput[0], /type="number"/)
+		assert.match(valueInput[0], /type="text"/)
+		assert.match(valueInput[0], /inputmode="decimal"/)
 	})
 
 	it('adds ETF when optional quantity is left empty', async () => {

@@ -7,6 +7,7 @@ import {
 } from '../../../components/index.ts'
 import { CURRENCIES } from '../../../lib/currencies.ts'
 import { t } from '../../../lib/i18n.ts'
+import { MONEY_AMOUNT_HTML_PATTERN } from '../../../lib/money-input.ts'
 import { routes } from '../../../routes.ts'
 
 type AddEtfFormProps = {
@@ -65,6 +66,8 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 								name="value"
 								placeholder={t('addEtf.placeholder.value')}
 								required={true}
+								inputMode="decimal"
+								pattern={MONEY_AMOUNT_HTML_PATTERN}
 							/>
 						</div>
 						<div class="grid gap-2">
