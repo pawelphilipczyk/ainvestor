@@ -55,6 +55,7 @@ describe('Advice', () => {
 		assert.match(body, /name="cashAmount"/)
 		assert.match(body, /name="cashCurrency"/)
 		assert.match(body, /name="adviceModel"/)
+		assert.match(body, /name="analysisMode"/)
 		assert.match(body, /action="\/advice"/)
 	})
 
@@ -117,13 +118,16 @@ describe('Advice', () => {
 		assert.doesNotMatch(body, /Investment Advice/)
 	})
 
-	it('returns 400 with AdvicePage HTML when cashAmount is missing', async () => {
+	it('returns 400 with AdvicePage HTML when buy_next has empty cashAmount', async () => {
 		setAdviceClient(makeMockClient('irrelevant'))
+
+		const form = new FormData()
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
 			new Request('http://localhost/advice', {
 				method: 'POST',
-				body: new FormData(),
+				body: form,
 			}),
 		)
 		const body = await response.text()
@@ -131,9 +135,23 @@ describe('Advice', () => {
 		assert.equal(response.status, 400)
 		assert.match(body, /Get Advice/)
 		assert.match(body, /role="alert"/)
-		assert.match(body, /<summary[^>]*>/)
-		assert.match(body, /Enter a valid cash amount and currency\./)
-		assert.match(body, /cashAmount:/)
+		assert.match(body, /Enter how much cash you plan to invest/)
+	})
+
+	it('returns 200 for portfolio_review without cashAmount', async () => {
+		setAdviceClient(makeMockClient('Concentrated in equities; consider bonds.'))
+
+		const form = new FormData()
+		form.set('analysisMode', 'portfolio_review')
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Portfolio review/)
+		assert.match(body, /Concentrated in equities/)
 	})
 
 	it('returns 503 with AdvicePage HTML when the advice client throws', async () => {

@@ -1,7 +1,6 @@
 import { jsx } from 'remix/component/jsx-runtime'
 import type { Issue } from 'remix/data-schema'
 import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
-import { minLength } from 'remix/data-schema/checks'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
@@ -17,10 +16,16 @@ import {
 	getSessionData,
 	type SessionData,
 } from '../../lib/session.ts'
-import type { AdviceClient, AdviceModelId } from '../../openai.ts'
+import type {
+	AdviceAnalysisMode,
+	AdviceClient,
+	AdviceModelId,
+} from '../../openai.ts'
 import {
+	ADVICE_ANALYSIS_MODES,
 	ADVICE_MODEL_IDS,
 	createDefaultClient,
+	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
 	getInvestmentAdvice,
 } from '../../openai.ts'
@@ -28,9 +33,13 @@ import type { AdviceDocument } from './advice-document.ts'
 import { AdvicePage } from './advice-page.tsx'
 
 const AdviceSchema = object({
-	cashAmount: string().pipe(minLength(1)),
+	cashAmount: string(),
 	cashCurrency: defaulted(enum_(CURRENCIES), 'PLN'),
 	adviceModel: defaulted(enum_(ADVICE_MODEL_IDS), DEFAULT_ADVICE_MODEL),
+	analysisMode: defaulted(
+		enum_(ADVICE_ANALYSIS_MODES),
+		DEFAULT_ADVICE_ANALYSIS_MODE,
+	),
 })
 
 function formatSchemaIssues(issues: ReadonlyArray<Issue>): string {
@@ -48,6 +57,7 @@ function renderAdviceResponse(options: {
 	props: {
 		cashAmount?: string
 		cashCurrency?: string
+		analysisMode?: AdviceAnalysisMode
 		selectedModel?: AdviceModelId
 		advice?: AdviceDocument
 		formError?: { summary: string; detail?: string }
@@ -82,7 +92,7 @@ export const adviceController = {
 		const pendingApproval = layoutSession?.approvalStatus === 'pending'
 		return renderAdviceResponse({
 			session: layoutSession,
-			props: { pendingApproval },
+			props: { pendingApproval, analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE },
 		})
 	},
 
@@ -100,6 +110,7 @@ export const adviceController = {
 				session: layoutSession,
 				props: {
 					pendingApproval,
+					analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
 					formError: {
 						summary: 'Could not read your form. Please try again.',
 						detail:
@@ -115,6 +126,8 @@ export const adviceController = {
 		)
 		const formPayload = {
 			...rawEntries,
+			cashAmount:
+				typeof rawEntries.cashAmount === 'string' ? rawEntries.cashAmount : '',
 			cashCurrency:
 				typeof rawEntries.cashCurrency === 'string' &&
 				rawEntries.cashCurrency.length > 0
@@ -124,6 +137,11 @@ export const adviceController = {
 				typeof rawEntries.adviceModel === 'string' &&
 				rawEntries.adviceModel.length > 0
 					? rawEntries.adviceModel
+					: undefined,
+			analysisMode:
+				typeof rawEntries.analysisMode === 'string' &&
+				rawEntries.analysisMode.length > 0
+					? rawEntries.analysisMode
 					: undefined,
 		}
 		const result = parseSafe(AdviceSchema, formPayload)
@@ -141,30 +159,65 @@ export const adviceController = {
 				(ADVICE_MODEL_IDS as readonly string[]).includes(rawModel)
 					? (rawModel as AdviceModelId)
 					: DEFAULT_ADVICE_MODEL
+			const rawMode = form.get('analysisMode')
+			const analysisMode =
+				typeof rawMode === 'string' &&
+				rawMode.length > 0 &&
+				(ADVICE_ANALYSIS_MODES as readonly string[]).includes(rawMode)
+					? (rawMode as AdviceAnalysisMode)
+					: DEFAULT_ADVICE_ANALYSIS_MODE
 			return renderAdviceResponse({
 				session: layoutSession,
 				props: {
 					pendingApproval,
 					cashAmount,
 					cashCurrency,
+					analysisMode,
 					selectedModel,
 					formError: {
-						summary: 'Enter a valid cash amount and currency.',
+						summary: 'Check the form and try again.',
 						detail: formatSchemaIssues(result.issues),
 					},
 				},
 				init: { status: 400 },
 			})
 		}
-		const { cashAmount, cashCurrency, adviceModel } = result.value
+		const {
+			cashAmount: rawCashAmount,
+			cashCurrency,
+			adviceModel,
+			analysisMode,
+		} = result.value
+		const trimmedCash = rawCashAmount.trim()
+		if (analysisMode === 'buy_next' && trimmedCash === '') {
+			return renderAdviceResponse({
+				session: layoutSession,
+				props: {
+					pendingApproval,
+					cashAmount: rawCashAmount,
+					cashCurrency,
+					analysisMode,
+					selectedModel: adviceModel,
+					formError: {
+						summary: 'Enter how much cash you plan to invest for Buy next.',
+					},
+				},
+				init: { status: 400 },
+			})
+		}
+		const cashAmount =
+			analysisMode === 'portfolio_review' && trimmedCash === ''
+				? '0'
+				: trimmedCash
 
 		if (pendingApproval) {
 			return renderAdviceResponse({
 				session: layoutSession,
 				props: {
 					pendingApproval: true,
-					cashAmount,
+					cashAmount: rawCashAmount,
 					cashCurrency,
+					analysisMode,
 					selectedModel: adviceModel,
 					formError: {
 						summary:
@@ -197,6 +250,7 @@ export const adviceController = {
 				catalog,
 				client,
 				model: adviceModel,
+				analysisMode,
 			})
 			return renderAdviceResponse({
 				session: layoutSession,
@@ -204,6 +258,7 @@ export const adviceController = {
 					pendingApproval,
 					cashAmount,
 					cashCurrency,
+					analysisMode,
 					selectedModel: adviceModel,
 					advice,
 				},
@@ -223,6 +278,7 @@ export const adviceController = {
 					pendingApproval,
 					cashAmount,
 					cashCurrency,
+					analysisMode,
 					selectedModel: adviceModel,
 					formError: {
 						summary:

@@ -8,8 +8,11 @@ import {
 } from '../../components/index.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import {
+	ADVICE_ANALYSIS_MODES,
 	ADVICE_MODEL_IDS,
+	type AdviceAnalysisMode,
 	type AdviceModelId,
+	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
 } from '../../openai.ts'
 import { routes } from '../../routes.ts'
@@ -23,6 +26,7 @@ type FormError = {
 type AdvicePageProps = {
 	cashAmount?: string
 	cashCurrency?: string
+	analysisMode?: AdviceAnalysisMode
 	selectedModel?: AdviceModelId
 	advice?: AdviceDocument
 	formError?: FormError
@@ -40,6 +44,16 @@ const modelLabels: Record<AdviceModelId, string> = {
 const modelOptions = ADVICE_MODEL_IDS.map((id) => ({
 	value: id,
 	label: modelLabels[id],
+}))
+
+const analysisModeLabels: Record<AdviceAnalysisMode, string> = {
+	buy_next: 'What to buy next',
+	portfolio_review: 'Portfolio health review',
+}
+
+const analysisModeOptions = ADVICE_ANALYSIS_MODES.map((id) => ({
+	value: id,
+	label: analysisModeLabels[id],
 }))
 
 function formatAmountNumber(amount: number): string {
@@ -148,7 +162,9 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 	return (props: AdvicePageProps) => {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
+		const analysisMode = props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
 		const pendingApproval = props.pendingApproval === true
+		const cashRequired = analysisMode === 'buy_next'
 		return (
 			<main class="mx-auto grid max-w-3xl gap-6">
 				<Card class="p-6">
@@ -157,7 +173,9 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 							Get Advice
 						</h1>
 						<p class="mt-1 text-sm text-muted-foreground">
-							Tell me how much cash you have and I'll suggest what to buy next.
+							{analysisMode === 'portfolio_review'
+								? 'Review balance and risk against your catalog and target mix, or ask what to buy with new cash.'
+								: 'Tell me how much cash you have and I will suggest what to buy next.'}
 						</p>
 					</header>
 				</Card>
@@ -205,15 +223,33 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								)}
 							</div>
 						) : null}
+						<div class="grid gap-2">
+							<FieldLabel fieldId="analysisMode">Analysis</FieldLabel>
+							<SelectInput
+								id="analysisMode"
+								name="analysisMode"
+								options={analysisModeOptions}
+								value={analysisMode}
+								disabled={pendingApproval}
+							/>
+							<p class="text-xs text-muted-foreground">
+								Portfolio health uses your holdings, catalog, and guidelines.
+								Buy next still needs deployable cash.
+							</p>
+						</div>
 						<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
 							<div class="grid min-w-0 flex-1 gap-2">
-								<FieldLabel fieldId="cashAmount">Available cash</FieldLabel>
+								<FieldLabel fieldId="cashAmount">
+									{cashRequired ? 'Available cash' : 'Cash (optional)'}
+								</FieldLabel>
 								<NumberInput
 									id="cashAmount"
 									name="cashAmount"
-									placeholder="e.g. 1000"
-									required={true}
-									min={1}
+									placeholder={
+										cashRequired ? 'e.g. 1000' : 'Leave blank for review only'
+									}
+									required={cashRequired}
+									min={cashRequired ? 1 : undefined}
 									step="any"
 									defaultValue={props.cashAmount}
 									disabled={pendingApproval}
@@ -248,14 +284,31 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</div>
 					</form>
 				</Card>
-				{props.advice !== undefined && props.cashAmount ? (
+				{props.advice !== undefined &&
+				(props.cashAmount !== undefined ||
+					analysisMode === 'portfolio_review') ? (
 					<Card class="p-6" aria-live="polite">
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
-							Investment Advice
+							{analysisMode === 'portfolio_review'
+								? 'Portfolio review'
+								: 'Investment Advice'}
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
-							Based on your portfolio and {props.cashAmount} {cashCurrency}{' '}
-							available.
+							{analysisMode === 'portfolio_review' ? (
+								<>
+									Based on your current ETF holdings, catalog, and{' '}
+									{props.cashAmount &&
+									props.cashAmount.trim() !== '' &&
+									props.cashAmount.trim() !== '0'
+										? `optional cash context (${props.cashAmount} ${cashCurrency}).`
+										: 'guidelines.'}
+								</>
+							) : (
+								<>
+									Based on your portfolio and {props.cashAmount} {cashCurrency}{' '}
+									available.
+								</>
+							)}
 						</p>
 						<div class="mt-4 space-y-6">
 							{props.advice.blocks.map((block, i) => (
