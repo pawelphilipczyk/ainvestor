@@ -70,6 +70,7 @@ export function NumberInput(_handle: Handle, _setup?: unknown) {
 					step,
 					autocomplete,
 					class: inputClasses,
+					...(patternProp !== undefined ? { pattern: patternProp } : {}),
 				} as Props<'input'>)}
 			/>
 		)
