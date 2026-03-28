@@ -142,6 +142,7 @@ export const en = {
 	'guidelines.subtitle.pending':
 		'Account pending approval — guidelines are not saved to GitHub yet.',
 	'guidelines.subtitle.signIn': 'Sign in to persist across sessions.',
+	'guidelines.tabs.navAria': 'Add guideline forms',
 	'guidelines.etfCard.title': 'Specific ETF target',
 	'guidelines.etfCard.hint':
 		'Pick a fund from your catalog. Its category is set from the catalog row.',
