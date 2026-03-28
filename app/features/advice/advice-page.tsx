@@ -12,6 +12,7 @@ import { CURRENCIES } from '../../lib/currencies.ts'
 import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import {
+	ADVICE_CASH_AMOUNT_HTML_PATTERN,
 	ADVICE_MODEL_IDS,
 	type AdviceModelId,
 	DEFAULT_ADVICE_MODEL,
@@ -469,6 +470,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									placeholder={t('advice.form.placeholder.cash')}
 									required={true}
 									inputMode="decimal"
+									pattern={ADVICE_CASH_AMOUNT_HTML_PATTERN}
 									defaultValue={props.cashAmount}
 									disabled={pendingApproval}
 								/>

@@ -3,10 +3,6 @@ import type { Handle, Props } from 'remix/component'
 const controlClasses =
 	'w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 
-type NumberInputProps = Omit<Props<'input'>, 'class'> & {
-	class?: string
-}
-
 /**
  * Server-rendered number field (label is composed separately).
  * Forwards native `<input>` props; defaults `type="number"` with `min={0}` and `step="any"`.
@@ -15,7 +11,7 @@ type NumberInputProps = Omit<Props<'input'>, 'class'> & {
  * Spreads use a cast: Remix `Props<'input'>` is a discriminated union (e.g. `list` with combobox), so a generic rest bag does not narrow for TS.
  */
 export function NumberInput(_handle: Handle, _setup?: unknown) {
-	return (props: NumberInputProps) => {
+	return (props: Omit<Props<'input'>, 'class'> & { class?: string }) => {
 		const {
 			type: typeProp,
 			min = 0,

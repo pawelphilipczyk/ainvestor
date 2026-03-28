@@ -208,6 +208,13 @@ export function createDefaultClient(): AdviceClient {
 }
 
 /**
+ * HTML `pattern` for advice deployable cash (full value is matched; implicit anchors).
+ * Character set matches what {@link parseAdviceCashAmount} can normalize (digits, `.`, `,`, spaces);
+ * at least one digit is required. Does not allow a leading minus (parser rejects negatives).
+ */
+export const ADVICE_CASH_AMOUNT_HTML_PATTERN = String.raw`(?=.*\d)[\d\s.,]+`
+
+/**
  * Parse user-entered deployable cash for advice arithmetic (totals in the prompt).
  * Accepts plain numbers, spaces, and common thousand/decimal separators.
  */

@@ -5,7 +5,10 @@ import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
-import type { AdviceClient } from '../../openai.ts'
+import {
+	ADVICE_CASH_AMOUNT_HTML_PATTERN,
+	type AdviceClient,
+} from '../../openai.ts'
 import { setAdviceClient } from './index.ts'
 
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
@@ -54,9 +57,14 @@ describe('Advice', () => {
 		assert.match(body, /Get Advice/)
 		const cashInput = body.match(/<input\b[^>]*\bid="cashAmount"[^>]*>/)
 		assert.ok(cashInput, 'expected #cashAmount input')
+		assert.match(cashInput[0], /type="text"/)
 		assert.match(cashInput[0], /name="cashAmount"/)
 		assert.match(cashInput[0], /inputmode="decimal"/)
 		assert.match(cashInput[0], /\brequired\b/)
+		assert.ok(
+			cashInput[0].includes(`pattern="${ADVICE_CASH_AMOUNT_HTML_PATTERN}"`),
+			'expected pattern to match deployable cash HTML constraint',
+		)
 		assert.match(body, /name="cashCurrency"/)
 		assert.match(body, /name="adviceModel"/)
 		assert.match(body, /action="\/advice"/)
