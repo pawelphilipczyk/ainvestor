@@ -9,7 +9,7 @@ import { AppTopBar } from './app-top-bar.tsx'
 import { FetchSubmitEnhancement } from './fetch-submit.component.js'
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
-import { NAV_LINKS } from './sidebar-nav.ts'
+import { getNavLinks } from './sidebar-nav.ts'
 
 const IMPORT_MAP = JSON.stringify({
 	imports: {
@@ -65,7 +65,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 							{t('chrome.loading')}
 						</span>
 					</div>
-					<Sidebar navLinks={NAV_LINKS} currentPage={props.currentPage} />
+					<Sidebar navLinks={getNavLinks()} currentPage={props.currentPage} />
 					<AppTopBar />
 					<div id="page-content" class="min-w-0 p-4 md:ml-64">
 						{props.flashError ? (

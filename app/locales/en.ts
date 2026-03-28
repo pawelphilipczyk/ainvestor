@@ -3,15 +3,17 @@
  * Add other locales later as parallel modules; keep keys aligned across languages.
  */
 
+import type { EtfType } from '../lib/guidelines.ts'
+
 /** Display labels for persisted `EtfType` values (catalog badges, guidelines). */
-export const ETF_TYPE_LABELS = {
+export const ETF_TYPE_LABELS: Record<EtfType, string> = {
 	equity: 'equity',
 	bond: 'bond',
 	real_estate: 'real estate',
 	commodity: 'commodity',
 	mixed: 'mixed',
 	money_market: 'money market',
-} as const
+}
 
 export const en = {
 	'app.name': 'AI Investor',
@@ -131,6 +133,7 @@ export const en = {
 	'catalog.table.isin': 'ISIN',
 	'catalog.table.value': 'Value',
 	'catalog.emptyCell': '—',
+	'catalog.etfTypeUnknown': 'Unknown',
 	'catalog.noMatch': 'No ETFs match your search.',
 	'catalog.section.otherAvailable': 'Other Available ETFs',
 	'catalog.section.available': 'Available ETFs',

@@ -1,4 +1,5 @@
 import { ETF_TYPE_LABELS } from '../locales/en.ts'
+import { t } from './i18n.ts'
 
 export const GUIDELINES_FILENAME = 'guidelines.json'
 
@@ -21,7 +22,11 @@ export const ETF_TYPES = [
 
 /** Human-readable ETF category label (locale-backed; default English). */
 export function formatEtfTypeLabel(etfType: EtfType): string {
-	return ETF_TYPE_LABELS[etfType]
+	const label = ETF_TYPE_LABELS[etfType]
+	if (typeof label === 'string' && label.length > 0) {
+		return label
+	}
+	return t('catalog.etfTypeUnknown')
 }
 
 export type GuidelineKind = 'asset_class' | 'instrument'

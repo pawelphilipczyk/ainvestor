@@ -8,25 +8,28 @@ export type NavLink = {
 	page: SectionIntroPage
 }
 
-export const NAV_LINKS: NavLink[] = [
-	{
-		href: routes.portfolio.index.href(),
-		label: t('nav.portfolio'),
-		page: 'portfolio',
-	},
-	{
-		href: routes.advice.index.href(),
-		label: t('nav.advice'),
-		page: 'advice',
-	},
-	{
-		href: routes.catalog.index.href(),
-		label: t('nav.catalog'),
-		page: 'catalog',
-	},
-	{
-		href: routes.guidelines.index.href(),
-		label: t('nav.guidelines'),
-		page: 'guidelines',
-	},
-]
+/** Build nav links at render time so labels follow the active locale (not module load). */
+export function getNavLinks(): NavLink[] {
+	return [
+		{
+			href: routes.portfolio.index.href(),
+			label: t('nav.portfolio'),
+			page: 'portfolio',
+		},
+		{
+			href: routes.advice.index.href(),
+			label: t('nav.advice'),
+			page: 'advice',
+		},
+		{
+			href: routes.catalog.index.href(),
+			label: t('nav.catalog'),
+			page: 'catalog',
+		},
+		{
+			href: routes.guidelines.index.href(),
+			label: t('nav.guidelines'),
+			page: 'guidelines',
+		},
+	]
+}

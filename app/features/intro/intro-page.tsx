@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
 import { SectionIntroCard } from '../../components/section-intro-card.tsx'
-import { NAV_LINKS } from '../../components/sidebar-nav.ts'
+import { getNavLinks } from '../../components/sidebar-nav.ts'
 import { t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 
@@ -19,7 +19,7 @@ export function IntroPage(_handle: Handle, _setup?: unknown) {
 				</p>
 			</header>
 			<ul class="grid list-none gap-4 p-0 sm:grid-cols-2">
-				{NAV_LINKS.map((link) => {
+				{getNavLinks().map((link) => {
 					const intro = SECTION_INTROS[link.page]
 					return (
 						<li key={link.page}>

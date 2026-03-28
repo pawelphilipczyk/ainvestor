@@ -74,7 +74,7 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			</td>
 			<td class="py-2 pr-4 align-top">
 				<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-					{formatEtfTypeLabel(entry.type)}
+					{formatEtfTypeLabel(entry.type) || t('catalog.etfTypeUnknown')}
 				</span>
 			</td>
 			<td
