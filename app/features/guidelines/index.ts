@@ -60,16 +60,6 @@ function formatPctForMessage(value: number): string {
 	return String(rounded)
 }
 
-async function loadGuidelinesForSession(params: {
-	session: SessionData | null
-	remixSession: Session
-}): Promise<EtfGuideline[]> {
-	if (params.session?.gistId && params.session.token) {
-		return fetchGuidelines(params.session.token, params.session.gistId)
-	}
-	return getGuestGuidelines(params.remixSession)
-}
-
 function guidelinesTotalCapErrorResponse(params: {
 	request: Request
 	session: Session
@@ -93,21 +83,53 @@ function guidelinesTotalCapErrorResponse(params: {
 	return createRedirectResponse(routes.guidelines.index.href())
 }
 
+/**
+ * Persists a new guideline using the same fresh `current` snapshot for cap check and write
+ * (avoids a race where validation used a stale list while save refetched).
+ * Returns an error response when the cap would be exceeded; otherwise null on success.
+ */
 async function persistGuideline(params: {
 	entry: EtfGuideline
 	session: SessionData | null
 	remixSession: Session
-}) {
-	const { entry, session, remixSession } = params
+	request: Request
+}): Promise<Response | null> {
+	const { entry, session, remixSession, request } = params
 	if (session?.gistId && session.token) {
 		const current = await fetchGuidelines(session.token, session.gistId)
+		if (
+			wouldGuidelineTotalExceedCap({
+				existing: current,
+				additionalPct: entry.targetPct,
+			})
+		) {
+			return guidelinesTotalCapErrorResponse({
+				request,
+				session: remixSession,
+				currentTotal: sumGuidelineTargetPct(current),
+				addedPct: entry.targetPct,
+			})
+		}
 		await saveGuidelines(session.token, session.gistId, [entry, ...current])
-	} else {
-		setGuestGuidelines(remixSession, [
-			entry,
-			...getGuestGuidelines(remixSession),
-		])
+		return null
 	}
+
+	const current = getGuestGuidelines(remixSession)
+	if (
+		wouldGuidelineTotalExceedCap({
+			existing: current,
+			additionalPct: entry.targetPct,
+		})
+	) {
+		return guidelinesTotalCapErrorResponse({
+			request,
+			session: remixSession,
+			currentTotal: sumGuidelineTargetPct(current),
+			addedPct: entry.targetPct,
+		})
+	}
+	setGuestGuidelines(remixSession, [entry, ...current])
+	return null
 }
 
 // ---------------------------------------------------------------------------
@@ -173,29 +195,13 @@ export const guidelinesController = {
 			etfType: match.type,
 		}
 
-		const currentGuidelines = await loadGuidelinesForSession({
-			session,
-			remixSession: context.session,
-		})
-		if (
-			wouldGuidelineTotalExceedCap({
-				existing: currentGuidelines,
-				additionalPct: targetPct,
-			})
-		) {
-			return guidelinesTotalCapErrorResponse({
-				request: context.request,
-				session: context.session,
-				currentTotal: sumGuidelineTargetPct(currentGuidelines),
-				addedPct: targetPct,
-			})
-		}
-
-		await persistGuideline({
+		const capError = await persistGuideline({
 			entry,
 			session,
 			remixSession: context.session,
+			request: context.request,
 		})
+		if (capError) return capError
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
@@ -237,29 +243,13 @@ export const guidelinesController = {
 			etfType: raw,
 		}
 
-		const currentGuidelines = await loadGuidelinesForSession({
-			session,
-			remixSession: context.session,
-		})
-		if (
-			wouldGuidelineTotalExceedCap({
-				existing: currentGuidelines,
-				additionalPct: targetPct,
-			})
-		) {
-			return guidelinesTotalCapErrorResponse({
-				request: context.request,
-				session: context.session,
-				currentTotal: sumGuidelineTargetPct(currentGuidelines),
-				addedPct: targetPct,
-			})
-		}
-
-		await persistGuideline({
+		const capError = await persistGuideline({
 			entry,
 			session,
 			remixSession: context.session,
+			request: context.request,
 		})
+		if (capError) return capError
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 
