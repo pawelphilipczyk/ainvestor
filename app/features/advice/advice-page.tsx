@@ -193,18 +193,35 @@ function renderGuidelineBars(block: {
 										role="img"
 										aria-label={summary}
 									>
-										{postW !== null ? (
-											<div
-												class="absolute inset-y-0 left-0 bg-accent/40"
-												style={{ width: `${postW}%` }}
-												aria-hidden
-											/>
-										) : null}
-										<div
-											class="absolute inset-y-0 left-0 bg-primary/75"
-											style={{ width: `${currentW}%` }}
-											aria-hidden
-										/>
+										{postW !== null && postW < currentW ? (
+											<>
+												<div
+													class="absolute inset-y-0 left-0 bg-primary/75"
+													style={{ width: `${currentW}%`, zIndex: 1 }}
+													aria-hidden
+												/>
+												<div
+													class="absolute inset-y-0 left-0 bg-accent/40"
+													style={{ width: `${postW}%`, zIndex: 2 }}
+													aria-hidden
+												/>
+											</>
+										) : (
+											<>
+												{postW !== null ? (
+													<div
+														class="absolute inset-y-0 left-0 bg-accent/40"
+														style={{ width: `${postW}%` }}
+														aria-hidden
+													/>
+												) : null}
+												<div
+													class="absolute inset-y-0 left-0 bg-primary/75"
+													style={{ width: `${currentW}%` }}
+													aria-hidden
+												/>
+											</>
+										)}
 										<div
 											class="pointer-events-none absolute inset-y-0 w-px bg-card-foreground/90"
 											style={{

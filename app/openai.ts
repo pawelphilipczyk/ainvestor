@@ -54,8 +54,8 @@ recalculate a different total (e.g. do not confuse target percentages with the p
 If it flags mixed currencies or unparsed cash, obey that constraint.
 
 If **"Server allocation diagnostics"** is present, it is a **buy-only numerical plan by asset-class
-bucket** (from the server). Lead "Current state analysis" with those numbers (current vs target at
-post-total, minimum buys, recommended deployment of this cash). Then map buckets to catalog ETFs;
+bucket** (from the server). Use those figures to guide your "Current state analysis" interpretation
+(reference gaps by name, not by restating the same numbers). Then map buckets to catalog ETFs;
 **etf_proposals** amounts must match the deployment line items (± rounding).
 
 Base every specific ETF pick on the catalog; do not invent performance, risk, or cost figures.
@@ -85,14 +85,15 @@ the user message when present — same currency for **holdings** and **cash** se
 must match that block. Exactly one segment with **role** "holdings" and one with "cash" when both are
 known. **postTotal** is optional; when set, **amount** should match holdings + deployable cash (pre-buy
 total portfolio value before your buys are applied — i.e. sum of the two segments). **label** strings
-are short human labels (you may adjust wording).
+are short human labels (you may adjust wording). Do not repeat these numeric totals in prose; they are
+shown visually in this block.
 
 **guideline_bars:** Include when the user has allocation guidelines. **rows** cover each relevant bucket
 (asset class and/or named-fund lines aggregated as in the buy-only rules). **targetPct**, **currentPct**,
 and **postBuyPct** are **whole-portfolio percentages** (0–100), aligned with the same aggregation you use
 in analysis. **postBuyPct** is optional but strongly preferred when you propose buys — it is the estimated
 weight **after** your **etf_proposals** are applied. Omit **guideline_bars** entirely when there are no
-targets.
+targets. Do not repeat these percentages in prose; reference them by bucket name for interpretation only.
 
 Cover this substance across your blocks (paragraph text can use headings and bullets inside the string):
 
@@ -486,7 +487,7 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 	const { postTotal, currency, rows, sumIdealBuyMin, targetPctSum } = diag
 	const lines: string[] = [
 		'---',
-		'Server allocation diagnostics (authoritative numbers — restate these in "Current state analysis" before ETF names; do not contradict):',
+		'Server allocation diagnostics (authoritative numbers — interpret these in "Current state analysis" by referencing gaps, not restating the numbers; do not contradict):',
 		'- **Buy-only:** these figures assume **no sales** — only the deployable cash is deployed; overweight buckets may stay above target until more cash is added.',
 		`- Post-investment portfolio total used below: ${postTotal.toFixed(2)} ${currency} (holdings + deployable cash).`,
 		`- Guideline target % per row are **sums by asset type** (instrument + bucket lines combined). Each row shows **normalized % of post-total** (= raw type sum ÷ total guideline sum × 100); raw sums are in parentheses when the line total ≠ 100%.`,
