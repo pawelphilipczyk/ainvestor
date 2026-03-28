@@ -7,6 +7,9 @@
 /** HTML `pattern` (full value matched; implicit anchors). Same rules as {@link parseLocaleDecimalString}. */
 export const LOCALE_DECIMAL_HTML_PATTERN = String.raw`(?=.*\d)[\d\s.,]+`
 
+/** After thousand/decimal normalization, value must match this before {@link Number.parseFloat}. */
+const NORMALIZED_LOCALE_DECIMAL_PATTERN = /^[+-]?\d+(?:[.,]\d+)?$/
+
 /**
  * Parse a user-entered locale-style decimal: spaces, thousand/decimal separators.
  * Returns null for empty, invalid, or negative values.
@@ -34,7 +37,9 @@ export function parseLocaleDecimalString(raw: string): number | null {
 			normalized = compact.replace(/,/g, '')
 		}
 	}
-	const n = Number.parseFloat(normalized)
+	if (!NORMALIZED_LOCALE_DECIMAL_PATTERN.test(normalized)) return null
+	const forParse = normalized.replace(',', '.')
+	const n = Number.parseFloat(forParse)
 	if (!Number.isFinite(n) || n < 0) return null
 	return n
 }

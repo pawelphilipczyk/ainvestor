@@ -89,12 +89,15 @@ describe('Guidelines page', () => {
 		form.set('instrumentTicker', 'VTI')
 		form.set('targetPct', '12,5')
 
-		await testSessionFetch(
+		const postResponse = await testSessionFetch(
 			new Request('http://localhost/guidelines/instrument', {
 				method: 'POST',
 				body: form,
 			}),
 		)
+
+		assert.equal(postResponse.status, 302)
+		assert.equal(postResponse.headers.get('location'), '/guidelines')
 
 		const page = await testSessionFetch('http://localhost/guidelines')
 		const body = await page.text()

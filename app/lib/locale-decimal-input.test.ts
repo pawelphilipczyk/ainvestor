@@ -19,6 +19,12 @@ describe('parseLocaleDecimalString', () => {
 		assert.equal(parseLocaleDecimalString('abc'), null)
 		assert.equal(parseLocaleDecimalString('-1'), null)
 	})
+
+	it('rejects malformed separators and mixed alphanumeric', () => {
+		assert.equal(parseLocaleDecimalString('1..2'), null)
+		assert.equal(parseLocaleDecimalString('1.2.3'), null)
+		assert.equal(parseLocaleDecimalString('12abc'), null)
+	})
 })
 
 describe('LOCALE_DECIMAL_HTML_PATTERN', () => {
