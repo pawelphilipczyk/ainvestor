@@ -6,8 +6,10 @@ import {
 	SelectInput,
 	SubmitButton,
 } from '../../components/index.ts'
+import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
+import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
@@ -33,21 +35,20 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 
 		return (
 			<main class="mx-auto grid max-w-lg gap-6">
-				<Card class="p-6">
-					<header>
-						<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-							Investment Guidelines
-						</h1>
-						<p class="mt-1 text-sm text-muted-foreground">
-							Set your target allocation.{' '}
-							{sessionUsesGithubGist(session)
-								? 'Saved to your private GitHub Gist.'
-								: session?.approvalStatus === 'pending'
-									? 'Account pending approval — guidelines are not saved to GitHub yet.'
-									: 'Sign in to persist across sessions.'}
-						</p>
-					</header>
-				</Card>
+				<SectionIntroCard
+					page="guidelines"
+					variant="page"
+					title={SECTION_INTROS.guidelines.title}
+					description={SECTION_INTROS.guidelines.description}
+				>
+					<p class="mt-1 text-sm text-muted-foreground">
+						{sessionUsesGithubGist(session)
+							? 'Saved to your private GitHub Gist.'
+							: session?.approvalStatus === 'pending'
+								? 'Account pending approval — guidelines are not saved to GitHub yet.'
+								: 'Sign in to persist across sessions.'}
+					</p>
+				</SectionIntroCard>
 
 				<Card
 					variant="muted"

@@ -1,10 +1,10 @@
-import type { AppPage } from '../lib/app-page.ts'
+import type { SectionIntroPage } from '../lib/section-intros.ts'
 import { routes } from '../routes.ts'
 
 export type NavLink = {
 	href: string
 	label: string
-	page: AppPage
+	page: SectionIntroPage
 }
 
 export const NAV_LINKS: NavLink[] = [
