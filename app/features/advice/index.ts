@@ -1,7 +1,6 @@
 import { jsx } from 'remix/component/jsx-runtime'
 import type { Issue } from 'remix/data-schema'
 import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
-import { minLength } from 'remix/data-schema/checks'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
@@ -19,21 +18,38 @@ import {
 	getSessionData,
 	type SessionData,
 } from '../../lib/session.ts'
-import type { AdviceClient, AdviceModelId } from '../../openai.ts'
+import type {
+	AdviceAnalysisMode,
+	AdviceClient,
+	AdviceModelId,
+} from '../../openai.ts'
 import {
+	ADVICE_ANALYSIS_MODES,
 	ADVICE_MODEL_IDS,
 	createDefaultClient,
+	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
 	getInvestmentAdvice,
+	normalizeAdviceAnalysisTab,
 } from '../../openai.ts'
+import { routes } from '../../routes.ts'
 import type { AdviceDocument } from './advice-document.ts'
 import { AdvicePage } from './advice-page.tsx'
 
 const AdviceSchema = object({
-	cashAmount: string().pipe(minLength(1)),
+	cashAmount: string(),
 	cashCurrency: defaulted(enum_(CURRENCIES), 'PLN'),
 	adviceModel: defaulted(enum_(ADVICE_MODEL_IDS), DEFAULT_ADVICE_MODEL),
+	analysisMode: defaulted(
+		enum_(ADVICE_ANALYSIS_MODES),
+		DEFAULT_ADVICE_ANALYSIS_MODE,
+	),
 })
+
+function parseAdviceTabParam(url: string): AdviceAnalysisMode {
+	const tab = new URL(url).searchParams.get('tab')
+	return normalizeAdviceAnalysisTab(tab)
+}
 
 function formatSchemaIssues(issues: ReadonlyArray<Issue>): string {
 	return issues
@@ -50,6 +66,11 @@ function renderAdviceResponse(options: {
 	props: {
 		cashAmount?: string
 		cashCurrency?: string
+		analysisMode?: AdviceAnalysisMode
+		/** Tab selected in the UI (`?tab=`); defaults to buy_next. */
+		activeTab?: AdviceAnalysisMode
+		/** Which analysis produced `advice` (for showing the result on the correct tab). */
+		lastAnalysisMode?: AdviceAnalysisMode
 		selectedModel?: AdviceModelId
 		advice?: AdviceDocument
 		formError?: { summary: string; detail?: string }
@@ -82,9 +103,14 @@ export const adviceController = {
 	async index(context: { request: Request; session: Session }) {
 		const layoutSession = getLayoutSession(context.session)
 		const pendingApproval = layoutSession?.approvalStatus === 'pending'
+		const activeTab = parseAdviceTabParam(context.request.url)
 		return renderAdviceResponse({
 			session: layoutSession,
-			props: { pendingApproval },
+			props: {
+				pendingApproval,
+				analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+				activeTab,
+			},
 		})
 	},
 
@@ -96,12 +122,15 @@ export const adviceController = {
 		const session = getSessionData(context.session)
 		const layoutSession = getLayoutSession(context.session)
 		const pendingApproval = layoutSession?.approvalStatus === 'pending'
+		const activeTabFromUrl = parseAdviceTabParam(context.request.url)
 		const form = context.formData
 		if (!form) {
 			return renderAdviceResponse({
 				session: layoutSession,
 				props: {
 					pendingApproval,
+					analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+					activeTab: activeTabFromUrl,
 					formError: {
 						summary: t('errors.advice.formRead'),
 						detail: t('errors.advice.formReadDetail'),
@@ -114,6 +143,8 @@ export const adviceController = {
 		const rawEntries = objectFromFormData(form)
 		const formPayload = {
 			...rawEntries,
+			cashAmount:
+				typeof rawEntries.cashAmount === 'string' ? rawEntries.cashAmount : '',
 			cashCurrency:
 				typeof rawEntries.cashCurrency === 'string' &&
 				rawEntries.cashCurrency.length > 0
@@ -123,6 +154,11 @@ export const adviceController = {
 				typeof rawEntries.adviceModel === 'string' &&
 				rawEntries.adviceModel.length > 0
 					? rawEntries.adviceModel
+					: undefined,
+			analysisMode:
+				typeof rawEntries.analysisMode === 'string' &&
+				rawEntries.analysisMode.length > 0
+					? rawEntries.analysisMode
 					: undefined,
 		}
 		const result = parseSafe(AdviceSchema, formPayload)
@@ -140,12 +176,21 @@ export const adviceController = {
 				(ADVICE_MODEL_IDS as readonly string[]).includes(rawModel)
 					? (rawModel as AdviceModelId)
 					: DEFAULT_ADVICE_MODEL
+			const rawMode = form.get('analysisMode')
+			const analysisMode =
+				typeof rawMode === 'string' &&
+				rawMode.length > 0 &&
+				(ADVICE_ANALYSIS_MODES as readonly string[]).includes(rawMode)
+					? (rawMode as AdviceAnalysisMode)
+					: DEFAULT_ADVICE_ANALYSIS_MODE
 			return renderAdviceResponse({
 				session: layoutSession,
 				props: {
 					pendingApproval,
 					cashAmount,
 					cashCurrency,
+					analysisMode,
+					activeTab: activeTabFromUrl,
 					selectedModel,
 					formError: {
 						summary: t('errors.advice.validation'),
@@ -155,15 +200,41 @@ export const adviceController = {
 				init: { status: 400 },
 			})
 		}
-		const { cashAmount, cashCurrency, adviceModel } = result.value
+		const {
+			cashAmount: rawCashAmount,
+			cashCurrency,
+			adviceModel,
+			analysisMode,
+		} = result.value
+		const trimmedCash = rawCashAmount.trim()
+		if (analysisMode === 'buy_next' && trimmedCash === '') {
+			return renderAdviceResponse({
+				session: layoutSession,
+				props: {
+					pendingApproval,
+					cashAmount: rawCashAmount,
+					cashCurrency,
+					analysisMode,
+					activeTab: activeTabFromUrl,
+					selectedModel: adviceModel,
+					formError: {
+						summary: t('errors.advice.buyNextCashRequired'),
+					},
+				},
+				init: { status: 400 },
+			})
+		}
+		const cashAmount = trimmedCash
 
 		if (pendingApproval) {
 			return renderAdviceResponse({
 				session: layoutSession,
 				props: {
 					pendingApproval: true,
-					cashAmount,
+					cashAmount: rawCashAmount,
 					cashCurrency,
+					analysisMode,
+					activeTab: activeTabFromUrl,
 					selectedModel: adviceModel,
 					formError: {
 						summary: t('errors.advice.notApproved'),
@@ -195,6 +266,7 @@ export const adviceController = {
 				catalog,
 				client,
 				model: adviceModel,
+				analysisMode,
 			})
 			return renderAdviceResponse({
 				session: layoutSession,
@@ -202,6 +274,9 @@ export const adviceController = {
 					pendingApproval,
 					cashAmount,
 					cashCurrency,
+					analysisMode,
+					activeTab: activeTabFromUrl,
+					lastAnalysisMode: analysisMode,
 					selectedModel: adviceModel,
 					advice,
 				},
@@ -221,6 +296,9 @@ export const adviceController = {
 					pendingApproval,
 					cashAmount,
 					cashCurrency,
+					analysisMode,
+					activeTab: activeTabFromUrl,
+					lastAnalysisMode: analysisMode,
 					selectedModel: adviceModel,
 					formError: {
 						summary: t('errors.advice.service'),
@@ -231,4 +309,10 @@ export const adviceController = {
 			})
 		}
 	},
+}
+
+/** Test helper: path + query for switching to a tab. */
+export function adviceTabHref(mode: AdviceAnalysisMode): string {
+	const q = mode === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
+	return routes.advice.index.href({}, { tab: q })
 }

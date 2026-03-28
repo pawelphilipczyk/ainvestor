@@ -7,9 +7,12 @@ import {
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import type { AdviceClient } from '../../openai.ts'
-import { setAdviceClient } from './index.ts'
+import { adviceTabHref, setAdviceClient } from './index.ts'
 
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
+
+const adviceUrl = (mode: Parameters<typeof adviceTabHref>[0]) =>
+	`http://localhost${adviceTabHref(mode)}`
 
 function makeMockClient(responseText: string): AdviceClient {
 	const content = (() => {
@@ -53,8 +56,10 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Get Advice/)
-		const cashInput = body.match(/<input\b[^>]*\bid="cashAmount"[^>]*>/)
-		assert.ok(cashInput, 'expected #cashAmount input')
+		const cashInput = body.match(
+			/<input\b[^>]*\bid="cashAmount-buy-next"[^>]*>/,
+		)
+		assert.ok(cashInput, 'expected #cashAmount-buy-next input')
 		assert.match(cashInput[0], /type="text"/)
 		assert.match(cashInput[0], /name="cashAmount"/)
 		assert.match(cashInput[0], /inputmode="decimal"/)
@@ -65,7 +70,11 @@ describe('Advice', () => {
 		)
 		assert.match(body, /name="cashCurrency"/)
 		assert.match(body, /name="adviceModel"/)
-		assert.match(body, /action="\/advice"/)
+		assert.match(body, /name="analysisMode"/)
+		assert.match(body, /tab=buy_next/)
+		assert.match(body, /tab=portfolio_review/)
+		assert.match(body, /What to buy next/)
+		assert.match(body, /Portfolio health review/)
 	})
 
 	it('GET /advice shows pending approval when session login is not on allowlist', async () => {
@@ -113,8 +122,9 @@ describe('Advice', () => {
 			},
 		})
 
+		form.set('analysisMode', 'buy_next')
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', {
+			new Request(adviceUrl('buy_next'), {
 				method: 'POST',
 				body: form,
 				headers: { Cookie: cookie },
@@ -127,13 +137,16 @@ describe('Advice', () => {
 		assert.doesNotMatch(body, /Investment Advice/)
 	})
 
-	it('returns 400 with AdvicePage HTML when cashAmount is missing', async () => {
+	it('returns 400 with AdvicePage HTML when buy_next has empty cashAmount', async () => {
 		setAdviceClient(makeMockClient('irrelevant'))
 
+		const form = new FormData()
+		form.set('analysisMode', 'buy_next')
+
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', {
+			new Request(adviceUrl('buy_next'), {
 				method: 'POST',
-				body: new FormData(),
+				body: form,
 			}),
 		)
 		const body = await response.text()
@@ -141,9 +154,26 @@ describe('Advice', () => {
 		assert.equal(response.status, 400)
 		assert.match(body, /Get Advice/)
 		assert.match(body, /role="alert"/)
-		assert.match(body, /<summary[^>]*>/)
-		assert.match(body, /Enter a valid cash amount and currency\./)
-		assert.match(body, /cashAmount:/)
+		assert.match(body, /Enter how much cash you plan to invest/)
+	})
+
+	it('returns 200 for portfolio_review without cashAmount', async () => {
+		setAdviceClient(makeMockClient('Concentrated in equities; consider bonds.'))
+
+		const form = new FormData()
+		form.set('analysisMode', 'portfolio_review')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('portfolio_review'), {
+				method: 'POST',
+				body: form,
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Portfolio review/)
+		assert.match(body, /Concentrated in equities/)
 	})
 
 	it('returns 503 with AdvicePage HTML when the advice client throws', async () => {
@@ -160,8 +190,9 @@ describe('Advice', () => {
 		const form = new FormData()
 		form.set('cashAmount', '100')
 
+		form.set('analysisMode', 'buy_next')
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -183,9 +214,10 @@ describe('Advice', () => {
 		try {
 			const form = new FormData()
 			form.set('cashAmount', '100')
+			form.set('analysisMode', 'buy_next')
 
 			const response = await testSessionFetch(
-				new Request('http://localhost/advice', { method: 'POST', body: form }),
+				new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 			)
 			const body = await response.text()
 
@@ -212,9 +244,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '1000')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -270,9 +303,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '2000')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -326,9 +360,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '500')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -380,9 +415,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '100')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -415,9 +451,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '500')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -458,9 +495,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '500')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -507,8 +545,9 @@ describe('Advice', () => {
 
 		const adviceForm = new FormData()
 		adviceForm.set('cashAmount', '500')
+		adviceForm.set('analysisMode', 'buy_next')
 		await testSessionFetch(
-			new Request('http://localhost/advice', {
+			new Request(adviceUrl('buy_next'), {
 				method: 'POST',
 				body: adviceForm,
 			}),
@@ -558,8 +597,9 @@ describe('Advice', () => {
 
 		const adviceForm = new FormData()
 		adviceForm.set('cashAmount', '1000')
+		adviceForm.set('analysisMode', 'buy_next')
 		await testSessionFetch(
-			new Request('http://localhost/advice', {
+			new Request(adviceUrl('buy_next'), {
 				method: 'POST',
 				body: adviceForm,
 			}),
@@ -585,9 +625,10 @@ describe('Advice', () => {
 		const form = new FormData()
 		form.set('cashAmount', '100')
 		form.set('adviceModel', 'gpt-5.4-nano')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 

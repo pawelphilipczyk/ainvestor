@@ -12,6 +12,7 @@ import {
 	formatCatalogForAdvice,
 	formatPostInvestmentTotalsBlock,
 	getInvestmentAdvice,
+	normalizeAdviceAnalysisTab,
 	parseAdviceCashAmount,
 } from './openai.ts'
 
@@ -482,6 +483,82 @@ describe('getInvestmentAdvice', () => {
 		assert.match(capturedMessage, /Server allocation diagnostics/)
 	})
 
+	it('portfolio_review uses the review system prompt and omits cash deployment', async () => {
+		let systemPrompt = ''
+		let userMessage = ''
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						systemPrompt = params.messages[0].content
+						userMessage = params.messages[1].content
+						return {
+							choices: [{ message: { content: adviceJsonParagraph('ok') } }],
+						}
+					},
+				},
+			},
+		}
+
+		await getInvestmentAdvice({
+			holdings: [
+				{ id: '1', name: 'VTI', ticker: 'VTI', value: 5000, currency: 'USD' },
+			],
+			guidelines: [],
+			cashAmount: '0',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+			analysisMode: 'portfolio_review',
+		})
+
+		assert.match(systemPrompt, /qualitative review/i)
+		assert.match(systemPrompt, /Do \*\*not\*\* include "etf_proposals"/)
+		assert.match(userMessage, /Allocation context/)
+		assert.match(userMessage, /ETF catalog/)
+		assert.doesNotMatch(userMessage, /Deployable cash/)
+		assert.doesNotMatch(userMessage, /Hard constraint \(mandatory\)/)
+	})
+
+	it('portfolio_review compares to guidelines when present', async () => {
+		let userMessage = ''
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						userMessage = params.messages[1].content
+						return {
+							choices: [{ message: { content: adviceJsonParagraph('ok') } }],
+						}
+					},
+				},
+			},
+		}
+
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 70,
+				etfType: 'equity',
+			},
+		]
+
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines,
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+			analysisMode: 'portfolio_review',
+		})
+
+		assert.match(userMessage, /intended long-term mix/)
+		assert.match(userMessage, /70%/)
+	})
+
 	it('includes mandatory buy-only constraint in the user message', async () => {
 		let capturedMessage = ''
 		const client: AdviceClient = {
@@ -559,6 +636,20 @@ describe('formatAllocationContext', () => {
 		const out = formatAllocationContext(holdings, catalog)
 		assert.match(out, /equity.*60/)
 		assert.match(out, /bond.*40/)
+	})
+})
+
+describe('normalizeAdviceAnalysisTab', () => {
+	it('returns known modes and defaults for unknown', () => {
+		assert.equal(normalizeAdviceAnalysisTab('buy_next'), 'buy_next')
+		assert.equal(
+			normalizeAdviceAnalysisTab('portfolio_review'),
+			'portfolio_review',
+		)
+		assert.equal(normalizeAdviceAnalysisTab(undefined), 'buy_next')
+		assert.equal(normalizeAdviceAnalysisTab(null), 'buy_next')
+		assert.equal(normalizeAdviceAnalysisTab(''), 'buy_next')
+		assert.equal(normalizeAdviceAnalysisTab('nope'), 'buy_next')
 	})
 })
 

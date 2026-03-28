@@ -132,6 +132,65 @@ Rules:
 
 Do not provide legal or tax advice; only portfolio allocation guidance.`
 
+/**
+ * Qualitative portfolio health review (balance, risk, improvements) using holdings + catalog +
+ * optional guidelines. Unlike buy-next advice, this mode may discuss rebalancing and concentration
+ * in general terms; it does not output purchase rows.
+ *
+ * Prompt structure draws on common “portfolio review” patterns: flag concentration vs
+ * diversification, compare mix to stated targets, note missing sleeves or geographic/sector skew,
+ * and suggest improvements without asserting future returns.
+ */
+const PORTFOLIO_REVIEW_SYSTEM_PROMPT = `You are a financial educator reviewing an ETF-only portfolio for balance and risk.
+
+Inputs: current holdings, allocation summary (by asset type from catalog mapping), ETF catalog,
+and optional target-allocation guidelines. The catalog is the only source for tickers and cited stats.
+
+**Task:** Give a concise, honest qualitative review. Cover:
+1. **Balance & diversification** — asset-class mix, concentration in single funds or types,
+   overlap between holdings, geographic or sector skew where catalog fields support it.
+2. **Risk posture** — infer *relative* risk from the mix and catalog fields (e.g. volatility,
+   return/risk, risk KID) where present; do not invent numbers not in the catalog.
+3. **Vs guidelines** — if targets exist, how current weights compare (approximate % vs each
+   aggregated asset-class bucket and any named-fund lines). If there are no guidelines, say the
+   review is based on holdings and catalog only.
+4. **What could improve** — concrete, ordered suggestions (e.g. reduce concentration, add a sleeve,
+   align with targets). You may mention rebalancing or trimming **as general portfolio practice**;
+   this is not a trade order.
+
+**Rules:**
+- Base every specific fund reference on the catalog; do not invent performance, risk, or cost figures.
+- Be clear this is educational commentary, not personalized investment advice.
+- Do not provide legal or tax advice.
+
+You MUST respond with a single JSON object only (no markdown code fences, no extra text). Shape:
+{
+  "blocks": [
+    { "type": "paragraph", "text": "..." }
+  ]
+}
+
+Use **only** "paragraph" blocks (one or more). Merge sections with clear headings inside the string
+(e.g. "## Balance", "## Risk", "## vs targets", "## Improvements") or bullet lines ("- ").
+Do **not** include "etf_proposals" blocks. Roughly 12–28 short bullets or equivalent prose across blocks.`
+
+/** How the advice page uses the model: next purchases vs qualitative portfolio review. */
+export const ADVICE_ANALYSIS_MODES = ['buy_next', 'portfolio_review'] as const
+
+export type AdviceAnalysisMode = (typeof ADVICE_ANALYSIS_MODES)[number]
+
+export const DEFAULT_ADVICE_ANALYSIS_MODE: AdviceAnalysisMode = 'buy_next'
+
+/** Normalize tab / mode strings from URLs or stale props to a known analysis mode. */
+export function normalizeAdviceAnalysisTab(
+	tab: string | undefined | null,
+): AdviceAnalysisMode {
+	if (tab === 'portfolio_review' || tab === 'buy_next') {
+		return tab
+	}
+	return DEFAULT_ADVICE_ANALYSIS_MODE
+}
+
 /** OpenAI chat models offered for ETF advice (user-selectable; default is mini). */
 export const ADVICE_MODEL_IDS = [
 	'gpt-5.4-mini',
@@ -578,6 +637,36 @@ export function formatCatalogForAdvice(catalog: CatalogEntry[]): string {
 		.join('\n')
 }
 
+function buildPortfolioReviewUserMessage(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+	catalog: CatalogEntry[]
+}): string {
+	const { holdings, guidelines, catalog } = params
+
+	const holdingsList =
+		holdings.length === 0
+			? 'No ETFs recorded yet.'
+			: holdings.map((h) => `- ${h.name}: ${h.value} ${h.currency}`).join('\n')
+
+	const aggregatedBuckets = formatAggregatedGuidelineBucketsBlock(guidelines)
+	const guidelinesSection =
+		guidelines.length === 0
+			? '**No target allocation guidelines were provided.** Base balance and improvement ideas on the holdings and catalog only; say when you are inferring without explicit targets.\n\n'
+			: `My target allocation (intended long-term mix of my ETF portfolio; compare **current** holding weights to these targets):\n${guidelines.map(formatGuidelineLine).join('\n')}\n\n${aggregatedBuckets ? `${aggregatedBuckets}\n\n` : ''}`
+
+	const allocationBlock = formatAllocationContext(holdings, catalog)
+	const catalogBlock = formatCatalogForAdvice(catalog)
+
+	return (
+		`${guidelinesSection}` +
+		`---\nAllocation context (current ETF weights by asset type; do not invent percentages beyond this summary):\n${allocationBlock}\n\n` +
+		`---\nETF catalog (cite only tickers and stats from this list):\n${catalogBlock}\n\n` +
+		`---\nMy current holdings (line items):\n${holdingsList}\n\n` +
+		`Give the portfolio health review described in your system instructions. Respond using the JSON block structure there (paragraph blocks only; no etf_proposals).`
+	)
+}
+
 export async function getInvestmentAdvice(params: {
 	holdings: EtfEntry[]
 	guidelines: EtfGuideline[]
@@ -586,6 +675,7 @@ export async function getInvestmentAdvice(params: {
 	catalog: CatalogEntry[]
 	client: AdviceClient
 	model?: AdviceModelId
+	analysisMode?: AdviceAnalysisMode
 }): Promise<AdviceDocument> {
 	const {
 		holdings,
@@ -595,7 +685,26 @@ export async function getInvestmentAdvice(params: {
 		catalog,
 		client,
 		model = DEFAULT_ADVICE_MODEL,
+		analysisMode = DEFAULT_ADVICE_ANALYSIS_MODE,
 	} = params
+
+	if (analysisMode === 'portfolio_review') {
+		const userMessage = buildPortfolioReviewUserMessage({
+			holdings,
+			guidelines,
+			catalog,
+		})
+		const response = await client.chat.completions.create({
+			model,
+			messages: [
+				{ role: 'system', content: PORTFOLIO_REVIEW_SYSTEM_PROMPT },
+				{ role: 'user', content: userMessage },
+			],
+			response_format: { type: 'json_object' },
+		})
+		const content = response.choices[0]?.message?.content ?? null
+		return parseAdviceDocument(content)
+	}
 
 	const holdingsList =
 		holdings.length === 0

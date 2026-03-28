@@ -6,6 +6,8 @@ import {
 	ScrollableTable,
 	SelectInput,
 	SubmitButton,
+	TabLink,
+	TabsNav,
 } from '../../components/index.ts'
 import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { CURRENCIES } from '../../lib/currencies.ts'
@@ -14,8 +16,12 @@ import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import {
 	ADVICE_MODEL_IDS,
+	type AdviceAnalysisMode,
 	type AdviceModelId,
+	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
+	normalizeAdviceAnalysisTab,
+	parseAdviceCashAmount,
 } from '../../openai.ts'
 import { routes } from '../../routes.ts'
 import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
@@ -28,6 +34,11 @@ type FormError = {
 type AdvicePageProps = {
 	cashAmount?: string
 	cashCurrency?: string
+	analysisMode?: AdviceAnalysisMode
+	/** Selected tab from `?tab=` (defaults to buy_next). */
+	activeTab?: AdviceAnalysisMode
+	/** Which flow produced the current `advice` (for the result card). */
+	lastAnalysisMode?: AdviceAnalysisMode
 	selectedModel?: AdviceModelId
 	advice?: AdviceDocument
 	formError?: FormError
@@ -408,7 +419,21 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 	return (props: AdvicePageProps) => {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
+		const activeTab = normalizeAdviceAnalysisTab(props.activeTab)
+		const resultMode =
+			props.advice !== undefined
+				? (props.lastAnalysisMode ??
+					props.analysisMode ??
+					DEFAULT_ADVICE_ANALYSIS_MODE)
+				: null
 		const pendingApproval = props.pendingApproval === true
+		const buyNextHref = routes.advice.index.href({}, { tab: 'buy_next' })
+		const reviewHref = routes.advice.index.href({}, { tab: 'portfolio_review' })
+		const buyNextAction = routes.advice.action.href({}, { tab: 'buy_next' })
+		const reviewAction = routes.advice.action.href(
+			{},
+			{ tab: 'portfolio_review' },
+		)
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
 				<SectionIntroCard
@@ -417,6 +442,14 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					title={SECTION_INTROS.advice.title}
 					description={SECTION_INTROS.advice.description}
 				/>
+				<TabsNav activeId={activeTab} aria-label={t('advice.tabs.navAria')}>
+					<TabLink id="buy_next" href={buyNextHref}>
+						{t('advice.analysisMode.buy_next')}
+					</TabLink>
+					<TabLink id="portfolio_review" href={reviewHref}>
+						{t('advice.analysisMode.portfolio_review')}
+					</TabLink>
+				</TabsNav>
 				{pendingApproval ? (
 					<div
 						role="status"
@@ -432,92 +465,204 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</p>
 					</div>
 				) : null}
-				<Card variant="muted" class="p-6">
-					<form
-						method="post"
-						action={routes.advice.action.href()}
-						class="space-y-4"
-						data-fetch-submit
-						data-replace-main
-					>
-						{props.formError ? (
-							<div
-								role="alert"
-								class="rounded-md border border-destructive/50 bg-destructive/10 py-3 pl-6 pr-4 text-sm text-destructive"
-							>
-								{props.formError.detail ? (
-									<details>
-										<summary class="cursor-pointer list-inside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-											{props.formError.summary}
-										</summary>
-										<pre class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-destructive/20 pt-3 font-mono text-xs leading-relaxed text-destructive/90">
-											{props.formError.detail}
-										</pre>
-									</details>
-								) : (
-									props.formError.summary
-								)}
-							</div>
-						) : null}
-						<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
-							<div class="grid min-w-0 flex-1 gap-2">
-								<FieldLabel fieldId="cashAmount">
-									{t('advice.form.field.cash')}
-								</FieldLabel>
-								<NumberInput
-									id="cashAmount"
-									name="cashAmount"
-									placeholder={t('advice.form.placeholder.cash')}
-									required={true}
-									inputMode="decimal"
-									pattern={LOCALE_DECIMAL_HTML_PATTERN}
-									defaultValue={props.cashAmount}
+				{activeTab === 'buy_next' ? (
+					<Card variant="muted" class="p-6">
+						<form
+							method="post"
+							action={buyNextAction}
+							class="space-y-4"
+							data-fetch-submit
+							data-replace-main
+						>
+							<input type="hidden" name="analysisMode" value="buy_next" />
+							{props.formError && activeTab === 'buy_next' ? (
+								<div
+									role="alert"
+									class="rounded-md border border-destructive/50 bg-destructive/10 py-3 pl-6 pr-4 text-sm text-destructive"
+								>
+									{props.formError.detail ? (
+										<details>
+											<summary class="cursor-pointer list-inside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+												{props.formError.summary}
+											</summary>
+											<pre class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-destructive/20 pt-3 font-mono text-xs leading-relaxed text-destructive/90">
+												{props.formError.detail}
+											</pre>
+										</details>
+									) : (
+										props.formError.summary
+									)}
+								</div>
+							) : null}
+							<p class="text-xs text-muted-foreground">
+								{t('advice.tab.hint.buyNext')}
+							</p>
+							<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+								<div class="grid min-w-0 flex-1 gap-2">
+									<FieldLabel fieldId="cashAmount-buy-next">
+										{t('advice.form.field.cash')}
+									</FieldLabel>
+									<NumberInput
+										id="cashAmount-buy-next"
+										name="cashAmount"
+										placeholder={t('advice.form.placeholder.cash')}
+										required={true}
+										min={1}
+										step="any"
+										inputMode="decimal"
+										pattern={LOCALE_DECIMAL_HTML_PATTERN}
+										defaultValue={props.cashAmount}
+										disabled={pendingApproval}
+									/>
+								</div>
+								<div class="grid w-full gap-2 sm:w-36">
+									<FieldLabel fieldId="cashCurrency-buy-next">
+										{t('advice.form.field.currency')}
+									</FieldLabel>
+									<SelectInput
+										id="cashCurrency-buy-next"
+										name="cashCurrency"
+										options={currencyOptions}
+										value={cashCurrency}
+										disabled={pendingApproval}
+									/>
+								</div>
+								<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
+									<FieldLabel fieldId="adviceModel-buy-next">
+										{t('advice.form.field.model')}
+									</FieldLabel>
+									<SelectInput
+										id="adviceModel-buy-next"
+										name="adviceModel"
+										options={modelOptions}
+										value={selectedModel}
+										disabled={pendingApproval}
+									/>
+								</div>
+								<SubmitButton
 									disabled={pendingApproval}
-								/>
+									class="sm:!w-auto sm:shrink-0"
+								>
+									{t('advice.form.submit')}
+								</SubmitButton>
 							</div>
-							<div class="grid w-full gap-2 sm:w-36">
-								<FieldLabel fieldId="cashCurrency">
-									{t('advice.form.field.currency')}
-								</FieldLabel>
-								<SelectInput
-									id="cashCurrency"
-									name="cashCurrency"
-									options={currencyOptions}
-									value={cashCurrency}
+						</form>
+					</Card>
+				) : (
+					<Card variant="muted" class="p-6">
+						<form
+							method="post"
+							action={reviewAction}
+							class="space-y-4"
+							data-fetch-submit
+							data-replace-main
+						>
+							<input
+								type="hidden"
+								name="analysisMode"
+								value="portfolio_review"
+							/>
+							{props.formError && activeTab === 'portfolio_review' ? (
+								<div
+									role="alert"
+									class="rounded-md border border-destructive/50 bg-destructive/10 py-3 pl-6 pr-4 text-sm text-destructive"
+								>
+									{props.formError.detail ? (
+										<details>
+											<summary class="cursor-pointer list-inside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+												{props.formError.summary}
+											</summary>
+											<pre class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-destructive/20 pt-3 font-mono text-xs leading-relaxed text-destructive/90">
+												{props.formError.detail}
+											</pre>
+										</details>
+									) : (
+										props.formError.summary
+									)}
+								</div>
+							) : null}
+							<p class="text-xs text-muted-foreground">
+								{t('advice.tab.hint.portfolioReview')}
+							</p>
+							<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+								<div class="grid min-w-0 flex-1 gap-2">
+									<FieldLabel fieldId="cashAmount-review">
+										{t('advice.form.field.cashOptional')}
+									</FieldLabel>
+									<NumberInput
+										id="cashAmount-review"
+										name="cashAmount"
+										placeholder={t('advice.form.placeholder.cashOptional')}
+										step="any"
+										inputMode="decimal"
+										pattern={LOCALE_DECIMAL_HTML_PATTERN}
+										defaultValue={props.cashAmount}
+										disabled={pendingApproval}
+									/>
+								</div>
+								<div class="grid w-full gap-2 sm:w-36">
+									<FieldLabel fieldId="cashCurrency-review">
+										{t('advice.form.field.currency')}
+									</FieldLabel>
+									<SelectInput
+										id="cashCurrency-review"
+										name="cashCurrency"
+										options={currencyOptions}
+										value={cashCurrency}
+										disabled={pendingApproval}
+									/>
+								</div>
+								<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
+									<FieldLabel fieldId="adviceModel-review">
+										{t('advice.form.field.model')}
+									</FieldLabel>
+									<SelectInput
+										id="adviceModel-review"
+										name="adviceModel"
+										options={modelOptions}
+										value={selectedModel}
+										disabled={pendingApproval}
+									/>
+								</div>
+								<SubmitButton
 									disabled={pendingApproval}
-								/>
+									class="sm:!w-auto sm:shrink-0"
+								>
+									{t('advice.form.submit')}
+								</SubmitButton>
 							</div>
-							<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
-								<FieldLabel fieldId="adviceModel">
-									{t('advice.form.field.model')}
-								</FieldLabel>
-								<SelectInput
-									id="adviceModel"
-									name="adviceModel"
-									options={modelOptions}
-									value={selectedModel}
-									disabled={pendingApproval}
-								/>
-							</div>
-							<SubmitButton
-								disabled={pendingApproval}
-								class="sm:!w-auto sm:shrink-0"
-							>
-								{t('advice.form.submit')}
-							</SubmitButton>
-						</div>
-					</form>
-				</Card>
-				{props.advice !== undefined && props.cashAmount ? (
+						</form>
+					</Card>
+				)}
+				{props.advice !== undefined &&
+				resultMode !== null &&
+				(props.cashAmount !== undefined ||
+					resultMode === 'portfolio_review') ? (
 					<Card class="min-w-0 max-w-full p-6" aria-live="polite">
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
-							{t('advice.result.title')}
+							{resultMode === 'portfolio_review'
+								? t('advice.result.titleReview')
+								: t('advice.result.title')}
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
-							{format(t('advice.result.subtitle'), {
-								amount: props.cashAmount,
-								currency: cashCurrency,
-							})}
+							{resultMode === 'portfolio_review'
+								? (() => {
+										const raw = props.cashAmount?.trim() ?? ''
+										const parsed =
+											raw === '' ? null : parseAdviceCashAmount(raw)
+										const hasPositiveCash =
+											parsed !== null && Number.isFinite(parsed) && parsed > 0
+										return hasPositiveCash
+											? format(t('advice.result.subtitleReviewWithCash'), {
+													amount: raw,
+													currency: cashCurrency,
+												})
+											: t('advice.result.subtitleReviewGuidelinesOnly')
+									})()
+								: format(t('advice.result.subtitle'), {
+										amount: props.cashAmount ?? '',
+										currency: cashCurrency,
+									})}
 						</p>
 						<div class="mt-4 min-w-0 space-y-6">
 							{props.advice.blocks.map((block, i) => (

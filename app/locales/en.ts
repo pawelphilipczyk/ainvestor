@@ -38,7 +38,7 @@ export const en = {
 		'Paste or upload a broker CSV to add what you already hold or want to buy.',
 	'section.advice.title': 'Get Advice',
 	'section.advice.description':
-		'Tell me how much cash you have and I’ll suggest what to buy next.',
+		'Review portfolio balance and risk against your catalog and targets, or get buy ideas when you add cash.',
 	'section.catalog.title': 'ETF Catalog',
 	'section.catalog.description':
 		'Import your broker’s ETF list and browse what’s available.',
@@ -171,14 +171,28 @@ export const en = {
 		'You signed in with GitHub, but this app only allows listed users. Add your GitHub username to',
 	'advice.pending.afterPath':
 		'in a pull request. After it is merged and deployed, sign out and sign in again.',
+	'advice.tabs.navAria': 'Advice sections',
+	'advice.tab.hint.buyNext':
+		'Enter deployable cash (same currency as your holdings when possible). Suggestions are buy-only — no sells.',
+	'advice.tab.hint.portfolioReview':
+		'Qualitative balance and risk vs your catalog and guidelines. Cash below is optional.',
 	'advice.form.field.cash': 'Available cash',
+	'advice.form.field.cashOptional': 'Cash (optional)',
 	'advice.form.field.currency': 'Currency',
 	'advice.form.field.model': 'Model',
 	'advice.form.placeholder.cash': 'e.g. 1000',
+	'advice.form.placeholder.cashOptional': 'Leave blank for review only',
 	'advice.form.submit': 'Ask AI',
+	'advice.analysisMode.buy_next': 'What to buy next',
+	'advice.analysisMode.portfolio_review': 'Portfolio health review',
 	'advice.result.title': 'Investment Advice',
+	'advice.result.titleReview': 'Portfolio review',
 	'advice.result.subtitle':
 		'Based on your portfolio and {amount} {currency} available.',
+	'advice.result.subtitleReviewWithCash':
+		'Based on your current ETF holdings, catalog, guidelines, and optional cash context ({amount} {currency}).',
+	'advice.result.subtitleReviewGuidelinesOnly':
+		'Based on your current ETF holdings, catalog, and guidelines.',
 	'advice.table.empty': 'No specific ETF proposals in this response.',
 	'advice.table.caption': 'Proposed ETF investments',
 	'advice.table.fund': 'Fund',
@@ -214,7 +228,9 @@ export const en = {
 	'errors.advice.formRead': 'Could not read your form. Please try again.',
 	'errors.advice.formReadDetail':
 		'The server did not receive parseable form data for this request.',
-	'errors.advice.validation': 'Enter a valid cash amount and currency.',
+	'errors.advice.validation': 'Check the form and try again.',
+	'errors.advice.buyNextCashRequired':
+		'Enter how much cash you plan to invest for What to buy next.',
 	'errors.advice.notApproved':
 		'Your account is not approved yet. You cannot request advice until your GitHub username is added to app/lib/approved-github-logins.ts and deployed.',
 	'errors.advice.service':
