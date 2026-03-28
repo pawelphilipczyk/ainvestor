@@ -33,7 +33,7 @@ afterEach(() => {
 })
 
 describe('Guidelines page', () => {
-	it('GET /guidelines returns 200 with two boxed forms', async () => {
+	it('GET /guidelines returns 200 with tabbed add forms', async () => {
 		await seedGuestCatalog()
 		const response = await testSessionFetch('http://localhost/guidelines')
 		const body = await response.text()
@@ -41,24 +41,39 @@ describe('Guidelines page', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Guidelines/)
 		assert.match(body, /guidelines-list\.component\.js/)
+		assert.match(body, /href="\/guidelines"/)
+		assert.match(body, /href="\/guidelines\?tab=bucket"/)
 		assert.match(body, /action="\/guidelines\/instrument"/)
-		assert.match(body, /action="\/guidelines\/asset-class"/)
 		assert.match(body, /name="instrumentTicker"/)
 		assert.match(body, /Specific ETF target/)
 		assert.match(body, /Asset class bucket/)
+
+		const bucketPage = await testSessionFetch(
+			'http://localhost/guidelines?tab=bucket',
+		)
+		const bucketBody = await bucketPage.text()
+		assert.match(bucketBody, /action="\/guidelines\/asset-class"/)
+		assert.match(bucketBody, /name="assetClassType"/)
+
 		assert.match(body, /Remaining:\s*<strong[^>]*>100%<\/strong>/)
 		assert.match(body, /No guidelines added yet\./)
 	})
 
 	it('Target % fields use money-style decimal input (numeric keypad)', async () => {
 		await seedGuestCatalog()
-		const response = await testSessionFetch('http://localhost/guidelines')
-		const body = await response.text()
+		const instrumentRes = await testSessionFetch('http://localhost/guidelines')
+		const instrumentBody = await instrumentRes.text()
+		const bucketRes = await testSessionFetch(
+			'http://localhost/guidelines?tab=bucket',
+		)
+		const bucketBody = await bucketRes.text()
 
-		const instrumentPct = body.match(
+		const instrumentPct = instrumentBody.match(
 			/<input\b[^>]*\bid="instrumentTargetPct"[^>]*>/,
 		)
-		const assetPct = body.match(/<input\b[^>]*\bid="assetTargetPct"[^>]*>/)
+		const assetPct = bucketBody.match(
+			/<input\b[^>]*\bid="assetTargetPct"[^>]*>/,
+		)
 		assert.ok(instrumentPct, 'expected #instrumentTargetPct input')
 		assert.ok(assetPct, 'expected #assetTargetPct input')
 		assert.match(instrumentPct[0], /type="text"/)
@@ -173,9 +188,11 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(response.status, 302)
-		assert.equal(response.headers.get('location'), '/guidelines')
+		assert.equal(response.headers.get('location'), '/guidelines?tab=bucket')
 
-		const page = await testSessionFetch('http://localhost/guidelines')
+		const page = await testSessionFetch(
+			'http://localhost/guidelines?tab=bucket',
+		)
 		const body = await page.text()
 		assert.match(body, /cannot add up to more than 100%/)
 		assert.match(body, /60/)

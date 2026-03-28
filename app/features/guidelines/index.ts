@@ -38,6 +38,20 @@ import {
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 import { GuidelinesPage } from './guidelines-page.tsx'
 
+type GuidelinesAddTabId = 'instrument' | 'bucket'
+
+function normalizeGuidelinesAddTab(tab: string | null): GuidelinesAddTabId {
+	if (tab === 'bucket') return 'bucket'
+	return 'instrument'
+}
+
+function guidelinesIndexHref(tab?: GuidelinesAddTabId) {
+	if (tab === 'bucket') {
+		return routes.guidelines.index.href({}, { tab: 'bucket' })
+	}
+	return routes.guidelines.index.href()
+}
+
 const InstrumentGuidelineSchema = object({
 	instrumentTicker: optional(string()),
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
@@ -70,6 +84,7 @@ function guidelinesTotalCapErrorResponse(params: {
 	session: Session
 	currentTotal: number
 	addedPct: number
+	addTab: GuidelinesAddTabId
 }): Response {
 	const message = format(t('errors.guidelines.totalExceeds100'), {
 		current: formatGuidelineTargetPctForInput(params.currentTotal),
@@ -82,7 +97,7 @@ function guidelinesTotalCapErrorResponse(params: {
 		})
 	}
 	params.session.flash('error', message)
-	return createRedirectResponse(routes.guidelines.index.href())
+	return createRedirectResponse(guidelinesIndexHref(params.addTab))
 }
 
 function pathSegmentKey(
@@ -123,7 +138,7 @@ function guidelinesUpdateSchemaValidationResponse(params: {
 		})
 	}
 	params.session.flash('error', error)
-	return createRedirectResponse(routes.guidelines.index.href())
+	return createRedirectResponse(guidelinesIndexHref())
 }
 
 function guidelinesUpdateCapErrorResponse(params: {
@@ -143,7 +158,7 @@ function guidelinesUpdateCapErrorResponse(params: {
 		})
 	}
 	params.session.flash('error', message)
-	return createRedirectResponse(routes.guidelines.index.href())
+	return createRedirectResponse(guidelinesIndexHref())
 }
 
 /**
@@ -156,8 +171,9 @@ async function persistGuideline(params: {
 	session: SessionData | null
 	remixSession: Session
 	request: Request
+	addTab: GuidelinesAddTabId
 }): Promise<Response | null> {
-	const { entry, session, remixSession, request } = params
+	const { entry, session, remixSession, request, addTab } = params
 	if (session?.gistId && session.token) {
 		const current = await fetchGuidelines(session.token, session.gistId)
 		if (
@@ -171,6 +187,7 @@ async function persistGuideline(params: {
 				session: remixSession,
 				currentTotal: sumGuidelineTargetPct(current),
 				addedPct: entry.targetPct,
+				addTab,
 			})
 		}
 		await saveGuidelines(session.token, session.gistId, [entry, ...current])
@@ -189,6 +206,7 @@ async function persistGuideline(params: {
 			session: remixSession,
 			currentTotal: sumGuidelineTargetPct(current),
 			addedPct: entry.targetPct,
+			addTab,
 		})
 	}
 	setGuestGuidelines(remixSession, [entry, ...current])
@@ -272,6 +290,9 @@ export const guidelinesController = {
 		const session = getSessionData(context.session)
 		const layoutSession = getLayoutSession(context.session)
 		const flashError = context.session.get('error') as string | undefined
+		const activeAddTab = normalizeGuidelinesAddTab(
+			new URL(context.request.url).searchParams.get('tab'),
+		)
 		const [guidelines, catalog] = await Promise.all([
 			session?.gistId && session.token
 				? fetchGuidelines(session.token, session.gistId)
@@ -285,6 +306,7 @@ export const guidelinesController = {
 			session: layoutSession,
 			catalog,
 			flashError,
+			activeAddTab,
 		})
 	},
 
@@ -294,13 +316,13 @@ export const guidelinesController = {
 		formData: FormData | null
 	}) {
 		const form = context.formData
-		if (!form) return createRedirectResponse(routes.guidelines.index.href())
+		if (!form) return createRedirectResponse(guidelinesIndexHref('instrument'))
 
 		const formPayload = objectFromFormData(form)
 		normalizeGuidelineTargetPctInput(formPayload)
 		const result = parseSafe(InstrumentGuidelineSchema, formPayload)
 		if (!result.success) {
-			return createRedirectResponse(routes.guidelines.index.href())
+			return createRedirectResponse(guidelinesIndexHref('instrument'))
 		}
 
 		const session = getSessionData(context.session)
@@ -311,11 +333,11 @@ export const guidelinesController = {
 
 		const ticker = (result.value.instrumentTicker ?? '').trim()
 		if (!ticker) {
-			return createRedirectResponse(routes.guidelines.index.href())
+			return createRedirectResponse(guidelinesIndexHref('instrument'))
 		}
 		const match = findCatalogEntryByTicker(catalog, ticker)
 		if (!match) {
-			return createRedirectResponse(routes.guidelines.index.href())
+			return createRedirectResponse(guidelinesIndexHref('instrument'))
 		}
 
 		const { targetPct } = result.value
@@ -332,9 +354,10 @@ export const guidelinesController = {
 			session,
 			remixSession: context.session,
 			request: context.request,
+			addTab: 'instrument',
 		})
 		if (capError) return capError
-		return createRedirectResponse(routes.guidelines.index.href())
+		return createRedirectResponse(guidelinesIndexHref('instrument'))
 	},
 
 	async assetClass(context: {
@@ -343,13 +366,13 @@ export const guidelinesController = {
 		formData: FormData | null
 	}) {
 		const form = context.formData
-		if (!form) return createRedirectResponse(routes.guidelines.index.href())
+		if (!form) return createRedirectResponse(guidelinesIndexHref('bucket'))
 
 		const formPayload = objectFromFormData(form)
 		normalizeGuidelineTargetPctInput(formPayload)
 		const result = parseSafe(AssetClassGuidelineSchema, formPayload)
 		if (!result.success) {
-			return createRedirectResponse(routes.guidelines.index.href())
+			return createRedirectResponse(guidelinesIndexHref('bucket'))
 		}
 
 		const session = getSessionData(context.session)
@@ -363,7 +386,7 @@ export const guidelinesController = {
 
 		const raw = (result.value.assetClassType ?? '').trim()
 		if (!raw || !isEtfType(raw) || !allowedAssetClasses.has(raw)) {
-			return createRedirectResponse(routes.guidelines.index.href())
+			return createRedirectResponse(guidelinesIndexHref('bucket'))
 		}
 
 		const { targetPct } = result.value
@@ -380,9 +403,10 @@ export const guidelinesController = {
 			session,
 			remixSession: context.session,
 			request: context.request,
+			addTab: 'bucket',
 		})
 		if (capError) return capError
-		return createRedirectResponse(routes.guidelines.index.href())
+		return createRedirectResponse(guidelinesIndexHref('bucket'))
 	},
 
 	async updateTarget(context: {
@@ -471,14 +495,16 @@ async function renderGuidelinesPage(params: {
 	session: SessionData | null
 	catalog: CatalogEntry[]
 	flashError?: string
+	activeAddTab: GuidelinesAddTabId
 }) {
-	const { guidelines, session, catalog, flashError } = params
+	const { guidelines, session, catalog, flashError, activeAddTab } = params
 	const assetClassOptions = assetClassSelectOptionsFromCatalog(catalog)
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(GuidelinesPage, {
 		guidelines,
 		assetClassOptions,
 		instrumentOptions,
+		activeAddTab,
 	})
 	return render({
 		title: t('meta.title.guidelines'),
