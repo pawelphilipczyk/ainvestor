@@ -257,6 +257,137 @@ describe('Guidelines page', () => {
 		assert.match(body, /bond/)
 	})
 
+	it('POST /guidelines/:id/target updates target % and keeps total within 100', async () => {
+		await seedGuestCatalog()
+		const add = new FormData()
+		add.set('instrumentTicker', 'VTI')
+		add.set('targetPct', '40')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: add,
+			}),
+		)
+
+		const listBody = await (
+			await testSessionFetch('http://localhost/guidelines')
+		).text()
+		const idMatch = listBody.match(
+			/action="\/guidelines\/([a-f0-9-]+)\/target"/,
+		)
+		assert.ok(idMatch, 'expected update target form action')
+		const id = idMatch[1]
+
+		const update = new FormData()
+		update.set('targetPct', '55')
+		const postRes = await testSessionFetch(
+			new Request(`http://localhost/guidelines/${id}/target`, {
+				method: 'POST',
+				body: update,
+			}),
+		)
+		assert.equal(postRes.status, 302)
+		assert.equal(postRes.headers.get('location'), '/guidelines')
+
+		const after = await (
+			await testSessionFetch('http://localhost/guidelines')
+		).text()
+		assert.match(after, /name="targetPct"/)
+		assert.match(after, /value="55"/)
+		assert.match(after, /Total allocated:\s*<strong[^>]*>55%<\/strong>/)
+	})
+
+	it('POST /guidelines/:id/target rejects when new total would exceed 100', async () => {
+		await seedGuestCatalog()
+		const first = new FormData()
+		first.set('instrumentTicker', 'VTI')
+		first.set('targetPct', '60')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: first,
+			}),
+		)
+		const second = new FormData()
+		second.set('instrumentTicker', 'BND')
+		second.set('targetPct', '30')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: second,
+			}),
+		)
+
+		const listBody = await (
+			await testSessionFetch('http://localhost/guidelines')
+		).text()
+		const bndMatch = listBody.match(
+			/BND[\s\S]*?action="\/guidelines\/([a-f0-9-]+)\/target"/,
+		)
+		assert.ok(bndMatch, 'expected BND row update form')
+		const bndId = bndMatch[1]
+
+		const update = new FormData()
+		update.set('targetPct', '50')
+		const response = await testSessionFetch(
+			new Request(`http://localhost/guidelines/${bndId}/target`, {
+				method: 'POST',
+				body: update,
+			}),
+		)
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/guidelines')
+
+		const page = await testSessionFetch('http://localhost/guidelines')
+		const body = await page.text()
+		assert.match(body, /would make the total/)
+		assert.match(body, /110/)
+	})
+
+	it('POST /guidelines/:id/target returns 422 JSON when total would exceed 100 and Accept is JSON', async () => {
+		await seedGuestCatalog()
+		const first = new FormData()
+		first.set('instrumentTicker', 'VTI')
+		first.set('targetPct', '60')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: first,
+			}),
+		)
+		const second = new FormData()
+		second.set('instrumentTicker', 'BND')
+		second.set('targetPct', '30')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: second,
+			}),
+		)
+
+		const listBody = await (
+			await testSessionFetch('http://localhost/guidelines')
+		).text()
+		const bndMatch = listBody.match(
+			/BND[\s\S]*?action="\/guidelines\/([a-f0-9-]+)\/target"/,
+		)
+		assert.ok(bndMatch)
+		const bndId = bndMatch[1]
+
+		const update = new FormData()
+		update.set('targetPct', '50')
+		const response = await testSessionFetch(
+			new Request(`http://localhost/guidelines/${bndId}/target`, {
+				method: 'POST',
+				body: update,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as { error?: string }
+		assert.match(data.error ?? '', /would make the total/)
+	})
+
 	it('POST /guidelines/instrument ignores missing ticker', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()

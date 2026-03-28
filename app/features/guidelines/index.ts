@@ -46,6 +46,10 @@ const AssetClassGuidelineSchema = object({
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
 })
 
+const UpdateGuidelineTargetSchema = object({
+	targetPct: coerce.number().pipe(min(0.001), max(100)),
+})
+
 /** Same locale rules as other decimal form fields (HTML `pattern` + {@link parseLocaleDecimalString}). */
 function normalizeGuidelineTargetPctInput(raw: Record<string, unknown>): void {
 	if (typeof raw.targetPct === 'string') {
@@ -69,6 +73,29 @@ function guidelinesTotalCapErrorResponse(params: {
 	const message = format(t('errors.guidelines.totalExceeds100'), {
 		current: formatPctForMessage(params.currentTotal),
 		added: formatPctForMessage(params.addedPct),
+	})
+	const prefersJson = params.request.headers
+		.get('Accept')
+		?.includes('application/json')
+	if (prefersJson) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	params.session.flash('error', message)
+	return createRedirectResponse(routes.guidelines.index.href())
+}
+
+function guidelinesUpdateCapErrorResponse(params: {
+	request: Request
+	session: Session
+	newPct: number
+	resultingTotal: number
+}): Response {
+	const message = format(t('errors.guidelines.updateTotalExceeds100'), {
+		newPct: formatPctForMessage(params.newPct),
+		total: formatPctForMessage(params.resultingTotal),
 	})
 	const prefersJson = params.request.headers
 		.get('Accept')
@@ -250,6 +277,84 @@ export const guidelinesController = {
 			request: context.request,
 		})
 		if (capError) return capError
+		return createRedirectResponse(routes.guidelines.index.href())
+	},
+
+	async updateTarget(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+		params: unknown
+	}) {
+		const id = (context.params as Record<string, string>).id
+		if (!id) return createRedirectResponse(routes.guidelines.index.href())
+
+		const form = context.formData
+		if (!form) return createRedirectResponse(routes.guidelines.index.href())
+
+		const formPayload = objectFromFormData(form)
+		normalizeGuidelineTargetPctInput(formPayload)
+		const result = parseSafe(UpdateGuidelineTargetSchema, formPayload)
+		if (!result.success) {
+			return createRedirectResponse(routes.guidelines.index.href())
+		}
+
+		const session = getSessionData(context.session)
+		const newPct = result.value.targetPct
+
+		if (session?.gistId && session.token) {
+			const current = await fetchGuidelines(session.token, session.gistId)
+			const existing = current.find((g) => g.id === id)
+			if (!existing) {
+				return createRedirectResponse(routes.guidelines.index.href())
+			}
+			const others = current.filter((g) => g.id !== id)
+			const resultingTotal = sumGuidelineTargetPct(others) + newPct
+			if (
+				wouldGuidelineTotalExceedCap({
+					existing: others,
+					additionalPct: newPct,
+				})
+			) {
+				return guidelinesUpdateCapErrorResponse({
+					request: context.request,
+					session: context.session,
+					newPct,
+					resultingTotal,
+				})
+			}
+			await saveGuidelines(
+				session.token,
+				session.gistId,
+				current.map((g) => (g.id === id ? { ...g, targetPct: newPct } : g)),
+			)
+		} else {
+			const current = getGuestGuidelines(context.session)
+			const existing = current.find((g) => g.id === id)
+			if (!existing) {
+				return createRedirectResponse(routes.guidelines.index.href())
+			}
+			const others = current.filter((g) => g.id !== id)
+			const resultingTotal = sumGuidelineTargetPct(others) + newPct
+			if (
+				wouldGuidelineTotalExceedCap({
+					existing: others,
+					additionalPct: newPct,
+				})
+			) {
+				return guidelinesUpdateCapErrorResponse({
+					request: context.request,
+					session: context.session,
+					newPct,
+					resultingTotal,
+				})
+			}
+			setGuestGuidelines(
+				context.session,
+				current.map((g) => (g.id === id ? { ...g, targetPct: newPct } : g)),
+			)
+		}
+
 		return createRedirectResponse(routes.guidelines.index.href())
 	},
 

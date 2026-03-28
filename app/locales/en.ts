@@ -163,6 +163,8 @@ export const en = {
 	'guidelines.list.kind.assetClass': 'asset class',
 	'guidelines.list.bucketSuffix': '(bucket)',
 	'guidelines.list.remove': 'Remove',
+	'guidelines.list.saveTarget': 'Save',
+	'guidelines.list.targetPctLabel': 'Target percent for {label}',
 	'guidelines.list.deleteAria.instrument': 'Delete {name} guideline',
 	'guidelines.list.deleteAria.bucket': 'Delete {label} bucket guideline',
 
@@ -227,6 +229,8 @@ export const en = {
 
 	'errors.guidelines.totalExceeds100':
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',
+	'errors.guidelines.updateTotalExceeds100':
+		'Guideline targets cannot add up to more than 100%. Setting this line to {newPct}% would make the total {total}%.',
 
 	'errors.advice.formRead': 'Could not read your form. Please try again.',
 	'errors.advice.formReadDetail':

@@ -24,6 +24,7 @@ export const routes = route({
 		index: get('/guidelines'),
 		instrument: post('/guidelines/instrument'),
 		assetClass: post('/guidelines/asset-class'),
+		updateTarget: post('/guidelines/:id/target'),
 		delete: del('/guidelines/:id'),
 		fragmentList: get('/fragments/guidelines-list'),
 	},
