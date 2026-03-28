@@ -19,6 +19,11 @@ type NumberInputProps = {
 	readOnly?: boolean
 	class?: string
 	autocomplete?: string
+	/**
+	 * When set, renders `type="text"` with `inputmode` so mobile OSes show a numeric keypad
+	 * while still allowing locale-style decimals (e.g. commas). Ignores `min`/`max`/`step` for HTML validation.
+	 */
+	inputMode?: 'decimal' | 'numeric'
 }
 
 /**
@@ -41,9 +46,29 @@ export function NumberInput(_handle: Handle, _setup?: unknown) {
 			defaultValue,
 			form,
 			readOnly,
+			inputMode: inputModeProp,
 		} = props
 		const inputClasses = `${controlClasses} ${classProp ?? ''}`.trim()
 		const valueAttr = value !== undefined ? { value } : {}
+		if (inputModeProp !== undefined) {
+			return (
+				<input
+					id={id}
+					name={name}
+					type="text"
+					inputmode={inputModeProp}
+					placeholder={placeholder}
+					required={required}
+					disabled={disabled}
+					defaultValue={defaultValue}
+					form={form}
+					readOnly={readOnly}
+					autocomplete={autocomplete}
+					class={`${inputClasses} tabular-nums`.trim()}
+					{...valueAttr}
+				/>
+			)
+		}
 		return (
 			<input
 				id={id}

@@ -408,6 +408,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 		const pendingApproval = props.pendingApproval === true
+		const cashFilled =
+			typeof props.cashAmount === 'string' && props.cashAmount.trim().length > 0
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
 				<SectionIntroCard
@@ -438,6 +440,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						class="space-y-4"
 						data-fetch-submit
 						data-replace-main
+						data-advice-cash-form
 					>
 						{props.formError ? (
 							<div
@@ -470,6 +473,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									required={true}
 									min={1}
 									step="any"
+									inputMode="decimal"
 									defaultValue={props.cashAmount}
 									disabled={pendingApproval}
 								/>
@@ -499,7 +503,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								/>
 							</div>
 							<SubmitButton
-								disabled={pendingApproval}
+								disabled={pendingApproval || !cashFilled}
 								class="sm:!w-auto sm:shrink-0"
 							>
 								{t('advice.form.submit')}
