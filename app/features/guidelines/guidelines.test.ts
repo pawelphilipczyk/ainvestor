@@ -40,6 +40,7 @@ describe('Guidelines page', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Guidelines/)
+		assert.match(body, /guidelines-list\.component\.js/)
 		assert.match(body, /action="\/guidelines\/instrument"/)
 		assert.match(body, /action="\/guidelines\/asset-class"/)
 		assert.match(body, /name="instrumentTicker"/)
@@ -486,6 +487,40 @@ describe('Guidelines page', () => {
 		assert.match(body, /equity \(bucket\)/)
 	})
 
+	it('guidelines list delete uses dialog confirmation pattern', async () => {
+		await seedGuestCatalog()
+		const addForm = new FormData()
+		addForm.set('instrumentTicker', 'VNQ')
+		addForm.set('targetPct', '10')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: addForm,
+			}),
+		)
+
+		const listResponse = await testSessionFetch('http://localhost/guidelines')
+		const listBody = await listResponse.text()
+		assert.match(listBody, /<dialog\b[^>]*id="guideline-delete-dialog-/)
+		assert.match(listBody, /class="[^"]*guideline-delete-trigger/)
+		assert.match(
+			listBody,
+			/Remove the[\s\S]*?guideline\?[\s\S]*?name="_method"[\s\S]*?value="DELETE"/,
+		)
+	})
+
+	it('serves guidelines-list component entry for delete dialog', async () => {
+		const res = await testSessionFetch(
+			'http://localhost/features/guidelines/guidelines-list.component.js',
+		)
+		assert.equal(res.status, 200)
+		assert.match(res.headers.get('content-type') ?? '', /text\/javascript/)
+		const body = await res.text()
+		assert.match(body, /clientEntry/)
+		assert.match(body, /showModal/)
+		assert.match(body, /guideline-delete-trigger/)
+	})
+
 	it('DELETE /guidelines/:id removes the guideline via method override', async () => {
 		await seedGuestCatalog()
 		const addForm = new FormData()
@@ -500,7 +535,9 @@ describe('Guidelines page', () => {
 
 		const listResponse = await testSessionFetch('http://localhost/guidelines')
 		const listBody = await listResponse.text()
-		const idMatch = listBody.match(/action="\/guidelines\/([a-f0-9-]+)"/)
+		const idMatch = listBody.match(
+			/action="\/guidelines\/([a-f0-9-]+)"[^>]*>[\s\S]*?name="_method"[\s\S]*?value="DELETE"/,
+		)
 		assert.ok(idMatch, 'delete form action should be present')
 		const id = idMatch[1]
 
