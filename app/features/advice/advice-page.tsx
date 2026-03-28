@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
+	LinkTab,
 	LinkTabs,
 	NumberInput,
 	ScrollableTable,
@@ -438,22 +439,14 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					title={SECTION_INTROS.advice.title}
 					description={SECTION_INTROS.advice.description}
 				/>
-				<LinkTabs
-					navAriaLabel={t('advice.tabs.navAria')}
-					activeId={activeTab}
-					tabs={[
-						{
-							id: 'buy_next',
-							href: buyNextHref,
-							label: t('advice.analysisMode.buy_next'),
-						},
-						{
-							id: 'portfolio_review',
-							href: reviewHref,
-							label: t('advice.analysisMode.portfolio_review'),
-						},
-					]}
-				/>
+				<LinkTabs navAriaLabel={t('advice.tabs.navAria')} activeId={activeTab}>
+					<LinkTab id="buy_next" href={buyNextHref}>
+						{t('advice.analysisMode.buy_next')}
+					</LinkTab>
+					<LinkTab id="portfolio_review" href={reviewHref}>
+						{t('advice.analysisMode.portfolio_review')}
+					</LinkTab>
+				</LinkTabs>
 				{pendingApproval ? (
 					<div
 						role="status"
