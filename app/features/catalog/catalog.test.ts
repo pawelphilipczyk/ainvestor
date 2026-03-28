@@ -155,8 +155,8 @@ describe('ETF Catalog page', () => {
 		)
 		assert.match(
 			body,
-			/\bmin-w-full w-max table-auto\b/,
-			'table needs intrinsic min width so the frame can scroll horizontally',
+			/<table\b[^>]*\bclass="(?=[^"]*\bmin-w-full\b)(?=[^"]*\bw-max\b)(?=[^"]*\btable-auto\b)[^"]*"/,
+			'catalog <table> needs min-w-full, w-max, and table-auto (any order) for horizontal scroll',
 		)
 	})
 
