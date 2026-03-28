@@ -5,6 +5,7 @@ import { minLength } from 'remix/data-schema/checks'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
+import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
 import {
 	getGuestCatalog,
@@ -110,9 +111,7 @@ export const adviceController = {
 			})
 		}
 
-		const rawEntries = Object.fromEntries(
-			form as unknown as Iterable<[string, FormDataEntryValue]>,
-		)
+		const rawEntries = objectFromFormData(form)
 		const formPayload = {
 			...rawEntries,
 			cashCurrency:

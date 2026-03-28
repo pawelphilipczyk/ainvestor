@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
-import { MONEY_AMOUNT_HTML_PATTERN } from '../../lib/money-input.ts'
+import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
 	resetTestSessionCookieJar,
@@ -60,7 +60,7 @@ describe('Advice', () => {
 		assert.match(cashInput[0], /inputmode="decimal"/)
 		assert.match(cashInput[0], /\brequired\b/)
 		assert.ok(
-			cashInput[0].includes(`pattern="${MONEY_AMOUNT_HTML_PATTERN}"`),
+			cashInput[0].includes(`pattern="${LOCALE_DECIMAL_HTML_PATTERN}"`),
 			'expected pattern to match deployable cash HTML constraint',
 		)
 		assert.match(body, /name="cashCurrency"/)

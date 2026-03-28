@@ -7,6 +7,7 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
+import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import {
 	getGuestCatalog,
 	getGuestGuidelines,
@@ -19,6 +20,7 @@ import {
 	saveGuidelines,
 } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
+import { parseLocaleDecimalString } from '../../lib/locale-decimal-input.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
@@ -41,6 +43,14 @@ const AssetClassGuidelineSchema = object({
 	assetClassType: optional(string()),
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
 })
+
+/** Same locale rules as other decimal form fields (HTML `pattern` + {@link parseLocaleDecimalString}). */
+function normalizeGuidelineTargetPctInput(raw: Record<string, unknown>): void {
+	if (typeof raw.targetPct === 'string') {
+		const parsed = parseLocaleDecimalString(raw.targetPct)
+		raw.targetPct = parsed === null ? raw.targetPct : String(parsed)
+	}
+}
 
 async function persistGuideline(params: {
 	entry: EtfGuideline
@@ -85,12 +95,9 @@ export const guidelinesController = {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
-		const result = parseSafe(
-			InstrumentGuidelineSchema,
-			Object.fromEntries(
-				form as unknown as Iterable<[string, FormDataEntryValue]>,
-			),
-		)
+		const formPayload = objectFromFormData(form)
+		normalizeGuidelineTargetPctInput(formPayload)
+		const result = parseSafe(InstrumentGuidelineSchema, formPayload)
 		if (!result.success) {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
@@ -135,12 +142,9 @@ export const guidelinesController = {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
-		const result = parseSafe(
-			AssetClassGuidelineSchema,
-			Object.fromEntries(
-				form as unknown as Iterable<[string, FormDataEntryValue]>,
-			),
-		)
+		const formPayload = objectFromFormData(form)
+		normalizeGuidelineTargetPctInput(formPayload)
+		const result = parseSafe(AssetClassGuidelineSchema, formPayload)
 		if (!result.success) {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}

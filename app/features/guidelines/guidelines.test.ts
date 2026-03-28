@@ -49,6 +49,23 @@ describe('Guidelines page', () => {
 		assert.match(body, /No guidelines added yet\./)
 	})
 
+	it('Target % fields use money-style decimal input (numeric keypad)', async () => {
+		await seedGuestCatalog()
+		const response = await testSessionFetch('http://localhost/guidelines')
+		const body = await response.text()
+
+		const instrumentPct = body.match(
+			/<input\b[^>]*\bid="instrumentTargetPct"[^>]*>/,
+		)
+		const assetPct = body.match(/<input\b[^>]*\bid="assetTargetPct"[^>]*>/)
+		assert.ok(instrumentPct, 'expected #instrumentTargetPct input')
+		assert.ok(assetPct, 'expected #assetTargetPct input')
+		assert.match(instrumentPct[0], /type="text"/)
+		assert.match(instrumentPct[0], /inputmode="decimal"/)
+		assert.match(assetPct[0], /type="text"/)
+		assert.match(assetPct[0], /inputmode="decimal"/)
+	})
+
 	it('POST /guidelines/instrument adds a guideline and redirects', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
@@ -64,6 +81,27 @@ describe('Guidelines page', () => {
 
 		assert.equal(response.status, 302)
 		assert.equal(response.headers.get('location'), '/guidelines')
+	})
+
+	it('POST /guidelines/instrument accepts locale-style target % (comma decimal)', async () => {
+		await seedGuestCatalog()
+		const form = new FormData()
+		form.set('instrumentTicker', 'VTI')
+		form.set('targetPct', '12,5')
+
+		const postResponse = await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: form,
+			}),
+		)
+
+		assert.equal(postResponse.status, 302)
+		assert.equal(postResponse.headers.get('location'), '/guidelines')
+
+		const page = await testSessionFetch('http://localhost/guidelines')
+		const body = await page.text()
+		assert.match(body, /12\.5/)
 	})
 
 	it('added guideline appears on the guidelines page', async () => {
