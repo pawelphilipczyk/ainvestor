@@ -3,7 +3,9 @@ import { describe, it } from 'node:test'
 import type { EtfGuideline } from './guidelines.ts'
 import {
 	buildGuidelinesGistPatch,
+	clampGuidelineBarPct,
 	formatEtfTypeLabel,
+	formatGuidelineTargetPctForInput,
 	GUIDELINES_FILENAME,
 	normalizeGuideline,
 	parseGuidelinesFromGist,
@@ -117,6 +119,41 @@ describe('guidelines', () => {
 			},
 		]
 		assert.equal(sumGuidelineTargetPct(guidelines), 100.5)
+	})
+
+	it('sumGuidelineTargetPct treats non-finite targetPct as 0', () => {
+		const guidelines: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: Number.NaN,
+				etfType: 'equity',
+			},
+			{
+				id: 'g2',
+				kind: 'instrument',
+				etfName: 'BND',
+				targetPct: 30,
+				etfType: 'bond',
+			},
+		]
+		assert.equal(sumGuidelineTargetPct(guidelines), 30)
+	})
+
+	it('formatGuidelineTargetPctForInput returns 0 for non-finite values', () => {
+		assert.equal(formatGuidelineTargetPctForInput(Number.NaN), '0')
+		assert.equal(
+			formatGuidelineTargetPctForInput(Number.POSITIVE_INFINITY),
+			'0',
+		)
+	})
+
+	it('clampGuidelineBarPct clamps to 0–100 and treats non-finite as 0', () => {
+		assert.equal(clampGuidelineBarPct(Number.NaN), 0)
+		assert.equal(clampGuidelineBarPct(-5), 0)
+		assert.equal(clampGuidelineBarPct(150), 100)
+		assert.equal(clampGuidelineBarPct(25), 25)
 	})
 
 	it('wouldGuidelineTotalExceedCap is false when new total is at most 100', () => {

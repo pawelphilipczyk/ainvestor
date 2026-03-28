@@ -47,15 +47,29 @@ export type EtfGuideline = {
 
 const GUIDELINE_TOTAL_EPS = 1e-9
 
+function finiteGuidelineTargetPct(n: number): number {
+	return Number.isFinite(n) ? n : 0
+}
+
 /** Sum of all guideline `targetPct` values (instrument + bucket rows). */
 export function sumGuidelineTargetPct(guidelines: EtfGuideline[]): number {
-	return guidelines.reduce((sum, g) => sum + g.targetPct, 0)
+	return guidelines.reduce(
+		(sum, g) => sum + finiteGuidelineTargetPct(g.targetPct),
+		0,
+	)
 }
 
 /** Display string for guideline target % inputs (matches server-side rounding in error messages). */
 export function formatGuidelineTargetPctForInput(value: number): string {
-	const rounded = Math.round(value * 100) / 100
+	const v = finiteGuidelineTargetPct(value)
+	const rounded = Math.round(v * 100) / 100
 	return String(rounded)
+}
+
+/** Clamp a guideline target % to 0–100 for visual bars; non-finite input becomes 0. */
+export function clampGuidelineBarPct(n: number): number {
+	const v = finiteGuidelineTargetPct(n)
+	return Math.min(100, Math.max(0, v))
 }
 
 /** True if adding `additionalPct` to `existing` would push the total above 100%. */

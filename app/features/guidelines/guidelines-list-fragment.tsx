@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import { Card, FieldLabel, NumberInput } from '../../components/index.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import {
+	clampGuidelineBarPct,
 	formatEtfTypeLabel,
 	formatGuidelineTargetPctForInput,
 	sumGuidelineTargetPct,
@@ -10,9 +11,10 @@ import { format, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { routes } from '../../routes.ts'
 
-function clampBarPct(n: number): number {
-	return Math.min(100, Math.max(0, n))
-}
+const guidelineSaveGhostClass =
+	'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground'
+const guidelineRemoveGhostClass =
+	'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
 
 /**
  * Renders the guidelines list and summary as HTML fragment for fetch-based form updates.
@@ -52,9 +54,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 							const targetPctDisplay = formatGuidelineTargetPctForInput(
 								g.targetPct,
 							)
-							const ghostActionClass =
-								'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
-							const barW = clampBarPct(g.targetPct)
+							const barW = clampGuidelineBarPct(g.targetPct)
 							const shareBarLabel = format(t('guidelines.list.shareBarAria'), {
 								pct: targetPctDisplay,
 								label: rowLabel,
@@ -122,13 +122,13 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 													{t('guidelines.list.targetPctSuffix')}
 												</span>
 											</span>
-											<button type="submit" class={ghostActionClass}>
+											<button type="submit" class={guidelineSaveGhostClass}>
 												{t('guidelines.list.saveTarget')}
 											</button>
 										</form>
 										<button
 											type="button"
-											class={`guideline-delete-trigger shrink-0 ${ghostActionClass}`}
+											class={`guideline-delete-trigger shrink-0 ${guidelineRemoveGhostClass}`}
 											aria-label={
 												g.kind === 'asset_class'
 													? format(t('guidelines.list.deleteAria.bucket'), {
@@ -146,8 +146,12 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 									<dialog
 										id={`guideline-delete-dialog-${g.id}`}
 										class="rounded-lg border border-border bg-card p-4 shadow-lg backdrop:bg-black/50"
+										aria-labelledby={`guideline-delete-dialog-label-${g.id}`}
 									>
-										<p class="mb-4 text-sm text-card-foreground">
+										<p
+											id={`guideline-delete-dialog-label-${g.id}`}
+											class="mb-4 text-sm text-card-foreground"
+										>
 											{format(t('guidelines.list.deleteConfirm'), {
 												label: rowLabel,
 											})}
