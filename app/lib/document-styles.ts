@@ -2,6 +2,40 @@
  * Base CSS variables for light/dark themes. Inlined in document shell style tag.
  */
 export const baseCss = `@layer base {
+  @view-transition {
+    navigation: auto;
+  }
+
+  ::view-transition-group(section-portfolio),
+  ::view-transition-group(section-advice),
+  ::view-transition-group(section-catalog),
+  ::view-transition-group(section-guidelines) {
+    animation-duration: 0.45s;
+    animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  ::view-transition-old(section-portfolio),
+  ::view-transition-new(section-portfolio),
+  ::view-transition-old(section-advice),
+  ::view-transition-new(section-advice),
+  ::view-transition-old(section-catalog),
+  ::view-transition-new(section-catalog),
+  ::view-transition-old(section-guidelines),
+  ::view-transition-new(section-guidelines) {
+    animation-name: section-intro-crossfade;
+  }
+
+  @keyframes section-intro-crossfade {
+    from {
+      opacity: 0.85;
+      transform: scale(0.98);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
   :root {
     --background: 0 0% 100%;
     --foreground: 240 10% 3.9%;

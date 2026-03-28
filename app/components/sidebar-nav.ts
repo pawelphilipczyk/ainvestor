@@ -1,31 +1,35 @@
-import type { AppPage } from '../lib/app-page.ts'
+import { t } from '../lib/i18n.ts'
+import type { SectionIntroPage } from '../lib/section-intros.ts'
 import { routes } from '../routes.ts'
 
 export type NavLink = {
 	href: string
 	label: string
-	page: AppPage
+	page: SectionIntroPage
 }
 
-export const NAV_LINKS: NavLink[] = [
-	{
-		href: routes.portfolio.index.href(),
-		label: 'Portfolio',
-		page: 'portfolio',
-	},
-	{
-		href: routes.advice.index.href(),
-		label: 'Get Advice',
-		page: 'advice',
-	},
-	{
-		href: routes.catalog.index.href(),
-		label: 'ETF Catalog',
-		page: 'catalog',
-	},
-	{
-		href: routes.guidelines.index.href(),
-		label: 'Investment Guidelines',
-		page: 'guidelines',
-	},
-]
+/** Build nav links at render time so labels follow the active locale (not module load). */
+export function getNavLinks(): NavLink[] {
+	return [
+		{
+			href: routes.portfolio.index.href(),
+			label: t('nav.portfolio'),
+			page: 'portfolio',
+		},
+		{
+			href: routes.advice.index.href(),
+			label: t('nav.advice'),
+			page: 'advice',
+		},
+		{
+			href: routes.catalog.index.href(),
+			label: t('nav.catalog'),
+			page: 'catalog',
+		},
+		{
+			href: routes.guidelines.index.href(),
+			label: t('nav.guidelines'),
+			page: 'guidelines',
+		},
+	]
+}

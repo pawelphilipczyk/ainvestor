@@ -6,8 +6,11 @@ import {
 	SelectInput,
 	SubmitButton,
 } from '../../components/index.ts'
+import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
+import { t } from '../../lib/i18n.ts'
+import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
@@ -24,8 +27,8 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 
 		const instrumentPlaceholder =
 			props.instrumentOptions.length === 0
-				? 'No funds in catalog — import on ETF Catalog'
-				: 'Select a fund…'
+				? t('forms.catalog.emptyPlaceholder')
+				: t('forms.catalog.selectFundPlaceholder')
 		const instrumentSelectOptions = [
 			{ value: '', label: instrumentPlaceholder },
 			...props.instrumentOptions,
@@ -33,21 +36,20 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 
 		return (
 			<main class="mx-auto grid max-w-lg gap-6">
-				<Card class="p-6">
-					<header>
-						<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-							Investment Guidelines
-						</h1>
-						<p class="mt-1 text-sm text-muted-foreground">
-							Set your target allocation.{' '}
-							{sessionUsesGithubGist(session)
-								? 'Saved to your private GitHub Gist.'
-								: session?.approvalStatus === 'pending'
-									? 'Account pending approval — guidelines are not saved to GitHub yet.'
-									: 'Sign in to persist across sessions.'}
-						</p>
-					</header>
-				</Card>
+				<SectionIntroCard
+					page="guidelines"
+					variant="page"
+					title={SECTION_INTROS.guidelines.title}
+					description={SECTION_INTROS.guidelines.description}
+				>
+					<p class="mt-1 text-sm text-muted-foreground">
+						{sessionUsesGithubGist(session)
+							? t('guidelines.subtitle.savedGist')
+							: session?.approvalStatus === 'pending'
+								? t('guidelines.subtitle.pending')
+								: t('guidelines.subtitle.signIn')}
+					</p>
+				</SectionIntroCard>
 
 				<Card
 					variant="muted"
@@ -58,11 +60,10 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						id="guidelines-etf-heading"
 						class="text-sm font-semibold text-card-foreground"
 					>
-						Specific ETF target
+						{t('guidelines.etfCard.title')}
 					</h2>
 					<p class="mt-1 text-xs text-muted-foreground">
-						Pick a fund from your catalog. Its category is set from the catalog
-						row.
+						{t('guidelines.etfCard.hint')}
 					</p>
 					<form
 						method="post"
@@ -74,7 +75,9 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						data-reset-form
 					>
 						<div class="grid gap-2">
-							<FieldLabel fieldId="instrumentTicker">Fund</FieldLabel>
+							<FieldLabel fieldId="instrumentTicker">
+								{t('guidelines.etfCard.field.fund')}
+							</FieldLabel>
 							<SelectInput
 								id="instrumentTicker"
 								name="instrumentTicker"
@@ -82,18 +85,20 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 							/>
 						</div>
 						<div class="grid gap-2">
-							<FieldLabel fieldId="instrumentTargetPct">Target %</FieldLabel>
+							<FieldLabel fieldId="instrumentTargetPct">
+								{t('guidelines.etfCard.field.targetPct')}
+							</FieldLabel>
 							<NumberInput
 								id="instrumentTargetPct"
 								name="targetPct"
-								placeholder="e.g. 60"
+								placeholder={t('forms.targetPct.placeholder')}
 								required={true}
 								min={1}
 								max={100}
 								step="0.1"
 							/>
 						</div>
-						<SubmitButton>Add ETF guideline</SubmitButton>
+						<SubmitButton>{t('guidelines.etfCard.submit')}</SubmitButton>
 					</form>
 				</Card>
 
@@ -106,11 +111,10 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						id="guidelines-bucket-heading"
 						class="text-sm font-semibold text-card-foreground"
 					>
-						Asset class bucket
+						{t('guidelines.bucket.title')}
 					</h2>
 					<p class="mt-1 text-xs text-muted-foreground">
-						Target a share of your portfolio for a class that appears in your
-						catalog.
+						{t('guidelines.bucket.hint')}
 					</p>
 					<form
 						method="post"
@@ -122,7 +126,9 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						data-reset-form
 					>
 						<div class="grid gap-2">
-							<FieldLabel fieldId="assetClassType">Asset class</FieldLabel>
+							<FieldLabel fieldId="assetClassType">
+								{t('guidelines.bucket.field.class')}
+							</FieldLabel>
 							<SelectInput
 								id="assetClassType"
 								name="assetClassType"
@@ -130,30 +136,32 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 							/>
 						</div>
 						<div class="grid gap-2">
-							<FieldLabel fieldId="assetTargetPct">Target %</FieldLabel>
+							<FieldLabel fieldId="assetTargetPct">
+								{t('guidelines.bucket.field.targetPct')}
+							</FieldLabel>
 							<NumberInput
 								id="assetTargetPct"
 								name="targetPct"
-								placeholder="e.g. 40"
+								placeholder={t('forms.targetPct.placeholderAsset')}
 								required={true}
 								min={1}
 								max={100}
 								step="0.1"
 							/>
 						</div>
-						<SubmitButton>Add asset-class guideline</SubmitButton>
+						<SubmitButton>{t('guidelines.bucket.submit')}</SubmitButton>
 					</form>
 				</Card>
 
 				<p class="text-xs text-muted-foreground">
-					Import or paste funds on the{' '}
+					{t('guidelines.footer.beforeLink')}{' '}
 					<a
 						href={routes.catalog.index.href()}
 						class="font-medium text-primary underline underline-offset-2"
 					>
-						ETF Catalog
+						{t('guidelines.footer.link')}
 					</a>{' '}
-					to populate both lists.
+					{t('guidelines.footer.after')}
 				</p>
 
 				<div id="guidelines-list">

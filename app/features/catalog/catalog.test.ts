@@ -120,6 +120,46 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /5[,.]?000/)
 	})
 
+	it('catalog uses ScrollableTable (frame + min-w-full w-max) for horizontal scroll', async () => {
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					fund_name: 'Vanguard Total',
+					ticker: 'VTI',
+					assets: 'akcje',
+				},
+			],
+			count: 1,
+			total_count: 1,
+		})
+		await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: bankJson,
+				headers: { 'Content-Type': 'application/json' },
+			}),
+		)
+
+		const response = await testSessionFetch('http://localhost/catalog')
+		const body = await response.text()
+
+		assert.match(
+			body,
+			/<main\b[^>]*\bclass="[^"]*\bmin-w-0\b[^"]*"/,
+			'main needs min-w-0 so the page column can shrink below table intrinsic width',
+		)
+		assert.match(
+			body,
+			/<div\b(?=[^>]*\bdata-scrollable-table-frame\b)(?=[^>]*\bclass="(?=[^"]*\bmin-w-0\b)(?=[^"]*\boverflow-x-auto\b)[^"]*")[^>]*>/,
+			'ScrollableTable outer div needs min-w-0 and overflow-x-auto on class (any order)',
+		)
+		assert.match(
+			body,
+			/<table\b[^>]*\bclass="(?=[^"]*\bmin-w-full\b)(?=[^"]*\bw-max\b)(?=[^"]*\btable-auto\b)[^"]*"/,
+			'catalog <table> needs min-w-full, w-max, and table-auto (any order) for horizontal scroll',
+		)
+	})
+
 	it('catalog page shows type filter and search form after import', async () => {
 		const bankJson = JSON.stringify({
 			data: [

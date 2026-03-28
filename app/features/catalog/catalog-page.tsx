@@ -2,15 +2,19 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
+	ScrollableTable,
 	SelectInput,
 	SubmitButton,
 	TextareaInput,
 	TextInput,
 } from '../../components/index.ts'
+import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
-import { ETF_TYPES } from '../../lib/guidelines.ts'
+import { ETF_TYPES, formatEtfTypeLabel } from '../../lib/guidelines.ts'
+import { format, t } from '../../lib/i18n.ts'
+import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 // @ts-expect-error Runtime-only JS client entry module
@@ -24,26 +28,35 @@ type CatalogPageProps = {
 	query: string
 }
 
+/** Keeps long fund names and descriptions readable (wrap) without forcing huge table width. */
+const catalogTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
+
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 	return () => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-			<th class="pb-2 pl-4 pr-4">Ticker</th>
-			<th class="pb-2 pr-4">Name</th>
-			<th class="pb-2 pr-4">Type</th>
-			<th class="pb-2 pr-4">Description</th>
-			<th class="pb-2">ISIN</th>
-			<th class="pb-2 pl-4 pr-4">Value</th>
+			<th class="pb-2 pl-4 pr-4 align-top">{t('catalog.table.ticker')}</th>
+			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>
+				{t('catalog.table.name')}
+			</th>
+			<th class="pb-2 pr-4 align-top">{t('catalog.table.type')}</th>
+			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>
+				{t('catalog.table.description')}
+			</th>
+			<th class="pb-2 align-top">{t('catalog.table.isin')}</th>
+			<th class="pb-2 pl-4 pr-4 align-top">{t('catalog.table.value')}</th>
 		</tr>
 	)
 }
 
 function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 	const valueCell = holding ? (
-		<td class="py-2 pl-4 pr-4 text-sm font-medium text-foreground">
+		<td class="py-2 pl-4 pr-4 align-top text-sm font-medium text-foreground">
 			{formatValue(holding.value, holding.currency)}
 		</td>
 	) : (
-		<td class="py-2 pl-4 pr-4 text-sm text-muted-foreground">—</td>
+		<td class="py-2 pl-4 pr-4 align-top text-sm text-muted-foreground">
+			{t('catalog.emptyCell')}
+		</td>
 	)
 
 	return (
@@ -51,20 +64,26 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			key={entry.id}
 			class="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
 		>
-			<td class="py-2 pl-4 pr-4 font-mono text-sm font-semibold">
+			<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold">
 				{entry.ticker}
 			</td>
-			<td class="py-2 pr-4 text-sm">{entry.name}</td>
-			<td class="py-2 pr-4">
+			<td
+				class={`py-2 pr-4 align-top text-sm break-words ${catalogTextColMax}`}
+			>
+				{entry.name}
+			</td>
+			<td class="py-2 pr-4 align-top">
 				<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-					{entry.type.replace('_', ' ')}
+					{formatEtfTypeLabel(entry.type) || t('catalog.etfTypeUnknown')}
 				</span>
 			</td>
-			<td class="max-w-xs truncate py-2 pr-4 text-sm text-muted-foreground">
-				{entry.description || '—'}
+			<td
+				class={`py-2 pr-4 align-top text-sm break-words text-muted-foreground ${catalogTextColMax}`}
+			>
+				{entry.description || t('catalog.emptyCell')}
 			</td>
-			<td class="py-2 font-mono text-xs text-muted-foreground">
-				{entry.isin ?? '—'}
+			<td class="py-2 align-top font-mono text-xs text-muted-foreground">
+				{entry.isin ?? t('catalog.emptyCell')}
 			</td>
 			{valueCell}
 		</tr>
@@ -103,38 +122,35 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 
 		return (
 			<>
-				<main class="mx-auto grid max-w-5xl gap-6">
-					<Card class="p-6">
-						<header>
-							<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-								ETF Catalog
-							</h1>
-							<p class="mt-1 text-sm text-muted-foreground">
-								Import your broker's ETF list and browse what's available.
+				<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
+					<SectionIntroCard
+						page="catalog"
+						variant="page"
+						title={SECTION_INTROS.catalog.title}
+						description={SECTION_INTROS.catalog.description}
+					>
+						{sessionUsesGithubGist(session) ? (
+							<p class="mt-0.5 text-xs text-muted-foreground">
+								{t('catalog.savedGist')}
 							</p>
-							{sessionUsesGithubGist(session) ? (
-								<p class="mt-0.5 text-xs text-muted-foreground">
-									Catalog saved to your private GitHub Gist.
-								</p>
-							) : session?.approvalStatus === 'pending' ? (
-								<p class="mt-0.5 text-xs text-muted-foreground">
-									Account pending approval — catalog is not saved to GitHub yet.
-								</p>
-							) : (
-								<p class="mt-0.5 text-xs text-muted-foreground">
-									Sign in to persist catalog across sessions.
-								</p>
-							)}
-						</header>
-					</Card>
+						) : session?.approvalStatus === 'pending' ? (
+							<p class="mt-0.5 text-xs text-muted-foreground">
+								{t('catalog.pendingNotSaved')}
+							</p>
+						) : (
+							<p class="mt-0.5 text-xs text-muted-foreground">
+								{t('catalog.signInPersist')}
+							</p>
+						)}
+					</SectionIntroCard>
 
 					<Card variant="muted" class="p-4">
 						<section>
 							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-								Import
+								{t('catalog.import.title')}
 							</h2>
 							<p class="mt-0.5 text-xs text-muted-foreground">
-								Paste bank API JSON below to add ETFs (merges with existing).
+								{t('catalog.import.subtitle')}
 							</p>
 							<div
 								data-catalog-paste-zone
@@ -142,11 +158,11 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								class="mt-3"
 							>
 								<FieldLabel fieldId="pasteZone" variant="screenReader">
-									Paste bank API JSON
+									{t('catalog.import.pasteLabel.sr')}
 								</FieldLabel>
 								<TextareaInput
 									id="pasteZone"
-									placeholder="Paste fetch response JSON here (Ctrl+V) — imports on paste"
+									placeholder={t('catalog.import.pastePlaceholder')}
 									rows={3}
 									class="block max-w-xl"
 								/>
@@ -154,11 +170,9 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							{props.catalog.length === 0 ? (
 								<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
 									<p class="font-medium text-foreground">
-										No catalog imported yet.
+										{t('catalog.empty.title')}
 									</p>
-									<p class="mt-1">
-										Paste bank API JSON above to add ETFs to your catalog.
-									</p>
+									<p class="mt-1">{t('catalog.empty.hint')}</p>
 								</div>
 							) : null}
 						</section>
@@ -173,29 +187,29 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							>
 								<div class="grid gap-1.5">
 									<FieldLabel fieldId="type" variant="filter">
-										Asset type
+										{t('catalog.filter.assetType')}
 									</FieldLabel>
 									<SelectInput
 										id="type"
 										name="type"
 										options={[
-											{ value: '', label: 'All types' },
-											...ETF_TYPES.map((t) => ({
-												value: t,
-												label: t.replace('_', ' '),
-												selected: props.typeFilter === t,
+											{ value: '', label: t('catalog.filter.allTypes') },
+											...ETF_TYPES.map((etfType) => ({
+												value: etfType,
+												label: formatEtfTypeLabel(etfType),
+												selected: props.typeFilter === etfType,
 											})),
 										]}
 									/>
 								</div>
 								<div class="grid gap-1.5">
 									<FieldLabel fieldId="q" variant="filter">
-										Search
+										{t('catalog.filter.search')}
 									</FieldLabel>
 									<TextInput
 										id="q"
 										name="q"
-										placeholder="Ticker, name, or description…"
+										placeholder={t('catalog.filter.searchPlaceholder')}
 										value={props.query}
 										type="search"
 										compact
@@ -203,59 +217,59 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									/>
 								</div>
 								<SubmitButton class="!h-9 !w-auto shrink-0 !py-0 text-sm font-medium">
-									Filter
+									{t('catalog.filter.submit')}
 								</SubmitButton>
 								{props.typeFilter || props.query ? (
 									<a
 										href={routes.catalog.index.href()}
 										class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
 									>
-										Clear
+										{t('catalog.filter.clear')}
 									</a>
 								) : null}
 							</form>
 							<p class="mt-3 text-sm text-muted-foreground">
-								{props.typeFilter || props.query ? (
-									<>
-										Showing {filtered.length} of {props.catalog.length} ETFs
-									</>
-								) : (
-									<>
-										{props.catalog.length} ETF
-										{props.catalog.length === 1 ? '' : 's'} in catalog
-									</>
-								)}
+								{props.typeFilter || props.query
+									? format(t('catalog.count.showing'), {
+											filtered: filtered.length,
+											total: props.catalog.length,
+										})
+									: props.catalog.length === 1
+										? format(t('catalog.count.one'), {
+												n: props.catalog.length,
+											})
+										: format(t('catalog.count.many'), {
+												n: props.catalog.length,
+											})}
 							</p>
 						</Card>
 					) : null}
 
 					{ownedInCatalog.length > 0 ? (
-						<Card class="p-4">
+						<Card class="min-w-0 p-4">
 							<section>
 								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-									Your Holdings
+									{t('catalog.holdings.title')}
 								</h2>
 								<p class="mt-0.5 text-xs text-muted-foreground">
-									ETFs in this catalog that you already own.
+									{t('catalog.holdings.subtitle')}
 								</p>
-								<div class="mt-3 overflow-x-auto rounded-lg border border-border">
-									<table class="w-full table-auto border-collapse">
-										<thead class="bg-muted/40 px-4">
-											<tr>
-												<td colspan={6} class="h-1" />
-											</tr>
-											<CatalogTableHeader />
-										</thead>
-										<tbody>
-											{ownedInCatalog.map((e) =>
-												renderCatalogRow(
-													e,
-													holdingsByTicker.get(holdingKey(e.ticker)),
-												),
-											)}
-										</tbody>
-									</table>
-								</div>
+								<ScrollableTable wrapperClass="mt-3">
+									<thead class="bg-muted/40 px-4">
+										<tr>
+											<td colspan={6} class="h-1" />
+										</tr>
+										<CatalogTableHeader />
+									</thead>
+									<tbody>
+										{ownedInCatalog.map((e) =>
+											renderCatalogRow(
+												e,
+												holdingsByTicker.get(holdingKey(e.ticker)),
+											),
+										)}
+									</tbody>
+								</ScrollableTable>
 							</section>
 						</Card>
 					) : null}
@@ -263,30 +277,26 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					{restOfCatalog.length === 0 && ownedInCatalog.length === 0 ? (
 						<Card class="p-4">
 							<p class="text-sm text-muted-foreground">
-								No ETFs match your search.
+								{t('catalog.noMatch')}
 							</p>
 						</Card>
 					) : restOfCatalog.length > 0 ? (
-						<Card class="p-4">
+						<Card class="min-w-0 p-4">
 							<section>
 								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 									{ownedInCatalog.length > 0
-										? 'Other Available ETFs'
-										: 'Available ETFs'}
+										? t('catalog.section.otherAvailable')
+										: t('catalog.section.available')}
 								</h2>
-								<div class="mt-3 overflow-x-auto rounded-lg border border-border">
-									<table class="w-full table-auto border-collapse">
-										<thead class="bg-muted/40">
-											<tr>
-												<td colspan={6} class="h-1" />
-											</tr>
-											<CatalogTableHeader />
-										</thead>
-										<tbody>
-											{restOfCatalog.map((e) => renderCatalogRow(e))}
-										</tbody>
-									</table>
-								</div>
+								<ScrollableTable wrapperClass="mt-3">
+									<thead class="bg-muted/40">
+										<tr>
+											<td colspan={6} class="h-1" />
+										</tr>
+										<CatalogTableHeader />
+									</thead>
+									<tbody>{restOfCatalog.map((e) => renderCatalogRow(e))}</tbody>
+								</ScrollableTable>
 							</section>
 						</Card>
 					) : null}

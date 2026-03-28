@@ -1,7 +1,10 @@
 import type { Handle } from 'remix/component'
 import { Card } from '../../components/index.ts'
+import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfEntry } from '../../lib/gist.ts'
+import { t } from '../../lib/i18n.ts'
+import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { AddEtfForm, ListFragment } from './add-etf-form/index.ts'
 // @ts-expect-error Runtime-only JS client entry module
@@ -23,38 +26,33 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 		return (
 			<>
 				<main class="mx-auto grid w-full min-w-0 max-w-lg gap-6">
-					<Card class="p-6">
-						<header>
-							<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-								Portfolio
-							</h1>
-							<p class="mt-1 text-sm text-muted-foreground">
-								Paste or upload a broker CSV to add what you already hold or
-								want to buy.
+					<SectionIntroCard
+						page="portfolio"
+						variant="page"
+						title={SECTION_INTROS.portfolio.title}
+						description={SECTION_INTROS.portfolio.description}
+					>
+						{sessionUsesGithubGist(session) ? (
+							<p class="mt-1 text-xs text-muted-foreground">
+								{t('portfolio.savedGist')}
 							</p>
-							{sessionUsesGithubGist(session) ? (
-								<p class="mt-1 text-xs text-muted-foreground">
-									Saved to your private GitHub Gist
-								</p>
-							) : session?.approvalStatus === 'pending' ? (
-								<p class="mt-1 text-xs text-muted-foreground">
-									Account pending approval — portfolio is not saved to GitHub
-									yet
-								</p>
-							) : (
-								<p class="mt-1 text-xs text-muted-foreground">
-									Sign in to persist your data across sessions
-								</p>
-							)}
-						</header>
-					</Card>
+						) : session?.approvalStatus === 'pending' ? (
+							<p class="mt-1 text-xs text-muted-foreground">
+								{t('portfolio.pendingNotSaved')}
+							</p>
+						) : (
+							<p class="mt-1 text-xs text-muted-foreground">
+								{t('portfolio.signInPersist')}
+							</p>
+						)}
+					</SectionIntroCard>
 					<ImportEtfForm />
 					<div id="portfolio-list">
 						<ListFragment entries={props.entries} />
 					</div>
 					<Card as="details" variant="muted" class="p-4">
 						<summary class="cursor-pointer text-sm font-medium text-card-foreground outline-none marker:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-							Add one ETF manually
+							{t('portfolio.addManual.summary')}
 						</summary>
 						<AddEtfForm instrumentOptions={props.instrumentOptions} />
 					</Card>

@@ -11,6 +11,7 @@ import {
 	getGuestGuidelines,
 } from '../../lib/guest-session-state.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
+import { t } from '../../lib/i18n.ts'
 import {
 	getLayoutSession,
 	getSessionData,
@@ -66,7 +67,7 @@ function renderAdviceResponse(options: {
 	init?: ResponseInit
 }) {
 	return render({
-		title: 'AI Investor – Get Advice',
+		title: t('meta.title.advice'),
 		session: options.session,
 		currentPage: 'advice',
 		body: jsx(AdvicePage, options.props),
@@ -112,9 +113,8 @@ export const adviceController = {
 					pendingApproval,
 					analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
 					formError: {
-						summary: 'Could not read your form. Please try again.',
-						detail:
-							'The server did not receive parseable form data for this request.',
+						summary: t('errors.advice.formRead'),
+						detail: t('errors.advice.formReadDetail'),
 					},
 				},
 				init: { status: 400 },
@@ -175,7 +175,7 @@ export const adviceController = {
 					analysisMode,
 					selectedModel,
 					formError: {
-						summary: 'Check the form and try again.',
+						summary: t('errors.advice.validation'),
 						detail: formatSchemaIssues(result.issues),
 					},
 				},
@@ -199,7 +199,7 @@ export const adviceController = {
 					analysisMode,
 					selectedModel: adviceModel,
 					formError: {
-						summary: 'Enter how much cash you plan to invest for Buy next.',
+						summary: t('errors.advice.buyNextCashRequired'),
 					},
 				},
 				init: { status: 400 },
@@ -220,8 +220,7 @@ export const adviceController = {
 					analysisMode,
 					selectedModel: adviceModel,
 					formError: {
-						summary:
-							'Your account is not approved yet. You cannot request advice until your GitHub username is added to app/lib/approved-github-logins.ts and deployed.',
+						summary: t('errors.advice.notApproved'),
 					},
 				},
 				init: { status: 403 },
@@ -281,8 +280,7 @@ export const adviceController = {
 					analysisMode,
 					selectedModel: adviceModel,
 					formError: {
-						summary:
-							"We couldn't get advice right now. Please try again in a moment.",
+						summary: t('errors.advice.service'),
 						detail,
 					},
 				},

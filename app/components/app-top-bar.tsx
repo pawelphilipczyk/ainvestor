@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import { t } from '../lib/i18n.ts'
 import { routes } from '../routes.ts'
 import { AppBranding } from './app-branding.tsx'
 import { SessionProvider } from './session-provider.tsx'
@@ -23,7 +24,9 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 							<span class="hidden text-xs font-medium text-muted-foreground sm:inline">
 								@{session.login}
 								{session.approvalStatus === 'pending' ? (
-									<span class="ml-1 text-amber-500/90">(pending)</span>
+									<span class="ml-1 text-amber-500/90">
+										{t('chrome.pendingShort')}
+									</span>
 								) : null}
 							</span>
 						) : (
@@ -31,14 +34,14 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 								href={routes.auth.login.href()}
 								class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 							>
-								Sign in
+								{t('chrome.signIn')}
 							</a>
 						)}
 						<ThemeToggleButton />
 						<button
 							data-sidebar-toggle
 							type="button"
-							aria-label="Open navigation"
+							aria-label={t('chrome.aria.openNav')}
 							aria-expanded="false"
 							aria-controls="app-sidebar"
 							class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"

@@ -17,6 +17,7 @@ import {
 	getGuestEtfs,
 	setGuestEtfs,
 } from '../../../lib/guest-session-state.ts'
+import { t } from '../../../lib/i18n.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
 import {
@@ -62,8 +63,7 @@ export const addEtfFormHandlers = {
 
 		const result = parseSafe(CreateEtfSchema, raw)
 		if (!result.success) {
-			const message =
-				'Please select a fund from your catalog and enter a valid value (number >= 0).'
+			const message = t('errors.portfolio.addInvalid')
 			const prefersJson = context.request.headers
 				.get('Accept')
 				?.includes('application/json')
@@ -94,8 +94,7 @@ export const addEtfFormHandlers = {
 		}
 		const match = findCatalogEntryByTicker(catalog, instrumentTicker)
 		if (!match) {
-			const message =
-				'Selected catalog entry not found. Update your catalog or pick another fund.'
+			const message = t('errors.portfolio.catalogEntryMissing')
 			const prefersJson = context.request.headers
 				.get('Accept')
 				?.includes('application/json')
