@@ -17,6 +17,7 @@ import {
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import {
 	fetchGuidelines,
+	formatGuidelineTargetPctForInput,
 	isEtfType,
 	saveGuidelines,
 	sumGuidelineTargetPct,
@@ -59,12 +60,6 @@ function normalizeGuidelineTargetPctInput(raw: Record<string, unknown>): void {
 	}
 }
 
-function formatPctForMessage(value: number): string {
-	const rounded = Math.round(value * 100) / 100
-	if (Number.isInteger(rounded)) return String(rounded)
-	return String(rounded)
-}
-
 /** Matches fetch-submit (`Accept: application/json`) vs full page navigation. */
 function prefersJson(request: Request): boolean {
 	return request.headers.get('Accept')?.includes('application/json') ?? false
@@ -77,8 +72,8 @@ function guidelinesTotalCapErrorResponse(params: {
 	addedPct: number
 }): Response {
 	const message = format(t('errors.guidelines.totalExceeds100'), {
-		current: formatPctForMessage(params.currentTotal),
-		added: formatPctForMessage(params.addedPct),
+		current: formatGuidelineTargetPctForInput(params.currentTotal),
+		added: formatGuidelineTargetPctForInput(params.addedPct),
 	})
 	if (prefersJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {
@@ -138,8 +133,8 @@ function guidelinesUpdateCapErrorResponse(params: {
 	resultingTotal: number
 }): Response {
 	const message = format(t('errors.guidelines.updateTotalExceeds100'), {
-		newPct: formatPctForMessage(params.newPct),
-		total: formatPctForMessage(params.resultingTotal),
+		newPct: formatGuidelineTargetPctForInput(params.newPct),
+		total: formatGuidelineTargetPctForInput(params.resultingTotal),
 	})
 	if (prefersJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {

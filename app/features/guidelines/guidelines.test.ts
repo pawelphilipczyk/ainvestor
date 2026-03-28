@@ -257,6 +257,31 @@ describe('Guidelines page', () => {
 		assert.match(body, /bond/)
 	})
 
+	it('guidelines list fragment shows target as a compact percent field', async () => {
+		await seedGuestCatalog()
+		const add = new FormData()
+		add.set('instrumentTicker', 'VTI')
+		add.set('targetPct', '25')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: add,
+			}),
+		)
+
+		const frag = await testSessionFetch(
+			'http://localhost/fragments/guidelines-list',
+		)
+		const html = await frag.text()
+		assert.equal(frag.status, 200)
+		assert.match(html, /value="25"/)
+		assert.match(html, /!w-16/)
+		assert.match(
+			html,
+			/<span[^>]*aria-hidden="true"[^>]*>\s*%\s*<\/span>/,
+		)
+	})
+
 	it('POST /guidelines/:id/target updates target % and keeps total within 100', async () => {
 		await seedGuestCatalog()
 		const add = new FormData()

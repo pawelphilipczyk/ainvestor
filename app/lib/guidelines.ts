@@ -52,6 +52,13 @@ export function sumGuidelineTargetPct(guidelines: EtfGuideline[]): number {
 	return guidelines.reduce((sum, g) => sum + g.targetPct, 0)
 }
 
+/** Display string for guideline target % inputs (matches server-side rounding in error messages). */
+export function formatGuidelineTargetPctForInput(value: number): string {
+	const rounded = Math.round(value * 100) / 100
+	if (Number.isInteger(rounded)) return String(rounded)
+	return String(rounded)
+}
+
 /** True if adding `additionalPct` to `existing` would push the total above 100%. */
 export function wouldGuidelineTotalExceedCap(params: {
 	existing: EtfGuideline[]
