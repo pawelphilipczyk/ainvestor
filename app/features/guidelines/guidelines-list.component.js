@@ -6,6 +6,7 @@ function openDialogForTrigger(trigger, doc) {
 	if (!dialogId) return
 	const dialog = doc.getElementById(dialogId)
 	if (!(dialog instanceof HTMLDialogElement)) return
+	if (dialog.open) return
 	dialog.showModal()
 }
 

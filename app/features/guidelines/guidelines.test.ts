@@ -542,7 +542,11 @@ describe('Guidelines page', () => {
 			'http://localhost/features/guidelines/guidelines-list.component.js',
 		)
 		assert.equal(res.status, 200)
-		assert.match(res.headers.get('content-type') ?? '', /text\/javascript/)
+		assert.match(
+			res.headers.get('content-type') ?? '',
+			/javascript/i,
+			'expected JavaScript media type (text/javascript or application/javascript)',
+		)
 		const body = await res.text()
 		assert.match(body, /clientEntry/)
 		assert.match(body, /showModal/)
