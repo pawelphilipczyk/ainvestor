@@ -27,6 +27,8 @@ export function NumberInput(_handle: Handle, _setup?: unknown) {
 		const forwardInputMode = inputMode ?? inputmode
 
 		if (forwardInputMode !== undefined) {
+			// `min` / `max` / `step` were peeled off above; they are not spread into `rest`.
+			// For `type="text"` the browser ignores them anyway—use `pattern` / server parsing instead.
 			return (
 				<input
 					{...({
