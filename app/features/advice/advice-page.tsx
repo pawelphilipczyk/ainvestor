@@ -3,6 +3,7 @@ import {
 	Card,
 	FieldLabel,
 	NumberInput,
+	ScrollableTable,
 	SelectInput,
 	SubmitButton,
 } from '../../components/index.ts'
@@ -293,75 +294,71 @@ function renderEtfProposals(
 					No specific ETF proposals in this response.
 				</p>
 			) : (
-				<div class="max-w-full overflow-x-auto rounded-lg border border-border">
-					<table class="w-full table-auto border-collapse text-sm">
-						<caption class="sr-only">Proposed ETF investments</caption>
-						<thead class="bg-muted/40">
-							<tr>
-								<th
-									scope="col"
-									class="px-3 py-2 text-left font-medium text-card-foreground"
+				<ScrollableTable class="text-sm">
+					<caption class="sr-only">Proposed ETF investments</caption>
+					<thead class="bg-muted/40">
+						<tr>
+							<th
+								scope="col"
+								class="px-3 py-2 text-left font-medium text-card-foreground"
+							>
+								Fund
+							</th>
+							<th
+								scope="col"
+								class="px-3 py-2 text-left font-medium text-card-foreground"
+							>
+								Ticker
+							</th>
+							<th
+								scope="col"
+								class="px-3 py-2 text-right font-medium text-card-foreground"
+							>
+								Amount
+							</th>
+							<th
+								scope="col"
+								class="px-3 py-2 text-left font-medium text-card-foreground"
+							>
+								Currency
+							</th>
+							<th
+								scope="col"
+								class="px-3 py-2 text-left font-medium text-card-foreground"
+							>
+								Note
+							</th>
+						</tr>
+					</thead>
+					<tbody>
+						{block.rows.map((row) => {
+							const cur =
+								row.amount !== undefined
+									? (row.currency ?? defaultCashCurrency)
+									: null
+							return (
+								<tr
+									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${cur ?? ''}`}
+									class="border-t border-border"
 								>
-									Fund
-								</th>
-								<th
-									scope="col"
-									class="px-3 py-2 text-left font-medium text-card-foreground"
-								>
-									Ticker
-								</th>
-								<th
-									scope="col"
-									class="px-3 py-2 text-right font-medium text-card-foreground"
-								>
-									Amount
-								</th>
-								<th
-									scope="col"
-									class="px-3 py-2 text-left font-medium text-card-foreground"
-								>
-									Currency
-								</th>
-								<th
-									scope="col"
-									class="px-3 py-2 text-left font-medium text-card-foreground"
-								>
-									Note
-								</th>
-							</tr>
-						</thead>
-						<tbody>
-							{block.rows.map((row) => {
-								const cur =
-									row.amount !== undefined
-										? (row.currency ?? defaultCashCurrency)
-										: null
-								return (
-									<tr
-										key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${cur ?? ''}`}
-										class="border-t border-border"
-									>
-										<td class="px-3 py-2 text-card-foreground">{row.name}</td>
-										<td class="px-3 py-2 text-muted-foreground">
-											{row.ticker ?? '—'}
-										</td>
-										<td class="px-3 py-2 text-right tabular-nums text-card-foreground">
-											{row.amount !== undefined
-												? formatAmountNumber(row.amount)
-												: '—'}
-										</td>
-										<td class="px-3 py-2 text-muted-foreground">
-											{cur ?? '—'}
-										</td>
-										<td class="px-3 py-2 text-muted-foreground">
-											{row.note ?? '—'}
-										</td>
-									</tr>
-								)
-							})}
-						</tbody>
-					</table>
-				</div>
+									<td class="px-3 py-2 text-card-foreground">{row.name}</td>
+									<td class="px-3 py-2 text-muted-foreground">
+										{row.ticker ?? '—'}
+									</td>
+									<td class="px-3 py-2 text-right tabular-nums text-card-foreground">
+										{row.amount !== undefined
+											? formatAmountNumber(row.amount)
+											: '—'}
+									</td>
+									<td class="px-3 py-2 text-muted-foreground">{cur ?? '—'}</td>
+									<td class="px-3 py-2 text-muted-foreground">
+										{row.note ?? '—'}
+									</td>
+								</tr>
+							)
+						})}
+					</tbody>
+				</ScrollableTable>
 			)}
 		</section>
 	)

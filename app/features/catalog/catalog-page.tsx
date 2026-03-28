@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
+	ScrollableTable,
 	SelectInput,
 	SubmitButton,
 	TextareaInput,
@@ -26,26 +27,29 @@ type CatalogPageProps = {
 	query: string
 }
 
+/** Keeps long fund names and descriptions readable (wrap) without forcing huge table width. */
+const catalogTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
+
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 	return () => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-			<th class="pb-2 pl-4 pr-4">Ticker</th>
-			<th class="pb-2 pr-4">Name</th>
-			<th class="pb-2 pr-4">Type</th>
-			<th class="pb-2 pr-4">Description</th>
-			<th class="pb-2">ISIN</th>
-			<th class="pb-2 pl-4 pr-4">Value</th>
+			<th class="pb-2 pl-4 pr-4 align-top">Ticker</th>
+			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>Name</th>
+			<th class="pb-2 pr-4 align-top">Type</th>
+			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>Description</th>
+			<th class="pb-2 align-top">ISIN</th>
+			<th class="pb-2 pl-4 pr-4 align-top">Value</th>
 		</tr>
 	)
 }
 
 function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 	const valueCell = holding ? (
-		<td class="py-2 pl-4 pr-4 text-sm font-medium text-foreground">
+		<td class="py-2 pl-4 pr-4 align-top text-sm font-medium text-foreground">
 			{formatValue(holding.value, holding.currency)}
 		</td>
 	) : (
-		<td class="py-2 pl-4 pr-4 text-sm text-muted-foreground">—</td>
+		<td class="py-2 pl-4 pr-4 align-top text-sm text-muted-foreground">—</td>
 	)
 
 	return (
@@ -53,19 +57,25 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			key={entry.id}
 			class="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
 		>
-			<td class="py-2 pl-4 pr-4 font-mono text-sm font-semibold">
+			<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold">
 				{entry.ticker}
 			</td>
-			<td class="py-2 pr-4 text-sm">{entry.name}</td>
-			<td class="py-2 pr-4">
+			<td
+				class={`py-2 pr-4 align-top text-sm break-words ${catalogTextColMax}`}
+			>
+				{entry.name}
+			</td>
+			<td class="py-2 pr-4 align-top">
 				<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
 					{entry.type.replace('_', ' ')}
 				</span>
 			</td>
-			<td class="max-w-xs truncate py-2 pr-4 text-sm text-muted-foreground">
+			<td
+				class={`py-2 pr-4 align-top text-sm break-words text-muted-foreground ${catalogTextColMax}`}
+			>
 				{entry.description || '—'}
 			</td>
-			<td class="py-2 font-mono text-xs text-muted-foreground">
+			<td class="py-2 align-top font-mono text-xs text-muted-foreground">
 				{entry.isin ?? '—'}
 			</td>
 			{valueCell}
@@ -105,7 +115,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 
 		return (
 			<>
-				<main class="mx-auto grid max-w-5xl gap-6">
+				<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
 					<SectionIntroCard
 						page="catalog"
 						variant="page"
@@ -229,7 +239,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					) : null}
 
 					{ownedInCatalog.length > 0 ? (
-						<Card class="p-4">
+						<Card class="min-w-0 p-4">
 							<section>
 								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 									Your Holdings
@@ -237,24 +247,22 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								<p class="mt-0.5 text-xs text-muted-foreground">
 									ETFs in this catalog that you already own.
 								</p>
-								<div class="mt-3 overflow-x-auto rounded-lg border border-border">
-									<table class="w-full table-auto border-collapse">
-										<thead class="bg-muted/40 px-4">
-											<tr>
-												<td colspan={6} class="h-1" />
-											</tr>
-											<CatalogTableHeader />
-										</thead>
-										<tbody>
-											{ownedInCatalog.map((e) =>
-												renderCatalogRow(
-													e,
-													holdingsByTicker.get(holdingKey(e.ticker)),
-												),
-											)}
-										</tbody>
-									</table>
-								</div>
+								<ScrollableTable wrapperClass="mt-3">
+									<thead class="bg-muted/40 px-4">
+										<tr>
+											<td colspan={6} class="h-1" />
+										</tr>
+										<CatalogTableHeader />
+									</thead>
+									<tbody>
+										{ownedInCatalog.map((e) =>
+											renderCatalogRow(
+												e,
+												holdingsByTicker.get(holdingKey(e.ticker)),
+											),
+										)}
+									</tbody>
+								</ScrollableTable>
 							</section>
 						</Card>
 					) : null}
@@ -266,26 +274,22 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							</p>
 						</Card>
 					) : restOfCatalog.length > 0 ? (
-						<Card class="p-4">
+						<Card class="min-w-0 p-4">
 							<section>
 								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 									{ownedInCatalog.length > 0
 										? 'Other Available ETFs'
 										: 'Available ETFs'}
 								</h2>
-								<div class="mt-3 overflow-x-auto rounded-lg border border-border">
-									<table class="w-full table-auto border-collapse">
-										<thead class="bg-muted/40">
-											<tr>
-												<td colspan={6} class="h-1" />
-											</tr>
-											<CatalogTableHeader />
-										</thead>
-										<tbody>
-											{restOfCatalog.map((e) => renderCatalogRow(e))}
-										</tbody>
-									</table>
-								</div>
+								<ScrollableTable wrapperClass="mt-3">
+									<thead class="bg-muted/40">
+										<tr>
+											<td colspan={6} class="h-1" />
+										</tr>
+										<CatalogTableHeader />
+									</thead>
+									<tbody>{restOfCatalog.map((e) => renderCatalogRow(e))}</tbody>
+								</ScrollableTable>
 							</section>
 						</Card>
 					) : null}
