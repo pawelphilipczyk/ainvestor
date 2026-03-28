@@ -65,6 +65,11 @@ function formatPctForMessage(value: number): string {
 	return String(rounded)
 }
 
+/** Matches fetch-submit (`Accept: application/json`) vs full page navigation. */
+function prefersJson(request: Request): boolean {
+	return request.headers.get('Accept')?.includes('application/json') ?? false
+}
+
 function guidelinesTotalCapErrorResponse(params: {
 	request: Request
 	session: Session
@@ -75,10 +80,7 @@ function guidelinesTotalCapErrorResponse(params: {
 		current: formatPctForMessage(params.currentTotal),
 		added: formatPctForMessage(params.addedPct),
 	})
-	const prefersJson = params.request.headers
-		.get('Accept')
-		?.includes('application/json')
-	if (prefersJson) {
+	if (prefersJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
@@ -119,10 +121,7 @@ function guidelinesUpdateSchemaValidationResponse(params: {
 	issues: ReadonlyArray<StandardSchemaV1.Issue>
 }): Response {
 	const { error, details } = formatGuidelineTargetSchemaIssues(params.issues)
-	const prefersJson = params.request.headers
-		.get('Accept')
-		?.includes('application/json')
-	if (prefersJson) {
+	if (prefersJson(params.request)) {
 		return new Response(JSON.stringify({ error, issues: details }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
@@ -142,10 +141,7 @@ function guidelinesUpdateCapErrorResponse(params: {
 		newPct: formatPctForMessage(params.newPct),
 		total: formatPctForMessage(params.resultingTotal),
 	})
-	const prefersJson = params.request.headers
-		.get('Accept')
-		?.includes('application/json')
-	if (prefersJson) {
+	if (prefersJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
