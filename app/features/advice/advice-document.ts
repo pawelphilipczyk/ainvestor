@@ -10,7 +10,7 @@ import {
 	string,
 	variant,
 } from 'remix/data-schema'
-import { minLength } from 'remix/data-schema/checks'
+import { max, min, minLength } from 'remix/data-schema/checks'
 import { CURRENCIES } from '../../lib/currencies.ts'
 
 const etfProposalRowSchema = object({
@@ -21,10 +21,80 @@ const etfProposalRowSchema = object({
 	note: optional(string()),
 })
 
+const capitalSegmentRoleSchema = enum_(['holdings', 'cash'] as const)
+
+const capitalSnapshotSegmentSchema = object({
+	role: capitalSegmentRoleSchema,
+	label: string().pipe(minLength(1)),
+	amount: number().pipe(min(0)),
+	currency: enum_(CURRENCIES),
+})
+
+const capitalSnapshotPostTotalSchema = object({
+	label: string().pipe(minLength(1)),
+	amount: number().pipe(min(0)),
+	currency: enum_(CURRENCIES),
+})
+
+const guidelineBarRowSchema = object({
+	label: string().pipe(minLength(1)),
+	targetPct: number().pipe(min(0), max(100)),
+	currentPct: number().pipe(min(0), max(100)),
+	postBuyPct: optional(number().pipe(min(0), max(100))),
+})
+
 const adviceBlockSchema = variant('type', {
 	paragraph: object({
 		type: literal('paragraph'),
 		text: string().pipe(minLength(1)),
+	}),
+	capital_snapshot: object({
+		type: literal('capital_snapshot'),
+		segments: array(capitalSnapshotSegmentSchema).refine(
+			(s) => s.length > 0,
+			'At least one segment',
+		),
+		postTotal: optional(capitalSnapshotPostTotalSchema),
+	})
+		.refine((block) => {
+			// Check role uniqueness
+			const roles = block.segments.map((s) => s.role)
+			const uniqueRoles = new Set(roles)
+			if (roles.length !== uniqueRoles.size) {
+				return false
+			}
+			return true
+		}, 'Segment roles must be unique')
+		.refine((block) => {
+			// Check currency consistency
+			if (block.segments.length === 0) return true
+			const firstCurrency = block.segments[0].currency
+			// All segments must have the same currency
+			if (!block.segments.every((s) => s.currency === firstCurrency)) {
+				return false
+			}
+			// If postTotal exists, it must match the segment currency
+			if (block.postTotal && block.postTotal.currency !== firstCurrency) {
+				return false
+			}
+			return true
+		}, 'All currencies must match')
+		.refine((block) => {
+			// Check postTotal amount if present
+			if (!block.postTotal) return true
+			const segmentSum = block.segments.reduce((sum, s) => sum + s.amount, 0)
+			// postTotal.amount should equal or be >= sum of segment amounts
+			// Using a small epsilon for floating point comparison
+			const epsilon = 0.000001
+			if (block.postTotal.amount + epsilon < segmentSum) {
+				return false
+			}
+			return true
+		}, 'postTotal amount must be >= sum of segment amounts'),
+	guideline_bars: object({
+		type: literal('guideline_bars'),
+		caption: optional(string()),
+		rows: array(guidelineBarRowSchema),
 	}),
 	etf_proposals: object({
 		type: literal('etf_proposals'),
@@ -51,7 +121,25 @@ export type AdviceEtfProposalsBlock = {
 	caption?: string
 	rows: AdviceEtfProposalRow[]
 }
-export type AdviceBlock = AdviceParagraphBlock | AdviceEtfProposalsBlock
+export type AdviceCapitalSnapshotSegment = InferOutput<
+	typeof capitalSnapshotSegmentSchema
+>
+export type AdviceCapitalSnapshotBlock = {
+	type: 'capital_snapshot'
+	segments: AdviceCapitalSnapshotSegment[]
+	postTotal?: InferOutput<typeof capitalSnapshotPostTotalSchema>
+}
+export type AdviceGuidelineBarRow = InferOutput<typeof guidelineBarRowSchema>
+export type AdviceGuidelineBarsBlock = {
+	type: 'guideline_bars'
+	caption?: string
+	rows: AdviceGuidelineBarRow[]
+}
+export type AdviceBlock =
+	| AdviceParagraphBlock
+	| AdviceCapitalSnapshotBlock
+	| AdviceGuidelineBarsBlock
+	| AdviceEtfProposalsBlock
 
 export type AdviceDocument = {
 	blocks: AdviceBlock[]

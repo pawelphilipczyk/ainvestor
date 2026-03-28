@@ -51,17 +51,238 @@ function formatAmountNumber(amount: number): string {
 	}).format(amount)
 }
 
-function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
-	if (block.type === 'paragraph') {
+function formatPctOneDecimal(n: number): string {
+	return `${new Intl.NumberFormat('en-US', {
+		minimumFractionDigits: 0,
+		maximumFractionDigits: 1,
+	}).format(n)}%`
+}
+
+function clampPct(n: number): number {
+	if (Number.isNaN(n)) {
+		return 0
+	}
+	return Math.min(100, Math.max(0, n))
+}
+
+function capitalSnapshotValidationMessage(
+	block: Extract<AdviceBlock, { type: 'capital_snapshot' }>,
+): string | null {
+	const segs = block.segments
+	if (segs.length !== 2) {
+		return `expected exactly 2 segments, got ${segs.length}`
+	}
+	const holdingsN = segs.filter((s) => s.role === 'holdings').length
+	const cashN = segs.filter((s) => s.role === 'cash').length
+	if (holdingsN !== 1 || cashN !== 1) {
+		return 'segments must include exactly one holdings and one cash role'
+	}
+	const currency = segs[0].currency
+	if (!segs.every((s) => s.currency === currency)) {
+		return 'all segment currencies must match'
+	}
+	if (segs.some((s) => s.amount < 0 || Number.isNaN(s.amount))) {
+		return 'segment amounts must be non-negative numbers'
+	}
+	return null
+}
+
+function renderCapitalSnapshot(
+	block: Extract<AdviceBlock, { type: 'capital_snapshot' }>,
+	headingId: string,
+) {
+	const invalidReason = capitalSnapshotValidationMessage(block)
+	if (invalidReason !== null) {
+		console.warn(`[advice] capital_snapshot invalid: ${invalidReason}`)
 		return (
-			<div class="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
-				{block.text}
-			</div>
+			<section class="min-w-0 max-w-full space-y-3" aria-labelledby={headingId}>
+				<h3
+					id={headingId}
+					class="text-base font-semibold tracking-tight text-card-foreground"
+				>
+					Portfolio mix
+				</h3>
+				<p role="alert" class="text-sm text-muted-foreground">
+					Portfolio snapshot could not be shown because the data from the model
+					was inconsistent (for example mixed currencies or invalid amounts).
+				</p>
+			</section>
 		)
 	}
 
+	const total = block.segments.reduce((sum, s) => sum + s.amount, 0)
+	const safeTotal = total > 0 ? total : 1
+
 	return (
-		<section class="space-y-2">
+		<section class="min-w-0 max-w-full space-y-3" aria-labelledby={headingId}>
+			<h3
+				id={headingId}
+				class="text-base font-semibold tracking-tight text-card-foreground"
+			>
+				Portfolio mix
+			</h3>
+			<p class="sr-only">
+				Stacked bar: share of current ETF holdings versus deployable cash before
+				new purchases.
+			</p>
+			<div
+				class="flex h-5 w-full min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/30"
+				role="img"
+				aria-label={`Holdings and cash share of ${formatAmountNumber(total)} combined (same currency).`}
+			>
+				{block.segments.map((seg, i) => (
+					<div
+						key={`${seg.role}-${seg.label}-${i}`}
+						class={
+							seg.role === 'holdings'
+								? 'min-w-0 bg-primary'
+								: 'min-w-0 bg-secondary'
+						}
+						style={{ width: `${(seg.amount / safeTotal) * 100}%` }}
+						title={`${seg.label}: ${formatAmountNumber(seg.amount)} ${seg.currency}`}
+					/>
+				))}
+			</div>
+			<ul class="flex flex-wrap gap-x-5 gap-y-2 text-sm text-card-foreground">
+				{block.segments.map((seg) => (
+					<li key={`${seg.role}-${seg.label}`} class="flex items-center gap-2">
+						<span
+							class={
+								seg.role === 'holdings'
+									? 'inline-block size-2.5 shrink-0 rounded-sm bg-primary'
+									: 'inline-block size-2.5 shrink-0 rounded-sm bg-secondary'
+							}
+							aria-hidden
+						/>
+						<span class="font-medium">{seg.label}</span>
+						<span class="tabular-nums text-muted-foreground">
+							{formatAmountNumber(seg.amount)} {seg.currency}
+						</span>
+					</li>
+				))}
+			</ul>
+			{block.postTotal ? (
+				<p class="text-sm text-muted-foreground">
+					<span class="font-medium text-card-foreground">
+						{block.postTotal.label}:
+					</span>{' '}
+					<span class="tabular-nums">
+						{formatAmountNumber(block.postTotal.amount)}{' '}
+						{block.postTotal.currency}
+					</span>
+				</p>
+			) : null}
+		</section>
+	)
+}
+
+function renderGuidelineBars(
+	block: Extract<AdviceBlock, { type: 'guideline_bars' }>,
+	headingId: string,
+) {
+	const trimmedCaption = block.caption?.trim()
+	const titleText =
+		trimmedCaption !== undefined && trimmedCaption.length > 0
+			? trimmedCaption
+			: 'Guideline alignment'
+
+	return (
+		<section class="min-w-0 max-w-full space-y-4" aria-labelledby={headingId}>
+			<h3
+				id={headingId}
+				class="text-base font-semibold tracking-tight text-card-foreground"
+			>
+				{titleText}
+			</h3>
+			{block.rows.length === 0 ? (
+				<p class="text-sm text-muted-foreground">
+					No guideline comparison rows in this response.
+				</p>
+			) : (
+				<>
+					<ul class="space-y-4">
+						{block.rows.map((row) => {
+							const currentW = clampPct(row.currentPct)
+							const postW =
+								row.postBuyPct !== undefined ? clampPct(row.postBuyPct) : null
+							const targetPos = clampPct(row.targetPct)
+							const summary = `Current ${formatPctOneDecimal(row.currentPct)}, target ${formatPctOneDecimal(row.targetPct)}${row.postBuyPct !== undefined ? `, after proposed buys ${formatPctOneDecimal(row.postBuyPct)}` : ''}.`
+							return (
+								<li key={row.label} class="space-y-1.5">
+									<div class="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-sm">
+										<span class="min-w-0 break-words font-medium text-card-foreground">
+											{row.label}
+										</span>
+										<span class="tabular-nums text-muted-foreground">
+											{formatPctOneDecimal(row.currentPct)} →{' '}
+											{formatPctOneDecimal(row.targetPct)}
+											{row.postBuyPct !== undefined
+												? ` → ${formatPctOneDecimal(row.postBuyPct)}`
+												: null}
+										</span>
+									</div>
+									<div
+										class="relative h-3 w-full min-w-0 max-w-full overflow-hidden rounded-md bg-muted/80"
+										role="img"
+										aria-label={summary}
+									>
+										{postW !== null && postW < currentW ? (
+											<>
+												<div
+													class="absolute inset-y-0 left-0 bg-primary/75"
+													style={{ width: `${currentW}%`, zIndex: 1 }}
+													aria-hidden
+												/>
+												<div
+													class="absolute inset-y-0 left-0 bg-accent/40"
+													style={{ width: `${postW}%`, zIndex: 2 }}
+													aria-hidden
+												/>
+											</>
+										) : (
+											<>
+												{postW !== null ? (
+													<div
+														class="absolute inset-y-0 left-0 bg-accent/40"
+														style={{ width: `${postW}%` }}
+														aria-hidden
+													/>
+												) : null}
+												<div
+													class="absolute inset-y-0 left-0 bg-primary/75"
+													style={{ width: `${currentW}%` }}
+													aria-hidden
+												/>
+											</>
+										)}
+										<div
+											class="pointer-events-none absolute inset-y-0 w-px bg-card-foreground/90"
+											style={{
+												left: `clamp(0px, calc(${targetPos}% - 0.5px), calc(100% - 1px))`,
+											}}
+											aria-hidden
+										/>
+									</div>
+								</li>
+							)
+						})}
+					</ul>
+					<p class="text-xs text-muted-foreground">
+						Solid bar: current portfolio weight. Lighter bar behind: after
+						proposed buys (when shown). Vertical line: target.
+					</p>
+				</>
+			)}
+		</section>
+	)
+}
+
+function renderEtfProposals(
+	block: Extract<AdviceBlock, { type: 'etf_proposals' }>,
+	defaultCashCurrency: string,
+) {
+	return (
+		<section class="min-w-0 max-w-full space-y-2">
 			{block.caption ? (
 				<h3 class="text-base font-semibold tracking-tight text-card-foreground">
 					{block.caption}
@@ -72,7 +293,7 @@ function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
 					No specific ETF proposals in this response.
 				</p>
 			) : (
-				<div class="overflow-x-auto rounded-lg border border-border">
+				<div class="max-w-full overflow-x-auto rounded-lg border border-border">
 					<table class="w-full table-auto border-collapse text-sm">
 						<caption class="sr-only">Proposed ETF investments</caption>
 						<thead class="bg-muted/40">
@@ -146,13 +367,40 @@ function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
 	)
 }
 
+function renderAdviceBlock(
+	block: AdviceBlock,
+	defaultCashCurrency: string,
+	blockIndex: number,
+) {
+	if (block.type === 'paragraph') {
+		return (
+			<div class="min-w-0 max-w-full whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
+				{block.text}
+			</div>
+		)
+	}
+	if (block.type === 'capital_snapshot') {
+		return renderCapitalSnapshot(
+			block,
+			`advice-capital-snapshot-heading-${blockIndex}`,
+		)
+	}
+	if (block.type === 'guideline_bars') {
+		return renderGuidelineBars(
+			block,
+			`advice-guideline-bars-heading-${blockIndex}`,
+		)
+	}
+	return renderEtfProposals(block, defaultCashCurrency)
+}
+
 export function AdvicePage(_handle: Handle, _setup?: unknown) {
 	return (props: AdvicePageProps) => {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 		const pendingApproval = props.pendingApproval === true
 		return (
-			<main class="mx-auto grid max-w-3xl gap-6">
+			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
 				<SectionIntroCard
 					page="advice"
 					variant="page"
@@ -247,7 +495,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					</form>
 				</Card>
 				{props.advice !== undefined && props.cashAmount ? (
-					<Card class="p-6" aria-live="polite">
+					<Card class="min-w-0 max-w-full p-6" aria-live="polite">
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
 							Investment Advice
 						</h2>
@@ -255,10 +503,10 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 							Based on your portfolio and {props.cashAmount} {cashCurrency}{' '}
 							available.
 						</p>
-						<div class="mt-4 space-y-6">
+						<div class="mt-4 min-w-0 space-y-6">
 							{props.advice.blocks.map((block, i) => (
-								<div key={`${block.type}-${i}`}>
-									{renderAdviceBlock(block, cashCurrency)}
+								<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
+									{renderAdviceBlock(block, cashCurrency, i)}
 								</div>
 							))}
 						</div>
