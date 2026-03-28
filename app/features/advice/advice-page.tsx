@@ -7,6 +7,7 @@ import {
 	SubmitButton,
 } from '../../components/index.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
+import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceModelId,
@@ -31,15 +32,15 @@ type AdvicePageProps = {
 
 const currencyOptions = CURRENCIES.map((c) => ({ value: c, label: c }))
 
-const modelLabels: Record<AdviceModelId, string> = {
-	'gpt-5.4-mini': 'GPT-5.4 Mini',
-	'gpt-5.4-nano': 'GPT-5.4 Nano',
-	'gpt-5.4': 'GPT-5.4',
-}
+const MODEL_LABEL_KEYS = {
+	'gpt-5.4-mini': 'advice.model.gpt-5.4-mini',
+	'gpt-5.4-nano': 'advice.model.gpt-5.4-nano',
+	'gpt-5.4': 'advice.model.gpt-5.4',
+} as const satisfies Record<AdviceModelId, MessageKey>
 
 const modelOptions = ADVICE_MODEL_IDS.map((id) => ({
 	value: id,
-	label: modelLabels[id],
+	label: t(MODEL_LABEL_KEYS[id]),
 }))
 
 function formatAmountNumber(amount: number): string {
@@ -66,44 +67,42 @@ function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
 				</h3>
 			) : null}
 			{block.rows.length === 0 ? (
-				<p class="text-sm text-muted-foreground">
-					No specific ETF proposals in this response.
-				</p>
+				<p class="text-sm text-muted-foreground">{t('advice.table.empty')}</p>
 			) : (
 				<div class="overflow-x-auto rounded-lg border border-border">
 					<table class="w-full table-auto border-collapse text-sm">
-						<caption class="sr-only">Proposed ETF investments</caption>
+						<caption class="sr-only">{t('advice.table.caption')}</caption>
 						<thead class="bg-muted/40">
 							<tr>
 								<th
 									scope="col"
 									class="px-3 py-2 text-left font-medium text-card-foreground"
 								>
-									Fund
+									{t('advice.table.fund')}
 								</th>
 								<th
 									scope="col"
 									class="px-3 py-2 text-left font-medium text-card-foreground"
 								>
-									Ticker
+									{t('advice.table.ticker')}
 								</th>
 								<th
 									scope="col"
 									class="px-3 py-2 text-right font-medium text-card-foreground"
 								>
-									Amount
+									{t('advice.table.amount')}
 								</th>
 								<th
 									scope="col"
 									class="px-3 py-2 text-left font-medium text-card-foreground"
 								>
-									Currency
+									{t('advice.table.currency')}
 								</th>
 								<th
 									scope="col"
 									class="px-3 py-2 text-left font-medium text-card-foreground"
 								>
-									Note
+									{t('advice.table.note')}
 								</th>
 							</tr>
 						</thead>
@@ -120,18 +119,18 @@ function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
 									>
 										<td class="px-3 py-2 text-card-foreground">{row.name}</td>
 										<td class="px-3 py-2 text-muted-foreground">
-											{row.ticker ?? '—'}
+											{row.ticker ?? t('catalog.emptyCell')}
 										</td>
 										<td class="px-3 py-2 text-right tabular-nums text-card-foreground">
 											{row.amount !== undefined
 												? formatAmountNumber(row.amount)
-												: '—'}
+												: t('catalog.emptyCell')}
 										</td>
 										<td class="px-3 py-2 text-muted-foreground">
-											{cur ?? '—'}
+											{cur ?? t('catalog.emptyCell')}
 										</td>
 										<td class="px-3 py-2 text-muted-foreground">
-											{row.note ?? '—'}
+											{row.note ?? t('catalog.emptyCell')}
 										</td>
 									</tr>
 								)
@@ -154,10 +153,10 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 				<Card class="p-6">
 					<header>
 						<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-							Get Advice
+							{t('advice.title')}
 						</h1>
 						<p class="mt-1 text-sm text-muted-foreground">
-							Tell me how much cash you have and I'll suggest what to buy next.
+							{t('advice.subtitle')}
 						</p>
 					</header>
 				</Card>
@@ -166,15 +165,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						role="status"
 						class="mt-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-card-foreground"
 					>
-						<p class="font-medium">Account pending approval</p>
+						<p class="font-medium">{t('advice.pending.title')}</p>
 						<p class="mt-1 text-muted-foreground">
-							You signed in with GitHub, but this app only allows listed users.
-							Add your GitHub username to{' '}
+							{t('advice.pending.body')}{' '}
 							<code class="rounded bg-muted px-1 py-0.5 font-mono text-xs">
 								app/lib/approved-github-logins.ts
 							</code>{' '}
-							in a pull request. After it is merged and deployed, sign out and
-							sign in again.
+							{t('advice.pending.afterPath')}
 						</p>
 					</div>
 				) : null}
@@ -207,11 +204,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						) : null}
 						<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
 							<div class="grid min-w-0 flex-1 gap-2">
-								<FieldLabel fieldId="cashAmount">Available cash</FieldLabel>
+								<FieldLabel fieldId="cashAmount">
+									{t('advice.form.field.cash')}
+								</FieldLabel>
 								<NumberInput
 									id="cashAmount"
 									name="cashAmount"
-									placeholder="e.g. 1000"
+									placeholder={t('advice.form.placeholder.cash')}
 									required={true}
 									min={1}
 									step="any"
@@ -220,7 +219,9 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								/>
 							</div>
 							<div class="grid w-full gap-2 sm:w-36">
-								<FieldLabel fieldId="cashCurrency">Currency</FieldLabel>
+								<FieldLabel fieldId="cashCurrency">
+									{t('advice.form.field.currency')}
+								</FieldLabel>
 								<SelectInput
 									id="cashCurrency"
 									name="cashCurrency"
@@ -230,7 +231,9 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								/>
 							</div>
 							<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
-								<FieldLabel fieldId="adviceModel">Model</FieldLabel>
+								<FieldLabel fieldId="adviceModel">
+									{t('advice.form.field.model')}
+								</FieldLabel>
 								<SelectInput
 									id="adviceModel"
 									name="adviceModel"
@@ -243,7 +246,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								disabled={pendingApproval}
 								class="sm:!w-auto sm:shrink-0"
 							>
-								Ask AI
+								{t('advice.form.submit')}
 							</SubmitButton>
 						</div>
 					</form>
@@ -251,11 +254,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 				{props.advice !== undefined && props.cashAmount ? (
 					<Card class="p-6" aria-live="polite">
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
-							Investment Advice
+							{t('advice.result.title')}
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
-							Based on your portfolio and {props.cashAmount} {cashCurrency}{' '}
-							available.
+							{format(t('advice.result.subtitle'), {
+								amount: props.cashAmount,
+								currency: cashCurrency,
+							})}
 						</p>
 						<div class="mt-4 space-y-6">
 							{props.advice.blocks.map((block, i) => (

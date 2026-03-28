@@ -2,16 +2,13 @@ import type { Handle } from 'remix/component'
 import { Card } from '../../components/index.ts'
 import { NAV_LINKS } from '../../components/sidebar-nav.ts'
 import type { AppPage } from '../../lib/app-page.ts'
+import { t } from '../../lib/i18n.ts'
 
 const blurbs: Partial<Record<AppPage, string>> = {
-	portfolio:
-		'Import a broker CSV or add positions manually. Your list can sync to a private GitHub Gist.',
-	advice:
-		'Describe cash you want to invest and get allocation ideas that follow your guidelines.',
-	catalog:
-		'Search and import ETF metadata so picks in your portfolio and guidelines stay consistent.',
-	guidelines:
-		'Set rules for instruments and asset classes so advice stays within what you allow.',
+	portfolio: t('intro.blurb.portfolio'),
+	advice: t('intro.blurb.advice'),
+	catalog: t('intro.blurb.catalog'),
+	guidelines: t('intro.blurb.guidelines'),
 }
 
 /**
@@ -22,11 +19,10 @@ export function IntroPage(_handle: Handle, _setup?: unknown) {
 		<main class="mx-auto w-full min-w-0 max-w-4xl">
 			<header class="mb-8">
 				<h1 class="text-2xl font-bold tracking-tight text-foreground">
-					AI Investor
+					{t('app.name')}
 				</h1>
 				<p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-					Choose where to go next. Everything works in the browser; sign in with
-					GitHub when you want your portfolio and catalog saved across sessions.
+					{t('intro.tagline')}
 				</p>
 			</header>
 			<ul class="grid list-none gap-4 p-0 sm:grid-cols-2">

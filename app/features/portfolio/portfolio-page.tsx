@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import { Card } from '../../components/index.ts'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfEntry } from '../../lib/gist.ts'
+import { t } from '../../lib/i18n.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { AddEtfForm, ListFragment } from './add-etf-form/index.ts'
 // @ts-expect-error Runtime-only JS client entry module
@@ -26,24 +27,22 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 					<Card class="p-6">
 						<header>
 							<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-								Portfolio
+								{t('portfolio.title')}
 							</h1>
 							<p class="mt-1 text-sm text-muted-foreground">
-								Paste or upload a broker CSV to add what you already hold or
-								want to buy.
+								{t('portfolio.subtitle')}
 							</p>
 							{sessionUsesGithubGist(session) ? (
 								<p class="mt-1 text-xs text-muted-foreground">
-									Saved to your private GitHub Gist
+									{t('portfolio.savedGist')}
 								</p>
 							) : session?.approvalStatus === 'pending' ? (
 								<p class="mt-1 text-xs text-muted-foreground">
-									Account pending approval — portfolio is not saved to GitHub
-									yet
+									{t('portfolio.pendingNotSaved')}
 								</p>
 							) : (
 								<p class="mt-1 text-xs text-muted-foreground">
-									Sign in to persist your data across sessions
+									{t('portfolio.signInPersist')}
 								</p>
 							)}
 						</header>
@@ -54,7 +53,7 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 					</div>
 					<Card as="details" variant="muted" class="p-4">
 						<summary class="cursor-pointer text-sm font-medium text-card-foreground outline-none marker:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-							Add one ETF manually
+							{t('portfolio.addManual.summary')}
 						</summary>
 						<AddEtfForm instrumentOptions={props.instrumentOptions} />
 					</Card>

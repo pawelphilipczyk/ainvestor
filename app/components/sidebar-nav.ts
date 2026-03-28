@@ -1,4 +1,5 @@
 import type { AppPage } from '../lib/app-page.ts'
+import { t } from '../lib/i18n.ts'
 import { routes } from '../routes.ts'
 
 export type NavLink = {
@@ -10,22 +11,22 @@ export type NavLink = {
 export const NAV_LINKS: NavLink[] = [
 	{
 		href: routes.portfolio.index.href(),
-		label: 'Portfolio',
+		label: t('nav.portfolio'),
 		page: 'portfolio',
 	},
 	{
 		href: routes.advice.index.href(),
-		label: 'Get Advice',
+		label: t('nav.advice'),
 		page: 'advice',
 	},
 	{
 		href: routes.catalog.index.href(),
-		label: 'ETF Catalog',
+		label: t('nav.catalog'),
 		page: 'catalog',
 	},
 	{
 		href: routes.guidelines.index.href(),
-		label: 'Investment Guidelines',
+		label: t('nav.guidelines'),
 		page: 'guidelines',
 	},
 ]

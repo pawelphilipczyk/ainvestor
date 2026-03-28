@@ -12,6 +12,18 @@ Before writing any JS/TS/CSS code, read:
 
 - `docs/BIOME_RULES.md`
 
+## UI translations (i18n)
+
+User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed by dot-separated paths (for example `nav.portfolio`, `portfolio.title`). This keeps all English strings in one module for now; when the map grows unwieldy, split into feature files and merge into `en` (or add `app/locales/pl.ts`, etc.) without changing call sites.
+
+**Server rendering:** Import **`t`** from `app/lib/i18n.ts` for static strings. Use **`format(template, { name, count })`** from the same module when a string needs `{placeholder}` substitution. Page titles and flash/API error messages should use `t()` / `format()` at the controller or handler boundary so they stay translatable.
+
+**Remix v3:** The framework does not ship a dedicated i18n package. Server-first apps typically resolve a locale in middleware or the session, load the right message map, and pass strings into JSX (or a small `t` scoped to the request). Community stacks often pair **i18next** with **remix-i18next** when they need React-heavy client translation; this project’s UI is mostly server-rendered JSX, so a typed message map plus `t`/`format` is enough until multi-locale routing or client-only copy demands a heavier library.
+
+**ETF type labels** shown in the catalog and guidelines come from **`ETF_TYPE_LABELS`** in `app/locales/en.ts` via `formatEtfTypeLabel()` in `app/lib/guidelines.ts` (keep data keys like `real_estate` stable; translate display labels only).
+
+**Client islands:** A tiny JSON blob in **`DocumentShell`** (`#ui-client-messages`) exposes strings that browser-only code must show (for example the fetch-submit fallback error). Prefer keeping user-visible text on the server; add fields there only when an island has no other way to obtain copy.
+
 ## Required defaults for UI work
 
 1. Follow semantic HTML first.

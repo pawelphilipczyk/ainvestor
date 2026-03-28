@@ -9,6 +9,7 @@ import {
 	getGuestEtfs,
 	setGuestEtfs,
 } from '../../lib/guest-session-state.ts'
+import { t } from '../../lib/i18n.ts'
 import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
@@ -170,7 +171,7 @@ async function renderPage(params: RenderPortfolioPageParams) {
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(PortfolioPage, { entries, instrumentOptions })
 	return render({
-		title: 'AI Investor – Portfolio',
+		title: t('meta.title.portfolio'),
 		session,
 		currentPage: 'portfolio',
 		body,
