@@ -213,6 +213,212 @@ describe('Advice', () => {
 		assert.match(body, /Buy VTI for broad market exposure\./)
 	})
 
+	it('renders capital_snapshot and guideline_bars when the model returns them', async () => {
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'capital_snapshot',
+							segments: [
+								{
+									role: 'holdings',
+									label: 'Current ETF holdings',
+									amount: 8000,
+									currency: 'PLN',
+								},
+								{
+									role: 'cash',
+									label: 'Deployable cash',
+									amount: 2000,
+									currency: 'PLN',
+								},
+							],
+							postTotal: {
+								label: 'Total portfolio (holdings + cash)',
+								amount: 10000,
+								currency: 'PLN',
+							},
+						},
+						{
+							type: 'guideline_bars',
+							caption: 'Target mix',
+							rows: [
+								{
+									label: 'Equities',
+									targetPct: 60,
+									currentPct: 50,
+									postBuyPct: 58,
+								},
+							],
+						},
+						{ type: 'paragraph', text: '- Narrative only.\n\n1. VTI — pick.' },
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '2000')
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Portfolio mix/)
+		assert.match(body, /8,?000\.00/)
+		assert.match(body, /2,?000\.00/)
+		assert.match(body, /Target mix/)
+		assert.match(body, /Equities/)
+		assert.match(body, /Narrative only/)
+	})
+
+	it('renders guideline_bars with default heading when caption is omitted', async () => {
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'capital_snapshot',
+							segments: [
+								{
+									role: 'holdings',
+									label: 'Current ETF holdings',
+									amount: 1000,
+									currency: 'USD',
+								},
+								{
+									role: 'cash',
+									label: 'Deployable cash',
+									amount: 500,
+									currency: 'USD',
+								},
+							],
+						},
+						{
+							type: 'guideline_bars',
+							rows: [
+								{
+									label: 'Bonds',
+									targetPct: 40,
+									currentPct: 30,
+									postBuyPct: 35,
+								},
+							],
+						},
+						{ type: 'paragraph', text: '- Note.\n\n1. BND — pick.' },
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '500')
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Portfolio mix/)
+		assert.match(body, /Guideline alignment/)
+		assert.match(body, /Bonds/)
+		assert.match(body, /Note/)
+	})
+
+	it('renders guideline_bars default heading when caption is only whitespace', async () => {
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'capital_snapshot',
+							segments: [
+								{
+									role: 'holdings',
+									label: 'H',
+									amount: 100,
+									currency: 'EUR',
+								},
+								{
+									role: 'cash',
+									label: 'C',
+									amount: 100,
+									currency: 'EUR',
+								},
+							],
+						},
+						{
+							type: 'guideline_bars',
+							caption: '   ',
+							rows: [
+								{
+									label: 'X',
+									targetPct: 50,
+									currentPct: 40,
+								},
+							],
+						},
+						{ type: 'paragraph', text: '- Ok.' },
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Guideline alignment/)
+		assert.match(body, /X/)
+	})
+
+	it('shows a fallback when capital_snapshot segments fail UI validation', async () => {
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'capital_snapshot',
+							segments: [
+								{
+									role: 'holdings',
+									label: 'Only holdings row',
+									amount: 1000,
+									currency: 'PLN',
+								},
+							],
+						},
+						{ type: 'paragraph', text: '- After invalid snapshot.' },
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '500')
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(
+			body,
+			/Portfolio snapshot could not be shown because the data from the model/,
+		)
+		assert.match(body, /After invalid snapshot/)
+	})
+
 	it('renders an ETF proposals table when the model returns etf_proposals blocks', async () => {
 		setAdviceClient(
 			makeMockClient(
