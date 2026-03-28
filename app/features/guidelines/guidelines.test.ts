@@ -388,6 +388,45 @@ describe('Guidelines page', () => {
 		assert.match(data.error ?? '', /would make the total/)
 	})
 
+	it('POST /guidelines/:id/target returns 422 JSON when target % is out of schema range', async () => {
+		await seedGuestCatalog()
+		const add = new FormData()
+		add.set('instrumentTicker', 'VTI')
+		add.set('targetPct', '40')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: add,
+			}),
+		)
+
+		const listBody = await (
+			await testSessionFetch('http://localhost/guidelines')
+		).text()
+		const idMatch = listBody.match(
+			/action="\/guidelines\/([a-f0-9-]+)\/target"/,
+		)
+		assert.ok(idMatch)
+		const id = idMatch[1]
+
+		const update = new FormData()
+		update.set('targetPct', '0')
+		const response = await testSessionFetch(
+			new Request(`http://localhost/guidelines/${id}/target`, {
+				method: 'POST',
+				body: update,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as {
+			error?: string
+			issues?: { path: string; message: string }[]
+		}
+		assert.ok(data.error && data.error.length > 0)
+		assert.ok(Array.isArray(data.issues))
+	})
+
 	it('POST /guidelines/instrument ignores missing ticker', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()

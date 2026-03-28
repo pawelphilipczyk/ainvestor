@@ -231,6 +231,8 @@ export const en = {
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',
 	'errors.guidelines.updateTotalExceeds100':
 		'Guideline targets cannot add up to more than 100%. Setting this line to {newPct}% would make the total {total}%.',
+	'errors.guidelines.targetPctInvalid':
+		'Enter a target percentage between 0.01 and 100.',
 
 	'errors.advice.formRead': 'Could not read your form. Please try again.',
 	'errors.advice.formReadDetail':

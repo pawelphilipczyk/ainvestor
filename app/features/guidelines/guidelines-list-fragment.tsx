@@ -72,7 +72,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 												class="flex items-center gap-2"
 												data-fetch-submit
 												data-fragment-id="guidelines-list"
-												data-fragment-url="/fragments/guidelines-list"
+												data-fragment-url={routes.guidelines.fragmentList.href()}
 												data-error-id={targetErrorId}
 											>
 												<FieldLabel
@@ -102,7 +102,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 												class="flex items-center"
 												data-fetch-submit
 												data-fragment-id="guidelines-list"
-												data-fragment-url="/fragments/guidelines-list"
+												data-fragment-url={routes.guidelines.fragmentList.href()}
 											>
 												<input type="hidden" name="_method" value="DELETE" />
 												<button
