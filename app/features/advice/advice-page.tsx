@@ -78,7 +78,7 @@ function renderCapitalSnapshot(block: {
 	const headingId = 'advice-capital-snapshot-heading'
 
 	return (
-		<section class="space-y-3" aria-labelledby={headingId}>
+		<section class="min-w-0 max-w-full space-y-3" aria-labelledby={headingId}>
 			<h3
 				id={headingId}
 				class="text-base font-semibold tracking-tight text-card-foreground"
@@ -90,7 +90,7 @@ function renderCapitalSnapshot(block: {
 				new purchases.
 			</p>
 			<div
-				class="flex h-5 w-full overflow-hidden rounded-md border border-border bg-muted/30"
+				class="flex h-5 w-full min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/30"
 				role="img"
 				aria-label={`Holdings and cash share of ${formatAmountNumber(total)} combined (same currency).`}
 			>
@@ -154,7 +154,7 @@ function renderGuidelineBars(block: {
 	const titleText = block.caption ?? 'Guideline alignment'
 
 	return (
-		<section class="space-y-4" aria-labelledby={headingId}>
+		<section class="min-w-0 max-w-full space-y-4" aria-labelledby={headingId}>
 			<h3
 				id={headingId}
 				class="text-base font-semibold tracking-tight text-card-foreground"
@@ -176,8 +176,8 @@ function renderGuidelineBars(block: {
 							const summary = `Current ${formatPctOneDecimal(row.currentPct)}, target ${formatPctOneDecimal(row.targetPct)}${row.postBuyPct !== undefined ? `, after proposed buys ${formatPctOneDecimal(row.postBuyPct)}` : ''}.`
 							return (
 								<li key={row.label} class="space-y-1.5">
-									<div class="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-sm">
-										<span class="font-medium text-card-foreground">
+									<div class="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-sm">
+										<span class="min-w-0 break-words font-medium text-card-foreground">
 											{row.label}
 										</span>
 										<span class="tabular-nums text-muted-foreground">
@@ -189,7 +189,7 @@ function renderGuidelineBars(block: {
 										</span>
 									</div>
 									<div
-										class="relative h-3 w-full overflow-hidden rounded-md bg-muted/80"
+										class="relative h-3 w-full min-w-0 max-w-full overflow-hidden rounded-md bg-muted/80"
 										role="img"
 										aria-label={summary}
 									>
@@ -208,8 +208,7 @@ function renderGuidelineBars(block: {
 										<div
 											class="pointer-events-none absolute inset-y-0 w-px bg-card-foreground/90"
 											style={{
-												left: `${targetPos}%`,
-												transform: 'translateX(-50%)',
+												left: `clamp(0px, calc(${targetPos}% - 0.5px), calc(100% - 1px))`,
 											}}
 											aria-hidden
 										/>
@@ -233,7 +232,7 @@ function renderEtfProposals(
 	defaultCashCurrency: string,
 ) {
 	return (
-		<section class="space-y-2">
+		<section class="min-w-0 max-w-full space-y-2">
 			{block.caption ? (
 				<h3 class="text-base font-semibold tracking-tight text-card-foreground">
 					{block.caption}
@@ -244,7 +243,7 @@ function renderEtfProposals(
 					No specific ETF proposals in this response.
 				</p>
 			) : (
-				<div class="overflow-x-auto rounded-lg border border-border">
+				<div class="max-w-full overflow-x-auto rounded-lg border border-border">
 					<table class="w-full table-auto border-collapse text-sm">
 						<caption class="sr-only">Proposed ETF investments</caption>
 						<thead class="bg-muted/40">
@@ -321,7 +320,7 @@ function renderEtfProposals(
 function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
 	if (block.type === 'paragraph') {
 		return (
-			<div class="whitespace-pre-wrap text-sm leading-relaxed text-card-foreground">
+			<div class="min-w-0 max-w-full whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
 				{block.text}
 			</div>
 		)
@@ -341,7 +340,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 		const pendingApproval = props.pendingApproval === true
 		return (
-			<main class="mx-auto grid max-w-3xl gap-6">
+			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
 				<Card class="p-6">
 					<header>
 						<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
@@ -440,7 +439,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					</form>
 				</Card>
 				{props.advice !== undefined && props.cashAmount ? (
-					<Card class="p-6" aria-live="polite">
+					<Card class="min-w-0 max-w-full p-6" aria-live="polite">
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
 							Investment Advice
 						</h2>
@@ -448,9 +447,9 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 							Based on your portfolio and {props.cashAmount} {cashCurrency}{' '}
 							available.
 						</p>
-						<div class="mt-4 space-y-6">
+						<div class="mt-4 min-w-0 space-y-6">
 							{props.advice.blocks.map((block, i) => (
-								<div key={`${block.type}-${i}`}>
+								<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
 									{renderAdviceBlock(block, cashCurrency)}
 								</div>
 							))}
