@@ -285,7 +285,7 @@ describe('Guidelines page', () => {
 			/aria-labelledby="guideline-delete-dialog-label-[a-f0-9-]+"/,
 		)
 		assert.match(html, /<dialog\b[^>]*id="guideline-delete-dialog-/)
-		assert.match(html, /class="[^"]*guideline-delete-trigger/)
+		assert.match(html, /data-dialog-id="guideline-delete-dialog-/)
 		assert.match(
 			html,
 			/Remove the[\s\S]*?guideline\?[\s\S]*?name="_method"[\s\S]*?value="DELETE"/,
@@ -536,7 +536,7 @@ describe('Guidelines page', () => {
 		const listResponse = await testSessionFetch('http://localhost/guidelines')
 		const listBody = await listResponse.text()
 		assert.match(listBody, /<dialog\b[^>]*id="guideline-delete-dialog-/)
-		assert.match(listBody, /class="[^"]*guideline-delete-trigger/)
+		assert.match(listBody, /data-dialog-id="guideline-delete-dialog-/)
 		assert.match(
 			listBody,
 			/Remove the[\s\S]*?guideline\?[\s\S]*?name="_method"[\s\S]*?value="DELETE"/,
@@ -555,8 +555,16 @@ describe('Guidelines page', () => {
 		)
 		const body = await res.text()
 		assert.match(body, /clientEntry/)
-		assert.match(body, /showModal/)
-		assert.match(body, /guideline-delete-trigger/)
+		assert.match(body, /openDialogForTrigger/)
+		assert.match(body, /dialog-trigger\.js/)
+		assert.match(body, /closest\('\[data-dialog-id\]'\)/)
+
+		const dialogTriggerRes = await testSessionFetch(
+			'http://localhost/lib/dialog-trigger.js',
+		)
+		assert.equal(dialogTriggerRes.status, 200)
+		const dialogTriggerBody = await dialogTriggerRes.text()
+		assert.match(dialogTriggerBody, /showModal/)
 	})
 
 	it('DELETE /guidelines/:id removes the guideline via method override', async () => {

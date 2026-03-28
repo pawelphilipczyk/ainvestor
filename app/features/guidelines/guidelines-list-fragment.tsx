@@ -128,7 +128,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 										</form>
 										<button
 											type="button"
-											class={`guideline-delete-trigger shrink-0 ${guidelineRemoveGhostClass}`}
+											class={`shrink-0 ${guidelineRemoveGhostClass}`}
 											aria-label={
 												g.kind === 'asset_class'
 													? format(t('guidelines.list.deleteAria.bucket'), {
