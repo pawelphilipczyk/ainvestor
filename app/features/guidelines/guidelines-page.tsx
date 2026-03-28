@@ -10,6 +10,7 @@ import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
+import { MONEY_AMOUNT_HTML_PATTERN } from '../../lib/money-input.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
@@ -93,9 +94,8 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 								name="targetPct"
 								placeholder={t('forms.targetPct.placeholder')}
 								required={true}
-								min={1}
-								max={100}
-								step="0.1"
+								inputMode="decimal"
+								pattern={MONEY_AMOUNT_HTML_PATTERN}
 							/>
 						</div>
 						<SubmitButton>{t('guidelines.etfCard.submit')}</SubmitButton>
@@ -144,9 +144,8 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 								name="targetPct"
 								placeholder={t('forms.targetPct.placeholderAsset')}
 								required={true}
-								min={1}
-								max={100}
-								step="0.1"
+								inputMode="decimal"
+								pattern={MONEY_AMOUNT_HTML_PATTERN}
 							/>
 						</div>
 						<SubmitButton>{t('guidelines.bucket.submit')}</SubmitButton>

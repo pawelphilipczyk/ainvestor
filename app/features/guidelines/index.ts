@@ -19,6 +19,7 @@ import {
 	saveGuidelines,
 } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
+import { parseMoneyAmountString } from '../../lib/money-input.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
@@ -41,6 +42,14 @@ const AssetClassGuidelineSchema = object({
 	assetClassType: optional(string()),
 	targetPct: coerce.number().pipe(min(0.001), max(100)),
 })
+
+/** Same locale rules as money amount fields (HTML `pattern` + {@link parseMoneyAmountString}). */
+function normalizeGuidelineTargetPctInput(raw: Record<string, unknown>): void {
+	if (typeof raw.targetPct === 'string') {
+		const parsed = parseMoneyAmountString(raw.targetPct)
+		raw.targetPct = parsed === null ? raw.targetPct : String(parsed)
+	}
+}
 
 async function persistGuideline(params: {
 	entry: EtfGuideline
@@ -85,12 +94,11 @@ export const guidelinesController = {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
-		const result = parseSafe(
-			InstrumentGuidelineSchema,
-			Object.fromEntries(
-				form as unknown as Iterable<[string, FormDataEntryValue]>,
-			),
+		const formPayload = Object.fromEntries(
+			form as unknown as Iterable<[string, FormDataEntryValue]>,
 		)
+		normalizeGuidelineTargetPctInput(formPayload)
+		const result = parseSafe(InstrumentGuidelineSchema, formPayload)
 		if (!result.success) {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
@@ -135,12 +143,11 @@ export const guidelinesController = {
 		const form = context.formData
 		if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
-		const result = parseSafe(
-			AssetClassGuidelineSchema,
-			Object.fromEntries(
-				form as unknown as Iterable<[string, FormDataEntryValue]>,
-			),
+		const formPayload = Object.fromEntries(
+			form as unknown as Iterable<[string, FormDataEntryValue]>,
 		)
+		normalizeGuidelineTargetPctInput(formPayload)
+		const result = parseSafe(AssetClassGuidelineSchema, formPayload)
 		if (!result.success) {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
