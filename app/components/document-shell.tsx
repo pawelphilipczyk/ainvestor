@@ -47,6 +47,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					id="ui-client-messages"
 					innerHTML={JSON.stringify({
 						genericFormError: t('client.formSubmit.genericError'),
+						submitLoadingLabel: t('chrome.loading'),
 					})}
 				/>
 			</head>
@@ -59,11 +60,17 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 							aria-live="polite"
 						>
 							<span
-								class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
+								class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
 								aria-hidden="true"
 							/>
 							{t('chrome.loading')}
 						</span>
+					</div>
+					<div id="form-spinner-icon" class="sr-only" aria-hidden="true">
+						<span
+							class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
+							aria-hidden="true"
+						/>
 					</div>
 					<Sidebar navLinks={getNavLinks()} currentPage={props.currentPage} />
 					<AppTopBar />
