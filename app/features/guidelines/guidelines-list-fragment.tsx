@@ -1,7 +1,10 @@
 import type { Handle } from 'remix/component'
 import { Card } from '../../components/index.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
-import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
+import {
+	formatEtfTypeLabel,
+	sumGuidelineTargetPct,
+} from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
 
@@ -11,7 +14,7 @@ import { routes } from '../../routes.ts'
 export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 	return (props: { guidelines?: EtfGuideline[] }) => {
 		const guidelines = props.guidelines ?? []
-		const totalPct = guidelines.reduce((sum, g) => sum + g.targetPct, 0)
+		const totalPct = sumGuidelineTargetPct(guidelines)
 		const remaining = Math.max(0, 100 - totalPct)
 
 		return (

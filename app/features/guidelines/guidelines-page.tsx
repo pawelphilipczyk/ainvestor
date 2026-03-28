@@ -66,6 +66,11 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					<p class="mt-1 text-xs text-muted-foreground">
 						{t('guidelines.etfCard.hint')}
 					</p>
+					<div
+						id="guidelines-instrument-form-error"
+						role="alert"
+						class="mt-4 hidden rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+					/>
 					<form
 						method="post"
 						action={routes.guidelines.instrument.href()}
@@ -74,6 +79,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						data-fragment-id="guidelines-list"
 						data-fragment-url="/fragments/guidelines-list"
 						data-reset-form
+						data-error-id="guidelines-instrument-form-error"
 					>
 						<div class="grid gap-2">
 							<FieldLabel fieldId="instrumentTicker">
@@ -116,6 +122,11 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					<p class="mt-1 text-xs text-muted-foreground">
 						{t('guidelines.bucket.hint')}
 					</p>
+					<div
+						id="guidelines-asset-class-form-error"
+						role="alert"
+						class="mt-4 hidden rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+					/>
 					<form
 						method="post"
 						action={routes.guidelines.assetClass.href()}
@@ -124,6 +135,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						data-fragment-id="guidelines-list"
 						data-fragment-url="/fragments/guidelines-list"
 						data-reset-form
+						data-error-id="guidelines-asset-class-form-error"
 					>
 						<div class="grid gap-2">
 							<FieldLabel fieldId="assetClassType">

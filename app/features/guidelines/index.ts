@@ -18,8 +18,10 @@ import {
 	fetchGuidelines,
 	isEtfType,
 	saveGuidelines,
+	sumGuidelineTargetPct,
+	wouldGuidelineTotalExceedCap,
 } from '../../lib/guidelines.ts'
-import { t } from '../../lib/i18n.ts'
+import { format, t } from '../../lib/i18n.ts'
 import { parseLocaleDecimalString } from '../../lib/locale-decimal-input.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
@@ -52,6 +54,45 @@ function normalizeGuidelineTargetPctInput(raw: Record<string, unknown>): void {
 	}
 }
 
+function formatPctForMessage(value: number): string {
+	const rounded = Math.round(value * 100) / 100
+	if (Number.isInteger(rounded)) return String(rounded)
+	return String(rounded)
+}
+
+async function loadGuidelinesForSession(params: {
+	session: SessionData | null
+	remixSession: Session
+}): Promise<EtfGuideline[]> {
+	if (params.session?.gistId && params.session.token) {
+		return fetchGuidelines(params.session.token, params.session.gistId)
+	}
+	return getGuestGuidelines(params.remixSession)
+}
+
+function guidelinesTotalCapErrorResponse(params: {
+	request: Request
+	session: Session
+	currentTotal: number
+	addedPct: number
+}): Response {
+	const message = format(t('errors.guidelines.totalExceeds100'), {
+		current: formatPctForMessage(params.currentTotal),
+		added: formatPctForMessage(params.addedPct),
+	})
+	const prefersJson = params.request.headers
+		.get('Accept')
+		?.includes('application/json')
+	if (prefersJson) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	params.session.flash('error', message)
+	return createRedirectResponse(routes.guidelines.index.href())
+}
+
 async function persistGuideline(params: {
 	entry: EtfGuideline
 	session: SessionData | null
@@ -76,6 +117,7 @@ export const guidelinesController = {
 	async index(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
 		const layoutSession = getLayoutSession(context.session)
+		const flashError = context.session.get('error') as string | undefined
 		const [guidelines, catalog] = await Promise.all([
 			session?.gistId && session.token
 				? fetchGuidelines(session.token, session.gistId)
@@ -84,7 +126,12 @@ export const guidelinesController = {
 				? fetchCatalog(session.token, session.gistId)
 				: getGuestCatalog(context.session),
 		])
-		return renderGuidelinesPage({ guidelines, session: layoutSession, catalog })
+		return renderGuidelinesPage({
+			guidelines,
+			session: layoutSession,
+			catalog,
+			flashError,
+		})
 	},
 
 	async instrument(context: {
@@ -124,6 +171,24 @@ export const guidelinesController = {
 			etfName: match.ticker,
 			targetPct,
 			etfType: match.type,
+		}
+
+		const currentGuidelines = await loadGuidelinesForSession({
+			session,
+			remixSession: context.session,
+		})
+		if (
+			wouldGuidelineTotalExceedCap({
+				existing: currentGuidelines,
+				additionalPct: targetPct,
+			})
+		) {
+			return guidelinesTotalCapErrorResponse({
+				request: context.request,
+				session: context.session,
+				currentTotal: sumGuidelineTargetPct(currentGuidelines),
+				addedPct: targetPct,
+			})
 		}
 
 		await persistGuideline({
@@ -170,6 +235,24 @@ export const guidelinesController = {
 			etfName: '',
 			targetPct,
 			etfType: raw,
+		}
+
+		const currentGuidelines = await loadGuidelinesForSession({
+			session,
+			remixSession: context.session,
+		})
+		if (
+			wouldGuidelineTotalExceedCap({
+				existing: currentGuidelines,
+				additionalPct: targetPct,
+			})
+		) {
+			return guidelinesTotalCapErrorResponse({
+				request: context.request,
+				session: context.session,
+				currentTotal: sumGuidelineTargetPct(currentGuidelines),
+				addedPct: targetPct,
+			})
 		}
 
 		await persistGuideline({
@@ -229,8 +312,9 @@ async function renderGuidelinesPage(params: {
 	guidelines: EtfGuideline[]
 	session: SessionData | null
 	catalog: CatalogEntry[]
+	flashError?: string
 }) {
-	const { guidelines, session, catalog } = params
+	const { guidelines, session, catalog, flashError } = params
 	const assetClassOptions = assetClassSelectOptionsFromCatalog(catalog)
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(GuidelinesPage, {
@@ -243,5 +327,6 @@ async function renderGuidelinesPage(params: {
 		session,
 		currentPage: 'guidelines',
 		body,
+		flashError,
 	})
 }

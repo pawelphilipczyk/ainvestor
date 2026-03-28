@@ -211,6 +211,9 @@ export const en = {
 	'errors.portfolio.catalogEntryMissing':
 		'Selected catalog entry not found. Update your catalog or pick another fund.',
 
+	'errors.guidelines.totalExceeds100':
+		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',
+
 	'errors.advice.formRead': 'Could not read your form. Please try again.',
 	'errors.advice.formReadDetail':
 		'The server did not receive parseable form data for this request.',

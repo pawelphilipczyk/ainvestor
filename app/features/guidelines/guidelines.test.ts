@@ -83,6 +83,72 @@ describe('Guidelines page', () => {
 		assert.equal(response.headers.get('location'), '/guidelines')
 	})
 
+	it('POST /guidelines/instrument rejects when total target % would exceed 100', async () => {
+		await seedGuestCatalog()
+		const first = new FormData()
+		first.set('instrumentTicker', 'VTI')
+		first.set('targetPct', '60')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: first,
+			}),
+		)
+
+		const second = new FormData()
+		second.set('instrumentTicker', 'BND')
+		second.set('targetPct', '50')
+		const response = await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: second,
+			}),
+		)
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/guidelines')
+
+		const page = await testSessionFetch('http://localhost/guidelines')
+		const body = await page.text()
+		assert.match(body, /cannot add up to more than 100%/)
+		assert.match(body, /60/)
+		assert.match(body, /50/)
+		const deleteActions = body.match(/action="\/guidelines\/[a-f0-9-]+"/g) ?? []
+		assert.equal(
+			deleteActions.length,
+			1,
+			'expected only the first guideline after rejected over-cap add',
+		)
+	})
+
+	it('POST /guidelines/instrument returns 422 JSON when total would exceed 100 and Accept is JSON', async () => {
+		await seedGuestCatalog()
+		const first = new FormData()
+		first.set('instrumentTicker', 'VTI')
+		first.set('targetPct', '60')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: first,
+			}),
+		)
+
+		const second = new FormData()
+		second.set('instrumentTicker', 'BND')
+		second.set('targetPct', '50')
+		const response = await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: second,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as { error?: string }
+		assert.match(data.error ?? '', /cannot add up to more than 100%/)
+	})
+
 	it('POST /guidelines/instrument accepts locale-style target % (comma decimal)', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
