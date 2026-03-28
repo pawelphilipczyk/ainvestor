@@ -6,9 +6,12 @@ import {
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import type { AdviceClient } from '../../openai.ts'
-import { setAdviceClient } from './index.ts'
+import { adviceTabHref, setAdviceClient } from './index.ts'
 
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
+
+const adviceUrl = (mode: Parameters<typeof adviceTabHref>[0]) =>
+	`http://localhost${adviceTabHref(mode)}`
 
 function makeMockClient(responseText: string): AdviceClient {
 	const content = (() => {
@@ -56,7 +59,10 @@ describe('Advice', () => {
 		assert.match(body, /name="cashCurrency"/)
 		assert.match(body, /name="adviceModel"/)
 		assert.match(body, /name="analysisMode"/)
-		assert.match(body, /action="\/advice"/)
+		assert.match(body, /tab=buy_next/)
+		assert.match(body, /tab=portfolio_review/)
+		assert.match(body, /What to buy next/)
+		assert.match(body, /Portfolio health review/)
 	})
 
 	it('GET /advice shows pending approval when session login is not on allowlist', async () => {
@@ -104,8 +110,9 @@ describe('Advice', () => {
 			},
 		})
 
+		form.set('analysisMode', 'buy_next')
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', {
+			new Request(adviceUrl('buy_next'), {
 				method: 'POST',
 				body: form,
 				headers: { Cookie: cookie },
@@ -125,7 +132,7 @@ describe('Advice', () => {
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', {
+			new Request(adviceUrl('buy_next'), {
 				method: 'POST',
 				body: form,
 			}),
@@ -145,7 +152,10 @@ describe('Advice', () => {
 		form.set('analysisMode', 'portfolio_review')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('portfolio_review'), {
+				method: 'POST',
+				body: form,
+			}),
 		)
 		const body = await response.text()
 
@@ -168,8 +178,9 @@ describe('Advice', () => {
 		const form = new FormData()
 		form.set('cashAmount', '100')
 
+		form.set('analysisMode', 'buy_next')
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -191,9 +202,10 @@ describe('Advice', () => {
 		try {
 			const form = new FormData()
 			form.set('cashAmount', '100')
+			form.set('analysisMode', 'buy_next')
 
 			const response = await testSessionFetch(
-				new Request('http://localhost/advice', { method: 'POST', body: form }),
+				new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 			)
 			const body = await response.text()
 
@@ -220,9 +232,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '1000')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -278,9 +291,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '2000')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -334,9 +348,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '500')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -388,9 +403,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '100')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -423,9 +439,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '500')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -466,9 +483,10 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '500')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 
@@ -515,8 +533,9 @@ describe('Advice', () => {
 
 		const adviceForm = new FormData()
 		adviceForm.set('cashAmount', '500')
+		adviceForm.set('analysisMode', 'buy_next')
 		await testSessionFetch(
-			new Request('http://localhost/advice', {
+			new Request(adviceUrl('buy_next'), {
 				method: 'POST',
 				body: adviceForm,
 			}),
@@ -566,8 +585,9 @@ describe('Advice', () => {
 
 		const adviceForm = new FormData()
 		adviceForm.set('cashAmount', '1000')
+		adviceForm.set('analysisMode', 'buy_next')
 		await testSessionFetch(
-			new Request('http://localhost/advice', {
+			new Request(adviceUrl('buy_next'), {
 				method: 'POST',
 				body: adviceForm,
 			}),
@@ -593,9 +613,10 @@ describe('Advice', () => {
 		const form = new FormData()
 		form.set('cashAmount', '100')
 		form.set('adviceModel', 'gpt-5.4-nano')
+		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/advice', { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
 		const body = await response.text()
 

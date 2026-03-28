@@ -30,6 +30,7 @@ import {
 	DEFAULT_ADVICE_MODEL,
 	getInvestmentAdvice,
 } from '../../openai.ts'
+import { routes } from '../../routes.ts'
 import type { AdviceDocument } from './advice-document.ts'
 import { AdvicePage } from './advice-page.tsx'
 
@@ -42,6 +43,11 @@ const AdviceSchema = object({
 		DEFAULT_ADVICE_ANALYSIS_MODE,
 	),
 })
+
+function parseAdviceTabParam(url: string): AdviceAnalysisMode {
+	const tab = new URL(url).searchParams.get('tab')
+	return tab === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
+}
 
 function formatSchemaIssues(issues: ReadonlyArray<Issue>): string {
 	return issues
@@ -59,6 +65,10 @@ function renderAdviceResponse(options: {
 		cashAmount?: string
 		cashCurrency?: string
 		analysisMode?: AdviceAnalysisMode
+		/** Tab selected in the UI (`?tab=`); defaults to buy_next. */
+		activeTab?: AdviceAnalysisMode
+		/** Which analysis produced `advice` (for showing the result on the correct tab). */
+		lastAnalysisMode?: AdviceAnalysisMode
 		selectedModel?: AdviceModelId
 		advice?: AdviceDocument
 		formError?: { summary: string; detail?: string }
@@ -91,9 +101,14 @@ export const adviceController = {
 	async index(context: { request: Request; session: Session }) {
 		const layoutSession = getLayoutSession(context.session)
 		const pendingApproval = layoutSession?.approvalStatus === 'pending'
+		const activeTab = parseAdviceTabParam(context.request.url)
 		return renderAdviceResponse({
 			session: layoutSession,
-			props: { pendingApproval, analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE },
+			props: {
+				pendingApproval,
+				analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+				activeTab,
+			},
 		})
 	},
 
@@ -105,6 +120,7 @@ export const adviceController = {
 		const session = getSessionData(context.session)
 		const layoutSession = getLayoutSession(context.session)
 		const pendingApproval = layoutSession?.approvalStatus === 'pending'
+		const activeTabFromUrl = parseAdviceTabParam(context.request.url)
 		const form = context.formData
 		if (!form) {
 			return renderAdviceResponse({
@@ -112,6 +128,7 @@ export const adviceController = {
 				props: {
 					pendingApproval,
 					analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+					activeTab: activeTabFromUrl,
 					formError: {
 						summary: t('errors.advice.formRead'),
 						detail: t('errors.advice.formReadDetail'),
@@ -173,6 +190,7 @@ export const adviceController = {
 					cashAmount,
 					cashCurrency,
 					analysisMode,
+					activeTab: activeTabFromUrl,
 					selectedModel,
 					formError: {
 						summary: t('errors.advice.validation'),
@@ -197,6 +215,7 @@ export const adviceController = {
 					cashAmount: rawCashAmount,
 					cashCurrency,
 					analysisMode,
+					activeTab: activeTabFromUrl,
 					selectedModel: adviceModel,
 					formError: {
 						summary: t('errors.advice.buyNextCashRequired'),
@@ -218,6 +237,7 @@ export const adviceController = {
 					cashAmount: rawCashAmount,
 					cashCurrency,
 					analysisMode,
+					activeTab: activeTabFromUrl,
 					selectedModel: adviceModel,
 					formError: {
 						summary: t('errors.advice.notApproved'),
@@ -258,6 +278,8 @@ export const adviceController = {
 					cashAmount,
 					cashCurrency,
 					analysisMode,
+					activeTab: activeTabFromUrl,
+					lastAnalysisMode: analysisMode,
 					selectedModel: adviceModel,
 					advice,
 				},
@@ -278,6 +300,8 @@ export const adviceController = {
 					cashAmount,
 					cashCurrency,
 					analysisMode,
+					activeTab: activeTabFromUrl,
+					lastAnalysisMode: analysisMode,
 					selectedModel: adviceModel,
 					formError: {
 						summary: t('errors.advice.service'),
@@ -288,4 +312,10 @@ export const adviceController = {
 			})
 		}
 	},
+}
+
+/** Test helper: path + query for switching to a tab. */
+export function adviceTabHref(mode: AdviceAnalysisMode): string {
+	const q = mode === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
+	return routes.advice.index.href({}, { tab: q })
 }

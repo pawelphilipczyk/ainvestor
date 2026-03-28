@@ -171,13 +171,15 @@ export const en = {
 		'You signed in with GitHub, but this app only allows listed users. Add your GitHub username to',
 	'advice.pending.afterPath':
 		'in a pull request. After it is merged and deployed, sign out and sign in again.',
-	'advice.form.field.analysis': 'Analysis',
+	'advice.tabs.navAria': 'Advice sections',
+	'advice.tab.hint.buyNext':
+		'Enter deployable cash (same currency as your holdings when possible). Suggestions are buy-only — no sells.',
+	'advice.tab.hint.portfolioReview':
+		'Qualitative balance and risk vs your catalog and guidelines. Cash below is optional.',
 	'advice.form.field.cash': 'Available cash',
 	'advice.form.field.cashOptional': 'Cash (optional)',
 	'advice.form.field.currency': 'Currency',
 	'advice.form.field.model': 'Model',
-	'advice.form.analysisHint':
-		'Portfolio health uses your holdings, catalog, and guidelines. Buy next still needs deployable cash.',
 	'advice.form.placeholder.cash': 'e.g. 1000',
 	'advice.form.placeholder.cashOptional': 'Leave blank for review only',
 	'advice.form.submit': 'Ask AI',
