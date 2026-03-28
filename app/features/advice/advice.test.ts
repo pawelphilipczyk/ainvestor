@@ -329,6 +329,96 @@ describe('Advice', () => {
 		assert.match(body, /Note/)
 	})
 
+	it('renders guideline_bars default heading when caption is only whitespace', async () => {
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'capital_snapshot',
+							segments: [
+								{
+									role: 'holdings',
+									label: 'H',
+									amount: 100,
+									currency: 'EUR',
+								},
+								{
+									role: 'cash',
+									label: 'C',
+									amount: 100,
+									currency: 'EUR',
+								},
+							],
+						},
+						{
+							type: 'guideline_bars',
+							caption: '   ',
+							rows: [
+								{
+									label: 'X',
+									targetPct: 50,
+									currentPct: 40,
+								},
+							],
+						},
+						{ type: 'paragraph', text: '- Ok.' },
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Guideline alignment/)
+		assert.match(body, /X/)
+	})
+
+	it('shows a fallback when capital_snapshot segments fail UI validation', async () => {
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'capital_snapshot',
+							segments: [
+								{
+									role: 'holdings',
+									label: 'Only holdings row',
+									amount: 1000,
+									currency: 'PLN',
+								},
+							],
+						},
+						{ type: 'paragraph', text: '- After invalid snapshot.' },
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '500')
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/advice', { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(
+			body,
+			/Portfolio snapshot could not be shown because the data from the model/,
+		)
+		assert.match(body, /After invalid snapshot/)
+	})
+
 	it('renders an ETF proposals table when the model returns etf_proposals blocks', async () => {
 		setAdviceClient(
 			makeMockClient(

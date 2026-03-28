@@ -10,7 +10,7 @@ import {
 	string,
 	variant,
 } from 'remix/data-schema'
-import { minLength, min, max } from 'remix/data-schema/checks'
+import { max, min, minLength } from 'remix/data-schema/checks'
 import { CURRENCIES } from '../../lib/currencies.ts'
 
 const etfProposalRowSchema = object({
@@ -55,8 +55,8 @@ const adviceBlockSchema = variant('type', {
 			'At least one segment',
 		),
 		postTotal: optional(capitalSnapshotPostTotalSchema),
-	}).refine(
-		(block) => {
+	})
+		.refine((block) => {
 			// Check role uniqueness
 			const roles = block.segments.map((s) => s.role)
 			const uniqueRoles = new Set(roles)
@@ -64,10 +64,8 @@ const adviceBlockSchema = variant('type', {
 				return false
 			}
 			return true
-		},
-		'Segment roles must be unique',
-	).refine(
-		(block) => {
+		}, 'Segment roles must be unique')
+		.refine((block) => {
 			// Check currency consistency
 			if (block.segments.length === 0) return true
 			const firstCurrency = block.segments[0].currency
@@ -80,10 +78,8 @@ const adviceBlockSchema = variant('type', {
 				return false
 			}
 			return true
-		},
-		'All currencies must match',
-	).refine(
-		(block) => {
+		}, 'All currencies must match')
+		.refine((block) => {
 			// Check postTotal amount if present
 			if (!block.postTotal) return true
 			const segmentSum = block.segments.reduce((sum, s) => sum + s.amount, 0)
@@ -94,9 +90,7 @@ const adviceBlockSchema = variant('type', {
 				return false
 			}
 			return true
-		},
-		'postTotal amount must be >= sum of segment amounts',
-	),
+		}, 'postTotal amount must be >= sum of segment amounts'),
 	guideline_bars: object({
 		type: literal('guideline_bars'),
 		caption: optional(string()),

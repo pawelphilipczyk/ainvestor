@@ -63,12 +63,53 @@ function clampPct(n: number): number {
 	return Math.min(100, Math.max(0, n))
 }
 
+function capitalSnapshotValidationMessage(
+	block: Extract<AdviceBlock, { type: 'capital_snapshot' }>,
+): string | null {
+	const segs = block.segments
+	if (segs.length !== 2) {
+		return `expected exactly 2 segments, got ${segs.length}`
+	}
+	const holdingsN = segs.filter((s) => s.role === 'holdings').length
+	const cashN = segs.filter((s) => s.role === 'cash').length
+	if (holdingsN !== 1 || cashN !== 1) {
+		return 'segments must include exactly one holdings and one cash role'
+	}
+	const currency = segs[0].currency
+	if (!segs.every((s) => s.currency === currency)) {
+		return 'all segment currencies must match'
+	}
+	if (segs.some((s) => s.amount < 0 || Number.isNaN(s.amount))) {
+		return 'segment amounts must be non-negative numbers'
+	}
+	return null
+}
+
 function renderCapitalSnapshot(
 	block: Extract<AdviceBlock, { type: 'capital_snapshot' }>,
+	headingId: string,
 ) {
+	const invalidReason = capitalSnapshotValidationMessage(block)
+	if (invalidReason !== null) {
+		console.warn(`[advice] capital_snapshot invalid: ${invalidReason}`)
+		return (
+			<section class="min-w-0 max-w-full space-y-3" aria-labelledby={headingId}>
+				<h3
+					id={headingId}
+					class="text-base font-semibold tracking-tight text-card-foreground"
+				>
+					Portfolio mix
+				</h3>
+				<p role="alert" class="text-sm text-muted-foreground">
+					Portfolio snapshot could not be shown because the data from the model
+					was inconsistent (for example mixed currencies or invalid amounts).
+				</p>
+			</section>
+		)
+	}
+
 	const total = block.segments.reduce((sum, s) => sum + s.amount, 0)
 	const safeTotal = total > 0 ? total : 1
-	const headingId = 'advice-capital-snapshot-heading'
 
 	return (
 		<section class="min-w-0 max-w-full space-y-3" aria-labelledby={headingId}>
@@ -135,9 +176,13 @@ function renderCapitalSnapshot(
 
 function renderGuidelineBars(
 	block: Extract<AdviceBlock, { type: 'guideline_bars' }>,
+	headingId: string,
 ) {
-	const headingId = 'advice-guideline-bars-heading'
-	const titleText = block.caption ?? 'Guideline alignment'
+	const trimmedCaption = block.caption?.trim()
+	const titleText =
+		trimmedCaption !== undefined && trimmedCaption.length > 0
+			? trimmedCaption
+			: 'Guideline alignment'
 
 	return (
 		<section class="min-w-0 max-w-full space-y-4" aria-labelledby={headingId}>
@@ -320,7 +365,11 @@ function renderEtfProposals(
 	)
 }
 
-function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
+function renderAdviceBlock(
+	block: AdviceBlock,
+	defaultCashCurrency: string,
+	blockIndex: number,
+) {
 	if (block.type === 'paragraph') {
 		return (
 			<div class="min-w-0 max-w-full whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
@@ -329,10 +378,16 @@ function renderAdviceBlock(block: AdviceBlock, defaultCashCurrency: string) {
 		)
 	}
 	if (block.type === 'capital_snapshot') {
-		return renderCapitalSnapshot(block)
+		return renderCapitalSnapshot(
+			block,
+			`advice-capital-snapshot-heading-${blockIndex}`,
+		)
 	}
 	if (block.type === 'guideline_bars') {
-		return renderGuidelineBars(block)
+		return renderGuidelineBars(
+			block,
+			`advice-guideline-bars-heading-${blockIndex}`,
+		)
 	}
 	return renderEtfProposals(block, defaultCashCurrency)
 }
@@ -453,7 +508,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						<div class="mt-4 min-w-0 space-y-6">
 							{props.advice.blocks.map((block, i) => (
 								<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
-									{renderAdviceBlock(block, cashCurrency)}
+									{renderAdviceBlock(block, cashCurrency, i)}
 								</div>
 							))}
 						</div>
