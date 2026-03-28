@@ -34,7 +34,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 				<Badge>{props.badgeValue}</Badge>
 				<button
 					type="button"
-					class="etf-remove-trigger rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+					class="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 					aria-label={format(t('portfolio.etf.removeAria'), {
 						name: props.name,
 					})}

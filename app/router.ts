@@ -25,7 +25,10 @@ import { routes } from './routes.ts'
 export { resetEtfEntries, resetGuestCatalog, setAdviceClient }
 
 const appStatic = staticFiles('app', {
-	filter: (path) => path.endsWith('.component.js') || path === 'entry.js',
+	filter: (path) =>
+		path.endsWith('.component.js') ||
+		path === 'entry.js' ||
+		path === 'lib/dialog-trigger.js',
 })
 
 const remixRuntime = staticFiles('node_modules', {

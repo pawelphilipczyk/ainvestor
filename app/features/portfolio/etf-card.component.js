@@ -1,13 +1,6 @@
 import { clientEntry, createElement } from 'remix/component'
 import { on } from 'remix/interaction'
-
-function openDialogForTrigger(trigger, doc) {
-	const dialogId = trigger.dataset.dialogId
-	if (!dialogId) return
-	const dialog = doc.getElementById(dialogId)
-	if (!(dialog instanceof HTMLDialogElement)) return
-	dialog.showModal()
-}
+import { openDialogForTrigger } from '../../lib/dialog-trigger.js'
 
 export const EtfCardInteractions = clientEntry(
 	'/features/portfolio/etf-card.component.js#EtfCardInteractions',
@@ -24,7 +17,7 @@ export const EtfCardInteractions = clientEntry(
 							const target = event.target
 							if (!(target instanceof Element)) return
 
-							const trigger = target.closest('.etf-remove-trigger')
+							const trigger = target.closest('[data-dialog-id]')
 							if (!(trigger instanceof HTMLElement)) return
 							openDialogForTrigger(trigger, doc)
 						},
