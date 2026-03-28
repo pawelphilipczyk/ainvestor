@@ -47,6 +47,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					id="ui-client-messages"
 					innerHTML={JSON.stringify({
 						genericFormError: t('client.formSubmit.genericError'),
+						submitLoadingLabel: t('chrome.loading'),
 					})}
 				/>
 			</head>
