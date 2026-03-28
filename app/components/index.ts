@@ -5,10 +5,10 @@ export {
 	FieldLabel,
 	type FieldLabelVariant,
 } from './field-label.tsx'
-export { LinkTab, LinkTabs, type LinkTabsContext } from './link-tabs.tsx'
 export { NumberInput } from './number-input.tsx'
 export { ScrollableTable } from './scrollable-table.tsx'
 export { SelectInput } from './select-input.tsx'
 export { SubmitButton } from './submit-button.tsx'
+export { TabLink, TabsNav, type TabsNavContext } from './tabs-nav.tsx'
 export { TextInput } from './text-input.tsx'
 export { TextareaInput } from './textarea-input.tsx'

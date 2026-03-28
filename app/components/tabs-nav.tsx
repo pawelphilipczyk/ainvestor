@@ -1,7 +1,7 @@
 import type { Handle, RemixNode } from 'remix/component'
 
-/** Provided to descendants via `handle.context` (see `LinkTabs`). */
-export type LinkTabsContext = {
+/** Provided to descendants via `handle.context` (see `TabsNav`). */
+export type TabsNavContext = {
 	activeId: string
 }
 
@@ -13,36 +13,36 @@ const tabInactiveClass = `${tabBaseClass} text-muted-foreground hover:text-card-
 const tabActiveClass = `${tabBaseClass} -mb-px border border-b-0 border-border bg-muted/60 text-card-foreground`
 
 /**
- * Tab list wrapper: set `activeId` and place {@link LinkTab} children inside.
- * Uses link-based tabs (progressive enhancement).
+ * Tab list wrapper: set `activeId` and nest {@link TabLink} children.
+ * Remaining props are passed through to `<nav>` (e.g. `aria-label`, `class`).
  */
-export function LinkTabs(handle: Handle<LinkTabsContext>, _setup?: unknown) {
+export function TabsNav(handle: Handle<TabsNavContext>, _setup?: unknown) {
 	return (props: {
-		/** Accessible name for the tab list, e.g. from `t('…')`. */
-		navAriaLabel: string
 		activeId: string
-		class?: string
 		children?: RemixNode
+		class?: string
+		[key: string]: unknown
 	}) => {
-		handle.context.set({ activeId: props.activeId })
+		const { activeId, children, class: className, ...rest } = props
+		handle.context.set({ activeId })
 		const navClass =
-			`flex flex-wrap gap-2 border-b border-border pb-px ${props.class ?? ''}`.trim()
+			`flex flex-wrap gap-2 border-b border-border pb-px ${className ?? ''}`.trim()
 		return (
-			<nav class={navClass} aria-label={props.navAriaLabel}>
-				{props.children}
+			<nav {...rest} class={navClass}>
+				{children}
 			</nav>
 		)
 	}
 }
 
 /**
- * One tab link; must be rendered inside {@link LinkTabs}.
+ * One tab link; must be rendered inside {@link TabsNav}.
  */
-export function LinkTab(handle: Handle, _setup?: unknown) {
+export function TabLink(handle: Handle, _setup?: unknown) {
 	return (props: { id: string; href: string; children?: RemixNode }) => {
-		const ctx = handle.context.get(LinkTabs) as LinkTabsContext | undefined
+		const ctx = handle.context.get(TabsNav) as TabsNavContext | undefined
 		if (ctx === undefined) {
-			throw new Error('LinkTab must be used inside LinkTabs')
+			throw new Error('TabLink must be used inside TabsNav')
 		}
 		const isActive = props.id === ctx.activeId
 		return (

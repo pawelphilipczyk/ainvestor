@@ -2,12 +2,12 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
-	LinkTab,
-	LinkTabs,
 	NumberInput,
 	ScrollableTable,
 	SelectInput,
 	SubmitButton,
+	TabLink,
+	TabsNav,
 } from '../../components/index.ts'
 import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { CURRENCIES } from '../../lib/currencies.ts'
@@ -439,14 +439,14 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					title={SECTION_INTROS.advice.title}
 					description={SECTION_INTROS.advice.description}
 				/>
-				<LinkTabs navAriaLabel={t('advice.tabs.navAria')} activeId={activeTab}>
-					<LinkTab id="buy_next" href={buyNextHref}>
+				<TabsNav activeId={activeTab} aria-label={t('advice.tabs.navAria')}>
+					<TabLink id="buy_next" href={buyNextHref}>
 						{t('advice.analysisMode.buy_next')}
-					</LinkTab>
-					<LinkTab id="portfolio_review" href={reviewHref}>
+					</TabLink>
+					<TabLink id="portfolio_review" href={reviewHref}>
 						{t('advice.analysisMode.portfolio_review')}
-					</LinkTab>
-				</LinkTabs>
+					</TabLink>
+				</TabsNav>
 				{pendingApproval ? (
 					<div
 						role="status"

@@ -2,17 +2,17 @@ import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
-import { LinkTab, LinkTabs } from './link-tabs.tsx'
+import { TabLink, TabsNav } from './tabs-nav.tsx'
 
-describe('LinkTabs', () => {
-	it('renders LinkTab children with aria-current on the active tab', async () => {
+describe('TabsNav', () => {
+	it('passes nav props through and sets aria-current on the active TabLink', async () => {
 		const html = await renderToString(
-			jsx(LinkTabs, {
-				navAriaLabel: 'Sections',
+			jsx(TabsNav, {
 				activeId: 'b',
+				'aria-label': 'Sections',
 				children: [
-					jsx(LinkTab, { id: 'a', href: '/x?tab=a', children: 'First' }),
-					jsx(LinkTab, { id: 'b', href: '/x?tab=b', children: 'Second' }),
+					jsx(TabLink, { id: 'a', href: '/x?tab=a', children: 'First' }),
+					jsx(TabLink, { id: 'b', href: '/x?tab=b', children: 'Second' }),
 				],
 			}),
 		)
