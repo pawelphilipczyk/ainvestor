@@ -1,6 +1,7 @@
 import type { Handle, RemixNode } from 'remix/component'
 import type { AppPage } from '../lib/app-page.ts'
 import { baseCss } from '../lib/document-styles.ts'
+import { t } from '../lib/i18n.ts'
 import type { SessionData } from '../lib/session.ts'
 import { tailwindConfig } from '../lib/tailwind-config.ts'
 import { AppTopBar } from './app-top-bar.tsx'
@@ -41,6 +42,13 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				/>
 				<style type="text/tailwindcss" innerHTML={baseCss} />
 				<script type="importmap" innerHTML={IMPORT_MAP} />
+				<script
+					type="application/json"
+					id="ui-client-messages"
+					innerHTML={JSON.stringify({
+						genericFormError: t('client.formSubmit.genericError'),
+					})}
+				/>
 			</head>
 			<body class="min-h-screen overflow-x-hidden bg-background font-sans text-foreground antialiased">
 				<SessionProvider session={props.session}>
@@ -54,7 +62,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 								class="h-4 w-4 animate-spin rounded-full border-2 border-current border-t-transparent"
 								aria-hidden="true"
 							/>
-							Loading…
+							{t('chrome.loading')}
 						</span>
 					</div>
 					<Sidebar navLinks={NAV_LINKS} currentPage={props.currentPage} />

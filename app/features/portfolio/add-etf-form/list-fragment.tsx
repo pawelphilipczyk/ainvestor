@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import { Card } from '../../../components/index.ts'
 import { formatValue } from '../../../lib/format.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
+import { format, t } from '../../../lib/i18n.ts'
 import { routes } from '../../../routes.ts'
 import { EtfCard } from '../etf-card.tsx'
 
@@ -15,16 +16,20 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 		return (
 			<Card class="p-4">
 				<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-					Your Holdings
+					{t('portfolio.holdings.title')}
 				</h2>
 				{entries.length === 0 ? (
-					<p class="mt-3 text-sm text-muted-foreground">No ETFs added yet.</p>
+					<p class="mt-3 text-sm text-muted-foreground">
+						{t('portfolio.holdings.empty')}
+					</p>
 				) : (
 					<ul class="mt-4 grid gap-2">
 						{entries.map((entry) => {
 							const details = [
 								entry.quantity !== undefined
-									? `${entry.quantity.toLocaleString()} shares`
+									? format(t('portfolio.holdings.shares'), {
+											count: entry.quantity.toLocaleString(),
+										})
 									: '',
 								entry.exchange ?? '',
 							]

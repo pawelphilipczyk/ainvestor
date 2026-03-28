@@ -2,6 +2,18 @@ import { clientEntry, createElement } from 'remix/component'
 import { on } from 'remix/interaction'
 
 const SPINNER_ID = 'form-spinner'
+const CLIENT_MESSAGES_ID = 'ui-client-messages'
+
+function readClientMessages() {
+	if (typeof document === 'undefined') return null
+	const el = document.getElementById(CLIENT_MESSAGES_ID)
+	if (!el?.textContent) return null
+	try {
+		return JSON.parse(el.textContent)
+	} catch {
+		return null
+	}
+}
 
 function setSubmitButtonLoading(button, loading) {
 	if (!(button instanceof HTMLElement)) return
@@ -104,7 +116,12 @@ async function handleFetchSubmit(form, submitBtn) {
 			}
 		} else if (res.status === 422 && errorId) {
 			const data = await res.json().catch(() => ({}))
-			showError(data.error || 'Please check your input.')
+			const msgs = readClientMessages()
+			const fallback =
+				typeof msgs?.genericFormError === 'string'
+					? msgs.genericFormError
+					: 'Please check your input.'
+			showError(data.error || fallback)
 		} else {
 			window.location.href = res.url || '/'
 		}

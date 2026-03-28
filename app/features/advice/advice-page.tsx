@@ -9,6 +9,7 @@ import {
 } from '../../components/index.ts'
 import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { CURRENCIES } from '../../lib/currencies.ts'
+import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import {
 	ADVICE_MODEL_IDS,
@@ -34,15 +35,15 @@ type AdvicePageProps = {
 
 const currencyOptions = CURRENCIES.map((c) => ({ value: c, label: c }))
 
-const modelLabels: Record<AdviceModelId, string> = {
-	'gpt-5.4-mini': 'GPT-5.4 Mini',
-	'gpt-5.4-nano': 'GPT-5.4 Nano',
-	'gpt-5.4': 'GPT-5.4',
-}
+const MODEL_LABEL_KEYS = {
+	'gpt-5.4-mini': 'advice.model.gpt-5.4-mini',
+	'gpt-5.4-nano': 'advice.model.gpt-5.4-nano',
+	'gpt-5.4': 'advice.model.gpt-5.4',
+} as const satisfies Record<AdviceModelId, MessageKey>
 
 const modelOptions = ADVICE_MODEL_IDS.map((id) => ({
 	value: id,
-	label: modelLabels[id],
+	label: t(MODEL_LABEL_KEYS[id]),
 }))
 
 function formatAmountNumber(amount: number): string {
@@ -101,11 +102,10 @@ function renderCapitalSnapshot(
 					id={headingId}
 					class="text-base font-semibold tracking-tight text-card-foreground"
 				>
-					Portfolio mix
+					{t('advice.capital.title')}
 				</h3>
 				<p role="alert" class="text-sm text-muted-foreground">
-					Portfolio snapshot could not be shown because the data from the model
-					was inconsistent (for example mixed currencies or invalid amounts).
+					{t('advice.capital.snapshotError')}
 				</p>
 			</section>
 		)
@@ -120,16 +120,15 @@ function renderCapitalSnapshot(
 				id={headingId}
 				class="text-base font-semibold tracking-tight text-card-foreground"
 			>
-				Portfolio mix
+				{t('advice.capital.title')}
 			</h3>
-			<p class="sr-only">
-				Stacked bar: share of current ETF holdings versus deployable cash before
-				new purchases.
-			</p>
+			<p class="sr-only">{t('advice.capital.srOnly')}</p>
 			<div
 				class="flex h-5 w-full min-w-0 max-w-full overflow-hidden rounded-md border border-border bg-muted/30"
 				role="img"
-				aria-label={`Holdings and cash share of ${formatAmountNumber(total)} combined (same currency).`}
+				aria-label={format(t('advice.capital.ariaBar'), {
+					total: formatAmountNumber(total),
+				})}
 			>
 				{block.segments.map((seg, i) => (
 					<div
@@ -140,7 +139,11 @@ function renderCapitalSnapshot(
 								: 'min-w-0 bg-secondary'
 						}
 						style={{ width: `${(seg.amount / safeTotal) * 100}%` }}
-						title={`${seg.label}: ${formatAmountNumber(seg.amount)} ${seg.currency}`}
+						title={format(t('advice.capital.segmentTitle'), {
+							label: seg.label,
+							amount: formatAmountNumber(seg.amount),
+							currency: seg.currency,
+						})}
 					/>
 				))}
 			</div>
@@ -185,7 +188,7 @@ function renderGuidelineBars(
 	const titleText =
 		trimmedCaption !== undefined && trimmedCaption.length > 0
 			? trimmedCaption
-			: 'Guideline alignment'
+			: t('advice.guideline.defaultCaption')
 
 	return (
 		<section class="min-w-0 max-w-full space-y-4" aria-labelledby={headingId}>
@@ -197,7 +200,7 @@ function renderGuidelineBars(
 			</h3>
 			{block.rows.length === 0 ? (
 				<p class="text-sm text-muted-foreground">
-					No guideline comparison rows in this response.
+					{t('advice.guideline.emptyRows')}
 				</p>
 			) : (
 				<>
@@ -207,7 +210,17 @@ function renderGuidelineBars(
 							const postW =
 								row.postBuyPct !== undefined ? clampPct(row.postBuyPct) : null
 							const targetPos = clampPct(row.targetPct)
-							const summary = `Current ${formatPctOneDecimal(row.currentPct)}, target ${formatPctOneDecimal(row.targetPct)}${row.postBuyPct !== undefined ? `, after proposed buys ${formatPctOneDecimal(row.postBuyPct)}` : ''}.`
+							const postBuyClause =
+								row.postBuyPct !== undefined
+									? format(t('advice.guideline.afterProposedBuys'), {
+											post: formatPctOneDecimal(row.postBuyPct),
+										})
+									: ''
+							const summary = `${format(t('advice.guideline.ariaSummary'), {
+								current: formatPctOneDecimal(row.currentPct),
+								target: formatPctOneDecimal(row.targetPct),
+								postBuyClause,
+							})}`
 							return (
 								<li key={row.label} class="space-y-1.5">
 									<div class="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-sm">
@@ -269,8 +282,7 @@ function renderGuidelineBars(
 						})}
 					</ul>
 					<p class="text-xs text-muted-foreground">
-						Solid bar: current portfolio weight. Lighter bar behind: after
-						proposed buys (when shown). Vertical line: target.
+						{t('advice.guideline.legend')}
 					</p>
 				</>
 			)}
@@ -290,43 +302,41 @@ function renderEtfProposals(
 				</h3>
 			) : null}
 			{block.rows.length === 0 ? (
-				<p class="text-sm text-muted-foreground">
-					No specific ETF proposals in this response.
-				</p>
+				<p class="text-sm text-muted-foreground">{t('advice.table.empty')}</p>
 			) : (
 				<ScrollableTable class="text-sm">
-					<caption class="sr-only">Proposed ETF investments</caption>
+					<caption class="sr-only">{t('advice.table.caption')}</caption>
 					<thead class="bg-muted/40">
 						<tr>
 							<th
 								scope="col"
 								class="px-3 py-2 text-left font-medium text-card-foreground"
 							>
-								Fund
+								{t('advice.table.fund')}
 							</th>
 							<th
 								scope="col"
 								class="px-3 py-2 text-left font-medium text-card-foreground"
 							>
-								Ticker
+								{t('advice.table.ticker')}
 							</th>
 							<th
 								scope="col"
 								class="px-3 py-2 text-right font-medium text-card-foreground"
 							>
-								Amount
+								{t('advice.table.amount')}
 							</th>
 							<th
 								scope="col"
 								class="px-3 py-2 text-left font-medium text-card-foreground"
 							>
-								Currency
+								{t('advice.table.currency')}
 							</th>
 							<th
 								scope="col"
 								class="px-3 py-2 text-left font-medium text-card-foreground"
 							>
-								Note
+								{t('advice.table.note')}
 							</th>
 						</tr>
 					</thead>
@@ -343,16 +353,18 @@ function renderEtfProposals(
 								>
 									<td class="px-3 py-2 text-card-foreground">{row.name}</td>
 									<td class="px-3 py-2 text-muted-foreground">
-										{row.ticker ?? '—'}
+										{row.ticker ?? t('catalog.emptyCell')}
 									</td>
 									<td class="px-3 py-2 text-right tabular-nums text-card-foreground">
 										{row.amount !== undefined
 											? formatAmountNumber(row.amount)
-											: '—'}
+											: t('catalog.emptyCell')}
 									</td>
-									<td class="px-3 py-2 text-muted-foreground">{cur ?? '—'}</td>
 									<td class="px-3 py-2 text-muted-foreground">
-										{row.note ?? '—'}
+										{cur ?? t('catalog.emptyCell')}
+									</td>
+									<td class="px-3 py-2 text-muted-foreground">
+										{row.note ?? t('catalog.emptyCell')}
 									</td>
 								</tr>
 							)
@@ -409,15 +421,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						role="status"
 						class="mt-6 rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-card-foreground"
 					>
-						<p class="font-medium">Account pending approval</p>
+						<p class="font-medium">{t('advice.pending.title')}</p>
 						<p class="mt-1 text-muted-foreground">
-							You signed in with GitHub, but this app only allows listed users.
-							Add your GitHub username to{' '}
+							{t('advice.pending.body')}{' '}
 							<code class="rounded bg-muted px-1 py-0.5 font-mono text-xs">
 								app/lib/approved-github-logins.ts
 							</code>{' '}
-							in a pull request. After it is merged and deployed, sign out and
-							sign in again.
+							{t('advice.pending.afterPath')}
 						</p>
 					</div>
 				) : null}
@@ -450,11 +460,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						) : null}
 						<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
 							<div class="grid min-w-0 flex-1 gap-2">
-								<FieldLabel fieldId="cashAmount">Available cash</FieldLabel>
+								<FieldLabel fieldId="cashAmount">
+									{t('advice.form.field.cash')}
+								</FieldLabel>
 								<NumberInput
 									id="cashAmount"
 									name="cashAmount"
-									placeholder="e.g. 1000"
+									placeholder={t('advice.form.placeholder.cash')}
 									required={true}
 									min={1}
 									step="any"
@@ -463,7 +475,9 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								/>
 							</div>
 							<div class="grid w-full gap-2 sm:w-36">
-								<FieldLabel fieldId="cashCurrency">Currency</FieldLabel>
+								<FieldLabel fieldId="cashCurrency">
+									{t('advice.form.field.currency')}
+								</FieldLabel>
 								<SelectInput
 									id="cashCurrency"
 									name="cashCurrency"
@@ -473,7 +487,9 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								/>
 							</div>
 							<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
-								<FieldLabel fieldId="adviceModel">Model</FieldLabel>
+								<FieldLabel fieldId="adviceModel">
+									{t('advice.form.field.model')}
+								</FieldLabel>
 								<SelectInput
 									id="adviceModel"
 									name="adviceModel"
@@ -486,7 +502,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								disabled={pendingApproval}
 								class="sm:!w-auto sm:shrink-0"
 							>
-								Ask AI
+								{t('advice.form.submit')}
 							</SubmitButton>
 						</div>
 					</form>
@@ -494,11 +510,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 				{props.advice !== undefined && props.cashAmount ? (
 					<Card class="min-w-0 max-w-full p-6" aria-live="polite">
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
-							Investment Advice
+							{t('advice.result.title')}
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
-							Based on your portfolio and {props.cashAmount} {cashCurrency}{' '}
-							available.
+							{format(t('advice.result.subtitle'), {
+								amount: props.cashAmount,
+								currency: cashCurrency,
+							})}
 						</p>
 						<div class="mt-4 min-w-0 space-y-6">
 							{props.advice.blocks.map((block, i) => (

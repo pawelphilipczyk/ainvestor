@@ -9,6 +9,7 @@ import {
 	getGuestEtfs,
 	setGuestCatalog,
 } from '../../lib/guest-session-state.ts'
+import { t } from '../../lib/i18n.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
@@ -100,7 +101,7 @@ async function renderCatalogPage(params: {
 		query,
 	})
 	return render({
-		title: 'AI Investor – ETF Catalog',
+		title: t('meta.title.catalog'),
 		session,
 		currentPage: 'catalog',
 		body,

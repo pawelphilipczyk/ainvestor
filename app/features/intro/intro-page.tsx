@@ -1,6 +1,7 @@
 import type { Handle } from 'remix/component'
 import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { NAV_LINKS } from '../../components/sidebar-nav.ts'
+import { t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 
 /**
@@ -11,11 +12,10 @@ export function IntroPage(_handle: Handle, _setup?: unknown) {
 		<main class="mx-auto w-full min-w-0 max-w-4xl">
 			<header class="mb-8">
 				<h1 class="text-2xl font-bold tracking-tight text-foreground">
-					AI Investor
+					{t('app.name')}
 				</h1>
 				<p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-					Choose where to go next. Everything works in the browser; sign in with
-					GitHub when you want your portfolio and catalog saved across sessions.
+					{t('intro.tagline')}
 				</p>
 			</header>
 			<ul class="grid list-none gap-4 p-0 sm:grid-cols-2">

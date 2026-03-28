@@ -5,6 +5,7 @@ import {
 	SubmitButton,
 	TextareaInput,
 } from '../../../components/index.ts'
+import { t } from '../../../lib/i18n.ts'
 import { routes } from '../../../routes.ts'
 
 /**
@@ -21,18 +22,17 @@ export function ImportEtfForm(_handle: Handle, _setup?: unknown) {
 				id="portfolio-import-heading"
 				class="text-lg font-semibold tracking-tight text-card-foreground"
 			>
-				Import from CSV
+				{t('portfolio.import.title')}
 			</h2>
 			<p class="mt-1 text-xs text-muted-foreground">
-				eMAKLER/mBank exports and similar. Example columns:
+				{t('portfolio.import.formatsHint')}
 			</p>
 			<pre class="mt-2 min-w-0 overflow-x-auto rounded border border-border/80 bg-card px-3 py-2 text-xs text-muted-foreground">
 				{`Papier;Giełda;Liczba dostępna (Blokady);Kurs;Waluta;Wartość;Waluta
 IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 			</pre>
 			<p class="mt-2 text-xs text-muted-foreground">
-				Semicolon or comma. Polish headers (Papier, Giełda, Liczba dostępna,
-				Wartość, Waluta). Windows-1250 encoding supported for file uploads.
+				{t('portfolio.import.encodingNote')}
 			</p>
 			<form
 				method="post"
@@ -44,17 +44,21 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 				data-fragment-url={routes.portfolio.fragmentList.href()}
 			>
 				<div class="grid min-w-0 gap-2">
-					<FieldLabel fieldId="portfolioCsvPaste">Paste CSV here</FieldLabel>
+					<FieldLabel fieldId="portfolioCsvPaste">
+						{t('portfolio.import.pasteLabel')}
+					</FieldLabel>
 					<TextareaInput
 						id="portfolioCsvPaste"
 						name="portfolioCsvPaste"
-						placeholder="Paste rows from your export (include the header row)…"
+						placeholder={t('portfolio.import.pastePlaceholder')}
 						rows={6}
 						class="block max-w-full"
 					/>
 				</div>
 				<div class="grid min-w-0 gap-2">
-					<FieldLabel fieldId="portfolioCsv">Or upload a file</FieldLabel>
+					<FieldLabel fieldId="portfolioCsv">
+						{t('portfolio.import.uploadLabel')}
+					</FieldLabel>
 					<input
 						id="portfolioCsv"
 						name="portfolioCsv"
@@ -63,7 +67,7 @@ IBTA LN ETF;GBR-LSE;186;5.9320;USD;4087.48;PLN`}
 						class="min-w-0 max-w-full cursor-pointer text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground hover:file:opacity-90"
 					/>
 				</div>
-				<SubmitButton>Import</SubmitButton>
+				<SubmitButton>{t('portfolio.import.submit')}</SubmitButton>
 			</form>
 		</Card>
 	)
