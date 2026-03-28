@@ -1,4 +1,5 @@
 import type { AppPage } from './app-page.ts'
+import { t } from './i18n.ts'
 
 export type SectionIntroPage = Exclude<AppPage, 'home'>
 
@@ -8,21 +9,19 @@ export const SECTION_INTROS: Record<
 	{ title: string; description: string }
 > = {
 	portfolio: {
-		title: 'Portfolio',
-		description:
-			'Paste or upload a broker CSV to add what you already hold or want to buy.',
+		title: t('section.portfolio.title'),
+		description: t('section.portfolio.description'),
 	},
 	advice: {
-		title: 'Get Advice',
-		description:
-			'Tell me how much cash you have and I’ll suggest what to buy next.',
+		title: t('section.advice.title'),
+		description: t('section.advice.description'),
 	},
 	catalog: {
-		title: 'ETF Catalog',
-		description: 'Import your broker’s ETF list and browse what’s available.',
+		title: t('section.catalog.title'),
+		description: t('section.catalog.description'),
 	},
 	guidelines: {
-		title: 'Investment Guidelines',
-		description: 'Set your target allocation.',
+		title: t('section.guidelines.title'),
+		description: t('section.guidelines.description'),
 	},
 }
