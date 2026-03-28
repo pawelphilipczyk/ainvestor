@@ -247,7 +247,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								<p class="mt-0.5 text-xs text-muted-foreground">
 									ETFs in this catalog that you already own.
 								</p>
-								<ScrollableTable class="mt-3">
+								<ScrollableTable wrapperClass="mt-3">
 									<thead class="bg-muted/40 px-4">
 										<tr>
 											<td colspan={6} class="h-1" />
@@ -281,7 +281,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 										? 'Other Available ETFs'
 										: 'Available ETFs'}
 								</h2>
-								<ScrollableTable class="mt-3">
+								<ScrollableTable wrapperClass="mt-3">
 									<thead class="bg-muted/40">
 										<tr>
 											<td colspan={6} class="h-1" />

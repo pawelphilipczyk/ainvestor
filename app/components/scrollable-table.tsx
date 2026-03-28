@@ -12,17 +12,38 @@ function tableClassNames(extra?: string) {
  * Horizontally scrollable table: outer frame (`min-w-0`, `overflow-x-auto`) plus
  * inner `<table>` (`min-w-full w-max`) so wide content scrolls inside the card on
  * narrow viewports.
+ *
+ * Props match `<table>` composition: use **`class`** (and other table attributes)
+ * on this component; they are forwarded to the inner `<table>` after merging scroll
+ * layout classes. Use **`wrapperClass`** for the scroll container (e.g. `mt-3`).
  */
 export function ScrollableTable(_handle: Handle, _setup?: unknown) {
 	return (props: {
-		/** Extra classes on the scroll container (e.g. `mt-3`). */
-		class?: string
-		/** Extra classes on the `<table>` (e.g. `text-sm`). */
-		tableClass?: string
+		wrapperClass?: string
 		children?: RemixNode
-	}) => (
-		<div data-scrollable-table-frame class={frameClassNames(props.class)}>
-			<table class={tableClassNames(props.tableClass)}>{props.children}</table>
-		</div>
-	)
+		class?: string
+		[key: string]: unknown
+	}) => {
+		const {
+			wrapperClass,
+			children,
+			class: tableClassFromProps,
+			...tableRest
+		} = props
+		const tableClass = tableClassNames(
+			typeof tableClassFromProps === 'string' ? tableClassFromProps : undefined,
+		)
+		return (
+			<div
+				data-scrollable-table-frame
+				class={frameClassNames(
+					typeof wrapperClass === 'string' ? wrapperClass : undefined,
+				)}
+			>
+				<table {...tableRest} class={tableClass}>
+					{children}
+				</table>
+			</div>
+		)
+	}
 }

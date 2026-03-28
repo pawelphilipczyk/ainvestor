@@ -294,7 +294,7 @@ function renderEtfProposals(
 					No specific ETF proposals in this response.
 				</p>
 			) : (
-				<ScrollableTable tableClass="text-sm">
+				<ScrollableTable class="text-sm">
 					<caption class="sr-only">Proposed ETF investments</caption>
 					<thead class="bg-muted/40">
 						<tr>
