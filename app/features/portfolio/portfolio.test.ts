@@ -140,7 +140,9 @@ describe('Portfolio page', () => {
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 
-		assert.match(body, /id="value"[^>]*type="number"/)
+		const valueInput = body.match(/<input\b[^>]*\bid="value"[^>]*>/)
+		assert.ok(valueInput, 'expected #value input')
+		assert.match(valueInput[0], /type="number"/)
 	})
 
 	it('adds ETF when optional quantity is left empty', async () => {

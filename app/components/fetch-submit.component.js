@@ -151,6 +151,10 @@ export const FetchSubmitEnhancement = clientEntry(
 							) {
 								return
 							}
+							if (!form.checkValidity()) {
+								form.reportValidity()
+								return
+							}
 							event.preventDefault()
 							const submitBtn = form.querySelector(
 								'button[type="submit"], input[type="submit"]',
