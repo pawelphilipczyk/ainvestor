@@ -2,8 +2,7 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
-	getScrollableTableClassNames,
-	ScrollableTableFrame,
+	ScrollableTable,
 	SelectInput,
 	SubmitButton,
 	TextareaInput,
@@ -248,24 +247,22 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								<p class="mt-0.5 text-xs text-muted-foreground">
 									ETFs in this catalog that you already own.
 								</p>
-								<ScrollableTableFrame class="mt-3">
-									<table class={getScrollableTableClassNames()}>
-										<thead class="bg-muted/40 px-4">
-											<tr>
-												<td colspan={6} class="h-1" />
-											</tr>
-											<CatalogTableHeader />
-										</thead>
-										<tbody>
-											{ownedInCatalog.map((e) =>
-												renderCatalogRow(
-													e,
-													holdingsByTicker.get(holdingKey(e.ticker)),
-												),
-											)}
-										</tbody>
-									</table>
-								</ScrollableTableFrame>
+								<ScrollableTable class="mt-3">
+									<thead class="bg-muted/40 px-4">
+										<tr>
+											<td colspan={6} class="h-1" />
+										</tr>
+										<CatalogTableHeader />
+									</thead>
+									<tbody>
+										{ownedInCatalog.map((e) =>
+											renderCatalogRow(
+												e,
+												holdingsByTicker.get(holdingKey(e.ticker)),
+											),
+										)}
+									</tbody>
+								</ScrollableTable>
 							</section>
 						</Card>
 					) : null}
@@ -284,19 +281,15 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 										? 'Other Available ETFs'
 										: 'Available ETFs'}
 								</h2>
-								<ScrollableTableFrame class="mt-3">
-									<table class={getScrollableTableClassNames()}>
-										<thead class="bg-muted/40">
-											<tr>
-												<td colspan={6} class="h-1" />
-											</tr>
-											<CatalogTableHeader />
-										</thead>
-										<tbody>
-											{restOfCatalog.map((e) => renderCatalogRow(e))}
-										</tbody>
-									</table>
-								</ScrollableTableFrame>
+								<ScrollableTable class="mt-3">
+									<thead class="bg-muted/40">
+										<tr>
+											<td colspan={6} class="h-1" />
+										</tr>
+										<CatalogTableHeader />
+									</thead>
+									<tbody>{restOfCatalog.map((e) => renderCatalogRow(e))}</tbody>
+								</ScrollableTable>
 							</section>
 						</Card>
 					) : null}

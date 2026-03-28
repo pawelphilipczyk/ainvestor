@@ -120,7 +120,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /5[,.]?000/)
 	})
 
-	it('catalog uses scrollable table frame (min-w-full w-max) for horizontal scroll', async () => {
+	it('catalog uses ScrollableTable (frame + min-w-full w-max) for horizontal scroll', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -151,7 +151,7 @@ describe('ETF Catalog page', () => {
 		assert.match(
 			body,
 			/<div\b(?=[^>]*\bdata-scrollable-table-frame\b)(?=[^>]*\bclass="(?=[^"]*\bmin-w-0\b)(?=[^"]*\boverflow-x-auto\b)[^"]*")[^>]*>/,
-			'scrollable table frame needs min-w-0 and overflow-x-auto on class (any order)',
+			'ScrollableTable outer div needs min-w-0 and overflow-x-auto on class (any order)',
 		)
 		assert.match(
 			body,
