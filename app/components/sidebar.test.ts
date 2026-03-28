@@ -10,12 +10,12 @@ import type { SessionData } from '../lib/session.ts'
 import { router } from '../router.ts'
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
-import { NAV_LINKS } from './sidebar-nav.ts'
+import { getNavLinks, type NavLink } from './sidebar-nav.ts'
 
 const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 
 function renderSidebarWithSession(
-	navLinks: typeof NAV_LINKS,
+	navLinks: NavLink[],
 	currentPage: AppPage,
 	session: SessionData | null,
 ) {
@@ -34,7 +34,11 @@ describe('sidebar component', () => {
 	})
 
 	it('Sidebar renders with nav links', async () => {
-		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
+		const result = await renderSidebarWithSession(
+			getNavLinks(),
+			'portfolio',
+			null,
+		)
 		assert.match(result, /id="app-sidebar"/)
 		assert.match(result, /id="sidebar-backdrop"/)
 		assert.match(result, /href="\/portfolio"/)
@@ -44,7 +48,11 @@ describe('sidebar component', () => {
 	})
 
 	it('Sidebar is pinned open at md breakpoint and backdrop is overlay-only below md', async () => {
-		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
+		const result = await renderSidebarWithSession(
+			getNavLinks(),
+			'portfolio',
+			null,
+		)
 		assert.match(result, /md:translate-x-0/)
 		assert.match(
 			result,
@@ -54,24 +62,36 @@ describe('sidebar component', () => {
 	})
 
 	it('Sidebar marks the current page with aria-current="page"', async () => {
-		const result = await renderSidebarWithSession(NAV_LINKS, 'catalog', null)
+		const result = await renderSidebarWithSession(
+			getNavLinks(),
+			'catalog',
+			null,
+		)
 		assert.match(result, /aria-current="page"/)
 	})
 
 	it('Sidebar drawer header uses same chrome height as top bar and site name', async () => {
-		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
+		const result = await renderSidebarWithSession(
+			getNavLinks(),
+			'portfolio',
+			null,
+		)
 		assert.match(result, /\bmin-h-14\b/)
 		assert.match(result, /\bpy-2\.5\b/)
 		assert.match(result, /AI Investor/)
 	})
 
 	it('Sidebar shows sign-in link when session is null', async () => {
-		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', null)
+		const result = await renderSidebarWithSession(
+			getNavLinks(),
+			'portfolio',
+			null,
+		)
 		assert.match(result, /Sign in with GitHub/)
 	})
 
 	it('Sidebar shows sign-out form when session is provided', async () => {
-		const result = await renderSidebarWithSession(NAV_LINKS, 'portfolio', {
+		const result = await renderSidebarWithSession(getNavLinks(), 'portfolio', {
 			login: 'alice',
 			token: 'tok',
 			gistId: null,

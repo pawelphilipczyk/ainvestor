@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import { t } from '../lib/i18n.ts'
 
 /**
  * Server-rendered theme toggle button.
@@ -10,7 +11,7 @@ export function ThemeToggleButton(_handle: Handle, _setup?: unknown) {
 		<button
 			data-theme-toggle
 			type="button"
-			aria-label="Toggle theme"
+			aria-label={t('chrome.aria.toggleTheme')}
 			class="relative inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 		>
 			<svg

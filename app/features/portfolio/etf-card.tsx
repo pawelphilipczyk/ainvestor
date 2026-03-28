@@ -1,5 +1,6 @@
 import type { Handle } from 'remix/component'
 import { Card } from '../../components/index.ts'
+import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
 import { Badge } from './badge.tsx'
 
@@ -34,10 +35,12 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 				<button
 					type="button"
 					class="etf-remove-trigger rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
-					aria-label={`Remove ${props.name} from portfolio`}
+					aria-label={format(t('portfolio.etf.removeAria'), {
+						name: props.name,
+					})}
 					data-dialog-id={props.dialogId}
 				>
-					Sell
+					{t('portfolio.etf.sell')}
 				</button>
 			</div>
 			<dialog
@@ -45,7 +48,9 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 				class="rounded-lg border border-border bg-card p-4 shadow-lg backdrop:bg-black/50"
 			>
 				<p class="mb-4 text-sm text-card-foreground">
-					Remove <strong>{props.name}</strong> from your portfolio?
+					{t('portfolio.etf.removeConfirmBefore')}
+					<strong>{props.name}</strong>
+					{t('portfolio.etf.removeConfirmAfter')}
 				</p>
 				<div class="flex justify-end gap-2">
 					<form method="dialog">
@@ -53,7 +58,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 							type="submit"
 							class="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-card-foreground transition-colors hover:bg-accent"
 						>
-							Cancel
+							{t('portfolio.etf.cancel')}
 						</button>
 					</form>
 					<form
@@ -68,7 +73,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 							type="submit"
 							class="rounded-md bg-destructive px-3 py-1.5 text-sm text-white hover:opacity-90"
 						>
-							Remove
+							{t('portfolio.etf.remove')}
 						</button>
 					</form>
 				</div>

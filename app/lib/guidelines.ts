@@ -1,3 +1,6 @@
+import { ETF_TYPE_LABELS } from '../locales/en.ts'
+import { t } from './i18n.ts'
+
 export const GUIDELINES_FILENAME = 'guidelines.json'
 
 export type EtfType =
@@ -17,9 +20,13 @@ export const ETF_TYPES = [
 	'money_market',
 ] as const satisfies readonly EtfType[]
 
-/** Human-readable ETF category label (e.g. real_estate → real estate). */
+/** Human-readable ETF category label (locale-backed; default English). */
 export function formatEtfTypeLabel(etfType: EtfType): string {
-	return etfType.replaceAll('_', ' ')
+	const label = ETF_TYPE_LABELS[etfType]
+	if (typeof label === 'string' && label.length > 0) {
+		return label
+	}
+	return t('catalog.etfTypeUnknown')
 }
 
 export type GuidelineKind = 'asset_class' | 'instrument'

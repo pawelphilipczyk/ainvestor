@@ -12,7 +12,8 @@ import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { SessionProvider } from '../../components/session-provider.tsx'
 import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
-import { ETF_TYPES } from '../../lib/guidelines.ts'
+import { ETF_TYPES, formatEtfTypeLabel } from '../../lib/guidelines.ts'
+import { format, t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
@@ -33,12 +34,16 @@ const catalogTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 	return () => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
-			<th class="pb-2 pl-4 pr-4 align-top">Ticker</th>
-			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>Name</th>
-			<th class="pb-2 pr-4 align-top">Type</th>
-			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>Description</th>
-			<th class="pb-2 align-top">ISIN</th>
-			<th class="pb-2 pl-4 pr-4 align-top">Value</th>
+			<th class="pb-2 pl-4 pr-4 align-top">{t('catalog.table.ticker')}</th>
+			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>
+				{t('catalog.table.name')}
+			</th>
+			<th class="pb-2 pr-4 align-top">{t('catalog.table.type')}</th>
+			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>
+				{t('catalog.table.description')}
+			</th>
+			<th class="pb-2 align-top">{t('catalog.table.isin')}</th>
+			<th class="pb-2 pl-4 pr-4 align-top">{t('catalog.table.value')}</th>
 		</tr>
 	)
 }
@@ -49,7 +54,9 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			{formatValue(holding.value, holding.currency)}
 		</td>
 	) : (
-		<td class="py-2 pl-4 pr-4 align-top text-sm text-muted-foreground">—</td>
+		<td class="py-2 pl-4 pr-4 align-top text-sm text-muted-foreground">
+			{t('catalog.emptyCell')}
+		</td>
 	)
 
 	return (
@@ -67,16 +74,16 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			</td>
 			<td class="py-2 pr-4 align-top">
 				<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-					{entry.type.replace('_', ' ')}
+					{formatEtfTypeLabel(entry.type) || t('catalog.etfTypeUnknown')}
 				</span>
 			</td>
 			<td
 				class={`py-2 pr-4 align-top text-sm break-words text-muted-foreground ${catalogTextColMax}`}
 			>
-				{entry.description || '—'}
+				{entry.description || t('catalog.emptyCell')}
 			</td>
 			<td class="py-2 align-top font-mono text-xs text-muted-foreground">
-				{entry.isin ?? '—'}
+				{entry.isin ?? t('catalog.emptyCell')}
 			</td>
 			{valueCell}
 		</tr>
@@ -124,15 +131,15 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					>
 						{sessionUsesGithubGist(session) ? (
 							<p class="mt-0.5 text-xs text-muted-foreground">
-								Catalog saved to your private GitHub Gist.
+								{t('catalog.savedGist')}
 							</p>
 						) : session?.approvalStatus === 'pending' ? (
 							<p class="mt-0.5 text-xs text-muted-foreground">
-								Account pending approval — catalog is not saved to GitHub yet.
+								{t('catalog.pendingNotSaved')}
 							</p>
 						) : (
 							<p class="mt-0.5 text-xs text-muted-foreground">
-								Sign in to persist catalog across sessions.
+								{t('catalog.signInPersist')}
 							</p>
 						)}
 					</SectionIntroCard>
@@ -140,10 +147,10 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					<Card variant="muted" class="p-4">
 						<section>
 							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-								Import
+								{t('catalog.import.title')}
 							</h2>
 							<p class="mt-0.5 text-xs text-muted-foreground">
-								Paste bank API JSON below to add ETFs (merges with existing).
+								{t('catalog.import.subtitle')}
 							</p>
 							<div
 								data-catalog-paste-zone
@@ -151,11 +158,11 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								class="mt-3"
 							>
 								<FieldLabel fieldId="pasteZone" variant="screenReader">
-									Paste bank API JSON
+									{t('catalog.import.pasteLabel.sr')}
 								</FieldLabel>
 								<TextareaInput
 									id="pasteZone"
-									placeholder="Paste fetch response JSON here (Ctrl+V) — imports on paste"
+									placeholder={t('catalog.import.pastePlaceholder')}
 									rows={3}
 									class="block max-w-xl"
 								/>
@@ -163,11 +170,9 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							{props.catalog.length === 0 ? (
 								<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
 									<p class="font-medium text-foreground">
-										No catalog imported yet.
+										{t('catalog.empty.title')}
 									</p>
-									<p class="mt-1">
-										Paste bank API JSON above to add ETFs to your catalog.
-									</p>
+									<p class="mt-1">{t('catalog.empty.hint')}</p>
 								</div>
 							) : null}
 						</section>
@@ -182,29 +187,29 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							>
 								<div class="grid gap-1.5">
 									<FieldLabel fieldId="type" variant="filter">
-										Asset type
+										{t('catalog.filter.assetType')}
 									</FieldLabel>
 									<SelectInput
 										id="type"
 										name="type"
 										options={[
-											{ value: '', label: 'All types' },
-											...ETF_TYPES.map((t) => ({
-												value: t,
-												label: t.replace('_', ' '),
-												selected: props.typeFilter === t,
+											{ value: '', label: t('catalog.filter.allTypes') },
+											...ETF_TYPES.map((etfType) => ({
+												value: etfType,
+												label: formatEtfTypeLabel(etfType),
+												selected: props.typeFilter === etfType,
 											})),
 										]}
 									/>
 								</div>
 								<div class="grid gap-1.5">
 									<FieldLabel fieldId="q" variant="filter">
-										Search
+										{t('catalog.filter.search')}
 									</FieldLabel>
 									<TextInput
 										id="q"
 										name="q"
-										placeholder="Ticker, name, or description…"
+										placeholder={t('catalog.filter.searchPlaceholder')}
 										value={props.query}
 										type="search"
 										compact
@@ -212,28 +217,30 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									/>
 								</div>
 								<SubmitButton class="!h-9 !w-auto shrink-0 !py-0 text-sm font-medium">
-									Filter
+									{t('catalog.filter.submit')}
 								</SubmitButton>
 								{props.typeFilter || props.query ? (
 									<a
 										href={routes.catalog.index.href()}
 										class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
 									>
-										Clear
+										{t('catalog.filter.clear')}
 									</a>
 								) : null}
 							</form>
 							<p class="mt-3 text-sm text-muted-foreground">
-								{props.typeFilter || props.query ? (
-									<>
-										Showing {filtered.length} of {props.catalog.length} ETFs
-									</>
-								) : (
-									<>
-										{props.catalog.length} ETF
-										{props.catalog.length === 1 ? '' : 's'} in catalog
-									</>
-								)}
+								{props.typeFilter || props.query
+									? format(t('catalog.count.showing'), {
+											filtered: filtered.length,
+											total: props.catalog.length,
+										})
+									: props.catalog.length === 1
+										? format(t('catalog.count.one'), {
+												n: props.catalog.length,
+											})
+										: format(t('catalog.count.many'), {
+												n: props.catalog.length,
+											})}
 							</p>
 						</Card>
 					) : null}
@@ -242,10 +249,10 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 						<Card class="min-w-0 p-4">
 							<section>
 								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-									Your Holdings
+									{t('catalog.holdings.title')}
 								</h2>
 								<p class="mt-0.5 text-xs text-muted-foreground">
-									ETFs in this catalog that you already own.
+									{t('catalog.holdings.subtitle')}
 								</p>
 								<ScrollableTable wrapperClass="mt-3">
 									<thead class="bg-muted/40 px-4">
@@ -270,7 +277,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					{restOfCatalog.length === 0 && ownedInCatalog.length === 0 ? (
 						<Card class="p-4">
 							<p class="text-sm text-muted-foreground">
-								No ETFs match your search.
+								{t('catalog.noMatch')}
 							</p>
 						</Card>
 					) : restOfCatalog.length > 0 ? (
@@ -278,8 +285,8 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							<section>
 								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 									{ownedInCatalog.length > 0
-										? 'Other Available ETFs'
-										: 'Available ETFs'}
+										? t('catalog.section.otherAvailable')
+										: t('catalog.section.available')}
 								</h2>
 								<ScrollableTable wrapperClass="mt-3">
 									<thead class="bg-muted/40">
