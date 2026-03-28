@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
+	LinkTabs,
 	NumberInput,
 	ScrollableTable,
 	SelectInput,
@@ -437,33 +438,22 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					title={SECTION_INTROS.advice.title}
 					description={SECTION_INTROS.advice.description}
 				/>
-				<nav
-					class="flex flex-wrap gap-2 border-b border-border pb-px"
-					aria-label={t('advice.tabs.navAria')}
-				>
-					<a
-						href={buyNextHref}
-						class={
-							activeTab === 'buy_next'
-								? '-mb-px rounded-t-md border border-b-0 border-border bg-muted/60 px-4 py-2 text-sm font-medium text-card-foreground no-underline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-								: 'rounded-t-md px-4 py-2 text-sm font-medium text-muted-foreground no-underline outline-none transition-colors hover:text-card-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-						}
-						aria-current={activeTab === 'buy_next' ? 'page' : undefined}
-					>
-						{t('advice.analysisMode.buy_next')}
-					</a>
-					<a
-						href={reviewHref}
-						class={
-							activeTab === 'portfolio_review'
-								? '-mb-px rounded-t-md border border-b-0 border-border bg-muted/60 px-4 py-2 text-sm font-medium text-card-foreground no-underline outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-								: 'rounded-t-md px-4 py-2 text-sm font-medium text-muted-foreground no-underline outline-none transition-colors hover:text-card-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2'
-						}
-						aria-current={activeTab === 'portfolio_review' ? 'page' : undefined}
-					>
-						{t('advice.analysisMode.portfolio_review')}
-					</a>
-				</nav>
+				<LinkTabs
+					navAriaLabel={t('advice.tabs.navAria')}
+					activeId={activeTab}
+					tabs={[
+						{
+							id: 'buy_next',
+							href: buyNextHref,
+							label: t('advice.analysisMode.buy_next'),
+						},
+						{
+							id: 'portfolio_review',
+							href: reviewHref,
+							label: t('advice.analysisMode.portfolio_review'),
+						},
+					]}
+				/>
 				{pendingApproval ? (
 					<div
 						role="status"
