@@ -168,6 +168,8 @@ export const en = {
 	'guidelines.list.targetPctLabel': 'Target percent for {label}',
 	'guidelines.list.deleteAria.instrument': 'Delete {name} guideline',
 	'guidelines.list.deleteAria.bucket': 'Delete {label} bucket guideline',
+	'guidelines.list.deleteConfirm': 'Remove the {label} guideline?',
+	'guidelines.list.deleteCancel': 'Cancel',
 
 	'advice.pending.title': 'Account pending approval',
 	'advice.pending.body':

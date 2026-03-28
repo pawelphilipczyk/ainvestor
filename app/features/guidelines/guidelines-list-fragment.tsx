@@ -107,34 +107,64 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 													{t('guidelines.list.saveTarget')}
 												</button>
 											</form>
-											<form
-												method="post"
-												action={routes.guidelines.delete.href({ id: g.id })}
-												class="flex items-center"
-												data-fetch-submit
-												data-fragment-id="guidelines-list"
-												data-fragment-url={routes.guidelines.fragmentList.href()}
+											<button
+												type="button"
+												class={`guideline-delete-trigger ${ghostActionClass}`}
+												aria-label={
+													g.kind === 'asset_class'
+														? format(t('guidelines.list.deleteAria.bucket'), {
+																label: formatEtfTypeLabel(g.etfType),
+															})
+														: format(
+																t('guidelines.list.deleteAria.instrument'),
+																{
+																	name: g.etfName,
+																},
+															)
+												}
+												data-dialog-id={`guideline-delete-dialog-${g.id}`}
 											>
-												<input type="hidden" name="_method" value="DELETE" />
-												<button
-													type="submit"
-													class={ghostActionClass}
-													aria-label={
-														g.kind === 'asset_class'
-															? format(t('guidelines.list.deleteAria.bucket'), {
-																	label: formatEtfTypeLabel(g.etfType),
-																})
-															: format(
-																	t('guidelines.list.deleteAria.instrument'),
-																	{
-																		name: g.etfName,
-																	},
-																)
-													}
-												>
-													{t('guidelines.list.remove')}
-												</button>
-											</form>
+												{t('guidelines.list.remove')}
+											</button>
+											<dialog
+												id={`guideline-delete-dialog-${g.id}`}
+												class="rounded-lg border border-border bg-card p-4 shadow-lg backdrop:bg-black/50"
+											>
+												<p class="mb-4 text-sm text-card-foreground">
+													{format(t('guidelines.list.deleteConfirm'), {
+														label: rowLabel,
+													})}
+												</p>
+												<div class="flex justify-end gap-2">
+													<form method="dialog">
+														<button
+															type="submit"
+															class="rounded-md border border-border bg-background px-3 py-1.5 text-sm text-card-foreground transition-colors hover:bg-accent"
+														>
+															{t('guidelines.list.deleteCancel')}
+														</button>
+													</form>
+													<form
+														method="post"
+														action={routes.guidelines.delete.href({ id: g.id })}
+														data-fetch-submit
+														data-fragment-id="guidelines-list"
+														data-fragment-url={routes.guidelines.fragmentList.href()}
+													>
+														<input
+															type="hidden"
+															name="_method"
+															value="DELETE"
+														/>
+														<button
+															type="submit"
+															class="rounded-md bg-destructive px-3 py-1.5 text-sm text-white hover:opacity-90"
+														>
+															{t('guidelines.list.remove')}
+														</button>
+													</form>
+												</div>
+											</dialog>
 										</div>
 									</div>
 								</Card>
