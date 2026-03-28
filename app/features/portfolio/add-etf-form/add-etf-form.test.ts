@@ -4,6 +4,20 @@ import { parseSafe } from 'remix/data-schema'
 import { CreateEtfSchema, normalizeAddEtfInput } from './index.ts'
 
 describe('CreateEtfSchema with optional field preprocessing', () => {
+	it('normalizes money-style value strings before coercion', () => {
+		const raw: Record<string, unknown> = {
+			instrumentTicker: 'VTI',
+			value: '2,000',
+			currency: 'PLN',
+		}
+		normalizeAddEtfInput(raw)
+		const result = parseSafe(CreateEtfSchema, raw)
+		assert.equal(result.success, true, JSON.stringify(result))
+		if (result.success) {
+			assert.equal(result.value.value, 2000)
+		}
+	})
+
 	it('accepts empty quantity when normalized to absent', () => {
 		const raw: Record<string, unknown> = {
 			instrumentTicker: 'VTI',

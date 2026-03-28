@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
+import { MONEY_AMOUNT_HTML_PATTERN } from '../../lib/money-input.ts'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
 	resetTestSessionCookieJar,
@@ -52,7 +53,16 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Get Advice/)
-		assert.match(body, /name="cashAmount"/)
+		const cashInput = body.match(/<input\b[^>]*\bid="cashAmount"[^>]*>/)
+		assert.ok(cashInput, 'expected #cashAmount input')
+		assert.match(cashInput[0], /type="text"/)
+		assert.match(cashInput[0], /name="cashAmount"/)
+		assert.match(cashInput[0], /inputmode="decimal"/)
+		assert.match(cashInput[0], /\brequired\b/)
+		assert.ok(
+			cashInput[0].includes(`pattern="${MONEY_AMOUNT_HTML_PATTERN}"`),
+			'expected pattern to match deployable cash HTML constraint',
+		)
 		assert.match(body, /name="cashCurrency"/)
 		assert.match(body, /name="adviceModel"/)
 		assert.match(body, /action="\/advice"/)

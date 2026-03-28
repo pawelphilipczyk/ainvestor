@@ -18,6 +18,7 @@ import {
 	setGuestEtfs,
 } from '../../../lib/guest-session-state.ts'
 import { t } from '../../../lib/i18n.ts'
+import { parseMoneyAmountString } from '../../../lib/money-input.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
 import {
@@ -37,7 +38,8 @@ export const CreateEtfSchema = object({
 /** Treats empty strings as absent for optional fields (HTML forms submit "" when blank). */
 export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
 	if (typeof raw.value === 'string') {
-		raw.value = raw.value.replace(/,/g, '')
+		const parsed = parseMoneyAmountString(raw.value)
+		raw.value = parsed === null ? raw.value : String(parsed)
 	}
 	if (typeof raw.quantity === 'string') {
 		raw.quantity = raw.quantity.replace(/,/g, '')

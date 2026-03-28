@@ -10,6 +10,7 @@ import {
 import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { format, type MessageKey, t } from '../../lib/i18n.ts'
+import { MONEY_AMOUNT_HTML_PATTERN } from '../../lib/money-input.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import {
 	ADVICE_MODEL_IDS,
@@ -468,8 +469,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									name="cashAmount"
 									placeholder={t('advice.form.placeholder.cash')}
 									required={true}
-									min={1}
-									step="any"
+									inputMode="decimal"
+									pattern={MONEY_AMOUNT_HTML_PATTERN}
 									defaultValue={props.cashAmount}
 									disabled={pendingApproval}
 								/>
