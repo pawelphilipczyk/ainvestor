@@ -55,7 +55,6 @@ export function sumGuidelineTargetPct(guidelines: EtfGuideline[]): number {
 /** Display string for guideline target % inputs (matches server-side rounding in error messages). */
 export function formatGuidelineTargetPctForInput(value: number): string {
 	const rounded = Math.round(value * 100) / 100
-	if (Number.isInteger(rounded)) return String(rounded)
 	return String(rounded)
 }
 
