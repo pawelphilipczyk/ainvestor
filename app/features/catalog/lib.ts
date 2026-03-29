@@ -185,12 +185,15 @@ function normalizeTickerForMerge(ticker: string): string {
 }
 
 /**
- * Map key for merge/dedupe: one slot per ISIN when present, else per normalised ticker.
+ * Map key for merge/dedupe: one slot per share-class listing (ISIN + trading line).
+ * The same ISIN may list on multiple venues (different tickers, e.g. Xetra vs LSE);
+ * those must stay separate rows. When ISIN is absent, the key is ticker-only.
  */
 export function catalogMergeKey(entry: CatalogEntry): string {
 	const isin = normalizeIsinForMerge(entry.isin)
-	if (isin) return `i:${isin}`
-	return `t:${normalizeTickerForMerge(entry.ticker)}`
+	const tickerKey = normalizeTickerForMerge(entry.ticker)
+	if (isin) return `i:${isin}|t:${tickerKey}`
+	return `t:${tickerKey}`
 }
 
 function mergeCatalogRow(
@@ -201,8 +204,9 @@ function mergeCatalogRow(
 }
 
 /**
- * Merge imported rows into the catalog. Rows with the same merge key update
- * the existing row (incoming fields win; `id` is kept from the first).
+ * Merge imported rows into the catalog. Rows with the same merge key (same ISIN
+ * and same normalised ticker when ISIN is present) update the existing row
+ * (incoming fields win; `id` is kept from the first).
  */
 export function mergeBankIntoCatalog(
 	existing: CatalogEntry[],
