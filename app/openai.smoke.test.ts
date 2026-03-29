@@ -11,9 +11,10 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { AdviceParagraphBlock } from './features/advice/advice-document.ts'
+import { getInvestmentAdvice } from './features/advice/advice-openai.ts'
 import type { CatalogEntry } from './features/catalog/lib.ts'
 import type { EtfGuideline } from './lib/guidelines.ts'
-import { createDefaultClient, getInvestmentAdvice } from './openai.ts'
+import { createDefaultClient } from './openai.ts'
 
 const runSmoke =
 	process.env.RUN_ADVICE_OPENAI_SMOKE === '1' &&
