@@ -31,6 +31,31 @@ type FormError = {
 	detail?: string
 }
 
+function FormErrorAlert(_handle: Handle, _setup?: unknown) {
+	return (props: { error: FormError }) => {
+		const { error } = props
+		return (
+			<div
+				role="alert"
+				class="rounded-md border border-destructive/50 bg-destructive/10 py-3 pl-6 pr-4 text-sm text-destructive"
+			>
+				{error.detail ? (
+					<details>
+						<summary class="cursor-pointer list-inside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+							{error.summary}
+						</summary>
+						<pre class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-destructive/20 pt-3 font-mono text-xs leading-relaxed text-destructive/90">
+							{error.detail}
+						</pre>
+					</details>
+				) : (
+					error.summary
+				)}
+			</div>
+		)
+	}
+}
+
 type AdvicePageProps = {
 	cashAmount?: string
 	cashCurrency?: string
@@ -476,24 +501,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								data-replace-main
 							>
 								<input type="hidden" name="analysisMode" value="buy_next" />
-								{props.formError && activeTab === 'buy_next' ? (
-									<div
-										role="alert"
-										class="rounded-md border border-destructive/50 bg-destructive/10 py-3 pl-6 pr-4 text-sm text-destructive"
-									>
-										{props.formError.detail ? (
-											<details>
-												<summary class="cursor-pointer list-inside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-													{props.formError.summary}
-												</summary>
-												<pre class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-destructive/20 pt-3 font-mono text-xs leading-relaxed text-destructive/90">
-													{props.formError.detail}
-												</pre>
-											</details>
-										) : (
-											props.formError.summary
-										)}
-									</div>
+								{props.formError ? (
+									<FormErrorAlert error={props.formError} />
 								) : null}
 								<p class="text-xs text-muted-foreground">
 									{t('advice.tab.hint.buyNext')}
@@ -563,24 +572,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									name="analysisMode"
 									value="portfolio_review"
 								/>
-								{props.formError && activeTab === 'portfolio_review' ? (
-									<div
-										role="alert"
-										class="rounded-md border border-destructive/50 bg-destructive/10 py-3 pl-6 pr-4 text-sm text-destructive"
-									>
-										{props.formError.detail ? (
-											<details>
-												<summary class="cursor-pointer list-inside font-medium outline-none marker:text-destructive/80 focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-													{props.formError.summary}
-												</summary>
-												<pre class="mt-3 max-h-48 overflow-auto whitespace-pre-wrap break-words border-t border-destructive/20 pt-3 font-mono text-xs leading-relaxed text-destructive/90">
-													{props.formError.detail}
-												</pre>
-											</details>
-										) : (
-											props.formError.summary
-										)}
-									</div>
+								{props.formError ? (
+									<FormErrorAlert error={props.formError} />
 								) : null}
 								<p class="text-xs text-muted-foreground">
 									{t('advice.tab.hint.portfolioReview')}
