@@ -109,12 +109,6 @@ export const en = {
 	'catalog.import.title': 'Import',
 	'catalog.import.subtitle':
 		'Paste bank API JSON below to add ETFs (merges with existing).',
-	'catalog.import.optionalSubmit':
-		'Or click Import after pasting — same result as paste-to-import.',
-	'catalog.import.submit': 'Import',
-	'catalog.import.errorEmpty': 'Paste your bank API JSON first.',
-	'catalog.import.errorInvalidJson': 'That is not valid JSON.',
-	'catalog.import.errorNoValidFunds': 'No valid funds found in that JSON.',
 	'catalog.import.pasteLabel.sr': 'Paste bank API JSON',
 	'catalog.import.pastePlaceholder':
 		'Paste fetch response JSON here (Ctrl+V) — imports on paste',

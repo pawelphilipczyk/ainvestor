@@ -145,43 +145,33 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					</SectionIntroCard>
 
 					<Card variant="muted" class="p-4">
-						<section>
-							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-								{t('catalog.import.title')}
+						<section data-catalog-import-section>
+							<h2 class="flex flex-wrap items-center gap-x-2 gap-y-1 text-base font-semibold tracking-tight text-card-foreground">
+								<span>{t('catalog.import.title')}</span>
+								<span
+									data-catalog-import-spinner
+									class="hidden h-4 w-4 shrink-0 text-muted-foreground"
+									aria-hidden="true"
+								/>
 							</h2>
 							<p class="mt-0.5 text-xs text-muted-foreground">
 								{t('catalog.import.subtitle')}
 							</p>
-							<p class="mt-2 text-xs text-muted-foreground">
-								{t('catalog.import.optionalSubmit')}
-							</p>
 							<div
-								id="catalog-import-form-error"
-								role="alert"
-								class="mt-3 hidden rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-							/>
-							<form
-								method="post"
-								action={routes.catalog.import.href()}
 								data-catalog-paste-zone
-								data-fetch-submit
-								data-error-id="catalog-import-form-error"
-								class="mt-3 grid max-w-xl gap-3"
+								data-import-url={routes.catalog.import.href()}
+								class="mt-3"
 							>
 								<FieldLabel fieldId="pasteZone" variant="screenReader">
 									{t('catalog.import.pasteLabel.sr')}
 								</FieldLabel>
 								<TextareaInput
 									id="pasteZone"
-									name="bankApiJson"
 									placeholder={t('catalog.import.pastePlaceholder')}
 									rows={3}
-									class="block w-full max-w-xl"
+									class="block max-w-xl"
 								/>
-								<SubmitButton class="!h-9 !w-auto shrink-0 !py-0 text-sm font-medium">
-									{t('catalog.import.submit')}
-								</SubmitButton>
-							</form>
+							</div>
 							{props.catalog.length === 0 ? (
 								<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
 									<p class="font-medium text-foreground">

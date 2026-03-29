@@ -24,23 +24,6 @@ import {
 
 export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-session-fetch.ts'
 
-function prefersJson(request: Request): boolean {
-	return request.headers.get('Accept')?.includes('application/json') ?? false
-}
-
-function catalogImportErrorResponse(
-	request: Request,
-	message: string,
-): Response {
-	if (prefersJson(request)) {
-		return new Response(JSON.stringify({ error: message }), {
-			status: 422,
-			headers: { 'Content-Type': 'application/json' },
-		})
-	}
-	return createRedirectResponse(routes.catalog.index.href())
-}
-
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
@@ -70,46 +53,18 @@ export const catalogController = {
 		})
 	},
 
-	async import(context: {
-		request: Request
-		session: Session
-		formData: FormData | null
-	}) {
-		const form = context.formData
-		const rawFromForm = form?.get('bankApiJson')
+	async import(context: { request: Request; session: Session }) {
 		let json: unknown
-
-		if (typeof rawFromForm === 'string') {
-			if (rawFromForm.trim().length === 0) {
-				return catalogImportErrorResponse(
-					context.request,
-					t('catalog.import.errorEmpty'),
-				)
-			}
-			try {
-				json = JSON.parse(rawFromForm.trim())
-			} catch {
-				return catalogImportErrorResponse(
-					context.request,
-					t('catalog.import.errorInvalidJson'),
-				)
-			}
-		} else {
-			try {
-				const text = await context.request.text()
-				json = text ? JSON.parse(text) : null
-			} catch {
-				return createRedirectResponse(routes.catalog.index.href())
-			}
+		try {
+			const text = await context.request.text()
+			json = text ? JSON.parse(text) : null
+		} catch {
+			return createRedirectResponse(routes.catalog.index.href())
 		}
 
 		const imported = parseBankJsonToCatalog(json)
-		if (imported.length === 0) {
-			return catalogImportErrorResponse(
-				context.request,
-				t('catalog.import.errorNoValidFunds'),
-			)
-		}
+		if (imported.length === 0)
+			return createRedirectResponse(routes.catalog.index.href())
 
 		const session = getSessionData(context.session)
 		const existing =
