@@ -36,6 +36,11 @@ export const CreateEtfSchema = object({
 	quantity: optional(coerce.number().pipe(min(0))),
 })
 
+export const UpdatePortfolioEntrySchema = object({
+	value: coerce.number().pipe(min(0)),
+	quantity: optional(coerce.number().pipe(min(0))),
+})
+
 /** Treats empty strings as absent for optional fields (HTML forms submit "" when blank). */
 export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
 	if (typeof raw.value === 'string') {
@@ -46,6 +51,24 @@ export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
 		raw.quantity = raw.quantity.replace(/,/g, '')
 	}
 	if (raw.quantity === '') delete raw.quantity
+}
+
+/** Normalizes value/quantity for updating an existing holding (same rules as add form). */
+export function normalizePortfolioUpdateInput(
+	raw: Record<string, unknown>,
+): void {
+	if (typeof raw.value === 'string') {
+		const parsed = parseLocaleDecimalString(raw.value)
+		raw.value = parsed === null ? raw.value : String(parsed)
+	}
+	if (typeof raw.quantity === 'string') {
+		raw.quantity = raw.quantity.replace(/,/g, '')
+	}
+	if (raw.quantity === '') delete raw.quantity
+}
+
+function prefersJson(request: Request): boolean {
+	return request.headers.get('Accept')?.includes('application/json') ?? false
 }
 
 export { AddEtfForm, ListFragment }
@@ -154,6 +177,87 @@ export const addEtfFormHandlers = {
 			existingIndex >= 0
 				? current.map((e, i) => (i === existingIndex ? entry : e))
 				: [entry, ...current]
+
+		if (session?.gistId && session.token) {
+			await saveEtfs(session.token, session.gistId, updated)
+		} else {
+			setGuestEtfs(context.session, updated)
+		}
+
+		return createRedirectResponse(routes.portfolio.index.href())
+	},
+
+	async update(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+		params: unknown
+	}) {
+		const id = (context.params as Record<string, string>).id
+		if (!id) return createRedirectResponse(routes.portfolio.index.href())
+
+		const form = context.formData
+		if (!form) return createRedirectResponse(routes.portfolio.index.href())
+
+		const formPayload = objectFromFormData(form)
+		normalizePortfolioUpdateInput(formPayload)
+		const result = parseSafe(UpdatePortfolioEntrySchema, formPayload)
+		if (!result.success) {
+			const message = t('errors.portfolio.updateInvalid')
+			if (prefersJson(context.request)) {
+				return new Response(JSON.stringify({ error: message }), {
+					status: 422,
+					headers: { 'Content-Type': 'application/json' },
+				})
+			}
+			context.session.flash('error', message)
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
+
+		const { value, quantity } = result.value
+		if (quantity !== undefined && !Number.isInteger(quantity)) {
+			const message = t('errors.portfolio.updateInvalid')
+			if (prefersJson(context.request)) {
+				return new Response(JSON.stringify({ error: message }), {
+					status: 422,
+					headers: { 'Content-Type': 'application/json' },
+				})
+			}
+			context.session.flash('error', message)
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
+
+		const session = getSessionData(context.session)
+		let current: EtfEntry[]
+		if (session?.gistId && session.token) {
+			current = await fetchEtfs(session.token, session.gistId)
+		} else {
+			current = getGuestEtfs(context.session)
+		}
+
+		const index = current.findIndex((entry) => entry.id === id)
+		if (index < 0) {
+			const message = t('errors.portfolio.entryNotFound')
+			if (prefersJson(context.request)) {
+				return new Response(JSON.stringify({ error: message }), {
+					status: 422,
+					headers: { 'Content-Type': 'application/json' },
+				})
+			}
+			context.session.flash('error', message)
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
+
+		const existing = current[index]
+		const updatedEntry: EtfEntry = { ...existing, value }
+		if (quantity !== undefined) {
+			updatedEntry.quantity = quantity
+		} else {
+			delete updatedEntry.quantity
+		}
+		const updated = current.map((entry, entryIndex) =>
+			entryIndex === index ? updatedEntry : entry,
+		)
 
 		if (session?.gistId && session.token) {
 			await saveEtfs(session.token, session.gistId, updated)

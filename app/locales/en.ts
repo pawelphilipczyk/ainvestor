@@ -82,6 +82,12 @@ export const en = {
 	'portfolio.etf.removeAria': 'Remove {name} from portfolio',
 	'portfolio.etf.cancel': 'Cancel',
 	'portfolio.etf.remove': 'Remove',
+	'portfolio.etf.updateValueLabel': 'Value ({currency})',
+	'portfolio.etf.updateValueSr': 'Market value for {name}',
+	'portfolio.etf.updateQuantityLabel': 'Quantity',
+	'portfolio.etf.updateQuantitySr': 'Share quantity for {name}',
+	'portfolio.etf.updateQuantityOptionalHint': 'optional',
+	'portfolio.etf.save': 'Save',
 
 	'forms.catalog.emptyPlaceholder':
 		'No funds in catalog — import on ETF Catalog',
@@ -227,6 +233,10 @@ export const en = {
 		'Please select a fund from your catalog and enter a valid value (number >= 0).',
 	'errors.portfolio.catalogEntryMissing':
 		'Selected catalog entry not found. Update your catalog or pick another fund.',
+	'errors.portfolio.updateInvalid':
+		'Enter a valid value (number >= 0) and optional quantity (whole number >= 0).',
+	'errors.portfolio.entryNotFound':
+		'That holding is no longer in your portfolio.',
 
 	'errors.guidelines.totalExceeds100':
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',
