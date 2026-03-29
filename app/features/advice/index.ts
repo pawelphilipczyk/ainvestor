@@ -272,8 +272,9 @@ export const adviceController = {
 				session: layoutSession,
 				props: {
 					pendingApproval,
-					cashAmount,
-					cashCurrency,
+					...(analysisMode === 'portfolio_review'
+						? {}
+						: { cashAmount, cashCurrency }),
 					analysisMode,
 					activeTab: activeTabFromUrl,
 					lastAnalysisMode: analysisMode,
@@ -294,8 +295,9 @@ export const adviceController = {
 				session: layoutSession,
 				props: {
 					pendingApproval,
-					cashAmount,
-					cashCurrency,
+					...(analysisMode === 'portfolio_review'
+						? {}
+						: { cashAmount, cashCurrency }),
 					analysisMode,
 					activeTab: activeTabFromUrl,
 					lastAnalysisMode: analysisMode,

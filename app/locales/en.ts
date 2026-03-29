@@ -182,13 +182,11 @@ export const en = {
 	'advice.tab.hint.buyNext':
 		'Enter deployable cash (same currency as your holdings when possible). Suggestions are buy-only — no sells.',
 	'advice.tab.hint.portfolioReview':
-		'Qualitative balance and risk vs your catalog and guidelines. Cash below is optional.',
+		'Qualitative balance and risk vs your catalog and guidelines.',
 	'advice.form.field.cash': 'Available cash',
-	'advice.form.field.cashOptional': 'Cash (optional)',
 	'advice.form.field.currency': 'Currency',
 	'advice.form.field.model': 'Model',
 	'advice.form.placeholder.cash': 'e.g. 1000',
-	'advice.form.placeholder.cashOptional': 'Leave blank for review only',
 	'advice.form.submit': 'Ask AI',
 	'advice.analysisMode.buy_next': 'What to buy next',
 	'advice.analysisMode.portfolio_review': 'Portfolio health review',
@@ -196,8 +194,6 @@ export const en = {
 	'advice.result.titleReview': 'Portfolio review',
 	'advice.result.subtitle':
 		'Based on your portfolio and {amount} {currency} available.',
-	'advice.result.subtitleReviewWithCash':
-		'Based on your current ETF holdings, catalog, guidelines, and optional cash context ({amount} {currency}).',
 	'advice.result.subtitleReviewGuidelinesOnly':
 		'Based on your current ETF holdings, catalog, and guidelines.',
 	'advice.table.empty': 'No specific ETF proposals in this response.',
