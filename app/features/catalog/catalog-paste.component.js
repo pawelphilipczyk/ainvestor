@@ -79,14 +79,31 @@ export const CatalogPasteInteractions = clientEntry(
 								headers: { 'Content-Type': 'application/json' },
 								redirect: 'follow',
 							})
-								.then((r) => {
+								.then(async (r) => {
 									if (r.redirected) {
 										window.location.href = r.url
 										return
 									}
+									if (!r.ok) {
+										let bodyText = ''
+										try {
+											bodyText = await r.text()
+										} catch (readError) {
+											console.error(
+												'[catalog-paste] could not read response body',
+												readError,
+											)
+										}
+										console.error('[catalog-paste] import failed', {
+											status: r.status,
+											statusText: r.statusText,
+											body: bodyText,
+										})
+									}
 									setCatalogImportLoading(false)
 								})
-								.catch(() => {
+								.catch((error) => {
+									console.error('[catalog-paste] import request failed', error)
 									setCatalogImportLoading(false)
 								})
 						},
