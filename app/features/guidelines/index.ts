@@ -43,13 +43,13 @@ import { GuidelinesPage } from './guidelines-page.tsx'
 type GuidelinesAddTabId = 'instrument' | 'bucket'
 
 function normalizeGuidelinesAddTab(tab: string | null): GuidelinesAddTabId {
-	if (tab === 'bucket') return 'bucket'
-	return 'instrument'
+	if (tab === 'instrument') return 'instrument'
+	return 'bucket'
 }
 
 function guidelinesIndexHref(tab?: GuidelinesAddTabId) {
-	if (tab === 'bucket') {
-		return routes.guidelines.index.href({}, { tab: 'bucket' })
+	if (tab === 'instrument') {
+		return routes.guidelines.index.href({}, { tab: 'instrument' })
 	}
 	return routes.guidelines.index.href()
 }
