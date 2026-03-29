@@ -14,6 +14,8 @@ import { CURRENCIES } from '../../lib/currencies.ts'
 import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
+import { routes } from '../../routes.ts'
+import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -21,9 +23,7 @@ import {
 	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
 	normalizeAdviceAnalysisTab,
-} from '../../openai.ts'
-import { routes } from '../../routes.ts'
-import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
+} from './advice-openai.ts'
 
 type FormError = {
 	summary: string

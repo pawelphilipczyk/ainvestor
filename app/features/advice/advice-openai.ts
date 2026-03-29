@@ -1,14 +1,16 @@
-import OpenAI from 'openai'
+import type { EtfEntry } from '../../lib/gist.ts'
+import type { EtfGuideline } from '../../lib/guidelines.ts'
+import { type EtfType, formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import {
-	type AdviceDocument,
-	parseAdviceDocument,
-} from './features/advice/advice-document.ts'
-import type { CatalogEntry } from './features/catalog/lib.ts'
-import type { EtfEntry } from './lib/gist.ts'
-import type { EtfGuideline } from './lib/guidelines.ts'
-import { type EtfType, formatEtfTypeLabel } from './lib/guidelines.ts'
+	LOCALE_DECIMAL_HTML_PATTERN,
+	parseLocaleDecimalString,
+} from '../../lib/locale-decimal-input.ts'
+import type { CatalogEntry } from '../catalog/lib.ts'
+import type { AdviceClient } from './advice-client.ts'
+import { type AdviceDocument, parseAdviceDocument } from './advice-document.ts'
 
-export type { AdviceDocument, EtfEntry }
+export type { EtfEntry } from '../../lib/gist.ts'
+export type { AdviceDocument } from './advice-document.ts'
 
 const BUY_ONLY_USER_BLOCK = `---
 Hard constraint (mandatory): I **cannot sell** any ETF holdings — I may **only add** new purchases with the deployable cash. Do **not** recommend selling, trimming, reducing, redeeming, switching out of, or exiting any position. Overweight sleeves stay as-is; rebalance **only** by buying underweights. If some guideline targets cannot be reached without selling, say that clearly and get **as close as possible** with buys only.
@@ -252,27 +254,6 @@ export function formatAggregatedGuidelineBucketsBlock(
 	]
 	return lines.join('\n')
 }
-
-export type AdviceClient = {
-	chat: {
-		completions: {
-			create: (params: {
-				model: string
-				messages: { role: 'system' | 'user'; content: string }[]
-				response_format?: { type: 'json_object' }
-			}) => Promise<{ choices: { message: { content: string | null } }[] }>
-		}
-	}
-}
-
-export function createDefaultClient(): AdviceClient {
-	return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-}
-
-import {
-	LOCALE_DECIMAL_HTML_PATTERN,
-	parseLocaleDecimalString,
-} from './lib/locale-decimal-input.ts'
 
 export const ADVICE_CASH_AMOUNT_HTML_PATTERN = LOCALE_DECIMAL_HTML_PATTERN
 export const parseAdviceCashAmount = parseLocaleDecimalString

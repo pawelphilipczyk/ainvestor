@@ -1,8 +1,9 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { CatalogEntry } from './features/catalog/lib.ts'
-import type { EtfGuideline } from './lib/guidelines.ts'
-import type { AdviceClient, EtfEntry } from './openai.ts'
+import type { EtfEntry } from '../../lib/gist.ts'
+import type { EtfGuideline } from '../../lib/guidelines.ts'
+import type { CatalogEntry } from '../catalog/lib.ts'
+import type { AdviceClient } from './advice-client.ts'
 import {
 	aggregateGuidelineTargetsByEtfType,
 	computeAdviceAllocationDiagnostics,
@@ -14,7 +15,7 @@ import {
 	getInvestmentAdvice,
 	normalizeAdviceAnalysisTab,
 	parseAdviceCashAmount,
-} from './openai.ts'
+} from './advice-openai.ts'
 
 function adviceJsonParagraph(text: string): string {
 	return JSON.stringify({ blocks: [{ type: 'paragraph', text }] })
