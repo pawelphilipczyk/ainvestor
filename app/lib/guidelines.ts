@@ -91,12 +91,12 @@ export function findGuidelineDuplicateOf(
 	existing: EtfGuideline[],
 	entry: EtfGuideline,
 ): EtfGuideline | null {
-	const entryNameNorm =
+	const normalizedEntryTicker =
 		entry.kind === 'instrument' ? entry.etfName.trim().toUpperCase() : null
 	for (const g of existing) {
 		if (entry.kind === 'instrument' && g.kind === 'instrument') {
-			const gNameNorm = g.etfName.trim().toUpperCase()
-			if (gNameNorm === entryNameNorm) {
+			const normalizedExistingTicker = g.etfName.trim().toUpperCase()
+			if (normalizedExistingTicker === normalizedEntryTicker) {
 				return g
 			}
 		}
