@@ -6,6 +6,7 @@ import type { EtfEntry } from '../../lib/gist.ts'
 import { t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
+import type { CatalogEntry } from '../catalog/lib.ts'
 import { AddEtfForm, ListFragment } from './add-etf-form/index.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { EtfCardInteractions } from './etf-card.component.js'
@@ -13,6 +14,7 @@ import { ImportEtfForm } from './import-etf-form/index.ts'
 
 type PortfolioPageProps = {
 	entries: EtfEntry[]
+	catalog: CatalogEntry[]
 	instrumentOptions: { value: string; label: string }[]
 }
 
@@ -48,7 +50,7 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 					</SectionIntroCard>
 					<ImportEtfForm />
 					<div id="portfolio-list">
-						<ListFragment entries={props.entries} />
+						<ListFragment entries={props.entries} catalog={props.catalog} />
 					</div>
 					<Card as="details" variant="muted" class="p-4">
 						<summary class="cursor-pointer text-sm font-medium text-card-foreground outline-none marker:text-muted-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">

@@ -5,6 +5,7 @@ import {
 	buildCatalogGistPatch,
 	CATALOG_FILENAME,
 	catalogMergeKey,
+	findCatalogEntryForHolding,
 	mergeBankIntoCatalog,
 	parseBankJsonToCatalog,
 	parseCatalogFromGist,
@@ -42,6 +43,40 @@ describe('parseCatalogFromGist', () => {
 		const result = parseCatalogFromGist(gist)
 		assert.equal(result.length, 1)
 		assert.equal(result[0].ticker, 'VTI')
+	})
+})
+
+describe('findCatalogEntryForHolding', () => {
+	const catalog = [
+		{
+			id: '1',
+			ticker: 'VTI',
+			name: 'Vanguard Total Stock Market ETF',
+			type: 'equity' as const,
+			description: '',
+		},
+	]
+
+	it('matches by ticker when present', () => {
+		const found = findCatalogEntryForHolding(catalog, {
+			name: 'Other',
+			ticker: 'vti',
+		})
+		assert.equal(found?.ticker, 'VTI')
+	})
+
+	it('falls back to exact name when ticker missing', () => {
+		const found = findCatalogEntryForHolding(catalog, {
+			name: 'Vanguard Total Stock Market ETF',
+		})
+		assert.equal(found?.ticker, 'VTI')
+	})
+
+	it('returns undefined when no match', () => {
+		assert.equal(
+			findCatalogEntryForHolding(catalog, { name: 'Unknown' }),
+			undefined,
+		)
 	})
 })
 
