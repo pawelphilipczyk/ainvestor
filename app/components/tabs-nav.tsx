@@ -3,6 +3,8 @@ import type { Handle, RemixNode } from 'remix/component'
 /** Provided to descendants via `handle.context` (see `TabsNav`). */
 export type TabsNavContext = {
 	activeId: string
+	/** When set, tab links get `data-tab-scroll-key` for {@link TabsNavScrollRestoration}. */
+	scrollGroupId?: string
 }
 
 const tabBaseClass =
@@ -19,16 +21,30 @@ const tabActiveClass = `${tabBaseClass} -mb-px border border-b-0 border-border b
 export function TabsNav(handle: Handle<TabsNavContext>, _setup?: unknown) {
 	return (props: {
 		activeId: string
+		/** Enables window scroll restore across full navigations between these tabs (sessionStorage). */
+		scrollGroupId?: string
 		children?: RemixNode
 		class?: string
 		[key: string]: unknown
 	}) => {
-		const { activeId, children, class: className, ...rest } = props
-		handle.context.set({ activeId })
+		const {
+			activeId,
+			scrollGroupId,
+			children,
+			class: className,
+			...rest
+		} = props
+		handle.context.set({ activeId, scrollGroupId })
 		const navClass =
 			`flex flex-wrap gap-2 border-b border-border pb-px ${className ?? ''}`.trim()
 		return (
-			<nav {...rest} class={navClass}>
+			<nav
+				{...rest}
+				class={navClass}
+				{...(scrollGroupId !== undefined
+					? { 'data-tab-scroll-group': scrollGroupId }
+					: {})}
+			>
 				{children}
 			</nav>
 		)
@@ -45,11 +61,14 @@ export function TabLink(handle: Handle, _setup?: unknown) {
 			throw new Error('TabLink must be used inside TabsNav')
 		}
 		const isActive = props.id === ctx.activeId
+		const scrollKeyAttr =
+			ctx.scrollGroupId !== undefined ? { 'data-tab-scroll-key': props.id } : {}
 		return (
 			<a
 				href={props.href}
 				class={isActive ? tabActiveClass : tabInactiveClass}
 				aria-current={isActive ? 'page' : undefined}
+				{...scrollKeyAttr}
 			>
 				{props.children}
 			</a>

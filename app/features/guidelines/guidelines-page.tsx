@@ -67,6 +67,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						<TabsNav
 							activeId={activeAddTab}
 							aria-label={t('guidelines.tabs.navAria')}
+							scrollGroupId="guidelines-add"
 						>
 							<TabLink id="instrument" href={instrumentTabHref}>
 								{t('guidelines.etfCard.title')}

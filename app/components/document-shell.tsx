@@ -10,6 +10,8 @@ import { FetchSubmitEnhancement } from './fetch-submit.component.js'
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
 import { getNavLinks } from './sidebar-nav.ts'
+// @ts-expect-error Runtime-only JS client entry module
+import { TabsNavScrollRestoration } from './tabs-nav-scroll.component.js'
 
 const IMPORT_MAP = JSON.stringify({
 	imports: {
@@ -87,6 +89,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					</div>
 				</SessionProvider>
 				<FetchSubmitEnhancement />
+				<TabsNavScrollRestoration />
 				<script type="module" src="/entry.js" />
 			</body>
 		</html>
