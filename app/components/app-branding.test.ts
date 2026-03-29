@@ -12,17 +12,17 @@ describe('AppBranding', () => {
 	})
 
 	it('renders Preview chip when FLY_APP_NAME is ainvestor-preview', async () => {
-		const prev = process.env.FLY_APP_NAME
+		const previousFlyAppName = process.env.FLY_APP_NAME
 		process.env.FLY_APP_NAME = 'ainvestor-preview'
 		try {
 			const result = await renderToString(jsx(AppBranding, {}))
 			assert.match(result, /Preview/)
 			assert.match(result, /role="status"/)
 		} finally {
-			if (prev === undefined) {
+			if (previousFlyAppName === undefined) {
 				delete process.env.FLY_APP_NAME
 			} else {
-				process.env.FLY_APP_NAME = prev
+				process.env.FLY_APP_NAME = previousFlyAppName
 			}
 		}
 	})

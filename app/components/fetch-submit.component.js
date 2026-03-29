@@ -6,10 +6,10 @@ const CLIENT_MESSAGES_ID = 'ui-client-messages'
 
 function readClientMessages() {
 	if (typeof document === 'undefined') return null
-	const el = document.getElementById(CLIENT_MESSAGES_ID)
-	if (!el?.textContent) return null
+	const messagesElement = document.getElementById(CLIENT_MESSAGES_ID)
+	if (!messagesElement?.textContent) return null
 	try {
-		return JSON.parse(el.textContent)
+		return JSON.parse(messagesElement.textContent)
 	} catch {
 		return null
 	}
@@ -82,20 +82,20 @@ async function handleFetchSubmit(form, submitBtn) {
 
 	const hideError = () => {
 		if (errorId) {
-			const el = document.getElementById(errorId)
-			if (el) {
-				el.textContent = ''
-				el.classList.add('hidden')
+			const errorElement = document.getElementById(errorId)
+			if (errorElement) {
+				errorElement.textContent = ''
+				errorElement.classList.add('hidden')
 			}
 		}
 	}
 
 	const showError = (message) => {
 		if (errorId) {
-			const el = document.getElementById(errorId)
-			if (el) {
-				el.textContent = message
-				el.classList.remove('hidden')
+			const errorElement = document.getElementById(errorId)
+			if (errorElement) {
+				errorElement.textContent = message
+				errorElement.classList.remove('hidden')
 			}
 		}
 	}
@@ -104,20 +104,20 @@ async function handleFetchSubmit(form, submitBtn) {
 	hideError()
 
 	try {
-		const res = await fetch(form.action, {
+		const response = await fetch(form.action, {
 			method: form.method,
 			body: new FormData(form),
 			redirect: 'follow',
 			headers: { Accept: 'application/json' },
 		})
 
-		if (res.ok) {
+		if (response.ok) {
 			if (fragmentId && fragmentUrl) {
-				const fragRes = await fetch(fragmentUrl, {
+				const fragmentResponse = await fetch(fragmentUrl, {
 					headers: { Accept: 'text/html' },
 				})
-				if (fragRes.ok) {
-					const html = await fragRes.text()
+				if (fragmentResponse.ok) {
+					const html = await fragmentResponse.text()
 					const container = document.getElementById(fragmentId)
 					if (container) {
 						container.innerHTML = html
@@ -125,7 +125,7 @@ async function handleFetchSubmit(form, submitBtn) {
 					}
 				}
 			} else if (replaceMain) {
-				const html = await res.text()
+				const html = await response.text()
 				const parser = new DOMParser()
 				const doc = parser.parseFromString(html, 'text/html')
 				const main = doc.querySelector('main')
@@ -135,10 +135,10 @@ async function handleFetchSubmit(form, submitBtn) {
 				}
 				if (resetForm) form.reset()
 			} else {
-				window.location.href = res.url
+				window.location.href = response.url
 			}
 		} else if (replaceMain) {
-			const html = await res.text()
+			const html = await response.text()
 			const parser = new DOMParser()
 			const doc = parser.parseFromString(html, 'text/html')
 			const main = doc.querySelector('main')
@@ -151,8 +151,8 @@ async function handleFetchSubmit(form, submitBtn) {
 				document.write(html)
 				document.close()
 			}
-		} else if (res.status === 422 && errorId) {
-			const data = await res.json().catch(() => ({}))
+		} else if (response.status === 422 && errorId) {
+			const data = await response.json().catch(() => ({}))
 			const msgs = readClientMessages()
 			const fallback =
 				typeof msgs?.genericFormError === 'string'
@@ -160,7 +160,7 @@ async function handleFetchSubmit(form, submitBtn) {
 					: 'Please check your input.'
 			showError(data.error || fallback)
 		} else {
-			window.location.href = res.url || '/'
+			window.location.href = response.url || '/'
 		}
 	} catch {
 		window.location.href = '/'

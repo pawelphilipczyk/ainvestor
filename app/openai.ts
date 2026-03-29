@@ -202,11 +202,11 @@ export type AdviceModelId = (typeof ADVICE_MODEL_IDS)[number]
 
 export const DEFAULT_ADVICE_MODEL: AdviceModelId = 'gpt-5.4-mini'
 
-export function formatGuidelineLine(g: EtfGuideline): string {
-	if (g.kind === 'asset_class') {
-		return `- Asset class ${formatEtfTypeLabel(g.etfType)}: ${g.targetPct}% (bucket)`
+export function formatGuidelineLine(guideline: EtfGuideline): string {
+	if (guideline.kind === 'asset_class') {
+		return `- Asset class ${formatEtfTypeLabel(guideline.etfType)}: ${guideline.targetPct}% (bucket)`
 	}
-	return `- ${g.etfName} (${formatEtfTypeLabel(g.etfType)}): ${g.targetPct}% (specific fund — counts toward the **${formatEtfTypeLabel(g.etfType)}** class total together with any other lines of the same type)`
+	return `- ${guideline.etfName} (${formatEtfTypeLabel(guideline.etfType)}): ${guideline.targetPct}% (specific fund — counts toward the **${formatEtfTypeLabel(guideline.etfType)}** class total together with any other lines of the same type)`
 }
 
 /**
@@ -221,9 +221,12 @@ export function aggregateGuidelineTargetsByEtfType(
 } {
 	const byType = new Map<EtfType, number>()
 	let sumAll = 0
-	for (const g of guidelines) {
-		sumAll += g.targetPct
-		byType.set(g.etfType, (byType.get(g.etfType) ?? 0) + g.targetPct)
+	for (const guideline of guidelines) {
+		sumAll += guideline.targetPct
+		byType.set(
+			guideline.etfType,
+			(byType.get(guideline.etfType) ?? 0) + guideline.targetPct,
+		)
 	}
 	return { byType, sumAll }
 }
@@ -235,11 +238,11 @@ export function formatAggregatedGuidelineBucketsBlock(
 	const { byType, sumAll } = aggregateGuidelineTargetsByEtfType(guidelines)
 	if (sumAll <= 0) return null
 	const parts = [...byType.entries()]
-		.filter(([, pct]) => pct > 0)
+		.filter(([, targetPercentage]) => targetPercentage > 0)
 		.sort((a, b) => b[1] - a[1])
 		.map(
-			([t, pct]) =>
-				`- ${formatEtfTypeLabel(t)}: **${pct}%** (sum of all guideline lines with this type)`,
+			([etfType, targetPercentage]) =>
+				`- ${formatEtfTypeLabel(etfType)}: **${targetPercentage}%** (sum of all guideline lines with this type)`,
 		)
 	const lines = [
 		'---',
@@ -282,13 +285,13 @@ function sumHoldingsValues(holdings: EtfEntry[]): {
 	if (holdings.length === 0) {
 		return { total: 0, currency: null, mixed: false }
 	}
-	const firstCur = holdings[0].currency
-	const mixed = holdings.some((h) => h.currency !== firstCur)
+	const firstCurrency = holdings[0].currency
+	const mixed = holdings.some((holding) => holding.currency !== firstCurrency)
 	if (mixed) {
 		return { total: 0, currency: null, mixed: true }
 	}
-	const total = holdings.reduce((s, h) => s + h.value, 0)
-	return { total, currency: firstCur, mixed: false }
+	const total = holdings.reduce((sum, holding) => sum + holding.value, 0)
+	return { total, currency: firstCurrency, mixed: false }
 }
 
 /** Authoritative pre/post totals so the model does not invent wrong portfolio sums. */
@@ -337,9 +340,9 @@ export function formatPostInvestmentTotalsBlock(params: {
 			)
 			return lines.join('\n')
 		}
-		const post = cashNum
+		const postTotalCashOnly = cashNum
 		lines.push(
-			`- **After fully investing this deployable cash into ETFs, total ETF portfolio value = ${post.toFixed(2)} ${params.cashCurrency}** (all new money in this scenario).`,
+			`- **After fully investing this deployable cash into ETFs, total ETF portfolio value = ${postTotalCashOnly.toFixed(2)} ${params.cashCurrency}** (all new money in this scenario).`,
 		)
 		return lines.join('\n')
 	}
@@ -363,22 +366,24 @@ export function formatPostInvestmentTotalsBlock(params: {
 }
 
 function findCatalogMatch(
-	h: EtfEntry,
+	holding: EtfEntry,
 	catalog: CatalogEntry[],
 ): CatalogEntry | undefined {
-	const fromTicker = h.ticker?.trim()
+	const fromTicker = holding.ticker?.trim()
 	if (fromTicker) {
-		const u = fromTicker.toUpperCase()
-		const hit = catalog.find((c) => c.ticker.toUpperCase() === u)
-		if (hit) return hit
+		const tickerUpper = fromTicker.toUpperCase()
+		const matched = catalog.find(
+			(entry) => entry.ticker.toUpperCase() === tickerUpper,
+		)
+		if (matched) return matched
 	}
-	const name = h.name.trim()
+	const name = holding.name.trim()
 	if (!name) return undefined
 	const lower = name.toLowerCase()
 	return catalog.find(
-		(c) =>
-			c.ticker.toUpperCase() === name.toUpperCase() ||
-			c.name.toLowerCase() === lower,
+		(entry) =>
+			entry.ticker.toUpperCase() === name.toUpperCase() ||
+			entry.name.toLowerCase() === lower,
 	)
 }
 
@@ -387,35 +392,39 @@ function findCatalogMatch(
  * ticker/name rules as `findCatalogMatch` (etfName plays the role of catalog ticker + name).
  */
 function findInstrumentGuidelineEtfType(
-	h: EtfEntry,
+	holding: EtfEntry,
 	guidelines: EtfGuideline[],
 ): EtfType | undefined {
-	for (const g of guidelines) {
-		if (g.kind !== 'instrument') continue
-		const fromTicker = h.ticker?.trim()
+	for (const guideline of guidelines) {
+		if (guideline.kind !== 'instrument') continue
+		const fromTicker = holding.ticker?.trim()
 		if (fromTicker) {
-			const u = fromTicker.toUpperCase()
-			if (g.etfName.trim().toUpperCase() === u) return g.etfType
+			const tickerUpper = fromTicker.toUpperCase()
+			if (guideline.etfName.trim().toUpperCase() === tickerUpper)
+				return guideline.etfType
 		}
-		const name = h.name.trim()
+		const name = holding.name.trim()
 		if (!name) continue
 		const lower = name.toLowerCase()
-		const en = g.etfName.trim()
-		if (en.toUpperCase() === name.toUpperCase() || en.toLowerCase() === lower) {
-			return g.etfType
+		const guidelineEtfName = guideline.etfName.trim()
+		if (
+			guidelineEtfName.toUpperCase() === name.toUpperCase() ||
+			guidelineEtfName.toLowerCase() === lower
+		) {
+			return guideline.etfType
 		}
 	}
 	return undefined
 }
 
 function resolveHoldingEtfTypeForAdviceDiagnostics(
-	h: EtfEntry,
+	holding: EtfEntry,
 	catalog: CatalogEntry[],
 	guidelines: EtfGuideline[],
 ): EtfType {
-	const c = findCatalogMatch(h, catalog)
-	if (c) return c.type
-	return findInstrumentGuidelineEtfType(h, guidelines) ?? 'mixed'
+	const matchedEntry = findCatalogMatch(holding, catalog)
+	if (matchedEntry) return matchedEntry.type
+	return findInstrumentGuidelineEtfType(holding, guidelines) ?? 'mixed'
 }
 
 export type AdviceBucketDiagnostic = {
@@ -468,16 +477,22 @@ export function computeAdviceAllocationDiagnostics(params: {
 	if (targetPctSum <= 0) return null
 
 	const currentByType = new Map<EtfType, number>()
-	for (const h of params.holdings) {
-		const t = resolveHoldingEtfTypeForAdviceDiagnostics(
-			h,
+	for (const holding of params.holdings) {
+		const holdingEtfType = resolveHoldingEtfTypeForAdviceDiagnostics(
+			holding,
 			params.catalog,
 			params.guidelines,
 		)
-		if (h.value > 0 && (t === 'mixed' || !targetPctByType.has(t))) {
+		if (
+			holding.value > 0 &&
+			(holdingEtfType === 'mixed' || !targetPctByType.has(holdingEtfType))
+		) {
 			return null
 		}
-		currentByType.set(t, (currentByType.get(t) ?? 0) + h.value)
+		currentByType.set(
+			holdingEtfType,
+			(currentByType.get(holdingEtfType) ?? 0) + holding.value,
+		)
 	}
 
 	const postTotal = holdingsTotal + cashNum
@@ -499,7 +514,7 @@ export function computeAdviceAllocationDiagnostics(params: {
 			}
 		})
 
-	const sumIdealBuyMin = rows.reduce((s, r) => s + r.idealBuyMin, 0)
+	const sumIdealBuyMin = rows.reduce((sum, row) => sum + row.idealBuyMin, 0)
 	return {
 		postTotal,
 		currency: params.cashCurrency,
@@ -516,10 +531,11 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 	cashCurrency: string
 	catalog: CatalogEntry[]
 }): string | null {
-	const diag = computeAdviceAllocationDiagnostics(params)
-	if (!diag) return null
+	const diagnostics = computeAdviceAllocationDiagnostics(params)
+	if (!diagnostics) return null
 
-	const { postTotal, currency, rows, sumIdealBuyMin, targetPctSum } = diag
+	const { postTotal, currency, rows, sumIdealBuyMin, targetPctSum } =
+		diagnostics
 	const lines: string[] = [
 		'---',
 		'Server allocation diagnostics (authoritative numbers — interpret these in "Current state analysis" by referencing gaps, not restating the numbers; do not contradict):',
@@ -529,14 +545,14 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 		'Per asset-class bucket: target % (normalized of post-total), current value, target value at post-total, minimum buy to reach target without selling (0 if already at/above target):',
 	]
 
-	for (const r of rows) {
-		const normalizedPct = (r.targetPct / targetPctSum) * 100
+	for (const row of rows) {
+		const normalizedPct = (row.targetPct / targetPctSum) * 100
 		const targetPctLabel =
 			Math.abs(targetPctSum - 100) < 0.000_001
 				? `${normalizedPct.toFixed(2)}%`
-				: `${normalizedPct.toFixed(2)}% (${r.targetPct}/${targetPctSum})`
+				: `${normalizedPct.toFixed(2)}% (${row.targetPct}/${targetPctSum})`
 		lines.push(
-			`- ${r.label}: target ${targetPctLabel} → ${r.targetAmtPost.toFixed(2)} ${currency} at post-total; currently ${r.currentAmt.toFixed(2)} ${currency}; minimum buy (if underweight) ${r.idealBuyMin.toFixed(2)} ${currency}`,
+			`- ${row.label}: target ${targetPctLabel} → ${row.targetAmtPost.toFixed(2)} ${currency} at post-total; currently ${row.currentAmt.toFixed(2)} ${currency}; minimum buy (if underweight) ${row.idealBuyMin.toFixed(2)} ${currency}`,
 		)
 	}
 
@@ -544,14 +560,20 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 	const eps = 0.01
 
 	if (sumIdealBuyMin > cashNum + eps) {
-		const posSum = rows.reduce((s, r) => s + r.idealBuyMin, 0)
+		const sumIdealBuyMinimums = rows.reduce(
+			(sum, row) => sum + row.idealBuyMin,
+			0,
+		)
 		lines.push(
 			`- Not enough cash to fully reach all targets with buys only: minimum buys sum to ${sumIdealBuyMin.toFixed(2)} ${currency} but deployable cash is ${cashNum.toFixed(2)} ${currency}.`,
 			`- **Recommended deployment of this cash** (proportional to those minimum buys among underweight buckets; 0 where minimum buy is 0):`,
 		)
-		for (const r of rows) {
-			const share = posSum > eps ? (r.idealBuyMin / posSum) * cashNum : 0
-			lines.push(`  - ${r.label}: deploy ~${share.toFixed(2)} ${currency}`)
+		for (const row of rows) {
+			const share =
+				sumIdealBuyMinimums > eps
+					? (row.idealBuyMin / sumIdealBuyMinimums) * cashNum
+					: 0
+			lines.push(`  - ${row.label}: deploy ~${share.toFixed(2)} ${currency}`)
 		}
 	} else {
 		lines.push(
@@ -562,10 +584,10 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 			lines.push(
 				`- After those minimum buys, remaining cash ${remainder.toFixed(2)} ${currency}: add across buckets in proportion to target % to preserve the mix.`,
 			)
-			for (const r of rows) {
-				const extra = remainder * (r.targetPct / targetPctSum)
+			for (const row of rows) {
+				const extra = remainder * (row.targetPct / targetPctSum)
 				lines.push(
-					`  - ${r.label}: +~${extra.toFixed(2)} ${currency} from remainder`,
+					`  - ${row.label}: +~${extra.toFixed(2)} ${currency} from remainder`,
 				)
 			}
 		}
@@ -586,25 +608,27 @@ export function formatAllocationContext(
 	if (holdings.length === 0) {
 		return 'No ETF holdings recorded yet — this summary shows 0% in ETFs. Any deployable cash the user states separately is new money to allocate into ETFs, not an ETF holding total.'
 	}
-	const total = holdings.reduce((s, h) => s + h.value, 0)
+	const total = holdings.reduce((sum, holding) => sum + holding.value, 0)
 	if (total <= 0) {
 		return 'Holdings total is zero; cannot compute allocation percentages.'
 	}
 	const sums = new Map<string, number>()
-	for (const h of holdings) {
-		const c = findCatalogMatch(h, catalog)
-		const label = c
-			? formatEtfTypeLabel(c.type)
+	for (const holding of holdings) {
+		const matchedEntry = findCatalogMatch(holding, catalog)
+		const label = matchedEntry
+			? formatEtfTypeLabel(matchedEntry.type)
 			: 'unclassified (no catalog match for this holding)'
-		sums.set(label, (sums.get(label) ?? 0) + h.value)
+		sums.set(label, (sums.get(label) ?? 0) + holding.value)
 	}
 	const lines: string[] = [
 		`Total ETF position value (sum of holding line items only; excludes any deployable cash the user states separately): ${total.toFixed(2)} (values as stored; mixed currencies may apply).`,
 		'Approximate share by asset type (each holding mapped via catalog ticker/name when possible):',
 	]
-	for (const [label, sum] of [...sums.entries()].sort((a, b) => b[1] - a[1])) {
-		const pct = ((sum / total) * 100).toFixed(1)
-		lines.push(`- ${label}: ${pct}% (about ${sum.toFixed(2)})`)
+	for (const [label, bucketSum] of [...sums.entries()].sort(
+		(a, b) => b[1] - a[1],
+	)) {
+		const pct = ((bucketSum / total) * 100).toFixed(1)
+		lines.push(`- ${label}: ${pct}% (about ${bucketSum.toFixed(2)})`)
 	}
 	return lines.join('\n')
 }
@@ -614,24 +638,25 @@ export function formatCatalogForAdvice(catalog: CatalogEntry[]): string {
 		return 'No ETF catalog entries are available. Do not invent tickers or performance numbers; give only general asset-class guidance.'
 	}
 	return catalog
-		.map((e) => {
+		.map((entry) => {
 			const bits: string[] = [
-				`${e.ticker} — ${e.name}`,
-				`type: ${formatEtfTypeLabel(e.type)}`,
+				`${entry.ticker} — ${entry.name}`,
+				`type: ${formatEtfTypeLabel(entry.type)}`,
 			]
-			if (e.description) bits.push(`description: ${e.description}`)
-			if (typeof e.rate_of_return === 'number') {
-				bits.push(`annual rate of return: ${e.rate_of_return}%`)
+			if (entry.description) bits.push(`description: ${entry.description}`)
+			if (typeof entry.rate_of_return === 'number') {
+				bits.push(`annual rate of return: ${entry.rate_of_return}%`)
 			}
-			if (e.return_risk) bits.push(`return/risk: ${e.return_risk}`)
-			if (e.volatility) bits.push(`volatility: ${e.volatility}`)
-			if (e.expense_ratio) bits.push(`expense ratio: ${e.expense_ratio}`)
-			if (e.region) bits.push(`region: ${e.region}`)
-			if (e.sector) bits.push(`sector: ${e.sector}`)
-			if (e.fund_size) bits.push(`fund size: ${e.fund_size}`)
-			if (typeof e.risk_kid === 'number')
-				bits.push(`risk (KID 1–7): ${e.risk_kid}`)
-			if (e.esg !== undefined) bits.push(`ESG: ${e.esg ? 'yes' : 'no'}`)
+			if (entry.return_risk) bits.push(`return/risk: ${entry.return_risk}`)
+			if (entry.volatility) bits.push(`volatility: ${entry.volatility}`)
+			if (entry.expense_ratio)
+				bits.push(`expense ratio: ${entry.expense_ratio}`)
+			if (entry.region) bits.push(`region: ${entry.region}`)
+			if (entry.sector) bits.push(`sector: ${entry.sector}`)
+			if (entry.fund_size) bits.push(`fund size: ${entry.fund_size}`)
+			if (typeof entry.risk_kid === 'number')
+				bits.push(`risk (KID 1–7): ${entry.risk_kid}`)
+			if (entry.esg !== undefined) bits.push(`ESG: ${entry.esg ? 'yes' : 'no'}`)
 			return `- ${bits.join(' | ')}`
 		})
 		.join('\n')
@@ -647,7 +672,12 @@ function buildPortfolioReviewUserMessage(params: {
 	const holdingsList =
 		holdings.length === 0
 			? 'No ETFs recorded yet.'
-			: holdings.map((h) => `- ${h.name}: ${h.value} ${h.currency}`).join('\n')
+			: holdings
+					.map(
+						(holding) =>
+							`- ${holding.name}: ${holding.value} ${holding.currency}`,
+					)
+					.join('\n')
 
 	const aggregatedBuckets = formatAggregatedGuidelineBucketsBlock(guidelines)
 	const guidelinesSection =
@@ -709,7 +739,12 @@ export async function getInvestmentAdvice(params: {
 	const holdingsList =
 		holdings.length === 0
 			? 'No ETFs recorded yet.'
-			: holdings.map((h) => `- ${h.name}: ${h.value} ${h.currency}`).join('\n')
+			: holdings
+					.map(
+						(holding) =>
+							`- ${holding.name}: ${holding.value} ${holding.currency}`,
+					)
+					.join('\n')
 
 	const aggregatedBuckets = formatAggregatedGuidelineBucketsBlock(guidelines)
 	const guidelinesSection =

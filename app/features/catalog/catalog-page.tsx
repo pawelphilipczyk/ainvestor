@@ -104,20 +104,20 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 
 		const filtered = props.catalog.filter((entry) => {
 			const matchesType = !props.typeFilter || entry.type === props.typeFilter
-			const lq = props.query.toLowerCase()
+			const queryLower = props.query.toLowerCase()
 			const matchesQuery =
 				!props.query ||
-				entry.ticker.toLowerCase().includes(lq) ||
-				entry.name.toLowerCase().includes(lq) ||
-				entry.description.toLowerCase().includes(lq)
+				entry.ticker.toLowerCase().includes(queryLower) ||
+				entry.name.toLowerCase().includes(queryLower) ||
+				entry.description.toLowerCase().includes(queryLower)
 			return matchesType && matchesQuery
 		})
 
-		const ownedInCatalog = filtered.filter((e) =>
-			holdingsByTicker.has(holdingKey(e.ticker)),
+		const ownedInCatalog = filtered.filter((catalogEntry) =>
+			holdingsByTicker.has(holdingKey(catalogEntry.ticker)),
 		)
 		const restOfCatalog = filtered.filter(
-			(e) => !holdingsByTicker.has(holdingKey(e.ticker)),
+			(catalogEntry) => !holdingsByTicker.has(holdingKey(catalogEntry.ticker)),
 		)
 
 		return (

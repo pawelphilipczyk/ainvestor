@@ -117,11 +117,11 @@ export async function fetchEtfs(
 	token: string,
 	gistId: string,
 ): Promise<EtfEntry[]> {
-	const res = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		headers: githubHeaders(token),
 	})
-	if (!res.ok) return []
-	const gist = (await res.json()) as GistPayload
+	if (!response.ok) return []
+	const gist = (await response.json()) as GistPayload
 	return parseEtfsFromGist(gist)
 }
 
@@ -132,11 +132,11 @@ export async function fetchPortfolioSnapshot(
 	token: string,
 	gistId: string,
 ): Promise<{ entries: EtfEntry[]; catalog: CatalogEntry[] }> {
-	const res = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		headers: githubHeaders(token),
 	})
-	if (!res.ok) return { entries: [], catalog: [] }
-	const gist = (await res.json()) as GistPayload
+	if (!response.ok) return { entries: [], catalog: [] }
+	const gist = (await response.json()) as GistPayload
 	return {
 		entries: parseEtfsFromGist(gist),
 		catalog: parseCatalogFromGist(gist),

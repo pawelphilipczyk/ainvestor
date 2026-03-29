@@ -27,7 +27,9 @@ type SectionIntroCardProps =
  */
 export function SectionIntroCard(_handle: Handle, _setup?: unknown) {
 	return (props: SectionIntroCardProps) => {
-		const vt = { viewTransitionName: transitionName(props.page) }
+		const viewTransitionStyle = {
+			viewTransitionName: transitionName(props.page),
+		}
 		const header = (
 			<header>
 				{props.variant === 'page' ? (
@@ -59,7 +61,7 @@ export function SectionIntroCard(_handle: Handle, _setup?: unknown) {
 					class="group block rounded-xl no-underline outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 				>
 					<Card
-						style={vt}
+						style={viewTransitionStyle}
 						class="flex h-full min-h-[7.5rem] flex-col justify-center p-6 transition-colors group-hover:border-ring/60 group-hover:bg-accent/5"
 					>
 						{header}
@@ -69,7 +71,7 @@ export function SectionIntroCard(_handle: Handle, _setup?: unknown) {
 		}
 
 		return (
-			<Card style={vt} class="p-6">
+			<Card style={viewTransitionStyle} class="p-6">
 				{header}
 			</Card>
 		)

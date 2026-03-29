@@ -6,6 +6,7 @@ This project uses [Biome](https://biomejs.dev/) v2.4.7 for formatting and lintin
 
 Before submitting any JS/TS code, verify:
 
+- [ ] Function and variable names use **full words**, not abbreviations (see `AGENTS.md` → TypeScript style); exceptions are documented there
 - [ ] Indentation uses **tabs**, not spaces
 - [ ] Strings use **single quotes**
 - [ ] Statements have **no trailing semicolons** (only where ASI requires them)

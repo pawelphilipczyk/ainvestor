@@ -5,9 +5,9 @@ import { on } from 'remix/interaction'
 const DESKTOP_MEDIA = '(min-width: 768px)'
 
 function isDesktop(doc) {
-	const win = doc.defaultView
-	if (!win) return false
-	return win.matchMedia(DESKTOP_MEDIA).matches
+	const defaultView = doc.defaultView
+	if (!defaultView) return false
+	return defaultView.matchMedia(DESKTOP_MEDIA).matches
 }
 
 function openSidebar(sidebar, backdrop, sidebarToggle, doc) {
@@ -56,13 +56,13 @@ export const SidebarInteractions = clientEntry(
 						return
 					}
 
-					const mq = doc.defaultView?.matchMedia(DESKTOP_MEDIA)
+					const desktopMediaQuery = doc.defaultView?.matchMedia(DESKTOP_MEDIA)
 					const onBreakpoint = () => {
-						if (mq?.matches) {
+						if (desktopMediaQuery?.matches) {
 							resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc)
 						}
 					}
-					mq?.addEventListener('change', onBreakpoint)
+					desktopMediaQuery?.addEventListener('change', onBreakpoint)
 
 					const dispose = on(doc, {
 						click(event) {
@@ -90,7 +90,7 @@ export const SidebarInteractions = clientEntry(
 					})
 					const cleanup = () => {
 						dispose()
-						mq?.removeEventListener('change', onBreakpoint)
+						desktopMediaQuery?.removeEventListener('change', onBreakpoint)
 					}
 					signal.addEventListener('abort', cleanup, { once: true })
 				},

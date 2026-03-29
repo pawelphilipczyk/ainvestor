@@ -378,13 +378,13 @@ function renderEtfProposals(
 					</thead>
 					<tbody>
 						{block.rows.map((row) => {
-							const cur =
+							const displayCurrency =
 								row.amount !== undefined
 									? (row.currency ?? defaultCashCurrency)
 									: null
 							return (
 								<tr
-									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${cur ?? ''}`}
+									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
 									class="border-t border-border"
 								>
 									<td class="px-3 py-2 text-card-foreground">{row.name}</td>
@@ -397,7 +397,7 @@ function renderEtfProposals(
 											: t('catalog.emptyCell')}
 									</td>
 									<td class="px-3 py-2 text-muted-foreground">
-										{cur ?? t('catalog.emptyCell')}
+										{displayCurrency ?? t('catalog.emptyCell')}
 									</td>
 									<td class="px-3 py-2 text-muted-foreground">
 										{row.note ?? t('catalog.emptyCell')}

@@ -39,7 +39,7 @@ export function uniqueEtfTypesFromCatalog(catalog: CatalogEntry[]): EtfType[] {
 	for (const e of catalog) {
 		seen.add(e.type)
 	}
-	return ETF_TYPES.filter((t) => seen.has(t))
+	return ETF_TYPES.filter((etfType) => seen.has(etfType))
 }
 
 /**
@@ -51,9 +51,9 @@ export function assetClassSelectOptionsFromCatalog(
 ): { value: EtfType; label: string }[] {
 	const types = uniqueEtfTypesFromCatalog(catalog)
 	const ordered = types.length > 0 ? types : [...ETF_TYPES]
-	return ordered.map((t) => ({
-		value: t,
-		label: formatEtfTypeLabel(t),
+	return ordered.map((etfType) => ({
+		value: etfType,
+		label: formatEtfTypeLabel(etfType),
 	}))
 }
 
@@ -62,9 +62,11 @@ export function findCatalogEntryByTicker(
 	catalog: CatalogEntry[],
 	ticker: string,
 ): CatalogEntry | undefined {
-	const t = ticker.trim().toUpperCase()
-	if (!t) return undefined
-	return catalog.find((e) => e.ticker.toUpperCase() === t)
+	const normalisedTicker = ticker.trim().toUpperCase()
+	if (!normalisedTicker) return undefined
+	return catalog.find(
+		(entry) => entry.ticker.toUpperCase() === normalisedTicker,
+	)
 }
 
 /** Options for picking a specific fund from the catalog (guidelines instrument rows). */
@@ -110,13 +112,15 @@ export type BankEtfResponse = {
 }
 
 function normaliseTypeFromBank(assets: string, sector: string): EtfType {
-	const a = (assets ?? '').toLowerCase()
-	const s = (sector ?? '').toLowerCase()
-	if (a.includes('obligac')) return 'bond'
-	if (a.includes('mieszany')) return 'mixed'
-	if (s.includes('nieruchomo')) return 'real_estate'
-	if (s.includes('surowce') || s.includes('towar')) return 'commodity'
-	if (a.includes('akcje') || a.includes('akcj')) return 'equity'
+	const assetsLower = (assets ?? '').toLowerCase()
+	const sectorLower = (sector ?? '').toLowerCase()
+	if (assetsLower.includes('obligac')) return 'bond'
+	if (assetsLower.includes('mieszany')) return 'mixed'
+	if (sectorLower.includes('nieruchomo')) return 'real_estate'
+	if (sectorLower.includes('surowce') || sectorLower.includes('towar'))
+		return 'commodity'
+	if (assetsLower.includes('akcje') || assetsLower.includes('akcj'))
+		return 'equity'
 	return 'equity'
 }
 
@@ -127,8 +131,8 @@ function normaliseTypeFromBank(assets: string, sector: string): EtfType {
  */
 export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 	if (!json || typeof json !== 'object') return []
-	const obj = json as Record<string, unknown>
-	const data = obj.data
+	const payload = json as Record<string, unknown>
+	const data = payload.data
 	if (!Array.isArray(data)) return []
 
 	const entries: CatalogEntry[] = []
@@ -172,8 +176,8 @@ export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 
 function normalizeIsinForMerge(isin: string | undefined): string | null {
 	if (!isin) return null
-	const s = isin.trim().toUpperCase()
-	return s.length === 0 ? null : s
+	const normalised = isin.trim().toUpperCase()
+	return normalised.length === 0 ? null : normalised
 }
 
 function normalizeTickerForMerge(ticker: string): string {
@@ -189,8 +193,11 @@ export function catalogMergeKey(entry: CatalogEntry): string {
 	return `t:${normalizeTickerForMerge(entry.ticker)}`
 }
 
-function mergeCatalogRow(prev: CatalogEntry, next: CatalogEntry): CatalogEntry {
-	return { ...prev, ...next, id: prev.id }
+function mergeCatalogRow(
+	existingRow: CatalogEntry,
+	incomingRow: CatalogEntry,
+): CatalogEntry {
+	return { ...existingRow, ...incomingRow, id: existingRow.id }
 }
 
 /**
@@ -202,15 +209,21 @@ export function mergeBankIntoCatalog(
 	incoming: CatalogEntry[],
 ): CatalogEntry[] {
 	const byKey = new Map<string, CatalogEntry>()
-	for (const e of existing) {
-		const k = catalogMergeKey(e)
-		const prev = byKey.get(k)
-		byKey.set(k, prev ? mergeCatalogRow(prev, e) : e)
+	for (const entry of existing) {
+		const mergeKey = catalogMergeKey(entry)
+		const existingAtKey = byKey.get(mergeKey)
+		byKey.set(
+			mergeKey,
+			existingAtKey ? mergeCatalogRow(existingAtKey, entry) : entry,
+		)
 	}
-	for (const e of incoming) {
-		const k = catalogMergeKey(e)
-		const prev = byKey.get(k)
-		byKey.set(k, prev ? mergeCatalogRow(prev, e) : e)
+	for (const entry of incoming) {
+		const mergeKey = catalogMergeKey(entry)
+		const existingAtKey = byKey.get(mergeKey)
+		byKey.set(
+			mergeKey,
+			existingAtKey ? mergeCatalogRow(existingAtKey, entry) : entry,
+		)
 	}
 	return [...byKey.values()]
 }
@@ -268,11 +281,11 @@ export async function fetchCatalog(
 	token: string,
 	gistId: string,
 ): Promise<CatalogEntry[]> {
-	const res = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		headers: githubHeaders(token),
 	})
-	if (!res.ok) return []
-	const gist = (await res.json()) as GistPayload
+	if (!response.ok) return []
+	const gist = (await response.json()) as GistPayload
 	return parseCatalogFromGist(gist)
 }
 
