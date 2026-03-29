@@ -238,11 +238,11 @@ export function formatAggregatedGuidelineBucketsBlock(
 	const { byType, sumAll } = aggregateGuidelineTargetsByEtfType(guidelines)
 	if (sumAll <= 0) return null
 	const parts = [...byType.entries()]
-		.filter(([, pct]) => pct > 0)
+		.filter(([, targetPercentage]) => targetPercentage > 0)
 		.sort((a, b) => b[1] - a[1])
 		.map(
-			([etfType, pct]) =>
-				`- ${formatEtfTypeLabel(etfType)}: **${pct}%** (sum of all guideline lines with this type)`,
+			([etfType, targetPercentage]) =>
+				`- ${formatEtfTypeLabel(etfType)}: **${targetPercentage}%** (sum of all guideline lines with this type)`,
 		)
 	const lines = [
 		'---',
