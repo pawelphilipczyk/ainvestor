@@ -283,8 +283,8 @@ describe('mergeBankIntoCatalog', () => {
 		]
 		const merged = mergeBankIntoCatalog(existing, incoming)
 		assert.equal(merged.length, 2)
-		const xmov = merged.find((e) => e.ticker === 'XMOV')
-		const xmovGr = merged.find((e) => e.ticker === 'XMOV GR')
+		const xmov = merged.find((entry) => entry.ticker === 'XMOV')
+		const xmovGr = merged.find((entry) => entry.ticker === 'XMOV GR')
 		assert.ok(xmov)
 		assert.ok(xmovGr)
 		assert.equal(xmov?.id, 'uuid-1')
