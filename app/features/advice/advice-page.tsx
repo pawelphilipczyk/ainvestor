@@ -21,7 +21,6 @@ import {
 	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
 	normalizeAdviceAnalysisTab,
-	parseAdviceCashAmount,
 } from '../../openai.ts'
 import { routes } from '../../routes.ts'
 import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
@@ -579,33 +578,6 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									{t('advice.tab.hint.portfolioReview')}
 								</p>
 								<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
-									<div class="grid min-w-0 flex-1 gap-2">
-										<FieldLabel fieldId="cashAmount-review">
-											{t('advice.form.field.cashOptional')}
-										</FieldLabel>
-										<NumberInput
-											id="cashAmount-review"
-											name="cashAmount"
-											placeholder={t('advice.form.placeholder.cashOptional')}
-											step="any"
-											inputMode="decimal"
-											pattern={LOCALE_DECIMAL_HTML_PATTERN}
-											defaultValue={props.cashAmount}
-											disabled={pendingApproval}
-										/>
-									</div>
-									<div class="grid w-full gap-2 sm:w-36">
-										<FieldLabel fieldId="cashCurrency-review">
-											{t('advice.form.field.currency')}
-										</FieldLabel>
-										<SelectInput
-											id="cashCurrency-review"
-											name="cashCurrency"
-											options={currencyOptions}
-											value={cashCurrency}
-											disabled={pendingApproval}
-										/>
-									</div>
 									<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
 										<FieldLabel fieldId="adviceModel-review">
 											{t('advice.form.field.model')}
@@ -641,19 +613,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
 							{resultMode === 'portfolio_review'
-								? (() => {
-										const raw = props.cashAmount?.trim() ?? ''
-										const parsed =
-											raw === '' ? null : parseAdviceCashAmount(raw)
-										const hasPositiveCash =
-											parsed !== null && Number.isFinite(parsed) && parsed > 0
-										return hasPositiveCash
-											? format(t('advice.result.subtitleReviewWithCash'), {
-													amount: raw,
-													currency: cashCurrency,
-												})
-											: t('advice.result.subtitleReviewGuidelinesOnly')
-									})()
+								? t('advice.result.subtitleReviewGuidelinesOnly')
 								: format(t('advice.result.subtitle'), {
 										amount: props.cashAmount ?? '',
 										currency: cashCurrency,
