@@ -12,6 +12,6 @@ export type AdviceClient = {
 	}
 }
 
-export function createDefaultClient(): AdviceClient {
+export function createAdviceClient(): AdviceClient {
 	return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 }

@@ -5,8 +5,8 @@ import {
 	LOCALE_DECIMAL_HTML_PATTERN,
 	parseLocaleDecimalString,
 } from '../../lib/locale-decimal-input.ts'
-import type { AdviceClient } from '../../openai.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
+import type { AdviceClient } from './advice-client.ts'
 import { type AdviceDocument, parseAdviceDocument } from './advice-document.ts'
 
 export type { EtfEntry } from '../../lib/gist.ts'

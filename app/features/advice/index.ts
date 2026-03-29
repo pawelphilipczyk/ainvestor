@@ -18,8 +18,8 @@ import {
 	getSessionData,
 	type SessionData,
 } from '../../lib/session.ts'
-import { type AdviceClient, createDefaultClient } from '../../openai.ts'
 import { routes } from '../../routes.ts'
+import { type AdviceClient, createAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
 import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
 import {
@@ -253,7 +253,7 @@ export const adviceController = {
 				: getGuestGuidelines(context.session)
 
 		try {
-			const client = adviceClient ?? createDefaultClient()
+			const client = adviceClient ?? createAdviceClient()
 			const advice = await getInvestmentAdvice({
 				holdings: entries,
 				guidelines,

@@ -6,7 +6,7 @@ import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
-import type { AdviceClient } from '../../openai.ts'
+import type { AdviceClient } from './advice-client.ts'
 import { adviceTabHref, setAdviceClient } from './index.ts'
 
 type AdviceCompletionCreateParams = Parameters<
@@ -211,7 +211,7 @@ describe('Advice', () => {
 		assert.match(body, /simulated API failure/)
 	})
 
-	it('returns 503 with AdvicePage HTML when the default OpenAI client cannot be created', async () => {
+	it('returns 503 with AdvicePage HTML when the advice OpenAI client cannot be created', async () => {
 		const prevKey = process.env.OPENAI_API_KEY
 		delete process.env.OPENAI_API_KEY
 

@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
+import type { AdviceClient } from './features/advice/advice-client.ts'
 import {
 	aggregateGuidelineTargetsByEtfType,
 	computeAdviceAllocationDiagnostics,
@@ -15,7 +16,6 @@ import {
 import type { CatalogEntry } from './features/catalog/lib.ts'
 import type { EtfEntry } from './lib/gist.ts'
 import type { EtfGuideline } from './lib/guidelines.ts'
-import type { AdviceClient } from './openai.ts'
 
 function adviceJsonParagraph(text: string): string {
 	return JSON.stringify({ blocks: [{ type: 'paragraph', text }] })
