@@ -238,6 +238,10 @@ export const en = {
 		'Guideline targets cannot add up to more than 100%. Setting this line to {newPct}% would make the total {total}%.',
 	'errors.guidelines.targetPctInvalid':
 		'Enter a target percentage between 0.01 and 100.',
+	'errors.guidelines.duplicateInstrument':
+		'You already have a guideline for {ticker}. To change it, edit or remove that line — you cannot add a second guideline for the same fund.',
+	'errors.guidelines.duplicateAssetClass':
+		'You already have a guideline for the {label} asset class. To change it, edit or remove that line — you cannot add a second bucket guideline for the same class.',
 
 	'errors.advice.formRead': 'Could not read your form. Please try again.',
 	'errors.advice.formReadDetail':

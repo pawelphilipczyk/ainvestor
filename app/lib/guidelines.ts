@@ -83,6 +83,32 @@ export function wouldGuidelineTotalExceedCap(params: {
 	)
 }
 
+/**
+ * Returns an existing guideline that blocks adding `entry`: same ticker (instrument)
+ * or same asset class (bucket). Instrument tickers are compared case-insensitively.
+ */
+export function findGuidelineDuplicateOf(
+	existing: EtfGuideline[],
+	entry: EtfGuideline,
+): EtfGuideline | null {
+	const normalizedEntryTicker =
+		entry.kind === 'instrument' ? entry.etfName.trim().toUpperCase() : null
+	for (const g of existing) {
+		if (entry.kind === 'instrument' && g.kind === 'instrument') {
+			const normalizedExistingTicker = g.etfName.trim().toUpperCase()
+			if (normalizedExistingTicker === normalizedEntryTicker) {
+				return g
+			}
+		}
+		if (entry.kind === 'asset_class' && g.kind === 'asset_class') {
+			if (g.etfType === entry.etfType) {
+				return g
+			}
+		}
+	}
+	return null
+}
+
 export function isEtfType(value: unknown): value is EtfType {
 	return (
 		typeof value === 'string' &&
