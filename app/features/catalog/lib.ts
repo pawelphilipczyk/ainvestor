@@ -67,20 +67,6 @@ export function findCatalogEntryByTicker(
 	return catalog.find((e) => e.ticker.toUpperCase() === t)
 }
 
-/** Resolve catalog row for a portfolio holding (ticker first, then exact name match). */
-export function findCatalogEntryForHolding(
-	catalog: CatalogEntry[],
-	entry: { name: string; ticker?: string },
-): CatalogEntry | undefined {
-	if (entry.ticker?.trim()) {
-		const byTicker = findCatalogEntryByTicker(catalog, entry.ticker)
-		if (byTicker) return byTicker
-	}
-	const n = entry.name.trim().toLowerCase()
-	if (!n) return undefined
-	return catalog.find((c) => c.name.trim().toLowerCase() === n)
-}
-
 /** Options for picking a specific fund from the catalog (guidelines instrument rows). */
 export function instrumentSelectOptionsFromCatalog(
 	catalog: CatalogEntry[],

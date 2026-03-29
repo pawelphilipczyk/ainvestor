@@ -285,7 +285,6 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(homeBody, /VTI/)
 		assert.match(homeBody, /1[,.]?700/)
 		assert.match(homeBody, /USD/)
-		assert.match(homeBody, /equity/)
 		const deleteForms = homeBody.match(/action="\/etfs\/[a-f0-9-]+"/g)
 		assert.equal(
 			deleteForms?.length ?? 0,

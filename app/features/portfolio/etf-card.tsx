@@ -6,7 +6,6 @@ import { routes } from '../../routes.ts'
 type EtfCardProps = {
 	name: string
 	valueLine: string
-	classLabel: string
 	identifier: string
 	dialogId: string
 	deleteHref: string
@@ -22,21 +21,8 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 			<h3 class="truncate text-sm font-semibold text-card-foreground">
 				{props.name}
 			</h3>
-			<div
-				class={
-					props.classLabel
-						? 'flex items-baseline justify-between gap-3'
-						: 'flex items-baseline gap-3'
-				}
-			>
-				<span class="text-xs font-medium text-card-foreground">
-					{props.valueLine}
-				</span>
-				{props.classLabel ? (
-					<span class="shrink-0 text-xs text-muted-foreground">
-						{props.classLabel}
-					</span>
-				) : null}
+			<div class="text-xs font-medium text-card-foreground">
+				{props.valueLine}
 			</div>
 			<div class="flex min-w-0 items-center justify-between gap-3">
 				<span class="min-w-0 truncate font-mono text-xs text-muted-foreground">

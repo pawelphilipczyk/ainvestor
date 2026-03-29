@@ -2,13 +2,8 @@ import type { Handle } from 'remix/component'
 import { Card } from '../../../components/index.ts'
 import { formatValue } from '../../../lib/format.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
-import { formatEtfTypeLabel } from '../../../lib/guidelines.ts'
 import { format, t } from '../../../lib/i18n.ts'
 import { routes } from '../../../routes.ts'
-import {
-	type CatalogEntry,
-	findCatalogEntryForHolding,
-} from '../../catalog/lib.ts'
 import { EtfCard } from '../etf-card.tsx'
 
 /**
@@ -16,9 +11,8 @@ import { EtfCard } from '../etf-card.tsx'
  * Used by GET /fragments/portfolio-list for fetch-based form updates.
  */
 export function ListFragment(_handle: Handle, _setup?: unknown) {
-	return (props: { entries?: EtfEntry[]; catalog?: CatalogEntry[] }) => {
+	return (props: { entries?: EtfEntry[] }) => {
 		const entries = props.entries ?? []
-		const catalog = props.catalog ?? []
 		return (
 			<Card class="p-4">
 				<h2 class="text-base font-semibold tracking-tight text-card-foreground">
@@ -31,8 +25,6 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 				) : (
 					<ul class="mt-4 grid gap-2">
 						{entries.map((entry) => {
-							const match = findCatalogEntryForHolding(catalog, entry)
-							const classLabel = match ? formatEtfTypeLabel(match.type) : ''
 							const idParts = [entry.ticker ?? entry.name]
 							if (entry.quantity !== undefined) {
 								idParts.push(
@@ -48,7 +40,6 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 									key={entry.id}
 									name={entry.name}
 									valueLine={formatValue(entry.value, entry.currency)}
-									classLabel={classLabel}
 									identifier={identifier}
 									dialogId={`dialog-${entry.id}`}
 									deleteHref={routes.portfolio.delete.href({ id: entry.id })}

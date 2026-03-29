@@ -169,7 +169,7 @@ type RenderPortfolioPageParams = {
 async function renderPage(params: RenderPortfolioPageParams) {
 	const { entries, session, flashError, catalog } = params
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
-	const body = jsx(PortfolioPage, { entries, catalog, instrumentOptions })
+	const body = jsx(PortfolioPage, { entries, instrumentOptions })
 	return render({
 		title: t('meta.title.portfolio'),
 		session,

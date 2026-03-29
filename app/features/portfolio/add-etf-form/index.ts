@@ -8,7 +8,11 @@ import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
-import { fetchPortfolioSnapshot, saveEtfs } from '../../../lib/gist.ts'
+import {
+	fetchEtfs,
+	fetchPortfolioSnapshot,
+	saveEtfs,
+} from '../../../lib/gist.ts'
 import {
 	getGuestCatalog,
 	getGuestEtfs,
@@ -18,10 +22,7 @@ import { t } from '../../../lib/i18n.ts'
 import { parseLocaleDecimalString } from '../../../lib/locale-decimal-input.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
-import {
-	type CatalogEntry,
-	findCatalogEntryByTicker,
-} from '../../catalog/lib.ts'
+import { findCatalogEntryByTicker } from '../../catalog/lib.ts'
 import { AddEtfForm } from './add-etf-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
 
@@ -162,20 +163,11 @@ export const addEtfFormHandlers = {
 
 	async fragmentList(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
-		let entries: EtfEntry[]
-		let catalog: CatalogEntry[]
-		if (session?.gistId && session.token) {
-			const snapshot = await fetchPortfolioSnapshot(
-				session.token,
-				session.gistId,
-			)
-			entries = snapshot.entries
-			catalog = snapshot.catalog
-		} else {
-			entries = getGuestEtfs(context.session)
-			catalog = getGuestCatalog(context.session)
-		}
-		const html = await renderToString(jsx(ListFragment, { entries, catalog }))
+		const entries =
+			session?.gistId && session.token
+				? await fetchEtfs(session.token, session.gistId)
+				: getGuestEtfs(context.session)
+		const html = await renderToString(jsx(ListFragment, { entries }))
 		return createHtmlResponse(html, {
 			headers: { 'Cache-Control': 'no-store' },
 		})
