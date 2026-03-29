@@ -2,12 +2,12 @@ import type { Handle } from 'remix/component'
 import { Card } from '../../components/index.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
-import { Badge } from './badge.tsx'
 
 type EtfCardProps = {
 	name: string
-	details: string
-	badgeValue: string
+	valueLine: string
+	classLabel: string
+	identifier: string
 	dialogId: string
 	deleteHref: string
 }
@@ -18,23 +18,33 @@ type EtfCardProps = {
  */
 export function EtfCard(_handle: Handle, _setup?: unknown) {
 	return (props: EtfCardProps) => (
-		<Card
-			as="li"
-			class="flex min-w-0 items-center justify-between gap-3 px-4 py-3"
-		>
-			<div class="flex min-w-0 flex-1 flex-col gap-0.5">
-				<strong class="truncate font-semibold text-card-foreground">
-					{props.name}
-				</strong>
-				<span class="truncate text-xs text-muted-foreground">
-					{props.details}
+		<Card as="li" class="flex min-w-0 flex-col gap-3 px-4 py-3">
+			<h3 class="truncate text-sm font-semibold text-card-foreground">
+				{props.name}
+			</h3>
+			<div
+				class={
+					props.classLabel
+						? 'flex items-baseline justify-between gap-3'
+						: 'flex items-baseline gap-3'
+				}
+			>
+				<span class="text-xs font-medium text-card-foreground">
+					{props.valueLine}
 				</span>
+				{props.classLabel ? (
+					<span class="shrink-0 text-xs text-muted-foreground">
+						{props.classLabel}
+					</span>
+				) : null}
 			</div>
-			<div class="flex shrink-0 items-center gap-3">
-				<Badge>{props.badgeValue}</Badge>
+			<div class="flex min-w-0 items-center justify-between gap-3">
+				<span class="min-w-0 truncate font-mono text-xs text-muted-foreground">
+					{props.identifier}
+				</span>
 				<button
 					type="button"
-					class="rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+					class="shrink-0 rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
 					aria-label={format(t('portfolio.etf.removeAria'), {
 						name: props.name,
 					})}

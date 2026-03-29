@@ -8,11 +8,7 @@ import { createRedirectResponse } from 'remix/response/redirect'
 import type { Session } from 'remix/session'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
-import {
-	fetchEtfs,
-	fetchPortfolioSnapshot,
-	saveEtfs,
-} from '../../../lib/gist.ts'
+import { fetchPortfolioSnapshot, saveEtfs } from '../../../lib/gist.ts'
 import {
 	getGuestCatalog,
 	getGuestEtfs,
@@ -166,11 +162,20 @@ export const addEtfFormHandlers = {
 
 	async fragmentList(context: { request: Request; session: Session }) {
 		const session = getSessionData(context.session)
-		const entries =
-			session?.gistId && session.token
-				? await fetchEtfs(session.token, session.gistId)
-				: getGuestEtfs(context.session)
-		const html = await renderToString(jsx(ListFragment, { entries }))
+		let entries: EtfEntry[]
+		let catalog: CatalogEntry[]
+		if (session?.gistId && session.token) {
+			const snapshot = await fetchPortfolioSnapshot(
+				session.token,
+				session.gistId,
+			)
+			entries = snapshot.entries
+			catalog = snapshot.catalog
+		} else {
+			entries = getGuestEtfs(context.session)
+			catalog = getGuestCatalog(context.session)
+		}
+		const html = await renderToString(jsx(ListFragment, { entries, catalog }))
 		return createHtmlResponse(html, {
 			headers: { 'Cache-Control': 'no-store' },
 		})
