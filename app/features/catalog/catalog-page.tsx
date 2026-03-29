@@ -145,9 +145,17 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					</SectionIntroCard>
 
 					<Card variant="muted" class="p-4">
-						<section>
-							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-								{t('catalog.import.title')}
+						<section data-catalog-import-section>
+							<h2
+								data-catalog-import-title
+								class="flex items-center gap-2 text-base font-semibold tracking-tight text-card-foreground"
+							>
+								<span>{t('catalog.import.title')}</span>
+								<span
+									data-catalog-import-spinner
+									class="hidden shrink-0 text-muted-foreground"
+									aria-hidden="true"
+								/>
 							</h2>
 							<p class="mt-0.5 text-xs text-muted-foreground">
 								{t('catalog.import.subtitle')}

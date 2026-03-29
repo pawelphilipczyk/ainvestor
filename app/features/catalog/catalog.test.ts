@@ -24,6 +24,8 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.match(body, /data-catalog-paste-zone/)
+		assert.match(body, /data-catalog-import-section/)
+		assert.match(body, /data-catalog-import-spinner/)
 		assert.match(body, /\/catalog\/import/)
 	})
 
