@@ -145,7 +145,7 @@ describe('Guidelines page', () => {
 		)
 
 		const second = new FormData()
-		second.set('instrumentTicker', 'vti')
+		second.set('instrumentTicker', ' vti ')
 		second.set('targetPct', '30')
 		const response = await testSessionFetch(
 			new Request('http://localhost/guidelines/instrument', {
