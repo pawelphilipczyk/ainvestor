@@ -7,8 +7,8 @@ import { run } from 'remix/component'
 
 run(document, {
 	async loadModule(moduleUrl, exportName) {
-		const mod = await import(moduleUrl)
-		const loaded = mod[exportName]
+		const loadedModule = await import(moduleUrl)
+		const loaded = loadedModule[exportName]
 		if (typeof loaded !== 'function') {
 			throw new Error(`Missing export ${exportName} from ${moduleUrl}`)
 		}
