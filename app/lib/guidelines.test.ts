@@ -79,14 +79,14 @@ describe('guidelines', () => {
 	})
 
 	it('normalizeGuideline clears etfName for asset_class rows', () => {
-		const g = normalizeGuideline({
+		const normalized = normalizeGuideline({
 			id: 'a1',
 			kind: 'asset_class',
 			etfName: '  ignored  ',
 			targetPct: 60,
 			etfType: 'equity',
 		})
-		assert.deepEqual(g, {
+		assert.deepEqual(normalized, {
 			id: 'a1',
 			kind: 'asset_class',
 			etfName: '',
@@ -167,14 +167,14 @@ describe('guidelines', () => {
 				etfType: 'equity',
 			},
 		]
-		const dup = findGuidelineDuplicateOf(existing, {
+		const duplicate = findGuidelineDuplicateOf(existing, {
 			id: 'new',
 			kind: 'instrument',
 			etfName: 'vti',
 			targetPct: 10,
 			etfType: 'equity',
 		})
-		assert.equal(dup?.id, 'g1')
+		assert.equal(duplicate?.id, 'g1')
 		assert.equal(
 			findGuidelineDuplicateOf(existing, {
 				id: 'new',

@@ -61,15 +61,15 @@ export function sumGuidelineTargetPct(guidelines: EtfGuideline[]): number {
 
 /** Display string for guideline target % inputs (matches server-side rounding in error messages). */
 export function formatGuidelineTargetPctForInput(value: number): string {
-	const v = finiteGuidelineTargetPct(value)
-	const rounded = Math.round(v * 100) / 100
+	const finitePct = finiteGuidelineTargetPct(value)
+	const rounded = Math.round(finitePct * 100) / 100
 	return String(rounded)
 }
 
 /** Clamp a guideline target % to 0–100 for visual bars; non-finite input becomes 0. */
 export function clampGuidelineBarPct(n: number): number {
-	const v = finiteGuidelineTargetPct(n)
-	return Math.min(100, Math.max(0, v))
+	const finitePct = finiteGuidelineTargetPct(n)
+	return Math.min(100, Math.max(0, finitePct))
 }
 
 /** True if adding `additionalPct` to `existing` would push the total above 100%. */
@@ -119,24 +119,31 @@ export function isEtfType(value: unknown): value is EtfType {
 /** Normalize gist JSON rows (legacy rows omit `kind` → instrument). */
 export function normalizeGuideline(raw: unknown): EtfGuideline | null {
 	if (!raw || typeof raw !== 'object') return null
-	const o = raw as Record<string, unknown>
-	if (typeof o.id !== 'string' || typeof o.targetPct !== 'number') return null
-	if (!isEtfType(o.etfType)) return null
+	const rawRecord = raw as Record<string, unknown>
+	if (
+		typeof rawRecord.id !== 'string' ||
+		typeof rawRecord.targetPct !== 'number'
+	)
+		return null
+	if (!isEtfType(rawRecord.etfType)) return null
 
 	const kind: GuidelineKind =
-		o.kind === 'asset_class' || o.kind === 'instrument' ? o.kind : 'instrument'
+		rawRecord.kind === 'asset_class' || rawRecord.kind === 'instrument'
+			? rawRecord.kind
+			: 'instrument'
 
-	let etfName = typeof o.etfName === 'string' ? o.etfName.trim() : ''
+	let etfName =
+		typeof rawRecord.etfName === 'string' ? rawRecord.etfName.trim() : ''
 	if (kind === 'instrument' && etfName.length === 0) return null
 
 	if (kind === 'asset_class') etfName = ''
 
 	return {
-		id: o.id,
+		id: rawRecord.id,
 		kind,
 		etfName,
-		targetPct: o.targetPct,
-		etfType: o.etfType,
+		targetPct: rawRecord.targetPct,
+		etfType: rawRecord.etfType,
 	}
 }
 
@@ -157,7 +164,7 @@ export function parseGuidelinesFromGist(gist: GistPayload): EtfGuideline[] {
 		if (!Array.isArray(parsed)) return []
 		return parsed
 			.map(normalizeGuideline)
-			.filter((g): g is EtfGuideline => g !== null)
+			.filter((row): row is EtfGuideline => row !== null)
 	} catch {
 		return []
 	}
@@ -192,11 +199,11 @@ export async function fetchGuidelines(
 	token: string,
 	gistId: string,
 ): Promise<EtfGuideline[]> {
-	const res = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		headers: githubHeaders(token),
 	})
-	if (!res.ok) return []
-	const gist = (await res.json()) as GistPayload
+	if (!response.ok) return []
+	const gist = (await response.json()) as GistPayload
 	return parseGuidelinesFromGist(gist)
 }
 

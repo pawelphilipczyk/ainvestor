@@ -41,22 +41,22 @@ export async function testSessionFetch(
 	input: RequestInfo | URL,
 	init?: RequestInit,
 ): Promise<Response> {
-	const req = new Request(input, init)
-	const headers = new Headers(req.headers)
+	const incomingRequest = new Request(input, init)
+	const headers = new Headers(incomingRequest.headers)
 	if (testSessionCookie) {
 		headers.set('Cookie', testSessionCookie)
 	}
 	const nextInit: RequestInit & { duplex?: 'half' } = {
-		method: req.method,
+		method: incomingRequest.method,
 		headers,
-		redirect: req.redirect,
-		signal: req.signal,
+		redirect: incomingRequest.redirect,
+		signal: incomingRequest.signal,
 	}
-	if (req.body) {
-		nextInit.body = req.body
+	if (incomingRequest.body) {
+		nextInit.body = incomingRequest.body
 		nextInit.duplex = 'half'
 	}
-	const forwarded = new Request(req.url, nextInit)
+	const forwarded = new Request(incomingRequest.url, nextInit)
 	const response = await router.fetch(forwarded)
 	applySetCookie(response)
 	return response

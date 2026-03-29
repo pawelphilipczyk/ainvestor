@@ -50,10 +50,10 @@ function readState(session: Session): GuestState {
 	const raw = session.get(KEY) as string | undefined
 	if (!raw) return emptyState()
 	try {
-		const v = JSON.parse(raw) as Partial<GuestState>
+		const partial = JSON.parse(raw) as Partial<GuestState>
 		return {
-			etfs: Array.isArray(v.etfs) ? v.etfs : [],
-			catalog: Array.isArray(v.catalog) ? v.catalog : [],
+			etfs: Array.isArray(partial.etfs) ? partial.etfs : [],
+			catalog: Array.isArray(partial.catalog) ? partial.catalog : [],
 		}
 	} catch {
 		return emptyState()
@@ -69,9 +69,9 @@ export function getGuestEtfs(session: Session): EtfEntry[] {
 }
 
 export function setGuestEtfs(session: Session, etfs: EtfEntry[]): void {
-	const s = readState(session)
-	s.etfs = etfs
-	writeState(session, s)
+	const state = readState(session)
+	state.etfs = etfs
+	writeState(session, state)
 }
 
 export function getGuestCatalog(session: Session): CatalogEntry[] {
@@ -82,9 +82,9 @@ export function setGuestCatalog(
 	session: Session,
 	catalog: CatalogEntry[],
 ): void {
-	const s = readState(session)
-	s.catalog = catalog
-	writeState(session, s)
+	const state = readState(session)
+	state.catalog = catalog
+	writeState(session, state)
 }
 
 export function getGuestGuidelines(session: Session): EtfGuideline[] {

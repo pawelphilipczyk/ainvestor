@@ -39,7 +39,7 @@ export function parseLocaleDecimalString(raw: string): number | null {
 	}
 	if (!NORMALIZED_LOCALE_DECIMAL_PATTERN.test(normalized)) return null
 	const forParse = normalized.replace(',', '.')
-	const n = Number.parseFloat(forParse)
-	if (!Number.isFinite(n) || n < 0) return null
-	return n
+	const parsedNumber = Number.parseFloat(forParse)
+	if (!Number.isFinite(parsedNumber) || parsedNumber < 0) return null
+	return parsedNumber
 }

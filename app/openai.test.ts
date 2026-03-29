@@ -633,9 +633,9 @@ describe('formatAllocationContext', () => {
 			{ id: 'a', name: 'VTI', ticker: 'VTI', value: 6000, currency: 'USD' },
 			{ id: 'b', name: 'BND', ticker: 'BND', value: 4000, currency: 'USD' },
 		]
-		const out = formatAllocationContext(holdings, catalog)
-		assert.match(out, /equity.*60/)
-		assert.match(out, /bond.*40/)
+		const formatted = formatAllocationContext(holdings, catalog)
+		assert.match(formatted, /equity.*60/)
+		assert.match(formatted, /bond.*40/)
 	})
 })
 
@@ -722,23 +722,25 @@ describe('computeAdviceAllocationDiagnostics', () => {
 			{ id: 'h2', name: 'B', ticker: 'B', value: 3000, currency: 'PLN' },
 			{ id: 'h3', name: 'C', ticker: 'C', value: 5000, currency: 'PLN' },
 		]
-		const diag = computeAdviceAllocationDiagnostics({
+		const diagnostics = computeAdviceAllocationDiagnostics({
 			holdings,
 			guidelines,
 			cashAmount: '5000',
 			cashCurrency: 'PLN',
 			catalog,
 		})
-		assert.ok(diag)
-		assert.equal(diag.postTotal, 15000)
-		const eq = diag.rows.find((r) => r.etfType === 'equity')
-		const bd = diag.rows.find((r) => r.etfType === 'bond')
-		const cm = diag.rows.find((r) => r.etfType === 'commodity')
-		assert.ok(eq && bd && cm)
-		assert.equal(eq.idealBuyMin, 2500)
-		assert.equal(bd.idealBuyMin, 3000)
-		assert.equal(cm.idealBuyMin, 0)
-		assert.equal(diag.sumIdealBuyMin, 5500)
+		assert.ok(diagnostics)
+		assert.equal(diagnostics.postTotal, 15000)
+		const equityRow = diagnostics.rows.find((row) => row.etfType === 'equity')
+		const bondRow = diagnostics.rows.find((row) => row.etfType === 'bond')
+		const commodityRow = diagnostics.rows.find(
+			(row) => row.etfType === 'commodity',
+		)
+		assert.ok(equityRow && bondRow && commodityRow)
+		assert.equal(equityRow.idealBuyMin, 2500)
+		assert.equal(bondRow.idealBuyMin, 3000)
+		assert.equal(commodityRow.idealBuyMin, 0)
+		assert.equal(diagnostics.sumIdealBuyMin, 5500)
 
 		const block = formatAdviceAllocationDiagnosticsBlock({
 			holdings,
@@ -771,18 +773,18 @@ describe('computeAdviceAllocationDiagnostics', () => {
 				etfType: 'equity',
 			},
 		]
-		const diag = computeAdviceAllocationDiagnostics({
+		const diagnostics = computeAdviceAllocationDiagnostics({
 			holdings: [],
 			guidelines,
 			cashAmount: '100',
 			cashCurrency: 'PLN',
 			catalog: [],
 		})
-		assert.ok(diag)
-		assert.equal(diag.rows.length, 1)
-		assert.equal(diag.rows[0]?.etfType, 'equity')
-		assert.equal(diag.rows[0]?.targetPct, 100)
-		assert.equal(diag.targetPctSum, 100)
+		assert.ok(diagnostics)
+		assert.equal(diagnostics.rows.length, 1)
+		assert.equal(diagnostics.rows[0]?.etfType, 'equity')
+		assert.equal(diagnostics.rows[0]?.targetPct, 100)
+		assert.equal(diagnostics.targetPctSum, 100)
 	})
 
 	it('sums multiple instrument lines of the same type into one bucket', () => {
@@ -824,7 +826,7 @@ describe('computeAdviceAllocationDiagnostics', () => {
 				etfType: 'equity',
 			},
 		]
-		const diag = computeAdviceAllocationDiagnostics({
+		const diagnostics = computeAdviceAllocationDiagnostics({
 			holdings: [
 				{ id: 'h1', name: 'VTI', ticker: 'VTI', value: 5000, currency: 'PLN' },
 			],
@@ -833,10 +835,10 @@ describe('computeAdviceAllocationDiagnostics', () => {
 			cashCurrency: 'PLN',
 			catalog: [],
 		})
-		assert.ok(diag)
-		const eq = diag.rows.find((r) => r.etfType === 'equity')
-		assert.ok(eq)
-		assert.equal(eq.currentAmt, 5000)
+		assert.ok(diagnostics)
+		const equityRow = diagnostics.rows.find((row) => row.etfType === 'equity')
+		assert.ok(equityRow)
+		assert.equal(equityRow.currentAmt, 5000)
 	})
 
 	it('returns null when a valued holding cannot be mapped to a targeted type', () => {
@@ -933,25 +935,25 @@ describe('formatPostInvestmentTotalsBlock', () => {
 		const holdings: EtfEntry[] = [
 			{ id: '1', name: 'BND', value: 1000, currency: 'PLN' },
 		]
-		const out = formatPostInvestmentTotalsBlock({
+		const formatted = formatPostInvestmentTotalsBlock({
 			holdings,
 			cashAmount: '2000',
 			cashCurrency: 'PLN',
 		})
-		assert.match(out, /1000\.00 \+ 2000\.00 = 3000\.00 PLN/)
+		assert.match(formatted, /1000\.00 \+ 2000\.00 = 3000\.00 PLN/)
 	})
 
 	it('does not combine totals when cash currency differs from holdings', () => {
 		const holdings: EtfEntry[] = [
 			{ id: '1', name: 'BND', value: 1000, currency: 'USD' },
 		]
-		const out = formatPostInvestmentTotalsBlock({
+		const formatted = formatPostInvestmentTotalsBlock({
 			holdings,
 			cashAmount: '2000',
 			cashCurrency: 'PLN',
 		})
-		assert.doesNotMatch(out, /= 3000/)
-		assert.match(out, /do not add into one combined total/i)
+		assert.doesNotMatch(formatted, /= 3000/)
+		assert.match(formatted, /do not add into one combined total/i)
 	})
 })
 
@@ -968,8 +970,8 @@ describe('formatCatalogForAdvice', () => {
 				volatility: '10%',
 			},
 		]
-		const out = formatCatalogForAdvice(catalog)
-		assert.match(out, /annual rate of return: 5%/)
-		assert.match(out, /volatility: 10%/)
+		const formatted = formatCatalogForAdvice(catalog)
+		assert.match(formatted, /annual rate of return: 5%/)
+		assert.match(formatted, /volatility: 10%/)
 	})
 })
