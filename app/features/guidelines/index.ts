@@ -17,6 +17,8 @@ import {
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import {
 	fetchGuidelines,
+	findGuidelineDuplicateOf,
+	formatEtfTypeLabel,
 	formatGuidelineTargetPctForInput,
 	isEtfType,
 	saveGuidelines,
@@ -41,13 +43,13 @@ import { GuidelinesPage } from './guidelines-page.tsx'
 type GuidelinesAddTabId = 'instrument' | 'bucket'
 
 function normalizeGuidelinesAddTab(tab: string | null): GuidelinesAddTabId {
-	if (tab === 'bucket') return 'bucket'
-	return 'instrument'
+	if (tab === 'instrument') return 'instrument'
+	return 'bucket'
 }
 
 function guidelinesIndexHref(tab?: GuidelinesAddTabId) {
-	if (tab === 'bucket') {
-		return routes.guidelines.index.href({}, { tab: 'bucket' })
+	if (tab === 'instrument') {
+		return routes.guidelines.index.href({}, { tab: 'instrument' })
 	}
 	return routes.guidelines.index.href()
 }
@@ -90,6 +92,30 @@ function guidelinesTotalCapErrorResponse(params: {
 		current: formatGuidelineTargetPctForInput(params.currentTotal),
 		added: formatGuidelineTargetPctForInput(params.addedPct),
 	})
+	if (prefersJson(params.request)) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	params.session.flash('error', message)
+	return createRedirectResponse(guidelinesIndexHref(params.addTab))
+}
+
+function guidelinesDuplicateErrorResponse(params: {
+	request: Request
+	session: Session
+	entry: EtfGuideline
+	addTab: GuidelinesAddTabId
+}): Response {
+	const message =
+		params.entry.kind === 'instrument'
+			? format(t('errors.guidelines.duplicateInstrument'), {
+					ticker: params.entry.etfName.trim().toUpperCase(),
+				})
+			: format(t('errors.guidelines.duplicateAssetClass'), {
+					label: formatEtfTypeLabel(params.entry.etfType),
+				})
 	if (prefersJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
@@ -176,6 +202,14 @@ async function persistGuideline(params: {
 	const { entry, session, remixSession, request, addTab } = params
 	if (session?.gistId && session.token) {
 		const current = await fetchGuidelines(session.token, session.gistId)
+		if (findGuidelineDuplicateOf(current, entry)) {
+			return guidelinesDuplicateErrorResponse({
+				request,
+				session: remixSession,
+				entry,
+				addTab,
+			})
+		}
 		if (
 			wouldGuidelineTotalExceedCap({
 				existing: current,
@@ -195,6 +229,14 @@ async function persistGuideline(params: {
 	}
 
 	const current = getGuestGuidelines(remixSession)
+	if (findGuidelineDuplicateOf(current, entry)) {
+		return guidelinesDuplicateErrorResponse({
+			request,
+			session: remixSession,
+			entry,
+			addTab,
+		})
+	}
 	if (
 		wouldGuidelineTotalExceedCap({
 			existing: current,

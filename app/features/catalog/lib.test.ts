@@ -189,7 +189,7 @@ describe('parseBankJsonToCatalog', () => {
 
 describe('catalogMergeKey', () => {
 	it('matches same ISIN regardless of ticker string', () => {
-		const a = catalogMergeKey({
+		const firstKey = catalogMergeKey({
 			id: '1',
 			ticker: 'XMOV',
 			name: '',
@@ -197,7 +197,7 @@ describe('catalogMergeKey', () => {
 			description: '',
 			isin: 'IE00BGV5VR99',
 		})
-		const b = catalogMergeKey({
+		const secondKey = catalogMergeKey({
 			id: '2',
 			ticker: 'XMOV GR',
 			name: '',
@@ -205,8 +205,8 @@ describe('catalogMergeKey', () => {
 			description: '',
 			isin: 'IE00BGV5VR99',
 		})
-		assert.equal(a, b)
-		assert.equal(a, 'i:IE00BGV5VR99')
+		assert.equal(firstKey, secondKey)
+		assert.equal(firstKey, 'i:IE00BGV5VR99')
 	})
 
 	it('uses normalised ticker when ISIN is absent', () => {

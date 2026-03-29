@@ -182,13 +182,11 @@ export const en = {
 	'advice.tab.hint.buyNext':
 		'Enter deployable cash (same currency as your holdings when possible). Suggestions are buy-only — no sells.',
 	'advice.tab.hint.portfolioReview':
-		'Qualitative balance and risk vs your catalog and guidelines. Cash below is optional.',
+		'Qualitative balance and risk vs your catalog and guidelines.',
 	'advice.form.field.cash': 'Available cash',
-	'advice.form.field.cashOptional': 'Cash (optional)',
 	'advice.form.field.currency': 'Currency',
 	'advice.form.field.model': 'Model',
 	'advice.form.placeholder.cash': 'e.g. 1000',
-	'advice.form.placeholder.cashOptional': 'Leave blank for review only',
 	'advice.form.submit': 'Ask AI',
 	'advice.analysisMode.buy_next': 'What to buy next',
 	'advice.analysisMode.portfolio_review': 'Portfolio health review',
@@ -196,8 +194,6 @@ export const en = {
 	'advice.result.titleReview': 'Portfolio review',
 	'advice.result.subtitle':
 		'Based on your portfolio and {amount} {currency} available.',
-	'advice.result.subtitleReviewWithCash':
-		'Based on your current ETF holdings, catalog, guidelines, and optional cash context ({amount} {currency}).',
 	'advice.result.subtitleReviewGuidelinesOnly':
 		'Based on your current ETF holdings, catalog, and guidelines.',
 	'advice.table.empty': 'No specific ETF proposals in this response.',
@@ -238,6 +234,10 @@ export const en = {
 		'Guideline targets cannot add up to more than 100%. Setting this line to {newPct}% would make the total {total}%.',
 	'errors.guidelines.targetPctInvalid':
 		'Enter a target percentage between 0.01 and 100.',
+	'errors.guidelines.duplicateInstrument':
+		'You already have a guideline for {ticker}. To change it, edit or remove that line — you cannot add a second guideline for the same fund.',
+	'errors.guidelines.duplicateAssetClass':
+		'You already have a guideline for the {label} asset class. To change it, edit or remove that line — you cannot add a second bucket guideline for the same class.',
 
 	'errors.advice.formRead': 'Could not read your form. Please try again.',
 	'errors.advice.formReadDetail':

@@ -56,13 +56,17 @@ export function TabsNav(handle: Handle<TabsNavContext>, _setup?: unknown) {
  */
 export function TabLink(handle: Handle, _setup?: unknown) {
 	return (props: { id: string; href: string; children?: RemixNode }) => {
-		const ctx = handle.context.get(TabsNav) as TabsNavContext | undefined
-		if (ctx === undefined) {
+		const tabsContext = handle.context.get(TabsNav) as
+			| TabsNavContext
+			| undefined
+		if (tabsContext === undefined) {
 			throw new Error('TabLink must be used inside TabsNav')
 		}
-		const isActive = props.id === ctx.activeId
+		const isActive = props.id === tabsContext.activeId
 		const scrollKeyAttr =
-			ctx.scrollGroupId !== undefined ? { 'data-tab-scroll-key': props.id } : {}
+			tabsContext.scrollGroupId !== undefined
+				? { 'data-tab-scroll-key': props.id }
+				: {}
 		return (
 			<a
 				href={props.href}

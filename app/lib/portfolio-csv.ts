@@ -19,19 +19,19 @@ function parseDelimitedLine(line: string, delimiter: string): string[] {
 	let inQuotes = false
 
 	for (let i = 0; i < line.length; i++) {
-		const ch = line[i]
-		if (ch === '"') {
+		const character = line[i]
+		if (character === '"') {
 			if (inQuotes && line[i + 1] === '"') {
 				current += '"'
 				i++
 			} else {
 				inQuotes = !inQuotes
 			}
-		} else if (ch === delimiter && !inQuotes) {
+		} else if (character === delimiter && !inQuotes) {
 			result.push(current.trim())
 			current = ''
 		} else {
-			current += ch
+			current += character
 		}
 	}
 	result.push(current.trim())
@@ -63,10 +63,10 @@ function normaliseHeader(h: string): string {
 function colIndex(headers: string[], aliases: string[]): number {
 	const normalised = headers.map(normaliseHeader)
 	for (const alias of aliases) {
-		const idx = normalised.findIndex(
-			(h) => h.includes(alias) || alias.includes(h),
+		const columnIndex = normalised.findIndex(
+			(header) => header.includes(alias) || alias.includes(header),
 		)
-		if (idx !== -1) return idx
+		if (columnIndex !== -1) return columnIndex
 	}
 	return -1
 }

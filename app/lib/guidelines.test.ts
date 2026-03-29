@@ -4,6 +4,7 @@ import type { EtfGuideline } from './guidelines.ts'
 import {
 	buildGuidelinesGistPatch,
 	clampGuidelineBarPct,
+	findGuidelineDuplicateOf,
 	formatEtfTypeLabel,
 	formatGuidelineTargetPctForInput,
 	GUIDELINES_FILENAME,
@@ -78,14 +79,14 @@ describe('guidelines', () => {
 	})
 
 	it('normalizeGuideline clears etfName for asset_class rows', () => {
-		const g = normalizeGuideline({
+		const normalized = normalizeGuideline({
 			id: 'a1',
 			kind: 'asset_class',
 			etfName: '  ignored  ',
 			targetPct: 60,
 			etfType: 'equity',
 		})
-		assert.deepEqual(g, {
+		assert.deepEqual(normalized, {
 			id: 'a1',
 			kind: 'asset_class',
 			etfName: '',
@@ -154,6 +155,110 @@ describe('guidelines', () => {
 		assert.equal(clampGuidelineBarPct(-5), 0)
 		assert.equal(clampGuidelineBarPct(150), 100)
 		assert.equal(clampGuidelineBarPct(25), 25)
+	})
+
+	it('findGuidelineDuplicateOf matches instrument by ticker case-insensitively', () => {
+		const existing: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 60,
+				etfType: 'equity',
+			},
+		]
+		const duplicate = findGuidelineDuplicateOf(existing, {
+			id: 'new',
+			kind: 'instrument',
+			etfName: 'vti',
+			targetPct: 10,
+			etfType: 'equity',
+		})
+		assert.equal(duplicate?.id, 'g1')
+		assert.equal(
+			findGuidelineDuplicateOf(existing, {
+				id: 'new',
+				kind: 'instrument',
+				etfName: ' vti ',
+				targetPct: 10,
+				etfType: 'equity',
+			})?.id,
+			'g1',
+		)
+		assert.equal(
+			findGuidelineDuplicateOf(existing, {
+				id: 'new',
+				kind: 'instrument',
+				etfName: '\tvti\n',
+				targetPct: 10,
+				etfType: 'equity',
+			})?.id,
+			'g1',
+		)
+		assert.equal(
+			findGuidelineDuplicateOf(existing, {
+				id: 'new',
+				kind: 'instrument',
+				etfName: 'BND',
+				targetPct: 10,
+				etfType: 'bond',
+			}),
+			null,
+		)
+	})
+
+	it('findGuidelineDuplicateOf ignores cross-kind collisions', () => {
+		const existing: EtfGuideline[] = [
+			{
+				id: 'b1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 40,
+				etfType: 'equity',
+			},
+		]
+		assert.equal(
+			findGuidelineDuplicateOf(existing, {
+				id: 'new',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 20,
+				etfType: 'equity',
+			}),
+			null,
+		)
+	})
+
+	it('findGuidelineDuplicateOf matches asset_class by etfType', () => {
+		const existing: EtfGuideline[] = [
+			{
+				id: 'b1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 40,
+				etfType: 'equity',
+			},
+		]
+		assert.equal(
+			findGuidelineDuplicateOf(existing, {
+				id: 'new',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 20,
+				etfType: 'equity',
+			})?.id,
+			'b1',
+		)
+		assert.equal(
+			findGuidelineDuplicateOf(existing, {
+				id: 'new',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 20,
+				etfType: 'bond',
+			}),
+			null,
+		)
 	})
 
 	it('wouldGuidelineTotalExceedCap is false when new total is at most 100', () => {

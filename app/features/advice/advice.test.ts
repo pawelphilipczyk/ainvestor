@@ -6,8 +6,12 @@ import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
-import type { AdviceClient } from '../../openai.ts'
+import type { AdviceClient } from './advice-client.ts'
 import { adviceTabHref, setAdviceClient } from './index.ts'
+
+type AdviceCompletionCreateParams = Parameters<
+	AdviceClient['chat']['completions']['create']
+>[0]
 
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
 
@@ -207,7 +211,7 @@ describe('Advice', () => {
 		assert.match(body, /simulated API failure/)
 	})
 
-	it('returns 503 with AdvicePage HTML when the default OpenAI client cannot be created', async () => {
+	it('returns 503 with AdvicePage HTML when the advice OpenAI client cannot be created', async () => {
 		const prevKey = process.env.OPENAI_API_KEY
 		delete process.env.OPENAI_API_KEY
 
@@ -515,7 +519,7 @@ describe('Advice', () => {
 		setAdviceClient({
 			chat: {
 				completions: {
-					create: async (params) => {
+					create: async (params: AdviceCompletionCreateParams) => {
 						capturedUserMessage = params.messages[1].content
 						return { choices: [{ message: { content: 'advice' } }] }
 					},
@@ -565,7 +569,7 @@ describe('Advice', () => {
 		setAdviceClient({
 			chat: {
 				completions: {
-					create: async (params) => {
+					create: async (params: AdviceCompletionCreateParams) => {
 						capturedUserMessage = params.messages[1].content
 						return { choices: [{ message: { content: 'advice' } }] }
 					},
@@ -614,7 +618,7 @@ describe('Advice', () => {
 		setAdviceClient({
 			chat: {
 				completions: {
-					create: async (params) => {
+					create: async (params: AdviceCompletionCreateParams) => {
 						capturedModel = params.model
 						return { choices: [{ message: { content: 'advice' } }] }
 					},

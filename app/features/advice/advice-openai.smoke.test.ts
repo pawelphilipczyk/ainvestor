@@ -10,10 +10,11 @@
  */
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { AdviceParagraphBlock } from './features/advice/advice-document.ts'
-import type { CatalogEntry } from './features/catalog/lib.ts'
-import type { EtfGuideline } from './lib/guidelines.ts'
-import { createDefaultClient, getInvestmentAdvice } from './openai.ts'
+import type { EtfGuideline } from '../../lib/guidelines.ts'
+import type { CatalogEntry } from '../catalog/lib.ts'
+import { createAdviceClient } from './advice-client.ts'
+import type { AdviceParagraphBlock } from './advice-document.ts'
+import { getInvestmentAdvice } from './advice-openai.ts'
 
 const runSmoke =
 	process.env.RUN_ADVICE_OPENAI_SMOKE === '1' &&
@@ -66,7 +67,7 @@ smokeDescribe(
 				},
 			]
 
-			const client = createDefaultClient()
+			const client = createAdviceClient()
 			const advice = await getInvestmentAdvice({
 				holdings: [
 					{

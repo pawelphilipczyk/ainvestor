@@ -8,7 +8,7 @@
 		"start": "tsx server.ts",
 		"typecheck": "tsc --noEmit",
 		"test": "npm run -s ensure-deps && tsx --test",
-		"test:smoke:advice": "npm run -s ensure-deps && RUN_ADVICE_OPENAI_SMOKE=1 tsx --test app/openai.smoke.test.ts",
+		"test:smoke:advice": "npm run -s ensure-deps && RUN_ADVICE_OPENAI_SMOKE=1 tsx --test app/features/advice/advice-openai.smoke.test.ts",
 		"lint": "biome lint .",
 		"format": "biome format .",
 		"check": "npm run -s ensure-deps && biome check ."

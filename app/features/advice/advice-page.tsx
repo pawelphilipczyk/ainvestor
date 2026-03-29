@@ -14,6 +14,8 @@ import { CURRENCIES } from '../../lib/currencies.ts'
 import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
+import { routes } from '../../routes.ts'
+import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -21,10 +23,7 @@ import {
 	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
 	normalizeAdviceAnalysisTab,
-	parseAdviceCashAmount,
-} from '../../openai.ts'
-import { routes } from '../../routes.ts'
-import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
+} from './advice-openai.ts'
 
 type FormError = {
 	summary: string
@@ -379,13 +378,13 @@ function renderEtfProposals(
 					</thead>
 					<tbody>
 						{block.rows.map((row) => {
-							const cur =
+							const displayCurrency =
 								row.amount !== undefined
 									? (row.currency ?? defaultCashCurrency)
 									: null
 							return (
 								<tr
-									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${cur ?? ''}`}
+									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
 									class="border-t border-border"
 								>
 									<td class="px-3 py-2 text-card-foreground">{row.name}</td>
@@ -398,7 +397,7 @@ function renderEtfProposals(
 											: t('catalog.emptyCell')}
 									</td>
 									<td class="px-3 py-2 text-muted-foreground">
-										{cur ?? t('catalog.emptyCell')}
+										{displayCurrency ?? t('catalog.emptyCell')}
 									</td>
 									<td class="px-3 py-2 text-muted-foreground">
 										{row.note ?? t('catalog.emptyCell')}
@@ -583,33 +582,6 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									{t('advice.tab.hint.portfolioReview')}
 								</p>
 								<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
-									<div class="grid min-w-0 flex-1 gap-2">
-										<FieldLabel fieldId="cashAmount-review">
-											{t('advice.form.field.cashOptional')}
-										</FieldLabel>
-										<NumberInput
-											id="cashAmount-review"
-											name="cashAmount"
-											placeholder={t('advice.form.placeholder.cashOptional')}
-											step="any"
-											inputMode="decimal"
-											pattern={LOCALE_DECIMAL_HTML_PATTERN}
-											defaultValue={props.cashAmount}
-											disabled={pendingApproval}
-										/>
-									</div>
-									<div class="grid w-full gap-2 sm:w-36">
-										<FieldLabel fieldId="cashCurrency-review">
-											{t('advice.form.field.currency')}
-										</FieldLabel>
-										<SelectInput
-											id="cashCurrency-review"
-											name="cashCurrency"
-											options={currencyOptions}
-											value={cashCurrency}
-											disabled={pendingApproval}
-										/>
-									</div>
 									<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
 										<FieldLabel fieldId="adviceModel-review">
 											{t('advice.form.field.model')}
@@ -645,19 +617,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</h2>
 						<p class="mt-1 text-sm text-muted-foreground">
 							{resultMode === 'portfolio_review'
-								? (() => {
-										const raw = props.cashAmount?.trim() ?? ''
-										const parsed =
-											raw === '' ? null : parseAdviceCashAmount(raw)
-										const hasPositiveCash =
-											parsed !== null && Number.isFinite(parsed) && parsed > 0
-										return hasPositiveCash
-											? format(t('advice.result.subtitleReviewWithCash'), {
-													amount: raw,
-													currency: cashCurrency,
-												})
-											: t('advice.result.subtitleReviewGuidelinesOnly')
-									})()
+								? t('advice.result.subtitleReviewGuidelinesOnly')
 								: format(t('advice.result.subtitle'), {
 										amount: props.cashAmount ?? '',
 										currency: cashCurrency,

@@ -42,18 +42,18 @@ describe('Guidelines page', () => {
 		assert.match(body, /Investment Guidelines/)
 		assert.match(body, /guidelines-list\.component\.js/)
 		assert.match(body, /href="\/guidelines"/)
-		assert.match(body, /href="\/guidelines\?tab=bucket"/)
-		assert.match(body, /action="\/guidelines\/instrument"/)
-		assert.match(body, /name="instrumentTicker"/)
+		assert.match(body, /href="\/guidelines\?tab=instrument"/)
+		assert.match(body, /action="\/guidelines\/asset-class"/)
+		assert.match(body, /name="assetClassType"/)
 		assert.match(body, /Specific ETF target/)
 		assert.match(body, /Asset class bucket/)
 
-		const bucketPage = await testSessionFetch(
-			'http://localhost/guidelines?tab=bucket',
+		const instrumentPage = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
 		)
-		const bucketBody = await bucketPage.text()
-		assert.match(bucketBody, /action="\/guidelines\/asset-class"/)
-		assert.match(bucketBody, /name="assetClassType"/)
+		const instrumentBody = await instrumentPage.text()
+		assert.match(instrumentBody, /action="\/guidelines\/instrument"/)
+		assert.match(instrumentBody, /name="instrumentTicker"/)
 
 		assert.match(body, /Remaining:\s*<strong[^>]*>100%<\/strong>/)
 		assert.match(body, /No guidelines added yet\./)
@@ -61,12 +61,12 @@ describe('Guidelines page', () => {
 
 	it('Target % fields use money-style decimal input (numeric keypad)', async () => {
 		await seedGuestCatalog()
-		const instrumentRes = await testSessionFetch('http://localhost/guidelines')
-		const instrumentBody = await instrumentRes.text()
-		const bucketRes = await testSessionFetch(
-			'http://localhost/guidelines?tab=bucket',
-		)
+		const bucketRes = await testSessionFetch('http://localhost/guidelines')
 		const bucketBody = await bucketRes.text()
+		const instrumentRes = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
+		)
+		const instrumentBody = await instrumentRes.text()
 
 		const instrumentPct = instrumentBody.match(
 			/<input\b[^>]*\bid="instrumentTargetPct"[^>]*>/,
@@ -96,7 +96,134 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/guidelines?tab=instrument')
+	})
+
+	it('POST /guidelines/instrument rejects duplicate ticker with flash message', async () => {
+		await seedGuestCatalog()
+		const first = new FormData()
+		first.set('instrumentTicker', 'VTI')
+		first.set('targetPct', '40')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: first,
+			}),
+		)
+
+		const second = new FormData()
+		second.set('instrumentTicker', 'VTI')
+		second.set('targetPct', '30')
+		const response = await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: second,
+			}),
+		)
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/guidelines?tab=instrument')
+
+		const page = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
+		)
+		const body = await page.text()
+		assert.match(body, /already have a guideline for VTI/)
+		assert.match(body, /edit or remove that line/)
+		const deleteActions = body.match(/action="\/guidelines\/[a-f0-9-]+"/g) ?? []
+		assert.equal(deleteActions.length, 1)
+	})
+
+	it('POST /guidelines/instrument returns 422 JSON for duplicate ticker when Accept is JSON', async () => {
+		await seedGuestCatalog()
+		const first = new FormData()
+		first.set('instrumentTicker', 'VTI')
+		first.set('targetPct', '40')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: first,
+			}),
+		)
+
+		const second = new FormData()
+		second.set('instrumentTicker', ' vti ')
+		second.set('targetPct', '30')
+		const response = await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: second,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as { error?: string }
+		assert.match(data.error ?? '', /already have a guideline for VTI/)
+	})
+
+	it('POST /guidelines/asset-class rejects duplicate asset class with flash message', async () => {
+		await seedGuestCatalog()
+		const first = new FormData()
+		first.set('assetClassType', 'equity')
+		first.set('targetPct', '40')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/asset-class', {
+				method: 'POST',
+				body: first,
+			}),
+		)
+
+		const second = new FormData()
+		second.set('assetClassType', 'equity')
+		second.set('targetPct', '30')
+		const response = await testSessionFetch(
+			new Request('http://localhost/guidelines/asset-class', {
+				method: 'POST',
+				body: second,
+			}),
+		)
+
+		assert.equal(response.status, 302)
 		assert.equal(response.headers.get('location'), '/guidelines')
+
+		const page = await testSessionFetch('http://localhost/guidelines')
+		const body = await page.text()
+		assert.match(body, /already have a guideline for the equity asset class/)
+		assert.match(body, /edit or remove that line/)
+		const deleteActions = body.match(/action="\/guidelines\/[a-f0-9-]+"/g) ?? []
+		assert.equal(deleteActions.length, 1)
+	})
+
+	it('POST /guidelines/asset-class returns 422 JSON for duplicate asset class when Accept is JSON', async () => {
+		await seedGuestCatalog()
+		const first = new FormData()
+		first.set('assetClassType', 'equity')
+		first.set('targetPct', '40')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/asset-class', {
+				method: 'POST',
+				body: first,
+			}),
+		)
+
+		const second = new FormData()
+		second.set('assetClassType', 'equity')
+		second.set('targetPct', '30')
+		const response = await testSessionFetch(
+			new Request('http://localhost/guidelines/asset-class', {
+				method: 'POST',
+				body: second,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as { error?: string }
+		assert.match(
+			data.error ?? '',
+			/already have a guideline for the equity asset class/,
+		)
 	})
 
 	it('POST /guidelines/instrument rejects when total target % would exceed 100', async () => {
@@ -122,9 +249,11 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(response.status, 302)
-		assert.equal(response.headers.get('location'), '/guidelines')
+		assert.equal(response.headers.get('location'), '/guidelines?tab=instrument')
 
-		const page = await testSessionFetch('http://localhost/guidelines')
+		const page = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
+		)
 		const body = await page.text()
 		assert.match(body, /cannot add up to more than 100%/)
 		assert.match(body, /60/)
@@ -188,11 +317,9 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(response.status, 302)
-		assert.equal(response.headers.get('location'), '/guidelines?tab=bucket')
+		assert.equal(response.headers.get('location'), '/guidelines')
 
-		const page = await testSessionFetch(
-			'http://localhost/guidelines?tab=bucket',
-		)
+		const page = await testSessionFetch('http://localhost/guidelines')
 		const body = await page.text()
 		assert.match(body, /cannot add up to more than 100%/)
 		assert.match(body, /60/)
@@ -247,9 +374,14 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(postResponse.status, 302)
-		assert.equal(postResponse.headers.get('location'), '/guidelines')
+		assert.equal(
+			postResponse.headers.get('location'),
+			'/guidelines?tab=instrument',
+		)
 
-		const page = await testSessionFetch('http://localhost/guidelines')
+		const page = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
+		)
 		const body = await page.text()
 		assert.match(body, /12\.5/)
 	})
@@ -561,26 +693,26 @@ describe('Guidelines page', () => {
 	})
 
 	it('serves guidelines-list component entry for delete dialog', async () => {
-		const res = await testSessionFetch(
+		const componentScriptResponse = await testSessionFetch(
 			'http://localhost/features/guidelines/guidelines-list.component.js',
 		)
-		assert.equal(res.status, 200)
+		assert.equal(componentScriptResponse.status, 200)
 		assert.match(
-			res.headers.get('content-type') ?? '',
+			componentScriptResponse.headers.get('content-type') ?? '',
 			/javascript/i,
 			'expected JavaScript media type (text/javascript or application/javascript)',
 		)
-		const body = await res.text()
+		const body = await componentScriptResponse.text()
 		assert.match(body, /clientEntry/)
 		assert.match(body, /openDialogForTrigger/)
 		assert.match(body, /dialog-trigger\.js/)
 		assert.match(body, /closest\('\[data-dialog-id\]'\)/)
 
-		const dialogTriggerRes = await testSessionFetch(
+		const dialogTriggerResponse = await testSessionFetch(
 			'http://localhost/lib/dialog-trigger.js',
 		)
-		assert.equal(dialogTriggerRes.status, 200)
-		const dialogTriggerBody = await dialogTriggerRes.text()
+		assert.equal(dialogTriggerResponse.status, 200)
+		const dialogTriggerBody = await dialogTriggerResponse.text()
 		assert.match(dialogTriggerBody, /showModal/)
 	})
 

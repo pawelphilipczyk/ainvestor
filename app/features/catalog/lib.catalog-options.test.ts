@@ -33,17 +33,17 @@ describe('assetClassSelectOptionsFromCatalog', () => {
 			},
 		] satisfies CatalogEntry[]
 		assert.deepEqual(uniqueEtfTypesFromCatalog(catalog), ['equity', 'bond'])
-		const opts = assetClassSelectOptionsFromCatalog(catalog)
+		const selectOptions = assetClassSelectOptionsFromCatalog(catalog)
 		assert.deepEqual(
-			opts.map((o) => o.value),
+			selectOptions.map((option) => option.value),
 			['equity', 'bond'],
 		)
-		assert.match(opts[0].label, /equity/i)
+		assert.match(selectOptions[0].label, /equity/i)
 	})
 
 	it('falls back to all ETF types when catalog is empty', () => {
-		const opts = assetClassSelectOptionsFromCatalog([])
-		assert.equal(opts.length, 6)
-		assert.equal(opts[0].value, 'equity')
+		const selectOptions = assetClassSelectOptionsFromCatalog([])
+		assert.equal(selectOptions.length, 6)
+		assert.equal(selectOptions[0].value, 'equity')
 	})
 })
