@@ -25,22 +25,22 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 				) : (
 					<ul class="mt-4 grid gap-2">
 						{entries.map((entry) => {
-							const details = [
-								entry.quantity !== undefined
-									? format(t('portfolio.holdings.shares'), {
-											count: entry.quantity.toLocaleString(),
-										})
-									: '',
-								entry.exchange ?? '',
-							]
-								.filter(Boolean)
-								.join(' · ')
+							const idParts = [entry.ticker ?? entry.name]
+							if (entry.quantity !== undefined) {
+								idParts.push(
+									format(t('portfolio.holdings.shares'), {
+										count: entry.quantity.toLocaleString(),
+									}),
+								)
+							}
+							if (entry.exchange) idParts.push(entry.exchange)
+							const identifier = idParts.join(' · ')
 							return (
 								<EtfCard
 									key={entry.id}
 									name={entry.name}
-									details={details}
-									badgeValue={formatValue(entry.value, entry.currency)}
+									valueLine={formatValue(entry.value, entry.currency)}
+									identifier={identifier}
 									dialogId={`dialog-${entry.id}`}
 									deleteHref={routes.portfolio.delete.href({ id: entry.id })}
 								/>
