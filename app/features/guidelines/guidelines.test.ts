@@ -693,26 +693,26 @@ describe('Guidelines page', () => {
 	})
 
 	it('serves guidelines-list component entry for delete dialog', async () => {
-		const res = await testSessionFetch(
+		const componentScriptResponse = await testSessionFetch(
 			'http://localhost/features/guidelines/guidelines-list.component.js',
 		)
-		assert.equal(res.status, 200)
+		assert.equal(componentScriptResponse.status, 200)
 		assert.match(
-			res.headers.get('content-type') ?? '',
+			componentScriptResponse.headers.get('content-type') ?? '',
 			/javascript/i,
 			'expected JavaScript media type (text/javascript or application/javascript)',
 		)
-		const body = await res.text()
+		const body = await componentScriptResponse.text()
 		assert.match(body, /clientEntry/)
 		assert.match(body, /openDialogForTrigger/)
 		assert.match(body, /dialog-trigger\.js/)
 		assert.match(body, /closest\('\[data-dialog-id\]'\)/)
 
-		const dialogTriggerRes = await testSessionFetch(
+		const dialogTriggerResponse = await testSessionFetch(
 			'http://localhost/lib/dialog-trigger.js',
 		)
-		assert.equal(dialogTriggerRes.status, 200)
-		const dialogTriggerBody = await dialogTriggerRes.text()
+		assert.equal(dialogTriggerResponse.status, 200)
+		const dialogTriggerBody = await dialogTriggerResponse.text()
 		assert.match(dialogTriggerBody, /showModal/)
 	})
 

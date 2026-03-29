@@ -82,7 +82,7 @@ describe('Portfolio page', () => {
 	})
 
 	it('shows Preview chip in top bar when FLY_APP_NAME is ainvestor-preview', async () => {
-		const prev = process.env.FLY_APP_NAME
+		const previousFlyAppName = process.env.FLY_APP_NAME
 		try {
 			process.env.FLY_APP_NAME = 'ainvestor-preview'
 			const response = await testSessionFetch('http://localhost/portfolio')
@@ -92,8 +92,8 @@ describe('Portfolio page', () => {
 			assert.match(body, /Preview/)
 			assert.match(body, /role="status"/)
 		} finally {
-			if (prev === undefined) delete process.env.FLY_APP_NAME
-			else process.env.FLY_APP_NAME = prev
+			if (previousFlyAppName === undefined) delete process.env.FLY_APP_NAME
+			else process.env.FLY_APP_NAME = previousFlyAppName
 		}
 	})
 
@@ -310,11 +310,14 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('serves fetch-submit component entry for form enhancement', async () => {
-		const res = await testSessionFetch(
+		const componentScriptResponse = await testSessionFetch(
 			'http://localhost/components/fetch-submit.component.js',
 		)
-		assert.equal(res.status, 200)
-		assert.match(res.headers.get('content-type') ?? '', /text\/javascript/)
+		assert.equal(componentScriptResponse.status, 200)
+		assert.match(
+			componentScriptResponse.headers.get('content-type') ?? '',
+			/text\/javascript/,
+		)
 	})
 
 	it('serves etf-card component entry and hides old island endpoint', async () => {
@@ -403,19 +406,19 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('instrumentTicker', '')
 		form.set('value', '-1')
 		form.set('currency', 'PLN')
-		const res = await testSessionFetch(
+		const postResponse = await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
-		assert.equal(res.status, 302)
-		const location = res.headers.get('Location')
-		const cookie = res.headers.get('Set-Cookie')
-		const homeRes = await testSessionFetch(
+		assert.equal(postResponse.status, 302)
+		const location = postResponse.headers.get('Location')
+		const cookie = postResponse.headers.get('Set-Cookie')
+		const homeResponse = await testSessionFetch(
 			location
 				? new URL(location, 'http://localhost/').href
 				: 'http://localhost/portfolio',
 			{ headers: cookie ? { Cookie: cookie.split(';')[0] } : undefined },
 		)
-		const body = await homeRes.text()
+		const body = await homeResponse.text()
 		assert.match(
 			body,
 			/Please select a fund from your catalog and enter a valid value/,
@@ -427,15 +430,15 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('instrumentTicker', '')
 		form.set('value', '-1')
 		form.set('currency', 'PLN')
-		const res = await testSessionFetch(
+		const jsonErrorResponse = await testSessionFetch(
 			new Request('http://localhost/etfs', {
 				method: 'POST',
 				body: form,
 				headers: { Accept: 'application/json' },
 			}),
 		)
-		assert.equal(res.status, 422)
-		const data = await res.json()
+		assert.equal(jsonErrorResponse.status, 422)
+		const data = await jsonErrorResponse.json()
 		assert.equal(
 			data.error,
 			'Please select a fund from your catalog and enter a valid value (number >= 0).',
@@ -460,11 +463,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		await testSessionFetch(
 			new Request('http://localhost/etfs', { method: 'POST', body: form }),
 		)
-		const res = await testSessionFetch(
+		const fragmentResponse = await testSessionFetch(
 			'http://localhost/fragments/portfolio-list',
 		)
-		const body = await res.text()
-		assert.equal(res.status, 200)
+		const body = await fragmentResponse.text()
+		assert.equal(fragmentResponse.status, 200)
 		assert.match(body, /VTI/)
 		assert.match(body, /PLN/)
 	})
