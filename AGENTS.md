@@ -65,6 +65,8 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 
 ## TypeScript style
 
+- **Naming — spell it out:** Prefer full words in function and variable names; avoid abbreviations (`ctx`, `req`, `res`, `idx`, `opts`, single-letter loop names, and similar). Exceptions: domain terms that are already standard words (`id`, `url`, `tab`), the project’s **`t()`** / **`format()`** helpers for i18n, and names you cannot change because they implement or shadow an external API (for example a parameter named `request` when matching a framework signature).
+
 - **Keep types simple:** Prefer small object literals, `as const` for fixed maps/unions, and `keyof typeof` over hand-maintained string union types when a single source of truth exists.
 - **Prefer inference:** Omit redundant annotations on locals and private helpers. For component props, **inline the props object** on the inner implementation. If another module needs the props type, derive it once: **`type FooProps = Parameters<ReturnType<typeof Foo>>[0]`** (do not hand-duplicate a parallel `type FooProps = { ... }`).
 - **When to annotate explicitly:** Public boundaries, `remix` discriminated props (e.g. inputs where `type` narrows other attributes), or places where inference produces `any` or overly wide types.
