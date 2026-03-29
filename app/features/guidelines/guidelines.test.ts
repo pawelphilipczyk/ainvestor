@@ -195,6 +195,37 @@ describe('Guidelines page', () => {
 		assert.equal(deleteActions.length, 1)
 	})
 
+	it('POST /guidelines/asset-class returns 422 JSON for duplicate asset class when Accept is JSON', async () => {
+		await seedGuestCatalog()
+		const first = new FormData()
+		first.set('assetClassType', 'equity')
+		first.set('targetPct', '40')
+		await testSessionFetch(
+			new Request('http://localhost/guidelines/asset-class', {
+				method: 'POST',
+				body: first,
+			}),
+		)
+
+		const second = new FormData()
+		second.set('assetClassType', 'equity')
+		second.set('targetPct', '30')
+		const response = await testSessionFetch(
+			new Request('http://localhost/guidelines/asset-class', {
+				method: 'POST',
+				body: second,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as { error?: string }
+		assert.match(
+			data.error ?? '',
+			/already have a guideline for the equity asset class/,
+		)
+	})
+
 	it('POST /guidelines/instrument rejects when total target % would exceed 100', async () => {
 		await seedGuestCatalog()
 		const first = new FormData()

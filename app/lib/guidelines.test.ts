@@ -179,6 +179,26 @@ describe('guidelines', () => {
 			findGuidelineDuplicateOf(existing, {
 				id: 'new',
 				kind: 'instrument',
+				etfName: ' vti ',
+				targetPct: 10,
+				etfType: 'equity',
+			})?.id,
+			'g1',
+		)
+		assert.equal(
+			findGuidelineDuplicateOf(existing, {
+				id: 'new',
+				kind: 'instrument',
+				etfName: '\tvti\n',
+				targetPct: 10,
+				etfType: 'equity',
+			})?.id,
+			'g1',
+		)
+		assert.equal(
+			findGuidelineDuplicateOf(existing, {
+				id: 'new',
+				kind: 'instrument',
 				etfName: 'BND',
 				targetPct: 10,
 				etfType: 'bond',
