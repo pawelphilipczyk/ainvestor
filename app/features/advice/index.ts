@@ -18,14 +18,10 @@ import {
 	getSessionData,
 	type SessionData,
 } from '../../lib/session.ts'
-import { createDefaultClient } from '../../openai.ts'
+import { type AdviceClient, createDefaultClient } from '../../openai.ts'
 import { routes } from '../../routes.ts'
 import type { AdviceDocument } from './advice-document.ts'
-import type {
-	AdviceAnalysisMode,
-	AdviceClient,
-	AdviceModelId,
-} from './advice-openai.ts'
+import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
 import {
 	ADVICE_ANALYSIS_MODES,
 	ADVICE_MODEL_IDS,

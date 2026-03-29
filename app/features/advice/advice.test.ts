@@ -9,6 +9,10 @@ import {
 import type { AdviceClient } from '../../openai.ts'
 import { adviceTabHref, setAdviceClient } from './index.ts'
 
+type AdviceCompletionCreateParams = Parameters<
+	AdviceClient['chat']['completions']['create']
+>[0]
+
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
 
 const adviceUrl = (mode: Parameters<typeof adviceTabHref>[0]) =>
@@ -515,7 +519,7 @@ describe('Advice', () => {
 		setAdviceClient({
 			chat: {
 				completions: {
-					create: async (params) => {
+					create: async (params: AdviceCompletionCreateParams) => {
 						capturedUserMessage = params.messages[1].content
 						return { choices: [{ message: { content: 'advice' } }] }
 					},
@@ -565,7 +569,7 @@ describe('Advice', () => {
 		setAdviceClient({
 			chat: {
 				completions: {
-					create: async (params) => {
+					create: async (params: AdviceCompletionCreateParams) => {
 						capturedUserMessage = params.messages[1].content
 						return { choices: [{ message: { content: 'advice' } }] }
 					},
@@ -614,7 +618,7 @@ describe('Advice', () => {
 		setAdviceClient({
 			chat: {
 				completions: {
-					create: async (params) => {
+					create: async (params: AdviceCompletionCreateParams) => {
 						capturedModel = params.model
 						return { choices: [{ message: { content: 'advice' } }] }
 					},
