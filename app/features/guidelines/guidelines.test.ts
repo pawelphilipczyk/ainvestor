@@ -42,18 +42,18 @@ describe('Guidelines page', () => {
 		assert.match(body, /Investment Guidelines/)
 		assert.match(body, /guidelines-list\.component\.js/)
 		assert.match(body, /href="\/guidelines"/)
-		assert.match(body, /href="\/guidelines\?tab=bucket"/)
-		assert.match(body, /action="\/guidelines\/instrument"/)
-		assert.match(body, /name="instrumentTicker"/)
+		assert.match(body, /href="\/guidelines\?tab=instrument"/)
+		assert.match(body, /action="\/guidelines\/asset-class"/)
+		assert.match(body, /name="assetClassType"/)
 		assert.match(body, /Specific ETF target/)
 		assert.match(body, /Asset class bucket/)
 
-		const bucketPage = await testSessionFetch(
-			'http://localhost/guidelines?tab=bucket',
+		const instrumentPage = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
 		)
-		const bucketBody = await bucketPage.text()
-		assert.match(bucketBody, /action="\/guidelines\/asset-class"/)
-		assert.match(bucketBody, /name="assetClassType"/)
+		const instrumentBody = await instrumentPage.text()
+		assert.match(instrumentBody, /action="\/guidelines\/instrument"/)
+		assert.match(instrumentBody, /name="instrumentTicker"/)
 
 		assert.match(body, /Remaining:\s*<strong[^>]*>100%<\/strong>/)
 		assert.match(body, /No guidelines added yet\./)
@@ -61,12 +61,12 @@ describe('Guidelines page', () => {
 
 	it('Target % fields use money-style decimal input (numeric keypad)', async () => {
 		await seedGuestCatalog()
-		const instrumentRes = await testSessionFetch('http://localhost/guidelines')
-		const instrumentBody = await instrumentRes.text()
-		const bucketRes = await testSessionFetch(
-			'http://localhost/guidelines?tab=bucket',
-		)
+		const bucketRes = await testSessionFetch('http://localhost/guidelines')
 		const bucketBody = await bucketRes.text()
+		const instrumentRes = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
+		)
+		const instrumentBody = await instrumentRes.text()
 
 		const instrumentPct = instrumentBody.match(
 			/<input\b[^>]*\bid="instrumentTargetPct"[^>]*>/,
@@ -96,7 +96,7 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(response.status, 302)
-		assert.equal(response.headers.get('location'), '/guidelines')
+		assert.equal(response.headers.get('location'), '/guidelines?tab=instrument')
 	})
 
 	it('POST /guidelines/instrument rejects duplicate ticker with flash message', async () => {
@@ -122,9 +122,11 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(response.status, 302)
-		assert.equal(response.headers.get('location'), '/guidelines')
+		assert.equal(response.headers.get('location'), '/guidelines?tab=instrument')
 
-		const page = await testSessionFetch('http://localhost/guidelines')
+		const page = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
+		)
 		const body = await page.text()
 		assert.match(body, /already have a guideline for VTI/)
 		assert.match(body, /edit or remove that line/)
@@ -183,11 +185,9 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(response.status, 302)
-		assert.equal(response.headers.get('location'), '/guidelines?tab=bucket')
+		assert.equal(response.headers.get('location'), '/guidelines')
 
-		const page = await testSessionFetch(
-			'http://localhost/guidelines?tab=bucket',
-		)
+		const page = await testSessionFetch('http://localhost/guidelines')
 		const body = await page.text()
 		assert.match(body, /already have a guideline for the equity asset class/)
 		assert.match(body, /edit or remove that line/)
@@ -249,9 +249,11 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(response.status, 302)
-		assert.equal(response.headers.get('location'), '/guidelines')
+		assert.equal(response.headers.get('location'), '/guidelines?tab=instrument')
 
-		const page = await testSessionFetch('http://localhost/guidelines')
+		const page = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
+		)
 		const body = await page.text()
 		assert.match(body, /cannot add up to more than 100%/)
 		assert.match(body, /60/)
@@ -315,11 +317,9 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(response.status, 302)
-		assert.equal(response.headers.get('location'), '/guidelines?tab=bucket')
+		assert.equal(response.headers.get('location'), '/guidelines')
 
-		const page = await testSessionFetch(
-			'http://localhost/guidelines?tab=bucket',
-		)
+		const page = await testSessionFetch('http://localhost/guidelines')
 		const body = await page.text()
 		assert.match(body, /cannot add up to more than 100%/)
 		assert.match(body, /60/)
@@ -374,9 +374,14 @@ describe('Guidelines page', () => {
 		)
 
 		assert.equal(postResponse.status, 302)
-		assert.equal(postResponse.headers.get('location'), '/guidelines')
+		assert.equal(
+			postResponse.headers.get('location'),
+			'/guidelines?tab=instrument',
+		)
 
-		const page = await testSessionFetch('http://localhost/guidelines')
+		const page = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
+		)
 		const body = await page.text()
 		assert.match(body, /12\.5/)
 	})

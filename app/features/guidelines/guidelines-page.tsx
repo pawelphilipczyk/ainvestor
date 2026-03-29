@@ -41,8 +41,11 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 			{ value: '', label: instrumentPlaceholder },
 			...props.instrumentOptions,
 		]
-		const instrumentTabHref = routes.guidelines.index.href()
-		const bucketTabHref = routes.guidelines.index.href({}, { tab: 'bucket' })
+		const bucketTabHref = routes.guidelines.index.href()
+		const instrumentTabHref = routes.guidelines.index.href(
+			{},
+			{ tab: 'instrument' },
+		)
 		const activeAddTab = props.activeAddTab
 
 		return (
@@ -68,11 +71,11 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 							activeId={activeAddTab}
 							aria-label={t('guidelines.tabs.navAria')}
 						>
-							<TabLink id="instrument" href={instrumentTabHref}>
-								{t('guidelines.etfCard.title')}
-							</TabLink>
 							<TabLink id="bucket" href={bucketTabHref}>
 								{t('guidelines.bucket.title')}
+							</TabLink>
+							<TabLink id="instrument" href={instrumentTabHref}>
+								{t('guidelines.etfCard.title')}
 							</TabLink>
 						</TabsNav>
 
