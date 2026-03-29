@@ -22,7 +22,10 @@ import { t } from '../../../lib/i18n.ts'
 import { parseLocaleDecimalString } from '../../../lib/locale-decimal-input.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
-import { findCatalogEntryByTicker } from '../../catalog/lib.ts'
+import {
+	type CatalogEntry,
+	findCatalogEntryByTicker,
+} from '../../catalog/lib.ts'
 import { AddEtfForm } from './add-etf-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
 
