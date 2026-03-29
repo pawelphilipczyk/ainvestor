@@ -1,5 +1,6 @@
 import { clientEntry, createElement } from 'remix/component'
 import { on } from 'remix/interaction'
+import { setSubmitButtonLoading } from '../../components/submit-button-loading.component.js'
 
 function isBankEtfResponse(json) {
 	return (
@@ -20,45 +21,22 @@ export const CatalogPasteInteractions = clientEntry(
 				'data-component': 'catalog-paste-interactions',
 				connect: (node, signal) => {
 					const doc = node.ownerDocument
-					const zone = doc.querySelector('[data-catalog-paste-zone]')
-					if (!zone || !(zone instanceof HTMLElement)) return
+					const form = doc.querySelector('form[data-catalog-paste-zone]')
+					if (!form || !(form instanceof HTMLFormElement)) return
 
-					const url = zone.dataset.importUrl
-					if (!url) return
-
-					const importSection = doc.querySelector(
-						'[data-catalog-import-section]',
+					const pasteTextarea = form.querySelector('#pasteZone')
+					const submitButton = form.querySelector(
+						'button[type="submit"], input[type="submit"]',
 					)
-					const pasteTextarea = zone.querySelector('#pasteZone')
-					const spinnerSlot = doc.querySelector('[data-catalog-import-spinner]')
-					const spinnerIconHost = doc.getElementById('form-spinner-icon')
 
-					function setCatalogImportLoading(loading) {
+					function setCatalogPasteLoading(loading) {
 						if (pasteTextarea instanceof HTMLTextAreaElement) {
 							pasteTextarea.disabled = loading
 						}
-						if (importSection) {
-							if (loading) {
-								importSection.setAttribute('aria-busy', 'true')
-							} else {
-								importSection.removeAttribute('aria-busy')
-							}
-						}
-						if (spinnerSlot) {
-							if (loading) {
-								spinnerSlot.classList.remove('hidden')
-								spinnerSlot.replaceChildren()
-								const spinner =
-									spinnerIconHost?.firstElementChild?.cloneNode(true)
-								if (spinner) spinnerSlot.append(spinner)
-							} else {
-								spinnerSlot.classList.add('hidden')
-								spinnerSlot.replaceChildren()
-							}
-						}
+						setSubmitButtonLoading(submitButton, loading)
 					}
 
-					const dispose = on(zone, {
+					const dispose = on(form, {
 						paste(event) {
 							event.preventDefault()
 							const text = event.clipboardData?.getData('text')
@@ -72,12 +50,16 @@ export const CatalogPasteInteractions = clientEntry(
 							}
 							if (!isBankEtfResponse(json)) return
 
-							setCatalogImportLoading(true)
-							fetch(url, {
-								method: 'POST',
-								body: text,
-								headers: { 'Content-Type': 'application/json' },
+							if (pasteTextarea instanceof HTMLTextAreaElement) {
+								pasteTextarea.value = text
+							}
+
+							setCatalogPasteLoading(true)
+							fetch(form.action, {
+								method: form.method,
+								body: new FormData(form),
 								redirect: 'follow',
+								headers: { Accept: 'application/json' },
 							})
 								.then(async (r) => {
 									if (r.redirected) {
@@ -100,11 +82,11 @@ export const CatalogPasteInteractions = clientEntry(
 											body: bodyText,
 										})
 									}
-									setCatalogImportLoading(false)
+									setCatalogPasteLoading(false)
 								})
 								.catch((error) => {
 									console.error('[catalog-paste] import request failed', error)
-									setCatalogImportLoading(false)
+									setCatalogPasteLoading(false)
 								})
 						},
 					})

@@ -145,36 +145,43 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					</SectionIntroCard>
 
 					<Card variant="muted" class="p-4">
-						<section data-catalog-import-section>
-							<h2
-								data-catalog-import-title
-								class="flex items-center gap-2 text-base font-semibold tracking-tight text-card-foreground"
-							>
-								<span>{t('catalog.import.title')}</span>
-								<span
-									data-catalog-import-spinner
-									class="hidden shrink-0 text-muted-foreground"
-									aria-hidden="true"
-								/>
+						<section>
+							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+								{t('catalog.import.title')}
 							</h2>
 							<p class="mt-0.5 text-xs text-muted-foreground">
 								{t('catalog.import.subtitle')}
 							</p>
+							<p class="mt-2 text-xs text-muted-foreground">
+								{t('catalog.import.optionalSubmit')}
+							</p>
 							<div
+								id="catalog-import-form-error"
+								role="alert"
+								class="mt-3 hidden rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+							/>
+							<form
+								method="post"
+								action={routes.catalog.import.href()}
 								data-catalog-paste-zone
-								data-import-url={routes.catalog.import.href()}
-								class="mt-3"
+								data-fetch-submit
+								data-error-id="catalog-import-form-error"
+								class="mt-3 grid max-w-xl gap-3"
 							>
 								<FieldLabel fieldId="pasteZone" variant="screenReader">
 									{t('catalog.import.pasteLabel.sr')}
 								</FieldLabel>
 								<TextareaInput
 									id="pasteZone"
+									name="bankApiJson"
 									placeholder={t('catalog.import.pastePlaceholder')}
 									rows={3}
-									class="block max-w-xl"
+									class="block w-full max-w-xl"
 								/>
-							</div>
+								<SubmitButton class="!h-9 !w-auto shrink-0 !py-0 text-sm font-medium">
+									{t('catalog.import.submit')}
+								</SubmitButton>
+							</form>
 							{props.catalog.length === 0 ? (
 								<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
 									<p class="font-medium text-foreground">
