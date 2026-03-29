@@ -19,14 +19,13 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /ETF Catalog/)
 	})
 
-	it('GET /catalog shows paste zone for bank API JSON', async () => {
+	it('GET /catalog shows import form for bank API JSON', async () => {
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
-		assert.match(body, /data-catalog-paste-zone/)
-		assert.match(body, /data-catalog-import-section/)
-		assert.match(body, /data-catalog-import-spinner/)
-		assert.match(body, /\/catalog\/import/)
+		assert.match(body, /data-fetch-submit/)
+		assert.match(body, /name="bankApiJson"/)
+		assert.match(body, /action="\/catalog\/import"/)
 	})
 
 	it('GET /catalog shows empty state hint when no catalog imported', async () => {
@@ -50,6 +49,42 @@ describe('ETF Catalog page', () => {
 
 		assert.match(body, /href="\/portfolio"/)
 		assert.match(body, /Portfolio/)
+	})
+
+	it('POST /catalog/import with form field bankApiJson merges into catalog', async () => {
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					isin: 'IE00BGV5VR99',
+					fund_name: 'Xtrackers Future Mobility UCITS ETF 1C',
+					ticker: 'XMOV GR',
+					description: 'ETF tracks Nasdaq Future Mobility.',
+					assets: 'akcje',
+					sector: 'technologia',
+				},
+			],
+			count: 1,
+			total_count: 1,
+		})
+
+		const formData = new FormData()
+		formData.set('bankApiJson', bankJson)
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: formData,
+			}),
+		)
+
+		assert.equal(importResponse.status, 302)
+		assert.equal(importResponse.headers.get('location'), '/catalog')
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog')
+		const body = await catalogResponse.text()
+
+		assert.match(body, /XMOV GR/)
+		assert.match(body, /Xtrackers Future Mobility/)
 	})
 
 	it('POST /catalog/import with bank API format merges into catalog', async () => {

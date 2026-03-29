@@ -53,13 +53,31 @@ export const catalogController = {
 		})
 	},
 
-	async import(context: { request: Request; session: Session }) {
+	async import(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+	}) {
+		const rawFromForm = context.formData?.get('bankApiJson')
 		let json: unknown
-		try {
-			const text = await context.request.text()
-			json = text ? JSON.parse(text) : null
-		} catch {
-			return createRedirectResponse(routes.catalog.index.href())
+
+		if (typeof rawFromForm === 'string') {
+			const trimmed = rawFromForm.trim()
+			if (trimmed.length === 0) {
+				return createRedirectResponse(routes.catalog.index.href())
+			}
+			try {
+				json = JSON.parse(trimmed)
+			} catch {
+				return createRedirectResponse(routes.catalog.index.href())
+			}
+		} else {
+			try {
+				const text = await context.request.text()
+				json = text ? JSON.parse(text) : null
+			} catch {
+				return createRedirectResponse(routes.catalog.index.href())
+			}
 		}
 
 		const imported = parseBankJsonToCatalog(json)

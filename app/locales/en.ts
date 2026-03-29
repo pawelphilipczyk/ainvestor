@@ -108,13 +108,14 @@ export const en = {
 	'catalog.signInPersist': 'Sign in to persist catalog across sessions.',
 	'catalog.import.title': 'Import',
 	'catalog.import.subtitle':
-		'Paste bank API JSON below to add ETFs (merges with existing).',
+		'Paste bank API JSON below, then submit to add ETFs (merges with existing).',
+	'catalog.import.submit': 'Import',
 	'catalog.import.pasteLabel.sr': 'Paste bank API JSON',
 	'catalog.import.pastePlaceholder':
-		'Paste fetch response JSON here (Ctrl+V) — imports on paste',
+		'Paste fetch response JSON here, then click Import',
 	'catalog.empty.title': 'No catalog imported yet.',
 	'catalog.empty.hint':
-		'Paste bank API JSON above to add ETFs to your catalog.',
+		'Paste bank API JSON above and click Import to add ETFs to your catalog.',
 	'catalog.filter.assetType': 'Asset type',
 	'catalog.filter.allTypes': 'All types',
 	'catalog.filter.search': 'Search',
