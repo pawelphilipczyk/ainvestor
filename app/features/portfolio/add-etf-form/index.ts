@@ -129,12 +129,19 @@ export const addEtfFormHandlers = {
 			let catalog: CatalogEntry[]
 			let current: EtfEntry[]
 			if (session?.gistId && session.token) {
-				const snapshot = await fetchPortfolioSnapshot(
-					session.token,
-					session.gistId,
-				)
-				catalog = snapshot.catalog
-				current = snapshot.entries
+				try {
+					const snapshot = await fetchPortfolioSnapshot(
+						session.token,
+						session.gistId,
+					)
+					catalog = snapshot.catalog
+					current = snapshot.entries
+				} catch {
+					return portfolioPersistenceFailureResponse({
+						request: context.request,
+						session: context.get(Session),
+					})
+				}
 			} else {
 				catalog = getGuestCatalog(context.get(Session))
 				current = getGuestEtfs(context.get(Session))
@@ -199,7 +206,14 @@ export const addEtfFormHandlers = {
 					: [entry, ...current]
 
 			if (session?.gistId && session.token) {
-				await saveEtfs(session.token, session.gistId, updated)
+				try {
+					await saveEtfs(session.token, session.gistId, updated)
+				} catch {
+					return portfolioPersistenceFailureResponse({
+						request: context.request,
+						session: context.get(Session),
+					})
+				}
 			} else {
 				setGuestEtfs(context.get(Session), updated)
 			}

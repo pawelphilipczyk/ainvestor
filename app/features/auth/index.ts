@@ -1,3 +1,4 @@
+import { randomBytes, timingSafeEqual } from 'node:crypto'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { isGithubLoginApproved } from '../../lib/approved-users.ts'
@@ -6,14 +7,38 @@ import { findOrCreateGist } from '../../lib/gist.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import { routes } from '../../routes.ts'
 
+const OAUTH_STATE_SESSION_KEY = 'oauthGithubState'
+
+function newOAuthState(): string {
+	return randomBytes(32).toString('hex')
+}
+
+function oauthStateMatches(expected: string, received: string): boolean {
+	if (expected.length !== received.length) return false
+	try {
+		return timingSafeEqual(
+			Buffer.from(expected, 'utf8'),
+			Buffer.from(received, 'utf8'),
+		)
+	} catch {
+		return false
+	}
+}
+
 export const authController = {
 	actions: {
-		async login() {
+		async login(context: AppRequestContext) {
 			const clientId = getClientId()
 			if (!clientId) {
 				return new Response('GH_CLIENT_ID is not configured', { status: 500 })
 			}
-			const params = new URLSearchParams({ client_id: clientId, scope: 'gist' })
+			const state = newOAuthState()
+			context.get(Session).set(OAUTH_STATE_SESSION_KEY, state)
+			const params = new URLSearchParams({
+				client_id: clientId,
+				scope: 'gist',
+				state,
+			})
 			return createRedirectResponse(
 				`https://github.com/login/oauth/authorize?${params}`,
 			)
@@ -23,6 +48,21 @@ export const authController = {
 			const url = new URL(context.request.url)
 			const code = url.searchParams.get('code')
 			if (!code) return createRedirectResponse(routes.home.index.href())
+
+			const receivedState = url.searchParams.get('state')
+			const expectedState = context.get(Session).get(OAUTH_STATE_SESSION_KEY) as
+				| string
+				| undefined
+			const stateOk =
+				typeof receivedState === 'string' &&
+				typeof expectedState === 'string' &&
+				oauthStateMatches(expectedState, receivedState)
+			if (stateOk) {
+				context.get(Session).unset(OAUTH_STATE_SESSION_KEY)
+			} else {
+				context.get(Session).unset(OAUTH_STATE_SESSION_KEY)
+				return createRedirectResponse(routes.home.index.href())
+			}
 
 			const tokenRes = await fetch(
 				'https://github.com/login/oauth/access_token',

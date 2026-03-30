@@ -1,7 +1,10 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
-import { testSessionFetch } from '../../lib/test-session-fetch.ts'
+import {
+	catalogImportFormRequest,
+	testSessionFetch,
+} from '../../lib/test-session-fetch.ts'
 import { resetGuestCatalog } from '../catalog/index.ts'
 import { resetEtfEntries } from './index.ts'
 
@@ -20,13 +23,7 @@ async function seedGuestCatalog() {
 		],
 		count: 3,
 	})
-	await testSessionFetch(
-		new Request('http://localhost/catalog/import', {
-			method: 'POST',
-			body: bankJson,
-			headers: { 'Content-Type': 'application/json' },
-		}),
-	)
+	await testSessionFetch(catalogImportFormRequest(bankJson))
 }
 
 describe('Health endpoint', () => {

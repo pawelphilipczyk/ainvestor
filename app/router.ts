@@ -19,6 +19,7 @@ import {
 	resetEtfEntries,
 } from './features/portfolio/index.ts'
 import { stripGithubTokenIfUnapproved } from './lib/approved-users.ts'
+import type { AppRequestContext } from './lib/request-context.ts'
 import { sessionCookie, sessionStorage } from './lib/session.ts'
 import { routes } from './routes.ts'
 
@@ -38,10 +39,14 @@ const remixRuntime = staticFiles('node_modules', {
 })
 
 function enforceGithubApproval(): Middleware {
-	return async (context, next) => {
+	const handler = async (
+		context: AppRequestContext,
+		next: () => Promise<Response>,
+	) => {
 		stripGithubTokenIfUnapproved(context.get(Session))
 		return next()
 	}
+	return handler as unknown as Middleware
 }
 
 export const router = createRouter({

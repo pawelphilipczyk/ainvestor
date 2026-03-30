@@ -240,19 +240,19 @@ export const adviceController = {
 				})
 			}
 
-			const { entries, catalog } =
-				session?.gistId && session.token
-					? await fetchPortfolioSnapshot(session.token, session.gistId)
-					: {
-							entries: getGuestEtfs(context.get(Session)),
-							catalog: getGuestCatalog(context.get(Session)),
-						}
-			const guidelines =
-				session?.gistId && session.token
-					? await fetchGuidelines(session.token, session.gistId)
-					: getGuestGuidelines(context.get(Session))
-
 			try {
+				const { entries, catalog } =
+					session?.gistId && session.token
+						? await fetchPortfolioSnapshot(session.token, session.gistId)
+						: {
+								entries: getGuestEtfs(context.get(Session)),
+								catalog: getGuestCatalog(context.get(Session)),
+							}
+				const guidelines =
+					session?.gistId && session.token
+						? await fetchGuidelines(session.token, session.gistId)
+						: getGuestGuidelines(context.get(Session))
+
 				const client = adviceClient ?? createAdviceClient()
 				const advice = await getInvestmentAdvice({
 					holdings: entries,

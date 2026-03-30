@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import {
+	catalogImportFormRequest,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
@@ -19,13 +20,7 @@ async function seedGuestCatalog() {
 		],
 		count: 3,
 	})
-	await testSessionFetch(
-		new Request('http://localhost/catalog/import', {
-			method: 'POST',
-			body: bankJson,
-			headers: { 'Content-Type': 'application/json' },
-		}),
-	)
+	await testSessionFetch(catalogImportFormRequest(bankJson))
 }
 
 afterEach(() => {

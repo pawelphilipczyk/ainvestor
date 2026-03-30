@@ -28,25 +28,9 @@ export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-s
 const catalogIndexRedirect = () =>
 	createRedirectResponse(routes.catalog.index.href())
 
-/**
- * Parses JSON for catalog import. When `allowEmptyInput` is true (raw request
- * body), a missing/empty body yields `null`; otherwise invalid JSON redirects.
- * When false (form field), trimmed empty or invalid JSON redirects.
- */
-async function parseJsonOrRedirect(
-	source: string | Promise<string>,
-	allowEmptyInput: boolean,
-): Promise<unknown | Response> {
-	const text = typeof source === 'string' ? source : await source
-	if (allowEmptyInput) {
-		if (!text) return null
-		try {
-			return JSON.parse(text)
-		} catch {
-			return catalogIndexRedirect()
-		}
-	}
-	const trimmed = text.trim()
+/** Parses `bankApiJson` form field; empty or invalid JSON yields a redirect response. */
+async function parseBankJsonField(raw: string): Promise<unknown | Response> {
+	const trimmed = raw.trim()
 	if (trimmed.length === 0) return catalogIndexRedirect()
 	try {
 		return JSON.parse(trimmed)
@@ -87,10 +71,10 @@ export const catalogController = {
 
 		async import(context: AppRequestContext) {
 			const rawFromForm = context.get(FormData)?.get('bankApiJson')
-			const parsed =
-				typeof rawFromForm === 'string'
-					? await parseJsonOrRedirect(rawFromForm, false)
-					: await parseJsonOrRedirect(context.request.text(), true)
+			if (typeof rawFromForm !== 'string') {
+				return catalogIndexRedirect()
+			}
+			const parsed = await parseBankJsonField(rawFromForm)
 			if (parsed instanceof Response) return parsed
 			const json = parsed
 

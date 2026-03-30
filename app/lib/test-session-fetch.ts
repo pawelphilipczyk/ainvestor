@@ -3,6 +3,16 @@ import { clearGuestGuidelinesServerStore } from './guest-session-state.ts'
 
 let testSessionCookie: string | undefined
 
+/** POST /catalog/import with `bankApiJson` (matches browser form after formData() middleware). */
+export function catalogImportFormRequest(bankJson: string): Request {
+	const formData = new FormData()
+	formData.set('bankApiJson', bankJson)
+	return new Request('http://localhost/catalog/import', {
+		method: 'POST',
+		body: formData,
+	})
+}
+
 /** Clears the in-memory session cookie jar (call from test afterEach). */
 export function resetTestSessionCookieJar(): void {
 	testSessionCookie = undefined
