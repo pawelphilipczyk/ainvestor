@@ -46,7 +46,10 @@ export function TextInput(_handle: Handle, _setup?: unknown) {
 		const sizeClasses = compactProp
 			? textNumberControlCompactClasses
 			: textNumberControlDefaultClasses
-		const inputClasses = `${sizeClasses} ${classProp ?? ''}`.trim()
+		const searchAppearanceReset =
+			inputType === 'search' ? 'appearance-none' : ''
+		const inputClasses =
+			`${sizeClasses} ${searchAppearanceReset} ${classProp ?? ''}`.trim()
 		const valueAttr = value !== undefined ? { value } : {}
 
 		// Remix `AccessibleInputHTMLProps` discriminates on `type`; a single
