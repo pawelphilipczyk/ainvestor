@@ -1,7 +1,7 @@
 # Remix GitHub Repository Analysis
 
-> Analysis of [github.com/remix-run/remix](https://github.com/remix-run/remix) for example apps, demos, and patterns.  
-> Cloned and inspected: March 2025.
+> Analysis of [github.com/remix-run/remix](https://github.com/remix-run/remix) for example apps, demos, and patterns.
+> Cross-checked against GitHub main branch: March 2026.
 
 ---
 
@@ -153,15 +153,15 @@ export async function uploadHandler(file: FileUpload): Promise<string> {
 
 **Bookstore** uses full `remix/component` (JSX):
 
-- `createElement`, `renderToString`, `renderToStream`
-- `css` from `remix/component` for inline styles
+- `clientEntry`, `renderToStream`, and component-local `mix` helpers such as `on()` and `css()`
+- router-driven server rendering plus client hydration via `run({ loadModule, resolveFrame })`
 - `RestfulForm` component for PUT/DELETE with `_method` override
 
 **Our app** uses:
-- `remix/component`: `clientEntry`, `createElement`, `renderToString`
-- `remix/interaction`: `on()` for event handling
-- Manual HTML templates via `remix/html-template` for page structure
-- No `data-island`; components are rendered server-side and hydrated via `run(document, { loadModule })`
+- `remix/component`: JSX page components, `clientEntry`, `renderToStream`, and `renderToString`
+- server-rendered documents with clientEntry hydration
+- shared and feature-local `.component.js` files for browser behavior
+- a mostly server-first composition style instead of frame-heavy examples
 
 **Component demos** (`packages/component/demos/`): Standalone component demos (animation, draggable, etc.) served via `staticFiles('.')` and `createRouter`.
 
@@ -251,7 +251,7 @@ return createHtmlResponse(html`
 
 | Aspect | Our App | Remix Examples |
 |--------|---------|----------------|
-| **Rendering** | JSX page bodies + `html` shell + islands | Bookstore: full JSX; fetch-router demos: html templates |
+| **Rendering** | JSX document + page bodies with clientEntry hydration | Bookstore: full JSX with `renderToStream`; fetch-router demos: html templates |
 | **Data validation** | `parseSafe` + `Object.fromEntries(formData)` | Bookstore: `s.parse` + `f.object()` (FormData-native) |
 | **Session storage** | `createCookieSessionStorage` | Bookstore: `createFsSessionStorage`; demos: `createCookieSessionStorage` |
 | **Context access** | `context.session`, `context.formData` | Bookstore: `get(Session)`, `get(FormData)` via asyncContext |

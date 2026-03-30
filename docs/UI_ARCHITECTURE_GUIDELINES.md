@@ -432,9 +432,8 @@ This architecture aligns with the packages available in `remix@next`. Key Remix 
 | `remix/response/html` | `createHtmlResponse()` — wraps HTML with proper headers |
 | `remix/response/redirect` | `createRedirectResponse()` — post-form redirect |
 | `remix/static-middleware` | Serve CSS, JS islands, and other static assets |
-| `remix/component` | JSX components for page bodies and shared UI; `clientEntry` for interactive islands |
+| `remix/component` | JSX components for page bodies and shared UI; `clientEntry`, `run()`, and event mixins such as `on()` |
 | `remix/component/server` | `renderToStream()` — full document streamed to response |
-| `remix/interaction` | Type-safe DOM events for islands (`on()`, `createContainer()`) |
 
 **Rendering:** All page bodies and the document shell are JSX. `render()` returns `createHtmlResponse(renderToStream(document))`. See `REMIX_V3_PACKAGES.md` for the component rendering pattern.
 
