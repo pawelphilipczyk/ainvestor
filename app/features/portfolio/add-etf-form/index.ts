@@ -66,7 +66,6 @@ function normalizeEtfNumericFields(raw: Record<string, unknown>): void {
 			raw.quantity = parsed === null ? raw.quantity : String(parsed)
 		}
 	}
-	if (raw.quantity === '') delete raw.quantity
 }
 
 /** Treats empty strings as absent for optional fields (HTML forms submit "" when blank). */
