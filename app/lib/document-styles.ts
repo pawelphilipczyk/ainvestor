@@ -77,8 +77,8 @@ export const baseCss = `@layer base {
     max-width: 100%;
   }
 
-  /* Fetch-submit and other enhancements set aria-busy on submit controls while in flight. */
-  html:not(.dark) button[type='submit'][aria-busy='true'],
+  /* Legacy fetch-submit busy state (buttons without .submit-button-busy-overlay). */
+  html:not(.dark) button[type='submit'][aria-busy='true']:not(:has(.submit-button-busy-overlay)),
   html:not(.dark) input[type='submit'][aria-busy='true'] {
     background-color: hsl(var(--foreground));
     color: hsl(var(--muted-foreground));
@@ -87,7 +87,7 @@ export const baseCss = `@layer base {
     border-style: solid;
   }
 
-  html.dark button[type='submit'][aria-busy='true'],
+  html.dark button[type='submit'][aria-busy='true']:not(:has(.submit-button-busy-overlay)),
   html.dark input[type='submit'][aria-busy='true'] {
     background-color: hsl(var(--card));
     color: hsl(var(--muted-foreground));

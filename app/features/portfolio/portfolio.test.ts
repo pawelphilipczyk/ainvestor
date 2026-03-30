@@ -322,6 +322,14 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 	})
 
+	it('serves navigation-link-loading component entry', async () => {
+		const response = await testSessionFetch(
+			'http://localhost/components/navigation-link-loading.component.js',
+		)
+		assert.equal(response.status, 200)
+		assert.match(response.headers.get('content-type') ?? '', /text\/javascript/)
+	})
+
 	it('serves etf-card component entry and hides old island endpoint', async () => {
 		const componentResponse = await testSessionFetch(
 			'http://localhost/features/portfolio/etf-card.component.js',
@@ -562,6 +570,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.equal(response.status, 200)
 		assert.match(body, /Sign in with GitHub/)
 		assert.match(body, /href="\/auth\/github"/)
+		assert.match(body, /data-navigation-loading/)
 	})
 
 	it('GET /fragments/portfolio-list returns ETF list HTML fragment', async () => {

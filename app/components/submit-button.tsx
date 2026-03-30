@@ -1,5 +1,11 @@
 import type { Handle } from 'remix/component'
 import {
+	busyControlLabelClass,
+	busyControlOverlayClass,
+	busyControlRootStateClasses,
+	busyControlSpinnerClass,
+} from './busy-control-overlay.ts'
+import {
 	submitButtonCompactClasses,
 	submitButtonDefaultClasses,
 } from './form-control-classes.ts'
@@ -13,7 +19,8 @@ type SubmitButtonProps = {
 }
 
 /**
- * Server-rendered submit button.
+ * Server-rendered submit button. Fetch-submit sets `data-loading` + `aria-busy`
+ * and shows a centered spinner (label hidden), matching {@link Link} navigation loading.
  */
 export function SubmitButton(_handle: Handle, _setup?: unknown) {
 	return (props: SubmitButtonProps) => {
@@ -21,10 +28,14 @@ export function SubmitButton(_handle: Handle, _setup?: unknown) {
 		const baseClasses = compactProp
 			? submitButtonCompactClasses
 			: submitButtonDefaultClasses
-		const className = `${baseClasses} ${classProp ?? ''}`.trim()
+		const className =
+			`${busyControlRootStateClasses} ${baseClasses} ${classProp ?? ''}`.trim()
 		return (
 			<button type="submit" disabled={disabled} class={className}>
-				{children}
+				<span class={busyControlLabelClass}>{children}</span>
+				<span class={busyControlOverlayClass} aria-hidden="true">
+					<span class={busyControlSpinnerClass} />
+				</span>
 			</button>
 		)
 	}
