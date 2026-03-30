@@ -2,7 +2,7 @@
 
 > **Source of truth:** [https://github.com/remix-run/remix](https://github.com/remix-run/remix)
 > All API references below are derived directly from the GitHub repository.
-> Version in use: `remix@3.0.0-alpha.3`
+> Version in use: `remix@3.0.0-alpha.4`
 
 ---
 
@@ -63,10 +63,6 @@ All packages are runtime-agnostic: they work on Node.js, Bun, Deno, Cloudflare W
 | `remix/tar-parser` | TAR archive parser |
 | `remix/component` | Island component system (JSX) |
 | `remix/component/server` | Server-side component rendering |
-| `remix/interaction` | Type-safe DOM event handling |
-| `remix/interaction/press` | Press / long-press interactions |
-| `remix/interaction/keys` | Keyboard interaction helpers |
-| `remix/interaction/popover` | Popover interaction helpers |
 
 ---
 
@@ -85,7 +81,7 @@ The heart of Remix v3. A composable, Fetch API–native router.
 ### Route helpers (`remix/fetch-router/routes`)
 
 ```ts
-import { route, form, resources, resource, get, post, put, delete_ } from 'remix/fetch-router/routes'
+import { route, form, resources, resource, get, post, put, del } from 'remix/fetch-router/routes'
 
 // Generic map — any method accepted
 route({ home: '/', about: '/about' })
@@ -581,7 +577,7 @@ let stream = renderToStream(<App />)
 return new Response(stream, { headers: { 'Content-Type': 'text/html' } })
 
 // Component with server+client rendering
-import { clientEntry, type Handle } from 'remix/component'
+import { clientEntry, on, type Handle } from 'remix/component'
 
 export let Counter = clientEntry(
   '/assets/counter.js#Counter',
@@ -590,7 +586,16 @@ export let Counter = clientEntry(
     return (props: { label: string }) => (
       <div>
         <span>{props.label}: {count}</span>
-        <button on={{ click() { count++; handle.update() } }}>+</button>
+        <button
+          mix={[
+            on('click', () => {
+              count++
+              handle.update()
+            }),
+          ]}
+        >
+          +
+        </button>
       </div>
     )
   },
@@ -598,9 +603,12 @@ export let Counter = clientEntry(
 
 // Client bootstrap
 import { run } from 'remix/component'
-let app = run(document, {
-  loadModule: (url, name) => import(url).then(m => m[name]),
-  resolveFrame: (src) => fetch(src).then(r => r.text()),
+let app = run({
+  loadModule: (moduleUrl, exportName) => import(moduleUrl).then((mod) => mod[exportName]),
+  resolveFrame: async (src, signal) => {
+    let response = await fetch(src, { headers: { accept: 'text/html' }, signal })
+    return response.body ?? (await response.text())
+  },
 })
 ```
 
@@ -626,28 +634,37 @@ return render({ title: 'AI Investor', session, currentPage: 'portfolio', body })
 
 ---
 
-## DOM Event Handling — `remix/interaction`
+## DOM Event Handling via `remix/component`
 
-Type-safe event listeners with async re-entry protection.
+The current GitHub docs place component event helpers on `remix/component`, not on a separate `remix/interaction` package.
+
+Use `on()` mixins on elements rendered by Remix components:
 
 ```ts
-import { on, createContainer } from 'remix/interaction'
-import { press, longPress } from 'remix/interaction/press'
+import { on } from 'remix/component'
 
-// Add listeners
-on(button, {
-  click: (event) => console.log('clicked'),
-  [press](event) { navigate(button.href) },
-  [longPress](event) { event.preventDefault(); showMenu() },
-})
+function SearchInput(handle: Handle) {
+  let query = ''
 
-// Async with abort signal (aborted on re-entry)
-on(input, {
-  async input(event, signal) {
-    let results = await fetch(`/search?q=${event.currentTarget.value}`, { signal })
-    updateResults(await results.json())
-  },
-})
+  return () => (
+    <input
+      type="text"
+      value={query}
+      mix={[
+        on('input', async (event, signal) => {
+          query = event.currentTarget.value
+          handle.update()
+
+          let response = await fetch(`/search?q=${query}`, { signal })
+          let results = await response.json()
+          if (signal.aborted) return
+
+          updateResults(results)
+        }),
+      ]}
+    />
+  )
+}
 ```
 
 ---
@@ -829,15 +846,14 @@ Parse `FormData` once globally rather than in each handler.
 | `remix/compression-middleware` | ✅ | `compression()` in production middleware stack |
 | `form()` shorthand | ✅ | guidelines routes use `form('guidelines')` |
 | `remix/headers` | ❌ | Not used yet |
-| `remix/component` | ✅ | JSX page components (PortfolioPage, GuidelinesPage, etc.), shared layout (AppTopBar, Sidebar), clientEntry islands |
+| `remix/component` | ✅ | JSX page components, `clientEntry` islands, and the documented home for `on()` event mixins |
 | `remix/component/server` | ✅ | `renderToStream()` — full document; `renderToString()` for interaction scripts |
-| `remix/interaction` | ❌ | Using vanilla JS in island files |
 | `resources()` shorthand | ❌ | No RESTful resource collections yet |
 
 ### What still could be added (future opportunities)
 
 1. **`remix/static-middleware` (expand scope for Tailwind)** — `app/styles/tailwind.css` exists locally but the pages load Tailwind from the public CDN. Expanding to serve a compiled CSS file requires adding a Tailwind CLI build step to the project (compile `tailwind.css` → `tailwind.built.css`, then serve it via `staticFiles`).
 
-2. **`remix/interaction`** — island files use plain `addEventListener`. `remix/interaction`'s `on()` helper adds type-safe async re-entry protection for free.
+2. **`remix/component` event mixins** — interactive components can adopt the documented `on()` mixin pattern instead of manual `addEventListener` wiring where that would simplify cleanup and async interruption handling.
 
 3. **`resources()` shorthand** — if more RESTful resource collections are added in the future, prefer `resources('name', { only: [...] })` over manual route declarations.

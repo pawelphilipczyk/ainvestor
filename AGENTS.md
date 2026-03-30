@@ -59,6 +59,13 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 - For all JS/TS/CSS formatting and lint rules, `docs/BIOME_RULES.md` is the reference. Run `npm run check` before committing.
 - ClientEntry components that are feature-specific live next to the feature (`.component.js` suffix). Shared clientEntry components live in `app/components/`.
 
+## Pattern capture rule
+
+- When a pattern starts appearing across multiple changes, features, or files, do not treat it as a one-off. Call it out proactively and suggest a reusable rule, helper, component, naming convention, or documentation update.
+- Prefer suggesting patterns as soon as repetition is visible, even if the current task only implements one more instance of that pattern.
+- If a repeated approach is specific to UI work, document it in `docs/UI_ARCHITECTURE_GUIDELINES.md`. If it is specific to style or naming, document it in `docs/BIOME_RULES.md` or this file as appropriate.
+- Keep suggestions concrete: explain the repeated behavior, the proposed rule, and where the source of truth should live.
+
 ## Function signature rule
 
 - **Functions with more than 2 arguments:** Prefer a single object parameter instead of multiple positional parameters. Example: `render({ title, session, currentPage, body, init })` instead of `render(title, session, currentPage, body, init)`.

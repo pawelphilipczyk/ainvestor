@@ -55,6 +55,78 @@ The UI must remain usable if JavaScript fails.
 
 ---
 
+## Emerging Project Patterns
+
+These patterns have repeated across recent UI work and should now be treated as defaults unless a feature has a clear reason to diverge.
+
+### 1. Extract a shared primitive on the second use
+
+When a layout, control, or interaction appears in a second feature, prefer extracting it instead of copying it again.
+
+Good extraction targets include:
+
+- shared presentational shells such as cards, labels, and navigation controls
+- shared interaction helpers such as dialog triggers or submit-state handling
+- shared formatting and display helpers that keep feature pages thin
+
+Keep a pattern local while it is truly feature-specific. Move it into `app/components/` or `app/lib/` once reuse is real, not hypothetical.
+
+### 2. Keep the action attached to the thing it changes
+
+Forms, tabs, busy states, validation messages, and row actions should stay physically close to the data they affect.
+
+Prefer:
+
+- tabs attached to the card or section they switch
+- inline actions inside the row or card being edited
+- loading and error feedback inside the form that initiated the request
+
+Avoid detached controls that force the user to scan elsewhere to understand what is being changed.
+
+### 3. Prefer inline editing for small, high-frequency changes
+
+If a user is adjusting a single value on an existing row or card, default to inline edit affordances before introducing a separate page or modal flow.
+
+Inline editing is a good fit for:
+
+- numeric adjustments
+- renaming or relabeling one field
+- quick corrections on an existing list item
+
+Use a dialog or separate flow when the action is destructive, multi-step, or needs substantially more context.
+
+### 4. Use native interaction contracts with thin hooks
+
+Keep markup semantic and let small enhancement hooks attach behavior.
+
+Prefer:
+
+- native elements such as `<dialog>`, `<form>`, and `<button>`
+- stable `data-*` attributes to connect behavior to markup
+- tiny shared helpers when multiple features need the same browser behavior
+
+Avoid feature-specific JavaScript conventions when a simple shared attribute contract will do.
+
+### 5. Keep display copy and derived labels server-owned
+
+User-visible text should continue to originate from locale keys or server-side helpers, not ad-hoc strings inside client behavior.
+
+This includes:
+
+- button labels and busy text
+- tab labels and section intros
+- derived labels such as ETF type names
+
+If browser-only code must show copy, pass the smallest possible server-generated message payload into it.
+
+### 6. Let shared rules live in one helper
+
+When formatting, deduplication, validation, or labeling rules start affecting more than one feature, move them to a single helper and have features call into that source of truth.
+
+This keeps pages focused on composition and prevents subtle drift between similar screens.
+
+---
+
 ## Styling Strategy
 
 ### Tailwind CSS
@@ -360,9 +432,8 @@ This architecture aligns with the packages available in `remix@next`. Key Remix 
 | `remix/response/html` | `createHtmlResponse()` — wraps HTML with proper headers |
 | `remix/response/redirect` | `createRedirectResponse()` — post-form redirect |
 | `remix/static-middleware` | Serve CSS, JS islands, and other static assets |
-| `remix/component` | JSX components for page bodies and shared UI; `clientEntry` for interactive islands |
+| `remix/component` | JSX components for page bodies and shared UI; `clientEntry`, `run()`, and event mixins such as `on()` |
 | `remix/component/server` | `renderToStream()` — full document streamed to response |
-| `remix/interaction` | Type-safe DOM events for islands (`on()`, `createContainer()`) |
 
 **Rendering:** All page bodies and the document shell are JSX. `render()` returns `createHtmlResponse(renderToStream(document))`. See `REMIX_V3_PACKAGES.md` for the component rendering pattern.
 
