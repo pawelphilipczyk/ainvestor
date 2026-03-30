@@ -445,13 +445,14 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 	})
 
-	it('shows sign-in link when not authenticated', async () => {
+	it('shows sign-in control when not authenticated', async () => {
 		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Sign in with GitHub/)
-		assert.match(body, /href="\/auth\/github"/)
+		assert.match(body, /action="\/auth\/github"/)
+		assert.match(body, /data-oauth-start/)
 	})
 
 	it('GET /fragments/portfolio-list returns ETF list HTML fragment', async () => {
