@@ -95,25 +95,31 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 							{t('portfolio.etf.save')}
 						</button>
 					</form>
-					<button
-						type="button"
-						class={portfolioRowSellButtonClass}
-						aria-label={format(t('portfolio.etf.removeAria'), {
-							name: props.name,
-						})}
+					<form
+						method="post"
+						action={props.deleteHref}
+						class="inline"
 						data-dialog-id={props.dialogId}
+						data-enhance-dialog=""
 					>
-						{t('portfolio.etf.sell')}
-					</button>
+						<input type="hidden" name="_method" value="DELETE" />
+						<button
+							type="submit"
+							class={portfolioRowSellButtonClass}
+							aria-label={format(t('portfolio.etf.removeAria'), {
+								name: props.name,
+							})}
+						>
+							{t('portfolio.etf.sell')}
+						</button>
+					</form>
 				</div>
 				<dialog
 					id={props.dialogId}
 					class="rounded-lg border border-border bg-card p-4 shadow-lg backdrop:bg-black/50"
 				>
-					<p class="mb-4 text-sm text-card-foreground">
-						{t('portfolio.etf.removeConfirmBefore')}
-						<strong>{props.name}</strong>
-						{t('portfolio.etf.removeConfirmAfter')}
+					<p class="mb-4 text-sm font-medium text-card-foreground">
+						{format(t('portfolio.etf.removeConfirm'), { name: props.name })}
 					</p>
 					<div class="flex justify-end gap-2">
 						<form method="dialog">

@@ -285,11 +285,13 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(homeBody, /VTI/)
 		assert.match(homeBody, /1[,.]?700/)
 		assert.match(homeBody, /USD/)
-		const removeDialogs = homeBody.match(/name="_method"\s+value="DELETE"/g)
+		const deleteMethodFields = homeBody.match(
+			/name="_method"\s+value="DELETE"/g,
+		)
 		assert.equal(
-			removeDialogs?.length ?? 0,
-			1,
-			'should have exactly one removable ETF holding',
+			deleteMethodFields?.length ?? 0,
+			2,
+			'sell row POST + dialog confirm each include DELETE override',
 		)
 	})
 
@@ -345,6 +347,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(componentBody, /from 'remix\/interaction'/)
 		assert.match(componentBody, /ownerDocument/)
 		assert.match(componentBody, /on\(doc,/)
+		assert.match(
+			componentBody,
+			/data-enhance-dialog/,
+			'sell uses dialog enhancement on native DELETE form submit',
+		)
 	})
 
 	it('uses explicit readable colors for the sell confirmation cancel button', async () => {
