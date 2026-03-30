@@ -12,9 +12,9 @@ import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { routes } from '../../routes.ts'
 
 const guidelineSaveGhostClass =
-	'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground'
+	'inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent px-3 py-0 text-sm font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground'
 const guidelineRemoveGhostClass =
-	'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
+	'inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent px-3 py-0 text-sm font-normal text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
 
 /**
  * Renders the guidelines list and summary as HTML fragment for fetch-based form updates.
