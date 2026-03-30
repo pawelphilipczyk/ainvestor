@@ -29,16 +29,23 @@ import {
 import { AddEtfForm } from './add-etf-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
 
+const optionalWholeNumberQuantity = optional(
+	coerce
+		.number()
+		.pipe(min(0))
+		.refine((n) => Number.isInteger(n)),
+)
+
 export const CreateEtfSchema = object({
 	instrumentTicker: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
-	quantity: optional(coerce.number().pipe(min(0))),
+	quantity: optionalWholeNumberQuantity,
 })
 
 export const UpdatePortfolioEntrySchema = object({
 	value: coerce.number().pipe(min(0)),
-	quantity: optional(coerce.number().pipe(min(0))),
+	quantity: optionalWholeNumberQuantity,
 })
 
 /**
@@ -51,7 +58,13 @@ function normalizeEtfNumericFields(raw: Record<string, unknown>): void {
 		raw.value = parsed === null ? raw.value : String(parsed)
 	}
 	if (typeof raw.quantity === 'string') {
-		raw.quantity = raw.quantity.replace(/,/g, '')
+		const trimmed = raw.quantity.trim()
+		if (trimmed === '') {
+			delete raw.quantity
+		} else {
+			const parsed = parseLocaleDecimalString(trimmed)
+			raw.quantity = parsed === null ? raw.quantity : String(parsed)
+		}
 	}
 	if (raw.quantity === '') delete raw.quantity
 }
@@ -188,6 +201,13 @@ export const addEtfFormHandlers = {
 		formData: FormData | null
 		params: unknown
 	}) {
+		if (
+			context.params == null ||
+			typeof context.params !== 'object' ||
+			Array.isArray(context.params)
+		) {
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
 		const id = (context.params as Record<string, string>).id
 		if (!id) return createRedirectResponse(routes.portfolio.index.href())
 
@@ -210,17 +230,6 @@ export const addEtfFormHandlers = {
 		}
 
 		const { value, quantity } = result.value
-		if (quantity !== undefined && !Number.isInteger(quantity)) {
-			const message = t('errors.portfolio.updateInvalid')
-			if (prefersJson(context.request)) {
-				return new Response(JSON.stringify({ error: message }), {
-					status: 422,
-					headers: { 'Content-Type': 'application/json' },
-				})
-			}
-			context.session.flash('error', message)
-			return createRedirectResponse(routes.portfolio.index.href())
-		}
 
 		const session = getSessionData(context.session)
 		let current: EtfEntry[]
