@@ -1,10 +1,8 @@
 import type { Handle } from 'remix/component'
-
-const controlClasses =
-	'w-full rounded-md border border-input bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm'
-
-const compactControlClasses =
-	'h-9 rounded-md border border-input bg-background px-3 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm'
+import {
+	textNumberControlCompactClasses,
+	textNumberControlDefaultClasses,
+} from './form-control-classes.ts'
 
 /** Mirrors common `<input>` attributes (see MDN); `compact` is layout-only. */
 type TextInputProps = {
@@ -45,8 +43,13 @@ export function TextInput(_handle: Handle, _setup?: unknown) {
 			readOnly,
 		} = props
 		const inputType = typeProp ?? 'text'
-		const sizeClasses = compactProp ? compactControlClasses : controlClasses
-		const inputClasses = `${sizeClasses} ${classProp ?? ''}`.trim()
+		const sizeClasses = compactProp
+			? textNumberControlCompactClasses
+			: textNumberControlDefaultClasses
+		const searchAppearanceReset =
+			inputType === 'search' ? 'appearance-none' : ''
+		const inputClasses =
+			`${sizeClasses} ${searchAppearanceReset} ${classProp ?? ''}`.trim()
 		const valueAttr = value !== undefined ? { value } : {}
 
 		// Remix `AccessibleInputHTMLProps` discriminates on `type`; a single

@@ -29,23 +29,74 @@ import {
 import { AddEtfForm } from './add-etf-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
 
+const optionalWholeNumberQuantity = optional(
+	coerce
+		.number()
+		.pipe(min(0))
+		.refine((n) => Number.isInteger(n)),
+)
+
 export const CreateEtfSchema = object({
 	instrumentTicker: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
-	quantity: optional(coerce.number().pipe(min(0))),
+	quantity: optionalWholeNumberQuantity,
 })
 
-/** Treats empty strings as absent for optional fields (HTML forms submit "" when blank). */
-export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
+export const UpdatePortfolioEntrySchema = object({
+	value: coerce.number().pipe(min(0)),
+	quantity: optionalWholeNumberQuantity,
+})
+
+/**
+ * Parses locale-style `value` and cleans optional `quantity` on a form payload
+ * (HTML submits "" for empty optional fields).
+ */
+function normalizeEtfNumericFields(raw: Record<string, unknown>): void {
 	if (typeof raw.value === 'string') {
 		const parsed = parseLocaleDecimalString(raw.value)
 		raw.value = parsed === null ? raw.value : String(parsed)
 	}
 	if (typeof raw.quantity === 'string') {
-		raw.quantity = raw.quantity.replace(/,/g, '')
+		const trimmed = raw.quantity.trim()
+		if (trimmed === '') {
+			delete raw.quantity
+		} else {
+			const parsed = parseLocaleDecimalString(trimmed)
+			raw.quantity = parsed === null ? raw.quantity : String(parsed)
+		}
 	}
-	if (raw.quantity === '') delete raw.quantity
+}
+
+/** Treats empty strings as absent for optional fields (HTML forms submit "" when blank). */
+export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
+	normalizeEtfNumericFields(raw)
+}
+
+/** Normalizes value/quantity for updating an existing holding (same rules as add form). */
+export function normalizePortfolioUpdateInput(
+	raw: Record<string, unknown>,
+): void {
+	normalizeEtfNumericFields(raw)
+}
+
+function prefersJson(request: Request): boolean {
+	return request.headers.get('Accept')?.includes('application/json') ?? false
+}
+
+function portfolioPersistenceFailureResponse(params: {
+	request: Request
+	session: Session
+}) {
+	const message = t('errors.portfolio.persistence')
+	if (prefersJson(params.request)) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	params.session.flash('error', message)
+	return createRedirectResponse(routes.portfolio.index.href())
 }
 
 export { AddEtfForm, ListFragment }
@@ -65,10 +116,7 @@ export const addEtfFormHandlers = {
 		const result = parseSafe(CreateEtfSchema, formPayload)
 		if (!result.success) {
 			const message = t('errors.portfolio.addInvalid')
-			const prefersJson = context.request.headers
-				.get('Accept')
-				?.includes('application/json')
-			if (prefersJson) {
+			if (prefersJson(context.request)) {
 				return new Response(JSON.stringify({ error: message }), {
 					status: 422,
 					headers: { 'Content-Type': 'application/json' },
@@ -96,10 +144,7 @@ export const addEtfFormHandlers = {
 		const match = findCatalogEntryByTicker(catalog, instrumentTicker)
 		if (!match) {
 			const message = t('errors.portfolio.catalogEntryMissing')
-			const prefersJson = context.request.headers
-				.get('Accept')
-				?.includes('application/json')
-			if (prefersJson) {
+			if (prefersJson(context.request)) {
 				return new Response(
 					JSON.stringify({
 						error: message,
@@ -157,6 +202,97 @@ export const addEtfFormHandlers = {
 
 		if (session?.gistId && session.token) {
 			await saveEtfs(session.token, session.gistId, updated)
+		} else {
+			setGuestEtfs(context.session, updated)
+		}
+
+		return createRedirectResponse(routes.portfolio.index.href())
+	},
+
+	async update(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+		params: unknown
+	}) {
+		if (
+			context.params == null ||
+			typeof context.params !== 'object' ||
+			Array.isArray(context.params)
+		) {
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
+		const id = (context.params as Record<string, string>).id
+		if (!id) return createRedirectResponse(routes.portfolio.index.href())
+
+		const form = context.formData
+		if (!form) return createRedirectResponse(routes.portfolio.index.href())
+
+		const formPayload = objectFromFormData(form)
+		normalizePortfolioUpdateInput(formPayload)
+		const result = parseSafe(UpdatePortfolioEntrySchema, formPayload)
+		if (!result.success) {
+			const message = t('errors.portfolio.updateInvalid')
+			if (prefersJson(context.request)) {
+				return new Response(JSON.stringify({ error: message }), {
+					status: 422,
+					headers: { 'Content-Type': 'application/json' },
+				})
+			}
+			context.session.flash('error', message)
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
+
+		const { value, quantity } = result.value
+
+		const session = getSessionData(context.session)
+		let current: EtfEntry[]
+		if (session?.gistId && session.token) {
+			try {
+				current = await fetchEtfs(session.token, session.gistId)
+			} catch {
+				return portfolioPersistenceFailureResponse({
+					request: context.request,
+					session: context.session,
+				})
+			}
+		} else {
+			current = getGuestEtfs(context.session)
+		}
+
+		const index = current.findIndex((entry) => entry.id === id)
+		if (index < 0) {
+			const message = t('errors.portfolio.entryNotFound')
+			if (prefersJson(context.request)) {
+				return new Response(JSON.stringify({ error: message }), {
+					status: 422,
+					headers: { 'Content-Type': 'application/json' },
+				})
+			}
+			context.session.flash('error', message)
+			return createRedirectResponse(routes.portfolio.index.href())
+		}
+
+		const existing = current[index]
+		const updatedEntry: EtfEntry = { ...existing, value }
+		if (quantity !== undefined) {
+			updatedEntry.quantity = quantity
+		} else {
+			delete updatedEntry.quantity
+		}
+		const updated = current.map((entry, entryIndex) =>
+			entryIndex === index ? updatedEntry : entry,
+		)
+
+		if (session?.gistId && session.token) {
+			try {
+				await saveEtfs(session.token, session.gistId, updated)
+			} catch {
+				return portfolioPersistenceFailureResponse({
+					request: context.request,
+					session: context.session,
+				})
+			}
 		} else {
 			setGuestEtfs(context.session, updated)
 		}
