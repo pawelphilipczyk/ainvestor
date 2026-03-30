@@ -235,6 +235,8 @@ export const en = {
 		'Enter a valid value (number >= 0) and optional quantity (whole number >= 0).',
 	'errors.portfolio.entryNotFound':
 		'That holding is no longer in your portfolio.',
+	'errors.portfolio.persistence':
+		'Could not save your portfolio. Please try again in a moment.',
 
 	'errors.guidelines.totalExceeds100':
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',

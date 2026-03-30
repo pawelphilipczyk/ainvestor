@@ -84,6 +84,21 @@ function prefersJson(request: Request): boolean {
 	return request.headers.get('Accept')?.includes('application/json') ?? false
 }
 
+function portfolioPersistenceFailureResponse(params: {
+	request: Request
+	session: Session
+}) {
+	const message = t('errors.portfolio.persistence')
+	if (prefersJson(params.request)) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	params.session.flash('error', message)
+	return createRedirectResponse(routes.portfolio.index.href())
+}
+
 export { AddEtfForm, ListFragment }
 
 export const addEtfFormHandlers = {
@@ -233,7 +248,14 @@ export const addEtfFormHandlers = {
 		const session = getSessionData(context.session)
 		let current: EtfEntry[]
 		if (session?.gistId && session.token) {
-			current = await fetchEtfs(session.token, session.gistId)
+			try {
+				current = await fetchEtfs(session.token, session.gistId)
+			} catch {
+				return portfolioPersistenceFailureResponse({
+					request: context.request,
+					session: context.session,
+				})
+			}
 		} else {
 			current = getGuestEtfs(context.session)
 		}
@@ -263,7 +285,14 @@ export const addEtfFormHandlers = {
 		)
 
 		if (session?.gistId && session.token) {
-			await saveEtfs(session.token, session.gistId, updated)
+			try {
+				await saveEtfs(session.token, session.gistId, updated)
+			} catch {
+				return portfolioPersistenceFailureResponse({
+					request: context.request,
+					session: context.session,
+				})
+			}
 		} else {
 			setGuestEtfs(context.session, updated)
 		}
