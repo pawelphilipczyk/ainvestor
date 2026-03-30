@@ -45,18 +45,18 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						{props.identifier}
 					</span>
 				</div>
-				<div class="flex min-w-0 flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+				<div class="flex min-w-0 flex-col gap-2">
 					<form
 						method="post"
 						action={props.updateHref}
-						class="grid min-w-0 flex-1 gap-3 sm:grid-cols-2"
+						class="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-2"
 						data-fetch-submit
 						data-fragment-id="portfolio-list"
 						data-fragment-url={routes.portfolio.fragmentList.href()}
 						data-error-id={updateErrorId}
 					>
-						<div class="grid gap-2">
-							<FieldLabel fieldId={valueFieldId}>
+						<div class="grid w-auto shrink-0 gap-1">
+							<FieldLabel fieldId={valueFieldId} variant="filter">
 								{format(t('portfolio.etf.updateValueLabel'), {
 									currency: props.currency,
 								})}
@@ -64,7 +64,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 							<NumberInput
 								id={valueFieldId}
 								name="value"
-								class="w-full min-w-0"
+								class="!w-28 shrink-0 tabular-nums"
 								value={props.valueForInput}
 								required={true}
 								inputMode="decimal"
@@ -74,14 +74,14 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 								})}
 							/>
 						</div>
-						<div class="grid gap-2">
-							<FieldLabel fieldId={quantityFieldId}>
+						<div class="grid w-auto shrink-0 gap-1">
+							<FieldLabel fieldId={quantityFieldId} variant="filter">
 								{t('portfolio.etf.updateQuantityLabel')}
 							</FieldLabel>
 							<NumberInput
 								id={quantityFieldId}
 								name="quantity"
-								class="w-full min-w-0"
+								class="!w-20 shrink-0 tabular-nums"
 								value={props.quantityForInput}
 								inputMode="numeric"
 								pattern="[0-9]*"
@@ -90,15 +90,13 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 								})}
 							/>
 						</div>
-						<div class="sm:col-span-2">
-							<button type="submit" class={portfolioSaveGhostClass}>
-								{t('portfolio.etf.save')}
-							</button>
-						</div>
+						<button type="submit" class={portfolioSaveGhostClass}>
+							{t('portfolio.etf.save')}
+						</button>
 					</form>
 					<button
 						type="button"
-						class={`shrink-0 self-start sm:self-auto ${portfolioRemoveGhostClass}`}
+						class={`self-start ${portfolioRemoveGhostClass}`}
 						aria-label={format(t('portfolio.etf.removeAria'), {
 							name: props.name,
 						})}
