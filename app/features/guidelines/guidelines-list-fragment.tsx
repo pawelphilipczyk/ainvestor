@@ -11,10 +11,12 @@ import { format, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { routes } from '../../routes.ts'
 
-const guidelineSaveGhostClass =
-	'inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent px-3 py-0 text-sm font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground'
-const guidelineRemoveGhostClass =
-	'inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent px-3 py-0 text-sm font-normal text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
+const guidelineGhostBase =
+	'inline-flex h-10 min-h-10 shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent px-3 py-0 text-sm font-normal text-muted-foreground transition-colors'
+
+const guidelineSaveGhostClass = `${guidelineGhostBase} hover:bg-accent hover:text-accent-foreground`
+
+const guidelineRemoveGhostClass = `${guidelineGhostBase} hover:bg-destructive/10 hover:text-destructive`
 
 /**
  * Renders the guidelines list and summary as HTML fragment for fetch-based form updates.
