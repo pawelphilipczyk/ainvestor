@@ -43,6 +43,21 @@ function setSubmitButtonLoading(control, loading) {
 
 	if (!(control instanceof HTMLButtonElement)) return
 
+	const usesBusyOverlay = control.querySelector('.submit-button-busy-overlay')
+
+	if (usesBusyOverlay) {
+		if (loading) {
+			control.setAttribute('disabled', '')
+			control.setAttribute('aria-busy', 'true')
+			control.setAttribute('data-loading', '')
+		} else {
+			control.removeAttribute('data-loading')
+			control.removeAttribute('disabled')
+			control.removeAttribute('aria-busy')
+		}
+		return
+	}
+
 	const spinnerHost = document.getElementById(SPINNER_ICON_ID)
 
 	if (loading) {
