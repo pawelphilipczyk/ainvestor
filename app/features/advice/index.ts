@@ -1,7 +1,7 @@
 import { jsx } from 'remix/component/jsx-runtime'
 import type { Issue } from 'remix/data-schema'
 import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
-import type { Session } from 'remix/session'
+import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
@@ -13,6 +13,7 @@ import {
 } from '../../lib/guest-session-state.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
+import type { AppRequestContext } from '../../lib/request-context.ts'
 import {
 	getLayoutSession,
 	getSessionData,
@@ -96,216 +97,216 @@ export function setAdviceClient(client: AdviceClient | null) {
 // Controller
 // ---------------------------------------------------------------------------
 export const adviceController = {
-	async index(context: { request: Request; session: Session }) {
-		const layoutSession = getLayoutSession(context.session)
-		const pendingApproval = layoutSession?.approvalStatus === 'pending'
-		const activeTab = parseAdviceTabParam(context.request.url)
-		return renderAdviceResponse({
-			session: layoutSession,
-			props: {
-				pendingApproval,
-				analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
-				activeTab,
-			},
-		})
-	},
-
-	async action(context: {
-		request: Request
-		session: Session
-		formData: FormData | null
-	}) {
-		const session = getSessionData(context.session)
-		const layoutSession = getLayoutSession(context.session)
-		const pendingApproval = layoutSession?.approvalStatus === 'pending'
-		const activeTabFromUrl = parseAdviceTabParam(context.request.url)
-		const form = context.formData
-		if (!form) {
+	actions: {
+		async index(context: AppRequestContext) {
+			const layoutSession = getLayoutSession(context.get(Session))
+			const pendingApproval = layoutSession?.approvalStatus === 'pending'
+			const activeTab = parseAdviceTabParam(context.request.url)
 			return renderAdviceResponse({
 				session: layoutSession,
 				props: {
 					pendingApproval,
 					analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
-					activeTab: activeTabFromUrl,
-					formError: {
-						summary: t('errors.advice.formRead'),
-						detail: t('errors.advice.formReadDetail'),
-					},
+					activeTab,
 				},
-				init: { status: 400 },
 			})
-		}
+		},
 
-		const rawEntries = objectFromFormData(form)
-		const formPayload = {
-			...rawEntries,
-			cashAmount:
-				typeof rawEntries.cashAmount === 'string' ? rawEntries.cashAmount : '',
-			cashCurrency:
-				typeof rawEntries.cashCurrency === 'string' &&
-				rawEntries.cashCurrency.length > 0
-					? rawEntries.cashCurrency
-					: undefined,
-			adviceModel:
-				typeof rawEntries.adviceModel === 'string' &&
-				rawEntries.adviceModel.length > 0
-					? rawEntries.adviceModel
-					: undefined,
-			analysisMode:
-				typeof rawEntries.analysisMode === 'string' &&
-				rawEntries.analysisMode.length > 0
-					? rawEntries.analysisMode
-					: undefined,
-		}
-		const result = parseSafe(AdviceSchema, formPayload)
-		if (!result.success) {
-			const raw = form.get('cashAmount')
-			const cashAmount =
-				typeof raw === 'string' && raw.length > 0 ? raw : undefined
-			const rawCur = form.get('cashCurrency')
-			const cashCurrency =
-				typeof rawCur === 'string' && rawCur.length > 0 ? rawCur : 'PLN'
-			const rawModel = form.get('adviceModel')
-			const selectedModel =
-				typeof rawModel === 'string' &&
-				rawModel.length > 0 &&
-				(ADVICE_MODEL_IDS as readonly string[]).includes(rawModel)
-					? (rawModel as AdviceModelId)
-					: DEFAULT_ADVICE_MODEL
-			const rawMode = form.get('analysisMode')
-			const analysisMode =
-				typeof rawMode === 'string' &&
-				rawMode.length > 0 &&
-				(ADVICE_ANALYSIS_MODES as readonly string[]).includes(rawMode)
-					? (rawMode as AdviceAnalysisMode)
-					: DEFAULT_ADVICE_ANALYSIS_MODE
-			return renderAdviceResponse({
-				session: layoutSession,
-				props: {
-					pendingApproval,
+		async action(context: AppRequestContext) {
+			const session = getSessionData(context.get(Session))
+			const layoutSession = getLayoutSession(context.get(Session))
+			const pendingApproval = layoutSession?.approvalStatus === 'pending'
+			const activeTabFromUrl = parseAdviceTabParam(context.request.url)
+			const form = context.get(FormData)
+			if (!form) {
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: {
+						pendingApproval,
+						analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+						activeTab: activeTabFromUrl,
+						formError: {
+							summary: t('errors.advice.formRead'),
+							detail: t('errors.advice.formReadDetail'),
+						},
+					},
+					init: { status: 400 },
+				})
+			}
+
+			const rawEntries = objectFromFormData(form)
+			const formPayload = {
+				...rawEntries,
+				cashAmount:
+					typeof rawEntries.cashAmount === 'string'
+						? rawEntries.cashAmount
+						: '',
+				cashCurrency:
+					typeof rawEntries.cashCurrency === 'string' &&
+					rawEntries.cashCurrency.length > 0
+						? rawEntries.cashCurrency
+						: undefined,
+				adviceModel:
+					typeof rawEntries.adviceModel === 'string' &&
+					rawEntries.adviceModel.length > 0
+						? rawEntries.adviceModel
+						: undefined,
+				analysisMode:
+					typeof rawEntries.analysisMode === 'string' &&
+					rawEntries.analysisMode.length > 0
+						? rawEntries.analysisMode
+						: undefined,
+			}
+			const result = parseSafe(AdviceSchema, formPayload)
+			if (!result.success) {
+				const raw = form.get('cashAmount')
+				const cashAmount =
+					typeof raw === 'string' && raw.length > 0 ? raw : undefined
+				const rawCur = form.get('cashCurrency')
+				const cashCurrency =
+					typeof rawCur === 'string' && rawCur.length > 0 ? rawCur : 'PLN'
+				const rawModel = form.get('adviceModel')
+				const selectedModel =
+					typeof rawModel === 'string' &&
+					rawModel.length > 0 &&
+					(ADVICE_MODEL_IDS as readonly string[]).includes(rawModel)
+						? (rawModel as AdviceModelId)
+						: DEFAULT_ADVICE_MODEL
+				const rawMode = form.get('analysisMode')
+				const analysisMode =
+					typeof rawMode === 'string' &&
+					rawMode.length > 0 &&
+					(ADVICE_ANALYSIS_MODES as readonly string[]).includes(rawMode)
+						? (rawMode as AdviceAnalysisMode)
+						: DEFAULT_ADVICE_ANALYSIS_MODE
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: {
+						pendingApproval,
+						cashAmount,
+						cashCurrency,
+						analysisMode,
+						activeTab: activeTabFromUrl,
+						selectedModel,
+						formError: {
+							summary: t('errors.advice.validation'),
+							detail: formatSchemaIssues(result.issues),
+						},
+					},
+					init: { status: 400 },
+				})
+			}
+			const {
+				cashAmount: rawCashAmount,
+				cashCurrency,
+				adviceModel,
+				analysisMode,
+			} = result.value
+			const trimmedCash = rawCashAmount.trim()
+			if (analysisMode === 'buy_next' && trimmedCash === '') {
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: {
+						pendingApproval,
+						cashAmount: rawCashAmount,
+						cashCurrency,
+						analysisMode,
+						activeTab: activeTabFromUrl,
+						selectedModel: adviceModel,
+						formError: {
+							summary: t('errors.advice.buyNextCashRequired'),
+						},
+					},
+					init: { status: 400 },
+				})
+			}
+			const cashAmount = trimmedCash
+
+			if (pendingApproval) {
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: {
+						pendingApproval: true,
+						cashAmount: rawCashAmount,
+						cashCurrency,
+						analysisMode,
+						activeTab: activeTabFromUrl,
+						selectedModel: adviceModel,
+						formError: {
+							summary: t('errors.advice.notApproved'),
+						},
+					},
+					init: { status: 403 },
+				})
+			}
+
+			const { entries, catalog } =
+				session?.gistId && session.token
+					? await fetchPortfolioSnapshot(session.token, session.gistId)
+					: {
+							entries: getGuestEtfs(context.get(Session)),
+							catalog: getGuestCatalog(context.get(Session)),
+						}
+			const guidelines =
+				session?.gistId && session.token
+					? await fetchGuidelines(session.token, session.gistId)
+					: getGuestGuidelines(context.get(Session))
+
+			try {
+				const client = adviceClient ?? createAdviceClient()
+				const advice = await getInvestmentAdvice({
+					holdings: entries,
+					guidelines,
 					cashAmount,
 					cashCurrency,
+					catalog,
+					client,
+					model: adviceModel,
 					analysisMode,
-					activeTab: activeTabFromUrl,
-					selectedModel,
-					formError: {
-						summary: t('errors.advice.validation'),
-						detail: formatSchemaIssues(result.issues),
+				})
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: {
+						pendingApproval,
+						...(analysisMode === 'portfolio_review'
+							? {}
+							: { cashAmount, cashCurrency }),
+						analysisMode,
+						activeTab: activeTabFromUrl,
+						lastAnalysisMode: analysisMode,
+						selectedModel: adviceModel,
+						advice,
 					},
-				},
-				init: { status: 400 },
-			})
-		}
-		const {
-			cashAmount: rawCashAmount,
-			cashCurrency,
-			adviceModel,
-			analysisMode,
-		} = result.value
-		const trimmedCash = rawCashAmount.trim()
-		if (analysisMode === 'buy_next' && trimmedCash === '') {
-			return renderAdviceResponse({
-				session: layoutSession,
-				props: {
-					pendingApproval,
-					cashAmount: rawCashAmount,
-					cashCurrency,
-					analysisMode,
-					activeTab: activeTabFromUrl,
-					selectedModel: adviceModel,
-					formError: {
-						summary: t('errors.advice.buyNextCashRequired'),
+				})
+			} catch (err) {
+				console.error('[advice] request failed', err)
+				const exposeStack = process.env.NODE_ENV !== 'production'
+				const detail =
+					err instanceof Error
+						? exposeStack
+							? `${err.message}\n${err.stack ?? ''}`.trim()
+							: err.message
+						: String(err)
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: {
+						pendingApproval,
+						...(analysisMode === 'portfolio_review'
+							? {}
+							: { cashAmount, cashCurrency }),
+						analysisMode,
+						activeTab: activeTabFromUrl,
+						lastAnalysisMode: analysisMode,
+						selectedModel: adviceModel,
+						formError: {
+							summary: t('errors.advice.service'),
+							detail,
+						},
 					},
-				},
-				init: { status: 400 },
-			})
-		}
-		const cashAmount = trimmedCash
-
-		if (pendingApproval) {
-			return renderAdviceResponse({
-				session: layoutSession,
-				props: {
-					pendingApproval: true,
-					cashAmount: rawCashAmount,
-					cashCurrency,
-					analysisMode,
-					activeTab: activeTabFromUrl,
-					selectedModel: adviceModel,
-					formError: {
-						summary: t('errors.advice.notApproved'),
-					},
-				},
-				init: { status: 403 },
-			})
-		}
-
-		const { entries, catalog } =
-			session?.gistId && session.token
-				? await fetchPortfolioSnapshot(session.token, session.gistId)
-				: {
-						entries: getGuestEtfs(context.session),
-						catalog: getGuestCatalog(context.session),
-					}
-		const guidelines =
-			session?.gistId && session.token
-				? await fetchGuidelines(session.token, session.gistId)
-				: getGuestGuidelines(context.session)
-
-		try {
-			const client = adviceClient ?? createAdviceClient()
-			const advice = await getInvestmentAdvice({
-				holdings: entries,
-				guidelines,
-				cashAmount,
-				cashCurrency,
-				catalog,
-				client,
-				model: adviceModel,
-				analysisMode,
-			})
-			return renderAdviceResponse({
-				session: layoutSession,
-				props: {
-					pendingApproval,
-					...(analysisMode === 'portfolio_review'
-						? {}
-						: { cashAmount, cashCurrency }),
-					analysisMode,
-					activeTab: activeTabFromUrl,
-					lastAnalysisMode: analysisMode,
-					selectedModel: adviceModel,
-					advice,
-				},
-			})
-		} catch (err) {
-			console.error('[advice] request failed', err)
-			const exposeStack = process.env.NODE_ENV !== 'production'
-			const detail =
-				err instanceof Error
-					? exposeStack
-						? `${err.message}\n${err.stack ?? ''}`.trim()
-						: err.message
-					: String(err)
-			return renderAdviceResponse({
-				session: layoutSession,
-				props: {
-					pendingApproval,
-					...(analysisMode === 'portfolio_review'
-						? {}
-						: { cashAmount, cashCurrency }),
-					analysisMode,
-					activeTab: activeTabFromUrl,
-					lastAnalysisMode: analysisMode,
-					selectedModel: adviceModel,
-					formError: {
-						summary: t('errors.advice.service'),
-						detail,
-					},
-				},
-				init: { status: 503 },
-			})
-		}
+					init: { status: 503 },
+				})
+			}
+		},
 	},
 }
 

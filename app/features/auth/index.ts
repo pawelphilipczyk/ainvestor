@@ -1,100 +1,103 @@
 import { createRedirectResponse } from 'remix/response/redirect'
-import type { Session } from 'remix/session'
+import { Session } from 'remix/session'
 import { isGithubLoginApproved } from '../../lib/approved-users.ts'
 import { getClientId, getClientSecret } from '../../lib/auth.ts'
 import { findOrCreateGist } from '../../lib/gist.ts'
+import type { AppRequestContext } from '../../lib/request-context.ts'
 import { routes } from '../../routes.ts'
 
 export const authController = {
-	async login() {
-		const clientId = getClientId()
-		if (!clientId) {
-			return new Response('GH_CLIENT_ID is not configured', { status: 500 })
-		}
-		const params = new URLSearchParams({ client_id: clientId, scope: 'gist' })
-		return createRedirectResponse(
-			`https://github.com/login/oauth/authorize?${params}`,
-		)
-	},
-
-	async callback(context: { request: Request; session: Session }) {
-		const url = new URL(context.request.url)
-		const code = url.searchParams.get('code')
-		if (!code) return createRedirectResponse(routes.home.index.href())
-
-		const tokenRes = await fetch(
-			'https://github.com/login/oauth/access_token',
-			{
-				method: 'POST',
-				headers: {
-					Accept: 'application/json',
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({
-					client_id: getClientId(),
-					client_secret: getClientSecret(),
-					code,
-				}),
-			},
-		)
-
-		if (!tokenRes.ok) return createRedirectResponse(routes.home.index.href())
-		const tokenData = (await tokenRes.json()) as {
-			access_token?: string
-			error?: string
-		}
-		const token = tokenData.access_token
-		if (!token) return createRedirectResponse(routes.home.index.href())
-
-		const userRes = await fetch('https://api.github.com/user', {
-			headers: {
-				Authorization: `Bearer ${token}`,
-				Accept: 'application/vnd.github+json',
-			},
-		})
-		const userJson = (await userRes.json()) as {
-			login?: string
-			message?: string
-		}
-		const login =
-			typeof userJson.login === 'string' && userJson.login.length > 0
-				? userJson.login
-				: null
-
-		if (!userRes.ok || !login) {
-			console.error(
-				'[auth] GitHub user fetch failed',
-				userRes.status,
-				userJson.message ?? userJson,
+	actions: {
+		async login() {
+			const clientId = getClientId()
+			if (!clientId) {
+				return new Response('GH_CLIENT_ID is not configured', { status: 500 })
+			}
+			const params = new URLSearchParams({ client_id: clientId, scope: 'gist' })
+			return createRedirectResponse(
+				`https://github.com/login/oauth/authorize?${params}`,
 			)
-			context.session.regenerateId()
-			context.session.unset('token')
-			context.session.unset('gistId')
-			context.session.unset('login')
-			context.session.unset('approvalStatus')
+		},
+
+		async callback(context: AppRequestContext) {
+			const url = new URL(context.request.url)
+			const code = url.searchParams.get('code')
+			if (!code) return createRedirectResponse(routes.home.index.href())
+
+			const tokenRes = await fetch(
+				'https://github.com/login/oauth/access_token',
+				{
+					method: 'POST',
+					headers: {
+						Accept: 'application/json',
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({
+						client_id: getClientId(),
+						client_secret: getClientSecret(),
+						code,
+					}),
+				},
+			)
+
+			if (!tokenRes.ok) return createRedirectResponse(routes.home.index.href())
+			const tokenData = (await tokenRes.json()) as {
+				access_token?: string
+				error?: string
+			}
+			const token = tokenData.access_token
+			if (!token) return createRedirectResponse(routes.home.index.href())
+
+			const userRes = await fetch('https://api.github.com/user', {
+				headers: {
+					Authorization: `Bearer ${token}`,
+					Accept: 'application/vnd.github+json',
+				},
+			})
+			const userJson = (await userRes.json()) as {
+				login?: string
+				message?: string
+			}
+			const login =
+				typeof userJson.login === 'string' && userJson.login.length > 0
+					? userJson.login
+					: null
+
+			if (!userRes.ok || !login) {
+				console.error(
+					'[auth] GitHub user fetch failed',
+					userRes.status,
+					userJson.message ?? userJson,
+				)
+				context.get(Session).regenerateId()
+				context.get(Session).unset('token')
+				context.get(Session).unset('gistId')
+				context.get(Session).unset('login')
+				context.get(Session).unset('approvalStatus')
+				return createRedirectResponse(routes.home.index.href())
+			}
+
+			context.get(Session).regenerateId()
+			context.get(Session).set('login', login)
+
+			if (!isGithubLoginApproved(login)) {
+				context.get(Session).unset('token')
+				context.get(Session).unset('gistId')
+				context.get(Session).set('approvalStatus', 'pending')
+				return createRedirectResponse(routes.home.index.href())
+			}
+
+			const gistId = await findOrCreateGist(token)
+			context.get(Session).set('token', token)
+			context.get(Session).set('gistId', gistId)
+			context.get(Session).unset('approvalStatus')
+
 			return createRedirectResponse(routes.home.index.href())
-		}
+		},
 
-		context.session.regenerateId()
-		context.session.set('login', login)
-
-		if (!isGithubLoginApproved(login)) {
-			context.session.unset('token')
-			context.session.unset('gistId')
-			context.session.set('approvalStatus', 'pending')
+		logout(context: AppRequestContext) {
+			context.get(Session).destroy()
 			return createRedirectResponse(routes.home.index.href())
-		}
-
-		const gistId = await findOrCreateGist(token)
-		context.session.set('token', token)
-		context.session.set('gistId', gistId)
-		context.session.unset('approvalStatus')
-
-		return createRedirectResponse(routes.home.index.href())
-	},
-
-	logout(context: { session: Session }) {
-		context.session.destroy()
-		return createRedirectResponse(routes.home.index.href())
+		},
 	},
 }

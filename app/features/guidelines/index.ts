@@ -6,7 +6,7 @@ import { max, min } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
-import type { Session } from 'remix/session'
+import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import {
@@ -27,6 +27,7 @@ import {
 } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { parseLocaleDecimalString } from '../../lib/locale-decimal-input.ts'
+import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
@@ -328,204 +329,190 @@ async function updateGuidelineTarget(params: {
 // Controller
 // ---------------------------------------------------------------------------
 export const guidelinesController = {
-	async index(context: { request: Request; session: Session }) {
-		const session = getSessionData(context.session)
-		const layoutSession = getLayoutSession(context.session)
-		const flashError = context.session.get('error') as string | undefined
-		const activeAddTab = normalizeGuidelinesAddTab(
-			new URL(context.request.url).searchParams.get('tab'),
-		)
-		const [guidelines, catalog] = await Promise.all([
-			session?.gistId && session.token
-				? fetchGuidelines(session.token, session.gistId)
-				: getGuestGuidelines(context.session),
-			session?.gistId && session.token
-				? fetchCatalog(session.token, session.gistId)
-				: getGuestCatalog(context.session),
-		])
-		return renderGuidelinesPage({
-			guidelines,
-			session: layoutSession,
-			catalog,
-			flashError,
-			activeAddTab,
-		})
-	},
-
-	async instrument(context: {
-		request: Request
-		session: Session
-		formData: FormData | null
-	}) {
-		const form = context.formData
-		if (!form) return createRedirectResponse(guidelinesIndexHref('instrument'))
-
-		const formPayload = objectFromFormData(form)
-		normalizeGuidelineTargetPctInput(formPayload)
-		const result = parseSafe(InstrumentGuidelineSchema, formPayload)
-		if (!result.success) {
-			return createRedirectResponse(guidelinesIndexHref('instrument'))
-		}
-
-		const session = getSessionData(context.session)
-		const catalog =
-			session?.gistId && session.token
-				? await fetchCatalog(session.token, session.gistId)
-				: getGuestCatalog(context.session)
-
-		const ticker = (result.value.instrumentTicker ?? '').trim()
-		if (!ticker) {
-			return createRedirectResponse(guidelinesIndexHref('instrument'))
-		}
-		const match = findCatalogEntryByTicker(catalog, ticker)
-		if (!match) {
-			return createRedirectResponse(guidelinesIndexHref('instrument'))
-		}
-
-		const { targetPct } = result.value
-		const entry: EtfGuideline = {
-			id: crypto.randomUUID(),
-			kind: 'instrument',
-			etfName: match.ticker,
-			targetPct,
-			etfType: match.type,
-		}
-
-		const capError = await persistGuideline({
-			entry,
-			session,
-			remixSession: context.session,
-			request: context.request,
-			addTab: 'instrument',
-		})
-		if (capError) return capError
-		return createRedirectResponse(guidelinesIndexHref('instrument'))
-	},
-
-	async assetClass(context: {
-		request: Request
-		session: Session
-		formData: FormData | null
-	}) {
-		const form = context.formData
-		if (!form) return createRedirectResponse(guidelinesIndexHref('bucket'))
-
-		const formPayload = objectFromFormData(form)
-		normalizeGuidelineTargetPctInput(formPayload)
-		const result = parseSafe(AssetClassGuidelineSchema, formPayload)
-		if (!result.success) {
-			return createRedirectResponse(guidelinesIndexHref('bucket'))
-		}
-
-		const session = getSessionData(context.session)
-		const catalog =
-			session?.gistId && session.token
-				? await fetchCatalog(session.token, session.gistId)
-				: getGuestCatalog(context.session)
-		const allowedAssetClasses = new Set(
-			assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
-		)
-
-		const raw = (result.value.assetClassType ?? '').trim()
-		if (!raw || !isEtfType(raw) || !allowedAssetClasses.has(raw)) {
-			return createRedirectResponse(guidelinesIndexHref('bucket'))
-		}
-
-		const { targetPct } = result.value
-		const entry: EtfGuideline = {
-			id: crypto.randomUUID(),
-			kind: 'asset_class',
-			etfName: '',
-			targetPct,
-			etfType: raw,
-		}
-
-		const capError = await persistGuideline({
-			entry,
-			session,
-			remixSession: context.session,
-			request: context.request,
-			addTab: 'bucket',
-		})
-		if (capError) return capError
-		return createRedirectResponse(guidelinesIndexHref('bucket'))
-	},
-
-	async updateTarget(context: {
-		request: Request
-		session: Session
-		formData: FormData | null
-		params: unknown
-	}) {
-		const id = (context.params as Record<string, string>).id
-		if (!id) return createRedirectResponse(routes.guidelines.index.href())
-
-		const form = context.formData
-		if (!form) return createRedirectResponse(routes.guidelines.index.href())
-
-		const formPayload = objectFromFormData(form)
-		normalizeGuidelineTargetPctInput(formPayload)
-		const result = parseSafe(UpdateGuidelineTargetSchema, formPayload)
-		if (!result.success) {
-			return guidelinesUpdateSchemaValidationResponse({
-				request: context.request,
-				session: context.session,
-				issues: result.issues,
+	actions: {
+		async index(context: AppRequestContext) {
+			const session = getSessionData(context.get(Session))
+			const layoutSession = getLayoutSession(context.get(Session))
+			const flashError = context.get(Session).get('error') as string | undefined
+			const activeAddTab = normalizeGuidelinesAddTab(
+				new URL(context.request.url).searchParams.get('tab'),
+			)
+			const [guidelines, catalog] = await Promise.all([
+				session?.gistId && session.token
+					? fetchGuidelines(session.token, session.gistId)
+					: getGuestGuidelines(context.get(Session)),
+				session?.gistId && session.token
+					? fetchCatalog(session.token, session.gistId)
+					: getGuestCatalog(context.get(Session)),
+			])
+			return renderGuidelinesPage({
+				guidelines,
+				session: layoutSession,
+				catalog,
+				flashError,
+				activeAddTab,
 			})
-		}
+		},
 
-		const session = getSessionData(context.session)
-		const persistError = await updateGuidelineTarget({
-			id,
-			newPct: result.value.targetPct,
-			session,
-			remixSession: context.session,
-			request: context.request,
-		})
-		if (persistError) return persistError
+		async instrument(context: AppRequestContext) {
+			const form = context.get(FormData)
+			if (!form)
+				return createRedirectResponse(guidelinesIndexHref('instrument'))
 
-		return createRedirectResponse(routes.guidelines.index.href())
-	},
+			const formPayload = objectFromFormData(form)
+			normalizeGuidelineTargetPctInput(formPayload)
+			const result = parseSafe(InstrumentGuidelineSchema, formPayload)
+			if (!result.success) {
+				return createRedirectResponse(guidelinesIndexHref('instrument'))
+			}
 
-	async delete(context: {
-		request: Request
-		session: Session
-		params: unknown
-	}) {
-		const id = (context.params as Record<string, string>).id
-		if (!id) return createRedirectResponse(routes.guidelines.index.href())
+			const session = getSessionData(context.get(Session))
+			const catalog =
+				session?.gistId && session.token
+					? await fetchCatalog(session.token, session.gistId)
+					: getGuestCatalog(context.get(Session))
 
-		const session = getSessionData(context.session)
+			const ticker = (result.value.instrumentTicker ?? '').trim()
+			if (!ticker) {
+				return createRedirectResponse(guidelinesIndexHref('instrument'))
+			}
+			const match = findCatalogEntryByTicker(catalog, ticker)
+			if (!match) {
+				return createRedirectResponse(guidelinesIndexHref('instrument'))
+			}
 
-		if (session?.gistId && session.token) {
-			const current = await fetchGuidelines(session.token, session.gistId)
-			await saveGuidelines(
-				session.token,
-				session.gistId,
-				current.filter((g) => g.id !== id),
+			const { targetPct } = result.value
+			const entry: EtfGuideline = {
+				id: crypto.randomUUID(),
+				kind: 'instrument',
+				etfName: match.ticker,
+				targetPct,
+				etfType: match.type,
+			}
+
+			const capError = await persistGuideline({
+				entry,
+				session,
+				remixSession: context.get(Session),
+				request: context.request,
+				addTab: 'instrument',
+			})
+			if (capError) return capError
+			return createRedirectResponse(guidelinesIndexHref('instrument'))
+		},
+
+		async assetClass(context: AppRequestContext) {
+			const form = context.get(FormData)
+			if (!form) return createRedirectResponse(guidelinesIndexHref('bucket'))
+
+			const formPayload = objectFromFormData(form)
+			normalizeGuidelineTargetPctInput(formPayload)
+			const result = parseSafe(AssetClassGuidelineSchema, formPayload)
+			if (!result.success) {
+				return createRedirectResponse(guidelinesIndexHref('bucket'))
+			}
+
+			const session = getSessionData(context.get(Session))
+			const catalog =
+				session?.gistId && session.token
+					? await fetchCatalog(session.token, session.gistId)
+					: getGuestCatalog(context.get(Session))
+			const allowedAssetClasses = new Set(
+				assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
 			)
-		} else {
-			setGuestGuidelines(
-				context.session,
-				getGuestGuidelines(context.session).filter((g) => g.id !== id),
+
+			const raw = (result.value.assetClassType ?? '').trim()
+			if (!raw || !isEtfType(raw) || !allowedAssetClasses.has(raw)) {
+				return createRedirectResponse(guidelinesIndexHref('bucket'))
+			}
+
+			const { targetPct } = result.value
+			const entry: EtfGuideline = {
+				id: crypto.randomUUID(),
+				kind: 'asset_class',
+				etfName: '',
+				targetPct,
+				etfType: raw,
+			}
+
+			const capError = await persistGuideline({
+				entry,
+				session,
+				remixSession: context.get(Session),
+				request: context.request,
+				addTab: 'bucket',
+			})
+			if (capError) return capError
+			return createRedirectResponse(guidelinesIndexHref('bucket'))
+		},
+
+		async updateTarget(context: AppRequestContext) {
+			const id = (context.params as Record<string, string>).id
+			if (!id) return createRedirectResponse(routes.guidelines.index.href())
+
+			const form = context.get(FormData)
+			if (!form) return createRedirectResponse(routes.guidelines.index.href())
+
+			const formPayload = objectFromFormData(form)
+			normalizeGuidelineTargetPctInput(formPayload)
+			const result = parseSafe(UpdateGuidelineTargetSchema, formPayload)
+			if (!result.success) {
+				return guidelinesUpdateSchemaValidationResponse({
+					request: context.request,
+					session: context.get(Session),
+					issues: result.issues,
+				})
+			}
+
+			const session = getSessionData(context.get(Session))
+			const persistError = await updateGuidelineTarget({
+				id,
+				newPct: result.value.targetPct,
+				session,
+				remixSession: context.get(Session),
+				request: context.request,
+			})
+			if (persistError) return persistError
+
+			return createRedirectResponse(routes.guidelines.index.href())
+		},
+
+		async delete(context: AppRequestContext) {
+			const id = (context.params as Record<string, string>).id
+			if (!id) return createRedirectResponse(routes.guidelines.index.href())
+
+			const session = getSessionData(context.get(Session))
+
+			if (session?.gistId && session.token) {
+				const current = await fetchGuidelines(session.token, session.gistId)
+				await saveGuidelines(
+					session.token,
+					session.gistId,
+					current.filter((g) => g.id !== id),
+				)
+			} else {
+				setGuestGuidelines(
+					context.get(Session),
+					getGuestGuidelines(context.get(Session)).filter((g) => g.id !== id),
+				)
+			}
+
+			return createRedirectResponse(routes.guidelines.index.href())
+		},
+
+		async fragmentList(context: AppRequestContext) {
+			const session = getSessionData(context.get(Session))
+			const guidelines =
+				session?.gistId && session.token
+					? await fetchGuidelines(session.token, session.gistId)
+					: getGuestGuidelines(context.get(Session))
+			const html = await renderToString(
+				jsx(GuidelinesListFragment, { guidelines }),
 			)
-		}
-
-		return createRedirectResponse(routes.guidelines.index.href())
-	},
-
-	async fragmentList(context: { request: Request; session: Session }) {
-		const session = getSessionData(context.session)
-		const guidelines =
-			session?.gistId && session.token
-				? await fetchGuidelines(session.token, session.gistId)
-				: getGuestGuidelines(context.session)
-		const html = await renderToString(
-			jsx(GuidelinesListFragment, { guidelines }),
-		)
-		return createHtmlResponse(html, {
-			headers: { 'Cache-Control': 'no-store' },
-		})
+			return createHtmlResponse(html, {
+				headers: { 'Cache-Control': 'no-store' },
+			})
+		},
 	},
 }
 

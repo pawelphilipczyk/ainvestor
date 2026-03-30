@@ -131,12 +131,12 @@ describe('remix component runtime in document', () => {
 		const body = await response.text()
 		assert.match(body, /id="page-content"[^>]*\bmin-w-0\b[^>]*\bmd:ml-64\b/)
 	})
-	it('GET /entry.js returns bootstrap with run(document, ...)', async () => {
+	it('GET /entry.js returns bootstrap with run({ loadModule })', async () => {
 		const response = await router.fetch('http://localhost/entry.js')
 		assert.equal(response.status, 200)
 		const body = await response.text()
 		assert.match(body, /import \{ run \} from 'remix\/component'/)
-		assert.match(body, /run\(document, \{/)
+		assert.match(body, /run\(\{/)
 		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
 	})
 })
@@ -157,15 +157,15 @@ describe('sidebar component entry static file', () => {
 		assert.equal(response.status, 404)
 	})
 
-	it('sidebar component entry uses remix component + interaction APIs', async () => {
+	it('sidebar component entry uses remix component event listeners', async () => {
 		const response = await router.fetch(
 			'http://localhost/components/sidebar.component.js',
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
 		assert.match(body, /from 'remix\/component'/)
-		assert.match(body, /from 'remix\/interaction'/)
+		assert.match(body, /addEventListeners/)
 		assert.match(body, /ownerDocument/)
-		assert.match(body, /on\(doc,/)
+		assert.match(body, /addEventListeners\(doc,/)
 	})
 })
