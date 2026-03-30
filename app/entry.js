@@ -5,7 +5,7 @@
  */
 import { run } from 'remix/component'
 
-run(document, {
+run({
 	async loadModule(moduleUrl, exportName) {
 		const loadedModule = await import(moduleUrl)
 		const loaded = loadedModule[exportName]

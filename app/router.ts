@@ -1,9 +1,9 @@
 import { compression } from 'remix/compression-middleware'
-import { createRouter } from 'remix/fetch-router'
+import { createRouter, type Middleware } from 'remix/fetch-router'
 import { formData } from 'remix/form-data-middleware'
 import { logger } from 'remix/logger-middleware'
 import { methodOverride } from 'remix/method-override-middleware'
-import type { Session } from 'remix/session'
+import { Session } from 'remix/session'
 import { session } from 'remix/session-middleware'
 import { staticFiles } from 'remix/static-middleware'
 import { adviceController, setAdviceClient } from './features/advice/index.ts'
@@ -34,17 +34,12 @@ const appStatic = staticFiles('app', {
 const remixRuntime = staticFiles('node_modules', {
 	filter: (path) =>
 		path === 'remix/dist/component.js' ||
-		path === 'remix/dist/interaction.js' ||
-		path.startsWith('@remix-run/component/dist/') ||
-		path.startsWith('@remix-run/interaction/dist/'),
+		path.startsWith('@remix-run/component/dist/'),
 })
 
-function enforceGithubApproval() {
-	return async (
-		context: { session: Session },
-		next: () => Promise<Response>,
-	) => {
-		stripGithubTokenIfUnapproved(context.session)
+function enforceGithubApproval(): Middleware {
+	return async (context, next) => {
+		stripGithubTokenIfUnapproved(context.get(Session))
 		return next()
 	}
 }

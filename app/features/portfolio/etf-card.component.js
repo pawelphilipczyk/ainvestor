@@ -1,5 +1,4 @@
-import { clientEntry, createElement } from 'remix/component'
-import { on } from 'remix/interaction'
+import { addEventListeners, clientEntry, createElement } from 'remix/component'
 import { openDialogForTrigger } from '../../lib/dialog-trigger.js'
 
 export const EtfCardInteractions = clientEntry(
@@ -12,7 +11,7 @@ export const EtfCardInteractions = clientEntry(
 				'data-component': 'etf-card-interactions',
 				connect: (node, signal) => {
 					const doc = node.ownerDocument
-					const dispose = on(doc, {
+					addEventListeners(doc, signal, {
 						click(event) {
 							const target = event.target
 							if (!(target instanceof Element)) return
@@ -30,7 +29,6 @@ export const EtfCardInteractions = clientEntry(
 							openDialogForTrigger(form, doc)
 						},
 					})
-					signal.addEventListener('abort', dispose, { once: true })
 				},
 			})
 	},

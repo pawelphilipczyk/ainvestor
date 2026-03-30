@@ -1,5 +1,4 @@
-import { clientEntry, createElement } from 'remix/component'
-import { on } from 'remix/interaction'
+import { addEventListeners, clientEntry, createElement } from 'remix/component'
 
 const SPINNER_ICON_ID = 'form-spinner-icon'
 const CLIENT_MESSAGES_ID = 'ui-client-messages'
@@ -194,7 +193,7 @@ export const FetchSubmitEnhancement = clientEntry(
 				'data-component': 'fetch-submit-enhancement',
 				connect: (node, signal) => {
 					const doc = node.ownerDocument
-					const dispose = on(doc, {
+					addEventListeners(doc, signal, {
 						async submit(event) {
 							const form = event.target
 							if (
@@ -214,7 +213,6 @@ export const FetchSubmitEnhancement = clientEntry(
 							await handleFetchSubmit(form, submitBtn)
 						},
 					})
-					signal.addEventListener('abort', dispose, { once: true })
 				},
 			})
 	},
