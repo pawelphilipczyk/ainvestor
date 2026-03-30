@@ -61,6 +61,15 @@ export const portfolioController = {
 		return addEtfFormHandlers.create(context)
 	},
 
+	async update(context: {
+		request: Request
+		session: Session
+		formData: FormData | null
+		params: unknown
+	}) {
+		return addEtfFormHandlers.update(context)
+	},
+
 	async import(context: {
 		request: Request
 		session: Session

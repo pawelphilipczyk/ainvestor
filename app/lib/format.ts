@@ -9,3 +9,11 @@ export function formatValue(value: number, currency: string): string {
 		return `${value} ${currency}`
 	}
 }
+
+/** Plain number string for portfolio value inputs (matches locale decimal parsing output). */
+export function formatPortfolioValueForInput(value: number): string {
+	return new Intl.NumberFormat('en-US', {
+		maximumFractionDigits: 2,
+		useGrouping: false,
+	}).format(value)
+}
