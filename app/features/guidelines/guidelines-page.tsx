@@ -70,6 +70,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						<TabsNav
 							activeId={activeAddTab}
 							aria-label={t('guidelines.tabs.navAria')}
+							scrollGroupId="guidelines-add"
 						>
 							<TabLink id="bucket" href={bucketTabHref}>
 								{t('guidelines.bucket.title')}

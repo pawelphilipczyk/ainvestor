@@ -482,7 +482,11 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					</div>
 				) : null}
 				<div class="flex flex-col">
-					<TabsNav activeId={activeTab} aria-label={t('advice.tabs.navAria')}>
+					<TabsNav
+						activeId={activeTab}
+						aria-label={t('advice.tabs.navAria')}
+						scrollGroupId="advice-analysis"
+					>
 						<TabLink id="buy_next" href={buyNextHref}>
 							{t('advice.analysisMode.buy_next')}
 						</TabLink>
