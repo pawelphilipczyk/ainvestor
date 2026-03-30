@@ -12,6 +12,7 @@ import { NavigationLinkLoadingEnhancement } from './navigation-link-loading.comp
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
 import { getNavLinks } from './sidebar-nav.ts'
+import { TabsNavScrollRestoration } from './tabs-nav-scroll.component.js'
 
 const IMPORT_MAP = JSON.stringify({
 	imports: {
@@ -88,6 +89,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				</SessionProvider>
 				<FetchSubmitEnhancement />
 				<NavigationLinkLoadingEnhancement />
+				<TabsNavScrollRestoration />
 				<script type="module" src="/entry.js" />
 			</body>
 		</html>
