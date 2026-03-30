@@ -1,7 +1,8 @@
 import type { Handle } from 'remix/component'
-
-const controlClasses =
-	'w-full rounded-md border border-input bg-background px-3 py-2 text-base text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm'
+import {
+	selectControlCompactClasses,
+	selectControlDefaultClasses,
+} from './form-control-classes.ts'
 
 const selectWithChevronClasses = 'cursor-pointer appearance-none pr-10'
 
@@ -16,6 +17,8 @@ type SelectInputProps = {
 	multiple?: boolean
 	required?: boolean
 	size?: number
+	/** Layout density; matches {@link TextInput} `compact`. */
+	compact?: boolean
 	class?: string
 }
 
@@ -26,6 +29,7 @@ export function SelectInput(_handle: Handle, _setup?: unknown) {
 	return (props: SelectInputProps) => {
 		const {
 			class: classProp,
+			compact: compactProp,
 			options,
 			id,
 			name,
@@ -36,8 +40,11 @@ export function SelectInput(_handle: Handle, _setup?: unknown) {
 			required,
 			size,
 		} = props
+		const shellClasses = compactProp
+			? selectControlCompactClasses
+			: selectControlDefaultClasses
 		const selectClasses =
-			`${controlClasses} ${selectWithChevronClasses} ${classProp ?? ''}`.trim()
+			`${shellClasses} ${selectWithChevronClasses} ${classProp ?? ''}`.trim()
 		return (
 			<div class="relative w-full">
 				<select

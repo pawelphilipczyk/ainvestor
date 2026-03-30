@@ -193,6 +193,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								<SelectInput
 									id="type"
 									name="type"
+									compact={true}
 									options={[
 										{ value: '', label: t('catalog.filter.allTypes') },
 										...ETF_TYPES.map((etfType) => ({
@@ -217,7 +218,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									class="w-64"
 								/>
 							</div>
-							<SubmitButton class="!h-9 !w-auto shrink-0 !py-0 text-sm font-medium">
+							<SubmitButton compact={true} class="!w-auto shrink-0 font-medium">
 								{t('catalog.filter.submit')}
 							</SubmitButton>
 							{props.typeFilter || props.query ? (
