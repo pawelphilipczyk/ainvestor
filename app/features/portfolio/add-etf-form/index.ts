@@ -41,8 +41,11 @@ export const UpdatePortfolioEntrySchema = object({
 	quantity: optional(coerce.number().pipe(min(0))),
 })
 
-/** Treats empty strings as absent for optional fields (HTML forms submit "" when blank). */
-export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
+/**
+ * Parses locale-style `value` and cleans optional `quantity` on a form payload
+ * (HTML submits "" for empty optional fields).
+ */
+function normalizeEtfNumericFields(raw: Record<string, unknown>): void {
 	if (typeof raw.value === 'string') {
 		const parsed = parseLocaleDecimalString(raw.value)
 		raw.value = parsed === null ? raw.value : String(parsed)
@@ -53,18 +56,16 @@ export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
 	if (raw.quantity === '') delete raw.quantity
 }
 
+/** Treats empty strings as absent for optional fields (HTML forms submit "" when blank). */
+export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
+	normalizeEtfNumericFields(raw)
+}
+
 /** Normalizes value/quantity for updating an existing holding (same rules as add form). */
 export function normalizePortfolioUpdateInput(
 	raw: Record<string, unknown>,
 ): void {
-	if (typeof raw.value === 'string') {
-		const parsed = parseLocaleDecimalString(raw.value)
-		raw.value = parsed === null ? raw.value : String(parsed)
-	}
-	if (typeof raw.quantity === 'string') {
-		raw.quantity = raw.quantity.replace(/,/g, '')
-	}
-	if (raw.quantity === '') delete raw.quantity
+	normalizeEtfNumericFields(raw)
 }
 
 function prefersJson(request: Request): boolean {
@@ -88,10 +89,7 @@ export const addEtfFormHandlers = {
 		const result = parseSafe(CreateEtfSchema, formPayload)
 		if (!result.success) {
 			const message = t('errors.portfolio.addInvalid')
-			const prefersJson = context.request.headers
-				.get('Accept')
-				?.includes('application/json')
-			if (prefersJson) {
+			if (prefersJson(context.request)) {
 				return new Response(JSON.stringify({ error: message }), {
 					status: 422,
 					headers: { 'Content-Type': 'application/json' },
@@ -119,10 +117,7 @@ export const addEtfFormHandlers = {
 		const match = findCatalogEntryByTicker(catalog, instrumentTicker)
 		if (!match) {
 			const message = t('errors.portfolio.catalogEntryMissing')
-			const prefersJson = context.request.headers
-				.get('Accept')
-				?.includes('application/json')
-			if (prefersJson) {
+			if (prefersJson(context.request)) {
 				return new Response(
 					JSON.stringify({
 						error: message,
