@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import { t } from '../lib/i18n.ts'
 import { routes } from '../routes.ts'
 import { AppBranding } from './app-branding.tsx'
+import { Link } from './link.tsx'
 import { SessionProvider } from './session-provider.tsx'
 // @ts-expect-error TS7016 — runtime-only remix `clientEntry` (theme-toggle.component.js); `ThemeToggleButton` below is the SSR half of the same feature.
 import { ThemeToggleInteractions } from './theme-toggle.component.js'
@@ -30,12 +31,13 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 								) : null}
 							</span>
 						) : (
-							<a
+							<Link
 								href={routes.auth.login.href()}
+								navigationLoading={true}
 								class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 							>
 								{t('chrome.signIn')}
-							</a>
+							</Link>
 						)}
 						<ThemeToggleButton />
 						<button

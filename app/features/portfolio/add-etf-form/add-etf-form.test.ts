@@ -33,4 +33,31 @@ describe('CreateEtfSchema with optional field preprocessing', () => {
 			assert.equal(result.value.quantity, undefined)
 		}
 	})
+
+	it('rejects decimal quantity after locale normalization', () => {
+		const raw: Record<string, unknown> = {
+			instrumentTicker: 'VTI',
+			value: '1000',
+			currency: 'PLN',
+			quantity: '1,5',
+		}
+		normalizeAddEtfInput(raw)
+		const result = parseSafe(CreateEtfSchema, raw)
+		assert.equal(result.success, false)
+	})
+
+	it('parses quantity with thousands separator without corrupting decimals', () => {
+		const raw: Record<string, unknown> = {
+			instrumentTicker: 'VTI',
+			value: '1000',
+			currency: 'PLN',
+			quantity: '2,000',
+		}
+		normalizeAddEtfInput(raw)
+		const result = parseSafe(CreateEtfSchema, raw)
+		assert.equal(result.success, true, JSON.stringify(result))
+		if (result.success) {
+			assert.equal(result.value.quantity, 2000)
+		}
+	})
 })

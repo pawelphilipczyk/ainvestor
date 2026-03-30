@@ -1,7 +1,8 @@
 import type { Handle, Props } from 'remix/component'
-
-const controlClasses =
-	'w-full rounded-md border border-input bg-background px-3 py-2 text-base text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:text-sm'
+import {
+	textNumberControlCompactClasses,
+	textNumberControlDefaultClasses,
+} from './form-control-classes.ts'
 
 /** When `inputmode` is set without an explicit `pattern`, keep a minimal numeric constraint (browser + `checkValidity`). */
 const DEFAULT_PATTERN_FOR_INPUTMODE_NUMERIC = '[0-9]*'
@@ -21,7 +22,13 @@ function defaultPatternForInputMode(mode: string): string {
  * Spreads use a cast: Remix `Props<'input'>` is a discriminated union (e.g. `list` with combobox), so a generic rest bag does not narrow for TS.
  */
 export function NumberInput(_handle: Handle, _setup?: unknown) {
-	return (props: Omit<Props<'input'>, 'class'> & { class?: string }) => {
+	return (
+		props: Omit<Props<'input'>, 'class'> & {
+			class?: string
+			/** Layout density; matches {@link TextInput} `compact`. */
+			compact?: boolean
+		},
+	) => {
 		const {
 			type: typeProp,
 			min = 0,
@@ -29,12 +36,16 @@ export function NumberInput(_handle: Handle, _setup?: unknown) {
 			step = 'any',
 			autocomplete = 'off',
 			class: classProp,
+			compact: compactProp,
 			inputMode,
 			inputmode,
 			pattern: patternProp,
 			...rest
 		} = props
-		const inputClasses = `${controlClasses} ${classProp ?? ''}`.trim()
+		const sizeClasses = compactProp
+			? textNumberControlCompactClasses
+			: textNumberControlDefaultClasses
+		const inputClasses = `${sizeClasses} ${classProp ?? ''}`.trim()
 		const forwardInputMode = inputMode ?? inputmode
 
 		if (forwardInputMode !== undefined) {

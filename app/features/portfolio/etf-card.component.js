@@ -19,7 +19,15 @@ export const EtfCardInteractions = clientEntry(
 
 							const trigger = target.closest('[data-dialog-id]')
 							if (!(trigger instanceof HTMLElement)) return
+							if (trigger.hasAttribute('data-enhance-dialog')) return
 							openDialogForTrigger(trigger, doc)
+						},
+						submit(event) {
+							const form = event.target
+							if (!(form instanceof HTMLFormElement)) return
+							if (!form.hasAttribute('data-enhance-dialog')) return
+							event.preventDefault()
+							openDialogForTrigger(form, doc)
 						},
 					})
 					signal.addEventListener('abort', dispose, { once: true })

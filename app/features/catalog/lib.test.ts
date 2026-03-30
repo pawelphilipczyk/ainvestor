@@ -188,10 +188,32 @@ describe('parseBankJsonToCatalog', () => {
 })
 
 describe('catalogMergeKey', () => {
-	it('matches same ISIN regardless of ticker string', () => {
+	it('separates same ISIN when ticker differs (multi-market listing)', () => {
+		const xetraKey = catalogMergeKey({
+			id: '1',
+			ticker: '2B7A GR',
+			name: '',
+			type: 'equity',
+			description: '',
+			isin: 'IE00B4L5Y983',
+		})
+		const lseKey = catalogMergeKey({
+			id: '2',
+			ticker: 'IUUS LN',
+			name: '',
+			type: 'equity',
+			description: '',
+			isin: 'IE00B4L5Y983',
+		})
+		assert.notEqual(xetraKey, lseKey)
+		assert.equal(xetraKey, 'i:IE00B4L5Y983|t:2B7A GR')
+		assert.equal(lseKey, 'i:IE00B4L5Y983|t:IUUS LN')
+	})
+
+	it('matches same ISIN and same normalised ticker', () => {
 		const firstKey = catalogMergeKey({
 			id: '1',
-			ticker: 'XMOV',
+			ticker: 'XMOV GR',
 			name: '',
 			type: 'equity',
 			description: '',
@@ -199,14 +221,14 @@ describe('catalogMergeKey', () => {
 		})
 		const secondKey = catalogMergeKey({
 			id: '2',
-			ticker: 'XMOV GR',
+			ticker: '  xmov gr ',
 			name: '',
 			type: 'equity',
 			description: '',
 			isin: 'IE00BGV5VR99',
 		})
 		assert.equal(firstKey, secondKey)
-		assert.equal(firstKey, 'i:IE00BGV5VR99')
+		assert.equal(firstKey, 'i:IE00BGV5VR99|t:XMOV GR')
 	})
 
 	it('uses normalised ticker when ISIN is absent', () => {
@@ -221,14 +243,61 @@ describe('catalogMergeKey', () => {
 			't:VTI',
 		)
 	})
+
+	it('uses ISIN plus ticker when ISIN is present', () => {
+		assert.equal(
+			catalogMergeKey({
+				id: '1',
+				ticker: 'VTI',
+				name: '',
+				type: 'equity',
+				description: '',
+				isin: 'US9229087690',
+			}),
+			'i:US9229087690|t:VTI',
+		)
+	})
 })
 
 describe('mergeBankIntoCatalog', () => {
-	it('merges incoming into existing by ISIN (same fund, different ticker formatting)', () => {
+	it('keeps separate rows for same ISIN when ticker differs (different venues)', () => {
 		const existing = [
 			{
 				id: 'uuid-1',
 				ticker: 'XMOV',
+				name: 'Old Name',
+				type: 'equity' as const,
+				description: '',
+				isin: 'IE00BGV5VR99',
+			},
+		]
+		const incoming = [
+			{
+				id: 'IE00BGV5VR99_XMOV.GR',
+				ticker: 'XMOV GR',
+				name: 'New Name',
+				type: 'equity' as const,
+				description: 'Updated',
+				isin: 'IE00BGV5VR99',
+			},
+		]
+		const merged = mergeBankIntoCatalog(existing, incoming)
+		assert.equal(merged.length, 2)
+		const xmov = merged.find((entry) => entry.ticker === 'XMOV')
+		const xmovGr = merged.find((entry) => entry.ticker === 'XMOV GR')
+		assert.ok(xmov)
+		assert.ok(xmovGr)
+		assert.equal(xmov?.id, 'uuid-1')
+		assert.equal(xmov?.name, 'Old Name')
+		assert.equal(xmovGr?.name, 'New Name')
+		assert.equal(xmovGr?.description, 'Updated')
+	})
+
+	it('merges incoming into existing when ISIN and ticker match (refresh same line)', () => {
+		const existing = [
+			{
+				id: 'uuid-1',
+				ticker: 'XMOV GR',
 				name: 'Old Name',
 				type: 'equity' as const,
 				description: '',

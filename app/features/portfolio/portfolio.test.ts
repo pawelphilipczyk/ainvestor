@@ -285,11 +285,13 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(homeBody, /VTI/)
 		assert.match(homeBody, /1[,.]?700/)
 		assert.match(homeBody, /USD/)
-		const deleteForms = homeBody.match(/action="\/etfs\/[a-f0-9-]+"/g)
+		const deleteMethodFields = homeBody.match(
+			/name="_method"\s+value="DELETE"/g,
+		)
 		assert.equal(
-			deleteForms?.length ?? 0,
-			1,
-			'should have exactly one ETF entry',
+			deleteMethodFields?.length ?? 0,
+			2,
+			'sell row POST + dialog confirm each include DELETE override',
 		)
 	})
 
@@ -320,6 +322,14 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 	})
 
+	it('serves navigation-link-loading component entry', async () => {
+		const response = await testSessionFetch(
+			'http://localhost/components/navigation-link-loading.component.js',
+		)
+		assert.equal(response.status, 200)
+		assert.match(response.headers.get('content-type') ?? '', /text\/javascript/)
+	})
+
 	it('serves etf-card component entry and hides old island endpoint', async () => {
 		const componentResponse = await testSessionFetch(
 			'http://localhost/features/portfolio/etf-card.component.js',
@@ -345,6 +355,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(componentBody, /from 'remix\/interaction'/)
 		assert.match(componentBody, /ownerDocument/)
 		assert.match(componentBody, /on\(doc,/)
+		assert.match(
+			componentBody,
+			/data-enhance-dialog/,
+			'sell uses dialog enhancement on native DELETE form submit',
+		)
 	})
 
 	it('uses explicit readable colors for the sell confirmation cancel button', async () => {
@@ -365,6 +380,109 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			body,
 			/<button\s+type="submit"\s+class="[^"]*bg-background[^"]*text-card-foreground[^"]*"[\s\S]*?>\s*Cancel\s*<\/button>/,
 		)
+	})
+
+	it('POST /etfs/:id updates value and quantity for a holding', async () => {
+		await seedGuestCatalog()
+		const addForm = new FormData()
+		addForm.set('instrumentTicker', 'VTI')
+		addForm.set('value', '1000')
+		addForm.set('currency', 'USD')
+		addForm.set('quantity', '10')
+
+		await testSessionFetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
+		)
+
+		const listResponse = await testSessionFetch('http://localhost/portfolio')
+		const listBody = await listResponse.text()
+		const updateMatch = listBody.match(
+			/<form[^>]*method="post"[^>]*action="(\/etfs\/[a-f0-9-]+)"/,
+		)
+		assert.ok(updateMatch, 'update form action should be present')
+		const updateUrl = `http://localhost${updateMatch[1]}`
+
+		const updateForm = new FormData()
+		updateForm.set('value', '850.25')
+		updateForm.set('quantity', '8')
+		const updateResponse = await testSessionFetch(
+			new Request(updateUrl, { method: 'POST', body: updateForm }),
+		)
+		assert.equal(updateResponse.status, 302)
+
+		const after = await (
+			await testSessionFetch('http://localhost/portfolio')
+		).text()
+		assert.match(after, /8 shares/)
+		assert.match(after, /850/)
+	})
+
+	it('POST /etfs/:id clears quantity when quantity field is empty', async () => {
+		await seedGuestCatalog()
+		const addForm = new FormData()
+		addForm.set('instrumentTicker', 'IBTA')
+		addForm.set('value', '2000')
+		addForm.set('currency', 'PLN')
+		addForm.set('quantity', '50')
+
+		await testSessionFetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
+		)
+
+		const listBody = await (
+			await testSessionFetch('http://localhost/portfolio')
+		).text()
+		const updateMatch = listBody.match(
+			/<form[^>]*method="post"[^>]*action="(\/etfs\/[a-f0-9-]+)"/,
+		)
+		assert.ok(updateMatch)
+		const updateUrl = `http://localhost${updateMatch[1]}`
+
+		const updateForm = new FormData()
+		updateForm.set('value', '2100')
+		updateForm.set('quantity', '')
+		await testSessionFetch(
+			new Request(updateUrl, { method: 'POST', body: updateForm }),
+		)
+
+		const after = await (
+			await testSessionFetch('http://localhost/portfolio')
+		).text()
+		assert.doesNotMatch(after, /50 shares/)
+	})
+
+	it('returns 422 JSON when portfolio update validation fails with Accept: application/json', async () => {
+		await seedGuestCatalog()
+		const addForm = new FormData()
+		addForm.set('instrumentTicker', 'VTI')
+		addForm.set('value', '100')
+		addForm.set('currency', 'USD')
+
+		await testSessionFetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
+		)
+
+		const listBody = await (
+			await testSessionFetch('http://localhost/portfolio')
+		).text()
+		const updateMatch = listBody.match(
+			/<form[^>]*method="post"[^>]*action="(\/etfs\/[a-f0-9-]+)"/,
+		)
+		assert.ok(updateMatch)
+		const updateUrl = `http://localhost${updateMatch[1]}`
+
+		const badForm = new FormData()
+		badForm.set('value', '-1')
+		const jsonRes = await testSessionFetch(
+			new Request(updateUrl, {
+				method: 'POST',
+				body: badForm,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+		assert.equal(jsonRes.status, 422)
+		const data = await jsonRes.json()
+		assert.match(data.error, /valid value/)
 	})
 
 	it('DELETE /etfs/:id removes the ETF via method override', async () => {
@@ -452,6 +570,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.equal(response.status, 200)
 		assert.match(body, /Sign in with GitHub/)
 		assert.match(body, /href="\/auth\/github"/)
+		assert.match(body, /data-navigation-loading/)
 	})
 
 	it('GET /fragments/portfolio-list returns ETF list HTML fragment', async () => {

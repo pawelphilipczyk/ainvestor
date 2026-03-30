@@ -17,8 +17,6 @@ import { format, t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-// @ts-expect-error Runtime-only JS client entry module
-import { CatalogPasteInteractions } from './catalog-paste.component.js'
 import type { CatalogEntry } from './lib.ts'
 
 type CatalogPageProps = {
@@ -121,188 +119,188 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 		)
 
 		return (
-			<>
-				<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
-					<SectionIntroCard
-						page="catalog"
-						variant="page"
-						title={SECTION_INTROS.catalog.title}
-						description={SECTION_INTROS.catalog.description}
-					>
-						{sessionUsesGithubGist(session) ? (
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{t('catalog.savedGist')}
-							</p>
-						) : session?.approvalStatus === 'pending' ? (
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{t('catalog.pendingNotSaved')}
-							</p>
-						) : (
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{t('catalog.signInPersist')}
-							</p>
-						)}
-					</SectionIntroCard>
+			<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
+				<SectionIntroCard
+					page="catalog"
+					variant="page"
+					title={SECTION_INTROS.catalog.title}
+					description={SECTION_INTROS.catalog.description}
+				>
+					{sessionUsesGithubGist(session) ? (
+						<p class="mt-0.5 text-xs text-muted-foreground">
+							{t('catalog.savedGist')}
+						</p>
+					) : session?.approvalStatus === 'pending' ? (
+						<p class="mt-0.5 text-xs text-muted-foreground">
+							{t('catalog.pendingNotSaved')}
+						</p>
+					) : (
+						<p class="mt-0.5 text-xs text-muted-foreground">
+							{t('catalog.signInPersist')}
+						</p>
+					)}
+				</SectionIntroCard>
 
+				<Card variant="muted" class="p-4">
+					<section>
+						<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+							{t('catalog.import.title')}
+						</h2>
+						<p class="mt-0.5 text-xs text-muted-foreground">
+							{t('catalog.import.subtitle')}
+						</p>
+						<form
+							method="post"
+							action={routes.catalog.import.href()}
+							class="mt-3 grid max-w-xl gap-3"
+							data-fetch-submit
+						>
+							<FieldLabel fieldId="pasteZone" variant="screenReader">
+								{t('catalog.import.pasteLabel.sr')}
+							</FieldLabel>
+							<TextareaInput
+								id="pasteZone"
+								name="bankApiJson"
+								placeholder={t('catalog.import.pastePlaceholder')}
+								rows={3}
+								required={true}
+								class="block w-full max-w-xl"
+							/>
+							<SubmitButton>{t('catalog.import.submit')}</SubmitButton>
+						</form>
+						{props.catalog.length === 0 ? (
+							<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
+								<p class="font-medium text-foreground">
+									{t('catalog.empty.title')}
+								</p>
+								<p class="mt-1">{t('catalog.empty.hint')}</p>
+							</div>
+						) : null}
+					</section>
+				</Card>
+
+				{props.catalog.length > 0 ? (
 					<Card variant="muted" class="p-4">
-						<section>
-							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-								{t('catalog.import.title')}
-							</h2>
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{t('catalog.import.subtitle')}
-							</p>
-							<div
-								data-catalog-paste-zone
-								data-import-url={routes.catalog.import.href()}
-								class="mt-3"
-							>
-								<FieldLabel fieldId="pasteZone" variant="screenReader">
-									{t('catalog.import.pasteLabel.sr')}
+						<form
+							method="get"
+							action={routes.catalog.index.href()}
+							class="flex flex-wrap items-end gap-3"
+						>
+							<div class="grid gap-1.5">
+								<FieldLabel fieldId="type" variant="filter">
+									{t('catalog.filter.assetType')}
 								</FieldLabel>
-								<TextareaInput
-									id="pasteZone"
-									placeholder={t('catalog.import.pastePlaceholder')}
-									rows={3}
-									class="block max-w-xl"
+								<SelectInput
+									id="type"
+									name="type"
+									compact={true}
+									options={[
+										{ value: '', label: t('catalog.filter.allTypes') },
+										...ETF_TYPES.map((etfType) => ({
+											value: etfType,
+											label: formatEtfTypeLabel(etfType),
+											selected: props.typeFilter === etfType,
+										})),
+									]}
 								/>
 							</div>
-							{props.catalog.length === 0 ? (
-								<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
-									<p class="font-medium text-foreground">
-										{t('catalog.empty.title')}
-									</p>
-									<p class="mt-1">{t('catalog.empty.hint')}</p>
-								</div>
+							<div class="grid gap-1.5">
+								<FieldLabel fieldId="q" variant="filter">
+									{t('catalog.filter.search')}
+								</FieldLabel>
+								<TextInput
+									id="q"
+									name="q"
+									placeholder={t('catalog.filter.searchPlaceholder')}
+									value={props.query}
+									type="search"
+									compact
+									class="w-64"
+								/>
+							</div>
+							<SubmitButton compact={true} class="!w-auto shrink-0 font-medium">
+								{t('catalog.filter.submit')}
+							</SubmitButton>
+							{props.typeFilter || props.query ? (
+								<a
+									href={routes.catalog.index.href()}
+									class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
+								>
+									{t('catalog.filter.clear')}
+								</a>
 							) : null}
+						</form>
+						<p class="mt-3 text-sm text-muted-foreground">
+							{props.typeFilter || props.query
+								? format(t('catalog.count.showing'), {
+										filtered: filtered.length,
+										total: props.catalog.length,
+									})
+								: props.catalog.length === 1
+									? format(t('catalog.count.one'), {
+											n: props.catalog.length,
+										})
+									: format(t('catalog.count.many'), {
+											n: props.catalog.length,
+										})}
+						</p>
+					</Card>
+				) : null}
+
+				{ownedInCatalog.length > 0 ? (
+					<Card class="min-w-0 p-4">
+						<section>
+							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+								{t('catalog.holdings.title')}
+							</h2>
+							<p class="mt-0.5 text-xs text-muted-foreground">
+								{t('catalog.holdings.subtitle')}
+							</p>
+							<ScrollableTable wrapperClass="mt-3">
+								<thead class="bg-muted/40 px-4">
+									<tr>
+										<td colspan={6} class="h-1" />
+									</tr>
+									<CatalogTableHeader />
+								</thead>
+								<tbody>
+									{ownedInCatalog.map((e) =>
+										renderCatalogRow(
+											e,
+											holdingsByTicker.get(holdingKey(e.ticker)),
+										),
+									)}
+								</tbody>
+							</ScrollableTable>
 						</section>
 					</Card>
+				) : null}
 
-					{props.catalog.length > 0 ? (
-						<Card variant="muted" class="p-4">
-							<form
-								method="get"
-								action={routes.catalog.index.href()}
-								class="flex flex-wrap items-end gap-3"
-							>
-								<div class="grid gap-1.5">
-									<FieldLabel fieldId="type" variant="filter">
-										{t('catalog.filter.assetType')}
-									</FieldLabel>
-									<SelectInput
-										id="type"
-										name="type"
-										options={[
-											{ value: '', label: t('catalog.filter.allTypes') },
-											...ETF_TYPES.map((etfType) => ({
-												value: etfType,
-												label: formatEtfTypeLabel(etfType),
-												selected: props.typeFilter === etfType,
-											})),
-										]}
-									/>
-								</div>
-								<div class="grid gap-1.5">
-									<FieldLabel fieldId="q" variant="filter">
-										{t('catalog.filter.search')}
-									</FieldLabel>
-									<TextInput
-										id="q"
-										name="q"
-										placeholder={t('catalog.filter.searchPlaceholder')}
-										value={props.query}
-										type="search"
-										compact
-										class="w-64"
-									/>
-								</div>
-								<SubmitButton class="!h-9 !w-auto shrink-0 !py-0 text-sm font-medium">
-									{t('catalog.filter.submit')}
-								</SubmitButton>
-								{props.typeFilter || props.query ? (
-									<a
-										href={routes.catalog.index.href()}
-										class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
-									>
-										{t('catalog.filter.clear')}
-									</a>
-								) : null}
-							</form>
-							<p class="mt-3 text-sm text-muted-foreground">
-								{props.typeFilter || props.query
-									? format(t('catalog.count.showing'), {
-											filtered: filtered.length,
-											total: props.catalog.length,
-										})
-									: props.catalog.length === 1
-										? format(t('catalog.count.one'), {
-												n: props.catalog.length,
-											})
-										: format(t('catalog.count.many'), {
-												n: props.catalog.length,
-											})}
-							</p>
-						</Card>
-					) : null}
-
-					{ownedInCatalog.length > 0 ? (
-						<Card class="min-w-0 p-4">
-							<section>
-								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-									{t('catalog.holdings.title')}
-								</h2>
-								<p class="mt-0.5 text-xs text-muted-foreground">
-									{t('catalog.holdings.subtitle')}
-								</p>
-								<ScrollableTable wrapperClass="mt-3">
-									<thead class="bg-muted/40 px-4">
-										<tr>
-											<td colspan={6} class="h-1" />
-										</tr>
-										<CatalogTableHeader />
-									</thead>
-									<tbody>
-										{ownedInCatalog.map((e) =>
-											renderCatalogRow(
-												e,
-												holdingsByTicker.get(holdingKey(e.ticker)),
-											),
-										)}
-									</tbody>
-								</ScrollableTable>
-							</section>
-						</Card>
-					) : null}
-
-					{restOfCatalog.length === 0 && ownedInCatalog.length === 0 ? (
-						<Card class="p-4">
-							<p class="text-sm text-muted-foreground">
-								{t('catalog.noMatch')}
-							</p>
-						</Card>
-					) : restOfCatalog.length > 0 ? (
-						<Card class="min-w-0 p-4">
-							<section>
-								<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-									{ownedInCatalog.length > 0
-										? t('catalog.section.otherAvailable')
-										: t('catalog.section.available')}
-								</h2>
-								<ScrollableTable wrapperClass="mt-3">
-									<thead class="bg-muted/40">
-										<tr>
-											<td colspan={6} class="h-1" />
-										</tr>
-										<CatalogTableHeader />
-									</thead>
-									<tbody>{restOfCatalog.map((e) => renderCatalogRow(e))}</tbody>
-								</ScrollableTable>
-							</section>
-						</Card>
-					) : null}
-				</main>
-				<CatalogPasteInteractions />
-			</>
+				{restOfCatalog.length === 0 && ownedInCatalog.length === 0 ? (
+					<Card class="p-4">
+						<p class="text-sm text-muted-foreground">{t('catalog.noMatch')}</p>
+					</Card>
+				) : restOfCatalog.length > 0 ? (
+					<Card class="min-w-0 p-4">
+						<section>
+							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+								{ownedInCatalog.length > 0
+									? t('catalog.section.otherAvailable')
+									: t('catalog.section.available')}
+							</h2>
+							<ScrollableTable wrapperClass="mt-3">
+								<thead class="bg-muted/40">
+									<tr>
+										<td colspan={6} class="h-1" />
+									</tr>
+									<CatalogTableHeader />
+								</thead>
+								<tbody>{restOfCatalog.map((e) => renderCatalogRow(e))}</tbody>
+							</ScrollableTable>
+						</section>
+					</Card>
+				) : null}
+			</main>
 		)
 	}
 }

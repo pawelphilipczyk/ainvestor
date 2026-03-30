@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
 import { Card } from '../../../components/index.ts'
-import { formatValue } from '../../../lib/format.ts'
+import { formatPortfolioValueForInput } from '../../../lib/format.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
 import { format, t } from '../../../lib/i18n.ts'
 import { routes } from '../../../routes.ts'
@@ -38,11 +38,17 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 							return (
 								<EtfCard
 									key={entry.id}
+									entryId={entry.id}
 									name={entry.name}
-									valueLine={formatValue(entry.value, entry.currency)}
+									currency={entry.currency}
+									valueForInput={formatPortfolioValueForInput(entry.value)}
+									quantityForInput={
+										entry.quantity !== undefined ? String(entry.quantity) : ''
+									}
 									identifier={identifier}
 									dialogId={`dialog-${entry.id}`}
 									deleteHref={routes.portfolio.delete.href({ id: entry.id })}
+									updateHref={routes.portfolio.update.href({ id: entry.id })}
 								/>
 							)
 						})}

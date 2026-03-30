@@ -1,6 +1,6 @@
 /**
  * Opens the `<dialog>` identified by `trigger.dataset.dialogId` (HTML: `data-dialog-id`).
- * Use `type="button"` and `data-dialog-id` on the trigger; no feature-specific class needed.
+ * The trigger may be a `type="button"` control or an element that wraps it (e.g. a `<form>`).
  *
  * @param {HTMLElement} trigger
  * @param {Document} doc
