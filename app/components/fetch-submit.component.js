@@ -196,6 +196,12 @@ export const FetchSubmitEnhancement = clientEntry(
 							const submitBtn = form.querySelector(
 								'button[type="submit"], input[type="submit"]',
 							)
+							/** Full navigation (e.g. OAuth); fetch cannot follow cross-origin redirects safely. */
+							if (form.hasAttribute('data-oauth-start')) {
+								setSubmitButtonLoading(submitBtn, true)
+								window.location.assign(form.action)
+								return
+							}
 							await handleFetchSubmit(form, submitBtn)
 						},
 					})
