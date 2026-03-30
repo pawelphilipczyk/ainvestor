@@ -84,9 +84,8 @@ export const en = {
 	'portfolio.etf.remove': 'Remove',
 	'portfolio.etf.updateValueLabel': 'Value ({currency})',
 	'portfolio.etf.updateValueSr': 'Market value for {name}',
-	'portfolio.etf.updateQuantityLabel': 'Quantity',
+	'portfolio.etf.updateQuantityLabel': 'Quantity (optional)',
 	'portfolio.etf.updateQuantitySr': 'Share quantity for {name}',
-	'portfolio.etf.updateQuantityOptionalHint': 'optional',
 	'portfolio.etf.save': 'Save',
 
 	'forms.catalog.emptyPlaceholder':

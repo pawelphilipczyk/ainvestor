@@ -77,9 +77,6 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						<div class="grid gap-2">
 							<FieldLabel fieldId={quantityFieldId}>
 								{t('portfolio.etf.updateQuantityLabel')}
-								<span class="ml-1 font-normal text-muted-foreground">
-									({t('portfolio.etf.updateQuantityOptionalHint')})
-								</span>
 							</FieldLabel>
 							<NumberInput
 								id={quantityFieldId}
