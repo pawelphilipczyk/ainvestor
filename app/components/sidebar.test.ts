@@ -157,15 +157,15 @@ describe('sidebar component entry static file', () => {
 		assert.equal(response.status, 404)
 	})
 
-	it('sidebar component entry uses remix component event listeners', async () => {
+	it('sidebar component entry binds toggle/close/backdrop and document keydown', async () => {
 		const response = await router.fetch(
 			'http://localhost/components/sidebar.component.js',
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
 		assert.match(body, /from 'remix\/component'/)
-		assert.match(body, /addEventListeners/)
-		assert.match(body, /ownerDocument/)
+		assert.match(body, /sidebarToggle\.addEventListener/)
+		assert.match(body, /backdrop\.addEventListener/)
 		assert.match(body, /addEventListeners\(doc,/)
 	})
 })
