@@ -89,7 +89,7 @@ describe('sidebar component', () => {
 		)
 		assert.match(result, /Sign in with GitHub/)
 		assert.match(result, /action="\/auth\/github"/)
-		assert.match(result, /data-oauth-start/)
+		assert.match(result, /data-full-page-navigation/)
 	})
 
 	it('Sidebar shows sign-out form when session is provided', async () => {

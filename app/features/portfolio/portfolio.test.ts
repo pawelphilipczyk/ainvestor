@@ -452,7 +452,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.equal(response.status, 200)
 		assert.match(body, /Sign in with GitHub/)
 		assert.match(body, /action="\/auth\/github"/)
-		assert.match(body, /data-oauth-start/)
+		assert.match(body, /data-full-page-navigation/)
 	})
 
 	it('GET /fragments/portfolio-list returns ETF list HTML fragment', async () => {

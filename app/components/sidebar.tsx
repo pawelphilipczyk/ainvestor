@@ -103,7 +103,7 @@ export function Sidebar(handle: Handle, _setup?: unknown) {
 										action={routes.auth.login.href()}
 										class="contents"
 										data-fetch-submit
-										data-oauth-start
+										data-full-page-navigation
 									>
 										<button
 											type="submit"
