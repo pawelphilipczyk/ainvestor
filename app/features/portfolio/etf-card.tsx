@@ -4,10 +4,11 @@ import { format, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { routes } from '../../routes.ts'
 
-const portfolioSaveGhostClass =
-	'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground'
-const portfolioRemoveGhostClass =
-	'rounded-md px-2 py-1 text-xs text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
+/** Matches {@link NumberInput} control padding (`px-3 py-2`) for one baseline with fields. */
+const portfolioRowGhostButtonClass =
+	'inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground'
+const portfolioRowSellButtonClass =
+	'inline-flex shrink-0 items-center justify-center rounded-md border border-transparent bg-transparent px-3 py-2 text-sm font-normal text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive'
 
 type EtfCardProps = {
 	entryId: string
@@ -45,7 +46,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						{props.identifier}
 					</span>
 				</div>
-				<div class="flex min-w-0 flex-col gap-2">
+				<div class="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-2">
 					<form
 						method="post"
 						action={props.updateHref}
@@ -55,8 +56,8 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						data-fragment-url={routes.portfolio.fragmentList.href()}
 						data-error-id={updateErrorId}
 					>
-						<div class="grid w-auto shrink-0 gap-1">
-							<FieldLabel fieldId={valueFieldId} variant="filter">
+						<div class="grid w-auto shrink-0 gap-0.5">
+							<FieldLabel fieldId={valueFieldId} variant="dense">
 								{format(t('portfolio.etf.updateValueLabel'), {
 									currency: props.currency,
 								})}
@@ -64,7 +65,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 							<NumberInput
 								id={valueFieldId}
 								name="value"
-								class="!w-28 shrink-0 tabular-nums"
+								class="!w-28 shrink-0"
 								value={props.valueForInput}
 								required={true}
 								inputMode="decimal"
@@ -74,14 +75,14 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 								})}
 							/>
 						</div>
-						<div class="grid w-auto shrink-0 gap-1">
-							<FieldLabel fieldId={quantityFieldId} variant="filter">
+						<div class="grid w-auto shrink-0 gap-0.5">
+							<FieldLabel fieldId={quantityFieldId} variant="dense">
 								{t('portfolio.etf.updateQuantityLabel')}
 							</FieldLabel>
 							<NumberInput
 								id={quantityFieldId}
 								name="quantity"
-								class="!w-20 shrink-0 tabular-nums"
+								class="!w-20 shrink-0"
 								value={props.quantityForInput}
 								inputMode="numeric"
 								pattern="[0-9]*"
@@ -90,13 +91,13 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 								})}
 							/>
 						</div>
-						<button type="submit" class={portfolioSaveGhostClass}>
+						<button type="submit" class={portfolioRowGhostButtonClass}>
 							{t('portfolio.etf.save')}
 						</button>
 					</form>
 					<button
 						type="button"
-						class={`self-start ${portfolioRemoveGhostClass}`}
+						class={portfolioRowSellButtonClass}
 						aria-label={format(t('portfolio.etf.removeAria'), {
 							name: props.name,
 						})}

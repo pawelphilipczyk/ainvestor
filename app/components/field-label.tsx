@@ -4,6 +4,9 @@ const variantClasses = {
 	field: 'mb-1 block text-sm font-semibold text-foreground',
 	screenReader: 'sr-only',
 	filter: 'mb-1 block text-xs font-medium text-muted-foreground',
+	/** Tight row labels (e.g. inline portfolio edits). */
+	dense:
+		'mb-0.5 block text-[11px] font-medium leading-tight text-muted-foreground',
 } as const
 
 export type FieldLabelVariant = keyof typeof variantClasses
