@@ -63,8 +63,7 @@ export const SidebarInteractions = clientEntry(
 					}
 					desktopMediaQuery?.addEventListener('change', onBreakpoint)
 
-					const listenerSignal = AbortSignal.any([signal])
-					addEventListeners(doc, listenerSignal, {
+					addEventListeners(doc, signal, {
 						click(event) {
 							if (isDesktop(doc)) return
 							const target = event.target
