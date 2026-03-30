@@ -7,6 +7,11 @@ function scrollStorageKey(groupId, tabKey) {
 	return `${STORAGE_PREFIX}${groupId}:${tabKey}`
 }
 
+/** One-shot flag: next load of this tab should apply {@link scrollStorageKey} Y. */
+function pendingRestoreStorageKey(groupId, tabKey) {
+	return `${STORAGE_PREFIX}pending:${groupId}:${tabKey}`
+}
+
 function readStoredScrollY(key) {
 	try {
 		const raw = sessionStorage.getItem(key)
@@ -18,7 +23,12 @@ function readStoredScrollY(key) {
 	}
 }
 
-function saveScrollForCurrentTab(doc, win) {
+/**
+ * Persists window scroll for the active tab. When `destinationTabKey` is set
+ * (tab click to another tab), also sets a one-shot pending token so the next
+ * page only restores scroll for that destination tab.
+ */
+function saveScrollForCurrentTab(doc, win, destinationTabKey) {
 	const nav = doc.querySelector('[data-tab-scroll-group]')
 	const groupId = nav?.getAttribute('data-tab-scroll-group')
 	if (!groupId) return
@@ -32,6 +42,12 @@ function saveScrollForCurrentTab(doc, win) {
 			scrollStorageKey(groupId, tabKey),
 			String(Math.round(win.scrollY)),
 		)
+		if (destinationTabKey) {
+			sessionStorage.setItem(
+				pendingRestoreStorageKey(groupId, destinationTabKey),
+				'1',
+			)
+		}
 	} catch {
 		// private mode / quota
 	}
@@ -46,6 +62,13 @@ function restoreScrollForCurrentTab(doc, win) {
 	)
 	const tabKey = active?.getAttribute('data-tab-scroll-key')
 	if (!tabKey) return
+	const pendingKey = pendingRestoreStorageKey(groupId, tabKey)
+	try {
+		if (sessionStorage.getItem(pendingKey) === null) return
+		sessionStorage.removeItem(pendingKey)
+	} catch {
+		return
+	}
 	const y = readStoredScrollY(scrollStorageKey(groupId, tabKey))
 	if (y === null) return
 	const apply = () => {
@@ -83,7 +106,9 @@ export const TabsNavScrollRestoration = clientEntry(
 							const nav = link.closest('[data-tab-scroll-group]')
 							if (!nav) return
 							if (link.getAttribute('aria-current') === 'page') return
-							saveScrollForCurrentTab(doc, win)
+							const destinationTabKey = link.getAttribute('data-tab-scroll-key')
+							if (!destinationTabKey) return
+							saveScrollForCurrentTab(doc, win, destinationTabKey)
 						},
 					})
 					signal.addEventListener('abort', dispose, { once: true })
