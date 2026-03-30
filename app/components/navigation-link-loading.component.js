@@ -38,6 +38,9 @@ export const NavigationLinkLoadingEnhancement = clientEntry(
 							if (isModifiedClick(event)) return
 							const href = anchor.getAttribute('href')
 							if (!href || href.startsWith('#')) return
+							if (anchor.hasAttribute('download')) return
+							const anchorTarget = anchor.getAttribute('target')
+							if (anchorTarget && anchorTarget !== '_self') return
 
 							event.preventDefault()
 							anchor.setAttribute('data-loading', '')
