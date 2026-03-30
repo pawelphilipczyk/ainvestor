@@ -81,15 +81,15 @@ describe('sidebar component', () => {
 		assert.match(result, /AI Investor/)
 	})
 
-	it('Sidebar shows sign-in form when session is null', async () => {
+	it('Sidebar shows sign-in link with navigation loading when session is null', async () => {
 		const result = await renderSidebarWithSession(
 			getNavLinks(),
 			'portfolio',
 			null,
 		)
 		assert.match(result, /Sign in with GitHub/)
-		assert.match(result, /action="\/auth\/github"/)
-		assert.match(result, /data-full-page-navigation/)
+		assert.match(result, /href="\/auth\/github"/)
+		assert.match(result, /data-navigation-loading/)
 	})
 
 	it('Sidebar shows sign-out form when session is provided', async () => {

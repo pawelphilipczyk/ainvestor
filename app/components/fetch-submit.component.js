@@ -196,12 +196,6 @@ export const FetchSubmitEnhancement = clientEntry(
 							const submitBtn = form.querySelector(
 								'button[type="submit"], input[type="submit"]',
 							)
-							/** Full document navigation after loading UI; use when fetch cannot replace the flow (e.g. external redirects). */
-							if (form.hasAttribute('data-full-page-navigation')) {
-								setSubmitButtonLoading(submitBtn, true)
-								window.location.assign(form.action)
-								return
-							}
 							await handleFetchSubmit(form, submitBtn)
 						},
 					})

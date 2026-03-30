@@ -30,20 +30,21 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 								) : null}
 							</span>
 						) : (
-							<form
-								method="get"
-								action={routes.auth.login.href()}
-								class="contents"
-								data-fetch-submit
-								data-full-page-navigation
+							<a
+								href={routes.auth.login.href()}
+								data-navigation-loading
+								class="group relative inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring data-[loading]:pointer-events-none data-[loading]:opacity-90"
 							>
-								<button
-									type="submit"
-									class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								>
+								<span class="relative z-10 group-data-[loading]:invisible">
 									{t('chrome.signIn')}
-								</button>
-							</form>
+								</span>
+								<span
+									class="absolute inset-0 hidden items-center justify-center group-data-[loading]:flex"
+									aria-hidden="true"
+								>
+									<span class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent" />
+								</span>
+							</a>
 						)}
 						<ThemeToggleButton />
 						<button
