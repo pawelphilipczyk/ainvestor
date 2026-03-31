@@ -206,6 +206,30 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /1 ETF in catalog/)
 	})
 
+	it('catalog filter form opts into native navigation loading for SubmitButton spinner', async () => {
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					fund_name: 'Vanguard Total',
+					ticker: 'VTI',
+					assets: 'akcje',
+				},
+			],
+			count: 1,
+			total_count: 1,
+		})
+		await testSessionFetch(catalogImportFormRequest(bankJson))
+
+		const response = await testSessionFetch('http://localhost/catalog')
+		const body = await response.text()
+
+		assert.match(
+			body,
+			/<form\b[^>]*\bmethod="get"[^>]*\bdata-navigation-loading\b/,
+		)
+		assert.match(body, /submit-button-busy-overlay/)
+	})
+
 	it('catalog type filter narrows results', async () => {
 		const bankJson = JSON.stringify({
 			data: [
