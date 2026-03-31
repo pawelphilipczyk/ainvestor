@@ -29,7 +29,10 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 
 		return (
 			<Card class="p-4">
-				<div class="flex items-center justify-between text-xs text-muted-foreground">
+				<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+					{t('guidelines.list.title')}
+				</h2>
+				<div class="mt-3 flex items-center justify-between text-xs text-muted-foreground">
 					<span>
 						{t('guidelines.list.totalAllocated')}{' '}
 						<strong class="text-foreground">{totalPct}%</strong>

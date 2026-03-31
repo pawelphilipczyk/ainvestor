@@ -163,6 +163,7 @@ export const en = {
 	'guidelines.footer.beforeLink': 'Import or paste funds on the',
 	'guidelines.footer.link': 'ETF Catalog',
 	'guidelines.footer.after': 'to populate both lists.',
+	'guidelines.list.title': 'Your Guidelines',
 	'guidelines.list.totalAllocated': 'Total allocated:',
 	'guidelines.list.remaining': 'Remaining:',
 	'guidelines.list.empty': 'No guidelines added yet.',
