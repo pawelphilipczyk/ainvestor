@@ -419,6 +419,7 @@ describe('Guidelines page', () => {
 		)
 		const html = await frag.text()
 		assert.equal(frag.status, 200)
+		assert.match(html, /Your Guidelines/)
 		assert.match(html, /value="25"/)
 		assert.match(html, /!w-16/)
 		assert.match(html, /<span[^>]*aria-hidden="true"[^>]*>\s*%\s*<\/span>/)
