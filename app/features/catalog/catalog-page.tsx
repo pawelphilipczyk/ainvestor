@@ -185,6 +185,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							method="get"
 							action={routes.catalog.index.href()}
 							class="flex flex-wrap items-end gap-3"
+							data-navigation-loading
 						>
 							<div class="grid gap-1.5">
 								<FieldLabel fieldId="type" variant="filter">
@@ -218,7 +219,10 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									class="w-64"
 								/>
 							</div>
-							<SubmitButton compact={true} class="!w-auto shrink-0 font-medium">
+							<SubmitButton
+								compact={true}
+								class="!w-auto shrink-0 text-base md:text-sm font-medium"
+							>
 								{t('catalog.filter.submit')}
 							</SubmitButton>
 							{props.typeFilter || props.query ? (
