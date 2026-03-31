@@ -227,7 +227,10 @@ describe('ETF Catalog page', () => {
 			body,
 			/<form\b[^>]*\bmethod="get"[^>]*\bdata-navigation-loading\b/,
 		)
-		assert.match(body, /submit-button-busy-overlay/)
+		assert.match(
+			body,
+			/<form\b(?=[^>]*\bmethod="get")(?=[^>]*\bdata-navigation-loading\b)[^>]*>[\s\S]*?submit-button-busy-overlay[\s\S]*?<\/form>/,
+		)
 	})
 
 	it('catalog type filter narrows results', async () => {
