@@ -292,6 +292,33 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 	})
 
+	it('renders value share bars when all holdings share one currency', async () => {
+		await seedGuestCatalog()
+		const formVti = new FormData()
+		formVti.set('instrumentTicker', 'VTI')
+		formVti.set('value', '400')
+		formVti.set('currency', 'PLN')
+		await testSessionFetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: formVti }),
+		)
+		const formIbta = new FormData()
+		formIbta.set('instrumentTicker', 'IBTA')
+		formIbta.set('value', '600')
+		formIbta.set('currency', 'PLN')
+		await testSessionFetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: formIbta }),
+		)
+
+		const listResponse = await testSessionFetch('http://localhost/portfolio')
+		const listBody = await listResponse.text()
+
+		assert.match(listBody, /aria-label="40% of total holdings value for VTI"/)
+		assert.match(
+			listBody,
+			/aria-label="60% of total holdings value for IBTA LN ETF"/,
+		)
+	})
+
 	it('portfolio page no longer uses legacy etf-card data-island hooks', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()

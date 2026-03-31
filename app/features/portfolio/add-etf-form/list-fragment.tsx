@@ -3,6 +3,10 @@ import { Card } from '../../../components/index.ts'
 import { formatPortfolioValueForInput } from '../../../lib/format.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
 import { format, t } from '../../../lib/i18n.ts'
+import {
+	totalHoldingsValueForShareBars,
+	valueShareOfHoldingsTotalPercent,
+} from '../../../lib/portfolio-holdings-share.ts'
 import { routes } from '../../../routes.ts'
 import { EtfCard } from '../etf-card.tsx'
 
@@ -13,6 +17,8 @@ import { EtfCard } from '../etf-card.tsx'
 export function ListFragment(_handle: Handle, _setup?: unknown) {
 	return (props: { entries?: EtfEntry[] }) => {
 		const entries = props.entries ?? []
+		const holdingsTotal = totalHoldingsValueForShareBars(entries)
+		const canShowShareBars = holdingsTotal !== null && holdingsTotal > 0
 		return (
 			<Card class="p-4">
 				<h2 class="text-base font-semibold tracking-tight text-card-foreground">
@@ -46,6 +52,14 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 										entry.quantity !== undefined ? String(entry.quantity) : ''
 									}
 									identifier={identifier}
+									valueSharePct={
+										canShowShareBars
+											? valueShareOfHoldingsTotalPercent({
+													value: entry.value,
+													total: holdingsTotal,
+												})
+											: undefined
+									}
 									dialogId={`dialog-${entry.id}`}
 									deleteHref={routes.portfolio.delete.href({ id: entry.id })}
 									updateHref={routes.portfolio.update.href({ id: entry.id })}

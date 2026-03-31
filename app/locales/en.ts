@@ -86,6 +86,8 @@ export const en = {
 	'portfolio.etf.updateQuantityLabel': 'Quantity',
 	'portfolio.etf.updateQuantitySr': 'Share quantity for {name}',
 	'portfolio.etf.save': 'Save',
+	'portfolio.etf.valueShareBarAria':
+		'{pct}% of total holdings value for {name}',
 
 	'forms.catalog.emptyPlaceholder':
 		'No funds in catalog — import on ETF Catalog',
