@@ -1,4 +1,5 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import { on } from '@remix-run/interaction'
+import { clientEntry, createElement } from 'remix/component'
 
 const STORAGE_PREFIX = 'windowScroll:tab:'
 
@@ -97,7 +98,7 @@ export const TabsNavScrollRestoration = clientEntry(
 
 					restoreScrollForCurrentTab(doc, win)
 
-					addEventListeners(doc, signal, {
+					const dispose = on(doc, {
 						click(event) {
 							if (!(event.target instanceof Element)) return
 							const link = event.target.closest('a[data-tab-scroll-key][href]')
@@ -110,6 +111,7 @@ export const TabsNavScrollRestoration = clientEntry(
 							saveScrollForCurrentTab(doc, win, destinationTabKey)
 						},
 					})
+					signal.addEventListener('abort', dispose, { once: true })
 				},
 			})
 	},

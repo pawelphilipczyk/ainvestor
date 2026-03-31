@@ -1,4 +1,5 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import { on } from '@remix-run/interaction'
+import { clientEntry, createElement } from 'remix/component'
 
 const ATTR = 'data-navigation-loading'
 
@@ -23,7 +24,7 @@ export const NavigationLinkLoadingEnhancement = clientEntry(
 				'data-component': 'navigation-link-loading-enhancement',
 				connect: (node, signal) => {
 					const doc = node.ownerDocument
-					addEventListeners(doc, signal, {
+					const dispose = on(doc, {
 						click(event) {
 							const target = event.target
 							if (!(target instanceof Element)) return
@@ -49,6 +50,7 @@ export const NavigationLinkLoadingEnhancement = clientEntry(
 							})
 						},
 					})
+					signal.addEventListener('abort', dispose, { once: true })
 				},
 			})
 	},

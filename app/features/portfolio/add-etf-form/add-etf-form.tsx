@@ -97,7 +97,6 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 					{t('addEtf.footer.beforeLink')}{' '}
 					<a
 						href={routes.catalog.index.href()}
-						rmx-document
 						class="font-medium text-primary underline underline-offset-2"
 					>
 						{t('addEtf.footer.link')}

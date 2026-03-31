@@ -1,4 +1,5 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import { on } from '@remix-run/interaction'
+import { clientEntry, createElement } from 'remix/component'
 
 function toggleTheme(doc) {
 	const isDark = doc.documentElement.classList.toggle('dark')
@@ -15,7 +16,7 @@ export const ThemeToggleInteractions = clientEntry(
 				'data-component': 'theme-toggle-interactions',
 				connect: (node, signal) => {
 					const doc = node.ownerDocument
-					addEventListeners(doc, signal, {
+					const dispose = on(doc, {
 						click(event) {
 							const target = event.target
 							if (!(target instanceof Element)) return
@@ -24,6 +25,7 @@ export const ThemeToggleInteractions = clientEntry(
 							toggleTheme(doc)
 						},
 					})
+					signal.addEventListener('abort', dispose, { once: true })
 				},
 			})
 	},

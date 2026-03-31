@@ -1,4 +1,5 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import { on } from '@remix-run/interaction'
+import { clientEntry, createElement } from 'remix/component'
 import { openDialogForTrigger } from '../../lib/dialog-trigger.js'
 
 export const GuidelinesDeleteDialogInteractions = clientEntry(
@@ -11,7 +12,7 @@ export const GuidelinesDeleteDialogInteractions = clientEntry(
 				'data-component': 'guidelines-delete-dialog-interactions',
 				connect: (node, signal) => {
 					const doc = node.ownerDocument
-					addEventListeners(doc, signal, {
+					const dispose = on(doc, {
 						click(event) {
 							const target = event.target
 							if (!(target instanceof Element)) return
@@ -21,6 +22,7 @@ export const GuidelinesDeleteDialogInteractions = clientEntry(
 							openDialogForTrigger(trigger, doc)
 						},
 					})
+					signal.addEventListener('abort', dispose, { once: true })
 				},
 			})
 	},
