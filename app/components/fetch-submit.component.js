@@ -101,7 +101,8 @@ function getSubmitControl(form, submitter) {
 function createFormData(form, submitControl) {
 	if (
 		submitControl instanceof HTMLButtonElement ||
-		(submitControl instanceof HTMLInputElement && submitControl.type === 'submit')
+		(submitControl instanceof HTMLInputElement &&
+			submitControl.type === 'submit')
 	) {
 		try {
 			return new FormData(form, submitControl)
