@@ -106,20 +106,27 @@ export const en = {
 	'addEtf.footer.link': 'ETF Catalog',
 	'addEtf.footer.after': 'to populate the list.',
 
-	'catalog.savedGist': 'Catalog saved to your private GitHub Gist.',
-	'catalog.pendingNotSaved':
-		'Account pending approval — catalog is not saved to GitHub yet.',
-	'catalog.signInPersist': 'Sign in to persist catalog across sessions.',
+	'catalog.savedGist': 'Your portfolio is matched against the shared catalog.',
+	'catalog.sharedSource':
+		'This catalog is loaded from a shared public GitHub Gist.',
 	'catalog.import.title': 'Import',
 	'catalog.import.subtitle':
-		'Paste bank API JSON below, then submit to add ETFs (merges with existing).',
+		'Paste bank API JSON below to update the shared catalog (merges with existing rows).',
 	'catalog.import.submit': 'Import',
+	'catalog.import.ownerOnly':
+		'Only the shared catalog gist owner can import updates here.',
+	'catalog.import.ownerMissing':
+		'Import is disabled until the shared catalog gist owner is configured.',
+	'catalog.import.signInRequired':
+		'Sign in as the shared catalog gist owner to import updates.',
+	'catalog.import.ownerActive':
+		'You are signed in as the shared catalog gist owner and can import updates.',
 	'catalog.import.pasteLabel.sr': 'Paste bank API JSON',
 	'catalog.import.pastePlaceholder':
 		'Paste fetch response JSON here, then click Import',
 	'catalog.empty.title': 'No catalog imported yet.',
 	'catalog.empty.hint':
-		'Paste bank API JSON above and click Import to add ETFs to your catalog.',
+		'The shared catalog gist is empty. Sign in as the gist owner to import ETFs.',
 	'catalog.filter.assetType': 'Asset type',
 	'catalog.filter.allTypes': 'All types',
 	'catalog.filter.search': 'Search',
@@ -239,6 +246,8 @@ export const en = {
 		'That holding is no longer in your portfolio.',
 	'errors.portfolio.persistence':
 		'Could not save your portfolio. Please try again in a moment.',
+	'errors.catalog.importNotAllowed':
+		'Only the shared catalog gist owner can import catalog updates.',
 
 	'errors.guidelines.totalExceeds100':
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',

@@ -1,16 +1,17 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
+import { testSessionFetch } from '../../lib/test-session-fetch.ts'
 import {
-	catalogImportFormRequest,
-	testSessionFetch,
-} from '../../lib/test-session-fetch.ts'
-import { resetGuestCatalog } from '../catalog/index.ts'
+	parseBankJsonToCatalog,
+	resetSharedCatalogForTests,
+	setSharedCatalogForTests,
+} from '../catalog/lib.ts'
 import { resetEtfEntries } from './index.ts'
 
 afterEach(() => {
 	resetEtfEntries()
-	resetGuestCatalog()
+	resetSharedCatalogForTests()
 })
 
 /** Seeds guest catalog with tickers used in manual-add portfolio tests. */
@@ -23,7 +24,10 @@ async function seedGuestCatalog() {
 		],
 		count: 3,
 	})
-	await testSessionFetch(catalogImportFormRequest(bankJson))
+	setSharedCatalogForTests({
+		entries: parseBankJsonToCatalog(JSON.parse(bankJson)),
+		ownerLogin: 'catalog-admin',
+	})
 }
 
 describe('Health endpoint', () => {

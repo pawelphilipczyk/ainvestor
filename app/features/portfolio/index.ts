@@ -4,11 +4,7 @@ import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, fetchPortfolioSnapshot, saveEtfs } from '../../lib/gist.ts'
-import {
-	getGuestCatalog,
-	getGuestEtfs,
-	setGuestEtfs,
-} from '../../lib/guest-session-state.ts'
+import { getGuestEtfs, setGuestEtfs } from '../../lib/guest-session-state.ts'
 import { t } from '../../lib/i18n.ts'
 import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
@@ -16,7 +12,10 @@ import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
-import { instrumentSelectOptionsFromCatalog } from '../catalog/lib.ts'
+import {
+	fetchCatalog,
+	instrumentSelectOptionsFromCatalog,
+} from '../catalog/lib.ts'
 import { addEtfFormHandlers } from './add-etf-form/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
 
@@ -47,7 +46,7 @@ export const portfolioController = {
 				entries: getGuestEtfs(context.get(Session)),
 				session: layoutSession,
 				flashError,
-				catalog: getGuestCatalog(context.get(Session)),
+				catalog: await fetchCatalog(),
 			})
 		},
 

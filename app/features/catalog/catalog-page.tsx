@@ -22,8 +22,10 @@ import type { CatalogEntry } from './lib.ts'
 type CatalogPageProps = {
 	catalog: CatalogEntry[]
 	holdings: EtfEntry[]
+	canImport: boolean
 	typeFilter: string
 	query: string
+	sharedCatalogOwnerLogin: string | null
 }
 
 /** Keeps long fund names and descriptions readable (wrap) without forcing huge table width. */
@@ -91,6 +93,7 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 export function CatalogPage(handle: Handle, _setup?: unknown) {
 	return (props: CatalogPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
+		const importDisabled = !props.canImport
 		const holdingKey = (s: string) => s.toUpperCase()
 		const holdingsByTicker = new Map(
 			props.holdings.flatMap((e) => {
@@ -126,19 +129,14 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					title={SECTION_INTROS.catalog.title}
 					description={SECTION_INTROS.catalog.description}
 				>
+					<p class="mt-0.5 text-xs text-muted-foreground">
+						{t('catalog.sharedSource')}
+					</p>
 					{sessionUsesGithubGist(session) ? (
 						<p class="mt-0.5 text-xs text-muted-foreground">
 							{t('catalog.savedGist')}
 						</p>
-					) : session?.approvalStatus === 'pending' ? (
-						<p class="mt-0.5 text-xs text-muted-foreground">
-							{t('catalog.pendingNotSaved')}
-						</p>
-					) : (
-						<p class="mt-0.5 text-xs text-muted-foreground">
-							{t('catalog.signInPersist')}
-						</p>
-					)}
+					) : null}
 				</SectionIntroCard>
 
 				<Card variant="muted" class="p-4">
@@ -149,6 +147,19 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 						<p class="mt-0.5 text-xs text-muted-foreground">
 							{t('catalog.import.subtitle')}
 						</p>
+						{importDisabled ? (
+							<p class="mt-2 text-xs text-muted-foreground">
+								{session
+									? props.sharedCatalogOwnerLogin
+										? t('catalog.import.ownerOnly')
+										: t('catalog.import.ownerMissing')
+									: t('catalog.import.signInRequired')}
+							</p>
+						) : props.sharedCatalogOwnerLogin ? (
+							<p class="mt-2 text-xs text-muted-foreground">
+								{t('catalog.import.ownerActive')}
+							</p>
+						) : null}
 						<form
 							method="post"
 							action={routes.catalog.import.href()}
@@ -164,9 +175,12 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								placeholder={t('catalog.import.pastePlaceholder')}
 								rows={3}
 								required={true}
+								disabled={importDisabled}
 								class="block w-full max-w-xl"
 							/>
-							<SubmitButton>{t('catalog.import.submit')}</SubmitButton>
+							<SubmitButton disabled={importDisabled}>
+								{t('catalog.import.submit')}
+							</SubmitButton>
 						</form>
 						{props.catalog.length === 0 ? (
 							<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">

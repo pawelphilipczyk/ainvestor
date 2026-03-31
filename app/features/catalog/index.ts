@@ -4,11 +4,7 @@ import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
-import {
-	getGuestCatalog,
-	getGuestEtfs,
-	setGuestCatalog,
-} from '../../lib/guest-session-state.ts'
+import { getGuestEtfs } from '../../lib/guest-session-state.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
@@ -17,7 +13,8 @@ import { routes } from '../../routes.ts'
 import { CatalogPage } from './catalog-page.tsx'
 import type { CatalogEntry } from './lib.ts'
 import {
-	fetchCatalog,
+	fetchSharedCatalogSnapshot,
+	isSharedCatalogAdmin,
 	mergeBankIntoCatalog,
 	parseBankJsonToCatalog,
 	saveCatalog,
@@ -51,25 +48,45 @@ export const catalogController = {
 
 			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
-			const [catalog, entries] = await Promise.all([
-				session?.gistId && session.token
-					? fetchCatalog(session.token, session.gistId)
-					: getGuestCatalog(context.get(Session)),
+			const [catalogSnapshot, entries] = await Promise.all([
+				fetchSharedCatalogSnapshot(),
 				session?.gistId && session.token
 					? fetchEtfs(session.token, session.gistId)
 					: getGuestEtfs(context.get(Session)),
 			])
 
 			return renderCatalogPage({
-				catalog,
+				catalog: catalogSnapshot.entries,
 				entries,
 				session: layoutSession,
+				canImport:
+					session?.token !== null &&
+					session?.token !== undefined &&
+					isSharedCatalogAdmin({
+						sessionLogin: layoutSession?.login,
+						ownerLogin: catalogSnapshot.ownerLogin,
+					}),
+				sharedCatalogOwnerLogin: catalogSnapshot.ownerLogin,
 				typeFilter,
 				query,
+				flashError: context.get(Session).get('error') as string | undefined,
 			})
 		},
 
 		async import(context: AppRequestContext) {
+			const session = getSessionData(context.get(Session))
+			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot()
+			const canImport = isSharedCatalogAdmin({
+				sessionLogin: session?.login,
+				ownerLogin,
+			})
+			if (!session?.token || !canImport) {
+				context
+					.get(Session)
+					.flash('error', t('errors.catalog.importNotAllowed'))
+				return catalogIndexRedirect()
+			}
+
 			const rawFromForm = context.get(FormData)?.get('bankApiJson')
 			if (typeof rawFromForm !== 'string') {
 				return catalogIndexRedirect()
@@ -82,18 +99,8 @@ export const catalogController = {
 			if (imported.length === 0)
 				return createRedirectResponse(routes.catalog.index.href())
 
-			const session = getSessionData(context.get(Session))
-			const existing =
-				session?.gistId && session.token
-					? await fetchCatalog(session.token, session.gistId)
-					: getGuestCatalog(context.get(Session))
-			const merged = mergeBankIntoCatalog(existing, imported)
-
-			if (session?.gistId && session.token) {
-				await saveCatalog(session.token, session.gistId, merged)
-			} else {
-				setGuestCatalog(context.get(Session), merged)
-			}
+			const merged = mergeBankIntoCatalog(entries, imported)
+			await saveCatalog(session.token, null, merged)
 
 			return createRedirectResponse(routes.catalog.index.href())
 		},
@@ -107,20 +114,35 @@ async function renderCatalogPage(params: {
 	catalog: CatalogEntry[]
 	entries: EtfEntry[]
 	session: SessionData | null
+	canImport: boolean
+	sharedCatalogOwnerLogin: string | null
 	typeFilter: string
 	query: string
+	flashError?: string
 }) {
-	const { catalog, entries, session, typeFilter, query } = params
+	const {
+		catalog,
+		entries,
+		session,
+		canImport,
+		sharedCatalogOwnerLogin,
+		typeFilter,
+		query,
+		flashError,
+	} = params
 	const body = jsx(CatalogPage, {
 		catalog,
 		holdings: entries,
+		canImport,
 		typeFilter,
 		query,
+		sharedCatalogOwnerLogin,
 	})
 	return render({
 		title: t('meta.title.catalog'),
 		session,
 		currentPage: 'catalog',
 		body,
+		flashError,
 	})
 }

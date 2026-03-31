@@ -6,6 +6,10 @@ import { getClientId, getClientSecret } from '../../lib/auth.ts'
 import { findOrCreateGist } from '../../lib/gist.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import { routes } from '../../routes.ts'
+import {
+	fetchSharedCatalogSnapshot,
+	isSharedCatalogAdmin,
+} from '../catalog/lib.ts'
 
 const OAUTH_STATE_SESSION_KEY = 'oauthGithubState'
 
@@ -119,8 +123,14 @@ export const authController = {
 
 			context.get(Session).regenerateId()
 			context.get(Session).set('login', login)
+			const sharedCatalogSnapshot = await fetchSharedCatalogSnapshot()
+			const sharedCatalogAdmin = isSharedCatalogAdmin({
+				sessionLogin: login,
+				ownerLogin: sharedCatalogSnapshot.ownerLogin,
+			})
+			context.get(Session).set('sharedCatalogAdmin', sharedCatalogAdmin)
 
-			if (!isGithubLoginApproved(login)) {
+			if (!sharedCatalogAdmin && !isGithubLoginApproved(login)) {
 				context.get(Session).unset('token')
 				context.get(Session).unset('gistId')
 				context.get(Session).set('approvalStatus', 'pending')

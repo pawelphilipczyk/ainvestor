@@ -5,6 +5,12 @@ import {
 } from '../../lib/guidelines.ts'
 
 export const CATALOG_FILENAME = 'catalog.json'
+const GITHUB_API = 'https://api.github.com'
+
+type SharedCatalogSnapshot = {
+	entries: CatalogEntry[]
+	ownerLogin: string | null
+}
 
 export type CatalogEntry = {
 	id: string
@@ -242,6 +248,9 @@ type GistFile = {
 
 type GistPayload = {
 	files: Record<string, GistFile>
+	owner?: {
+		login?: string
+	}
 }
 
 /** Parse catalog entries from a raw GitHub Gist API response object. */
@@ -269,7 +278,35 @@ export function buildCatalogGistPatch(entries: CatalogEntry[]): {
 	}
 }
 
-const GITHUB_API = 'https://api.github.com'
+let sharedCatalogTestSnapshot: SharedCatalogSnapshot | null = null
+
+function cloneCatalogEntries(entries: CatalogEntry[]): CatalogEntry[] {
+	return entries.map((entry) => ({ ...entry }))
+}
+
+function cloneSharedCatalogSnapshot(
+	snapshot: SharedCatalogSnapshot,
+): SharedCatalogSnapshot {
+	return {
+		entries: cloneCatalogEntries(snapshot.entries),
+		ownerLogin: snapshot.ownerLogin,
+	}
+}
+
+function getSharedCatalogGistId(): string | null {
+	const gistId = (process.env.SHARED_CATALOG_GIST_ID ?? '').trim()
+	return gistId.length > 0 ? gistId : null
+}
+
+export function setSharedCatalogForTests(
+	snapshot: SharedCatalogSnapshot,
+): void {
+	sharedCatalogTestSnapshot = cloneSharedCatalogSnapshot(snapshot)
+}
+
+export function resetSharedCatalogForTests(): void {
+	sharedCatalogTestSnapshot = null
+}
 
 function githubHeaders(token: string): HeadersInit {
 	return {
@@ -280,28 +317,79 @@ function githubHeaders(token: string): HeadersInit {
 	}
 }
 
-/** Fetch catalog entries from an existing gist by ID. */
-export async function fetchCatalog(
-	token: string,
-	gistId: string,
-): Promise<CatalogEntry[]> {
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		headers: githubHeaders(token),
-	})
-	if (!response.ok) return []
-	const gist = (await response.json()) as GistPayload
-	return parseCatalogFromGist(gist)
+export function isSharedCatalogAdmin(params: {
+	sessionLogin: string | null | undefined
+	ownerLogin: string | null | undefined
+}): boolean {
+	const { sessionLogin, ownerLogin } = params
+	if (!sessionLogin || !ownerLogin) return false
+	return sessionLogin.trim().toLowerCase() === ownerLogin.trim().toLowerCase()
 }
 
-/** Save catalog entries to an existing gist by ID. */
+export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapshot> {
+	if (sharedCatalogTestSnapshot) {
+		return cloneSharedCatalogSnapshot(sharedCatalogTestSnapshot)
+	}
+
+	const gistId = getSharedCatalogGistId()
+	if (!gistId) {
+		return { entries: [], ownerLogin: null }
+	}
+
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+		headers: {
+			Accept: 'application/vnd.github+json',
+			'X-GitHub-Api-Version': '2022-11-28',
+		},
+	})
+	if (!response.ok) return { entries: [], ownerLogin: null }
+	const gist = (await response.json()) as GistPayload
+	const ownerLogin =
+		typeof gist.owner?.login === 'string' && gist.owner.login.length > 0
+			? gist.owner.login
+			: null
+	return {
+		entries: parseCatalogFromGist(gist),
+		ownerLogin,
+	}
+}
+
+/** Fetch catalog entries from the shared public gist. */
+export async function fetchCatalog(
+	_token?: string,
+	_gistId?: string,
+): Promise<CatalogEntry[]> {
+	const snapshot = await fetchSharedCatalogSnapshot()
+	return snapshot.entries
+}
+
+/** Save catalog entries to the configured shared gist. */
 export async function saveCatalog(
 	token: string,
-	gistId: string,
+	_gistId: string | null | undefined,
 	entries: CatalogEntry[],
 ): Promise<void> {
-	await fetch(`${GITHUB_API}/gists/${gistId}`, {
+	if (sharedCatalogTestSnapshot) {
+		sharedCatalogTestSnapshot = {
+			entries: cloneCatalogEntries(entries),
+			ownerLogin: sharedCatalogTestSnapshot.ownerLogin,
+		}
+		return
+	}
+
+	const gistId = getSharedCatalogGistId()
+	if (!gistId) {
+		throw new Error('Shared catalog gist is not configured')
+	}
+
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		method: 'PATCH',
 		headers: githubHeaders(token),
 		body: JSON.stringify(buildCatalogGistPatch(entries)),
 	})
+	if (!response.ok) {
+		throw new Error(
+			`GitHub API error updating shared catalog gist: ${response.status}`,
+		)
+	}
 }

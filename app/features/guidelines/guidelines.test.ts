@@ -1,10 +1,14 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import {
-	catalogImportFormRequest,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
+import {
+	parseBankJsonToCatalog,
+	resetSharedCatalogForTests,
+	setSharedCatalogForTests,
+} from '../catalog/lib.ts'
 
 async function seedGuestCatalog() {
 	const bankJson = JSON.stringify({
@@ -20,11 +24,15 @@ async function seedGuestCatalog() {
 		],
 		count: 3,
 	})
-	await testSessionFetch(catalogImportFormRequest(bankJson))
+	setSharedCatalogForTests({
+		entries: parseBankJsonToCatalog(JSON.parse(bankJson)),
+		ownerLogin: 'catalog-admin',
+	})
 }
 
 afterEach(() => {
 	resetTestSessionCookieJar()
+	resetSharedCatalogForTests()
 })
 
 describe('Guidelines page', () => {

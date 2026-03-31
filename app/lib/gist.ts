@@ -1,7 +1,4 @@
-import {
-	type CatalogEntry,
-	parseCatalogFromGist,
-} from '../features/catalog/lib.ts'
+import { type CatalogEntry, fetchCatalog } from '../features/catalog/lib.ts'
 
 export const GIST_FILENAME = 'etfs.json'
 
@@ -126,20 +123,19 @@ export async function fetchEtfs(
 }
 
 /**
- * One GitHub Gist GET: portfolio holdings (`etfs.json`) and catalog (`catalog.json`).
+ * One private Gist GET for holdings plus one shared catalog read.
  */
 export async function fetchPortfolioSnapshot(
 	token: string,
 	gistId: string,
 ): Promise<{ entries: EtfEntry[]; catalog: CatalogEntry[] }> {
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		headers: githubHeaders(token),
-	})
-	if (!response.ok) return { entries: [], catalog: [] }
-	const gist = (await response.json()) as GistPayload
+	const [entries, catalog] = await Promise.all([
+		fetchEtfs(token, gistId),
+		fetchCatalog(),
+	])
 	return {
-		entries: parseEtfsFromGist(gist),
-		catalog: parseCatalogFromGist(gist),
+		entries,
+		catalog,
 	}
 }
 
