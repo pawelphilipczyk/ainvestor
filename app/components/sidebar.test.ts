@@ -138,6 +138,11 @@ describe('remix component runtime in document', () => {
 		assert.match(body, /import \{ run \} from 'remix\/component'/)
 		assert.match(body, /run\(\{/)
 		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
+		assert.match(
+			body,
+			/g\.navigation == null/,
+			'polyfills Navigation API so run() does not throw on Firefox',
+		)
 	})
 })
 
@@ -157,15 +162,15 @@ describe('sidebar component entry static file', () => {
 		assert.equal(response.status, 404)
 	})
 
-	it('sidebar component entry binds toggle/close/backdrop and document keydown', async () => {
+	it('sidebar component entry uses remix component event listeners', async () => {
 		const response = await router.fetch(
 			'http://localhost/components/sidebar.component.js',
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
 		assert.match(body, /from 'remix\/component'/)
-		assert.match(body, /sidebarToggle\.addEventListener/)
-		assert.match(body, /backdrop\.addEventListener/)
+		assert.match(body, /addEventListeners/)
+		assert.match(body, /ownerDocument/)
 		assert.match(body, /addEventListeners\(doc,/)
 	})
 })

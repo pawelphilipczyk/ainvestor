@@ -44,13 +44,9 @@ export const SidebarInteractions = clientEntry(
 				'data-component': 'sidebar-interactions',
 				connect: (node, signal) => {
 					const doc = node.ownerDocument
-					const win = doc.defaultView
-					if (!win) return
-
 					const sidebar = doc.querySelector('#app-sidebar')
 					const backdrop = doc.querySelector('#sidebar-backdrop')
 					const sidebarToggle = doc.querySelector('[data-sidebar-toggle]')
-					const closeButton = doc.querySelector('[data-sidebar-close]')
 					if (
 						!(sidebar instanceof HTMLElement) ||
 						!(backdrop instanceof HTMLElement) ||
@@ -59,51 +55,42 @@ export const SidebarInteractions = clientEntry(
 						return
 					}
 
-					const desktopMediaQuery = win.matchMedia(DESKTOP_MEDIA)
+					const desktopMediaQuery = doc.defaultView?.matchMedia(DESKTOP_MEDIA)
 					const onBreakpoint = () => {
-						if (desktopMediaQuery.matches) {
+						if (desktopMediaQuery?.matches) {
 							resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc)
 						}
 					}
-					desktopMediaQuery.addEventListener('change', onBreakpoint)
-
-					const openIfMobile = () => {
-						openSidebar(sidebar, backdrop, sidebarToggle, doc)
-					}
-					const closeIfMobile = () => {
-						closeSidebar(sidebar, backdrop, sidebarToggle, doc)
-					}
-
-					// Bind directly on controls so opens are not lost to stopPropagation
-					// or other document-level handlers (document delegation is fragile here).
-					sidebarToggle.addEventListener(
-						'click',
-						(event) => {
-							if (isDesktop(doc)) return
-							event.preventDefault()
-							openIfMobile()
-						},
-						{ signal },
-					)
-
-					if (closeButton instanceof HTMLElement) {
-						closeButton.addEventListener('click', closeIfMobile, { signal })
-					}
-
-					backdrop.addEventListener('click', closeIfMobile, { signal })
+					desktopMediaQuery?.addEventListener('change', onBreakpoint)
 
 					addEventListeners(doc, signal, {
+						click(event) {
+							if (isDesktop(doc)) return
+							const target = event.target
+							if (!(target instanceof Element)) return
+
+							if (target.closest('[data-sidebar-toggle]')) {
+								openSidebar(sidebar, backdrop, sidebarToggle, doc)
+								return
+							}
+
+							if (
+								target.closest('[data-sidebar-close]') ||
+								target.closest('#sidebar-backdrop')
+							) {
+								closeSidebar(sidebar, backdrop, sidebarToggle, doc)
+							}
+						},
 						keydown(event) {
 							if (event.key === 'Escape' && !isDesktop(doc)) {
-								closeIfMobile()
+								closeSidebar(sidebar, backdrop, sidebarToggle, doc)
 							}
 						},
 					})
-
 					signal.addEventListener(
 						'abort',
 						() => {
-							desktopMediaQuery.removeEventListener('change', onBreakpoint)
+							desktopMediaQuery?.removeEventListener('change', onBreakpoint)
 						},
 						{ once: true },
 					)
