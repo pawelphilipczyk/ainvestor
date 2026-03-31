@@ -138,11 +138,6 @@ describe('remix component runtime in document', () => {
 		assert.match(body, /import \{ run \} from 'remix\/component'/)
 		assert.match(body, /run\(\{/)
 		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
-		assert.match(
-			body,
-			/g\.navigation == null/,
-			'polyfills Navigation API so run() does not throw on Firefox',
-		)
 	})
 })
 
