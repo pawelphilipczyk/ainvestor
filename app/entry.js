@@ -5,7 +5,22 @@
  */
 import { run } from 'remix/component'
 
-run(document, {
+// startNavigationListener() assumes window.navigation (Chromium). Without it, run() throws
+// before hydration on Firefox/Safari; stub is inert for real navigations when links use rmx-document.
+if (typeof globalThis !== 'undefined' && globalThis.navigation == null) {
+	globalThis.navigation = {
+		updateCurrentEntry() {},
+		addEventListener() {},
+		navigate() {
+			return { finished: Promise.resolve() }
+		},
+		entries() {
+			return []
+		},
+	}
+}
+
+run({
 	async loadModule(moduleUrl, exportName) {
 		const loadedModule = await import(moduleUrl)
 		const loaded = loadedModule[exportName]
@@ -13,5 +28,12 @@ run(document, {
 			throw new Error(`Missing export ${exportName} from ${moduleUrl}`)
 		}
 		return loaded
+	},
+	async resolveFrame(src, signal) {
+		const response = await fetch(src, {
+			headers: { Accept: 'text/html' },
+			signal,
+		})
+		return response.body ?? (await response.text())
 	},
 })

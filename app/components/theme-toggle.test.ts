@@ -45,15 +45,15 @@ describe('theme-toggle component entry static file', () => {
 		assert.equal(response.status, 404)
 	})
 
-	it('theme-toggle component entry uses remix component + interaction APIs', async () => {
+	it('theme-toggle component entry uses remix component addEventListeners', async () => {
 		const response = await router.fetch(
 			'http://localhost/components/theme-toggle.component.js',
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
 		assert.match(body, /from 'remix\/component'/)
-		assert.match(body, /from '@remix-run\/interaction'/)
+		assert.match(body, /addEventListeners/)
 		assert.match(body, /ownerDocument/)
-		assert.match(body, /on\(doc,/)
+		assert.match(body, /addEventListeners\(doc,/)
 	})
 })

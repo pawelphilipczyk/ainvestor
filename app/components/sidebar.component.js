@@ -1,5 +1,4 @@
-import { on } from '@remix-run/interaction'
-import { clientEntry, createElement } from 'remix/component'
+import { addEventListeners, clientEntry, createElement } from 'remix/component'
 
 /** Matches Tailwind `md:` (tablet / iPad portrait and up). */
 const DESKTOP_MEDIA = '(min-width: 768px)'
@@ -64,7 +63,7 @@ export const SidebarInteractions = clientEntry(
 					}
 					desktopMediaQuery?.addEventListener('change', onBreakpoint)
 
-					const dispose = on(doc, {
+					addEventListeners(doc, signal, {
 						click(event) {
 							if (isDesktop(doc)) return
 							const target = event.target
@@ -88,11 +87,13 @@ export const SidebarInteractions = clientEntry(
 							}
 						},
 					})
-					const cleanup = () => {
-						dispose()
-						desktopMediaQuery?.removeEventListener('change', onBreakpoint)
-					}
-					signal.addEventListener('abort', cleanup, { once: true })
+					signal.addEventListener(
+						'abort',
+						() => {
+							desktopMediaQuery?.removeEventListener('change', onBreakpoint)
+						},
+						{ once: true },
+					)
 				},
 			})
 	},

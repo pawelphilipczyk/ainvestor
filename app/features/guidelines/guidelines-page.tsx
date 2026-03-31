@@ -189,6 +189,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						{t('guidelines.footer.beforeLink')}{' '}
 						<a
 							href={routes.catalog.index.href()}
+							rmx-document
 							class="font-medium text-primary underline underline-offset-2"
 						>
 							{t('guidelines.footer.link')}
