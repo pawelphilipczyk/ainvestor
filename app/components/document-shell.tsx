@@ -17,9 +17,7 @@ import { TabsNavScrollRestoration } from './tabs-nav-scroll.component.js'
 const IMPORT_MAP = JSON.stringify({
 	imports: {
 		'remix/component': '/remix/dist/component.js',
-		'remix/interaction': '/remix/dist/interaction.js',
 		'@remix-run/component': '/@remix-run/component/dist/index.js',
-		'@remix-run/interaction': '/@remix-run/interaction/dist/index.js',
 	},
 })
 

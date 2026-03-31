@@ -22,6 +22,11 @@ describe('GitHub OAuth routes', () => {
 		assert.ok(location.startsWith('https://github.com/login/oauth/authorize'))
 		assert.ok(location.includes('client_id=test-client-id'))
 		assert.ok(location.includes('scope=gist'))
+		const stateMatch = location.match(/(?:^|[?&])state=([^&]+)/)
+		assert.ok(stateMatch, 'expected state query param on authorize URL')
+		const stateValue = decodeURIComponent(stateMatch[1])
+		assert.equal(stateValue.length, 64, 'expected 32-byte hex OAuth state')
+		assert.match(response.headers.get('set-cookie') ?? '', /session=/i)
 	})
 
 	it('POST /auth/logout clears the session cookie and redirects home', async () => {

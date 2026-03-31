@@ -1,9 +1,9 @@
 import { compression } from 'remix/compression-middleware'
-import { createRouter } from 'remix/fetch-router'
+import { createRouter, type Middleware } from 'remix/fetch-router'
 import { formData } from 'remix/form-data-middleware'
 import { logger } from 'remix/logger-middleware'
 import { methodOverride } from 'remix/method-override-middleware'
-import type { Session } from 'remix/session'
+import { Session } from 'remix/session'
 import { session } from 'remix/session-middleware'
 import { staticFiles } from 'remix/static-middleware'
 import { adviceController, setAdviceClient } from './features/advice/index.ts'
@@ -19,6 +19,7 @@ import {
 	resetEtfEntries,
 } from './features/portfolio/index.ts'
 import { stripGithubTokenIfUnapproved } from './lib/approved-users.ts'
+import type { AppRequestContext } from './lib/request-context.ts'
 import { sessionCookie, sessionStorage } from './lib/session.ts'
 import { routes } from './routes.ts'
 
@@ -34,19 +35,18 @@ const appStatic = staticFiles('app', {
 const remixRuntime = staticFiles('node_modules', {
 	filter: (path) =>
 		path === 'remix/dist/component.js' ||
-		path === 'remix/dist/interaction.js' ||
-		path.startsWith('@remix-run/component/dist/') ||
-		path.startsWith('@remix-run/interaction/dist/'),
+		path.startsWith('@remix-run/component/dist/'),
 })
 
-function enforceGithubApproval() {
-	return async (
-		context: { session: Session },
+function enforceGithubApproval(): Middleware {
+	const handler = async (
+		context: AppRequestContext,
 		next: () => Promise<Response>,
 	) => {
-		stripGithubTokenIfUnapproved(context.session)
+		stripGithubTokenIfUnapproved(context.get(Session))
 		return next()
 	}
+	return handler as unknown as Middleware
 }
 
 export const router = createRouter({

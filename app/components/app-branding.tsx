@@ -11,6 +11,7 @@ export function AppBranding(_handle: Handle, _setup?: unknown) {
 		<div class="flex min-w-0 items-center gap-2">
 			<a
 				href={routes.home.index.href()}
+				rmx-document
 				class="truncate text-sm font-semibold text-foreground no-underline outline-none transition-colors hover:text-foreground/90 focus-visible:rounded focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 			>
 				{t('app.name')}

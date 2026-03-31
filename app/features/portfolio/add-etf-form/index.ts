@@ -5,7 +5,7 @@ import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
-import type { Session } from 'remix/session'
+import { Session } from 'remix/session'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
 import {
@@ -20,6 +20,7 @@ import {
 } from '../../../lib/guest-session-state.ts'
 import { t } from '../../../lib/i18n.ts'
 import { parseLocaleDecimalString } from '../../../lib/locale-decimal-input.ts'
+import type { AppRequestContext } from '../../../lib/request-context.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
 import {
@@ -102,213 +103,220 @@ function portfolioPersistenceFailureResponse(params: {
 export { AddEtfForm, ListFragment }
 
 export const addEtfFormHandlers = {
-	async create(context: {
-		request: Request
-		session: Session
-		formData: FormData | null
-	}) {
-		const form = context.formData
-		if (!form) return createRedirectResponse(routes.portfolio.index.href())
+	actions: {
+		async create(context: AppRequestContext) {
+			const form = context.get(FormData)
+			if (!form) return createRedirectResponse(routes.portfolio.index.href())
 
-		const formPayload = objectFromFormData(form)
-		normalizeAddEtfInput(formPayload)
+			const formPayload = objectFromFormData(form)
+			normalizeAddEtfInput(formPayload)
 
-		const result = parseSafe(CreateEtfSchema, formPayload)
-		if (!result.success) {
-			const message = t('errors.portfolio.addInvalid')
-			if (prefersJson(context.request)) {
-				return new Response(JSON.stringify({ error: message }), {
-					status: 422,
-					headers: { 'Content-Type': 'application/json' },
-				})
-			}
-			context.session.flash('error', message)
-			return createRedirectResponse(routes.portfolio.index.href())
-		}
-
-		const { instrumentTicker, value, currency, quantity } = result.value
-		const session = getSessionData(context.session)
-		let catalog: CatalogEntry[]
-		let current: EtfEntry[]
-		if (session?.gistId && session.token) {
-			const snapshot = await fetchPortfolioSnapshot(
-				session.token,
-				session.gistId,
-			)
-			catalog = snapshot.catalog
-			current = snapshot.entries
-		} else {
-			catalog = getGuestCatalog(context.session)
-			current = getGuestEtfs(context.session)
-		}
-		const match = findCatalogEntryByTicker(catalog, instrumentTicker)
-		if (!match) {
-			const message = t('errors.portfolio.catalogEntryMissing')
-			if (prefersJson(context.request)) {
-				return new Response(
-					JSON.stringify({
-						error: message,
-						instrumentTicker: instrumentTicker.trim(),
-						...(session?.gistId && session.token
-							? { gistId: session.gistId }
-							: {}),
-					}),
-					{
+			const result = parseSafe(CreateEtfSchema, formPayload)
+			if (!result.success) {
+				const message = t('errors.portfolio.addInvalid')
+				if (prefersJson(context.request)) {
+					return new Response(JSON.stringify({ error: message }), {
 						status: 422,
 						headers: { 'Content-Type': 'application/json' },
-					},
-				)
-			}
-			context.session.flash('error', message)
-			return createRedirectResponse(routes.portfolio.index.href())
-		}
-		const name = match.name
-
-		const normalizedName = name.toLowerCase()
-		const normalizedCurrency = currency.toUpperCase()
-		const normalizedTicker = match.ticker.toUpperCase()
-		const existingIndex = current.findIndex((e) => {
-			if (e.currency.toUpperCase() !== normalizedCurrency) return false
-			if (e.ticker) {
-				return e.ticker.toUpperCase() === normalizedTicker
-			}
-			return e.name.toLowerCase() === normalizedName
-		})
-		const existing = existingIndex >= 0 ? current[existingIndex] : null
-		const ticker = match.ticker
-		const entry: EtfEntry = existing
-			? {
-					...existing,
-					ticker: existing.ticker ?? ticker,
-					value: existing.value + value,
-					quantity:
-						existing.quantity !== undefined && quantity !== undefined
-							? existing.quantity + quantity
-							: (quantity ?? existing.quantity),
+					})
 				}
-			: {
-					id: crypto.randomUUID(),
-					name,
-					ticker,
-					value,
-					currency: normalizedCurrency,
-					...(quantity !== undefined ? { quantity } : {}),
+				context.get(Session).flash('error', message)
+				return createRedirectResponse(routes.portfolio.index.href())
+			}
+
+			const { instrumentTicker, value, currency, quantity } = result.value
+			const session = getSessionData(context.get(Session))
+			let catalog: CatalogEntry[]
+			let current: EtfEntry[]
+			if (session?.gistId && session.token) {
+				try {
+					const snapshot = await fetchPortfolioSnapshot(
+						session.token,
+						session.gistId,
+					)
+					catalog = snapshot.catalog
+					current = snapshot.entries
+				} catch {
+					return portfolioPersistenceFailureResponse({
+						request: context.request,
+						session: context.get(Session),
+					})
 				}
+			} else {
+				catalog = getGuestCatalog(context.get(Session))
+				current = getGuestEtfs(context.get(Session))
+			}
+			const match = findCatalogEntryByTicker(catalog, instrumentTicker)
+			if (!match) {
+				const message = t('errors.portfolio.catalogEntryMissing')
+				if (prefersJson(context.request)) {
+					return new Response(
+						JSON.stringify({
+							error: message,
+							instrumentTicker: instrumentTicker.trim(),
+							...(session?.gistId && session.token
+								? { gistId: session.gistId }
+								: {}),
+						}),
+						{
+							status: 422,
+							headers: { 'Content-Type': 'application/json' },
+						},
+					)
+				}
+				context.get(Session).flash('error', message)
+				return createRedirectResponse(routes.portfolio.index.href())
+			}
+			const name = match.name
 
-		const updated =
-			existingIndex >= 0
-				? current.map((e, i) => (i === existingIndex ? entry : e))
-				: [entry, ...current]
+			const normalizedName = name.toLowerCase()
+			const normalizedCurrency = currency.toUpperCase()
+			const normalizedTicker = match.ticker.toUpperCase()
+			const existingIndex = current.findIndex((e) => {
+				if (e.currency.toUpperCase() !== normalizedCurrency) return false
+				if (e.ticker) {
+					return e.ticker.toUpperCase() === normalizedTicker
+				}
+				return e.name.toLowerCase() === normalizedName
+			})
+			const existing = existingIndex >= 0 ? current[existingIndex] : null
+			const ticker = match.ticker
+			const entry: EtfEntry = existing
+				? {
+						...existing,
+						ticker: existing.ticker ?? ticker,
+						value: existing.value + value,
+						quantity:
+							existing.quantity !== undefined && quantity !== undefined
+								? existing.quantity + quantity
+								: (quantity ?? existing.quantity),
+					}
+				: {
+						id: crypto.randomUUID(),
+						name,
+						ticker,
+						value,
+						currency: normalizedCurrency,
+						...(quantity !== undefined ? { quantity } : {}),
+					}
 
-		if (session?.gistId && session.token) {
-			await saveEtfs(session.token, session.gistId, updated)
-		} else {
-			setGuestEtfs(context.session, updated)
-		}
+			const updated =
+				existingIndex >= 0
+					? current.map((e, i) => (i === existingIndex ? entry : e))
+					: [entry, ...current]
 
-		return createRedirectResponse(routes.portfolio.index.href())
-	},
+			if (session?.gistId && session.token) {
+				try {
+					await saveEtfs(session.token, session.gistId, updated)
+				} catch {
+					return portfolioPersistenceFailureResponse({
+						request: context.request,
+						session: context.get(Session),
+					})
+				}
+			} else {
+				setGuestEtfs(context.get(Session), updated)
+			}
 
-	async update(context: {
-		request: Request
-		session: Session
-		formData: FormData | null
-		params: unknown
-	}) {
-		if (
-			context.params == null ||
-			typeof context.params !== 'object' ||
-			Array.isArray(context.params)
-		) {
 			return createRedirectResponse(routes.portfolio.index.href())
-		}
-		const id = (context.params as Record<string, string>).id
-		if (!id) return createRedirectResponse(routes.portfolio.index.href())
+		},
 
-		const form = context.formData
-		if (!form) return createRedirectResponse(routes.portfolio.index.href())
-
-		const formPayload = objectFromFormData(form)
-		normalizePortfolioUpdateInput(formPayload)
-		const result = parseSafe(UpdatePortfolioEntrySchema, formPayload)
-		if (!result.success) {
-			const message = t('errors.portfolio.updateInvalid')
-			if (prefersJson(context.request)) {
-				return new Response(JSON.stringify({ error: message }), {
-					status: 422,
-					headers: { 'Content-Type': 'application/json' },
-				})
+		async update(context: AppRequestContext) {
+			if (
+				context.params == null ||
+				typeof context.params !== 'object' ||
+				Array.isArray(context.params)
+			) {
+				return createRedirectResponse(routes.portfolio.index.href())
 			}
-			context.session.flash('error', message)
+			const id = (context.params as Record<string, string>).id
+			if (!id) return createRedirectResponse(routes.portfolio.index.href())
+
+			const form = context.get(FormData)
+			if (!form) return createRedirectResponse(routes.portfolio.index.href())
+
+			const formPayload = objectFromFormData(form)
+			normalizePortfolioUpdateInput(formPayload)
+			const result = parseSafe(UpdatePortfolioEntrySchema, formPayload)
+			if (!result.success) {
+				const message = t('errors.portfolio.updateInvalid')
+				if (prefersJson(context.request)) {
+					return new Response(JSON.stringify({ error: message }), {
+						status: 422,
+						headers: { 'Content-Type': 'application/json' },
+					})
+				}
+				context.get(Session).flash('error', message)
+				return createRedirectResponse(routes.portfolio.index.href())
+			}
+
+			const { value, quantity } = result.value
+
+			const session = getSessionData(context.get(Session))
+			let current: EtfEntry[]
+			if (session?.gistId && session.token) {
+				try {
+					current = await fetchEtfs(session.token, session.gistId)
+				} catch {
+					return portfolioPersistenceFailureResponse({
+						request: context.request,
+						session: context.get(Session),
+					})
+				}
+			} else {
+				current = getGuestEtfs(context.get(Session))
+			}
+
+			const index = current.findIndex((entry) => entry.id === id)
+			if (index < 0) {
+				const message = t('errors.portfolio.entryNotFound')
+				if (prefersJson(context.request)) {
+					return new Response(JSON.stringify({ error: message }), {
+						status: 422,
+						headers: { 'Content-Type': 'application/json' },
+					})
+				}
+				context.get(Session).flash('error', message)
+				return createRedirectResponse(routes.portfolio.index.href())
+			}
+
+			const existing = current[index]
+			const updatedEntry: EtfEntry = { ...existing, value }
+			if (quantity !== undefined) {
+				updatedEntry.quantity = quantity
+			} else {
+				delete updatedEntry.quantity
+			}
+			const updated = current.map((entry, entryIndex) =>
+				entryIndex === index ? updatedEntry : entry,
+			)
+
+			if (session?.gistId && session.token) {
+				try {
+					await saveEtfs(session.token, session.gistId, updated)
+				} catch {
+					return portfolioPersistenceFailureResponse({
+						request: context.request,
+						session: context.get(Session),
+					})
+				}
+			} else {
+				setGuestEtfs(context.get(Session), updated)
+			}
+
 			return createRedirectResponse(routes.portfolio.index.href())
-		}
+		},
 
-		const { value, quantity } = result.value
-
-		const session = getSessionData(context.session)
-		let current: EtfEntry[]
-		if (session?.gistId && session.token) {
-			try {
-				current = await fetchEtfs(session.token, session.gistId)
-			} catch {
-				return portfolioPersistenceFailureResponse({
-					request: context.request,
-					session: context.session,
-				})
-			}
-		} else {
-			current = getGuestEtfs(context.session)
-		}
-
-		const index = current.findIndex((entry) => entry.id === id)
-		if (index < 0) {
-			const message = t('errors.portfolio.entryNotFound')
-			if (prefersJson(context.request)) {
-				return new Response(JSON.stringify({ error: message }), {
-					status: 422,
-					headers: { 'Content-Type': 'application/json' },
-				})
-			}
-			context.session.flash('error', message)
-			return createRedirectResponse(routes.portfolio.index.href())
-		}
-
-		const existing = current[index]
-		const updatedEntry: EtfEntry = { ...existing, value }
-		if (quantity !== undefined) {
-			updatedEntry.quantity = quantity
-		} else {
-			delete updatedEntry.quantity
-		}
-		const updated = current.map((entry, entryIndex) =>
-			entryIndex === index ? updatedEntry : entry,
-		)
-
-		if (session?.gistId && session.token) {
-			try {
-				await saveEtfs(session.token, session.gistId, updated)
-			} catch {
-				return portfolioPersistenceFailureResponse({
-					request: context.request,
-					session: context.session,
-				})
-			}
-		} else {
-			setGuestEtfs(context.session, updated)
-		}
-
-		return createRedirectResponse(routes.portfolio.index.href())
-	},
-
-	async fragmentList(context: { request: Request; session: Session }) {
-		const session = getSessionData(context.session)
-		const entries =
-			session?.gistId && session.token
-				? await fetchEtfs(session.token, session.gistId)
-				: getGuestEtfs(context.session)
-		const html = await renderToString(jsx(ListFragment, { entries }))
-		return createHtmlResponse(html, {
-			headers: { 'Cache-Control': 'no-store' },
-		})
+		async fragmentList(context: AppRequestContext) {
+			const session = getSessionData(context.get(Session))
+			const entries =
+				session?.gistId && session.token
+					? await fetchEtfs(session.token, session.gistId)
+					: getGuestEtfs(context.get(Session))
+			const html = await renderToString(jsx(ListFragment, { entries }))
+			return createHtmlResponse(html, {
+				headers: { 'Cache-Control': 'no-store' },
+			})
+		},
 	},
 }

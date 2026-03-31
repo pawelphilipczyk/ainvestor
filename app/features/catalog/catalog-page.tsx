@@ -224,6 +224,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							{props.typeFilter || props.query ? (
 								<a
 									href={routes.catalog.index.href()}
+									rmx-document
 									class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
 								>
 									{t('catalog.filter.clear')}

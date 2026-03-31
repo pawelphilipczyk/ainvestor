@@ -62,14 +62,15 @@ describe('tabs-nav scroll restoration component entry', () => {
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 	})
 
-	it('tabs-nav-scroll component entry uses remix component + interaction APIs', async () => {
+	it('tabs-nav-scroll component entry wires document listeners via handle.signal', async () => {
 		const response = await router.fetch(
 			'http://localhost/components/tabs-nav-scroll.component.js',
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
 		assert.match(body, /from 'remix\/component'/)
-		assert.match(body, /from 'remix\/interaction'/)
+		assert.match(body, /addEventListeners/)
+		assert.match(body, /handle\.signal/)
 		assert.match(body, /sessionStorage/)
 	})
 })

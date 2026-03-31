@@ -1,7 +1,10 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
-import { testSessionFetch } from '../../lib/test-session-fetch.ts'
+import {
+	catalogImportFormRequest,
+	testSessionFetch,
+} from '../../lib/test-session-fetch.ts'
 import { resetGuestCatalog } from '../catalog/index.ts'
 import { resetEtfEntries } from './index.ts'
 
@@ -20,13 +23,7 @@ async function seedGuestCatalog() {
 		],
 		count: 3,
 	})
-	await testSessionFetch(
-		new Request('http://localhost/catalog/import', {
-			method: 'POST',
-			body: bankJson,
-			headers: { 'Content-Type': 'application/json' },
-		}),
-	)
+	await testSessionFetch(catalogImportFormRequest(bankJson))
 }
 
 describe('Health endpoint', () => {
@@ -345,16 +342,16 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.equal(legacyResponse.status, 404)
 	})
 
-	it('ETF card component entry uses remix component + interaction APIs', async () => {
+	it('ETF card component entry wires document listeners via handle.signal', async () => {
 		const componentResponse = await testSessionFetch(
 			'http://localhost/features/portfolio/etf-card.component.js',
 		)
 		const componentBody = await componentResponse.text()
 		assert.match(componentBody, /clientEntry/)
 		assert.match(componentBody, /from 'remix\/component'/)
-		assert.match(componentBody, /from 'remix\/interaction'/)
-		assert.match(componentBody, /ownerDocument/)
-		assert.match(componentBody, /on\(doc,/)
+		assert.match(componentBody, /addEventListeners/)
+		assert.match(componentBody, /handle\.signal/)
+		assert.match(componentBody, /addEventListeners\(doc, handle\.signal/)
 		assert.match(
 			componentBody,
 			/data-enhance-dialog/,

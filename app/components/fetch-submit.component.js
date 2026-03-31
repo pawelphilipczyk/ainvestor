@@ -1,5 +1,4 @@
-import { clientEntry, createElement } from 'remix/component'
-import { on } from 'remix/interaction'
+import { addEventListeners, clientEntry, createElement } from 'remix/component'
 
 const SPINNER_ICON_ID = 'form-spinner-icon'
 const CLIENT_MESSAGES_ID = 'ui-client-messages'
@@ -186,36 +185,35 @@ async function handleFetchSubmit(form, submitBtn) {
 
 export const FetchSubmitEnhancement = clientEntry(
 	'/components/fetch-submit.component.js#FetchSubmitEnhancement',
-	function FetchSubmitEnhancement() {
+	function FetchSubmitEnhancement(handle) {
+		if (typeof document !== 'undefined') {
+			addEventListeners(document, handle.signal, {
+				async submit(event) {
+					const form = event.target
+					if (
+						!(form instanceof HTMLFormElement) ||
+						!form.hasAttribute('data-fetch-submit')
+					) {
+						return
+					}
+					if (!form.checkValidity()) {
+						form.reportValidity()
+						return
+					}
+					event.preventDefault()
+					const submitBtn = form.querySelector(
+						'button[type="submit"], input[type="submit"]',
+					)
+					await handleFetchSubmit(form, submitBtn)
+				},
+			})
+		}
+
 		return () =>
 			createElement('span', {
 				hidden: true,
 				'aria-hidden': 'true',
 				'data-component': 'fetch-submit-enhancement',
-				connect: (node, signal) => {
-					const doc = node.ownerDocument
-					const dispose = on(doc, {
-						async submit(event) {
-							const form = event.target
-							if (
-								!(form instanceof HTMLFormElement) ||
-								!form.hasAttribute('data-fetch-submit')
-							) {
-								return
-							}
-							if (!form.checkValidity()) {
-								form.reportValidity()
-								return
-							}
-							event.preventDefault()
-							const submitBtn = form.querySelector(
-								'button[type="submit"], input[type="submit"]',
-							)
-							await handleFetchSubmit(form, submitBtn)
-						},
-					})
-					signal.addEventListener('abort', dispose, { once: true })
-				},
 			})
 	},
 )

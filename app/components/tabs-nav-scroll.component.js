@@ -1,5 +1,4 @@
-import { clientEntry, createElement } from 'remix/component'
-import { on } from 'remix/interaction'
+import { addEventListeners, clientEntry, createElement } from 'remix/component'
 
 const STORAGE_PREFIX = 'windowScroll:tab:'
 
@@ -85,34 +84,34 @@ function restoreScrollForCurrentTab(doc, win) {
 
 export const TabsNavScrollRestoration = clientEntry(
 	'/components/tabs-nav-scroll.component.js#TabsNavScrollRestoration',
-	function TabsNavScrollRestoration() {
+	function TabsNavScrollRestoration(handle) {
+		if (typeof document !== 'undefined') {
+			const doc = document
+			const win = doc.defaultView
+			if (win) {
+				restoreScrollForCurrentTab(doc, win)
+
+				addEventListeners(doc, handle.signal, {
+					click(event) {
+						if (!(event.target instanceof Element)) return
+						const link = event.target.closest('a[data-tab-scroll-key][href]')
+						if (!(link instanceof HTMLAnchorElement)) return
+						const nav = link.closest('[data-tab-scroll-group]')
+						if (!nav) return
+						if (link.getAttribute('aria-current') === 'page') return
+						const destinationTabKey = link.getAttribute('data-tab-scroll-key')
+						if (!destinationTabKey) return
+						saveScrollForCurrentTab(doc, win, destinationTabKey)
+					},
+				})
+			}
+		}
+
 		return () =>
 			createElement('span', {
 				hidden: true,
 				'aria-hidden': 'true',
 				'data-component': 'tabs-nav-scroll-restoration',
-				connect: (node, signal) => {
-					const doc = node.ownerDocument
-					const win = doc.defaultView
-					if (!win) return
-
-					restoreScrollForCurrentTab(doc, win)
-
-					const dispose = on(doc, {
-						click(event) {
-							if (!(event.target instanceof Element)) return
-							const link = event.target.closest('a[data-tab-scroll-key][href]')
-							if (!(link instanceof HTMLAnchorElement)) return
-							const nav = link.closest('[data-tab-scroll-group]')
-							if (!nav) return
-							if (link.getAttribute('aria-current') === 'page') return
-							const destinationTabKey = link.getAttribute('data-tab-scroll-key')
-							if (!destinationTabKey) return
-							saveScrollForCurrentTab(doc, win, destinationTabKey)
-						},
-					})
-					signal.addEventListener('abort', dispose, { once: true })
-				},
 			})
 	},
 )

@@ -3,6 +3,7 @@ import { afterEach, describe, it } from 'node:test'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
+	catalogImportFormRequest,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
@@ -531,13 +532,7 @@ describe('Advice', () => {
 			data: [{ fund_name: 'VXUS', ticker: 'VXUS', assets: 'akcje' }],
 			count: 1,
 		})
-		await testSessionFetch(
-			new Request('http://localhost/catalog/import', {
-				method: 'POST',
-				body: bankJson,
-				headers: { 'Content-Type': 'application/json' },
-			}),
-		)
+		await testSessionFetch(catalogImportFormRequest(bankJson))
 
 		const addForm = new FormData()
 		addForm.set('instrumentTicker', 'VXUS')
@@ -581,13 +576,7 @@ describe('Advice', () => {
 			data: [{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' }],
 			count: 1,
 		})
-		await testSessionFetch(
-			new Request('http://localhost/catalog/import', {
-				method: 'POST',
-				body: bankJson,
-				headers: { 'Content-Type': 'application/json' },
-			}),
-		)
+		await testSessionFetch(catalogImportFormRequest(bankJson))
 
 		const guidelineForm = new FormData()
 		guidelineForm.set('instrumentTicker', 'VTI')

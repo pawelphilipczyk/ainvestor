@@ -1,7 +1,10 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
-import { testSessionFetch } from '../../lib/test-session-fetch.ts'
+import {
+	catalogImportFormRequest,
+	testSessionFetch,
+} from '../../lib/test-session-fetch.ts'
 import { resetEtfEntries } from '../portfolio/index.ts'
 import { resetGuestCatalog } from './index.ts'
 
@@ -104,11 +107,7 @@ describe('ETF Catalog page', () => {
 		})
 
 		const importResponse = await testSessionFetch(
-			new Request('http://localhost/catalog/import', {
-				method: 'POST',
-				body: bankJson,
-				headers: { 'Content-Type': 'application/json' },
-			}),
+			catalogImportFormRequest(bankJson),
 		)
 
 		assert.equal(importResponse.status, 302)
@@ -134,13 +133,7 @@ describe('ETF Catalog page', () => {
 			count: 1,
 			total_count: 1,
 		})
-		await testSessionFetch(
-			new Request('http://localhost/catalog/import', {
-				method: 'POST',
-				body: bankJson,
-				headers: { 'Content-Type': 'application/json' },
-			}),
-		)
+		await testSessionFetch(catalogImportFormRequest(bankJson))
 
 		const addForm = new FormData()
 		addForm.set('instrumentTicker', 'VTI')
@@ -169,13 +162,7 @@ describe('ETF Catalog page', () => {
 			count: 1,
 			total_count: 1,
 		})
-		await testSessionFetch(
-			new Request('http://localhost/catalog/import', {
-				method: 'POST',
-				body: bankJson,
-				headers: { 'Content-Type': 'application/json' },
-			}),
-		)
+		await testSessionFetch(catalogImportFormRequest(bankJson))
 
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
@@ -209,13 +196,7 @@ describe('ETF Catalog page', () => {
 			count: 1,
 			total_count: 1,
 		})
-		await testSessionFetch(
-			new Request('http://localhost/catalog/import', {
-				method: 'POST',
-				body: bankJson,
-				headers: { 'Content-Type': 'application/json' },
-			}),
-		)
+		await testSessionFetch(catalogImportFormRequest(bankJson))
 
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
@@ -234,13 +215,7 @@ describe('ETF Catalog page', () => {
 			count: 2,
 			total_count: 2,
 		})
-		await testSessionFetch(
-			new Request('http://localhost/catalog/import', {
-				method: 'POST',
-				body: bankJson,
-				headers: { 'Content-Type': 'application/json' },
-			}),
-		)
+		await testSessionFetch(catalogImportFormRequest(bankJson))
 
 		const response = await testSessionFetch(
 			'http://localhost/catalog?type=bond',
@@ -271,13 +246,7 @@ describe('ETF Catalog page', () => {
 			count: 2,
 			total_count: 2,
 		})
-		await testSessionFetch(
-			new Request('http://localhost/catalog/import', {
-				method: 'POST',
-				body: bankJson,
-				headers: { 'Content-Type': 'application/json' },
-			}),
-		)
+		await testSessionFetch(catalogImportFormRequest(bankJson))
 
 		const response = await testSessionFetch('http://localhost/catalog?q=bond')
 		const body = await response.text()

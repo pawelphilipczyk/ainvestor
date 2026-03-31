@@ -38,7 +38,7 @@ export function Link(_handle: Handle, _setup?: unknown) {
 			const root = `${busyControlRootStateClasses} ${rootClass ?? ''}`.trim()
 			const label = `${busyControlLabelClass} ${labelClass ?? ''}`.trim()
 			return (
-				<a href={href} data-navigation-loading class={root}>
+				<a href={href} data-navigation-loading rmx-document class={root}>
 					<span class={label}>{children}</span>
 					<span class={busyControlOverlayClass} aria-hidden="true">
 						<span class={busyControlSpinnerClass} />
@@ -47,7 +47,7 @@ export function Link(_handle: Handle, _setup?: unknown) {
 			)
 		}
 		return (
-			<a href={href} class={rootClass}>
+			<a href={href} rmx-document class={rootClass}>
 				{children}
 			</a>
 		)
