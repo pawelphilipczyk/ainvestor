@@ -36,65 +36,65 @@ function resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc) {
 
 export const SidebarInteractions = clientEntry(
 	'/components/sidebar.component.js#SidebarInteractions',
-	function SidebarInteractions() {
+	function SidebarInteractions(handle) {
+		if (typeof document !== 'undefined') {
+			const doc = document
+			const sidebar = doc.querySelector('#app-sidebar')
+			const backdrop = doc.querySelector('#sidebar-backdrop')
+			const sidebarToggle = doc.querySelector('[data-sidebar-toggle]')
+			if (
+				sidebar instanceof HTMLElement &&
+				backdrop instanceof HTMLElement &&
+				sidebarToggle instanceof HTMLElement
+			) {
+				const desktopMediaQuery = doc.defaultView?.matchMedia(DESKTOP_MEDIA)
+				const onBreakpoint = () => {
+					if (desktopMediaQuery?.matches) {
+						resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc)
+					}
+				}
+				desktopMediaQuery?.addEventListener('change', onBreakpoint)
+
+				addEventListeners(doc, handle.signal, {
+					click(event) {
+						if (isDesktop(doc)) return
+						const target = event.target
+						if (!(target instanceof Element)) return
+
+						if (target.closest('[data-sidebar-toggle]')) {
+							openSidebar(sidebar, backdrop, sidebarToggle, doc)
+							return
+						}
+
+						if (
+							target.closest('[data-sidebar-close]') ||
+							target.closest('#sidebar-backdrop')
+						) {
+							closeSidebar(sidebar, backdrop, sidebarToggle, doc)
+						}
+					},
+					keydown(event) {
+						if (event.key === 'Escape' && !isDesktop(doc)) {
+							closeSidebar(sidebar, backdrop, sidebarToggle, doc)
+						}
+					},
+				})
+
+				handle.signal.addEventListener(
+					'abort',
+					() => {
+						desktopMediaQuery?.removeEventListener('change', onBreakpoint)
+					},
+					{ once: true },
+				)
+			}
+		}
+
 		return () =>
 			createElement('span', {
 				hidden: true,
 				'aria-hidden': 'true',
 				'data-component': 'sidebar-interactions',
-				connect: (node, signal) => {
-					const doc = node.ownerDocument
-					const sidebar = doc.querySelector('#app-sidebar')
-					const backdrop = doc.querySelector('#sidebar-backdrop')
-					const sidebarToggle = doc.querySelector('[data-sidebar-toggle]')
-					if (
-						!(sidebar instanceof HTMLElement) ||
-						!(backdrop instanceof HTMLElement) ||
-						!(sidebarToggle instanceof HTMLElement)
-					) {
-						return
-					}
-
-					const desktopMediaQuery = doc.defaultView?.matchMedia(DESKTOP_MEDIA)
-					const onBreakpoint = () => {
-						if (desktopMediaQuery?.matches) {
-							resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc)
-						}
-					}
-					desktopMediaQuery?.addEventListener('change', onBreakpoint)
-
-					addEventListeners(doc, signal, {
-						click(event) {
-							if (isDesktop(doc)) return
-							const target = event.target
-							if (!(target instanceof Element)) return
-
-							if (target.closest('[data-sidebar-toggle]')) {
-								openSidebar(sidebar, backdrop, sidebarToggle, doc)
-								return
-							}
-
-							if (
-								target.closest('[data-sidebar-close]') ||
-								target.closest('#sidebar-backdrop')
-							) {
-								closeSidebar(sidebar, backdrop, sidebarToggle, doc)
-							}
-						},
-						keydown(event) {
-							if (event.key === 'Escape' && !isDesktop(doc)) {
-								closeSidebar(sidebar, backdrop, sidebarToggle, doc)
-							}
-						},
-					})
-					signal.addEventListener(
-						'abort',
-						() => {
-							desktopMediaQuery?.removeEventListener('change', onBreakpoint)
-						},
-						{ once: true },
-					)
-				},
 			})
 	},
 )

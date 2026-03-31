@@ -342,7 +342,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.equal(legacyResponse.status, 404)
 	})
 
-	it('ETF card component entry uses remix component addEventListeners', async () => {
+	it('ETF card component entry wires document listeners via handle.signal', async () => {
 		const componentResponse = await testSessionFetch(
 			'http://localhost/features/portfolio/etf-card.component.js',
 		)
@@ -350,8 +350,8 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(componentBody, /clientEntry/)
 		assert.match(componentBody, /from 'remix\/component'/)
 		assert.match(componentBody, /addEventListeners/)
-		assert.match(componentBody, /ownerDocument/)
-		assert.match(componentBody, /addEventListeners\(doc,/)
+		assert.match(componentBody, /handle\.signal/)
+		assert.match(componentBody, /addEventListeners\(doc, handle\.signal/)
 		assert.match(
 			componentBody,
 			/data-enhance-dialog/,

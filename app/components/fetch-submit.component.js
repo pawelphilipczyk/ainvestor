@@ -185,35 +185,35 @@ async function handleFetchSubmit(form, submitBtn) {
 
 export const FetchSubmitEnhancement = clientEntry(
 	'/components/fetch-submit.component.js#FetchSubmitEnhancement',
-	function FetchSubmitEnhancement() {
+	function FetchSubmitEnhancement(handle) {
+		if (typeof document !== 'undefined') {
+			addEventListeners(document, handle.signal, {
+				async submit(event) {
+					const form = event.target
+					if (
+						!(form instanceof HTMLFormElement) ||
+						!form.hasAttribute('data-fetch-submit')
+					) {
+						return
+					}
+					if (!form.checkValidity()) {
+						form.reportValidity()
+						return
+					}
+					event.preventDefault()
+					const submitBtn = form.querySelector(
+						'button[type="submit"], input[type="submit"]',
+					)
+					await handleFetchSubmit(form, submitBtn)
+				},
+			})
+		}
+
 		return () =>
 			createElement('span', {
 				hidden: true,
 				'aria-hidden': 'true',
 				'data-component': 'fetch-submit-enhancement',
-				connect: (node, signal) => {
-					const doc = node.ownerDocument
-					addEventListeners(doc, signal, {
-						async submit(event) {
-							const form = event.target
-							if (
-								!(form instanceof HTMLFormElement) ||
-								!form.hasAttribute('data-fetch-submit')
-							) {
-								return
-							}
-							if (!form.checkValidity()) {
-								form.reportValidity()
-								return
-							}
-							event.preventDefault()
-							const submitBtn = form.querySelector(
-								'button[type="submit"], input[type="submit"]',
-							)
-							await handleFetchSubmit(form, submitBtn)
-						},
-					})
-				},
 			})
 	},
 )

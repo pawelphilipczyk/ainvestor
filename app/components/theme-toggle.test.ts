@@ -45,7 +45,7 @@ describe('theme-toggle component entry static file', () => {
 		assert.equal(response.status, 404)
 	})
 
-	it('theme-toggle component entry uses remix component addEventListeners', async () => {
+	it('theme-toggle component entry wires document listeners via handle.signal', async () => {
 		const response = await router.fetch(
 			'http://localhost/components/theme-toggle.component.js',
 		)
@@ -53,7 +53,7 @@ describe('theme-toggle component entry static file', () => {
 		assert.match(body, /clientEntry/)
 		assert.match(body, /from 'remix\/component'/)
 		assert.match(body, /addEventListeners/)
-		assert.match(body, /ownerDocument/)
-		assert.match(body, /addEventListeners\(doc,/)
+		assert.match(body, /handle\.signal/)
+		assert.match(body, /addEventListeners\(document, handle\.signal/)
 	})
 })

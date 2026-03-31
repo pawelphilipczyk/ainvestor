@@ -158,7 +158,7 @@ describe('sidebar component entry static file', () => {
 		assert.equal(response.status, 404)
 	})
 
-	it('sidebar component entry uses remix component addEventListeners', async () => {
+	it('sidebar component entry wires document listeners via handle.signal', async () => {
 		const response = await router.fetch(
 			'http://localhost/components/sidebar.component.js',
 		)
@@ -166,7 +166,7 @@ describe('sidebar component entry static file', () => {
 		assert.match(body, /clientEntry/)
 		assert.match(body, /from 'remix\/component'/)
 		assert.match(body, /addEventListeners/)
-		assert.match(body, /ownerDocument/)
-		assert.match(body, /addEventListeners\(doc,/)
+		assert.match(body, /handle\.signal/)
+		assert.match(body, /addEventListeners\(doc, handle\.signal/)
 	})
 })
