@@ -4,6 +4,17 @@ import { createRequestListener } from 'remix/node-fetch-server'
 
 import { router } from './app/router.ts'
 
+function validateRequiredConfig(): void {
+	const sharedCatalogGistId = (process.env.SHARED_CATALOG_GIST_ID ?? '').trim()
+	if (sharedCatalogGistId.length === 0) {
+		console.warn(
+			'[config] SHARED_CATALOG_GIST_ID is not set. Shared ETF catalog reads will stay empty and catalog imports will be disabled.',
+		)
+	}
+}
+
+validateRequiredConfig()
+
 const server = http.createServer(
 	createRequestListener(async (request: Request) => {
 		try {
