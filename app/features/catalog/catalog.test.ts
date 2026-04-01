@@ -32,6 +32,7 @@ async function signInAs(login: string) {
 	session.set('token', 'test-token')
 	session.set('gistId', 'gist-1')
 	session.set('sharedCatalogAdmin', true)
+	process.env.APPROVED_GITHUB_LOGINS = login
 	const value = await sessionStorage.save(session)
 	if (value == null) throw new Error('expected session save value')
 	const cookieHeader = await sessionCookie.serialize(value)
@@ -180,6 +181,8 @@ describe('ETF Catalog page', () => {
 		const catalogResponse = await testSessionFetch('http://localhost/catalog')
 		const body = await catalogResponse.text()
 
+		assert.match(body, /Existing Fund/)
+		assert.match(body, /OLD/)
 		assert.match(body, /XMOV GR/)
 		assert.match(body, /Xtrackers Future Mobility/)
 	})

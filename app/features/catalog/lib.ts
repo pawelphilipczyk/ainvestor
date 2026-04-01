@@ -6,6 +6,7 @@ import {
 
 export const CATALOG_FILENAME = 'catalog.json'
 const GITHUB_API = 'https://api.github.com'
+const GITHUB_REQUEST_TIMEOUT_MS = 5_000
 
 type SharedCatalogSnapshot = {
 	entries: CatalogEntry[]
@@ -337,6 +338,7 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 	}
 
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
 		headers: {
 			Accept: 'application/vnd.github+json',
 			'X-GitHub-Api-Version': '2022-11-28',
@@ -355,20 +357,17 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 }
 
 /** Fetch catalog entries from the shared public gist. */
-export async function fetchCatalog(
-	_token?: string,
-	_gistId?: string,
-): Promise<CatalogEntry[]> {
+export async function fetchCatalog(): Promise<CatalogEntry[]> {
 	const snapshot = await fetchSharedCatalogSnapshot()
 	return snapshot.entries
 }
 
 /** Save catalog entries to the configured shared gist. */
-export async function saveCatalog(
-	token: string,
-	_gistId: string | null | undefined,
-	entries: CatalogEntry[],
-): Promise<void> {
+export async function saveCatalog(params: {
+	token: string
+	entries: CatalogEntry[]
+}): Promise<void> {
+	const { token, entries } = params
 	if (sharedCatalogTestSnapshot) {
 		sharedCatalogTestSnapshot = {
 			entries: cloneCatalogEntries(entries),
@@ -384,6 +383,7 @@ export async function saveCatalog(
 
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		method: 'PATCH',
+		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
 		headers: githubHeaders(token),
 		body: JSON.stringify(buildCatalogGistPatch(entries)),
 	})

@@ -51,13 +51,10 @@ export function isGithubLoginApproved(login: string): boolean {
 export function stripGithubTokenIfUnapproved(session: Session): void {
 	const login = session.get('login') as string | undefined
 	const token = session.get('token') as string | undefined
-	const sharedCatalogAdmin = session.get('sharedCatalogAdmin') as
-		| boolean
-		| undefined
 	if (!login || !token) return
-	if (sharedCatalogAdmin === true) return
 	if (isGithubLoginApproved(login)) return
 	session.unset('token')
 	session.unset('gistId')
+	session.unset('sharedCatalogAdmin')
 	session.set('approvalStatus', 'pending')
 }

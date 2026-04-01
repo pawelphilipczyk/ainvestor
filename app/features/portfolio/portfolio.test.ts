@@ -1,7 +1,10 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
-import { testSessionFetch } from '../../lib/test-session-fetch.ts'
+import {
+	resetTestSessionCookieJar,
+	testSessionFetch,
+} from '../../lib/test-session-fetch.ts'
 import {
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
@@ -10,6 +13,7 @@ import {
 import { resetEtfEntries } from './index.ts'
 
 afterEach(() => {
+	resetTestSessionCookieJar()
 	resetEtfEntries()
 	resetSharedCatalogForTests()
 })

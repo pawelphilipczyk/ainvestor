@@ -75,12 +75,18 @@ export const catalogController = {
 
 		async import(context: AppRequestContext) {
 			const session = getSessionData(context.get(Session))
+			if (!session?.token || !session?.login) {
+				context
+					.get(Session)
+					.flash('error', t('errors.catalog.importNotAllowed'))
+				return catalogIndexRedirect()
+			}
 			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot()
 			const canImport = isSharedCatalogAdmin({
-				sessionLogin: session?.login,
+				sessionLogin: session.login,
 				ownerLogin,
 			})
-			if (!session?.token || !canImport) {
+			if (!canImport) {
 				context
 					.get(Session)
 					.flash('error', t('errors.catalog.importNotAllowed'))
@@ -100,7 +106,7 @@ export const catalogController = {
 				return createRedirectResponse(routes.catalog.index.href())
 
 			const merged = mergeBankIntoCatalog(entries, imported)
-			await saveCatalog(session.token, null, merged)
+			await saveCatalog({ token: session.token, entries: merged })
 
 			return createRedirectResponse(routes.catalog.index.href())
 		},

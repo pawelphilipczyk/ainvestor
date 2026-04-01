@@ -6,9 +6,9 @@ import { router } from './app/router.ts'
 
 function validateRequiredConfig(): void {
 	const sharedCatalogGistId = (process.env.SHARED_CATALOG_GIST_ID ?? '').trim()
-	if (sharedCatalogGistId.length === 0) {
-		console.warn(
-			'[config] SHARED_CATALOG_GIST_ID is not set. Shared ETF catalog reads will stay empty and catalog imports will be disabled.',
+	if (sharedCatalogGistId.length === 0 && process.env.NODE_ENV !== 'test') {
+		throw new Error(
+			'[config] SHARED_CATALOG_GIST_ID must be set outside tests.',
 		)
 	}
 }

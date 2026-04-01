@@ -241,14 +241,13 @@ export const adviceController = {
 			}
 
 			try {
-				const [catalog, entries] = await Promise.all([
-					fetchCatalog(),
+				const { catalog, entries } =
 					session?.gistId && session.token
-						? fetchPortfolioSnapshot(session.token, session.gistId).then(
-								(snapshot) => snapshot.entries,
-							)
-						: Promise.resolve(getGuestEtfs(context.get(Session))),
-				])
+						? await fetchPortfolioSnapshot(session.token, session.gistId)
+						: {
+								catalog: await fetchCatalog(),
+								entries: getGuestEtfs(context.get(Session)),
+							}
 				const guidelines =
 					session?.gistId && session.token
 						? await fetchGuidelines(session.token, session.gistId)
