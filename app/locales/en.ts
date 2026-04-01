@@ -216,6 +216,8 @@ export const en = {
 	'advice.table.amount': 'Amount',
 	'advice.table.currency': 'Currency',
 	'advice.table.note': 'Note',
+	'advice.table.learnMore': 'Learn more',
+	'advice.etfInfo.dialogClose': 'Close',
 	'advice.capital.title': 'Portfolio mix',
 	'advice.capital.snapshotError':
 		'Portfolio snapshot could not be shown because the data from the model was inconsistent (for example mixed currencies or invalid amounts).',
@@ -270,8 +272,16 @@ export const en = {
 		'Your account is not approved yet. You cannot request advice until your GitHub username is added to app/lib/approved-github-logins.ts and deployed.',
 	'errors.advice.service':
 		"We couldn't get advice right now. Please try again in a moment.",
+	'errors.advice.etfInfo.validation': 'Check the request and try again.',
+	'errors.advice.etfInfo.notApproved':
+		'Your account is not approved yet. You cannot load ETF details until you are approved.',
+	'errors.advice.etfInfo.service':
+		"We couldn't load ETF details right now. Please try again in a moment.",
 
 	'client.formSubmit.genericError': 'Please check your input.',
+	'client.adviceEtfInfo.loading': 'Fetching details…',
+	'client.adviceEtfInfo.error':
+		'Could not load ETF details. Please try again in a moment.',
 } as const
 
 export type MessageKey = keyof typeof en

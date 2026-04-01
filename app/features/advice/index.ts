@@ -1,6 +1,13 @@
 import { jsx } from 'remix/component/jsx-runtime'
 import type { Issue } from 'remix/data-schema'
-import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
+import {
+	defaulted,
+	enum_,
+	object,
+	optional,
+	parseSafe,
+	string,
+} from 'remix/data-schema'
 import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
@@ -22,6 +29,7 @@ import { routes } from '../../routes.ts'
 import { fetchCatalog } from '../catalog/lib.ts'
 import { type AdviceClient, createAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
+import { getEtfDeepDiveText } from './advice-etf-info-openai.ts'
 import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
 import {
 	ADVICE_ANALYSIS_MODES,
@@ -41,6 +49,12 @@ const AdviceSchema = object({
 		enum_(ADVICE_ANALYSIS_MODES),
 		DEFAULT_ADVICE_ANALYSIS_MODE,
 	),
+})
+
+const EtfInfoSchema = object({
+	etfName: string(),
+	etfTicker: optional(string()),
+	adviceModel: defaulted(enum_(ADVICE_MODEL_IDS), DEFAULT_ADVICE_MODEL),
 })
 
 function parseAdviceTabParam(url: string): AdviceAnalysisMode {
@@ -305,6 +319,80 @@ export const adviceController = {
 					},
 					init: { status: 503 },
 				})
+			}
+		},
+
+		async etfInfo(context: AppRequestContext) {
+			const layoutSession = getLayoutSession(context.get(Session))
+			const pendingApproval = layoutSession?.approvalStatus === 'pending'
+			const form = context.get(FormData)
+			if (!form) {
+				return Response.json(
+					{ error: t('errors.advice.formRead') },
+					{ status: 400 },
+				)
+			}
+
+			const rawEntries = objectFromFormData(form)
+			const formPayload = {
+				etfName:
+					typeof rawEntries.etfName === 'string' ? rawEntries.etfName : '',
+				etfTicker:
+					typeof rawEntries.etfTicker === 'string' &&
+					rawEntries.etfTicker.length > 0
+						? rawEntries.etfTicker
+						: undefined,
+				adviceModel:
+					typeof rawEntries.adviceModel === 'string' &&
+					rawEntries.adviceModel.length > 0
+						? rawEntries.adviceModel
+						: undefined,
+			}
+			const parsed = parseSafe(EtfInfoSchema, formPayload)
+			if (!parsed.success) {
+				return Response.json(
+					{ error: t('errors.advice.etfInfo.validation') },
+					{ status: 400 },
+				)
+			}
+			const { etfName, etfTicker, adviceModel } = parsed.value
+			const trimmedName = etfName.trim()
+			if (trimmedName === '') {
+				return Response.json(
+					{ error: t('errors.advice.etfInfo.validation') },
+					{ status: 400 },
+				)
+			}
+
+			if (pendingApproval) {
+				return Response.json(
+					{ error: t('errors.advice.etfInfo.notApproved') },
+					{ status: 403 },
+				)
+			}
+
+			try {
+				const session = getSessionData(context.get(Session))
+				const catalog =
+					session?.gistId && session.token
+						? (await fetchPortfolioSnapshot(session.token, session.gistId))
+								.catalog
+						: await fetchCatalog()
+				const client = adviceClient ?? createAdviceClient()
+				const text = await getEtfDeepDiveText({
+					name: trimmedName,
+					ticker: etfTicker?.trim() || undefined,
+					catalog,
+					client,
+					model: adviceModel,
+				})
+				return Response.json({ title: trimmedName, text })
+			} catch (err) {
+				console.error('[advice] etf-info request failed', err)
+				return Response.json(
+					{ error: t('errors.advice.etfInfo.service') },
+					{ status: 503 },
+				)
 			}
 		},
 	},

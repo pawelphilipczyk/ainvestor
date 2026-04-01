@@ -1,5 +1,7 @@
 import { del, form, get, post, route } from 'remix/fetch-router/routes'
 
+const adviceForm = form('advice')
+
 export const routes = route({
 	health: get('/health'),
 	home: {
@@ -19,7 +21,8 @@ export const routes = route({
 		logout: post('/auth/logout'),
 	},
 	advice: {
-		...form('advice'),
+		...adviceForm,
+		etfInfo: post('/advice/etf-info'),
 	},
 	guidelines: {
 		index: get('/guidelines'),
