@@ -1,6 +1,18 @@
 import { addEventListeners, clientEntry, createElement } from 'remix/component'
 
 const MESSAGES_ID = 'ui-client-messages'
+const ETF_INFO_DEFAULTS_ID = 'advice-etf-info-defaults'
+
+function readEtfInfoDefaults() {
+	if (typeof document === 'undefined') return null
+	const element = document.getElementById(ETF_INFO_DEFAULTS_ID)
+	if (!element?.textContent) return null
+	try {
+		return JSON.parse(element.textContent)
+	} catch {
+		return null
+	}
+}
 
 function readClientMessages() {
 	if (typeof document === 'undefined') return null
@@ -48,9 +60,16 @@ export const AdviceEtfInfoInteractions = clientEntry(
 					const trigger = target.closest('[data-advice-etf-learn]')
 					if (!(trigger instanceof HTMLButtonElement)) return
 
-					const postUrl = trigger.dataset.postUrl
+					const defaults = readEtfInfoDefaults()
+					const postUrl =
+						trigger.dataset.postUrl?.trim() ||
+						(typeof defaults?.postUrl === 'string' ? defaults.postUrl : '')
 					const etfName = trigger.dataset.etfName?.trim()
-					const model = trigger.dataset.adviceModel?.trim()
+					const model =
+						trigger.dataset.adviceModel?.trim() ||
+						(typeof defaults?.defaultAdviceModel === 'string'
+							? defaults.defaultAdviceModel
+							: '')
 					if (!postUrl || !etfName || !model) return
 
 					const dialog = doc.getElementById('advice-etf-info-dialog')

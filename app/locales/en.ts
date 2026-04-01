@@ -144,6 +144,7 @@ export const en = {
 	'catalog.table.description': 'Description',
 	'catalog.table.isin': 'ISIN',
 	'catalog.table.value': 'Value',
+	'catalog.table.learnMore': 'Learn more',
 	'catalog.emptyCell': '—',
 	'catalog.etfTypeUnknown': 'Unknown',
 	'catalog.noMatch': 'No ETFs match your search.',

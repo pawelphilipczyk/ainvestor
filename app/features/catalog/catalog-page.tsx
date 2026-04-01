@@ -17,11 +17,14 @@ import { format, t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+import { DEFAULT_ADVICE_MODEL } from '../advice/advice-openai.ts'
 import type { CatalogEntry } from './lib.ts'
 
 type CatalogPageProps = {
 	catalog: CatalogEntry[]
 	holdings: EtfEntry[]
+	/** When true, ETF info dialog controls are omitted (same gate as advice). */
+	pendingApproval?: boolean
 	canImport: boolean
 	typeFilter: string
 	query: string
@@ -32,7 +35,7 @@ type CatalogPageProps = {
 const catalogTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
 
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
-	return () => (
+	return (props: { showLearnMore: boolean }) => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
 			<th class="pb-2 pl-4 pr-4 align-top">{t('catalog.table.ticker')}</th>
 			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>
@@ -44,11 +47,21 @@ function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 			</th>
 			<th class="pb-2 align-top">{t('catalog.table.isin')}</th>
 			<th class="pb-2 pl-4 pr-4 align-top">{t('catalog.table.value')}</th>
+			{props.showLearnMore ? (
+				<th class="pb-2 pr-4 align-top">
+					<span class="sr-only">{t('catalog.table.learnMore')}</span>
+				</th>
+			) : null}
 		</tr>
 	)
 }
 
-function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
+function renderCatalogRow(
+	entry: CatalogEntry,
+	holding: EtfEntry | undefined,
+	options: { showLearnMore: boolean },
+) {
+	const { showLearnMore } = options
 	const valueCell = holding ? (
 		<td class="py-2 pl-4 pr-4 align-top text-sm font-medium text-foreground">
 			{formatValue(holding.value, holding.currency)}
@@ -86,6 +99,20 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 				{entry.isin ?? t('catalog.emptyCell')}
 			</td>
 			{valueCell}
+			{showLearnMore ? (
+				<td class="py-2 pr-4 align-top">
+					<button
+						type="button"
+						class="whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent"
+						data-advice-etf-learn=""
+						data-etf-name={entry.name}
+						data-etf-ticker={entry.ticker}
+						data-advice-model={DEFAULT_ADVICE_MODEL}
+					>
+						{t('catalog.table.learnMore')}
+					</button>
+				</td>
+			) : null}
 		</tr>
 	)
 }
@@ -93,6 +120,9 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 export function CatalogPage(handle: Handle, _setup?: unknown) {
 	return (props: CatalogPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
+		const pendingApproval = props.pendingApproval === true
+		const showLearnMore = !pendingApproval
+		const tableColSpan = showLearnMore ? 7 : 6
 		const holdingKey = (s: string) => s.toUpperCase()
 		const holdingsByTicker = new Map(
 			props.holdings.flatMap((e) => {
@@ -268,15 +298,16 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							<ScrollableTable wrapperClass="mt-3">
 								<thead class="bg-muted/40 px-4">
 									<tr>
-										<td colspan={6} class="h-1" />
+										<td colspan={tableColSpan} class="h-1" />
 									</tr>
-									<CatalogTableHeader />
+									<CatalogTableHeader showLearnMore={showLearnMore} />
 								</thead>
 								<tbody>
 									{ownedInCatalog.map((e) =>
 										renderCatalogRow(
 											e,
 											holdingsByTicker.get(holdingKey(e.ticker)),
+											{ showLearnMore },
 										),
 									)}
 								</tbody>
@@ -300,11 +331,15 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							<ScrollableTable wrapperClass="mt-3">
 								<thead class="bg-muted/40">
 									<tr>
-										<td colspan={6} class="h-1" />
+										<td colspan={tableColSpan} class="h-1" />
 									</tr>
-									<CatalogTableHeader />
+									<CatalogTableHeader showLearnMore={showLearnMore} />
 								</thead>
-								<tbody>{restOfCatalog.map((e) => renderCatalogRow(e))}</tbody>
+								<tbody>
+									{restOfCatalog.map((e) =>
+										renderCatalogRow(e, undefined, { showLearnMore }),
+									)}
+								</tbody>
 							</ScrollableTable>
 						</section>
 					</Card>

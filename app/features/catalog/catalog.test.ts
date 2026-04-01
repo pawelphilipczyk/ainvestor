@@ -55,6 +55,47 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /ETF Catalog/)
 	})
 
+	it('GET /catalog includes Learn more on rows when catalog has entries', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const response = await testSessionFetch('http://localhost/catalog')
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /data-advice-etf-learn/)
+		assert.match(body, /id="advice-etf-info-dialog"/)
+	})
+
+	it('GET /catalog omits Learn more for pending-approval session', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		process.env.APPROVED_GITHUB_LOGINS = 'someone-else'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'pending-catalog')
+		session.set('approvalStatus', 'pending')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookieHeader = await sessionCookie.serialize(value)
+		const cookie = cookieHeader.split(';')[0]
+
+		const response = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.doesNotMatch(body, /data-advice-etf-learn/)
+		assert.doesNotMatch(body, /id="advice-etf-info-dialog"/)
+	})
+
 	it('GET /catalog shows import form for bank API JSON', async () => {
 		seedSharedCatalog(
 			JSON.stringify({

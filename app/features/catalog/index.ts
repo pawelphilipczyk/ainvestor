@@ -59,6 +59,7 @@ export const catalogController = {
 				catalog: catalogSnapshot.entries,
 				entries,
 				session: layoutSession,
+				pendingApproval: layoutSession?.approvalStatus === 'pending',
 				canImport:
 					session?.token !== null &&
 					session?.token !== undefined &&
@@ -120,6 +121,7 @@ async function renderCatalogPage(params: {
 	catalog: CatalogEntry[]
 	entries: EtfEntry[]
 	session: SessionData | null
+	pendingApproval?: boolean
 	canImport: boolean
 	sharedCatalogOwnerLogin: string | null
 	typeFilter: string
@@ -130,6 +132,7 @@ async function renderCatalogPage(params: {
 		catalog,
 		entries,
 		session,
+		pendingApproval,
 		canImport,
 		sharedCatalogOwnerLogin,
 		typeFilter,
@@ -139,6 +142,7 @@ async function renderCatalogPage(params: {
 	const body = jsx(CatalogPage, {
 		catalog,
 		holdings: entries,
+		pendingApproval,
 		canImport,
 		typeFilter,
 		query,

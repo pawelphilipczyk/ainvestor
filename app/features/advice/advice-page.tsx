@@ -16,8 +16,6 @@ import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
 import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
-// @ts-expect-error Runtime-only client entry for ETF info dialog
-import { AdviceEtfInfoInteractions } from './advice-etf-info.component.js'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -687,45 +685,6 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								</div>
 							))}
 						</div>
-						{pendingApproval ? null : (
-							<dialog
-								id="advice-etf-info-dialog"
-								class="w-[min(100vw-2rem,36rem)] max-h-[min(85vh,32rem)] rounded-lg border border-border bg-card p-0 shadow-lg backdrop:bg-black/50"
-								aria-labelledby="advice-etf-info-dialog-title"
-							>
-								<div class="flex max-h-[inherit] flex-col">
-									<div class="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
-										<h2
-											id="advice-etf-info-dialog-title"
-											class="min-w-0 text-base font-semibold tracking-tight text-card-foreground"
-										>
-											<span id="advice-etf-info-dialog-heading">
-												{t('advice.table.learnMore')}
-											</span>
-										</h2>
-										<form method="dialog">
-											<button
-												type="submit"
-												class="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent"
-											>
-												{t('advice.etfInfo.dialogClose')}
-											</button>
-										</form>
-									</div>
-									<div
-										id="advice-etf-info-dialog-status"
-										class="hidden border-b border-border px-4 py-3 text-sm text-muted-foreground"
-										role="status"
-										aria-live="polite"
-									/>
-									<div
-										id="advice-etf-info-dialog-body"
-										class="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm leading-relaxed text-card-foreground"
-									/>
-								</div>
-							</dialog>
-						)}
-						{pendingApproval ? null : <AdviceEtfInfoInteractions />}
 					</Card>
 				) : null}
 			</main>
