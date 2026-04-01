@@ -7,6 +7,7 @@ export {
 } from './field-label.tsx'
 export { Link } from './link.tsx'
 export { NumberInput } from './number-input.tsx'
+export { PercentageBar } from './percentage-bar.tsx'
 export { ScrollableTable } from './scrollable-table.tsx'
 export { SelectInput } from './select-input.tsx'
 export { SubmitButton } from './submit-button.tsx'

@@ -1,5 +1,10 @@
 import type { Handle } from 'remix/component'
-import { Card, FieldLabel, NumberInput } from '../../components/index.ts'
+import {
+	Card,
+	FieldLabel,
+	NumberInput,
+	PercentageBar,
+} from '../../components/index.ts'
 import { clampGuidelineBarWidthPercent } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
@@ -53,17 +58,10 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 					class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 				/>
 				{valueSharePercent !== undefined && shareBarLabel !== undefined ? (
-					<div
-						class="relative h-3 w-full min-w-0 max-w-full overflow-hidden rounded-md bg-muted/80"
-						role="img"
-						aria-label={shareBarLabel}
-					>
-						<div
-							class="absolute inset-y-0 left-0 bg-primary/75"
-							style={{ width: `${valueSharePercent}%` }}
-							aria-hidden
-						/>
-					</div>
+					<PercentageBar
+						ariaLabel={shareBarLabel}
+						widthPercent={valueSharePercent}
+					/>
 				) : null}
 				<h3 class="truncate text-sm font-semibold text-card-foreground">
 					{props.name}
