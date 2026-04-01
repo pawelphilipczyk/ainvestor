@@ -3,14 +3,14 @@ import { describe, it } from 'node:test'
 import type { EtfGuideline } from './guidelines.ts'
 import {
 	buildGuidelinesGistPatch,
-	clampGuidelineBarPct,
+	clampGuidelineBarWidthPercent,
 	findGuidelineDuplicateOf,
 	formatEtfTypeLabel,
-	formatGuidelineTargetPctForInput,
+	formatGuidelineTargetPercentForInput,
 	GUIDELINES_FILENAME,
 	normalizeGuideline,
 	parseGuidelinesFromGist,
-	sumGuidelineTargetPct,
+	sumGuidelineTargetPercent,
 	wouldGuidelineTotalExceedCap,
 } from './guidelines.ts'
 
@@ -102,7 +102,7 @@ describe('guidelines', () => {
 		assert.deepEqual(result, [])
 	})
 
-	it('sumGuidelineTargetPct sums all rows', () => {
+	it('sumGuidelineTargetPercent sums all rows', () => {
 		const guidelines: EtfGuideline[] = [
 			{
 				id: 'g1',
@@ -119,10 +119,10 @@ describe('guidelines', () => {
 				etfType: 'bond',
 			},
 		]
-		assert.equal(sumGuidelineTargetPct(guidelines), 100.5)
+		assert.equal(sumGuidelineTargetPercent(guidelines), 100.5)
 	})
 
-	it('sumGuidelineTargetPct treats non-finite targetPct as 0', () => {
+	it('sumGuidelineTargetPercent treats non-finite targetPct as 0', () => {
 		const guidelines: EtfGuideline[] = [
 			{
 				id: 'g1',
@@ -139,22 +139,22 @@ describe('guidelines', () => {
 				etfType: 'bond',
 			},
 		]
-		assert.equal(sumGuidelineTargetPct(guidelines), 30)
+		assert.equal(sumGuidelineTargetPercent(guidelines), 30)
 	})
 
-	it('formatGuidelineTargetPctForInput returns 0 for non-finite values', () => {
-		assert.equal(formatGuidelineTargetPctForInput(Number.NaN), '0')
+	it('formatGuidelineTargetPercentForInput returns 0 for non-finite values', () => {
+		assert.equal(formatGuidelineTargetPercentForInput(Number.NaN), '0')
 		assert.equal(
-			formatGuidelineTargetPctForInput(Number.POSITIVE_INFINITY),
+			formatGuidelineTargetPercentForInput(Number.POSITIVE_INFINITY),
 			'0',
 		)
 	})
 
-	it('clampGuidelineBarPct clamps to 0–100 and treats non-finite as 0', () => {
-		assert.equal(clampGuidelineBarPct(Number.NaN), 0)
-		assert.equal(clampGuidelineBarPct(-5), 0)
-		assert.equal(clampGuidelineBarPct(150), 100)
-		assert.equal(clampGuidelineBarPct(25), 25)
+	it('clampGuidelineBarWidthPercent clamps to 0–100 and treats non-finite as 0', () => {
+		assert.equal(clampGuidelineBarWidthPercent(Number.NaN), 0)
+		assert.equal(clampGuidelineBarWidthPercent(-5), 0)
+		assert.equal(clampGuidelineBarWidthPercent(150), 100)
+		assert.equal(clampGuidelineBarWidthPercent(25), 25)
 	})
 
 	it('findGuidelineDuplicateOf matches instrument by ticker case-insensitively', () => {
@@ -272,11 +272,11 @@ describe('guidelines', () => {
 			},
 		]
 		assert.equal(
-			wouldGuidelineTotalExceedCap({ existing, additionalPct: 40 }),
+			wouldGuidelineTotalExceedCap({ existing, additionalPercent: 40 }),
 			false,
 		)
 		assert.equal(
-			wouldGuidelineTotalExceedCap({ existing, additionalPct: 40.01 }),
+			wouldGuidelineTotalExceedCap({ existing, additionalPercent: 40.01 }),
 			true,
 		)
 	})

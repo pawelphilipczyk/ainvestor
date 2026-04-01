@@ -1,5 +1,11 @@
 import type { Handle } from 'remix/component'
-import { Card, FieldLabel, NumberInput } from '../../components/index.ts'
+import {
+	Card,
+	FieldLabel,
+	NumberInput,
+	PercentageBar,
+} from '../../components/index.ts'
+import { clampGuidelineBarWidthPercent } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { routes } from '../../routes.ts'
@@ -17,6 +23,8 @@ type EtfCardProps = {
 	valueForInput: string
 	quantityForInput: string
 	identifier: string
+	/** 0–100 share of total holdings value; parent computes from list + total. Omit when unknown (e.g. mixed currencies). */
+	valueSharePercent?: number
 	dialogId: string
 	deleteHref: string
 	updateHref: string
@@ -31,6 +39,17 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 		const updateErrorId = `portfolio-entry-${props.entryId}-error`
 		const valueFieldId = `portfolio-value-${props.entryId}`
 		const quantityFieldId = `portfolio-quantity-${props.entryId}`
+		const valueSharePercent =
+			props.valueSharePercent === undefined
+				? undefined
+				: clampGuidelineBarWidthPercent(props.valueSharePercent)
+		const shareBarLabel =
+			valueSharePercent === undefined
+				? undefined
+				: format(t('portfolio.etf.valueShareBarAria'), {
+						percent: valueSharePercent,
+						name: props.name,
+					})
 		return (
 			<Card as="li" class="flex min-w-0 flex-col gap-2 px-4 py-3">
 				<div
@@ -38,6 +57,12 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 					role="alert"
 					class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 				/>
+				{valueSharePercent !== undefined && shareBarLabel !== undefined ? (
+					<PercentageBar
+						ariaLabel={shareBarLabel}
+						widthPercent={valueSharePercent}
+					/>
+				) : null}
 				<h3 class="truncate text-sm font-semibold text-card-foreground">
 					{props.name}
 				</h3>
@@ -70,7 +95,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 								required={true}
 								inputMode="decimal"
 								pattern={LOCALE_DECIMAL_HTML_PATTERN}
-								aria-label={format(t('portfolio.etf.updateValueSr'), {
+								aria-label={format(t('portfolio.etf.updateValueScreenReader'), {
 									name: props.name,
 								})}
 							/>
@@ -86,9 +111,12 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 								value={props.quantityForInput}
 								inputMode="numeric"
 								pattern="[0-9]*"
-								aria-label={format(t('portfolio.etf.updateQuantitySr'), {
-									name: props.name,
-								})}
+								aria-label={format(
+									t('portfolio.etf.updateQuantityScreenReader'),
+									{
+										name: props.name,
+									},
+								)}
 							/>
 						</div>
 						<button type="submit" class={portfolioRowGhostButtonClass}>

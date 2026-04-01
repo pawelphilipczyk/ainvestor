@@ -82,10 +82,12 @@ export const en = {
 	'portfolio.etf.cancel': 'Cancel',
 	'portfolio.etf.remove': 'Remove',
 	'portfolio.etf.updateValueLabel': 'Value ({currency})',
-	'portfolio.etf.updateValueSr': 'Market value for {name}',
+	'portfolio.etf.updateValueScreenReader': 'Market value for {name}',
 	'portfolio.etf.updateQuantityLabel': 'Quantity',
-	'portfolio.etf.updateQuantitySr': 'Share quantity for {name}',
+	'portfolio.etf.updateQuantityScreenReader': 'Share quantity for {name}',
 	'portfolio.etf.save': 'Save',
+	'portfolio.etf.valueShareBarAria':
+		'{percent}% of total holdings value for {name}',
 
 	'forms.catalog.emptyPlaceholder':
 		'No funds in catalog — import on ETF Catalog',
@@ -114,7 +116,7 @@ export const en = {
 	'catalog.import.subtitle':
 		'Paste bank API JSON below, then submit to add ETFs (merges with existing).',
 	'catalog.import.submit': 'Import',
-	'catalog.import.pasteLabel.sr': 'Paste bank API JSON',
+	'catalog.import.pasteLabel.screenReader': 'Paste bank API JSON',
 	'catalog.import.pastePlaceholder':
 		'Paste fetch response JSON here, then click Import',
 	'catalog.empty.title': 'No catalog imported yet.',
@@ -173,7 +175,7 @@ export const en = {
 	'guidelines.list.saveTarget': 'Save',
 	'guidelines.list.targetPctSuffix': '%',
 	'guidelines.list.targetPctLabel': 'Target percent for {label}',
-	'guidelines.list.shareBarAria': 'Target {pct}% of portfolio for {label}',
+	'guidelines.list.shareBarAria': 'Target {percent}% of portfolio for {label}',
 	'guidelines.list.deleteAria.instrument': 'Delete {name} guideline',
 	'guidelines.list.deleteAria.bucket': 'Delete {label} bucket guideline',
 	'guidelines.list.deleteConfirm': 'Remove the {label} guideline?',
@@ -243,7 +245,7 @@ export const en = {
 	'errors.guidelines.totalExceeds100':
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',
 	'errors.guidelines.updateTotalExceeds100':
-		'Guideline targets cannot add up to more than 100%. Setting this line to {newPct}% would make the total {total}%.',
+		'Guideline targets cannot add up to more than 100%. Setting this line to {newTargetPercent}% would make the total {total}%.',
 	'errors.guidelines.targetPctInvalid':
 		'Enter a target percentage between 0.01 and 100.',
 	'errors.guidelines.duplicateInstrument':
