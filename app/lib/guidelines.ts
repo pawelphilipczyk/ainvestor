@@ -47,38 +47,38 @@ export type EtfGuideline = {
 
 const GUIDELINE_TOTAL_EPS = 1e-9
 
-function finiteGuidelineTargetPct(n: number): number {
+function finiteGuidelineTargetPercent(n: number): number {
 	return Number.isFinite(n) ? n : 0
 }
 
 /** Sum of all guideline `targetPct` values (instrument + bucket rows). */
-export function sumGuidelineTargetPct(guidelines: EtfGuideline[]): number {
+export function sumGuidelineTargetPercent(guidelines: EtfGuideline[]): number {
 	return guidelines.reduce(
-		(sum, g) => sum + finiteGuidelineTargetPct(g.targetPct),
+		(sum, g) => sum + finiteGuidelineTargetPercent(g.targetPct),
 		0,
 	)
 }
 
 /** Display string for guideline target % inputs (matches server-side rounding in error messages). */
-export function formatGuidelineTargetPctForInput(value: number): string {
-	const finitePct = finiteGuidelineTargetPct(value)
-	const rounded = Math.round(finitePct * 100) / 100
+export function formatGuidelineTargetPercentForInput(value: number): string {
+	const finitePercent = finiteGuidelineTargetPercent(value)
+	const rounded = Math.round(finitePercent * 100) / 100
 	return String(rounded)
 }
 
-/** Clamp a guideline target % to 0–100 for visual bars; non-finite input becomes 0. */
-export function clampGuidelineBarPct(n: number): number {
-	const finitePct = finiteGuidelineTargetPct(n)
-	return Math.min(100, Math.max(0, finitePct))
+/** Clamp a percentage to 0–100 for visual bars; non-finite input becomes 0. */
+export function clampGuidelineBarWidthPercent(n: number): number {
+	const finitePercent = finiteGuidelineTargetPercent(n)
+	return Math.min(100, Math.max(0, finitePercent))
 }
 
-/** True if adding `additionalPct` to `existing` would push the total above 100%. */
+/** True if adding `additionalPercent` to `existing` would push the total above 100%. */
 export function wouldGuidelineTotalExceedCap(params: {
 	existing: EtfGuideline[]
-	additionalPct: number
+	additionalPercent: number
 }): boolean {
 	return (
-		sumGuidelineTargetPct(params.existing) + params.additionalPct >
+		sumGuidelineTargetPercent(params.existing) + params.additionalPercent >
 		100 + GUIDELINE_TOTAL_EPS
 	)
 }

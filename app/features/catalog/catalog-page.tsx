@@ -156,7 +156,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							data-fetch-submit
 						>
 							<FieldLabel fieldId="pasteZone" variant="screenReader">
-								{t('catalog.import.pasteLabel.sr')}
+								{t('catalog.import.pasteLabel.screenReader')}
 							</FieldLabel>
 							<TextareaInput
 								id="pasteZone"

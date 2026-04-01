@@ -1,5 +1,5 @@
 import type { EtfEntry } from './gist.ts'
-import { clampGuidelineBarPct } from './guidelines.ts'
+import { clampGuidelineBarWidthPercent } from './guidelines.ts'
 
 /**
  * Sum of holding values when every row uses the same currency; otherwise `null`
@@ -34,5 +34,5 @@ export function valueShareOfHoldingsTotalPercent(params: {
 		return 0
 	}
 	const finiteValue = Number.isFinite(value) ? value : 0
-	return clampGuidelineBarPct((100 * finiteValue) / total)
+	return clampGuidelineBarWidthPercent((100 * finiteValue) / total)
 }

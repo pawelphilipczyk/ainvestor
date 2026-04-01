@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
 import { Card, FieldLabel, NumberInput } from '../../components/index.ts'
-import { clampGuidelineBarPct } from '../../lib/guidelines.ts'
+import { clampGuidelineBarWidthPercent } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { routes } from '../../routes.ts'
@@ -19,7 +19,7 @@ type EtfCardProps = {
 	quantityForInput: string
 	identifier: string
 	/** 0–100 share of total holdings value; parent computes from list + total. Omit when unknown (e.g. mixed currencies). */
-	valueSharePct?: number
+	valueSharePercent?: number
 	dialogId: string
 	deleteHref: string
 	updateHref: string
@@ -34,15 +34,15 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 		const updateErrorId = `portfolio-entry-${props.entryId}-error`
 		const valueFieldId = `portfolio-value-${props.entryId}`
 		const quantityFieldId = `portfolio-quantity-${props.entryId}`
-		const sharePct =
-			props.valueSharePct === undefined
+		const valueSharePercent =
+			props.valueSharePercent === undefined
 				? undefined
-				: clampGuidelineBarPct(props.valueSharePct)
+				: clampGuidelineBarWidthPercent(props.valueSharePercent)
 		const shareBarLabel =
-			sharePct === undefined
+			valueSharePercent === undefined
 				? undefined
 				: format(t('portfolio.etf.valueShareBarAria'), {
-						pct: sharePct,
+						percent: valueSharePercent,
 						name: props.name,
 					})
 		return (
@@ -52,7 +52,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 					role="alert"
 					class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 				/>
-				{sharePct !== undefined && shareBarLabel !== undefined ? (
+				{valueSharePercent !== undefined && shareBarLabel !== undefined ? (
 					<div
 						class="relative h-3 w-full min-w-0 max-w-full overflow-hidden rounded-md bg-muted/80"
 						role="img"
@@ -60,7 +60,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 					>
 						<div
 							class="absolute inset-y-0 left-0 bg-primary/75"
-							style={{ width: `${sharePct}%` }}
+							style={{ width: `${valueSharePercent}%` }}
 							aria-hidden
 						/>
 					</div>
@@ -97,7 +97,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 								required={true}
 								inputMode="decimal"
 								pattern={LOCALE_DECIMAL_HTML_PATTERN}
-								aria-label={format(t('portfolio.etf.updateValueSr'), {
+								aria-label={format(t('portfolio.etf.updateValueScreenReader'), {
 									name: props.name,
 								})}
 							/>
@@ -113,9 +113,12 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 								value={props.quantityForInput}
 								inputMode="numeric"
 								pattern="[0-9]*"
-								aria-label={format(t('portfolio.etf.updateQuantitySr'), {
-									name: props.name,
-								})}
+								aria-label={format(
+									t('portfolio.etf.updateQuantityScreenReader'),
+									{
+										name: props.name,
+									},
+								)}
 							/>
 						</div>
 						<button type="submit" class={portfolioRowGhostButtonClass}>

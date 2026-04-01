@@ -52,7 +52,7 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 										entry.quantity !== undefined ? String(entry.quantity) : ''
 									}
 									identifier={identifier}
-									valueSharePct={
+									valueSharePercent={
 										canShowShareBars
 											? valueShareOfHoldingsTotalPercent({
 													value: entry.value,
