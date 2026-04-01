@@ -47,14 +47,14 @@ export type EtfGuideline = {
 
 const GUIDELINE_TOTAL_EPS = 1e-9
 
-function finiteGuidelineTargetPct(n: number): number {
-	return Number.isFinite(n) ? n : 0
+function finiteGuidelineTargetPct(value: number): number {
+	return Number.isFinite(value) ? value : 0
 }
 
 /** Sum of all guideline `targetPct` values (instrument + bucket rows). */
 export function sumGuidelineTargetPct(guidelines: EtfGuideline[]): number {
 	return guidelines.reduce(
-		(sum, g) => sum + finiteGuidelineTargetPct(g.targetPct),
+		(total, guideline) => total + finiteGuidelineTargetPct(guideline.targetPct),
 		0,
 	)
 }
@@ -67,8 +67,8 @@ export function formatGuidelineTargetPctForInput(value: number): string {
 }
 
 /** Clamp a guideline target % to 0–100 for visual bars; non-finite input becomes 0. */
-export function clampGuidelineBarPct(n: number): number {
-	const finitePct = finiteGuidelineTargetPct(n)
+export function clampGuidelineBarPct(value: number): number {
+	const finitePct = finiteGuidelineTargetPct(value)
 	return Math.min(100, Math.max(0, finitePct))
 }
 
@@ -93,16 +93,16 @@ export function findGuidelineDuplicateOf(
 ): EtfGuideline | null {
 	const normalizedEntryTicker =
 		entry.kind === 'instrument' ? entry.etfName.trim().toUpperCase() : null
-	for (const g of existing) {
-		if (entry.kind === 'instrument' && g.kind === 'instrument') {
-			const normalizedExistingTicker = g.etfName.trim().toUpperCase()
+	for (const guideline of existing) {
+		if (entry.kind === 'instrument' && guideline.kind === 'instrument') {
+			const normalizedExistingTicker = guideline.etfName.trim().toUpperCase()
 			if (normalizedExistingTicker === normalizedEntryTicker) {
-				return g
+				return guideline
 			}
 		}
-		if (entry.kind === 'asset_class' && g.kind === 'asset_class') {
-			if (g.etfType === entry.etfType) {
-				return g
+		if (entry.kind === 'asset_class' && guideline.kind === 'asset_class') {
+			if (guideline.etfType === entry.etfType) {
+				return guideline
 			}
 		}
 	}
