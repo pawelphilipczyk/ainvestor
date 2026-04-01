@@ -1,11 +1,16 @@
 import type { Handle } from 'remix/component'
-import { Card, FieldLabel, NumberInput } from '../../components/index.ts'
+import {
+	Card,
+	FieldLabel,
+	NumberInput,
+	PercentageBar,
+} from '../../components/index.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import {
-	clampGuidelineBarPct,
+	clampGuidelineBarWidthPercent,
 	formatEtfTypeLabel,
-	formatGuidelineTargetPctForInput,
-	sumGuidelineTargetPct,
+	formatGuidelineTargetPercentForInput,
+	sumGuidelineTargetPercent,
 } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
@@ -24,8 +29,8 @@ const guidelineRemoveGhostClass = `${guidelineGhostBase} hover:bg-destructive/10
 export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 	return (props: { guidelines?: EtfGuideline[] }) => {
 		const guidelines = props.guidelines ?? []
-		const totalPct = sumGuidelineTargetPct(guidelines)
-		const remaining = Math.max(0, 100 - totalPct)
+		const totalPercent = sumGuidelineTargetPercent(guidelines)
+		const remaining = Math.max(0, 100 - totalPercent)
 
 		return (
 			<Card class="p-4">
@@ -35,7 +40,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 				<div class="mt-3 flex items-center justify-between text-xs text-muted-foreground">
 					<span>
 						{t('guidelines.list.totalAllocated')}{' '}
-						<strong class="text-foreground">{totalPct}%</strong>
+						<strong class="text-foreground">{totalPercent}%</strong>
 					</span>
 					<span>
 						{t('guidelines.list.remaining')}{' '}
@@ -56,12 +61,12 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 									: g.etfName
 							const targetFieldId = `guideline-target-${g.id}`
 							const targetErrorId = `guidelines-target-${g.id}-error`
-							const targetPctDisplay = formatGuidelineTargetPctForInput(
+							const targetPercentDisplay = formatGuidelineTargetPercentForInput(
 								g.targetPct,
 							)
-							const barW = clampGuidelineBarPct(g.targetPct)
+							const barWidthPercent = clampGuidelineBarWidthPercent(g.targetPct)
 							const shareBarLabel = format(t('guidelines.list.shareBarAria'), {
-								pct: targetPctDisplay,
+								percent: targetPercentDisplay,
 								label: rowLabel,
 							})
 							return (
@@ -71,17 +76,10 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 										role="alert"
 										class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
 									/>
-									<div
-										class="relative h-3 w-full min-w-0 max-w-full overflow-hidden rounded-md bg-muted/80"
-										role="img"
-										aria-label={shareBarLabel}
-									>
-										<div
-											class="absolute inset-y-0 left-0 bg-primary/75"
-											style={{ width: `${barW}%` }}
-											aria-hidden
-										/>
-									</div>
+									<PercentageBar
+										ariaLabel={shareBarLabel}
+										widthPercent={barWidthPercent}
+									/>
 									<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
 										<span class="font-medium">{rowLabel}</span>
 										<span class="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
@@ -115,7 +113,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 													id={targetFieldId}
 													name="targetPct"
 													class="!w-16 shrink-0"
-													value={targetPctDisplay}
+													value={targetPercentDisplay}
 													required={true}
 													inputMode="decimal"
 													pattern={LOCALE_DECIMAL_HTML_PATTERN}

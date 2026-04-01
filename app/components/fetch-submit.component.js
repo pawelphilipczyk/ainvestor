@@ -87,6 +87,47 @@ function setSubmitButtonLoading(control, loading) {
 	}
 }
 
+function getSubmitControl(form, submitter) {
+	if (
+		submitter instanceof HTMLButtonElement ||
+		(submitter instanceof HTMLInputElement && submitter.type === 'submit')
+	) {
+		return submitter
+	}
+
+	return form.querySelector('button[type="submit"], input[type="submit"]')
+}
+
+function createFormData(form, submitControl) {
+	if (
+		submitControl instanceof HTMLButtonElement ||
+		(submitControl instanceof HTMLInputElement &&
+			submitControl.type === 'submit')
+	) {
+		try {
+			return new FormData(form, submitControl)
+		} catch {
+			return new FormData(form)
+		}
+	}
+
+	return new FormData(form)
+}
+
+function buildGetNavigationUrl(form, submitControl) {
+	const actionUrl = new URL(form.action, window.location.href)
+	const searchParams = new URLSearchParams(actionUrl.search)
+
+	for (const [name, value] of createFormData(form, submitControl).entries()) {
+		if (typeof value === 'string') {
+			searchParams.append(name, value)
+		}
+	}
+
+	actionUrl.search = searchParams.toString()
+	return actionUrl.toString()
+}
+
 async function handleFetchSubmit(form, submitBtn) {
 	const fragmentId = form.dataset.fragmentId
 	const fragmentUrl = form.dataset.fragmentUrl
@@ -190,21 +231,39 @@ export const FetchSubmitEnhancement = clientEntry(
 			addEventListeners(document, handle.signal, {
 				async submit(event) {
 					const form = event.target
+					if (!(form instanceof HTMLFormElement)) {
+						return
+					}
+
+					const submitControl = getSubmitControl(form, event.submitter)
+
+					if (form.hasAttribute('data-fetch-submit')) {
+						if (!form.checkValidity()) {
+							form.reportValidity()
+							return
+						}
+						event.preventDefault()
+						await handleFetchSubmit(form, submitControl)
+						return
+					}
+
 					if (
-						!(form instanceof HTMLFormElement) ||
-						!form.hasAttribute('data-fetch-submit')
+						!form.hasAttribute('data-navigation-loading') ||
+						form.method.toLowerCase() !== 'get'
 					) {
 						return
 					}
+
 					if (!form.checkValidity()) {
 						form.reportValidity()
 						return
 					}
+
 					event.preventDefault()
-					const submitBtn = form.querySelector(
-						'button[type="submit"], input[type="submit"]',
-					)
-					await handleFetchSubmit(form, submitBtn)
+					setSubmitButtonLoading(submitControl, true)
+					requestAnimationFrame(() => {
+						window.location.assign(buildGetNavigationUrl(form, submitControl))
+					})
 				},
 			})
 		}

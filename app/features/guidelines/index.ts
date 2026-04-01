@@ -18,10 +18,10 @@ import {
 	fetchGuidelines,
 	findGuidelineDuplicateOf,
 	formatEtfTypeLabel,
-	formatGuidelineTargetPctForInput,
+	formatGuidelineTargetPercentForInput,
 	isEtfType,
 	saveGuidelines,
-	sumGuidelineTargetPct,
+	sumGuidelineTargetPercent,
 	wouldGuidelineTotalExceedCap,
 } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
@@ -85,12 +85,12 @@ function guidelinesTotalCapErrorResponse(params: {
 	request: Request
 	session: Session
 	currentTotal: number
-	addedPct: number
+	addedPercent: number
 	addTab: GuidelinesAddTabId
 }): Response {
 	const message = format(t('errors.guidelines.totalExceeds100'), {
-		current: formatGuidelineTargetPctForInput(params.currentTotal),
-		added: formatGuidelineTargetPctForInput(params.addedPct),
+		current: formatGuidelineTargetPercentForInput(params.currentTotal),
+		added: formatGuidelineTargetPercentForInput(params.addedPercent),
 	})
 	if (prefersJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {
@@ -170,12 +170,14 @@ function guidelinesUpdateSchemaValidationResponse(params: {
 function guidelinesUpdateCapErrorResponse(params: {
 	request: Request
 	session: Session
-	newPct: number
+	newTargetPercent: number
 	resultingTotal: number
 }): Response {
 	const message = format(t('errors.guidelines.updateTotalExceeds100'), {
-		newPct: formatGuidelineTargetPctForInput(params.newPct),
-		total: formatGuidelineTargetPctForInput(params.resultingTotal),
+		newTargetPercent: formatGuidelineTargetPercentForInput(
+			params.newTargetPercent,
+		),
+		total: formatGuidelineTargetPercentForInput(params.resultingTotal),
 	})
 	if (prefersJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {
@@ -213,14 +215,14 @@ async function persistGuideline(params: {
 		if (
 			wouldGuidelineTotalExceedCap({
 				existing: current,
-				additionalPct: entry.targetPct,
+				additionalPercent: entry.targetPct,
 			})
 		) {
 			return guidelinesTotalCapErrorResponse({
 				request,
 				session: remixSession,
-				currentTotal: sumGuidelineTargetPct(current),
-				addedPct: entry.targetPct,
+				currentTotal: sumGuidelineTargetPercent(current),
+				addedPercent: entry.targetPct,
 				addTab,
 			})
 		}
@@ -240,14 +242,14 @@ async function persistGuideline(params: {
 	if (
 		wouldGuidelineTotalExceedCap({
 			existing: current,
-			additionalPct: entry.targetPct,
+			additionalPercent: entry.targetPct,
 		})
 	) {
 		return guidelinesTotalCapErrorResponse({
 			request,
 			session: remixSession,
-			currentTotal: sumGuidelineTargetPct(current),
-			addedPct: entry.targetPct,
+			currentTotal: sumGuidelineTargetPercent(current),
+			addedPercent: entry.targetPct,
 			addTab,
 		})
 	}
@@ -261,12 +263,12 @@ async function persistGuideline(params: {
  */
 async function updateGuidelineTarget(params: {
 	id: string
-	newPct: number
+	newTargetPercent: number
 	session: SessionData | null
 	remixSession: Session
 	request: Request
 }): Promise<Response | null> {
-	const { id, newPct, session, remixSession, request } = params
+	const { id, newTargetPercent, session, remixSession, request } = params
 
 	if (session?.gistId && session.token) {
 		const current = await fetchGuidelines(session.token, session.gistId)
@@ -275,24 +277,26 @@ async function updateGuidelineTarget(params: {
 			return createRedirectResponse(routes.guidelines.index.href())
 		}
 		const others = current.filter((g) => g.id !== id)
-		const resultingTotal = sumGuidelineTargetPct(others) + newPct
+		const resultingTotal = sumGuidelineTargetPercent(others) + newTargetPercent
 		if (
 			wouldGuidelineTotalExceedCap({
 				existing: others,
-				additionalPct: newPct,
+				additionalPercent: newTargetPercent,
 			})
 		) {
 			return guidelinesUpdateCapErrorResponse({
 				request,
 				session: remixSession,
-				newPct,
+				newTargetPercent,
 				resultingTotal,
 			})
 		}
 		await saveGuidelines(
 			session.token,
 			session.gistId,
-			current.map((g) => (g.id === id ? { ...g, targetPct: newPct } : g)),
+			current.map((g) =>
+				g.id === id ? { ...g, targetPct: newTargetPercent } : g,
+			),
 		)
 		return null
 	}
@@ -303,23 +307,25 @@ async function updateGuidelineTarget(params: {
 		return createRedirectResponse(routes.guidelines.index.href())
 	}
 	const others = current.filter((g) => g.id !== id)
-	const resultingTotal = sumGuidelineTargetPct(others) + newPct
+	const resultingTotal = sumGuidelineTargetPercent(others) + newTargetPercent
 	if (
 		wouldGuidelineTotalExceedCap({
 			existing: others,
-			additionalPct: newPct,
+			additionalPercent: newTargetPercent,
 		})
 	) {
 		return guidelinesUpdateCapErrorResponse({
 			request,
 			session: remixSession,
-			newPct,
+			newTargetPercent,
 			resultingTotal,
 		})
 	}
 	setGuestGuidelines(
 		remixSession,
-		current.map((g) => (g.id === id ? { ...g, targetPct: newPct } : g)),
+		current.map((g) =>
+			g.id === id ? { ...g, targetPct: newTargetPercent } : g,
+		),
 	)
 	return null
 }
@@ -458,7 +464,7 @@ export const guidelinesController = {
 			const session = getSessionData(context.get(Session))
 			const persistError = await updateGuidelineTarget({
 				id,
-				newPct: result.value.targetPct,
+				newTargetPercent: result.value.targetPct,
 				session,
 				remixSession: context.get(Session),
 				request: context.request,
