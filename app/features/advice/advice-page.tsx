@@ -16,6 +16,8 @@ import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
 import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
+// @ts-expect-error Runtime-only client entry for ETF info dialog
+import { AdviceEtfInfoInteractions } from './advice-etf-info.component.js'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -328,8 +330,19 @@ function renderGuidelineBars(
 
 function renderEtfProposals(
 	block: Extract<AdviceBlock, { type: 'etf_proposals' }>,
-	defaultCashCurrency: string,
+	options: {
+		defaultCashCurrency: string
+		selectedModel: AdviceModelId
+		pendingApproval: boolean
+		etfInfoPostHref: string
+	},
 ) {
+	const {
+		defaultCashCurrency,
+		selectedModel,
+		pendingApproval,
+		etfInfoPostHref,
+	} = options
 	return (
 		<section class="min-w-0 max-w-full space-y-2">
 			{block.caption ? (
@@ -374,6 +387,14 @@ function renderEtfProposals(
 							>
 								{t('advice.table.note')}
 							</th>
+							{pendingApproval ? null : (
+								<th
+									scope="col"
+									class="px-3 py-2 text-left font-medium text-card-foreground"
+								>
+									<span class="sr-only">{t('advice.table.learnMore')}</span>
+								</th>
+							)}
 						</tr>
 					</thead>
 					<tbody>
@@ -382,6 +403,12 @@ function renderEtfProposals(
 								row.amount !== undefined
 									? (row.currency ?? defaultCashCurrency)
 									: null
+							const tickerForPayload =
+								row.ticker !== undefined &&
+								row.ticker.trim().length > 0 &&
+								row.ticker !== t('catalog.emptyCell')
+									? row.ticker.trim()
+									: ''
 							return (
 								<tr
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
@@ -402,6 +429,21 @@ function renderEtfProposals(
 									<td class="px-3 py-2 text-muted-foreground">
 										{row.note ?? t('catalog.emptyCell')}
 									</td>
+									{pendingApproval ? null : (
+										<td class="px-3 py-2 align-top">
+											<button
+												type="button"
+												class="whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent"
+												data-advice-etf-learn=""
+												data-post-url={etfInfoPostHref}
+												data-etf-name={row.name}
+												data-etf-ticker={tickerForPayload}
+												data-advice-model={selectedModel}
+											>
+												{t('advice.table.learnMore')}
+											</button>
+										</td>
+									)}
 								</tr>
 							)
 						})}
@@ -416,6 +458,11 @@ function renderAdviceBlock(
 	block: AdviceBlock,
 	defaultCashCurrency: string,
 	blockIndex: number,
+	etfOptions: {
+		selectedModel: AdviceModelId
+		pendingApproval: boolean
+		etfInfoPostHref: string
+	},
 ) {
 	if (block.type === 'paragraph') {
 		return (
@@ -436,7 +483,12 @@ function renderAdviceBlock(
 			`advice-guideline-bars-heading-${blockIndex}`,
 		)
 	}
-	return renderEtfProposals(block, defaultCashCurrency)
+	return renderEtfProposals(block, {
+		defaultCashCurrency,
+		selectedModel: etfOptions.selectedModel,
+		pendingApproval: etfOptions.pendingApproval,
+		etfInfoPostHref: etfOptions.etfInfoPostHref,
+	})
 }
 
 export function AdvicePage(_handle: Handle, _setup?: unknown) {
@@ -458,6 +510,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 			{},
 			{ tab: 'portfolio_review' },
 		)
+		const etfInfoPostHref = routes.advice.etfInfo.href()
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
 				<SectionIntroCard
@@ -626,10 +679,53 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						<div class="mt-4 min-w-0 space-y-6">
 							{props.advice.blocks.map((block, i) => (
 								<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
-									{renderAdviceBlock(block, cashCurrency, i)}
+									{renderAdviceBlock(block, cashCurrency, i, {
+										selectedModel,
+										pendingApproval,
+										etfInfoPostHref,
+									})}
 								</div>
 							))}
 						</div>
+						{pendingApproval ? null : (
+							<dialog
+								id="advice-etf-info-dialog"
+								class="w-[min(100vw-2rem,36rem)] max-h-[min(85vh,32rem)] rounded-lg border border-border bg-card p-0 shadow-lg backdrop:bg-black/50"
+								aria-labelledby="advice-etf-info-dialog-title"
+							>
+								<div class="flex max-h-[inherit] flex-col">
+									<div class="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
+										<h2
+											id="advice-etf-info-dialog-title"
+											class="min-w-0 text-base font-semibold tracking-tight text-card-foreground"
+										>
+											<span id="advice-etf-info-dialog-heading">
+												{t('advice.table.learnMore')}
+											</span>
+										</h2>
+										<form method="dialog">
+											<button
+												type="submit"
+												class="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent"
+											>
+												{t('advice.etfInfo.dialogClose')}
+											</button>
+										</form>
+									</div>
+									<div
+										id="advice-etf-info-dialog-status"
+										class="hidden border-b border-border px-4 py-3 text-sm text-muted-foreground"
+										role="status"
+										aria-live="polite"
+									/>
+									<div
+										id="advice-etf-info-dialog-body"
+										class="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm leading-relaxed text-card-foreground"
+									/>
+								</div>
+							</dialog>
+						)}
+						{pendingApproval ? null : <AdviceEtfInfoInteractions />}
 					</Card>
 				) : null}
 			</main>

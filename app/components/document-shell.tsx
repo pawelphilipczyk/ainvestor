@@ -49,6 +49,8 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					innerHTML={JSON.stringify({
 						genericFormError: t('client.formSubmit.genericError'),
 						submitLoadingLabel: t('chrome.loading'),
+						adviceEtfInfoLoading: t('client.adviceEtfInfo.loading'),
+						adviceEtfInfoError: t('client.adviceEtfInfo.error'),
 					})}
 				/>
 			</head>

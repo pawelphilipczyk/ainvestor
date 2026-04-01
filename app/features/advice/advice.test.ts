@@ -6,6 +6,7 @@ import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
+import { routes } from '../../routes.ts'
 import {
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
@@ -640,5 +641,121 @@ describe('Advice', () => {
 		assert.equal(response.status, 200)
 		assert.equal(capturedModel, 'gpt-5.4-nano')
 		assert.match(body, /value="gpt-5.4-nano"/)
+	})
+
+	it('POST advice etf-info returns JSON with model text for approved session', async () => {
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => ({
+						choices: [{ message: { content: 'Plain-language ETF overview.' } }],
+					}),
+				},
+			},
+		})
+
+		const form = new FormData()
+		form.set('etfName', 'Test Fund')
+		form.set('adviceModel', 'gpt-5.4-mini')
+
+		const response = await testSessionFetch(
+			new Request(`http://localhost${routes.advice.etfInfo.href()}`, {
+				method: 'POST',
+				body: form,
+			}),
+		)
+		const data = (await response.json()) as { title?: string; text?: string }
+
+		assert.equal(response.status, 200)
+		assert.equal(data.title, 'Test Fund')
+		assert.equal(data.text, 'Plain-language ETF overview.')
+	})
+
+	it('POST advice etf-info returns 400 when etfName is blank', async () => {
+		setAdviceClient(makeMockClient('should not run'))
+
+		const form = new FormData()
+		form.set('etfName', '   ')
+		form.set('adviceModel', 'gpt-5.4-mini')
+
+		const response = await testSessionFetch(
+			new Request(`http://localhost${routes.advice.etfInfo.href()}`, {
+				method: 'POST',
+				body: form,
+			}),
+		)
+
+		assert.equal(response.status, 400)
+	})
+
+	it('POST advice etf-info returns 403 for pending-approval session', async () => {
+		process.env.APPROVED_GITHUB_LOGINS = 'admin'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'etf-pending')
+		session.set('approvalStatus', 'pending')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookieHeader = await sessionCookie.serialize(value)
+		const cookie = cookieHeader.split(';')[0]
+
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => {
+						throw new Error('OpenAI must not be called for pending users')
+					},
+				},
+			},
+		})
+
+		const form = new FormData()
+		form.set('etfName', 'X')
+		form.set('adviceModel', 'gpt-5.4-mini')
+
+		const response = await testSessionFetch(
+			new Request(`http://localhost${routes.advice.etfInfo.href()}`, {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.equal(response.status, 403)
+	})
+
+	it('renders Learn more controls when etf_proposals rows are present', async () => {
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'etf_proposals',
+							rows: [
+								{
+									name: 'Sample ETF',
+									ticker: 'SAM',
+									amount: 100,
+									currency: 'PLN',
+								},
+							],
+						},
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+		form.set('analysisMode', 'buy_next')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /data-advice-etf-learn/)
+		assert.match(body, /id="advice-etf-info-dialog"/)
+		assert.match(body, /Learn more/)
 	})
 })
