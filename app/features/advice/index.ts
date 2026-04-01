@@ -30,6 +30,7 @@ import { fetchCatalog } from '../catalog/lib.ts'
 import { type AdviceClient, createAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
 import { getEtfDeepDiveText } from './advice-etf-info-openai.ts'
+import { sanitizeEtfInfoRequestInputs } from './advice-etf-info-sanitize.ts'
 import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
 import {
 	ADVICE_ANALYSIS_MODES,
@@ -364,6 +365,17 @@ export const adviceController = {
 				)
 			}
 
+			const sanitizedInputs = sanitizeEtfInfoRequestInputs({
+				name: trimmedName,
+				ticker: etfTicker?.trim() || undefined,
+			})
+			if (sanitizedInputs === null) {
+				return Response.json(
+					{ error: t('errors.advice.etfInfo.validation') },
+					{ status: 400 },
+				)
+			}
+
 			if (pendingApproval) {
 				return Response.json(
 					{ error: t('errors.advice.etfInfo.notApproved') },
@@ -380,13 +392,13 @@ export const adviceController = {
 						: await fetchCatalog()
 				const client = adviceClient ?? createAdviceClient()
 				const text = await getEtfDeepDiveText({
-					name: trimmedName,
-					ticker: etfTicker?.trim() || undefined,
+					name: sanitizedInputs.name,
+					ticker: sanitizedInputs.ticker,
 					catalog,
 					client,
 					model: adviceModel,
 				})
-				return Response.json({ title: trimmedName, text })
+				return Response.json({ title: sanitizedInputs.name, text })
 			} catch (err) {
 				console.error('[advice] etf-info request failed', err)
 				return Response.json(

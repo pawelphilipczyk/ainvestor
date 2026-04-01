@@ -688,6 +688,23 @@ describe('Advice', () => {
 		assert.equal(response.status, 400)
 	})
 
+	it('POST advice etf-info returns 400 when etfName sanitizes to empty', async () => {
+		setAdviceClient(makeMockClient('should not run'))
+
+		const form = new FormData()
+		form.set('etfName', '---\n---\n')
+		form.set('adviceModel', 'gpt-5.4-mini')
+
+		const response = await testSessionFetch(
+			new Request(`http://localhost${routes.advice.etfInfo.href()}`, {
+				method: 'POST',
+				body: form,
+			}),
+		)
+
+		assert.equal(response.status, 400)
+	})
+
 	it('POST advice etf-info returns 403 for pending-approval session', async () => {
 		process.env.APPROVED_GITHUB_LOGINS = 'admin'
 		const session = await sessionStorage.read(null)

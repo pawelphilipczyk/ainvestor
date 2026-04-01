@@ -3,6 +3,32 @@ import { addEventListeners, clientEntry, createElement } from 'remix/component'
 const MESSAGES_ID = 'ui-client-messages'
 const ETF_INFO_DEFAULTS_ID = 'advice-etf-info-defaults'
 
+/** Matches server-rendered #advice-etf-info-dialog-body base classes */
+const DIALOG_BODY_BASE_CLASSES = [
+	'min-h-0',
+	'flex-1',
+	'overflow-y-auto',
+	'px-4',
+	'py-3',
+	'text-sm',
+	'leading-relaxed',
+	'text-card-foreground',
+]
+const DIALOG_BODY_PRE_WRAP_CLASSES = ['whitespace-pre-wrap', 'break-words']
+
+function ensureDialogBodyBaseClasses(body) {
+	for (const className of DIALOG_BODY_BASE_CLASSES) {
+		body.classList.add(className)
+	}
+}
+
+function setDialogBodyPreWrap(body, enabled) {
+	const method = enabled ? 'add' : 'remove'
+	for (const className of DIALOG_BODY_PRE_WRAP_CLASSES) {
+		body.classList[method](className)
+	}
+}
+
 function readEtfInfoDefaults() {
 	if (typeof document === 'undefined') return null
 	const element = document.getElementById(ETF_INFO_DEFAULTS_ID)
@@ -93,6 +119,8 @@ export const AdviceEtfInfoInteractions = clientEntry(
 					dialog.showModal()
 					heading.textContent = etfName
 					body.textContent = ''
+					ensureDialogBodyBaseClasses(body)
+					setDialogBodyPreWrap(body, false)
 					status.textContent = loadingText
 					status.classList.remove('hidden')
 
@@ -117,6 +145,7 @@ export const AdviceEtfInfoInteractions = clientEntry(
 									: errorFallback
 							status.textContent = message
 							body.textContent = ''
+							setDialogBodyPreWrap(body, false)
 							return
 						}
 						const title =
@@ -126,12 +155,13 @@ export const AdviceEtfInfoInteractions = clientEntry(
 						heading.textContent = title
 						status.classList.add('hidden')
 						status.textContent = ''
-						body.className =
-							'min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm leading-relaxed text-card-foreground whitespace-pre-wrap break-words'
+						ensureDialogBodyBaseClasses(body)
+						setDialogBodyPreWrap(body, true)
 						body.textContent = text
 					} catch {
 						status.textContent = errorFallback
 						body.textContent = ''
+						setDialogBodyPreWrap(body, false)
 					} finally {
 						setButtonLoading(trigger, false)
 					}

@@ -1,5 +1,9 @@
 import type { CatalogEntry } from '../catalog/lib.ts'
 import type { AdviceClient } from './advice-client.ts'
+import {
+	sanitizeEtfInfoCatalogLine,
+	sanitizeEtfInfoRequestInputs,
+} from './advice-etf-info-sanitize.ts'
 import type { AdviceModelId } from './advice-openai.ts'
 import {
 	DEFAULT_ADVICE_MODEL,
@@ -49,15 +53,25 @@ export async function getEtfDeepDiveText(params: {
 }): Promise<string> {
 	const { name, ticker, catalog, client, model = DEFAULT_ADVICE_MODEL } = params
 
-	const entry = findCatalogEntryForProposal({ name, ticker, catalog })
-	const catalogLine = entry
+	const sanitized = sanitizeEtfInfoRequestInputs({ name, ticker })
+	if (sanitized === null) {
+		throw new Error('Invalid ETF name or ticker for deep-dive request')
+	}
+
+	const entry = findCatalogEntryForProposal({
+		name: sanitized.name,
+		ticker: sanitized.ticker,
+		catalog,
+	})
+	const rawCatalogLine = entry
 		? formatCatalogForAdvice([entry])
 		: 'No matching catalog row for this name/ticker — describe only in general terms and do not invent fund-specific stats.'
+	const catalogLine = sanitizeEtfInfoCatalogLine(rawCatalogLine)
 
 	const userMessage =
-		`Fund name: ${name}\n` +
-		`Ticker (if known): ${ticker ?? '(not provided)'}\n\n` +
-		`---\nCatalog line for this fund (authoritative for numbers):\n${catalogLine}`
+		`Fund name: ${sanitized.name}\n` +
+		`Ticker (if known): ${sanitized.ticker ?? '(not provided)'}\n\n` +
+		`=== CATALOG EXCERPT (authoritative for numbers) ===\n${catalogLine}`
 
 	const response = await client.chat.completions.create({
 		model,
