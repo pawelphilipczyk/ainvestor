@@ -113,10 +113,10 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 						<div class="contents">
 							<dialog
 								id="advice-etf-info-dialog"
-								class="fixed left-1/2 top-1/2 z-50 w-[calc(100vw-2rem)] max-w-xl max-h-[85vh] -translate-x-1/2 -translate-y-1/2 rounded-lg border border-border bg-card p-0 shadow-lg backdrop:bg-black/50"
+								class="fixed left-1/2 top-20 z-50 m-0 flex w-[calc(100vw-2rem)] max-w-xl max-h-[calc(100dvh-6rem)] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-border bg-card p-0 shadow-lg backdrop:bg-black/50 sm:top-24"
 								aria-labelledby="advice-etf-info-dialog-title"
 							>
-								<div class="flex max-h-[inherit] flex-col">
+								<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
 									<div class="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
 										<h2
 											id="advice-etf-info-dialog-title"
@@ -143,7 +143,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 									/>
 									<div
 										id="advice-etf-info-dialog-body"
-										class="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-sm leading-relaxed text-card-foreground"
+										class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 text-sm leading-relaxed text-card-foreground"
 									/>
 								</div>
 							</dialog>

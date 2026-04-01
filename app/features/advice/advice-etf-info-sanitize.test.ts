@@ -14,10 +14,11 @@ describe('advice-etf-info-sanitize', () => {
 			sanitizeEtfInfoFundName('  ACME\n---ignore---\rFund  '),
 			'ACME ignore Fund',
 		)
-		assert.equal(
-			sanitizeEtfInfoFundName('a'.repeat(ETF_INFO_MAX_NAME_LENGTH + 5)).length,
-			ETF_INFO_MAX_NAME_LENGTH,
+		const longName = sanitizeEtfInfoFundName(
+			'a'.repeat(ETF_INFO_MAX_NAME_LENGTH + 5),
 		)
+		assert.ok(longName !== null)
+		assert.equal(longName.length, ETF_INFO_MAX_NAME_LENGTH)
 		assert.equal(sanitizeEtfInfoFundName('   '), null)
 		assert.equal(sanitizeEtfInfoFundName('\n\u0000'), null)
 	})
