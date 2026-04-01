@@ -47,14 +47,15 @@ export type EtfGuideline = {
 
 const GUIDELINE_TOTAL_EPS = 1e-9
 
-function finiteGuidelineTargetPercent(n: number): number {
-	return Number.isFinite(n) ? n : 0
+function finiteGuidelineTargetPercent(value: number): number {
+	return Number.isFinite(value) ? value : 0
 }
 
 /** Sum of all guideline `targetPct` values (instrument + bucket rows). */
 export function sumGuidelineTargetPercent(guidelines: EtfGuideline[]): number {
 	return guidelines.reduce(
-		(sum, g) => sum + finiteGuidelineTargetPercent(g.targetPct),
+		(total, guideline) =>
+			total + finiteGuidelineTargetPercent(guideline.targetPct),
 		0,
 	)
 }
@@ -67,8 +68,8 @@ export function formatGuidelineTargetPercentForInput(value: number): string {
 }
 
 /** Clamp a percentage to 0–100 for visual bars; non-finite input becomes 0. */
-export function clampGuidelineBarWidthPercent(n: number): number {
-	const finitePercent = finiteGuidelineTargetPercent(n)
+export function clampGuidelineBarWidthPercent(value: number): number {
+	const finitePercent = finiteGuidelineTargetPercent(value)
 	return Math.min(100, Math.max(0, finitePercent))
 }
 
@@ -93,16 +94,16 @@ export function findGuidelineDuplicateOf(
 ): EtfGuideline | null {
 	const normalizedEntryTicker =
 		entry.kind === 'instrument' ? entry.etfName.trim().toUpperCase() : null
-	for (const g of existing) {
-		if (entry.kind === 'instrument' && g.kind === 'instrument') {
-			const normalizedExistingTicker = g.etfName.trim().toUpperCase()
+	for (const guideline of existing) {
+		if (entry.kind === 'instrument' && guideline.kind === 'instrument') {
+			const normalizedExistingTicker = guideline.etfName.trim().toUpperCase()
 			if (normalizedExistingTicker === normalizedEntryTicker) {
-				return g
+				return guideline
 			}
 		}
-		if (entry.kind === 'asset_class' && g.kind === 'asset_class') {
-			if (g.etfType === entry.etfType) {
-				return g
+		if (entry.kind === 'asset_class' && guideline.kind === 'asset_class') {
+			if (guideline.etfType === entry.etfType) {
+				return guideline
 			}
 		}
 	}

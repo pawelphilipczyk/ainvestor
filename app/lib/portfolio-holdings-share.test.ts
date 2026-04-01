@@ -52,5 +52,13 @@ describe('valueShareOfHoldingsTotalPercent', () => {
 			valueShareOfHoldingsTotalPercent({ value: 1, total: 3 }),
 			100 / 3,
 		)
+		assert.equal(
+			valueShareOfHoldingsTotalPercent({ value: 200, total: 100 }),
+			100,
+		)
+		assert.equal(
+			valueShareOfHoldingsTotalPercent({ value: -10, total: 100 }),
+			0,
+		)
 	})
 })
