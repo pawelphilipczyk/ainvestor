@@ -48,7 +48,16 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('GET /catalog shows import form for bank API JSON', async () => {
-		const response = await testSessionFetch('http://localhost/catalog')
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+		const response = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
 		const body = await response.text()
 
 		assert.match(body, /data-fetch-submit/)
@@ -56,11 +65,19 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /action="\/catalog\/import"/)
 	})
 
+	it('GET /catalog hides import section for users without import permission', async () => {
+		const response = await testSessionFetch('http://localhost/catalog')
+		const body = await response.text()
+
+		assert.doesNotMatch(body, /action="\/catalog\/import"/)
+		assert.doesNotMatch(body, /name="bankApiJson"/)
+	})
+
 	it('GET /catalog shows empty state hint when no catalog imported', async () => {
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
-		assert.match(body, /No catalog imported yet/)
+		assert.match(body, /No ETFs match your search/)
 	})
 
 	it('GET /catalog renders theme toggle button hook without escaped HTML text', async () => {
