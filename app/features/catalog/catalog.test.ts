@@ -13,10 +13,17 @@ import {
 	setSharedCatalogForTests,
 } from './lib.ts'
 
+const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
+
 afterEach(() => {
 	resetEtfEntries()
 	resetSharedCatalogForTests()
 	resetTestSessionCookieJar()
+	if (originalApprovedGithubLogins === undefined) {
+		delete process.env.APPROVED_GITHUB_LOGINS
+	} else {
+		process.env.APPROVED_GITHUB_LOGINS = originalApprovedGithubLogins
+	}
 })
 
 function seedSharedCatalog(bankJson: string, ownerLogin = 'catalog-admin') {

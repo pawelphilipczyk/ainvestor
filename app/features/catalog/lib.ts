@@ -337,22 +337,27 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 		return { entries: [], ownerLogin: null }
 	}
 
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
-		headers: {
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28',
-		},
-	})
-	if (!response.ok) return { entries: [], ownerLogin: null }
-	const gist = (await response.json()) as GistPayload
-	const ownerLogin =
-		typeof gist.owner?.login === 'string' && gist.owner.login.length > 0
-			? gist.owner.login
-			: null
-	return {
-		entries: parseCatalogFromGist(gist),
-		ownerLogin,
+	try {
+		const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+			signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+			headers: {
+				Accept: 'application/vnd.github+json',
+				'X-GitHub-Api-Version': '2022-11-28',
+			},
+		})
+		if (!response.ok) return { entries: [], ownerLogin: null }
+		const gist = (await response.json()) as GistPayload
+		const ownerLogin =
+			typeof gist.owner?.login === 'string' && gist.owner.login.length > 0
+				? gist.owner.login
+				: null
+		return {
+			entries: parseCatalogFromGist(gist),
+			ownerLogin,
+		}
+	} catch (error) {
+		console.error('[catalog] Shared catalog fetch failed', error)
+		return { entries: [], ownerLogin: null }
 	}
 }
 
