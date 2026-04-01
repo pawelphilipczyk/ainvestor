@@ -4,6 +4,17 @@ import { createRequestListener } from 'remix/node-fetch-server'
 
 import { router } from './app/router.ts'
 
+function validateRequiredConfig(): void {
+	const sharedCatalogGistId = (process.env.SHARED_CATALOG_GIST_ID ?? '').trim()
+	if (sharedCatalogGistId.length === 0 && process.env.NODE_ENV !== 'test') {
+		throw new Error(
+			'[config] SHARED_CATALOG_GIST_ID must be set outside tests.',
+		)
+	}
+}
+
+validateRequiredConfig()
+
 const server = http.createServer(
 	createRequestListener(async (request: Request) => {
 		try {

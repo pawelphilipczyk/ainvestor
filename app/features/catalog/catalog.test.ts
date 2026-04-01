@@ -1,17 +1,50 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
+import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
-	catalogImportFormRequest,
+	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import { resetEtfEntries } from '../portfolio/index.ts'
-import { resetGuestCatalog } from './index.ts'
+import {
+	parseBankJsonToCatalog,
+	resetSharedCatalogForTests,
+	setSharedCatalogForTests,
+} from './lib.ts'
+
+const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
 
 afterEach(() => {
 	resetEtfEntries()
-	resetGuestCatalog()
+	resetSharedCatalogForTests()
+	resetTestSessionCookieJar()
+	if (originalApprovedGithubLogins === undefined) {
+		delete process.env.APPROVED_GITHUB_LOGINS
+	} else {
+		process.env.APPROVED_GITHUB_LOGINS = originalApprovedGithubLogins
+	}
 })
+
+function seedSharedCatalog(bankJson: string, ownerLogin = 'catalog-admin') {
+	setSharedCatalogForTests({
+		entries: parseBankJsonToCatalog(JSON.parse(bankJson)),
+		ownerLogin,
+	})
+}
+
+async function signInAs(login: string) {
+	const session = await sessionStorage.read(null)
+	session.set('login', login)
+	session.set('token', 'test-token')
+	session.set('gistId', 'gist-1')
+	session.set('sharedCatalogAdmin', true)
+	process.env.APPROVED_GITHUB_LOGINS = login
+	const value = await sessionStorage.save(session)
+	if (value == null) throw new Error('expected session save value')
+	const cookieHeader = await sessionCookie.serialize(value)
+	return cookieHeader.split(';')[0]
+}
 
 describe('ETF Catalog page', () => {
 	it('GET /catalog returns 200 with page title', async () => {
@@ -23,7 +56,16 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('GET /catalog shows import form for bank API JSON', async () => {
-		const response = await testSessionFetch('http://localhost/catalog')
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+		const response = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
 		const body = await response.text()
 
 		assert.match(body, /data-fetch-submit/)
@@ -31,11 +73,19 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /action="\/catalog\/import"/)
 	})
 
+	it('GET /catalog hides import section for users without import permission', async () => {
+		const response = await testSessionFetch('http://localhost/catalog')
+		const body = await response.text()
+
+		assert.doesNotMatch(body, /action="\/catalog\/import"/)
+		assert.doesNotMatch(body, /name="bankApiJson"/)
+	})
+
 	it('GET /catalog shows empty state hint when no catalog imported', async () => {
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
-		assert.match(body, /No catalog imported yet/)
+		assert.match(body, /No ETFs match your search/)
 	})
 
 	it('GET /catalog renders theme toggle button hook without escaped HTML text', async () => {
@@ -54,7 +104,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Portfolio/)
 	})
 
-	it('POST /catalog/import with form field bankApiJson merges into catalog', async () => {
+	it('POST /catalog/import rejects non-owner sessions', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -72,6 +122,12 @@ describe('ETF Catalog page', () => {
 
 		const formData = new FormData()
 		formData.set('bankApiJson', bankJson)
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
 
 		const importResponse = await testSessionFetch(
 			new Request('http://localhost/catalog/import', {
@@ -83,14 +139,15 @@ describe('ETF Catalog page', () => {
 		assert.equal(importResponse.status, 302)
 		assert.equal(importResponse.headers.get('location'), '/catalog')
 
+		resetTestSessionCookieJar()
 		const catalogResponse = await testSessionFetch('http://localhost/catalog')
 		const body = await catalogResponse.text()
 
-		assert.match(body, /XMOV GR/)
-		assert.match(body, /Xtrackers Future Mobility/)
+		assert.match(body, /Existing Fund/)
+		assert.doesNotMatch(body, /Xtrackers Future Mobility/)
 	})
 
-	it('POST /catalog/import with bank API format merges into catalog', async () => {
+	it('POST /catalog/import merges into shared catalog for gist owner', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -105,9 +162,24 @@ describe('ETF Catalog page', () => {
 			count: 1,
 			total_count: 1,
 		})
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
 
 		const importResponse = await testSessionFetch(
-			catalogImportFormRequest(bankJson),
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set('bankApiJson', bankJson)
+					return formData
+				})(),
+				headers: { Cookie: cookie },
+			}),
 		)
 
 		assert.equal(importResponse.status, 302)
@@ -116,6 +188,8 @@ describe('ETF Catalog page', () => {
 		const catalogResponse = await testSessionFetch('http://localhost/catalog')
 		const body = await catalogResponse.text()
 
+		assert.match(body, /Existing Fund/)
+		assert.match(body, /OLD/)
 		assert.match(body, /XMOV GR/)
 		assert.match(body, /Xtrackers Future Mobility/)
 	})
@@ -133,7 +207,7 @@ describe('ETF Catalog page', () => {
 			count: 1,
 			total_count: 1,
 		})
-		await testSessionFetch(catalogImportFormRequest(bankJson))
+		seedSharedCatalog(bankJson)
 
 		const addForm = new FormData()
 		addForm.set('instrumentTicker', 'VTI')
@@ -162,7 +236,7 @@ describe('ETF Catalog page', () => {
 			count: 1,
 			total_count: 1,
 		})
-		await testSessionFetch(catalogImportFormRequest(bankJson))
+		seedSharedCatalog(bankJson)
 
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
@@ -196,7 +270,7 @@ describe('ETF Catalog page', () => {
 			count: 1,
 			total_count: 1,
 		})
-		await testSessionFetch(catalogImportFormRequest(bankJson))
+		seedSharedCatalog(bankJson)
 
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
@@ -218,7 +292,7 @@ describe('ETF Catalog page', () => {
 			count: 1,
 			total_count: 1,
 		})
-		await testSessionFetch(catalogImportFormRequest(bankJson))
+		seedSharedCatalog(bankJson)
 
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
@@ -242,7 +316,7 @@ describe('ETF Catalog page', () => {
 			count: 2,
 			total_count: 2,
 		})
-		await testSessionFetch(catalogImportFormRequest(bankJson))
+		seedSharedCatalog(bankJson)
 
 		const response = await testSessionFetch(
 			'http://localhost/catalog?type=bond',
@@ -273,7 +347,7 @@ describe('ETF Catalog page', () => {
 			count: 2,
 			total_count: 2,
 		})
-		await testSessionFetch(catalogImportFormRequest(bankJson))
+		seedSharedCatalog(bankJson)
 
 		const response = await testSessionFetch('http://localhost/catalog?q=bond')
 		const body = await response.text()

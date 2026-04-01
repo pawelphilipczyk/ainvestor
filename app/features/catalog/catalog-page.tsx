@@ -22,8 +22,10 @@ import type { CatalogEntry } from './lib.ts'
 type CatalogPageProps = {
 	catalog: CatalogEntry[]
 	holdings: EtfEntry[]
+	canImport: boolean
 	typeFilter: string
 	query: string
+	sharedCatalogOwnerLogin: string | null
 }
 
 /** Keeps long fund names and descriptions readable (wrap) without forcing huge table width. */
@@ -126,58 +128,60 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					title={SECTION_INTROS.catalog.title}
 					description={SECTION_INTROS.catalog.description}
 				>
+					<p class="mt-0.5 text-xs text-muted-foreground">
+						{t('catalog.sharedSource')}
+					</p>
 					{sessionUsesGithubGist(session) ? (
 						<p class="mt-0.5 text-xs text-muted-foreground">
 							{t('catalog.savedGist')}
 						</p>
-					) : session?.approvalStatus === 'pending' ? (
-						<p class="mt-0.5 text-xs text-muted-foreground">
-							{t('catalog.pendingNotSaved')}
-						</p>
-					) : (
-						<p class="mt-0.5 text-xs text-muted-foreground">
-							{t('catalog.signInPersist')}
-						</p>
-					)}
+					) : null}
 				</SectionIntroCard>
 
-				<Card variant="muted" class="p-4">
-					<section>
-						<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-							{t('catalog.import.title')}
-						</h2>
-						<p class="mt-0.5 text-xs text-muted-foreground">
-							{t('catalog.import.subtitle')}
-						</p>
-						<form
-							method="post"
-							action={routes.catalog.import.href()}
-							class="mt-3 grid max-w-xl gap-3"
-							data-fetch-submit
-						>
-							<FieldLabel fieldId="pasteZone" variant="screenReader">
-								{t('catalog.import.pasteLabel.screenReader')}
-							</FieldLabel>
-							<TextareaInput
-								id="pasteZone"
-								name="bankApiJson"
-								placeholder={t('catalog.import.pastePlaceholder')}
-								rows={3}
-								required={true}
-								class="block w-full max-w-xl"
-							/>
-							<SubmitButton>{t('catalog.import.submit')}</SubmitButton>
-						</form>
-						{props.catalog.length === 0 ? (
-							<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
-								<p class="font-medium text-foreground">
-									{t('catalog.empty.title')}
+				{props.canImport ? (
+					<Card variant="muted" class="p-4">
+						<section>
+							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+								{t('catalog.import.title')}
+							</h2>
+							<p class="mt-0.5 text-xs text-muted-foreground">
+								{t('catalog.import.subtitle')}
+							</p>
+							{props.sharedCatalogOwnerLogin ? (
+								<p class="mt-2 text-xs text-muted-foreground">
+									{t('catalog.import.ownerActive')}
 								</p>
-								<p class="mt-1">{t('catalog.empty.hint')}</p>
-							</div>
-						) : null}
-					</section>
-				</Card>
+							) : null}
+							<form
+								method="post"
+								action={routes.catalog.import.href()}
+								class="mt-3 grid max-w-xl gap-3"
+								data-fetch-submit
+							>
+								<FieldLabel fieldId="pasteZone" variant="screenReader">
+									{t('catalog.import.pasteLabel.screenReader')}
+								</FieldLabel>
+								<TextareaInput
+									id="pasteZone"
+									name="bankApiJson"
+									placeholder={t('catalog.import.pastePlaceholder')}
+									rows={3}
+									required={true}
+									class="block w-full max-w-xl"
+								/>
+								<SubmitButton>{t('catalog.import.submit')}</SubmitButton>
+							</form>
+							{props.catalog.length === 0 ? (
+								<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
+									<p class="font-medium text-foreground">
+										{t('catalog.empty.title')}
+									</p>
+									<p class="mt-1">{t('catalog.empty.hint')}</p>
+								</div>
+							) : null}
+						</section>
+					</Card>
+				) : null}
 
 				{props.catalog.length > 0 ? (
 					<Card variant="muted" class="p-4">

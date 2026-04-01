@@ -3,10 +3,14 @@ import { afterEach, describe, it } from 'node:test'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
-	catalogImportFormRequest,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
+import {
+	parseBankJsonToCatalog,
+	resetSharedCatalogForTests,
+	setSharedCatalogForTests,
+} from '../catalog/lib.ts'
 import type { AdviceClient } from './advice-client.ts'
 import { adviceTabHref, setAdviceClient } from './index.ts'
 
@@ -18,6 +22,13 @@ const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
 
 const adviceUrl = (mode: Parameters<typeof adviceTabHref>[0]) =>
 	`http://localhost${adviceTabHref(mode)}`
+
+function seedSharedCatalog(bankJson: string): void {
+	setSharedCatalogForTests({
+		entries: parseBankJsonToCatalog(JSON.parse(bankJson)),
+		ownerLogin: 'catalog-admin',
+	})
+}
 
 function makeMockClient(responseText: string): AdviceClient {
 	const content = (() => {
@@ -46,6 +57,7 @@ function makeMockClient(responseText: string): AdviceClient {
 
 afterEach(() => {
 	resetTestSessionCookieJar()
+	resetSharedCatalogForTests()
 	setAdviceClient(null)
 	if (originalApprovedGithubLogins === undefined) {
 		delete process.env.APPROVED_GITHUB_LOGINS
@@ -532,7 +544,7 @@ describe('Advice', () => {
 			data: [{ fund_name: 'VXUS', ticker: 'VXUS', assets: 'akcje' }],
 			count: 1,
 		})
-		await testSessionFetch(catalogImportFormRequest(bankJson))
+		seedSharedCatalog(bankJson)
 
 		const addForm = new FormData()
 		addForm.set('instrumentTicker', 'VXUS')
@@ -576,7 +588,7 @@ describe('Advice', () => {
 			data: [{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' }],
 			count: 1,
 		})
-		await testSessionFetch(catalogImportFormRequest(bankJson))
+		seedSharedCatalog(bankJson)
 
 		const guidelineForm = new FormData()
 		guidelineForm.set('instrumentTicker', 'VTI')

@@ -45,7 +45,8 @@ export function isGithubLoginApproved(login: string): boolean {
 
 /**
  * If the session user is not on the allowlist, drop GitHub credentials so we
- * never use a token for an unapproved account (including when the list is empty).
+ * never use a token for an unapproved account (including when the list is empty),
+ * unless the session was marked as the shared catalog admin during login.
  */
 export function stripGithubTokenIfUnapproved(session: Session): void {
 	const login = session.get('login') as string | undefined
@@ -54,5 +55,6 @@ export function stripGithubTokenIfUnapproved(session: Session): void {
 	if (isGithubLoginApproved(login)) return
 	session.unset('token')
 	session.unset('gistId')
+	session.unset('sharedCatalogAdmin')
 	session.set('approvalStatus', 'pending')
 }

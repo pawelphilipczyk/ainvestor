@@ -13,11 +13,7 @@ import {
 	fetchPortfolioSnapshot,
 	saveEtfs,
 } from '../../../lib/gist.ts'
-import {
-	getGuestCatalog,
-	getGuestEtfs,
-	setGuestEtfs,
-} from '../../../lib/guest-session-state.ts'
+import { getGuestEtfs, setGuestEtfs } from '../../../lib/guest-session-state.ts'
 import { t } from '../../../lib/i18n.ts'
 import { parseLocaleDecimalString } from '../../../lib/locale-decimal-input.ts'
 import type { AppRequestContext } from '../../../lib/request-context.ts'
@@ -25,6 +21,7 @@ import { getSessionData } from '../../../lib/session.ts'
 import { routes } from '../../../routes.ts'
 import {
 	type CatalogEntry,
+	fetchCatalog,
 	findCatalogEntryByTicker,
 } from '../../catalog/lib.ts'
 import { AddEtfForm } from './add-etf-form.tsx'
@@ -143,7 +140,7 @@ export const addEtfFormHandlers = {
 					})
 				}
 			} else {
-				catalog = getGuestCatalog(context.get(Session))
+				catalog = await fetchCatalog()
 				current = getGuestEtfs(context.get(Session))
 			}
 			const match = findCatalogEntryByTicker(catalog, instrumentTicker)

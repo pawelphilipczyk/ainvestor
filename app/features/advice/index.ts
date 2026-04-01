@@ -7,7 +7,6 @@ import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
 import {
-	getGuestCatalog,
 	getGuestEtfs,
 	getGuestGuidelines,
 } from '../../lib/guest-session-state.ts'
@@ -20,6 +19,7 @@ import {
 	type SessionData,
 } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+import { fetchCatalog } from '../catalog/lib.ts'
 import { type AdviceClient, createAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
 import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
@@ -241,12 +241,12 @@ export const adviceController = {
 			}
 
 			try {
-				const { entries, catalog } =
+				const { catalog, entries } =
 					session?.gistId && session.token
 						? await fetchPortfolioSnapshot(session.token, session.gistId)
 						: {
+								catalog: await fetchCatalog(),
 								entries: getGuestEtfs(context.get(Session)),
-								catalog: getGuestCatalog(context.get(Session)),
 							}
 				const guidelines =
 					session?.gistId && session.token

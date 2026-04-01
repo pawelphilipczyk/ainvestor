@@ -10,7 +10,6 @@ import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import {
-	getGuestCatalog,
 	getGuestGuidelines,
 	setGuestGuidelines,
 } from '../../lib/guest-session-state.ts'
@@ -347,9 +346,7 @@ export const guidelinesController = {
 				session?.gistId && session.token
 					? fetchGuidelines(session.token, session.gistId)
 					: getGuestGuidelines(context.get(Session)),
-				session?.gistId && session.token
-					? fetchCatalog(session.token, session.gistId)
-					: getGuestCatalog(context.get(Session)),
+				fetchCatalog(),
 			])
 			return renderGuidelinesPage({
 				guidelines,
@@ -373,10 +370,7 @@ export const guidelinesController = {
 			}
 
 			const session = getSessionData(context.get(Session))
-			const catalog =
-				session?.gistId && session.token
-					? await fetchCatalog(session.token, session.gistId)
-					: getGuestCatalog(context.get(Session))
+			const catalog = await fetchCatalog()
 
 			const ticker = (result.value.instrumentTicker ?? '').trim()
 			if (!ticker) {
@@ -419,10 +413,7 @@ export const guidelinesController = {
 			}
 
 			const session = getSessionData(context.get(Session))
-			const catalog =
-				session?.gistId && session.token
-					? await fetchCatalog(session.token, session.gistId)
-					: getGuestCatalog(context.get(Session))
+			const catalog = await fetchCatalog()
 			const allowedAssetClasses = new Set(
 				assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
 			)
