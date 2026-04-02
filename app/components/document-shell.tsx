@@ -113,10 +113,11 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 						<div class="contents">
 							<dialog
 								id="advice-etf-info-dialog"
-								class="fixed inset-0 z-50 m-0 box-border flex h-dvh max-h-dvh w-full min-w-0 max-w-[100vw] flex-col overflow-x-hidden overflow-y-hidden border-0 bg-card p-0 shadow-none backdrop:bg-black/50"
+								class="fixed inset-0 z-50 m-0 box-border h-dvh max-h-dvh w-full min-w-0 max-w-[100vw] overflow-hidden border-0 bg-card p-0 shadow-none backdrop:bg-black/50"
 								aria-labelledby="advice-etf-info-dialog-title"
 							>
-								<div class="flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden">
+								{/* Flex lives on inner wrapper: `flex` on <dialog> overrides UA :not([open]){display:none} */}
+								<div class="flex h-full min-h-0 min-w-0 w-full max-w-full flex-col overflow-x-hidden overflow-y-hidden">
 									<div class="flex min-w-0 max-w-full shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
 										<h2
 											id="advice-etf-info-dialog-title"

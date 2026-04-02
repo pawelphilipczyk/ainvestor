@@ -100,5 +100,10 @@ export const baseCss = `@layer base {
   input[type='submit'][aria-busy='true'] .submit-button-busy-label {
     color: hsl(var(--muted-foreground));
   }
+
+  /* Tailwind flex on dialog can override the UA rule that hides closed dialogs. */
+  #advice-etf-info-dialog:not([open]) {
+    display: none !important;
+  }
 }
 `
