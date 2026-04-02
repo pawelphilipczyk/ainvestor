@@ -113,7 +113,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 						<div class="contents">
 							<dialog
 								id="advice-etf-info-dialog"
-								class="fixed left-1/2 top-20 z-50 m-0 flex w-[calc(100vw-2rem)] max-w-xl max-h-[calc(100dvh-6rem)] -translate-x-1/2 flex-col overflow-hidden rounded-lg border border-border bg-card p-0 shadow-lg backdrop:bg-black/50 sm:top-24"
+								class="fixed inset-0 z-50 m-0 box-border flex h-dvh max-h-dvh w-full max-w-none flex-col overflow-hidden border-0 bg-card p-0 shadow-none backdrop:bg-black/50"
 								aria-labelledby="advice-etf-info-dialog-title"
 							>
 								<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
