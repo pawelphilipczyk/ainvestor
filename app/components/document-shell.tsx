@@ -113,16 +113,19 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 						<div class="contents">
 							<dialog
 								id="advice-etf-info-dialog"
-								class="fixed inset-0 z-50 m-0 box-border flex h-dvh max-h-dvh w-full max-w-none flex-col overflow-hidden border-0 bg-card p-0 shadow-none backdrop:bg-black/50"
+								class="fixed inset-0 z-50 m-0 box-border flex h-dvh max-h-dvh w-full min-w-0 max-w-[100vw] flex-col overflow-x-hidden overflow-y-hidden border-0 bg-card p-0 shadow-none backdrop:bg-black/50"
 								aria-labelledby="advice-etf-info-dialog-title"
 							>
-								<div class="flex min-h-0 flex-1 flex-col overflow-hidden">
-									<div class="flex shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
+								<div class="flex min-h-0 min-w-0 w-full max-w-full flex-1 flex-col overflow-x-hidden overflow-y-hidden">
+									<div class="flex min-w-0 max-w-full shrink-0 items-start justify-between gap-3 border-b border-border px-4 py-3">
 										<h2
 											id="advice-etf-info-dialog-title"
-											class="min-w-0 text-base font-semibold tracking-tight text-card-foreground"
+											class="min-w-0 max-w-full break-words text-base font-semibold tracking-tight text-card-foreground"
 										>
-											<span id="advice-etf-info-dialog-heading">
+											<span
+												id="advice-etf-info-dialog-heading"
+												class="break-words"
+											>
 												{t('advice.table.learnMore')}
 											</span>
 										</h2>
@@ -137,13 +140,13 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 									</div>
 									<div
 										id="advice-etf-info-dialog-status"
-										class="hidden border-b border-border px-4 py-3 text-sm text-muted-foreground"
+										class="hidden min-w-0 max-w-full break-words border-b border-border px-4 py-3 text-sm text-muted-foreground"
 										role="status"
 										aria-live="polite"
 									/>
 									<div
 										id="advice-etf-info-dialog-body"
-										class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3 text-sm leading-relaxed text-card-foreground"
+										class="min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain break-words px-4 py-3 text-sm leading-relaxed text-card-foreground"
 									/>
 								</div>
 							</dialog>

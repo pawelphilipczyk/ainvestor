@@ -6,8 +6,12 @@ const ETF_INFO_DEFAULTS_ID = 'advice-etf-info-defaults'
 /** Matches server-rendered #advice-etf-info-dialog-body base classes */
 const DIALOG_BODY_BASE_CLASSES = [
 	'min-h-0',
+	'min-w-0',
+	'max-w-full',
 	'flex-1',
+	'overflow-x-hidden',
 	'overflow-y-auto',
+	'break-words',
 	'px-4',
 	'py-3',
 	'text-sm',
