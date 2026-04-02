@@ -22,7 +22,6 @@ export const routes = route({
 	},
 	advice: {
 		...adviceForm,
-		etfInfo: post('/advice/etf-info'),
 	},
 	guidelines: {
 		index: get('/guidelines'),
@@ -34,6 +33,7 @@ export const routes = route({
 	},
 	catalog: {
 		index: get('/catalog'),
+		etfDetail: get('/catalog/etf/:ticker'),
 		import: post('/catalog/import'),
 	},
 })

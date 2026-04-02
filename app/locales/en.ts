@@ -23,6 +23,7 @@ export const en = {
 	'meta.title.portfolio': 'AI Investor – Portfolio',
 	'meta.title.advice': 'AI Investor – Get Advice',
 	'meta.title.catalog': 'AI Investor – ETF Catalog',
+	'meta.title.catalogEtf': 'AI Investor – {name}',
 	'meta.title.guidelines': 'AI Investor – Guidelines',
 
 	'nav.portfolio': 'Portfolio',
@@ -145,6 +146,9 @@ export const en = {
 	'catalog.table.isin': 'ISIN',
 	'catalog.table.value': 'Value',
 	'catalog.table.learnMore': 'Learn more',
+	'catalog.etfDetail.back': 'Back',
+	'catalog.etfDetail.pendingBody':
+		'ETF details are available after your account is approved.',
 	'catalog.emptyCell': '—',
 	'catalog.etfTypeUnknown': 'Unknown',
 	'catalog.noMatch': 'No ETFs match your search.',
@@ -218,7 +222,6 @@ export const en = {
 	'advice.table.currency': 'Currency',
 	'advice.table.note': 'Note',
 	'advice.table.learnMore': 'Learn more',
-	'advice.etfInfo.dialogClose': 'Close',
 	'advice.capital.title': 'Portfolio mix',
 	'advice.capital.snapshotError':
 		'Portfolio snapshot could not be shown because the data from the model was inconsistent (for example mixed currencies or invalid amounts).',
@@ -251,6 +254,8 @@ export const en = {
 		'Could not save your portfolio. Please try again in a moment.',
 	'errors.catalog.importNotAllowed':
 		'Only the shared catalog gist owner can import catalog updates.',
+	'errors.catalog.etfDetail.service':
+		"We couldn't load this ETF description right now. Please try again in a moment.",
 
 	'errors.guidelines.totalExceeds100':
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',
@@ -273,16 +278,7 @@ export const en = {
 		'Your account is not approved yet. You cannot request advice until your GitHub username is added to app/lib/approved-github-logins.ts and deployed.',
 	'errors.advice.service':
 		"We couldn't get advice right now. Please try again in a moment.",
-	'errors.advice.etfInfo.validation': 'Check the request and try again.',
-	'errors.advice.etfInfo.notApproved':
-		'Your account is not approved yet. You cannot load ETF details until you are approved.',
-	'errors.advice.etfInfo.service':
-		"We couldn't load ETF details right now. Please try again in a moment.",
-
 	'client.formSubmit.genericError': 'Please check your input.',
-	'client.adviceEtfInfo.loading': 'Fetching details…',
-	'client.adviceEtfInfo.error':
-		'Could not load ETF details. Please try again in a moment.',
 } as const
 
 export type MessageKey = keyof typeof en

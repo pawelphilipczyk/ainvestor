@@ -6,6 +6,7 @@ import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
+import { setAdviceClient } from '../advice/advice-client.ts'
 import { resetEtfEntries } from '../portfolio/index.ts'
 import {
 	parseBankJsonToCatalog,
@@ -16,6 +17,7 @@ import {
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
 
 afterEach(() => {
+	setAdviceClient(null)
 	resetEtfEntries()
 	resetSharedCatalogForTests()
 	resetTestSessionCookieJar()
@@ -66,8 +68,47 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /data-advice-etf-learn/)
-		assert.match(body, /id="advice-etf-info-dialog"/)
+		assert.match(body, /href="\/catalog\/etf\/TST/)
+		assert.match(body, /Learn more/)
+	})
+
+	it('GET /catalog/etf/:ticker renders description when OpenAI succeeds', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => ({
+						choices: [{ message: { content: 'Educational ETF paragraph.' } }],
+					}),
+				},
+			},
+		})
+
+		const response = await testSessionFetch('http://localhost/catalog/etf/TST')
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Test Fund/)
+		assert.match(body, /Educational ETF paragraph/)
+		assert.match(body, /Back/)
+	})
+
+	it('GET /catalog/etf/:ticker returns 404 for unknown ticker', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+
+		const response = await testSessionFetch('http://localhost/catalog/etf/ZZZ')
+
+		assert.equal(response.status, 404)
 	})
 
 	it('GET /catalog omits Learn more for pending-approval session', async () => {
@@ -92,8 +133,7 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.doesNotMatch(body, /data-advice-etf-learn/)
-		assert.doesNotMatch(body, /id="advice-etf-info-dialog"/)
+		assert.doesNotMatch(body, /\/catalog\/etf\//)
 	})
 
 	it('GET /catalog shows import form for bank API JSON', async () => {

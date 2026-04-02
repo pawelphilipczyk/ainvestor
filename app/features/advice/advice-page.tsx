@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
+	Link,
 	NumberInput,
 	ScrollableTable,
 	SelectInput,
@@ -332,15 +333,9 @@ function renderEtfProposals(
 		defaultCashCurrency: string
 		selectedModel: AdviceModelId
 		pendingApproval: boolean
-		etfInfoPostHref: string
 	},
 ) {
-	const {
-		defaultCashCurrency,
-		selectedModel,
-		pendingApproval,
-		etfInfoPostHref,
-	} = options
+	const { defaultCashCurrency, selectedModel, pendingApproval } = options
 	return (
 		<section class="min-w-0 max-w-full space-y-2">
 			{block.caption ? (
@@ -401,12 +396,19 @@ function renderEtfProposals(
 								row.amount !== undefined
 									? (row.currency ?? defaultCashCurrency)
 									: null
-							const tickerForPayload =
+							const catalogTicker =
 								row.ticker !== undefined &&
 								row.ticker.trim().length > 0 &&
 								row.ticker !== t('catalog.emptyCell')
 									? row.ticker.trim()
-									: ''
+									: null
+							const learnMoreHref =
+								catalogTicker !== null
+									? routes.catalog.etfDetail.href(
+											{ ticker: catalogTicker },
+											{ model: selectedModel },
+										)
+									: null
 							return (
 								<tr
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
@@ -429,17 +431,19 @@ function renderEtfProposals(
 									</td>
 									{pendingApproval ? null : (
 										<td class="px-3 py-2 align-top">
-											<button
-												type="button"
-												class="whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent"
-												data-advice-etf-learn=""
-												data-post-url={etfInfoPostHref}
-												data-etf-name={row.name}
-												data-etf-ticker={tickerForPayload}
-												data-advice-model={selectedModel}
-											>
-												{t('advice.table.learnMore')}
-											</button>
+											{learnMoreHref !== null ? (
+												<Link
+													href={learnMoreHref}
+													navigationLoading={true}
+													class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+												>
+													{t('advice.table.learnMore')}
+												</Link>
+											) : (
+												<span class="text-xs text-muted-foreground">
+													{t('catalog.emptyCell')}
+												</span>
+											)}
 										</td>
 									)}
 								</tr>
@@ -459,7 +463,6 @@ function renderAdviceBlock(
 	etfOptions: {
 		selectedModel: AdviceModelId
 		pendingApproval: boolean
-		etfInfoPostHref: string
 	},
 ) {
 	if (block.type === 'paragraph') {
@@ -485,7 +488,6 @@ function renderAdviceBlock(
 		defaultCashCurrency,
 		selectedModel: etfOptions.selectedModel,
 		pendingApproval: etfOptions.pendingApproval,
-		etfInfoPostHref: etfOptions.etfInfoPostHref,
 	})
 }
 
@@ -508,7 +510,6 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 			{},
 			{ tab: 'portfolio_review' },
 		)
-		const etfInfoPostHref = routes.advice.etfInfo.href()
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
 				<SectionIntroCard
@@ -680,7 +681,6 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									{renderAdviceBlock(block, cashCurrency, i, {
 										selectedModel,
 										pendingApproval,
-										etfInfoPostHref,
 									})}
 								</div>
 							))}
