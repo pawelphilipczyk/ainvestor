@@ -106,8 +106,8 @@ export const baseCss = `@layer base {
     color: hsl(var(--muted-foreground));
   }
 
-  /* Tailwind flex on dialog can override the UA rule that hides closed dialogs. */
-  #advice-etf-info-dialog:not([open]) {
+  /* Closed native dialogs must stay hidden if Tailwind sets display on dialog. */
+  dialog:not([open]) {
     display: none !important;
   }
 }
