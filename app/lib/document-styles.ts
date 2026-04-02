@@ -2,6 +2,11 @@
  * Base CSS variables for light/dark themes. Inlined in document shell style tag.
  */
 export const baseCss = `@layer base {
+  html {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   @view-transition {
     navigation: auto;
   }

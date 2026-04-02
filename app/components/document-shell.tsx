@@ -41,7 +41,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 			defaultAdviceModel: DEFAULT_ADVICE_MODEL,
 		})
 		return (
-			<html lang="en" class="dark">
+			<html lang="en" class="dark max-w-full overflow-x-hidden">
 				<head>
 					<meta charset="utf-8" />
 					<meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -71,7 +71,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 						/>
 					)}
 				</head>
-				<body class="min-h-screen overflow-x-hidden bg-background font-sans text-foreground antialiased">
+				<body class="min-h-screen min-w-0 max-w-full overflow-x-hidden bg-background font-sans text-foreground antialiased">
 					<SessionProvider session={props.session}>
 						<div id="form-spinner" class="sr-only" aria-hidden="true">
 							<span
@@ -110,10 +110,10 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					<NavigationLinkLoadingEnhancement />
 					<TabsNavScrollRestoration />
 					{pendingApproval ? null : (
-						<div class="contents">
+						<>
 							<dialog
 								id="advice-etf-info-dialog"
-								class="fixed inset-0 z-50 m-0 box-border h-dvh max-h-dvh w-full min-w-0 max-w-[100vw] overflow-hidden border-0 bg-card p-0 shadow-none backdrop:bg-black/50"
+								class="fixed inset-0 z-50 m-0 box-border max-h-dvh min-h-0 min-w-0 overflow-hidden border-0 bg-card p-0 shadow-none backdrop:bg-black/50"
 								aria-labelledby="advice-etf-info-dialog-title"
 							>
 								{/* Flex lives on inner wrapper: `flex` on <dialog> overrides UA :not([open]){display:none} */}
@@ -152,7 +152,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 								</div>
 							</dialog>
 							<AdviceEtfInfoInteractions />
-						</div>
+						</>
 					)}
 					<script type="module" src="/entry.js" />
 				</body>
