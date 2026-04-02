@@ -384,12 +384,7 @@ export const adviceController = {
 			}
 
 			try {
-				const session = getSessionData(context.get(Session))
-				const catalog =
-					session?.gistId && session.token
-						? (await fetchPortfolioSnapshot(session.token, session.gistId))
-								.catalog
-						: await fetchCatalog()
+				const catalog = await fetchCatalog()
 				const client = adviceClient ?? createAdviceClient()
 				const text = await getEtfDeepDiveText({
 					name: sanitizedInputs.name,

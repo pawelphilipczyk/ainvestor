@@ -21,6 +21,16 @@ describe('advice-etf-info-sanitize', () => {
 		assert.equal(longName.length, ETF_INFO_MAX_NAME_LENGTH)
 		assert.equal(sanitizeEtfInfoFundName('   '), null)
 		assert.equal(sanitizeEtfInfoFundName('\n\u0000'), null)
+		assert.equal(sanitizeEtfInfoFundName('< >'), null)
+		assert.equal(
+			sanitizeEtfInfoFundName('ACME === ignore === Fund'),
+			'ACME ignore Fund',
+		)
+	})
+
+	it('sanitizeEtfInfoCatalogLine neutralizes === runs', () => {
+		const line = sanitizeEtfInfoCatalogLine('x===y')
+		assert.ok(!line.includes('==='))
 	})
 
 	it('sanitizeEtfInfoTicker keeps A-Z0-9 only and caps length', () => {

@@ -16,6 +16,11 @@ const DIALOG_BODY_BASE_CLASSES = [
 ]
 const DIALOG_BODY_PRE_WRAP_CLASSES = ['whitespace-pre-wrap', 'break-words']
 
+/** Abort prior ETF info fetch so stale responses do not overwrite the dialog. */
+let etfInfoFetchAbort = null
+/** Last button that started a fetch; cleared when that request finishes or is superseded. */
+let etfInfoActiveLearnButton = null
+
 function ensureDialogBodyBaseClasses(body) {
 	for (const className of DIALOG_BODY_BASE_CLASSES) {
 		body.classList.add(className)
@@ -130,14 +135,32 @@ export const AdviceEtfInfoInteractions = clientEntry(
 					if (ticker) formData.set('etfTicker', ticker)
 					formData.set('adviceModel', model)
 
+					if (etfInfoFetchAbort) {
+						etfInfoFetchAbort.abort()
+					}
+					if (
+						etfInfoActiveLearnButton &&
+						etfInfoActiveLearnButton !== trigger
+					) {
+						setButtonLoading(etfInfoActiveLearnButton, false)
+					}
+					etfInfoActiveLearnButton = trigger
+
+					const controller = new AbortController()
+					etfInfoFetchAbort = controller
+					const { signal } = controller
+
 					setButtonLoading(trigger, true)
 					try {
 						const response = await fetch(postUrl, {
 							method: 'POST',
 							body: formData,
 							headers: { Accept: 'application/json' },
+							signal,
 						})
+						if (signal.aborted) return
 						const payload = await response.json().catch(() => ({}))
+						if (signal.aborted) return
 						if (!response.ok) {
 							const message =
 								typeof payload.error === 'string'
@@ -158,12 +181,21 @@ export const AdviceEtfInfoInteractions = clientEntry(
 						ensureDialogBodyBaseClasses(body)
 						setDialogBodyPreWrap(body, true)
 						body.textContent = text
-					} catch {
+					} catch (err) {
+						if (signal.aborted || err?.name === 'AbortError') return
 						status.textContent = errorFallback
 						body.textContent = ''
 						setDialogBodyPreWrap(body, false)
 					} finally {
-						setButtonLoading(trigger, false)
+						if (etfInfoFetchAbort === controller) {
+							etfInfoFetchAbort = null
+						}
+						if (!signal.aborted) {
+							if (etfInfoActiveLearnButton === trigger) {
+								etfInfoActiveLearnButton = null
+							}
+							setButtonLoading(trigger, false)
+						}
 					}
 				},
 			})
