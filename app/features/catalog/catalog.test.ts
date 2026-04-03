@@ -94,6 +94,8 @@ describe('ETF Catalog page', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Test Fund/)
+		assert.match(body, /From your catalog/)
+		assert.match(body, /AI overview/)
 		assert.match(body, /Educational ETF paragraph/)
 		assert.match(body, /Back/)
 	})

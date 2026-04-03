@@ -146,7 +146,7 @@ export const catalogController = {
 					session: layoutSession,
 					currentPage: 'catalog',
 					body: jsx(CatalogEtfPage, {
-						fundName,
+						entry,
 						descriptionText: t('catalog.etfDetail.pendingBody'),
 						backHref,
 					}),
@@ -168,7 +168,7 @@ export const catalogController = {
 					session: layoutSession,
 					currentPage: 'catalog',
 					body: jsx(CatalogEtfPage, {
-						fundName,
+						entry,
 						descriptionText,
 						backHref,
 					}),
@@ -181,7 +181,7 @@ export const catalogController = {
 					session: layoutSession,
 					currentPage: 'catalog',
 					body: jsx(CatalogEtfPage, {
-						fundName,
+						entry,
 						descriptionText: '',
 						backHref,
 						serviceError: true,
