@@ -64,8 +64,8 @@ function renderCatalogRow(
 ) {
 	const { showLearnMoreLink } = options
 	const learnMoreHref = routes.catalog.etfDetail.href(
-		{ ticker: entry.ticker },
-		{ model: DEFAULT_ADVICE_MODEL },
+		{},
+		{ ticker: entry.ticker, model: DEFAULT_ADVICE_MODEL },
 	)
 	const valueCell = holding ? (
 		<td class="py-2 pl-4 pr-4 align-top text-sm font-medium text-foreground">
@@ -153,7 +153,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 		)
 
 		return (
-			<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
+			<main class="mx-auto grid w-full min-w-0 max-w-5xl gap-6 overflow-x-hidden">
 				<SectionIntroCard
 					page="catalog"
 					variant="page"
@@ -252,7 +252,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									value={props.query}
 									type="search"
 									compact
-									class="w-64"
+									class="w-full min-w-0 max-w-full sm:max-w-xs md:w-64"
 								/>
 							</div>
 							<SubmitButton

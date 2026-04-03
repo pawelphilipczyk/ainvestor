@@ -33,7 +33,8 @@ export const routes = route({
 	},
 	catalog: {
 		index: get('/catalog'),
-		etfDetail: get('/catalog/etf/:ticker'),
+		/** Query: `ticker` (required), optional `model` (advice model id). */
+		etfDetail: get('/catalog/etf'),
 		import: post('/catalog/import'),
 	},
 })

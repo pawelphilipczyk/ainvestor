@@ -119,8 +119,10 @@ export const catalogController = {
 		async etfDetail(context: AppRequestContext) {
 			const layoutSession = getLayoutSession(context.get(Session))
 			const pendingApproval = layoutSession?.approvalStatus === 'pending'
-			const rawTicker = (context.params as Record<string, string>).ticker
-			const ticker = normalizeCatalogTickerParam(rawTicker)
+			const rawTicker = new URL(context.request.url).searchParams.get('ticker')
+			const ticker = normalizeCatalogTickerParam(
+				rawTicker === null ? undefined : rawTicker,
+			)
 			if (ticker === null) {
 				return new Response('Not found', {
 					status: 404,

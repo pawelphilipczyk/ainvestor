@@ -68,11 +68,11 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /href="\/catalog\/etf\/TST/)
+		assert.match(body, /href="\/catalog\/etf\?ticker=TST/)
 		assert.match(body, /Learn more/)
 	})
 
-	it('GET /catalog/etf/:ticker renders description when OpenAI succeeds', async () => {
+	it('GET /catalog/etf?ticker= renders description when OpenAI succeeds', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
@@ -89,7 +89,9 @@ describe('ETF Catalog page', () => {
 			},
 		})
 
-		const response = await testSessionFetch('http://localhost/catalog/etf/TST')
+		const response = await testSessionFetch(
+			'http://localhost/catalog/etf?ticker=TST',
+		)
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
@@ -100,7 +102,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Back/)
 	})
 
-	it('GET /catalog/etf/:ticker returns 404 for unknown ticker', async () => {
+	it('GET /catalog/etf returns 404 for unknown ticker', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
@@ -108,7 +110,9 @@ describe('ETF Catalog page', () => {
 			}),
 		)
 
-		const response = await testSessionFetch('http://localhost/catalog/etf/ZZZ')
+		const response = await testSessionFetch(
+			'http://localhost/catalog/etf?ticker=ZZZ',
+		)
 
 		assert.equal(response.status, 404)
 	})
@@ -135,7 +139,7 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.doesNotMatch(body, /\/catalog\/etf\//)
+		assert.doesNotMatch(body, /\/catalog\/etf\?/)
 	})
 
 	it('GET /catalog shows import form for bank API JSON', async () => {
