@@ -57,12 +57,12 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /ETF Catalog/)
 	})
 
-	it('GET /catalog includes Learn more on rows when catalog has entries', async () => {
+	it('GET /catalog links ticker column to ETF detail when catalog has entries', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
 					{
-						id: 'row-learn-more-test',
+						id: 'row-ticker-link-test',
 						fund_name: 'Test Fund',
 						ticker: 'TST',
 						assets: 'akcje',
@@ -75,8 +75,8 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /href="\/catalog\?catalogEntryId=row-learn-more-test/)
-		assert.match(body, /Learn more/)
+		assert.match(body, /href="\/catalog\?catalogEntryId=row-ticker-link-test/)
+		assert.doesNotMatch(body, />Learn more</)
 	})
 
 	it('GET /catalog?catalogEntryId= renders ETF detail when OpenAI succeeds', async () => {
@@ -173,7 +173,7 @@ describe('ETF Catalog page', () => {
 		assert.equal(response.status, 404)
 	})
 
-	it('GET /catalog omits Learn more for pending-approval session', async () => {
+	it('GET /catalog omits ETF detail links from ticker column for pending-approval session', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
@@ -195,7 +195,7 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.doesNotMatch(body, /\/catalog\?catalogEntryId=/)
+		assert.doesNotMatch(body, /href="[^"]*catalogEntryId=/)
 	})
 
 	it('GET /catalog shows import form for bank API JSON', async () => {
@@ -388,11 +388,6 @@ describe('ETF Catalog page', () => {
 			body,
 			/<main\b[^>]*\bclass="[^"]*\bmin-w-0\b[^"]*"/,
 			'main needs min-w-0 so the page column can shrink below table intrinsic width',
-		)
-		assert.match(
-			body,
-			/<main\b[^>]*\bclass="[^"]*\boverflow-x-hidden\b[^"]*"/,
-			'main clips horizontal overflow from wide table content',
 		)
 		assert.match(
 			body,

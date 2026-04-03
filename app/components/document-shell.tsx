@@ -75,10 +75,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					</div>
 					<Sidebar navLinks={getNavLinks()} currentPage={props.currentPage} />
 					<AppTopBar />
-					<div
-						id="page-content"
-						class="min-w-0 max-w-full overflow-x-hidden p-4 md:ml-64"
-					>
+					<div id="page-content" class="min-w-0 p-4 md:ml-64">
 						{props.flashError ? (
 							<div
 								role="alert"

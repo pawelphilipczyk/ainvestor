@@ -36,7 +36,7 @@ type CatalogPageProps = {
 const catalogTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
 
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
-	return (props: { showLearnMoreLink: boolean }) => (
+	return () => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
 			<th class="pb-2 pl-4 pr-4 align-top">{t('catalog.table.ticker')}</th>
 			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>
@@ -48,11 +48,6 @@ function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 			</th>
 			<th class="pb-2 align-top">{t('catalog.table.isin')}</th>
 			<th class="pb-2 pl-4 pr-4 align-top">{t('catalog.table.value')}</th>
-			{props.showLearnMoreLink ? (
-				<th class="pb-2 pr-4 align-top">
-					<span class="sr-only">{t('catalog.table.learnMore')}</span>
-				</th>
-			) : null}
 		</tr>
 	)
 }
@@ -60,10 +55,10 @@ function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 function renderCatalogRow(
 	entry: CatalogEntry,
 	holding: EtfEntry | undefined,
-	options: { showLearnMoreLink: boolean },
+	options: { tickerLinksToDetail: boolean },
 ) {
-	const { showLearnMoreLink } = options
-	const learnMoreHref = routes.catalog.index.href(
+	const { tickerLinksToDetail } = options
+	const etfDetailHref = routes.catalog.index.href(
 		{},
 		{ catalogEntryId: entry.id, model: DEFAULT_ADVICE_MODEL },
 	)
@@ -83,7 +78,17 @@ function renderCatalogRow(
 			class="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
 		>
 			<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold">
-				{entry.ticker}
+				{tickerLinksToDetail ? (
+					<Link
+						href={etfDetailHref}
+						navigationLoading={true}
+						class="text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					>
+						{entry.ticker}
+					</Link>
+				) : (
+					entry.ticker
+				)}
 			</td>
 			<td
 				class={`py-2 pr-4 align-top text-sm break-words ${catalogTextColMax}`}
@@ -104,17 +109,6 @@ function renderCatalogRow(
 				{entry.isin ?? t('catalog.emptyCell')}
 			</td>
 			{valueCell}
-			{showLearnMoreLink ? (
-				<td class="py-2 pr-4 align-top">
-					<Link
-						href={learnMoreHref}
-						navigationLoading={true}
-						class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-					>
-						{t('catalog.table.learnMore')}
-					</Link>
-				</td>
-			) : null}
 		</tr>
 	)
 }
@@ -123,8 +117,8 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 	return (props: CatalogPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
 		const pendingApproval = props.pendingApproval === true
-		const showLearnMoreLink = !pendingApproval
-		const tableColSpan = showLearnMoreLink ? 7 : 6
+		const tickerLinksToDetail = !pendingApproval
+		const tableColSpan = 6
 		const holdingKey = (s: string) => s.toUpperCase()
 		const holdingsByTicker = new Map(
 			props.holdings.flatMap((e) => {
@@ -153,7 +147,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 		)
 
 		return (
-			<main class="mx-auto grid w-full min-w-0 max-w-5xl gap-6 overflow-x-hidden">
+			<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
 				<SectionIntroCard
 					page="catalog"
 					variant="page"
@@ -216,14 +210,11 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 				) : null}
 
 				{props.catalog.length > 0 ? (
-					<Card
-						variant="muted"
-						class="min-w-0 max-w-full overflow-x-hidden p-4"
-					>
+					<Card variant="muted" class="p-4">
 						<form
 							method="get"
 							action={routes.catalog.index.href()}
-							class="flex min-w-0 max-w-full flex-wrap items-end gap-3"
+							class="flex flex-wrap items-end gap-3"
 							data-navigation-loading
 						>
 							<div class="grid gap-1.5">
@@ -255,7 +246,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									value={props.query}
 									type="search"
 									compact
-									class="w-full min-w-0 max-w-full sm:max-w-xs"
+									class="w-64"
 								/>
 							</div>
 							<SubmitButton
@@ -292,8 +283,8 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 				) : null}
 
 				{ownedInCatalog.length > 0 ? (
-					<Card class="min-w-0 max-w-full overflow-x-hidden p-4">
-						<section class="min-w-0">
+					<Card class="min-w-0 p-4">
+						<section>
 							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 								{t('catalog.holdings.title')}
 							</h2>
@@ -305,14 +296,14 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									<tr>
 										<td colspan={tableColSpan} class="h-1" />
 									</tr>
-									<CatalogTableHeader showLearnMoreLink={showLearnMoreLink} />
+									<CatalogTableHeader />
 								</thead>
 								<tbody>
 									{ownedInCatalog.map((e) =>
 										renderCatalogRow(
 											e,
 											holdingsByTicker.get(holdingKey(e.ticker)),
-											{ showLearnMoreLink },
+											{ tickerLinksToDetail },
 										),
 									)}
 								</tbody>
@@ -326,8 +317,8 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 						<p class="text-sm text-muted-foreground">{t('catalog.noMatch')}</p>
 					</Card>
 				) : restOfCatalog.length > 0 ? (
-					<Card class="min-w-0 max-w-full overflow-x-hidden p-4">
-						<section class="min-w-0">
+					<Card class="min-w-0 p-4">
+						<section>
 							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 								{ownedInCatalog.length > 0
 									? t('catalog.section.otherAvailable')
@@ -338,11 +329,11 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									<tr>
 										<td colspan={tableColSpan} class="h-1" />
 									</tr>
-									<CatalogTableHeader showLearnMoreLink={showLearnMoreLink} />
+									<CatalogTableHeader />
 								</thead>
 								<tbody>
 									{restOfCatalog.map((e) =>
-										renderCatalogRow(e, undefined, { showLearnMoreLink }),
+										renderCatalogRow(e, undefined, { tickerLinksToDetail }),
 									)}
 								</tbody>
 							</ScrollableTable>
