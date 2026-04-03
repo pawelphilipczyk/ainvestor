@@ -1,9 +1,6 @@
 import type { RemixNode } from 'remix/component'
 import { jsx } from 'remix/component/jsx-runtime'
-import {
-	type RenderToStreamOptions,
-	renderToStream,
-} from 'remix/component/server'
+import { renderToStream } from 'remix/component/server'
 import { createHtmlResponse } from 'remix/response/html'
 import type { AppPage } from '../lib/app-page.ts'
 import type { SessionData } from '../lib/session.ts'
@@ -16,8 +13,6 @@ export type RenderOptions = {
 	body: RemixNode
 	flashError?: string
 	init?: ResponseInit
-	/** When the document contains `<Frame>`, provide this so SSR can load nested frame HTML. */
-	resolveFrame?: RenderToStreamOptions['resolveFrame']
 }
 
 /**
@@ -33,10 +28,5 @@ export async function render(options: RenderOptions): Promise<Response> {
 		children: options.body,
 	})
 
-	return createHtmlResponse(
-		renderToStream(document, {
-			...(options.resolveFrame ? { resolveFrame: options.resolveFrame } : {}),
-		}),
-		options.init,
-	)
+	return createHtmlResponse(renderToStream(document), options.init)
 }

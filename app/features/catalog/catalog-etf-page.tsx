@@ -1,4 +1,4 @@
-import { Frame, type Handle } from 'remix/component'
+import type { Handle } from 'remix/component'
 import { Card } from '../../components/card.tsx'
 import { Link } from '../../components/link.tsx'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
@@ -8,12 +8,7 @@ import type { CatalogEntry } from './lib.ts'
 export type CatalogEtfPageProps = {
 	entry: CatalogEntry
 	backHref: string
-	/**
-	 * When set, AI analysis loads asynchronously via a Remix `Frame` (faster first paint).
-	 * When null (e.g. pending approval), {@link descriptionText} is shown inline instead.
-	 */
-	analysisFrameSrc?: string | null
-	/** Shown in the analysis section when `analysisFrameSrc` is null (pending message, etc.). */
+	/** LLM text, pending message, or empty when {@link serviceError}. */
 	descriptionText: string
 	serviceError?: boolean
 }
@@ -103,9 +98,9 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 			]
 
 		return (
-			<div class="flex min-h-[calc(100dvh-7rem)] min-w-0 flex-col">
-				<header class="sticky top-0 z-20 border-b border-border bg-background px-4 py-3">
-					<div class="mx-auto flex min-w-0 max-w-3xl items-center gap-3">
+			<div class="flex min-h-[calc(100dvh-7rem)] w-full min-w-0 max-w-full flex-col overflow-x-hidden">
+				<header class="sticky top-0 z-20 w-full min-w-0 max-w-full border-b border-border bg-background px-4 py-3">
+					<div class="mx-auto flex w-full min-w-0 max-w-3xl items-center gap-3">
 						<Link
 							href={props.backHref}
 							navigationLoading={true}
@@ -123,8 +118,8 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 						</div>
 					</div>
 				</header>
-				<main class="mx-auto min-w-0 max-w-3xl flex-1 space-y-6 px-4 py-6">
-					<Card class="p-5">
+				<main class="mx-auto w-full min-w-0 max-w-3xl flex-1 space-y-6 overflow-x-hidden px-4 py-6">
+					<Card class="min-w-0 max-w-full overflow-x-hidden p-5">
 						<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 							{t('catalog.etfDetail.catalogCardTitle')}
 						</h2>
@@ -148,7 +143,7 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 					</Card>
 
 					<section
-						class="min-w-0"
+						class="min-w-0 max-w-full overflow-x-hidden"
 						aria-labelledby="catalog-etf-analysis-heading"
 					>
 						<h2
@@ -157,31 +152,12 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 						>
 							{t('catalog.etfDetail.analysisTitle')}
 						</h2>
-						{props.analysisFrameSrc ? (
-							<div class="min-w-0">
-								<Frame
-									src={props.analysisFrameSrc}
-									fallback={
-										<div
-											class="flex items-center gap-2 text-sm text-muted-foreground"
-											role="status"
-											aria-live="polite"
-										>
-											<span
-												class="h-4 w-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent"
-												aria-hidden="true"
-											/>
-											<span>{t('catalog.etfDetail.analysisLoading')}</span>
-										</div>
-									}
-								/>
-							</div>
-						) : props.serviceError ? (
+						{props.serviceError ? (
 							<p role="alert" class="text-sm text-destructive">
 								{t('errors.catalog.etfDetail.service')}
 							</p>
 						) : (
-							<div class="whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
+							<div class="min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
 								{props.descriptionText}
 							</div>
 						)}

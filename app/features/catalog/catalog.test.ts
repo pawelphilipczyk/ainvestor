@@ -112,50 +112,9 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Test Fund/)
 		assert.match(body, /From your catalog/)
 		assert.match(body, /AI overview/)
-		assert.match(
-			body,
-			/Educational ETF paragraph/,
-			'AI text is streamed into the Frame template during SSR',
-		)
-		assert.match(
-			body,
-			/<!-- rmx:f:/,
-			'Remix Frame marker for deferred analysis region',
-		)
+		assert.match(body, /Educational ETF paragraph/)
+		assert.doesNotMatch(body, /<!-- rmx:f:/)
 		assert.match(body, /Back/)
-	})
-
-	it('GET /fragments/catalog-etf-analysis returns AI analysis HTML', async () => {
-		seedSharedCatalog(
-			JSON.stringify({
-				data: [
-					{
-						id: 'frag-analysis-test',
-						fund_name: 'Frag Fund',
-						ticker: 'FRG',
-						assets: 'akcje',
-					},
-				],
-				count: 1,
-			}),
-		)
-		setAdviceClient({
-			chat: {
-				completions: {
-					create: async () => ({
-						choices: [{ message: { content: 'Fragment-only analysis.' } }],
-					}),
-				},
-			},
-		})
-
-		const response = await testSessionFetch(
-			'http://localhost/fragments/catalog-etf-analysis?catalogEntryId=frag-analysis-test',
-		)
-		const body = await response.text()
-
-		assert.equal(response.status, 200)
-		assert.match(body, /Fragment-only analysis/)
 	})
 
 	it('GET /catalog returns 404 for unknown catalogEntryId', async () => {

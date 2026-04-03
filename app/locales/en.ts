@@ -151,8 +151,6 @@ export const en = {
 		'ETF details are available after your account is approved.',
 	'catalog.etfDetail.catalogCardTitle': 'From your catalog',
 	'catalog.etfDetail.analysisTitle': 'AI overview',
-	'catalog.etfDetail.analysisLoading': 'Generating overview…',
-	'catalog.etfDetail.fragmentLoadFailed': 'Could not load the overview.',
 	'catalog.etfDetail.field.id': 'Record ID',
 	'catalog.etfDetail.field.expenseRatio': 'Expense ratio',
 	'catalog.etfDetail.field.riskKid': 'Risk (KID 1–7)',

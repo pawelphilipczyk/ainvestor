@@ -1,6 +1,4 @@
 import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
-import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
@@ -8,7 +6,6 @@ import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
 import { getGuestEtfs } from '../../lib/guest-session-state.ts'
 import { format, t } from '../../lib/i18n.ts'
-import { resolveRemixFrameContent } from '../../lib/remix-frame-resolve.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
@@ -19,7 +16,6 @@ import {
 	type AdviceModelId,
 	DEFAULT_ADVICE_MODEL,
 } from '../advice/advice-openai.ts'
-import { CatalogEtfAnalysisFragment } from './catalog-etf-analysis-fragment.tsx'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { CatalogPage } from './catalog-page.tsx'
@@ -134,24 +130,39 @@ export const catalogController = {
 
 				const model = parseOptionalAdviceModelFromUrl(context.request.url)
 
-				const analysisFrameSrc = routes.catalog.etfAnalysisFragment.href(
-					{},
-					{ catalogEntryId: entryId, model },
-				)
-				return render({
-					title: format(t('meta.title.catalogEtf'), { name: fundName }),
-					session: layoutSession,
-					currentPage: 'catalog',
-					body: jsx(CatalogEtfPage, {
+				try {
+					const client = getOrCreateAdviceClient()
+					const descriptionText = await getCatalogEtfDeepDiveText({
 						entry,
-						analysisFrameSrc,
-						descriptionText: '',
-						backHref,
-					}),
-					init: { headers: { 'Cache-Control': 'no-store' } },
-					resolveFrame: async (src) =>
-						resolveRemixFrameContent(context.request, src),
-				})
+						client,
+						model,
+					})
+					return render({
+						title: format(t('meta.title.catalogEtf'), { name: fundName }),
+						session: layoutSession,
+						currentPage: 'catalog',
+						body: jsx(CatalogEtfPage, {
+							entry,
+							descriptionText,
+							backHref,
+						}),
+						init: { headers: { 'Cache-Control': 'no-store' } },
+					})
+				} catch (err) {
+					console.error('[catalog] etf detail failed', err)
+					return render({
+						title: format(t('meta.title.catalogEtf'), { name: fundName }),
+						session: layoutSession,
+						currentPage: 'catalog',
+						body: jsx(CatalogEtfPage, {
+							entry,
+							descriptionText: '',
+							backHref,
+							serviceError: true,
+						}),
+						init: { headers: { 'Cache-Control': 'no-store' } },
+					})
+				}
 			}
 
 			return renderCatalogPage({
@@ -171,69 +182,6 @@ export const catalogController = {
 				query,
 				flashError: context.get(Session).get('error') as string | undefined,
 			})
-		},
-
-		async etfAnalysisFragment(context: AppRequestContext) {
-			const url = new URL(context.request.url)
-			const rawEntryId = url.searchParams.get('catalogEntryId')
-			const entryId = normalizeCatalogEntryIdParam(
-				rawEntryId === null ? undefined : rawEntryId,
-			)
-			if (entryId === null) {
-				return new Response('Bad request', {
-					status: 400,
-					headers: { 'content-type': 'text/plain; charset=utf-8' },
-				})
-			}
-
-			const layoutSession = getLayoutSession(context.get(Session))
-			if (layoutSession?.approvalStatus === 'pending') {
-				const html = await renderToString(
-					jsx(CatalogEtfAnalysisFragment, {
-						descriptionText: t('catalog.etfDetail.pendingBody'),
-					}),
-				)
-				return createHtmlResponse(html, {
-					headers: { 'Cache-Control': 'no-store' },
-				})
-			}
-
-			const catalogSnapshot = await fetchSharedCatalogSnapshot()
-			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
-			if (entry === undefined) {
-				return new Response('Not found', {
-					status: 404,
-					headers: { 'content-type': 'text/plain; charset=utf-8' },
-				})
-			}
-
-			const model = parseOptionalAdviceModelFromUrl(context.request.url)
-
-			try {
-				const client = getOrCreateAdviceClient()
-				const descriptionText = await getCatalogEtfDeepDiveText({
-					entry,
-					client,
-					model,
-				})
-				const html = await renderToString(
-					jsx(CatalogEtfAnalysisFragment, { descriptionText }),
-				)
-				return createHtmlResponse(html, {
-					headers: { 'Cache-Control': 'no-store' },
-				})
-			} catch (err) {
-				console.error('[catalog] etf analysis fragment failed', err)
-				const html = await renderToString(
-					jsx(CatalogEtfAnalysisFragment, {
-						descriptionText: '',
-						serviceError: true,
-					}),
-				)
-				return createHtmlResponse(html, {
-					headers: { 'Cache-Control': 'no-store' },
-				})
-			}
 		},
 
 		async import(context: AppRequestContext) {
