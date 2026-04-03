@@ -153,7 +153,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 		)
 
 		return (
-			<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
+			<main class="mx-auto grid w-full min-w-0 max-w-5xl gap-6 overflow-x-hidden">
 				<SectionIntroCard
 					page="catalog"
 					variant="page"
@@ -216,11 +216,14 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 				) : null}
 
 				{props.catalog.length > 0 ? (
-					<Card variant="muted" class="p-4">
+					<Card
+						variant="muted"
+						class="min-w-0 max-w-full overflow-x-hidden p-4"
+					>
 						<form
 							method="get"
 							action={routes.catalog.index.href()}
-							class="flex flex-wrap items-end gap-3"
+							class="flex min-w-0 max-w-full flex-wrap items-end gap-3"
 							data-navigation-loading
 						>
 							<div class="grid gap-1.5">
@@ -252,7 +255,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									value={props.query}
 									type="search"
 									compact
-									class="w-64"
+									class="w-full min-w-0 max-w-full sm:max-w-xs"
 								/>
 							</div>
 							<SubmitButton
@@ -289,8 +292,8 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 				) : null}
 
 				{ownedInCatalog.length > 0 ? (
-					<Card class="min-w-0 p-4">
-						<section>
+					<Card class="min-w-0 max-w-full overflow-x-hidden p-4">
+						<section class="min-w-0">
 							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 								{t('catalog.holdings.title')}
 							</h2>
@@ -323,8 +326,8 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 						<p class="text-sm text-muted-foreground">{t('catalog.noMatch')}</p>
 					</Card>
 				) : restOfCatalog.length > 0 ? (
-					<Card class="min-w-0 p-4">
-						<section>
+					<Card class="min-w-0 max-w-full overflow-x-hidden p-4">
+						<section class="min-w-0">
 							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 								{ownedInCatalog.length > 0
 									? t('catalog.section.otherAvailable')
