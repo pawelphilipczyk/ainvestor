@@ -60,7 +60,14 @@ describe('ETF Catalog page', () => {
 	it('GET /catalog includes Learn more on rows when catalog has entries', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
-				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
+				data: [
+					{
+						id: 'row-learn-more-test',
+						fund_name: 'Test Fund',
+						ticker: 'TST',
+						assets: 'akcje',
+					},
+				],
 				count: 1,
 			}),
 		)
@@ -68,14 +75,21 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /href="\/catalog\?ticker=TST/)
+		assert.match(body, /href="\/catalog\?catalogEntryId=row-learn-more-test/)
 		assert.match(body, /Learn more/)
 	})
 
-	it('GET /catalog?ticker= renders ETF detail when OpenAI succeeds', async () => {
+	it('GET /catalog?catalogEntryId= renders ETF detail when OpenAI succeeds', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
-				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
+				data: [
+					{
+						id: 'row-detail-test',
+						fund_name: 'Test Fund',
+						ticker: 'TST',
+						assets: 'akcje',
+					},
+				],
 				count: 1,
 			}),
 		)
@@ -90,7 +104,7 @@ describe('ETF Catalog page', () => {
 		})
 
 		const response = await testSessionFetch(
-			'http://localhost/catalog?ticker=TST',
+			'http://localhost/catalog?catalogEntryId=row-detail-test',
 		)
 		const body = await response.text()
 
@@ -102,43 +116,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Back/)
 	})
 
-	it('GET /catalog?ticker= accepts tickers containing plus (encoded or as space)', async () => {
-		seedSharedCatalog(
-			JSON.stringify({
-				data: [
-					{
-						fund_name: 'Plus Ticker Fund',
-						ticker: '4RUE+GR',
-						assets: 'akcje',
-					},
-				],
-				count: 1,
-			}),
-		)
-		setAdviceClient({
-			chat: {
-				completions: {
-					create: async () => ({
-						choices: [{ message: { content: 'OK' } }],
-					}),
-				},
-			},
-		})
-
-		const encoded = await testSessionFetch(
-			'http://localhost/catalog?ticker=4RUE%2BGR',
-		)
-		assert.equal(encoded.status, 200)
-		const encodedBody = await encoded.text()
-		assert.match(encodedBody, /Plus Ticker Fund/)
-
-		const plusAsSpace = await testSessionFetch(
-			'http://localhost/catalog?ticker=4RUE+GR',
-		)
-		assert.equal(plusAsSpace.status, 200)
-	})
-
-	it('GET /catalog/etf redirects to /catalog with same query', async () => {
+	it('GET /catalog returns 404 for unknown catalogEntryId', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
@@ -147,58 +125,7 @@ describe('ETF Catalog page', () => {
 		)
 
 		const response = await testSessionFetch(
-			'http://localhost/catalog/etf?ticker=TST&model=gpt-5.4-mini',
-			{ redirect: 'manual' },
-		)
-
-		assert.equal(response.status, 302)
-		const location = response.headers.get('location')
-		assert.equal(location, '/catalog?ticker=TST&model=gpt-5.4-mini')
-	})
-
-	it('GET /catalog?ticker= matches catalog row when spaces differ from plus', async () => {
-		seedSharedCatalog(
-			JSON.stringify({
-				data: [
-					{
-						fund_name: 'Space Ticker',
-						ticker: '4RUE GR',
-						assets: 'akcje',
-					},
-				],
-				count: 1,
-			}),
-		)
-		setAdviceClient({
-			chat: {
-				completions: {
-					create: async () => ({
-						choices: [{ message: { content: 'matched' } }],
-					}),
-				},
-			},
-		})
-
-		const response = await testSessionFetch(
-			'http://localhost/catalog?ticker=4RUE%2BGR',
-		)
-		const body = await response.text()
-
-		assert.equal(response.status, 200)
-		assert.match(body, /Space Ticker/)
-		assert.match(body, /matched/)
-	})
-
-	it('GET /catalog returns 404 for unknown ticker query', async () => {
-		seedSharedCatalog(
-			JSON.stringify({
-				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
-				count: 1,
-			}),
-		)
-
-		const response = await testSessionFetch(
-			'http://localhost/catalog?ticker=ZZZ',
+			'http://localhost/catalog?catalogEntryId=does-not-exist',
 		)
 
 		assert.equal(response.status, 404)
@@ -226,7 +153,7 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.doesNotMatch(body, /\/catalog\?ticker=/)
+		assert.doesNotMatch(body, /\/catalog\?catalogEntryId=/)
 	})
 
 	it('GET /catalog shows import form for bank API JSON', async () => {

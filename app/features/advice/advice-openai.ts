@@ -74,7 +74,7 @@ You MUST respond with a single JSON object only (no markdown code fences, no ext
     ]},
     { "type": "paragraph", "text": "..." },
     { "type": "etf_proposals", "caption": "optional short heading", "rows": [
-      { "name": "Fund name", "ticker": "VTI", "amount": 500, "currency": "USD", "note": "optional rationale" }
+      { "name": "Fund name", "ticker": "VTI", "catalogEntryId": "optional stable id from catalog row if known", "amount": 500, "currency": "USD", "note": "optional rationale" }
     ]}
   ]
 }
@@ -130,6 +130,7 @@ Rules:
   you truly cannot map buys to the catalog.
 - "amount" and "currency" are optional for each row; when you suggest a purchase amount, include both
   "amount" (number) and "currency" (ISO code: PLN, USD, EUR, GBP, CHF, JPY, CAD, AUD, SEK, or NOK).
+- When the catalog line for a pick includes a stable **id** field, set **catalogEntryId** to that string on the matching **etf_proposals** row (omit if unknown).
 - Use plain text in "text" and "note" fields (no HTML tags).
 
 Do not provide legal or tax advice; only portfolio allocation guidance.`
@@ -621,6 +622,7 @@ export function formatCatalogForAdvice(catalog: CatalogEntry[]): string {
 	return catalog
 		.map((entry) => {
 			const bits: string[] = [
+				`id: ${entry.id}`,
 				`${entry.ticker} — ${entry.name}`,
 				`type: ${formatEtfTypeLabel(entry.type)}`,
 			]

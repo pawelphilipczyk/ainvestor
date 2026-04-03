@@ -642,7 +642,69 @@ describe('Advice', () => {
 		assert.match(body, /value="gpt-5.4-nano"/)
 	})
 
-	it('renders Learn more controls when etf_proposals rows are present', async () => {
+	it('renders Learn more with catalogEntryId when etf_proposals include it', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'advice-learn-row',
+						fund_name: 'Sample ETF',
+						ticker: 'SAM',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'etf_proposals',
+							rows: [
+								{
+									name: 'Sample ETF',
+									ticker: 'SAM',
+									catalogEntryId: 'advice-learn-row',
+									amount: 100,
+									currency: 'PLN',
+								},
+							],
+						},
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+		form.set('analysisMode', 'buy_next')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /\/catalog\?catalogEntryId=advice-learn-row/)
+		assert.match(body, /Learn more/)
+	})
+
+	it('renders Learn more from ticker match when catalogEntryId is absent', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'ticker-only-row',
+						fund_name: 'Sample ETF',
+						ticker: 'SAM',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -673,7 +735,7 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /\/catalog\?ticker=SAM/)
+		assert.match(body, /\/catalog\?catalogEntryId=ticker-only-row/)
 		assert.match(body, /Learn more/)
 	})
 })

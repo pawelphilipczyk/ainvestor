@@ -82,19 +82,6 @@ export function findCatalogEntryByTicker(
 	)
 }
 
-/**
- * Match catalog row when tickers differ only by space vs `+` (e.g. `4RUE GR` vs `4RUE+GR`).
- */
-export function findCatalogEntryByTickerLookupKey(
-	catalog: CatalogEntry[],
-	lookupKey: string,
-): CatalogEntry | undefined {
-	if (!lookupKey) return undefined
-	return catalog.find(
-		(entry) => normalizeCatalogTickerLookupKey(entry.ticker) === lookupKey,
-	)
-}
-
 /** Options for picking a specific fund from the catalog (guidelines instrument rows). */
 export function instrumentSelectOptionsFromCatalog(
 	catalog: CatalogEntry[],
@@ -117,6 +104,9 @@ export type BankEtfItem = {
 	fund_name?: string
 	expense_ratio?: string
 	ticker?: string
+	/** Trading venue / MIC-style token when the API exposes it (disambiguates same ISIN on multiple markets). */
+	market?: string
+	exchange?: string
 	description?: string
 	assets?: string
 	sector?: string
@@ -135,6 +125,35 @@ export type BankEtfResponse = {
 	data?: BankEtfItem[]
 	count?: number
 	total_count?: number
+}
+
+const ISIN_PATTERN = /^[A-Z]{2}[A-Z0-9]{9}[0-9]$/
+
+function normalizeIsinForCatalogId(raw: string | undefined): string | null {
+	if (raw === undefined) return null
+	const normalised = raw.trim().toUpperCase()
+	if (!ISIN_PATTERN.test(normalised)) return null
+	return normalised
+}
+
+/** Bloomberg-style suffix: last segment when it looks like an exchange mnemonic (e.g. `XMOV GR` → `GR`). */
+function exchangeSuffixFromTicker(tickerUpper: string): string | null {
+	const parts = tickerUpper.split(/\s+/).filter((part) => part.length > 0)
+	if (parts.length < 2) return null
+	const last = parts[parts.length - 1] ?? ''
+	if (!/^[A-Z]{2,4}$/.test(last)) return null
+	return last
+}
+
+function normalizeMarketTokenFromFields(
+	market?: string,
+	exchange?: string,
+): string | null {
+	const raw = (market ?? exchange ?? '').trim().toUpperCase()
+	if (raw.length === 0) return null
+	const cleaned = raw.replace(/[^A-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '')
+	if (cleaned.length === 0) return null
+	return cleaned.length > 16 ? cleaned.slice(0, 16) : cleaned
 }
 
 function normaliseTypeFromBank(assets: string, sector: string): EtfType {
@@ -161,20 +180,87 @@ export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 	const data = payload.data
 	if (!Array.isArray(data)) return []
 
-	const entries: CatalogEntry[] = []
+	type ParsedBankRow = {
+		item: BankEtfItem
+		tickerUpper: string
+		name: string
+		description: string
+		type: EtfType
+		isinNorm: string | null
+		tickerKey: string
+		marketToken: string | null
+	}
+
+	const parsedRows: ParsedBankRow[] = []
 	for (const item of data as BankEtfItem[]) {
 		const ticker = (item.ticker ?? '').trim()
 		const name = (item.fund_name ?? '').trim()
 		if (!ticker || !name) continue
 
-		const id =
-			(item.id ?? `${item.isin ?? ''}_${ticker}`).trim() || crypto.randomUUID()
+		const tickerUpper = ticker.toUpperCase()
+		const tickerKey = normalizeCatalogTickerLookupKey(tickerUpper)
+		const isinNorm = normalizeIsinForCatalogId(item.isin)
+		const marketFromFields = normalizeMarketTokenFromFields(
+			item.market,
+			item.exchange,
+		)
+		const marketToken =
+			marketFromFields ?? exchangeSuffixFromTicker(tickerUpper) ?? null
 		const type = normaliseTypeFromBank(item.assets ?? '', item.sector ?? '')
 		const description = (item.description ?? '').trim()
 
+		parsedRows.push({
+			item,
+			tickerUpper,
+			name,
+			description,
+			type,
+			isinNorm,
+			tickerKey,
+			marketToken,
+		})
+	}
+
+	const isinToTickerKeys = new Map<string, Set<string>>()
+	for (const row of parsedRows) {
+		if (row.isinNorm === null) continue
+		let set = isinToTickerKeys.get(row.isinNorm)
+		if (!set) {
+			set = new Set()
+			isinToTickerKeys.set(row.isinNorm, set)
+		}
+		set.add(row.tickerKey)
+	}
+
+	const entries: CatalogEntry[] = []
+	for (const row of parsedRows) {
+		const {
+			item,
+			tickerUpper,
+			name,
+			description,
+			type,
+			isinNorm,
+			tickerKey,
+			marketToken,
+		} = row
+
+		let id: string
+		const explicitId = (item.id ?? '').trim()
+		if (explicitId.length > 0) {
+			id = explicitId
+		} else if (isinNorm !== null) {
+			const distinctTickersForIsin = isinToTickerKeys.get(isinNorm)?.size ?? 0
+			const needsQualifier = distinctTickersForIsin > 1
+			const qualifier = marketToken ?? tickerKey
+			id = needsQualifier ? `${isinNorm}:${qualifier}` : isinNorm
+		} else {
+			id = `t:${tickerKey}`
+		}
+
 		const entry: CatalogEntry = {
 			id,
-			ticker: ticker.toUpperCase(),
+			ticker: tickerUpper,
 			name,
 			type,
 			description,

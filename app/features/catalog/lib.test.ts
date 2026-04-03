@@ -5,7 +5,6 @@ import {
 	buildCatalogGistPatch,
 	CATALOG_FILENAME,
 	catalogMergeKey,
-	findCatalogEntryByTickerLookupKey,
 	mergeBankIntoCatalog,
 	normalizeCatalogTickerLookupKey,
 	parseBankJsonToCatalog,
@@ -152,6 +151,7 @@ describe('parseBankJsonToCatalog', () => {
 		})
 		assert.equal(result.length, 1)
 		assert.equal(result[0].ticker, 'OK')
+		assert.equal(result[0].id, 't:OK')
 	})
 
 	it('uppercases ticker', () => {
@@ -159,6 +159,69 @@ describe('parseBankJsonToCatalog', () => {
 			data: [{ fund_name: 'Test', ticker: 'xmov gr' }],
 		})
 		assert.equal(result[0].ticker, 'XMOV GR')
+		assert.equal(result[0].id, 't:XMOV+GR')
+	})
+
+	it('uses plain ISIN as id when it is unique in the import batch', () => {
+		const result = parseBankJsonToCatalog({
+			data: [
+				{
+					isin: 'IE00BGV5VR99',
+					fund_name: 'Xtrackers',
+					ticker: 'XMOV GR',
+					assets: 'akcje',
+				},
+			],
+		})
+		assert.equal(result.length, 1)
+		assert.equal(result[0].id, 'IE00BGV5VR99')
+	})
+
+	it('appends market suffix to ISIN when the same ISIN lists on multiple tickers', () => {
+		const result = parseBankJsonToCatalog({
+			data: [
+				{
+					isin: 'IE00B4L5Y983',
+					fund_name: 'Fund Xetra',
+					ticker: '2B7A GR',
+					assets: 'akcje',
+				},
+				{
+					isin: 'IE00B4L5Y983',
+					fund_name: 'Fund LSE',
+					ticker: 'IUUS LN',
+					assets: 'akcje',
+				},
+			],
+		})
+		assert.equal(result.length, 2)
+		const xetra = result.find((e) => e.ticker === '2B7A GR')
+		const lse = result.find((e) => e.ticker === 'IUUS LN')
+		assert.equal(xetra?.id, 'IE00B4L5Y983:GR')
+		assert.equal(lse?.id, 'IE00B4L5Y983:LN')
+	})
+
+	it('prefers API market field over ticker suffix when disambiguating', () => {
+		const result = parseBankJsonToCatalog({
+			data: [
+				{
+					isin: 'IE00B4L5Y983',
+					fund_name: 'A',
+					ticker: 'FOO',
+					market: 'XETRA',
+					assets: 'akcje',
+				},
+				{
+					isin: 'IE00B4L5Y983',
+					fund_name: 'B',
+					ticker: 'BAR',
+					market: 'LSE',
+					assets: 'akcje',
+				},
+			],
+		})
+		assert.equal(result[0].id, 'IE00B4L5Y983:XETRA')
+		assert.equal(result[1].id, 'IE00B4L5Y983:LSE')
 	})
 
 	it('returns one row per data item; merge collapses duplicate keys', () => {
@@ -193,24 +256,6 @@ describe('normalizeCatalogTickerLookupKey', () => {
 	it('collapses spaces to plus and uppercases', () => {
 		assert.equal(normalizeCatalogTickerLookupKey('4rue gr'), '4RUE+GR')
 		assert.equal(normalizeCatalogTickerLookupKey('4RUE+GR'), '4RUE+GR')
-	})
-})
-
-describe('findCatalogEntryByTickerLookupKey', () => {
-	const catalog = [
-		{
-			id: '1',
-			ticker: '4RUE GR',
-			name: 'Fund',
-			type: 'equity' as const,
-			description: '',
-		},
-	]
-
-	it('finds row when query key uses plus and stored ticker uses space', () => {
-		const found = findCatalogEntryByTickerLookupKey(catalog, '4RUE+GR')
-		assert.ok(found)
-		assert.equal(found?.ticker, '4RUE GR')
 	})
 })
 

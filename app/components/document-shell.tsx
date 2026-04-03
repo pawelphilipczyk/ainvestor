@@ -31,7 +31,7 @@ type DocumentShellProps = {
 
 export function DocumentShell(_handle: Handle, _setup?: unknown) {
 	return (props: DocumentShellProps) => (
-		<html lang="en" class="dark max-w-full overflow-x-hidden">
+		<html lang="en" class="dark">
 			<head>
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width,initial-scale=1" />
@@ -52,7 +52,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					})}
 				/>
 			</head>
-			<body class="min-h-screen min-w-0 max-w-full overflow-x-hidden bg-background font-sans text-foreground antialiased">
+			<body class="min-h-screen overflow-x-hidden bg-background font-sans text-foreground antialiased">
 				<SessionProvider session={props.session}>
 					<div id="form-spinner" class="sr-only" aria-hidden="true">
 						<span
@@ -75,10 +75,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					</div>
 					<Sidebar navLinks={getNavLinks()} currentPage={props.currentPage} />
 					<AppTopBar />
-					<div
-						id="page-content"
-						class="min-w-0 max-w-full overflow-x-hidden p-4 md:ml-64"
-					>
+					<div id="page-content" class="min-w-0 p-4 md:ml-64">
 						{props.flashError ? (
 							<div
 								role="alert"

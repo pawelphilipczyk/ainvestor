@@ -972,6 +972,7 @@ describe('formatCatalogForAdvice', () => {
 			},
 		]
 		const formatted = formatCatalogForAdvice(catalog)
+		assert.match(formatted, /id: c1/)
 		assert.match(formatted, /annual rate of return: 5%/)
 		assert.match(formatted, /volatility: 10%/)
 	})

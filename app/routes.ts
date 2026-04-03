@@ -33,8 +33,6 @@ export const routes = route({
 	},
 	catalog: {
 		index: get('/catalog'),
-		/** Legacy: redirects to `/catalog?ticker=…` (same query string). */
-		etfLegacy: get('/catalog/etf'),
 		import: post('/catalog/import'),
 	},
 })

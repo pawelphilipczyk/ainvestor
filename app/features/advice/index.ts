@@ -19,7 +19,7 @@ import {
 	type SessionData,
 } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { fetchCatalog } from '../catalog/lib.ts'
+import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
 import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
@@ -70,6 +70,8 @@ function renderAdviceResponse(options: {
 		lastAnalysisMode?: AdviceAnalysisMode
 		selectedModel?: AdviceModelId
 		advice?: AdviceDocument
+		/** Shared catalog snapshot for Learn more links on proposal rows. */
+		catalog?: CatalogEntry[]
 		formError?: { summary: string; detail?: string }
 		pendingApproval?: boolean
 	}
@@ -269,6 +271,7 @@ export const adviceController = {
 						lastAnalysisMode: analysisMode,
 						selectedModel: adviceModel,
 						advice,
+						catalog,
 					},
 				})
 			} catch (err) {

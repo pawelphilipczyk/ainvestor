@@ -22,10 +22,8 @@ import { CatalogPage } from './catalog-page.tsx'
 import type { CatalogEntry } from './lib.ts'
 import {
 	fetchSharedCatalogSnapshot,
-	findCatalogEntryByTickerLookupKey,
 	isSharedCatalogAdmin,
 	mergeBankIntoCatalog,
-	normalizeCatalogTickerLookupKey,
 	parseBankJsonToCatalog,
 	saveCatalog,
 } from './lib.ts'
@@ -35,14 +33,14 @@ export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-s
 const catalogIndexRedirect = () =>
 	createRedirectResponse(routes.catalog.index.href())
 
-const CATALOG_TICKER_PARAM_MAX = 24
+const CATALOG_ENTRY_ID_PARAM_MAX = 128
 
-function normalizeCatalogTickerParam(raw: string | undefined): string | null {
+function normalizeCatalogEntryIdParam(raw: string | undefined): string | null {
 	if (raw === undefined) return null
-	const key = normalizeCatalogTickerLookupKey(raw)
-	if (key.length === 0 || key.length > CATALOG_TICKER_PARAM_MAX) return null
-	if (!/^[A-Z0-9][A-Z0-9._+-]*$/.test(key)) return null
-	return key
+	const trimmed = raw.trim()
+	if (trimmed.length === 0 || trimmed.length > CATALOG_ENTRY_ID_PARAM_MAX)
+		return null
+	return trimmed
 }
 
 function catalogEtfBackHref(request: Request): string {
@@ -89,9 +87,9 @@ export const catalogController = {
 			const url = new URL(context.request.url)
 			const typeFilter = url.searchParams.get('type') ?? ''
 			const query = url.searchParams.get('q') ?? ''
-			const rawTicker = url.searchParams.get('ticker')
-			const tickerKey = normalizeCatalogTickerParam(
-				rawTicker === null ? undefined : rawTicker,
+			const rawEntryId = url.searchParams.get('catalogEntryId')
+			const entryId = normalizeCatalogEntryIdParam(
+				rawEntryId === null ? undefined : rawEntryId,
 			)
 
 			const session = getSessionData(context.get(Session))
@@ -103,13 +101,10 @@ export const catalogController = {
 					: getGuestEtfs(context.get(Session)),
 			])
 
-			if (tickerKey !== null) {
+			if (entryId !== null) {
 				const pendingApproval = layoutSession?.approvalStatus === 'pending'
 				const backHref = catalogEtfBackHref(context.request)
-				const entry = findCatalogEntryByTickerLookupKey(
-					catalogSnapshot.entries,
-					tickerKey,
-				)
+				const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
 				if (entry === undefined) {
 					return new Response('Not found', {
 						status: 404,
@@ -187,21 +182,6 @@ export const catalogController = {
 				query,
 				flashError: context.get(Session).get('error') as string | undefined,
 			})
-		},
-
-		async etfLegacy(context: AppRequestContext) {
-			const url = new URL(context.request.url)
-			const ticker = url.searchParams.get('ticker')
-			if (ticker === null || ticker.trim() === '') {
-				return createRedirectResponse(routes.catalog.index.href())
-			}
-			const next = new URL(routes.catalog.index.href(), url.origin)
-			next.searchParams.set('ticker', ticker)
-			const model = url.searchParams.get('model')
-			if (model !== null && model.length > 0) {
-				next.searchParams.set('model', model)
-			}
-			return createRedirectResponse(`${next.pathname}${next.search}`)
 		},
 
 		async import(context: AppRequestContext) {

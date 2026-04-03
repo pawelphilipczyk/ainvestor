@@ -16,7 +16,13 @@ import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
-import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
+import type { CatalogEntry } from '../catalog/lib.ts'
+import { findCatalogEntryByTicker } from '../catalog/lib.ts'
+import type {
+	AdviceBlock,
+	AdviceDocument,
+	AdviceEtfProposalRow,
+} from './advice-document.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -66,8 +72,30 @@ type AdvicePageProps = {
 	lastAnalysisMode?: AdviceAnalysisMode
 	selectedModel?: AdviceModelId
 	advice?: AdviceDocument
+	/** Shared catalog for resolving Learn more links on proposal rows. */
+	catalog?: CatalogEntry[]
 	formError?: FormError
 	pendingApproval?: boolean
+}
+
+function resolveLearnMoreCatalogEntryId(
+	catalog: CatalogEntry[] | undefined,
+	row: AdviceEtfProposalRow,
+): string | null {
+	if (catalog === undefined || catalog.length === 0) return null
+	const fromModel = row.catalogEntryId?.trim()
+	if (fromModel !== undefined && fromModel.length > 0) {
+		if (catalog.some((entry) => entry.id === fromModel)) return fromModel
+	}
+	const ticker =
+		row.ticker !== undefined &&
+		row.ticker.trim().length > 0 &&
+		row.ticker !== t('catalog.emptyCell')
+			? row.ticker.trim()
+			: null
+	if (ticker === null) return null
+	const match = findCatalogEntryByTicker(catalog, ticker)
+	return match?.id ?? null
 }
 
 const currencyOptions = CURRENCIES.map((c) => ({ value: c, label: c }))
@@ -333,9 +361,11 @@ function renderEtfProposals(
 		defaultCashCurrency: string
 		selectedModel: AdviceModelId
 		pendingApproval: boolean
+		catalog: CatalogEntry[] | undefined
 	},
 ) {
-	const { defaultCashCurrency, selectedModel, pendingApproval } = options
+	const { defaultCashCurrency, selectedModel, pendingApproval, catalog } =
+		options
 	return (
 		<section class="min-w-0 max-w-full space-y-2">
 			{block.caption ? (
@@ -396,17 +426,18 @@ function renderEtfProposals(
 								row.amount !== undefined
 									? (row.currency ?? defaultCashCurrency)
 									: null
-							const catalogTicker =
-								row.ticker !== undefined &&
-								row.ticker.trim().length > 0 &&
-								row.ticker !== t('catalog.emptyCell')
-									? row.ticker.trim()
-									: null
+							const catalogEntryId = resolveLearnMoreCatalogEntryId(
+								catalog,
+								row,
+							)
 							const learnMoreHref =
-								catalogTicker !== null
+								catalogEntryId !== null
 									? routes.catalog.index.href(
 											{},
-											{ ticker: catalogTicker, model: selectedModel },
+											{
+												catalogEntryId,
+												model: selectedModel,
+											},
 										)
 									: null
 							return (
@@ -463,6 +494,7 @@ function renderAdviceBlock(
 	etfOptions: {
 		selectedModel: AdviceModelId
 		pendingApproval: boolean
+		catalog: CatalogEntry[] | undefined
 	},
 ) {
 	if (block.type === 'paragraph') {
@@ -488,6 +520,7 @@ function renderAdviceBlock(
 		defaultCashCurrency,
 		selectedModel: etfOptions.selectedModel,
 		pendingApproval: etfOptions.pendingApproval,
+		catalog: etfOptions.catalog,
 	})
 }
 
@@ -681,6 +714,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									{renderAdviceBlock(block, cashCurrency, i, {
 										selectedModel,
 										pendingApproval,
+										catalog: props.catalog,
 									})}
 								</div>
 							))}
