@@ -58,9 +58,9 @@ function renderCatalogRow(
 	options: { tickerLinksToDetail: boolean },
 ) {
 	const { tickerLinksToDetail } = options
-	const etfDetailHref = routes.catalog.index.href(
-		{},
-		{ catalogEntryId: entry.id, model: DEFAULT_ADVICE_MODEL },
+	const etfDetailHref = routes.catalog.etf.href(
+		{ catalogEntryId: entry.id },
+		{ model: DEFAULT_ADVICE_MODEL },
 	)
 	const valueCell = holding ? (
 		<td class="py-2 pl-4 pr-4 align-top text-sm font-medium text-foreground">

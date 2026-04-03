@@ -31,8 +31,9 @@ export const routes = route({
 		delete: del('/guidelines/:id'),
 		fragmentList: get('/fragments/guidelines-list'),
 	},
-	catalog: {
-		index: get('/catalog'),
-		import: post('/catalog/import'),
-	},
+	catalog: route('/catalog', {
+		index: get('/'),
+		etf: get('/etf/:catalogEntryId'),
+		import: post('/import'),
+	}),
 })

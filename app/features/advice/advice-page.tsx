@@ -432,12 +432,9 @@ function renderEtfProposals(
 							)
 							const learnMoreHref =
 								catalogEntryId !== null
-									? routes.catalog.index.href(
-											{},
-											{
-												catalogEntryId,
-												model: selectedModel,
-											},
+									? routes.catalog.etf.href(
+											{ catalogEntryId },
+											{ model: selectedModel },
 										)
 									: null
 							return (

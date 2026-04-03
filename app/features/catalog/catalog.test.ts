@@ -75,11 +75,11 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /href="\/catalog\?catalogEntryId=row-ticker-link-test/)
+		assert.match(body, /href="\/catalog\/etf\/row-ticker-link-test/)
 		assert.doesNotMatch(body, />Learn more</)
 	})
 
-	it('GET /catalog?catalogEntryId= renders ETF detail when OpenAI succeeds', async () => {
+	it('GET /catalog/etf/:id renders ETF detail when OpenAI succeeds', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -104,7 +104,7 @@ describe('ETF Catalog page', () => {
 		})
 
 		const response = await testSessionFetch(
-			'http://localhost/catalog?catalogEntryId=row-detail-test',
+			'http://localhost/catalog/etf/row-detail-test',
 		)
 		const body = await response.text()
 
@@ -117,7 +117,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Back/)
 	})
 
-	it('GET /catalog returns 404 for unknown catalogEntryId', async () => {
+	it('GET /catalog/etf/:id returns 404 for unknown catalog entry id', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
@@ -126,7 +126,7 @@ describe('ETF Catalog page', () => {
 		)
 
 		const response = await testSessionFetch(
-			'http://localhost/catalog?catalogEntryId=does-not-exist',
+			'http://localhost/catalog/etf/does-not-exist',
 		)
 
 		assert.equal(response.status, 404)
@@ -154,7 +154,7 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.doesNotMatch(body, /href="[^"]*catalogEntryId=/)
+		assert.doesNotMatch(body, /href="[^"]*\/catalog\/etf\//)
 	})
 
 	it('GET /catalog shows import form for bank API JSON', async () => {
