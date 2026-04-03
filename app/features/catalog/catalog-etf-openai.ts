@@ -4,6 +4,7 @@ import {
 	DEFAULT_ADVICE_MODEL,
 	formatCatalogForAdvice,
 } from '../advice/advice-openai.ts'
+import { sanitizeCatalogLineFragmentForEtfDetailPrompt } from './catalog-etf-openai-sanitize.ts'
 import type { CatalogEntry } from './lib.ts'
 
 const ETF_DETAIL_SYSTEM_PROMPT = `You are a financial educator explaining a single ETF to someone who is considering a purchase.
@@ -27,7 +28,9 @@ export async function getCatalogEtfDeepDiveText(params: {
 	model?: AdviceModelId
 }): Promise<string> {
 	const { entry, client, model = DEFAULT_ADVICE_MODEL } = params
-	const catalogLine = formatCatalogForAdvice([entry])
+	const catalogLine = sanitizeCatalogLineFragmentForEtfDetailPrompt(
+		formatCatalogForAdvice([entry]),
+	)
 	const userMessage = `Catalog line for this fund (authoritative for numbers):\n${catalogLine}`
 
 	const response = await client.chat.completions.create({
