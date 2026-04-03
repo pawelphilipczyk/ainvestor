@@ -6,7 +6,7 @@ import type { EtfEntry } from '../../lib/gist.ts'
 import { format, t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
-import { getSessionData } from '../../lib/session.ts'
+import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { getOrCreateAdviceClient } from '../advice/advice-client.ts'
 import {
@@ -31,6 +31,29 @@ import {
 } from './lib.ts'
 
 export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-session-fetch.ts'
+
+function parseAdviceModelFromJsonBody(body: unknown): AdviceModelId {
+	if (body === null || typeof body !== 'object') return DEFAULT_ADVICE_MODEL
+	const raw = (body as { model?: unknown }).model
+	if (typeof raw !== 'string') return DEFAULT_ADVICE_MODEL
+	if ((ADVICE_MODEL_IDS as readonly string[]).includes(raw)) {
+		return raw as AdviceModelId
+	}
+	return DEFAULT_ADVICE_MODEL
+}
+
+function jsonResponse(
+	body: Record<string, unknown>,
+	init?: ResponseInit,
+): Response {
+	return new Response(JSON.stringify(body), {
+		...init,
+		headers: {
+			'content-type': 'application/json; charset=utf-8',
+			...Object.fromEntries(new Headers(init?.headers).entries()),
+		},
+	})
+}
 
 const catalogIndexRedirect = () =>
 	createRedirectResponse(routes.catalog.index.href())
@@ -160,38 +183,81 @@ export const catalogController = {
 
 			const model = parseOptionalAdviceModelFromUrl(context.request.url)
 
+			return render({
+				title: format(t('meta.title.catalogEtf'), { name: fundName }),
+				session: layoutSession,
+				currentPage: 'catalog',
+				body: jsx(CatalogEtfPage, {
+					entry,
+					backHref,
+					analysisPostHref: routes.catalog.etfAnalysis.href({
+						catalogEntryId: entry.id,
+					}),
+					selectedModel: model,
+				}),
+				init: { headers: { 'Cache-Control': 'no-store' } },
+			})
+		},
+
+		async etfAnalysis(context: AppRequestContext) {
+			const entryId = decodeCatalogEntryIdFromPath(
+				context.params.catalogEntryId,
+			)
+			if (entryId === null) {
+				return jsonResponse(
+					{ error: t('errors.catalog.etfDetail.notFound') },
+					{
+						status: 404,
+					},
+				)
+			}
+
+			const layoutSession = getLayoutSession(context.get(Session))
+			if (layoutSession?.approvalStatus === 'pending') {
+				return jsonResponse(
+					{ error: t('errors.catalog.etfDetail.pendingAnalysis') },
+					{ status: 403 },
+				)
+			}
+
+			let jsonBody: unknown
+			try {
+				jsonBody = await context.request.json()
+			} catch {
+				jsonBody = null
+			}
+			const model = parseAdviceModelFromJsonBody(jsonBody)
+
+			const catalogSnapshot = await fetchSharedCatalogSnapshot()
+			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
+			if (entry === undefined) {
+				return jsonResponse(
+					{ error: t('errors.catalog.etfDetail.notFound') },
+					{
+						status: 404,
+					},
+				)
+			}
+
 			try {
 				const client = getOrCreateAdviceClient()
-				const descriptionText = await getCatalogEtfDeepDiveText({
+				const text = await getCatalogEtfDeepDiveText({
 					entry,
 					client,
 					model,
 				})
-				return render({
-					title: format(t('meta.title.catalogEtf'), { name: fundName }),
-					session: layoutSession,
-					currentPage: 'catalog',
-					body: jsx(CatalogEtfPage, {
-						entry,
-						descriptionText,
-						backHref,
-					}),
-					init: { headers: { 'Cache-Control': 'no-store' } },
-				})
+				return jsonResponse(
+					{ text },
+					{
+						headers: { 'Cache-Control': 'no-store' },
+					},
+				)
 			} catch (err) {
-				console.error('[catalog] etf detail failed', err)
-				return render({
-					title: format(t('meta.title.catalogEtf'), { name: fundName }),
-					session: layoutSession,
-					currentPage: 'catalog',
-					body: jsx(CatalogEtfPage, {
-						entry,
-						descriptionText: '',
-						backHref,
-						serviceError: true,
-					}),
-					init: { headers: { 'Cache-Control': 'no-store' } },
-				})
+				console.error('[catalog] etf analysis POST failed', err)
+				return jsonResponse(
+					{ error: t('errors.catalog.etfDetail.service') },
+					{ status: 503 },
+				)
 			}
 		},
 

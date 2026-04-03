@@ -151,6 +151,7 @@ export const en = {
 		'ETF details are available after your account is approved.',
 	'catalog.etfDetail.catalogCardTitle': 'From your catalog',
 	'catalog.etfDetail.analysisTitle': 'AI overview',
+	'catalog.etfDetail.loadAnalysisButton': 'ETF analysis',
 	'catalog.etfDetail.field.id': 'Record ID',
 	'catalog.etfDetail.field.expenseRatio': 'Expense ratio',
 	'catalog.etfDetail.field.riskKid': 'Risk (KID 1–7)',
@@ -270,6 +271,9 @@ export const en = {
 		'Only the shared catalog gist owner can import catalog updates.',
 	'errors.catalog.etfDetail.service':
 		"We couldn't load this ETF description right now. Please try again in a moment.",
+	'errors.catalog.etfDetail.notFound': 'That catalog entry was not found.',
+	'errors.catalog.etfDetail.pendingAnalysis':
+		'ETF analysis is available after your account is approved.',
 
 	'errors.guidelines.totalExceeds100':
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',
@@ -293,6 +297,8 @@ export const en = {
 	'errors.advice.service':
 		"We couldn't get advice right now. Please try again in a moment.",
 	'client.formSubmit.genericError': 'Please check your input.',
+	'client.catalogEtfAnalysisNetworkError':
+		'Could not load ETF analysis. Check your connection and try again.',
 } as const
 
 export type MessageKey = keyof typeof en

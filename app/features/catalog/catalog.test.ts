@@ -79,7 +79,40 @@ describe('ETF Catalog page', () => {
 		assert.doesNotMatch(body, />Learn more</)
 	})
 
-	it('GET /catalog/etf/:id renders ETF detail when OpenAI succeeds', async () => {
+	it('GET /catalog/etf/:id renders detail without inline AI text (analysis is on demand)', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'row-detail-test',
+						fund_name: 'Test Fund',
+						ticker: 'TST',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+
+		const response = await testSessionFetch(
+			'http://localhost/catalog/etf/row-detail-test',
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Test Fund/)
+		assert.match(body, /From your catalog/)
+		assert.match(body, /AI overview/)
+		assert.match(
+			body,
+			/data-post-url="\/catalog\/etf\/row-detail-test\/analysis"/,
+		)
+		assert.match(body, /ETF analysis/)
+		assert.doesNotMatch(body, /Educational ETF paragraph/)
+		assert.match(body, /Back/)
+	})
+
+	it('POST /catalog/etf/:id/analysis returns JSON text when OpenAI succeeds', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -104,17 +137,59 @@ describe('ETF Catalog page', () => {
 		})
 
 		const response = await testSessionFetch(
-			'http://localhost/catalog/etf/row-detail-test',
+			new Request('http://localhost/catalog/etf/row-detail-test/analysis', {
+				method: 'POST',
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({}),
+			}),
 		)
-		const body = await response.text()
+		const data = (await response.json()) as { text?: string }
 
 		assert.equal(response.status, 200)
-		assert.match(body, /Test Fund/)
-		assert.match(body, /From your catalog/)
-		assert.match(body, /AI overview/)
-		assert.match(body, /Educational ETF paragraph/)
-		assert.doesNotMatch(body, /<!-- rmx:f:/)
-		assert.match(body, /Back/)
+		assert.equal(data.text, 'Educational ETF paragraph.')
+	})
+
+	it('POST /catalog/etf/:id/analysis returns 403 when session is pending approval', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'pending-analysis-test',
+						fund_name: 'Test Fund',
+						ticker: 'TST',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		process.env.APPROVED_GITHUB_LOGINS = 'someone-else'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'pending-catalog')
+		session.set('approvalStatus', 'pending')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookieHeader = await sessionCookie.serialize(value)
+		const cookie = cookieHeader.split(';')[0]
+
+		const response = await testSessionFetch(
+			new Request(
+				'http://localhost/catalog/etf/pending-analysis-test/analysis',
+				{
+					method: 'POST',
+					headers: {
+						Accept: 'application/json',
+						'Content-Type': 'application/json',
+						Cookie: cookie,
+					},
+					body: JSON.stringify({}),
+				},
+			),
+		)
+		assert.equal(response.status, 403)
 	})
 
 	it('GET /catalog/etf/:id returns 404 for unknown catalog entry id', async () => {

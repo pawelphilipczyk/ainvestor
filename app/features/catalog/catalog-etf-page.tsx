@@ -3,14 +3,19 @@ import { Card } from '../../components/card.tsx'
 import { Link } from '../../components/link.tsx'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
+import type { AdviceModelId } from '../advice/advice-openai.ts'
+// @ts-expect-error Runtime-only remix clientEntry
+import { CatalogEtfAnalysisInteractions } from './catalog-etf-analysis.component.js'
 import type { CatalogEntry } from './lib.ts'
 
 export type CatalogEtfPageProps = {
 	entry: CatalogEntry
 	backHref: string
-	/** LLM text, pending message, or empty when {@link serviceError}. */
-	descriptionText: string
-	serviceError?: boolean
+	/** Shown when account is pending approval (no client analysis). */
+	descriptionText?: string
+	/** POST URL for on-demand AI analysis (`null` when pending). */
+	analysisPostHref?: string | null
+	selectedModel?: AdviceModelId
 }
 
 function formatOptionalPercent(value: number): string {
@@ -145,6 +150,7 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 					<section
 						class="min-w-0 max-w-full overflow-x-hidden"
 						aria-labelledby="catalog-etf-analysis-heading"
+						data-catalog-etf-analysis-section
 					>
 						<h2
 							id="catalog-etf-analysis-heading"
@@ -152,13 +158,31 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 						>
 							{t('catalog.etfDetail.analysisTitle')}
 						</h2>
-						{props.serviceError ? (
-							<p role="alert" class="text-sm text-destructive">
-								{t('errors.catalog.etfDetail.service')}
-							</p>
+						{props.analysisPostHref ? (
+							<>
+								<button
+									type="button"
+									data-catalog-etf-analysis
+									data-post-url={props.analysisPostHref}
+									data-model={props.selectedModel ?? ''}
+									class="flex w-full min-w-0 items-center justify-center rounded-md border border-border bg-background px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
+								>
+									{t('catalog.etfDetail.loadAnalysisButton')}
+								</button>
+								<p
+									role="alert"
+									class="mt-3 hidden text-sm text-destructive"
+									data-catalog-etf-analysis-status
+								/>
+								<div
+									class="mt-4 hidden min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground"
+									data-catalog-etf-analysis-output
+								/>
+								<CatalogEtfAnalysisInteractions />
+							</>
 						) : (
 							<div class="min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
-								{props.descriptionText}
+								{props.descriptionText ?? ''}
 							</div>
 						)}
 					</section>
