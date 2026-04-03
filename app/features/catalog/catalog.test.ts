@@ -102,6 +102,42 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Back/)
 	})
 
+	it('GET /catalog/etf accepts tickers containing plus (encoded or as space)', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						fund_name: 'Plus Ticker Fund',
+						ticker: '4RUE+GR',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => ({
+						choices: [{ message: { content: 'OK' } }],
+					}),
+				},
+			},
+		})
+
+		const encoded = await testSessionFetch(
+			'http://localhost/catalog/etf?ticker=4RUE%2BGR',
+		)
+		assert.equal(encoded.status, 200)
+		const encodedBody = await encoded.text()
+		assert.match(encodedBody, /Plus Ticker Fund/)
+
+		const plusAsSpace = await testSessionFetch(
+			'http://localhost/catalog/etf?ticker=4RUE+GR',
+		)
+		assert.equal(plusAsSpace.status, 200)
+	})
+
 	it('GET /catalog/etf returns 404 for unknown ticker', async () => {
 		seedSharedCatalog(
 			JSON.stringify({

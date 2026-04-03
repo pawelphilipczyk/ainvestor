@@ -37,9 +37,13 @@ const CATALOG_TICKER_PARAM_MAX = 24
 
 function normalizeCatalogTickerParam(raw: string | undefined): string | null {
 	if (raw === undefined) return null
-	const upper = raw.trim().toUpperCase()
-	if (upper.length === 0 || upper.length > CATALOG_TICKER_PARAM_MAX) return null
-	if (!/^[A-Z0-9][A-Z0-9._-]*$/.test(upper)) return null
+	let trimmed = raw.trim()
+	if (trimmed.length === 0) return null
+	// `application/x-www-form-urlencoded` decodes `+` as space; real tickers may contain `+`.
+	trimmed = trimmed.replace(/\s+/g, '+')
+	const upper = trimmed.toUpperCase()
+	if (upper.length > CATALOG_TICKER_PARAM_MAX) return null
+	if (!/^[A-Z0-9][A-Z0-9._+-]*$/.test(upper)) return null
 	return upper
 }
 
