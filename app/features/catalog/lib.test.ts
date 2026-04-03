@@ -5,7 +5,9 @@ import {
 	buildCatalogGistPatch,
 	CATALOG_FILENAME,
 	catalogMergeKey,
+	findCatalogEntryByTickerLookupKey,
 	mergeBankIntoCatalog,
+	normalizeCatalogTickerLookupKey,
 	parseBankJsonToCatalog,
 	parseCatalogFromGist,
 } from './lib.ts'
@@ -184,6 +186,31 @@ describe('parseBankJsonToCatalog', () => {
 		assert.equal(merged.length, 1)
 		assert.equal(merged[0].id, 'id-a')
 		assert.equal(merged[0].description, 'Second wins')
+	})
+})
+
+describe('normalizeCatalogTickerLookupKey', () => {
+	it('collapses spaces to plus and uppercases', () => {
+		assert.equal(normalizeCatalogTickerLookupKey('4rue gr'), '4RUE+GR')
+		assert.equal(normalizeCatalogTickerLookupKey('4RUE+GR'), '4RUE+GR')
+	})
+})
+
+describe('findCatalogEntryByTickerLookupKey', () => {
+	const catalog = [
+		{
+			id: '1',
+			ticker: '4RUE GR',
+			name: 'Fund',
+			type: 'equity' as const,
+			description: '',
+		},
+	]
+
+	it('finds row when query key uses plus and stored ticker uses space', () => {
+		const found = findCatalogEntryByTickerLookupKey(catalog, '4RUE+GR')
+		assert.ok(found)
+		assert.equal(found?.ticker, '4RUE GR')
 	})
 })
 
