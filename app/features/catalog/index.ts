@@ -22,8 +22,10 @@ import { CatalogPage } from './catalog-page.tsx'
 import type { CatalogEntry } from './lib.ts'
 import {
 	fetchSharedCatalogSnapshot,
+	findCatalogEntryByTickerLookupKey,
 	isSharedCatalogAdmin,
 	mergeBankIntoCatalog,
+	normalizeCatalogTickerLookupKey,
 	parseBankJsonToCatalog,
 	saveCatalog,
 } from './lib.ts'
@@ -37,14 +39,10 @@ const CATALOG_TICKER_PARAM_MAX = 24
 
 function normalizeCatalogTickerParam(raw: string | undefined): string | null {
 	if (raw === undefined) return null
-	let trimmed = raw.trim()
-	if (trimmed.length === 0) return null
-	// `application/x-www-form-urlencoded` decodes `+` as space; real tickers may contain `+`.
-	trimmed = trimmed.replace(/\s+/g, '+')
-	const upper = trimmed.toUpperCase()
-	if (upper.length > CATALOG_TICKER_PARAM_MAX) return null
-	if (!/^[A-Z0-9][A-Z0-9._+-]*$/.test(upper)) return null
-	return upper
+	const key = normalizeCatalogTickerLookupKey(raw)
+	if (key.length === 0 || key.length > CATALOG_TICKER_PARAM_MAX) return null
+	if (!/^[A-Z0-9][A-Z0-9._+-]*$/.test(key)) return null
+	return key
 }
 
 function catalogEtfBackHref(request: Request): string {
@@ -91,6 +89,10 @@ export const catalogController = {
 			const url = new URL(context.request.url)
 			const typeFilter = url.searchParams.get('type') ?? ''
 			const query = url.searchParams.get('q') ?? ''
+			const rawTicker = url.searchParams.get('ticker')
+			const tickerKey = normalizeCatalogTickerParam(
+				rawTicker === null ? undefined : rawTicker,
+			)
 
 			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
@@ -100,6 +102,73 @@ export const catalogController = {
 					? fetchEtfs(session.token, session.gistId)
 					: getGuestEtfs(context.get(Session)),
 			])
+
+			if (tickerKey !== null) {
+				const pendingApproval = layoutSession?.approvalStatus === 'pending'
+				const backHref = catalogEtfBackHref(context.request)
+				const entry = findCatalogEntryByTickerLookupKey(
+					catalogSnapshot.entries,
+					tickerKey,
+				)
+				if (entry === undefined) {
+					return new Response('Not found', {
+						status: 404,
+						headers: { 'content-type': 'text/plain; charset=utf-8' },
+					})
+				}
+
+				const fundName = entry.name
+
+				if (pendingApproval) {
+					return render({
+						title: format(t('meta.title.catalogEtf'), { name: fundName }),
+						session: layoutSession,
+						currentPage: 'catalog',
+						body: jsx(CatalogEtfPage, {
+							entry,
+							descriptionText: t('catalog.etfDetail.pendingBody'),
+							backHref,
+						}),
+						init: { headers: { 'Cache-Control': 'no-store' } },
+					})
+				}
+
+				const model = parseOptionalAdviceModelFromUrl(context.request.url)
+
+				try {
+					const client = getOrCreateAdviceClient()
+					const descriptionText = await getCatalogEtfDeepDiveText({
+						entry,
+						client,
+						model,
+					})
+					return render({
+						title: format(t('meta.title.catalogEtf'), { name: fundName }),
+						session: layoutSession,
+						currentPage: 'catalog',
+						body: jsx(CatalogEtfPage, {
+							entry,
+							descriptionText,
+							backHref,
+						}),
+						init: { headers: { 'Cache-Control': 'no-store' } },
+					})
+				} catch (err) {
+					console.error('[catalog] etf detail failed', err)
+					return render({
+						title: format(t('meta.title.catalogEtf'), { name: fundName }),
+						session: layoutSession,
+						currentPage: 'catalog',
+						body: jsx(CatalogEtfPage, {
+							entry,
+							descriptionText: '',
+							backHref,
+							serviceError: true,
+						}),
+						init: { headers: { 'Cache-Control': 'no-store' } },
+					})
+				}
+			}
 
 			return renderCatalogPage({
 				catalog: catalogSnapshot.entries,
@@ -120,81 +189,19 @@ export const catalogController = {
 			})
 		},
 
-		async etfDetail(context: AppRequestContext) {
-			const layoutSession = getLayoutSession(context.get(Session))
-			const pendingApproval = layoutSession?.approvalStatus === 'pending'
-			const rawTicker = new URL(context.request.url).searchParams.get('ticker')
-			const ticker = normalizeCatalogTickerParam(
-				rawTicker === null ? undefined : rawTicker,
-			)
-			if (ticker === null) {
-				return new Response('Not found', {
-					status: 404,
-					headers: { 'content-type': 'text/plain; charset=utf-8' },
-				})
+		async etfLegacy(context: AppRequestContext) {
+			const url = new URL(context.request.url)
+			const ticker = url.searchParams.get('ticker')
+			if (ticker === null || ticker.trim() === '') {
+				return createRedirectResponse(routes.catalog.index.href())
 			}
-
-			const backHref = catalogEtfBackHref(context.request)
-			const { entries } = await fetchSharedCatalogSnapshot()
-			const entry = entries.find((row) => row.ticker.toUpperCase() === ticker)
-			if (entry === undefined) {
-				return new Response('Not found', {
-					status: 404,
-					headers: { 'content-type': 'text/plain; charset=utf-8' },
-				})
+			const next = new URL(routes.catalog.index.href(), url.origin)
+			next.searchParams.set('ticker', ticker)
+			const model = url.searchParams.get('model')
+			if (model !== null && model.length > 0) {
+				next.searchParams.set('model', model)
 			}
-
-			const fundName = entry.name
-
-			if (pendingApproval) {
-				return render({
-					title: format(t('meta.title.catalogEtf'), { name: fundName }),
-					session: layoutSession,
-					currentPage: 'catalog',
-					body: jsx(CatalogEtfPage, {
-						entry,
-						descriptionText: t('catalog.etfDetail.pendingBody'),
-						backHref,
-					}),
-					init: { headers: { 'Cache-Control': 'no-store' } },
-				})
-			}
-
-			const model = parseOptionalAdviceModelFromUrl(context.request.url)
-
-			try {
-				const client = getOrCreateAdviceClient()
-				const descriptionText = await getCatalogEtfDeepDiveText({
-					entry,
-					client,
-					model,
-				})
-				return render({
-					title: format(t('meta.title.catalogEtf'), { name: fundName }),
-					session: layoutSession,
-					currentPage: 'catalog',
-					body: jsx(CatalogEtfPage, {
-						entry,
-						descriptionText,
-						backHref,
-					}),
-					init: { headers: { 'Cache-Control': 'no-store' } },
-				})
-			} catch (err) {
-				console.error('[catalog] etf detail failed', err)
-				return render({
-					title: format(t('meta.title.catalogEtf'), { name: fundName }),
-					session: layoutSession,
-					currentPage: 'catalog',
-					body: jsx(CatalogEtfPage, {
-						entry,
-						descriptionText: '',
-						backHref,
-						serviceError: true,
-					}),
-					init: { headers: { 'Cache-Control': 'no-store' } },
-				})
-			}
+			return createRedirectResponse(`${next.pathname}${next.search}`)
 		},
 
 		async import(context: AppRequestContext) {

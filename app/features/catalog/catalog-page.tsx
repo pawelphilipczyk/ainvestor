@@ -63,7 +63,7 @@ function renderCatalogRow(
 	options: { showLearnMoreLink: boolean },
 ) {
 	const { showLearnMoreLink } = options
-	const learnMoreHref = routes.catalog.etfDetail.href(
+	const learnMoreHref = routes.catalog.index.href(
 		{},
 		{ ticker: entry.ticker, model: DEFAULT_ADVICE_MODEL },
 	)
@@ -171,7 +171,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 				</SectionIntroCard>
 
 				{props.canImport ? (
-					<Card variant="muted" class="p-4">
+					<Card variant="muted" class="min-w-0 max-w-full p-4">
 						<section>
 							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 								{t('catalog.import.title')}
@@ -216,11 +216,11 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 				) : null}
 
 				{props.catalog.length > 0 ? (
-					<Card variant="muted" class="p-4">
+					<Card variant="muted" class="min-w-0 max-w-full p-4">
 						<form
 							method="get"
 							action={routes.catalog.index.href()}
-							class="flex flex-wrap items-end gap-3"
+							class="flex min-w-0 max-w-full flex-wrap items-end gap-3"
 							data-navigation-loading
 						>
 							<div class="grid gap-1.5">
@@ -289,7 +289,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 				) : null}
 
 				{ownedInCatalog.length > 0 ? (
-					<Card class="min-w-0 p-4">
+					<Card class="min-w-0 max-w-full p-4">
 						<section>
 							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 								{t('catalog.holdings.title')}
@@ -323,7 +323,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 						<p class="text-sm text-muted-foreground">{t('catalog.noMatch')}</p>
 					</Card>
 				) : restOfCatalog.length > 0 ? (
-					<Card class="min-w-0 p-4">
+					<Card class="min-w-0 max-w-full p-4">
 						<section>
 							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 								{ownedInCatalog.length > 0

@@ -33,8 +33,8 @@ export const routes = route({
 	},
 	catalog: {
 		index: get('/catalog'),
-		/** Query: `ticker` (required), optional `model` (advice model id). */
-		etfDetail: get('/catalog/etf'),
+		/** Legacy: redirects to `/catalog?ticker=…` (same query string). */
+		etfLegacy: get('/catalog/etf'),
 		import: post('/catalog/import'),
 	},
 })

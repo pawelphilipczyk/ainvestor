@@ -404,7 +404,7 @@ function renderEtfProposals(
 									: null
 							const learnMoreHref =
 								catalogTicker !== null
-									? routes.catalog.etfDetail.href(
+									? routes.catalog.index.href(
 											{},
 											{ ticker: catalogTicker, model: selectedModel },
 										)

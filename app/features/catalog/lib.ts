@@ -64,15 +64,34 @@ export function assetClassSelectOptionsFromCatalog(
 	}))
 }
 
+/** Normalize ticker for comparisons (spaces vs `+`, case). */
+export function normalizeCatalogTickerLookupKey(raw: string): string {
+	return raw.trim().replace(/\s+/g, '+').toUpperCase()
+}
+
 /** Lookup by ticker (case-insensitive). */
 export function findCatalogEntryByTicker(
 	catalog: CatalogEntry[],
 	ticker: string,
 ): CatalogEntry | undefined {
-	const normalisedTicker = ticker.trim().toUpperCase()
+	const normalisedTicker = normalizeCatalogTickerLookupKey(ticker)
 	if (!normalisedTicker) return undefined
 	return catalog.find(
-		(entry) => entry.ticker.toUpperCase() === normalisedTicker,
+		(entry) =>
+			normalizeCatalogTickerLookupKey(entry.ticker) === normalisedTicker,
+	)
+}
+
+/**
+ * Match catalog row when tickers differ only by space vs `+` (e.g. `4RUE GR` vs `4RUE+GR`).
+ */
+export function findCatalogEntryByTickerLookupKey(
+	catalog: CatalogEntry[],
+	lookupKey: string,
+): CatalogEntry | undefined {
+	if (!lookupKey) return undefined
+	return catalog.find(
+		(entry) => normalizeCatalogTickerLookupKey(entry.ticker) === lookupKey,
 	)
 }
 
