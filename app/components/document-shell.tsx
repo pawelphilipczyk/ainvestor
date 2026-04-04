@@ -7,6 +7,7 @@ import { tailwindConfig } from '../lib/tailwind-config.ts'
 import { AppTopBar } from './app-top-bar.tsx'
 // @ts-expect-error Runtime-only JS client entry module
 import { FetchSubmitEnhancement } from './fetch-submit.component.js'
+import { FrameSubmitEnhancement } from './frame-submit.component.js'
 // @ts-expect-error Runtime-only JS client entry module
 import { NavigationLinkLoadingEnhancement } from './navigation-link-loading.component.js'
 import { SessionProvider } from './session-provider.tsx'
@@ -91,6 +92,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					</div>
 				</SessionProvider>
 				<FetchSubmitEnhancement />
+				<FrameSubmitEnhancement />
 				<NavigationLinkLoadingEnhancement />
 				<TabsNavScrollRestoration />
 				<script type="module" src="/entry.js" />

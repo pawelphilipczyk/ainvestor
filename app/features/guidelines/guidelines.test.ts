@@ -757,4 +757,19 @@ describe('Guidelines page', () => {
 		).text()
 		assert.match(afterBody, /No guidelines/)
 	})
+
+	it('guidelines page renders a named Frame for the list', async () => {
+		const response = await testSessionFetch('http://localhost/guidelines')
+		const body = await response.text()
+		assert.match(body, /rmx:f:/)
+		assert.match(body, /"name":"guidelines-list"/)
+	})
+
+	it('forms use data-frame-submit for Frame-based list reload', async () => {
+		const response = await testSessionFetch(
+			'http://localhost/guidelines?tab=instrument',
+		)
+		const body = await response.text()
+		assert.match(body, /data-frame-submit="guidelines-list"/)
+	})
 })

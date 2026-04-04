@@ -9,7 +9,7 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 - Prefer **`<Frame>`** for any region that should refresh **without** a full document navigation while staying **server-authored HTML**.
 - Prefer **normal `<form method="post">`** + full navigation when a full page refresh is acceptable and no partial region needs updating.
 - **Retire JSON responses** used only to drive client DOM patches for HTML-shaped UI; return **HTML fragments** suited to Frame boundaries instead (including errors where today we return `422` + JSON).
-- Keep **feature-scoped `clientEntry`** only for behavior that is not “replace this server-rendered subtree” (loading chrome, theme, scroll restore, etc.).
+- Keep **feature-scoped `clientEntry`** only for behavior that is not "replace this server-rendered subtree" (loading chrome, theme, scroll restore, etc.).
 
 ---
 
@@ -17,14 +17,14 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 
 ### Phase 1 — Redirect-only POSTs (no partial UI)
 
-- [x] **Catalog import** — Remove `data-fetch-submit` from the bank JSON import form on `CatalogPage` (`app/features/catalog/catalog-page.tsx`). Rely on normal POST + redirect from `routes.catalog.import`. Update `app/features/catalog/catalog.test.ts` expectations. **Follow-up:** Phase 2 frames the ETF list below; until then a full redirect reloads the whole catalog page (including a future frame’s initial `src` fetch).
-- [ ] **Sidebar sign-out** — Remove `data-fetch-submit` from the logout form in `app/components/sidebar.tsx`. Rely on normal POST + redirect. Update `app/components/sidebar.test.ts` if it asserts fetch-submit attributes.
+- [x] **Catalog import** — Remove `data-fetch-submit` from the bank JSON import form on `CatalogPage` (`app/features/catalog/catalog-page.tsx`). Rely on normal POST + redirect from `routes.catalog.import`. Update `app/features/catalog/catalog.test.ts` expectations. **Follow-up:** Phase 2 frames the ETF list below; until then a full redirect reloads the whole catalog page (including a future frame's initial `src` fetch).
+- [x] **Sidebar sign-out** — Remove `data-fetch-submit` from the logout form in `app/components/sidebar.tsx`. Rely on normal POST + redirect.
 
 ### Phase 2 — List regions currently using fragment `innerHTML`
 
-- [ ] **Portfolio: frame around the holdings list** — Introduce `<Frame>` wrapping `#portfolio-list` (or equivalent) with a dedicated GET URL that renders only the list markup (reuse or align with `routes.portfolio.fragmentList`). Replace `data-fragment-id` / `data-fragment-url` on add/import/update forms with POST handlers that redirect or respond in a way that triggers **`handle.frame.reload()`** from a small `clientEntry` inside the frame (or Remix-documented frame reload pattern). Remove corresponding branches from `fetch-submit.component.js` once unused.
-- [ ] **Guidelines: frame around the guidelines list** — Same pattern for `guidelines-list` / `routes.guidelines.fragmentList` and forms in `guidelines-page.tsx` + `guidelines-list-fragment.tsx`.
-- [ ] **Catalog: frame around ETF list** — Keep section intro, import card, and filter **outside** `<Frame>`. Add a GET route that returns **only** the catalog list markup (holdings + available tables, respecting current filter query params). Wrap that region in `<Frame src={…}>` so the list loads asynchronously when the page opens. After **import** completes, refresh the list via **`handle.frame.reload()`** (from a small `clientEntry` tied to the catalog page or frame boundary) **or**, while import still uses a **full-page redirect**, rely on the navigation to re-run the frame’s initial load; prefer explicit reload once import stops doing a full document navigation.
+- [x] **Portfolio: frame around the holdings list** — `<Frame name="portfolio-list" src={routes.portfolio.fragmentList.href()}>` replaces `<div id="portfolio-list">`. Forms use `data-frame-submit="portfolio-list"` which triggers `handle.frames.get('portfolio-list')?.reload()` via shared `FrameSubmitEnhancement` clientEntry. Server renders Frame content via `resolveFrame` during SSR. Fragment handler uses `renderToStream`.
+- [x] **Guidelines: frame around the guidelines list** — Same pattern: `<Frame name="guidelines-list">` with `data-frame-submit="guidelines-list"` on add/update/delete forms. `resolveFrame` in SSR, streamed fragment handler.
+- [x] **Catalog: frame around ETF list** — New `CatalogListFragment` component and `GET /catalog/fragments/list` route. Filter query params (`type`, `q`) forwarded via Frame `src`. Import still uses full redirect; Frame re-renders on navigation. `resolveFrame` for SSR.
 
 ### Phase 3 — Full main-region swap (`data-replace-main`)
 
@@ -51,6 +51,15 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 
 - [ ] **Delete or gut `fetch-submit.component.js`** — Once no `data-fetch-submit`, `data-fragment-*`, `data-replace-main`, or `data-navigation-loading` remain, remove `FetchSubmitEnhancement` from `document-shell.tsx` and delete the module (or leave a stub only if something still needs it).
 - [ ] **Docs** — Update `docs/UI_ARCHITECTURE_GUIDELINES.md` (fetch-submit section) to describe Frame as the default for partial HTML and link to this plan.
+
+---
+
+## Shared infrastructure added in Phase 2
+
+| Component | Purpose |
+|-----------|---------|
+| `render()` `resolveFrame` option | Forwards a `resolveFrame` callback to `renderToStream` so `<Frame>` components resolve during SSR |
+| `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`, POSTs via fetch, reloads the named Frame on success. Supports `data-error-id` for 422 JSON errors and `data-reset-form`. |
 
 ---
 
