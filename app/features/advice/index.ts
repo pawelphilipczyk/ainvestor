@@ -18,7 +18,6 @@ import { t } from '../../lib/i18n.ts'
 import {
 	clearPortfolioReviewFromGist,
 	fetchPortfolioReviewFromGist,
-	savePortfolioReviewToGist,
 } from '../../lib/portfolio-review-gist.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import {
@@ -30,6 +29,11 @@ import { routes } from '../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
+import {
+	clearStoredAdviceAnalysis,
+	fetchStoredAdviceAnalysis,
+	saveStoredAdviceAnalysis,
+} from './advice-gist.ts'
 import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
 import {
 	ADVICE_ANALYSIS_MODES,
@@ -83,6 +87,9 @@ function renderAdviceResponse(options: {
 		advice?: AdviceDocument
 		/** Shared catalog snapshot for ETF detail links on proposal rows. */
 		catalog?: CatalogEntry[]
+		/** Shown when `advice` was loaded from `advice-analysis.json` in the user gist. */
+		adviceFromGist?: boolean
+		adviceGistSavedAt?: string
 		formError?: { summary: string; detail?: string }
 		pendingApproval?: boolean
 	}
@@ -109,49 +116,109 @@ export const adviceController = {
 			const pendingApproval = layoutSession?.approvalStatus === 'pending'
 			const activeTab = parseAdviceTabParam(context.request.url)
 			const remixSession = context.get(Session)
-			const fullSession = getSessionData(remixSession)
+			const session = getSessionData(remixSession)
 
-			if (!pendingApproval && activeTab === 'portfolio_review') {
+			const baseProps = {
+				pendingApproval,
+				analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+				activeTab,
+			}
+
+			if (
+				!pendingApproval &&
+				activeTab === 'portfolio_review' &&
+				(!session?.token || !session.gistId)
+			) {
 				const catalog = await fetchCatalog()
-				const stored =
-					fullSession?.token && fullSession.gistId
-						? await fetchPortfolioReviewFromGist(
-								fullSession.token,
-								fullSession.gistId,
-							)
-						: getGuestPortfolioReview(remixSession)
-				if (stored !== null) {
+				const guestStored = getGuestPortfolioReview(remixSession)
+				if (guestStored !== null) {
 					return renderAdviceResponse({
 						session: layoutSession,
 						props: {
-							pendingApproval,
-							analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
-							activeTab,
+							...baseProps,
 							catalog,
-							advice: stored.advice,
+							advice: guestStored.advice,
 							lastAnalysisMode: 'portfolio_review',
-							selectedModel: stored.model,
+							selectedModel: guestStored.model,
 						},
 					})
 				}
 				return renderAdviceResponse({
 					session: layoutSession,
 					props: {
-						pendingApproval,
-						analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
-						activeTab,
+						...baseProps,
 						catalog,
 					},
 				})
 			}
 
+			if (
+				pendingApproval ||
+				!session?.token ||
+				!session.gistId ||
+				session.approvalStatus === 'pending'
+			) {
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: baseProps,
+				})
+			}
+
+			try {
+				const stored = await fetchStoredAdviceAnalysis(
+					session.token,
+					session.gistId,
+				)
+				const tabForStored = stored?.activeTab ?? stored?.lastAnalysisMode
+				if (stored !== null && tabForStored === activeTab) {
+					const catalog = await fetchCatalog()
+					const adviceGistSavedAt = new Date(stored.savedAt).toISOString()
+					return renderAdviceResponse({
+						session: layoutSession,
+						props: {
+							...baseProps,
+							analysisMode: stored.lastAnalysisMode,
+							lastAnalysisMode: stored.lastAnalysisMode,
+							selectedModel: stored.selectedModel,
+							...(stored.lastAnalysisMode === 'portfolio_review'
+								? {}
+								: {
+										cashAmount: stored.cashAmount ?? '',
+										cashCurrency: stored.cashCurrency,
+									}),
+							advice: stored.document,
+							catalog,
+							adviceFromGist: true,
+							adviceGistSavedAt,
+						},
+					})
+				}
+				if (activeTab === 'portfolio_review') {
+					const legacy = await fetchPortfolioReviewFromGist(
+						session.token,
+						session.gistId,
+					)
+					if (legacy !== null) {
+						const catalog = await fetchCatalog()
+						return renderAdviceResponse({
+							session: layoutSession,
+							props: {
+								...baseProps,
+								catalog,
+								advice: legacy.advice,
+								lastAnalysisMode: 'portfolio_review',
+								selectedModel: legacy.model,
+							},
+						})
+					}
+				}
+			} catch (err) {
+				console.warn('[advice] could not load gist snapshot', err)
+			}
+
 			return renderAdviceResponse({
 				session: layoutSession,
-				props: {
-					pendingApproval,
-					analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
-					activeTab,
-				},
+				props: baseProps,
 			})
 		},
 
@@ -291,7 +358,27 @@ export const adviceController = {
 
 			if (analysisMode === 'portfolio_review' && adviceIntent === 'clear') {
 				if (session?.token && session.gistId) {
+					let clearUnifiedSnapshot = false
+					try {
+						const snapshot = await fetchStoredAdviceAnalysis(
+							session.token,
+							session.gistId,
+						)
+						clearUnifiedSnapshot =
+							snapshot !== null &&
+							(snapshot.lastAnalysisMode === 'portfolio_review' ||
+								snapshot.activeTab === 'portfolio_review')
+					} catch (err) {
+						console.warn('[advice] could not read gist before clear', err)
+					}
 					await clearPortfolioReviewFromGist(session.token, session.gistId)
+					if (clearUnifiedSnapshot) {
+						try {
+							await clearStoredAdviceAnalysis(session.token, session.gistId)
+						} catch (err) {
+							console.warn('[advice] could not clear advice snapshot', err)
+						}
+					}
 				} else {
 					clearGuestPortfolioReview(context.get(Session))
 				}
@@ -335,19 +422,26 @@ export const adviceController = {
 					model: adviceModel,
 					analysisMode,
 				})
-				if (analysisMode === 'portfolio_review') {
-					if (session?.token && session.gistId) {
-						await savePortfolioReviewToGist({
-							token: session.token,
-							gistId: session.gistId,
-							stored: { advice, model: adviceModel },
+				if (session?.token && session.gistId) {
+					try {
+						await saveStoredAdviceAnalysis(session.token, session.gistId, {
+							version: 1,
+							savedAt: Date.now(),
+							lastAnalysisMode: analysisMode,
+							cashCurrency,
+							...(analysisMode === 'buy_next' ? { cashAmount } : {}),
+							selectedModel: adviceModel,
+							activeTab: activeTabFromUrl,
+							document: advice,
 						})
-					} else {
-						setGuestPortfolioReview(context.get(Session), {
-							advice,
-							model: adviceModel,
-						})
+					} catch (gistErr) {
+						console.warn('[advice] could not save gist snapshot', gistErr)
 					}
+				} else if (analysisMode === 'portfolio_review') {
+					setGuestPortfolioReview(context.get(Session), {
+						advice,
+						model: adviceModel,
+					})
 				}
 				return renderAdviceResponse({
 					session: layoutSession,

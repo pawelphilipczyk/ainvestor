@@ -1,0 +1,74 @@
+# Frame component migration plan
+
+This document tracks moving from **`data-fetch-submit`** + manual DOM updates (`innerHTML`, `data-replace-main`, fragment fetches) toward **Remix `<Frame>`** partial HTML and **`handle.frame.reload()`**, using the **`resolveFrame`** hook already wired in `app/entry.js`.
+
+Work proceeds in **multiple small pull requests**. When a task ships, change its checkbox from `[ ]` to `[x]` in this file (same PR as the code, or a tiny follow-up).
+
+## Principles
+
+- Prefer **`<Frame>`** for any region that should refresh **without** a full document navigation while staying **server-authored HTML**.
+- Prefer **normal `<form method="post">`** + full navigation when a full page refresh is acceptable and no partial region needs updating.
+- **Retire JSON responses** used only to drive client DOM patches for HTML-shaped UI; return **HTML fragments** suited to Frame boundaries instead (including errors where today we return `422` + JSON).
+- Keep **feature-scoped `clientEntry`** only for behavior that is not “replace this server-rendered subtree” (loading chrome, theme, scroll restore, etc.).
+
+---
+
+## Todo list
+
+### Phase 1 — Redirect-only POSTs (no partial UI)
+
+- [ ] **Catalog import** — Remove `data-fetch-submit` from the bank JSON import form on `CatalogPage` (`app/features/catalog/catalog-page.tsx`). Rely on normal POST + redirect from `routes.catalog.import`. Update `app/features/catalog/catalog.test.ts` expectations.
+- [ ] **Sidebar sign-out** — Remove `data-fetch-submit` from the logout form in `app/components/sidebar.tsx`. Rely on normal POST + redirect. Update `app/components/sidebar.test.ts` if it asserts fetch-submit attributes.
+
+### Phase 2 — List regions currently using fragment `innerHTML`
+
+- [ ] **Portfolio: frame around the holdings list** — Introduce `<Frame>` wrapping `#portfolio-list` (or equivalent) with a dedicated GET URL that renders only the list markup (reuse or align with `routes.portfolio.fragmentList`). Replace `data-fragment-id` / `data-fragment-url` on add/import/update forms with POST handlers that redirect or respond in a way that triggers **`handle.frame.reload()`** from a small `clientEntry` inside the frame (or Remix-documented frame reload pattern). Remove corresponding branches from `fetch-submit.component.js` once unused.
+- [ ] **Guidelines: frame around the guidelines list** — Same pattern for `guidelines-list` / `routes.guidelines.fragmentList` and forms in `guidelines-page.tsx` + `guidelines-list-fragment.tsx`.
+
+### Phase 3 — Full main-region swap (`data-replace-main`)
+
+- [ ] **Advice analysis forms** — Replace `data-fetch-submit` + `data-replace-main` on `AdvicePage` with a **`<Frame>`** (or nested frames) for the analysis result area. Add/adjust a route that returns **HTML partials** for the frame `src` after POST success (no full-document parse on the client). Drop `data-replace-main` handling for advice once unused.
+
+### Phase 4 — Catalog ETF deep-dive (today: JSON + text node)
+
+- [ ] **Server: HTML instead of JSON** — Change the catalog ETF analysis POST handler to return **HTML** (fragment suitable for a Frame), e.g. rendered prose + error markup, with appropriate status codes, instead of `{ text }` / `{ error }` JSON.
+- [ ] **UI: `<Frame>` for the result** — Wrap the result region in `<Frame>`; after successful analysis, **reload the frame** (or navigate the frame `src`) so content stays server-owned. Remove `catalog-etf-analysis-form.component.js` JSON `fetch` + `textContent` patching; any minimal `clientEntry` should only trigger **`handle.frame.reload()`** or submit via native form if compatible with Frame navigation.
+- [ ] **Document shell** — Remove `catalogEtfAnalysisNetworkError` from `#ui-client-messages` in `document-shell.tsx` if no longer needed for client-only copy.
+
+### Phase 5 — JSON `422` validation + `data-error-id` (portfolio / guidelines)
+
+Today these flows use **`Accept: application/json`** and client-side error elements. To align with Frame-first HTML:
+
+- [ ] **Portfolio add ETF** — Return **HTML** for validation failures (fragment that includes the form + error callout) or reload a frame that contains the form + errors; remove dependence on JSON `422` + `data-error-id` in `fetch-submit.component.js` for this form.
+- [ ] **Guidelines mutations** — Same: prefer **HTML error partials** inside a Frame or full redirect with flash; remove `prefersJson` / JSON error branches where replaced.
+
+### Phase 6 — GET forms with `data-navigation-loading`
+
+- [ ] **Catalog filter (and any similar GET forms)** — Either keep full navigation without intercepting submit or move filtering behind a **Frame** `src` query URL so results update inside the frame without custom `window.location.assign` deferral. Goal: delete GET interception from `fetch-submit.component.js` when nothing uses it.
+
+### Phase 7 — Shared `FetchSubmitEnhancement` removal
+
+- [ ] **Delete or gut `fetch-submit.component.js`** — Once no `data-fetch-submit`, `data-fragment-*`, `data-replace-main`, or `data-navigation-loading` remain, remove `FetchSubmitEnhancement` from `document-shell.tsx` and delete the module (or leave a stub only if something still needs it).
+- [ ] **Docs** — Update `docs/UI_ARCHITECTURE_GUIDELINES.md` (fetch-submit section) to describe Frame as the default for partial HTML and link to this plan.
+
+---
+
+## Edge cases that did not map cleanly — planned direction
+
+| Current pattern | Planned change |
+|-----------------|----------------|
+| Catalog ETF analysis JSON → `textContent` | **HTML response + `<Frame>`** (Phase 4). |
+| Guidelines / portfolio `422` JSON + `data-error-id` | **HTML fragments** (error UI rendered on server) inside the same Frame as the form or list; drop JSON for that path. |
+| Advice `data-replace-main` | **Frame-bound partial routes**; server returns only the subtree for the frame (Phase 3). |
+| `GuidelinesDeleteDialogInteractions` (document delegated clicks) | Prefer **`on('click', …)`** on triggers inside the guidelines tree or inside the Frame boundary so listeners are not document-wide; keep `<dialog>` HTML. |
+| `NavigationLinkLoadingEnhancement` | Not a Frame concern; keep a small enhancement or move loading state to **link `mix={on(...)}`** where practical. |
+| `TabsNavScrollRestoration` | Remains a focused `clientEntry`; no Frame migration. |
+| Theme toggle | Unchanged; local enhancement only. |
+
+---
+
+## References
+
+- `docs/UI_ARCHITECTURE_GUIDELINES.md` — partial UI via `<Frame>` and `handle.frame.reload()`.
+- `docs/REMIX_V3_PACKAGES.md` — `remix/component`, `<Frame>`, `run({ loadModule, resolveFrame })`.
+- `app/entry.js` — `resolveFrame` implementation.

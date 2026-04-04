@@ -104,8 +104,8 @@ export const CatalogEtfAnalysisFormEnhancement = clientEntry(
 								)
 								return
 							}
-							resultEl.textContent =
-								typeof data.text === 'string' ? data.text : ''
+							const text = typeof data.text === 'string' ? data.text : ''
+							resultEl.textContent = text
 							resultEl.classList.remove('hidden')
 							form.classList.add('hidden')
 							return

@@ -451,6 +451,18 @@ This architecture aligns with the packages available in `remix@next`. Key Remix 
 
 **Rendering:** All page bodies and the document shell are JSX. `render()` returns `createHtmlResponse(renderToStream(document))`. See `REMIX_V3_PACKAGES.md` for the component rendering pattern.
 
+### Client updates: Remix `remix/component` patterns (target direction)
+
+The Remix v3 component package documentation ([`packages/component` README](https://github.com/remix-run/remix/blob/main/packages/component/README.md)) describes these defaults for browser behavior:
+
+- **Partial UI without a full document navigation:** use **`<Frame>`** so the client refetches **server-rendered HTML** and the runtime **diffs** it into the page. Client entries inside a frame can call **`handle.frame.reload()`** (and named **`handle.frames.get(…)`** for adjacent regions) so the server stays the source of truth for markup.
+- **Local interactivity in an island:** keep state in the **`clientEntry` setup**, mutate it in event handlers, and call **`handle.update()`** to re-render that component. Use the **`on()`** mixin for element events and **`ref()`** for small, intentional DOM work (focus, measure, scroll)—not for wholesale replacement of large subtrees.
+- **Document- or window-level listeners:** **`addEventListeners(target, handle.signal, listeners)`** is the documented way to attach global listeners with automatic cleanup when the island unmounts.
+
+That model does **not** center on fetching raw HTML strings, parsing them with **`DOMParser`**, and assigning **`innerHTML`** on a large container. That approach is ordinary DOM scripting and remains useful for progressive enhancement, but it is **not** the pattern Remix highlights in its examples.
+
+**Current state in this repository:** `data-fetch-submit` with **`data-replace-main`** (`app/components/fetch-submit.component.js`) still swaps **`#page-content`** by injecting parsed HTML. Related features may use **`querySelector`** and **`innerHTML`** for small restore targets or cached snapshots. **We plan to move toward Frame-based reloads and server-authored content in a follow-up pull request**; until then, new work may continue to match existing fetch-submit and island patterns for consistency.
+
 Refer to `REMIX_V3_PACKAGES.md` for the full package reference.
 
 ---
