@@ -8,7 +8,6 @@ import {
 import { clampGuidelineBarWidthPercent } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
-import { routes } from '../../routes.ts'
 
 /** Same height as {@link NumberInput} default (`h-10`) for inline row alignment. */
 const portfolioRowGhostButtonClass =
@@ -76,9 +75,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						method="post"
 						action={props.updateHref}
 						class="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-2"
-						data-fetch-submit
-						data-fragment-id="portfolio-list"
-						data-fragment-url={routes.portfolio.fragmentList.href()}
+						data-frame-submit="portfolio-list"
 						data-error-id={updateErrorId}
 					>
 						<div class="grid w-auto shrink-0 gap-0.5">
@@ -161,9 +158,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						<form
 							method="post"
 							action={props.deleteHref}
-							data-fetch-submit
-							data-fragment-id="portfolio-list"
-							data-fragment-url={routes.portfolio.fragmentList.href()}
+							data-frame-submit="portfolio-list"
 						>
 							<input type="hidden" name="_method" value="DELETE" />
 							<button

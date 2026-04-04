@@ -1,9 +1,6 @@
-import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
 import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
-import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
@@ -302,18 +299,6 @@ export const addEtfFormHandlers = {
 			}
 
 			return createRedirectResponse(routes.portfolio.index.href())
-		},
-
-		async fragmentList(context: AppRequestContext) {
-			const session = getSessionData(context.get(Session))
-			const entries =
-				session?.gistId && session.token
-					? await fetchEtfs(session.token, session.gistId)
-					: getGuestEtfs(context.get(Session))
-			const html = await renderToString(jsx(ListFragment, { entries }))
-			return createHtmlResponse(html, {
-				headers: { 'Cache-Control': 'no-store' },
-			})
 		},
 	},
 }

@@ -1,6 +1,6 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
 import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
+import { renderToStream } from 'remix/component/server'
 import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { max, min } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
@@ -503,12 +503,10 @@ export const guidelinesController = {
 				session?.gistId && session.token
 					? await fetchGuidelines(session.token, session.gistId)
 					: getGuestGuidelines(context.get(Session))
-			const html = await renderToString(
-				jsx(GuidelinesListFragment, { guidelines }),
+			return createHtmlResponse(
+				renderToStream(jsx(GuidelinesListFragment, { guidelines })),
+				{ headers: { 'Cache-Control': 'no-store' } },
 			)
-			return createHtmlResponse(html, {
-				headers: { 'Cache-Control': 'no-store' },
-			})
 		},
 	},
 }
@@ -527,7 +525,6 @@ async function renderGuidelinesPage(params: {
 	const assetClassOptions = assetClassSelectOptionsFromCatalog(catalog)
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(GuidelinesPage, {
-		guidelines,
 		assetClassOptions,
 		instrumentOptions,
 		activeAddTab,
@@ -538,5 +535,11 @@ async function renderGuidelinesPage(params: {
 		currentPage: 'guidelines',
 		body,
 		flashError,
+		resolveFrame(source) {
+			if (source === routes.guidelines.fragmentList.href()) {
+				return renderToStream(jsx(GuidelinesListFragment, { guidelines }))
+			}
+			return ''
+		},
 	})
 }

@@ -623,9 +623,17 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(body, /PLN/)
 	})
 
-	it('Add ETF form has data-fetch-submit for progressive enhancement', async () => {
+	it('forms use data-frame-submit for Frame-based list reload', async () => {
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
-		assert.match(body, /data-fetch-submit/)
+		assert.match(body, /data-frame-submit="portfolio-list"/)
+	})
+
+	it('portfolio page renders a named Frame for the holdings list', async () => {
+		const response = await testSessionFetch('http://localhost/portfolio')
+		const body = await response.text()
+		assert.match(body, /rmx:f:/)
+		assert.match(body, /"name":"portfolio-list"/)
+		assert.match(body, /Your Holdings/)
 	})
 })

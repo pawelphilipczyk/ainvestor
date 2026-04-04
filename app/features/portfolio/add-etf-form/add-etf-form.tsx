@@ -41,9 +41,7 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 					method="post"
 					action={routes.portfolio.create.href()}
 					class="mt-4 grid gap-4"
-					data-fetch-submit
-					data-fragment-id="portfolio-list"
-					data-fragment-url={routes.portfolio.fragmentList.href()}
+					data-frame-submit="portfolio-list"
 					data-reset-form
 					data-error-id="portfolio-form-error"
 				>
