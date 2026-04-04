@@ -1,0 +1,6 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+# Turn off automatic CodeRabbit reviews for this repository. Merge to the default
+# branch so the setting applies org-wide; feature-branch YAML is used per-PR.
+reviews:
+  auto_review:
+    enabled: false
