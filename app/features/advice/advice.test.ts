@@ -12,6 +12,12 @@ import {
 	setSharedCatalogForTests,
 } from '../catalog/lib.ts'
 import type { AdviceClient } from './advice-client.ts'
+import {
+	getAdviceGistLastSavedInTest,
+	resetAdviceGistTestOverlay,
+	type StoredAdviceAnalysis,
+	setAdviceGistTestOverlay,
+} from './advice-gist.ts'
 import { adviceTabHref, setAdviceClient } from './index.ts'
 
 type AdviceCompletionCreateParams = Parameters<
@@ -28,6 +34,18 @@ function seedSharedCatalog(bankJson: string): void {
 		entries: parseBankJsonToCatalog(JSON.parse(bankJson)),
 		ownerLogin: 'catalog-admin',
 	})
+}
+
+async function signInWithGist(login = 'advice-test-user') {
+	process.env.APPROVED_GITHUB_LOGINS = login
+	const session = await sessionStorage.read(null)
+	session.set('login', login)
+	session.set('token', 'test-token')
+	session.set('gistId', 'gist-advice-test')
+	const value = await sessionStorage.save(session)
+	if (value == null) throw new Error('expected session save value')
+	const cookieHeader = await sessionCookie.serialize(value)
+	return cookieHeader.split(';')[0]
 }
 
 function makeMockClient(responseText: string): AdviceClient {
@@ -58,6 +76,7 @@ function makeMockClient(responseText: string): AdviceClient {
 afterEach(() => {
 	resetTestSessionCookieJar()
 	resetSharedCatalogForTests()
+	resetAdviceGistTestOverlay()
 	setAdviceClient(null)
 	if (originalApprovedGithubLogins === undefined) {
 		delete process.env.APPROVED_GITHUB_LOGINS
@@ -151,7 +170,7 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 403)
 		assert.match(body, /not approved yet/)
-		assert.doesNotMatch(body, /Investment Advice/)
+		assert.doesNotMatch(body, /id="advice-last-result"/)
 	})
 
 	it('returns 400 with AdvicePage HTML when buy_next has empty cashAmount', async () => {
@@ -257,6 +276,8 @@ describe('Advice', () => {
 	})
 
 	it('returns advice HTML from the LLM when cashAmount is provided', async () => {
+		const cookie = await signInWithGist()
+		setAdviceGistTestOverlay(null)
 		setAdviceClient(makeMockClient('Buy VTI for broad market exposure.'))
 
 		const form = new FormData()
@@ -264,13 +285,87 @@ describe('Advice', () => {
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Advice/)
 		assert.match(body, /Buy VTI for broad market exposure\./)
+		const saved = getAdviceGistLastSavedInTest()
+		assert.ok(saved)
+		assert.equal(saved?.lastAnalysisMode, 'buy_next')
+		assert.equal(saved?.cashAmount, '1000')
+		assert.equal(saved?.document.blocks[0]?.type, 'paragraph')
+	})
+
+	it('GET /advice shows last analysis from gist when tab matches snapshot', async () => {
+		const cookie = await signInWithGist()
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'c1',
+						fund_name: 'Test',
+						ticker: 'TST',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		const stored: StoredAdviceAnalysis = {
+			version: 1,
+			savedAt: 1_700_000_000_000,
+			lastAnalysisMode: 'buy_next',
+			cashCurrency: 'PLN',
+			cashAmount: '500',
+			selectedModel: 'gpt-5.4-mini',
+			activeTab: 'buy_next',
+			document: {
+				blocks: [{ type: 'paragraph', text: 'Cached gist paragraph.' }],
+			},
+		}
+		setAdviceGistTestOverlay(stored)
+
+		const response = await testSessionFetch(
+			`http://localhost${adviceTabHref('buy_next')}`,
+			{ headers: { Cookie: cookie } },
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Cached gist paragraph\./)
+		assert.match(body, /Showing your last saved analysis from your data gist/)
+	})
+
+	it('GET /advice does not show gist snapshot when URL tab differs from snapshot tab', async () => {
+		const cookie = await signInWithGist()
+		setAdviceGistTestOverlay({
+			version: 1,
+			savedAt: Date.now(),
+			lastAnalysisMode: 'buy_next',
+			cashCurrency: 'PLN',
+			cashAmount: '100',
+			selectedModel: 'gpt-5.4-mini',
+			activeTab: 'buy_next',
+			document: {
+				blocks: [{ type: 'paragraph', text: 'Wrong tab should not show.' }],
+			},
+		})
+
+		const response = await testSessionFetch(
+			`http://localhost${adviceTabHref('portfolio_review')}`,
+			{ headers: { Cookie: cookie } },
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.doesNotMatch(body, /Wrong tab should not show/)
 	})
 
 	it('renders capital_snapshot and guideline_bars when the model returns them', async () => {

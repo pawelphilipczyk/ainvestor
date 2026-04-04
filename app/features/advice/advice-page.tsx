@@ -74,6 +74,10 @@ type AdvicePageProps = {
 	advice?: AdviceDocument
 	/** Shared catalog for resolving ETF detail links on proposal rows. */
 	catalog?: CatalogEntry[]
+	/** Last run was loaded from `advice-analysis.json` in the user gist. */
+	adviceFromGist?: boolean
+	/** ISO timestamp when gist snapshot was written (for notice line). */
+	adviceGistSavedAt?: string
 	formError?: FormError
 	pendingApproval?: boolean
 }
@@ -694,6 +698,18 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 				(props.cashAmount !== undefined ||
 					resultMode === 'portfolio_review') ? (
 					<Card class="min-w-0 max-w-full p-6" aria-live="polite">
+						{props.adviceFromGist === true &&
+						props.adviceGistSavedAt !== undefined &&
+						props.adviceGistSavedAt.length > 0 ? (
+							<p
+								class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+								role="status"
+							>
+								{format(t('advice.restore.fromGistNotice'), {
+									savedAt: props.adviceGistSavedAt,
+								})}
+							</p>
+						) : null}
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
 							{resultMode === 'portfolio_review'
 								? t('advice.result.titleReview')

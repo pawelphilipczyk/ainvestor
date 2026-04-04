@@ -228,6 +228,8 @@ export const en = {
 		'Based on your portfolio and {amount} {currency} available.',
 	'advice.result.subtitleReviewGuidelinesOnly':
 		'Based on your current ETF holdings, catalog, and guidelines.',
+	'advice.restore.fromGistNotice':
+		'Showing your last saved analysis from your data gist (saved {savedAt}). Run Ask AI again after you change holdings or cash.',
 	'advice.table.empty': 'No specific ETF proposals in this response.',
 	'advice.table.caption': 'Proposed ETF investments',
 	'advice.table.fund': 'Fund',
