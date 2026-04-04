@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
+	Link,
 	ScrollableTable,
 	SelectInput,
 	SubmitButton,
@@ -17,11 +18,14 @@ import { format, t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+import { DEFAULT_ADVICE_MODEL } from '../advice/advice-openai.ts'
 import type { CatalogEntry } from './lib.ts'
 
 type CatalogPageProps = {
 	catalog: CatalogEntry[]
 	holdings: EtfEntry[]
+	/** When true, ETF info dialog controls are omitted (same gate as advice). */
+	pendingApproval?: boolean
 	canImport: boolean
 	typeFilter: string
 	query: string
@@ -48,7 +52,16 @@ function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 	)
 }
 
-function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
+function renderCatalogRow(
+	entry: CatalogEntry,
+	holding: EtfEntry | undefined,
+	options: { tickerLinksToDetail: boolean },
+) {
+	const { tickerLinksToDetail } = options
+	const etfDetailHref = routes.catalog.etf.href(
+		{ catalogEntryId: entry.id },
+		{ model: DEFAULT_ADVICE_MODEL },
+	)
 	const valueCell = holding ? (
 		<td class="py-2 pl-4 pr-4 align-top text-sm font-medium text-foreground">
 			{formatValue(holding.value, holding.currency)}
@@ -65,7 +78,17 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 			class="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
 		>
 			<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold">
-				{entry.ticker}
+				{tickerLinksToDetail ? (
+					<Link
+						href={etfDetailHref}
+						navigationLoading={true}
+						class="text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+					>
+						{entry.ticker}
+					</Link>
+				) : (
+					entry.ticker
+				)}
 			</td>
 			<td
 				class={`py-2 pr-4 align-top text-sm break-words ${catalogTextColMax}`}
@@ -93,6 +116,9 @@ function renderCatalogRow(entry: CatalogEntry, holding?: EtfEntry) {
 export function CatalogPage(handle: Handle, _setup?: unknown) {
 	return (props: CatalogPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
+		const pendingApproval = props.pendingApproval === true
+		const tickerLinksToDetail = !pendingApproval
+		const tableColSpan = 6
 		const holdingKey = (s: string) => s.toUpperCase()
 		const holdingsByTicker = new Map(
 			props.holdings.flatMap((e) => {
@@ -268,7 +294,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							<ScrollableTable wrapperClass="mt-3">
 								<thead class="bg-muted/40 px-4">
 									<tr>
-										<td colspan={6} class="h-1" />
+										<td colspan={tableColSpan} class="h-1" />
 									</tr>
 									<CatalogTableHeader />
 								</thead>
@@ -277,6 +303,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 										renderCatalogRow(
 											e,
 											holdingsByTicker.get(holdingKey(e.ticker)),
+											{ tickerLinksToDetail },
 										),
 									)}
 								</tbody>
@@ -300,11 +327,15 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							<ScrollableTable wrapperClass="mt-3">
 								<thead class="bg-muted/40">
 									<tr>
-										<td colspan={6} class="h-1" />
+										<td colspan={tableColSpan} class="h-1" />
 									</tr>
 									<CatalogTableHeader />
 								</thead>
-								<tbody>{restOfCatalog.map((e) => renderCatalogRow(e))}</tbody>
+								<tbody>
+									{restOfCatalog.map((e) =>
+										renderCatalogRow(e, undefined, { tickerLinksToDetail }),
+									)}
+								</tbody>
 							</ScrollableTable>
 						</section>
 					</Card>

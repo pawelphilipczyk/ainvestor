@@ -641,4 +641,101 @@ describe('Advice', () => {
 		assert.equal(capturedModel, 'gpt-5.4-nano')
 		assert.match(body, /value="gpt-5.4-nano"/)
 	})
+
+	it('renders ETF details link with catalogEntryId when etf_proposals include it', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'advice-learn-row',
+						fund_name: 'Sample ETF',
+						ticker: 'SAM',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'etf_proposals',
+							rows: [
+								{
+									name: 'Sample ETF',
+									ticker: 'SAM',
+									catalogEntryId: 'advice-learn-row',
+									amount: 100,
+									currency: 'PLN',
+								},
+							],
+						},
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+		form.set('analysisMode', 'buy_next')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /\/catalog\/etf\/advice-learn-row/)
+		assert.match(body, /ETF details/)
+	})
+
+	it('renders ETF details link from ticker match when catalogEntryId is absent', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'ticker-only-row',
+						fund_name: 'Sample ETF',
+						ticker: 'SAM',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'etf_proposals',
+							rows: [
+								{
+									name: 'Sample ETF',
+									ticker: 'SAM',
+									amount: 100,
+									currency: 'PLN',
+								},
+							],
+						},
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+		form.set('analysisMode', 'buy_next')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /\/catalog\/etf\/ticker-only-row/)
+		assert.match(body, /ETF details/)
+	})
 })

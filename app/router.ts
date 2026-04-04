@@ -6,7 +6,8 @@ import { methodOverride } from 'remix/method-override-middleware'
 import { Session } from 'remix/session'
 import { session } from 'remix/session-middleware'
 import { staticFiles } from 'remix/static-middleware'
-import { adviceController, setAdviceClient } from './features/advice/index.ts'
+import { setAdviceClient } from './features/advice/advice-client.ts'
+import { adviceController } from './features/advice/index.ts'
 import { authController } from './features/auth/index.ts'
 import {
 	catalogController,

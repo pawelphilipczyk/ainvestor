@@ -6,6 +6,7 @@ import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
+import { setAdviceClient } from '../advice/advice-client.ts'
 import { resetEtfEntries } from '../portfolio/index.ts'
 import {
 	parseBankJsonToCatalog,
@@ -16,6 +17,7 @@ import {
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
 
 afterEach(() => {
+	setAdviceClient(null)
 	resetEtfEntries()
 	resetSharedCatalogForTests()
 	resetTestSessionCookieJar()
@@ -53,6 +55,179 @@ describe('ETF Catalog page', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /ETF Catalog/)
+	})
+
+	it('GET /catalog links ticker column to ETF detail when catalog has entries', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'row-ticker-link-test',
+						fund_name: 'Test Fund',
+						ticker: 'TST',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		const response = await testSessionFetch('http://localhost/catalog')
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /href="\/catalog\/etf\/row-ticker-link-test/)
+		assert.doesNotMatch(body, />ETF details</)
+	})
+
+	it('GET /catalog/etf/:id renders detail without inline AI text (analysis is on demand)', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'row-detail-test',
+						fund_name: 'Test Fund',
+						ticker: 'TST',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+
+		const response = await testSessionFetch(
+			'http://localhost/catalog/etf/row-detail-test',
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Test Fund/)
+		assert.match(body, /From your catalog/)
+		assert.match(body, /AI overview/)
+		assert.match(body, /action="\/catalog\/etf\/row-detail-test\/analysis"/)
+		assert.match(body, /data-catalog-etf-analysis-form/)
+		assert.match(body, /ETF analysis/)
+		assert.doesNotMatch(body, /Educational ETF paragraph/)
+		assert.match(body, /Back/)
+	})
+
+	it('POST /catalog/etf/:id/analysis returns JSON text when OpenAI succeeds', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'row-detail-test',
+						fund_name: 'Test Fund',
+						ticker: 'TST',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => ({
+						choices: [{ message: { content: 'Educational ETF paragraph.' } }],
+					}),
+				},
+			},
+		})
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/catalog/etf/row-detail-test/analysis', {
+				method: 'POST',
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
+				},
+				body: JSON.stringify({}),
+			}),
+		)
+		const data = (await response.json()) as { text?: string }
+
+		assert.equal(response.status, 200)
+		assert.equal(data.text, 'Educational ETF paragraph.')
+	})
+
+	it('POST /catalog/etf/:id/analysis returns 403 when session is pending approval', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'pending-analysis-test',
+						fund_name: 'Test Fund',
+						ticker: 'TST',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		process.env.APPROVED_GITHUB_LOGINS = 'someone-else'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'pending-catalog')
+		session.set('approvalStatus', 'pending')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookieHeader = await sessionCookie.serialize(value)
+		const cookie = cookieHeader.split(';')[0]
+
+		const response = await testSessionFetch(
+			new Request(
+				'http://localhost/catalog/etf/pending-analysis-test/analysis',
+				{
+					method: 'POST',
+					headers: {
+						Accept: 'application/json',
+						'Content-Type': 'application/json',
+						Cookie: cookie,
+					},
+					body: JSON.stringify({}),
+				},
+			),
+		)
+		assert.equal(response.status, 403)
+	})
+
+	it('GET /catalog/etf/:id returns 404 for unknown catalog entry id', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+
+		const response = await testSessionFetch(
+			'http://localhost/catalog/etf/does-not-exist',
+		)
+
+		assert.equal(response.status, 404)
+	})
+
+	it('GET /catalog omits ETF detail links from ticker column for pending-approval session', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Test Fund', ticker: 'TST', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		process.env.APPROVED_GITHUB_LOGINS = 'someone-else'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'pending-catalog')
+		session.set('approvalStatus', 'pending')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookieHeader = await sessionCookie.serialize(value)
+		const cookie = cookieHeader.split(';')[0]
+
+		const response = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.doesNotMatch(body, /href="[^"]*\/catalog\/etf\//)
 	})
 
 	it('GET /catalog shows import form for bank API JSON', async () => {

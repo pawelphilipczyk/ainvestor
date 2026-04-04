@@ -125,6 +125,20 @@ When formatting, deduplication, validation, or labeling rules start affecting mo
 
 This keeps pages focused on composition and prevents subtle drift between similar screens.
 
+### 7. Primary JSON POSTs (client): `SubmitButton` + small `clientEntry`
+
+**`data-fetch-submit`** is for **HTML** responses (replace main, redirect, fragments). Do **not** extend it for one-off JSON APIs — that keeps the shared handler easy to follow.
+
+When a **POST** returns **JSON** and you want the **same busy spinner** as submit buttons:
+
+- Use a **normal `<form method="post">`** with **`SubmitButton`** (not `data-fetch-submit`).
+- Add a **feature-scoped `clientEntry`** that listens for `submit`, calls `preventDefault`, builds the JSON body from **`new FormData(form)`** (matches checkbox/radio inclusion like a real submit), runs `fetch`, and toggles busy state via **`setSubmitButtonLoading`** from `app/components/submit-button-loading.component.js` (shared with `fetch-submit.component.js`).
+- Mount the `clientEntry` **next to the form** on the page that needs it (same pattern as `GuidelinesDeleteDialogInteractions` on the guidelines page). Only use the document shell for behavior that must exist on **every** route.
+
+**Reference implementation:** ETF catalog detail — `CatalogEtfAnalysisFormEnhancement` in `catalog-etf-page.tsx` + `catalog-etf-analysis-form.component.js`.
+
+**Note:** If a feature lives inside HTML that is **replaced client-side** (e.g. `data-replace-main` without a full navigation), a document-level listener can still see those submits—but full page loads only hydrate `clientEntry` components that appear in the current response. Prefer full navigation for pages that need their own `clientEntry` trees.
+
 ---
 
 ## Styling Strategy

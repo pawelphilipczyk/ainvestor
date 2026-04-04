@@ -23,6 +23,7 @@ export const en = {
 	'meta.title.portfolio': 'AI Investor – Portfolio',
 	'meta.title.advice': 'AI Investor – Get Advice',
 	'meta.title.catalog': 'AI Investor – ETF Catalog',
+	'meta.title.catalogEtf': 'AI Investor – {name}',
 	'meta.title.guidelines': 'AI Investor – Guidelines',
 
 	'nav.portfolio': 'Portfolio',
@@ -144,6 +145,24 @@ export const en = {
 	'catalog.table.description': 'Description',
 	'catalog.table.isin': 'ISIN',
 	'catalog.table.value': 'Value',
+	'catalog.etfDetail.back': 'Back',
+	'catalog.etfDetail.pendingBody':
+		'ETF details are available after your account is approved.',
+	'catalog.etfDetail.catalogCardTitle': 'From your catalog',
+	'catalog.etfDetail.analysisTitle': 'AI overview',
+	'catalog.etfDetail.loadAnalysisButton': 'ETF analysis',
+	'catalog.etfDetail.field.id': 'Record ID',
+	'catalog.etfDetail.field.expenseRatio': 'Expense ratio',
+	'catalog.etfDetail.field.riskKid': 'Risk (KID 1–7)',
+	'catalog.etfDetail.field.region': 'Region',
+	'catalog.etfDetail.field.sector': 'Sector',
+	'catalog.etfDetail.field.rateOfReturn': 'Annual rate of return',
+	'catalog.etfDetail.field.volatility': 'Volatility',
+	'catalog.etfDetail.field.returnRisk': 'Return / risk',
+	'catalog.etfDetail.field.fundSize': 'Fund size',
+	'catalog.etfDetail.field.esg': 'ESG',
+	'catalog.etfDetail.esgYes': 'Yes',
+	'catalog.etfDetail.esgNo': 'No',
 	'catalog.emptyCell': '—',
 	'catalog.etfTypeUnknown': 'Unknown',
 	'catalog.noMatch': 'No ETFs match your search.',
@@ -216,6 +235,7 @@ export const en = {
 	'advice.table.amount': 'Amount',
 	'advice.table.currency': 'Currency',
 	'advice.table.note': 'Note',
+	'advice.table.etfDetailsLink': 'ETF details',
 	'advice.capital.title': 'Portfolio mix',
 	'advice.capital.snapshotError':
 		'Portfolio snapshot could not be shown because the data from the model was inconsistent (for example mixed currencies or invalid amounts).',
@@ -248,6 +268,11 @@ export const en = {
 		'Could not save your portfolio. Please try again in a moment.',
 	'errors.catalog.importNotAllowed':
 		'Only the shared catalog gist owner can import catalog updates.',
+	'errors.catalog.etfDetail.service':
+		"We couldn't load this ETF description right now. Please try again in a moment.",
+	'errors.catalog.etfDetail.notFound': 'That catalog entry was not found.',
+	'errors.catalog.etfDetail.pendingAnalysis':
+		'ETF analysis is available after your account is approved.',
 
 	'errors.guidelines.totalExceeds100':
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',
@@ -270,8 +295,9 @@ export const en = {
 		'Your account is not approved yet. You cannot request advice until your GitHub username is added to app/lib/approved-github-logins.ts and deployed.',
 	'errors.advice.service':
 		"We couldn't get advice right now. Please try again in a moment.",
-
 	'client.formSubmit.genericError': 'Please check your input.',
+	'client.catalogEtfAnalysisNetworkError':
+		'Could not load ETF analysis. Check your connection and try again.',
 } as const
 
 export type MessageKey = keyof typeof en

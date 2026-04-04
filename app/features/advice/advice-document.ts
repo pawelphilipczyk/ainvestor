@@ -16,6 +16,8 @@ import { CURRENCIES } from '../../lib/currencies.ts'
 const etfProposalRowSchema = object({
 	name: string().pipe(minLength(1)),
 	ticker: optional(string()),
+	/** Stable catalog row id when known (for ETF detail links). */
+	catalogEntryId: optional(string()),
 	amount: optional(number()),
 	currency: optional(enum_(CURRENCIES)),
 	note: optional(string()),

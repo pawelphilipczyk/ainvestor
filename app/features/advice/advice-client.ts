@@ -12,6 +12,17 @@ export type AdviceClient = {
 	}
 }
 
+let injectedClient: AdviceClient | null = null
+
+/** Tests inject a mock; production uses OpenAI when unset. */
+export function setAdviceClient(client: AdviceClient | null) {
+	injectedClient = client
+}
+
+export function getOrCreateAdviceClient(): AdviceClient {
+	return injectedClient ?? createAdviceClient()
+}
+
 export function createAdviceClient(): AdviceClient {
 	return new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
 }

@@ -2,6 +2,12 @@
  * Base CSS variables for light/dark themes. Inlined in document shell style tag.
  */
 export const baseCss = `@layer base {
+  /* Prevent rare wide descendants (tables, pre) from growing the viewport width. */
+  html {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   @view-transition {
     navigation: auto;
   }
@@ -99,6 +105,35 @@ export const baseCss = `@layer base {
   button[type='submit'][aria-busy='true'] .submit-button-busy-label,
   input[type='submit'][aria-busy='true'] .submit-button-busy-label {
     color: hsl(var(--muted-foreground));
+  }
+
+  /* Closed native dialogs must stay hidden if Tailwind sets display on dialog. */
+  dialog:not([open]) {
+    display: none !important;
+  }
+
+  /*
+   * Busy overlay for buttons/links (SubmitButton, Link, client fetch CTAs).
+   * Defined here so Tailwind CDN always applies it; group-data loading variants from TS
+   * constants are often not generated when classes are composed outside scanned HTML.
+   */
+  .busy-control-overlay {
+    display: none;
+  }
+
+  .busy-control-root[data-loading] {
+    pointer-events: none;
+    opacity: 0.9;
+  }
+
+  .busy-control-root[data-loading] .busy-control-label {
+    visibility: hidden;
+  }
+
+  .busy-control-root[data-loading] .busy-control-overlay {
+    display: flex;
+    align-items: center;
+    justify-content: center;
   }
 }
 `

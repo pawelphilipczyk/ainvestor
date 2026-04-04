@@ -6,6 +6,7 @@ import {
 	CATALOG_FILENAME,
 	catalogMergeKey,
 	mergeBankIntoCatalog,
+	normalizeCatalogTickerLookupKey,
 	parseBankJsonToCatalog,
 	parseCatalogFromGist,
 } from './lib.ts'
@@ -150,6 +151,7 @@ describe('parseBankJsonToCatalog', () => {
 		})
 		assert.equal(result.length, 1)
 		assert.equal(result[0].ticker, 'OK')
+		assert.equal(result[0].id, 't:OK')
 	})
 
 	it('uppercases ticker', () => {
@@ -157,6 +159,69 @@ describe('parseBankJsonToCatalog', () => {
 			data: [{ fund_name: 'Test', ticker: 'xmov gr' }],
 		})
 		assert.equal(result[0].ticker, 'XMOV GR')
+		assert.equal(result[0].id, 't:XMOV+GR')
+	})
+
+	it('always qualifies ISIN-based id with market or ticker (stable across import batches)', () => {
+		const result = parseBankJsonToCatalog({
+			data: [
+				{
+					isin: 'IE00BGV5VR99',
+					fund_name: 'Xtrackers',
+					ticker: 'XMOV GR',
+					assets: 'akcje',
+				},
+			],
+		})
+		assert.equal(result.length, 1)
+		assert.equal(result[0].id, 'IE00BGV5VR99:GR')
+	})
+
+	it('appends market suffix to ISIN when the same ISIN lists on multiple tickers', () => {
+		const result = parseBankJsonToCatalog({
+			data: [
+				{
+					isin: 'IE00B4L5Y983',
+					fund_name: 'Fund Xetra',
+					ticker: '2B7A GR',
+					assets: 'akcje',
+				},
+				{
+					isin: 'IE00B4L5Y983',
+					fund_name: 'Fund LSE',
+					ticker: 'IUUS LN',
+					assets: 'akcje',
+				},
+			],
+		})
+		assert.equal(result.length, 2)
+		const xetra = result.find((e) => e.ticker === '2B7A GR')
+		const lse = result.find((e) => e.ticker === 'IUUS LN')
+		assert.equal(xetra?.id, 'IE00B4L5Y983:GR')
+		assert.equal(lse?.id, 'IE00B4L5Y983:LN')
+	})
+
+	it('prefers API market field over ticker suffix when disambiguating', () => {
+		const result = parseBankJsonToCatalog({
+			data: [
+				{
+					isin: 'IE00B4L5Y983',
+					fund_name: 'A',
+					ticker: 'FOO',
+					market: 'XETRA',
+					assets: 'akcje',
+				},
+				{
+					isin: 'IE00B4L5Y983',
+					fund_name: 'B',
+					ticker: 'BAR',
+					market: 'LSE',
+					assets: 'akcje',
+				},
+			],
+		})
+		assert.equal(result[0].id, 'IE00B4L5Y983:XETRA')
+		assert.equal(result[1].id, 'IE00B4L5Y983:LSE')
 	})
 
 	it('returns one row per data item; merge collapses duplicate keys', () => {
@@ -184,6 +249,13 @@ describe('parseBankJsonToCatalog', () => {
 		assert.equal(merged.length, 1)
 		assert.equal(merged[0].id, 'id-a')
 		assert.equal(merged[0].description, 'Second wins')
+	})
+})
+
+describe('normalizeCatalogTickerLookupKey', () => {
+	it('collapses spaces to plus and uppercases', () => {
+		assert.equal(normalizeCatalogTickerLookupKey('4rue gr'), '4RUE+GR')
+		assert.equal(normalizeCatalogTickerLookupKey('4RUE+GR'), '4RUE+GR')
 	})
 })
 

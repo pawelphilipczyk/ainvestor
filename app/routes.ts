@@ -1,5 +1,7 @@
 import { del, form, get, post, route } from 'remix/fetch-router/routes'
 
+const adviceForm = form('advice')
+
 export const routes = route({
 	health: get('/health'),
 	home: {
@@ -19,7 +21,7 @@ export const routes = route({
 		logout: post('/auth/logout'),
 	},
 	advice: {
-		...form('advice'),
+		...adviceForm,
 	},
 	guidelines: {
 		index: get('/guidelines'),
@@ -29,8 +31,10 @@ export const routes = route({
 		delete: del('/guidelines/:id'),
 		fragmentList: get('/fragments/guidelines-list'),
 	},
-	catalog: {
-		index: get('/catalog'),
-		import: post('/catalog/import'),
-	},
+	catalog: route('/catalog', {
+		index: get('/'),
+		etf: get('/etf/:catalogEntryId'),
+		etfAnalysis: post('/etf/:catalogEntryId/analysis'),
+		import: post('/import'),
+	}),
 })

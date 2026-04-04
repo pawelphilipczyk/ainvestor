@@ -2,6 +2,7 @@ import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
+	Link,
 	NumberInput,
 	ScrollableTable,
 	SelectInput,
@@ -15,7 +16,13 @@ import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
-import type { AdviceBlock, AdviceDocument } from './advice-document.ts'
+import type { CatalogEntry } from '../catalog/lib.ts'
+import { findCatalogEntryByTicker } from '../catalog/lib.ts'
+import type {
+	AdviceBlock,
+	AdviceDocument,
+	AdviceEtfProposalRow,
+} from './advice-document.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -65,8 +72,30 @@ type AdvicePageProps = {
 	lastAnalysisMode?: AdviceAnalysisMode
 	selectedModel?: AdviceModelId
 	advice?: AdviceDocument
+	/** Shared catalog for resolving ETF detail links on proposal rows. */
+	catalog?: CatalogEntry[]
 	formError?: FormError
 	pendingApproval?: boolean
+}
+
+function resolveProposalEtfDetailsCatalogEntryId(
+	catalog: CatalogEntry[] | undefined,
+	row: AdviceEtfProposalRow,
+): string | null {
+	if (catalog === undefined || catalog.length === 0) return null
+	const fromModel = row.catalogEntryId?.trim()
+	if (fromModel !== undefined && fromModel.length > 0) {
+		if (catalog.some((entry) => entry.id === fromModel)) return fromModel
+	}
+	const ticker =
+		row.ticker !== undefined &&
+		row.ticker.trim().length > 0 &&
+		row.ticker !== t('catalog.emptyCell')
+			? row.ticker.trim()
+			: null
+	if (ticker === null) return null
+	const match = findCatalogEntryByTicker(catalog, ticker)
+	return match?.id ?? null
 }
 
 const currencyOptions = CURRENCIES.map((c) => ({ value: c, label: c }))
@@ -328,8 +357,15 @@ function renderGuidelineBars(
 
 function renderEtfProposals(
 	block: Extract<AdviceBlock, { type: 'etf_proposals' }>,
-	defaultCashCurrency: string,
+	options: {
+		defaultCashCurrency: string
+		selectedModel: AdviceModelId
+		pendingApproval: boolean
+		catalog: CatalogEntry[] | undefined
+	},
 ) {
+	const { defaultCashCurrency, selectedModel, pendingApproval, catalog } =
+		options
 	return (
 		<section class="min-w-0 max-w-full space-y-2">
 			{block.caption ? (
@@ -374,6 +410,16 @@ function renderEtfProposals(
 							>
 								{t('advice.table.note')}
 							</th>
+							{pendingApproval ? null : (
+								<th
+									scope="col"
+									class="px-3 py-2 text-left font-medium text-card-foreground"
+								>
+									<span class="sr-only">
+										{t('advice.table.etfDetailsLink')}
+									</span>
+								</th>
+							)}
 						</tr>
 					</thead>
 					<tbody>
@@ -381,6 +427,17 @@ function renderEtfProposals(
 							const displayCurrency =
 								row.amount !== undefined
 									? (row.currency ?? defaultCashCurrency)
+									: null
+							const catalogEntryId = resolveProposalEtfDetailsCatalogEntryId(
+								catalog,
+								row,
+							)
+							const etfDetailsHref =
+								catalogEntryId !== null
+									? routes.catalog.etf.href(
+											{ catalogEntryId },
+											{ model: selectedModel },
+										)
 									: null
 							return (
 								<tr
@@ -402,6 +459,23 @@ function renderEtfProposals(
 									<td class="px-3 py-2 text-muted-foreground">
 										{row.note ?? t('catalog.emptyCell')}
 									</td>
+									{pendingApproval ? null : (
+										<td class="px-3 py-2 align-top">
+											{etfDetailsHref !== null ? (
+												<Link
+													href={etfDetailsHref}
+													navigationLoading={true}
+													class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+												>
+													{t('advice.table.etfDetailsLink')}
+												</Link>
+											) : (
+												<span class="text-xs text-muted-foreground">
+													{t('catalog.emptyCell')}
+												</span>
+											)}
+										</td>
+									)}
 								</tr>
 							)
 						})}
@@ -416,6 +490,11 @@ function renderAdviceBlock(
 	block: AdviceBlock,
 	defaultCashCurrency: string,
 	blockIndex: number,
+	etfOptions: {
+		selectedModel: AdviceModelId
+		pendingApproval: boolean
+		catalog: CatalogEntry[] | undefined
+	},
 ) {
 	if (block.type === 'paragraph') {
 		return (
@@ -436,7 +515,12 @@ function renderAdviceBlock(
 			`advice-guideline-bars-heading-${blockIndex}`,
 		)
 	}
-	return renderEtfProposals(block, defaultCashCurrency)
+	return renderEtfProposals(block, {
+		defaultCashCurrency,
+		selectedModel: etfOptions.selectedModel,
+		pendingApproval: etfOptions.pendingApproval,
+		catalog: etfOptions.catalog,
+	})
 }
 
 export function AdvicePage(_handle: Handle, _setup?: unknown) {
@@ -626,7 +710,11 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						<div class="mt-4 min-w-0 space-y-6">
 							{props.advice.blocks.map((block, i) => (
 								<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
-									{renderAdviceBlock(block, cashCurrency, i)}
+									{renderAdviceBlock(block, cashCurrency, i, {
+										selectedModel,
+										pendingApproval,
+										catalog: props.catalog,
+									})}
 								</div>
 							))}
 						</div>

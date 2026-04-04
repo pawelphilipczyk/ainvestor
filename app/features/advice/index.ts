@@ -19,8 +19,8 @@ import {
 	type SessionData,
 } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { fetchCatalog } from '../catalog/lib.ts'
-import { type AdviceClient, createAdviceClient } from './advice-client.ts'
+import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
+import { getOrCreateAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
 import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
 import {
@@ -70,6 +70,8 @@ function renderAdviceResponse(options: {
 		lastAnalysisMode?: AdviceAnalysisMode
 		selectedModel?: AdviceModelId
 		advice?: AdviceDocument
+		/** Shared catalog snapshot for ETF detail links on proposal rows. */
+		catalog?: CatalogEntry[]
 		formError?: { summary: string; detail?: string }
 		pendingApproval?: boolean
 	}
@@ -84,14 +86,7 @@ function renderAdviceResponse(options: {
 	})
 }
 
-// ---------------------------------------------------------------------------
-// Advice client (injectable for tests)
-// ---------------------------------------------------------------------------
-let adviceClient: AdviceClient | null = null
-
-export function setAdviceClient(client: AdviceClient | null) {
-	adviceClient = client
-}
+export { setAdviceClient } from './advice-client.ts'
 
 // ---------------------------------------------------------------------------
 // Controller
@@ -253,7 +248,7 @@ export const adviceController = {
 						? await fetchGuidelines(session.token, session.gistId)
 						: getGuestGuidelines(context.get(Session))
 
-				const client = adviceClient ?? createAdviceClient()
+				const client = getOrCreateAdviceClient()
 				const advice = await getInvestmentAdvice({
 					holdings: entries,
 					guidelines,
@@ -276,6 +271,7 @@ export const adviceController = {
 						lastAnalysisMode: analysisMode,
 						selectedModel: adviceModel,
 						advice,
+						catalog,
 					},
 				})
 			} catch (err) {
