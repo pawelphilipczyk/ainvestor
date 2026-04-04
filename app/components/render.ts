@@ -1,5 +1,6 @@
 import type { RemixNode } from 'remix/component'
 import { jsx } from 'remix/component/jsx-runtime'
+import type { RenderToStreamOptions } from 'remix/component/server'
 import { renderToStream } from 'remix/component/server'
 import { createHtmlResponse } from 'remix/response/html'
 import type { AppPage } from '../lib/app-page.ts'
@@ -13,6 +14,7 @@ export type RenderOptions = {
 	body: RemixNode
 	flashError?: string
 	init?: ResponseInit
+	resolveFrame?: RenderToStreamOptions['resolveFrame']
 }
 
 /**
@@ -28,5 +30,12 @@ export async function render(options: RenderOptions): Promise<Response> {
 		children: options.body,
 	})
 
-	return createHtmlResponse(renderToStream(document), options.init)
+	const streamOptions: RenderToStreamOptions | undefined = options.resolveFrame
+		? { resolveFrame: options.resolveFrame }
+		: undefined
+
+	return createHtmlResponse(
+		renderToStream(document, streamOptions),
+		options.init,
+	)
 }
