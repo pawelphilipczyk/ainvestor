@@ -1,4 +1,6 @@
 import { jsx } from 'remix/component/jsx-runtime'
+import { renderToStream } from 'remix/component/server'
+import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
@@ -16,6 +18,7 @@ import {
 } from '../advice/advice-openai.ts'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
+import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
 	catalogCanImport,
 	loadCatalogEtfDetailContext,
@@ -311,12 +314,49 @@ export const catalogController = {
 
 			return createRedirectResponse(routes.catalog.index.href())
 		},
+
+		async fragmentList(context: AppRequestContext) {
+			const url = new URL(context.request.url)
+			const typeFilter = url.searchParams.get('type') ?? ''
+			const query = url.searchParams.get('q') ?? ''
+
+			const load = await loadCatalogPageContext(context)
+			const { catalogSnapshot, entries } = load
+			const layoutSession = getLayoutSession(context.get(Session))
+			const pendingApproval = layoutSession?.approvalStatus === 'pending'
+
+			return createHtmlResponse(
+				renderToStream(
+					jsx(CatalogListFragment, {
+						catalog: catalogSnapshot.entries,
+						holdings: entries,
+						typeFilter,
+						query,
+						totalCatalogCount: catalogSnapshot.entries.length,
+						pendingApproval,
+					}),
+				),
+				{ headers: { 'Cache-Control': 'no-store' } },
+			)
+		},
 	},
 }
 
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
+function catalogListFrameSrc(params: {
+	typeFilter: string
+	query: string
+}): string {
+	const searchParams = new URLSearchParams()
+	if (params.typeFilter) searchParams.set('type', params.typeFilter)
+	if (params.query) searchParams.set('q', params.query)
+	const qs = searchParams.toString()
+	const base = routes.catalog.fragmentList.href()
+	return qs ? `${base}?${qs}` : base
+}
+
 async function renderCatalogPage(params: {
 	catalog: CatalogEntry[]
 	entries: EtfEntry[]
@@ -339,14 +379,14 @@ async function renderCatalogPage(params: {
 		query,
 		flashError,
 	} = params
+	const frameSrc = catalogListFrameSrc({ typeFilter, query })
 	const body = jsx(CatalogPage, {
-		catalog,
-		holdings: entries,
-		pendingApproval,
+		catalogCount: catalog.length,
 		canImport,
 		typeFilter,
 		query,
 		sharedCatalogOwnerLogin,
+		catalogListFrameSrc: frameSrc,
 	})
 	return render({
 		title: t('meta.title.catalog'),
@@ -354,5 +394,20 @@ async function renderCatalogPage(params: {
 		currentPage: 'catalog',
 		body,
 		flashError,
+		resolveFrame(source) {
+			if (source === frameSrc) {
+				return renderToStream(
+					jsx(CatalogListFragment, {
+						catalog,
+						holdings: entries,
+						typeFilter,
+						query,
+						totalCatalogCount: catalog.length,
+						pendingApproval,
+					}),
+				)
+			}
+			return ''
+		},
 	})
 }

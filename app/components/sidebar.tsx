@@ -85,10 +85,7 @@ export function Sidebar(handle: Handle, _setup?: unknown) {
 											</span>
 										) : null}
 									</p>
-									<form
-										method="post"
-										action={routes.auth.logout.href()}
-								>
+									<form method="post" action={routes.auth.logout.href()}>
 										<button
 											type="submit"
 											class="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"

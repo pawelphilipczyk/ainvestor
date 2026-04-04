@@ -537,9 +537,7 @@ async function renderGuidelinesPage(params: {
 		flashError,
 		resolveFrame(source) {
 			if (source === routes.guidelines.fragmentList.href()) {
-				return renderToStream(
-					jsx(GuidelinesListFragment, { guidelines }),
-				)
+				return renderToStream(jsx(GuidelinesListFragment, { guidelines }))
 			}
 			return ''
 		},

@@ -36,5 +36,6 @@ export const routes = route({
 		etf: get('/etf/:catalogEntryId'),
 		etfAnalysis: post('/etf/:catalogEntryId/analysis'),
 		import: post('/import'),
+		fragmentList: get('/fragments/list'),
 	}),
 })
