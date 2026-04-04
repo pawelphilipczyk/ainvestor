@@ -1,18 +1,10 @@
 import type { Handle } from 'remix/component'
-import {
-	busyControlLabelClass,
-	busyControlOverlayClass,
-	busyControlRootStateClasses,
-	busyControlSpinnerClass,
-} from '../../components/busy-control-overlay.ts'
 import { Card } from '../../components/card.tsx'
-import { submitButtonDefaultClasses } from '../../components/form-control-classes.ts'
 import { Link } from '../../components/link.tsx'
+import { SubmitButton } from '../../components/submit-button.tsx'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
-// @ts-expect-error Runtime-only remix clientEntry
-import { CatalogEtfAnalysisInteractions } from './catalog-etf-analysis.component.js'
 import type { CatalogEntry } from './lib.ts'
 
 export type CatalogEtfPageProps = {
@@ -157,7 +149,6 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 					<section
 						class="min-w-0 max-w-full overflow-x-hidden"
 						aria-labelledby="catalog-etf-analysis-heading"
-						data-catalog-etf-analysis-section
 					>
 						<h2
 							id="catalog-etf-analysis-heading"
@@ -167,30 +158,33 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 						</h2>
 						{props.analysisPostHref ? (
 							<>
-								<button
-									type="button"
-									data-catalog-etf-analysis
-									data-post-url={props.analysisPostHref}
-									data-model={props.selectedModel ?? ''}
-									class={`${busyControlRootStateClasses} ${submitButtonDefaultClasses} min-w-0`.trim()}
+								<form
+									method="post"
+									action={props.analysisPostHref}
+									data-fetch-submit
+									data-fetch-submit-json
+									data-json-result-target="#catalog-etf-analysis-output"
+									data-json-error-target="#catalog-etf-analysis-error"
+									class="min-w-0"
 								>
-									<span class={busyControlLabelClass}>
+									<input
+										type="hidden"
+										name="model"
+										value={props.selectedModel ?? ''}
+									/>
+									<SubmitButton>
 										{t('catalog.etfDetail.loadAnalysisButton')}
-									</span>
-									<span class={busyControlOverlayClass} aria-hidden="true">
-										<span class={busyControlSpinnerClass} />
-									</span>
-								</button>
+									</SubmitButton>
+								</form>
 								<p
+									id="catalog-etf-analysis-error"
 									role="alert"
 									class="mt-3 hidden text-sm text-destructive"
-									data-catalog-etf-analysis-status
 								/>
 								<div
+									id="catalog-etf-analysis-output"
 									class="mt-4 hidden min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground"
-									data-catalog-etf-analysis-output
 								/>
-								<CatalogEtfAnalysisInteractions />
 							</>
 						) : (
 							<div class="min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">

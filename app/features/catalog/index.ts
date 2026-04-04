@@ -219,13 +219,26 @@ export const catalogController = {
 				)
 			}
 
-			let jsonBody: unknown
-			try {
-				jsonBody = await context.request.json()
-			} catch {
-				jsonBody = null
+			const contentType = context.request.headers.get('content-type') ?? ''
+			let model: AdviceModelId = DEFAULT_ADVICE_MODEL
+			if (contentType.includes('application/json')) {
+				let jsonBody: unknown
+				try {
+					jsonBody = await context.request.json()
+				} catch {
+					jsonBody = null
+				}
+				model = parseAdviceModelFromJsonBody(jsonBody)
+			} else {
+				const form = context.get(FormData)
+				const rawModel = form?.get('model')
+				if (
+					typeof rawModel === 'string' &&
+					(ADVICE_MODEL_IDS as readonly string[]).includes(rawModel)
+				) {
+					model = rawModel as AdviceModelId
+				}
 			}
-			const model = parseAdviceModelFromJsonBody(jsonBody)
 
 			const catalogSnapshot = await fetchSharedCatalogSnapshot()
 			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)

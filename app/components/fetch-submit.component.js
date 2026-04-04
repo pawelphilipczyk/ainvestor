@@ -128,12 +128,25 @@ function buildGetNavigationUrl(form, submitControl) {
 	return actionUrl.toString()
 }
 
+function clearJsonErrorTarget(form) {
+	const selector = form.getAttribute('data-json-error-target')
+	if (!selector) return
+	const el = document.querySelector(selector)
+	if (el) {
+		el.textContent = ''
+		el.classList.add('hidden')
+	}
+}
+
 async function handleFetchSubmit(form, submitBtn) {
 	const fragmentId = form.dataset.fragmentId
 	const fragmentUrl = form.dataset.fragmentUrl
 	const errorId = form.dataset.errorId
 	const resetForm = form.hasAttribute('data-reset-form')
 	const replaceMain = form.hasAttribute('data-replace-main')
+	const fetchSubmitJson = form.hasAttribute('data-fetch-submit-json')
+	const jsonResultTarget = form.getAttribute('data-json-result-target')
+	const jsonErrorTarget = form.getAttribute('data-json-error-target')
 
 	const hideError = () => {
 		if (errorId) {
@@ -143,6 +156,7 @@ async function handleFetchSubmit(form, submitBtn) {
 				errorElement.classList.add('hidden')
 			}
 		}
+		clearJsonErrorTarget(form)
 	}
 
 	const showError = (message) => {
@@ -159,12 +173,70 @@ async function handleFetchSubmit(form, submitBtn) {
 	hideError()
 
 	try {
-		const response = await fetch(form.action, {
-			method: form.method,
-			body: new FormData(form),
-			redirect: 'follow',
-			headers: { Accept: 'application/json' },
-		})
+		let response
+		if (fetchSubmitJson) {
+			const payload = {}
+			for (const el of form.querySelectorAll(
+				'input[name], select[name], textarea[name]',
+			)) {
+				if (
+					el instanceof HTMLInputElement &&
+					(el.type === 'submit' || el.type === 'button')
+				) {
+					continue
+				}
+				if (el.name) {
+					payload[el.name] = el.value
+				}
+			}
+			response = await fetch(form.action, {
+				method: form.method,
+				body: JSON.stringify(payload),
+				redirect: 'follow',
+				headers: {
+					Accept: 'application/json',
+					'Content-Type': 'application/json',
+				},
+			})
+		} else {
+			response = await fetch(form.action, {
+				method: form.method,
+				body: new FormData(form),
+				redirect: 'follow',
+				headers: { Accept: 'application/json' },
+			})
+		}
+
+		if (response.ok && fetchSubmitJson && jsonResultTarget) {
+			const data = await response.json().catch(() => ({}))
+			const out = document.querySelector(jsonResultTarget)
+			if (out) {
+				out.textContent = typeof data.text === 'string' ? data.text : ''
+				out.classList.remove('hidden')
+			}
+			form.classList.add('hidden')
+			return
+		}
+
+		if (!response.ok && fetchSubmitJson && jsonErrorTarget) {
+			const data = await response.json().catch(() => ({}))
+			const errEl = document.querySelector(jsonErrorTarget)
+			const msgs = readClientMessages()
+			const fallback =
+				typeof msgs?.catalogEtfAnalysisNetworkError === 'string'
+					? msgs.catalogEtfAnalysisNetworkError
+					: typeof msgs?.genericFormError === 'string'
+						? msgs.genericFormError
+						: 'Something went wrong.'
+			if (errEl) {
+				errEl.textContent =
+					typeof data.error === 'string' && data.error.length > 0
+						? data.error
+						: fallback
+				errEl.classList.remove('hidden')
+			}
+			return
+		}
 
 		if (response.ok) {
 			if (fragmentId && fragmentUrl) {
@@ -218,7 +290,22 @@ async function handleFetchSubmit(form, submitBtn) {
 			window.location.href = response.url || '/'
 		}
 	} catch {
-		window.location.href = '/'
+		if (fetchSubmitJson && jsonErrorTarget) {
+			const errEl = document.querySelector(jsonErrorTarget)
+			const msgs = readClientMessages()
+			const message =
+				typeof msgs?.catalogEtfAnalysisNetworkError === 'string'
+					? msgs.catalogEtfAnalysisNetworkError
+					: typeof msgs?.genericFormError === 'string'
+						? msgs.genericFormError
+						: 'Something went wrong.'
+			if (errEl) {
+				errEl.textContent = message
+				errEl.classList.remove('hidden')
+			}
+		} else {
+			window.location.href = '/'
+		}
 	} finally {
 		setSubmitButtonLoading(submitBtn, false)
 	}

@@ -103,10 +103,8 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Test Fund/)
 		assert.match(body, /From your catalog/)
 		assert.match(body, /AI overview/)
-		assert.match(
-			body,
-			/data-post-url="\/catalog\/etf\/row-detail-test\/analysis"/,
-		)
+		assert.match(body, /action="\/catalog\/etf\/row-detail-test\/analysis"/)
+		assert.match(body, /data-fetch-submit-json/)
 		assert.match(body, /ETF analysis/)
 		assert.doesNotMatch(body, /Educational ETF paragraph/)
 		assert.match(body, /Back/)

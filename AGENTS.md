@@ -35,7 +35,7 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 3. Use Tailwind utility classes as the default styling approach.
 4. Keep JavaScript modular, minimal, and enhancement-only.
 5. Do not introduce React/Vue-style component frameworks unless explicitly requested.
-6. **Primary async buttons** (client `fetch` CTAs): use primary styling plus the shared busy overlay (`submitButtonDefaultClasses` + `busy-control-overlay` classes, `data-loading` + `aria-busy` while fetching). See **§7** in `docs/UI_ARCHITECTURE_GUIDELINES.md`.
+6. **Primary JSON POSTs from the page** (e.g. on-demand API): use **`SubmitButton`** inside **`data-fetch-submit`** + **`data-fetch-submit-json`** (see **§7** in `docs/UI_ARCHITECTURE_GUIDELINES.md` and `fetch-submit.component.js`), not a separate client `fetch` handler.
 
 ## Required defaults for Remix work
 

@@ -125,16 +125,17 @@ When formatting, deduplication, validation, or labeling rules start affecting mo
 
 This keeps pages focused on composition and prevents subtle drift between similar screens.
 
-### 7. Primary actions and async busy state (client `fetch`)
+### 7. Primary JSON actions (client): use `SubmitButton` + fetch-submit
 
-For **standalone actions** that trigger work in the browser (for example `fetch` to a JSON endpoint), when the action is the **main call-to-action** on that section:
+When a **POST** should return **JSON** (not a full navigation) and you want the **same busy spinner** as forms, **do not** hand-roll `fetch` + `data-loading` on a plain button.
 
-- Style the control as **primary**: reuse **`submitButtonDefaultClasses`** from `app/components/form-control-classes.ts` (same visual weight as `SubmitButton`).
-- Show a **spinner while the request is in flight**: reuse **`busyControlRootStateClasses`**, **`busyControlLabelClass`**, **`busyControlOverlayClass`**, and **`busyControlSpinnerClass`** from `app/components/busy-control-overlay.ts`. Structure the button with an inner label `span` and an overlay `span` containing the spinner, matching `SubmitButton`.
-- While waiting on the network, set **`data-loading`** and **`aria-busy="true"`** on the button so the overlay appears (same contract as fetch-submit and navigation-link loading). Clear both when the request settles (success or error).
-- The visible busy state relies on **`busy-control-root` / `busy-control-label` / `busy-control-overlay`** classes from `busy-control-overlay.ts` plus matching rules in **`document-styles.ts`** (Tailwind CDN may not emit `group-data-[loading]:*` utilities for classes composed only from TS modules).
+Prefer:
 
-**Reference implementation:** ETF catalog detail — “ETF analysis” button (`catalog-etf-page.tsx` + `catalog-etf-analysis.component.js`).
+- A **`<form method="post" action="…" data-fetch-submit data-fetch-submit-json>`** with **`SubmitButton`** inside.
+- **`data-json-result-target`** and **`data-json-error-target`**: CSS selectors for elements to show `{ "text" }` or `{ "error" }` (see `fetch-submit.component.js`).
+- Server: accept **`application/x-www-form-urlencoded`** (normal `FormData` from the browser) **or** `application/json` for the same handler.
+
+**Reference implementation:** ETF catalog detail — “ETF analysis” (`catalog-etf-page.tsx` + `fetch-submit.component.js`).
 
 ---
 
