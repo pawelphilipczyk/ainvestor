@@ -125,6 +125,16 @@ When formatting, deduplication, validation, or labeling rules start affecting mo
 
 This keeps pages focused on composition and prevents subtle drift between similar screens.
 
+### 7. Primary actions and async busy state (client `fetch`)
+
+For **standalone actions** that trigger work in the browser (for example `fetch` to a JSON endpoint), when the action is the **main call-to-action** on that section:
+
+- Style the control as **primary**: reuse **`submitButtonDefaultClasses`** from `app/components/form-control-classes.ts` (same visual weight as `SubmitButton`).
+- Show a **spinner while the request is in flight**: reuse **`busyControlRootStateClasses`**, **`busyControlLabelClass`**, **`busyControlOverlayClass`**, and **`busyControlSpinnerClass`** from `app/components/busy-control-overlay.ts`. Structure the button with an inner label `span` and an overlay `span` containing the spinner, matching `SubmitButton`.
+- While waiting on the network, set **`data-loading`** and **`aria-busy="true"`** on the button so the overlay appears (same contract as fetch-submit and navigation-link loading). Clear both when the request settles (success or error).
+
+**Reference implementation:** ETF catalog detail — “ETF analysis” button (`catalog-etf-page.tsx` + `catalog-etf-analysis.component.js`).
+
 ---
 
 ## Styling Strategy

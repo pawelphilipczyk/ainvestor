@@ -1,5 +1,12 @@
 import type { Handle } from 'remix/component'
+import {
+	busyControlLabelClass,
+	busyControlOverlayClass,
+	busyControlRootStateClasses,
+	busyControlSpinnerClass,
+} from '../../components/busy-control-overlay.ts'
 import { Card } from '../../components/card.tsx'
+import { submitButtonDefaultClasses } from '../../components/form-control-classes.ts'
 import { Link } from '../../components/link.tsx'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
@@ -165,9 +172,14 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 									data-catalog-etf-analysis
 									data-post-url={props.analysisPostHref}
 									data-model={props.selectedModel ?? ''}
-									class="flex w-full min-w-0 items-center justify-center rounded-md border border-border bg-background px-4 py-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-60"
+									class={`${busyControlRootStateClasses} ${submitButtonDefaultClasses} min-w-0`.trim()}
 								>
-									{t('catalog.etfDetail.loadAnalysisButton')}
+									<span class={busyControlLabelClass}>
+										{t('catalog.etfDetail.loadAnalysisButton')}
+									</span>
+									<span class={busyControlOverlayClass} aria-hidden="true">
+										<span class={busyControlSpinnerClass} />
+									</span>
 								</button>
 								<p
 									role="alert"

@@ -49,6 +49,7 @@ export const CatalogEtfAnalysisInteractions = clientEntry(
 					const requestId = ++activeRequestId
 					button.disabled = true
 					button.setAttribute('aria-busy', 'true')
+					button.setAttribute('data-loading', '')
 					if (statusEl instanceof HTMLElement) {
 						statusEl.textContent = ''
 						statusEl.classList.add('hidden')
@@ -80,6 +81,7 @@ export const CatalogEtfAnalysisInteractions = clientEntry(
 								}
 								button.disabled = false
 								button.removeAttribute('aria-busy')
+								button.removeAttribute('data-loading')
 								return
 							}
 
@@ -88,6 +90,7 @@ export const CatalogEtfAnalysisInteractions = clientEntry(
 							output.classList.remove('hidden')
 							button.classList.add('hidden')
 							button.removeAttribute('aria-busy')
+							button.removeAttribute('data-loading')
 						} catch {
 							if (requestId !== activeRequestId) return
 							if (statusEl instanceof HTMLElement) {
@@ -96,6 +99,7 @@ export const CatalogEtfAnalysisInteractions = clientEntry(
 							}
 							button.disabled = false
 							button.removeAttribute('aria-busy')
+							button.removeAttribute('data-loading')
 						}
 					})()
 				},
