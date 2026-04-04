@@ -22,6 +22,7 @@ export const routes = route({
 	},
 	advice: {
 		...adviceForm,
+		fragmentResult: get('/fragments/result'),
 	},
 	guidelines: {
 		index: get('/guidelines'),
