@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
@@ -10,7 +10,7 @@ import {
 } from '../../components/index.ts'
 import { SectionIntroCard } from '../../components/section-intro-card.tsx'
 import { SessionProvider } from '../../components/session-provider.tsx'
-import type { EtfGuideline, EtfType } from '../../lib/guidelines.ts'
+import type { EtfType } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
@@ -18,12 +18,10 @@ import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { GuidelinesDeleteDialogInteractions } from './guidelines-list.component.js'
-import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 
 type GuidelinesAddTabId = 'instrument' | 'bucket'
 
 type GuidelinesPageProps = {
-	guidelines: EtfGuideline[]
 	assetClassOptions: { value: EtfType; label: string }[]
 	instrumentOptions: { value: string; label: string }[]
 	activeAddTab: GuidelinesAddTabId
@@ -98,9 +96,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 										method="post"
 										action={routes.guidelines.instrument.href()}
 										class="grid gap-4"
-										data-fetch-submit
-										data-fragment-id="guidelines-list"
-										data-fragment-url={routes.guidelines.fragmentList.href()}
+										data-frame-submit="guidelines-list"
 										data-reset-form
 										data-error-id="guidelines-instrument-form-error"
 									>
@@ -149,9 +145,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 										method="post"
 										action={routes.guidelines.assetClass.href()}
 										class="grid gap-4"
-										data-fetch-submit
-										data-fragment-id="guidelines-list"
-										data-fragment-url={routes.guidelines.fragmentList.href()}
+										data-frame-submit="guidelines-list"
 										data-reset-form
 										data-error-id="guidelines-asset-class-form-error"
 									>
@@ -197,9 +191,10 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 						{t('guidelines.footer.after')}
 					</p>
 
-					<div id="guidelines-list">
-						<GuidelinesListFragment guidelines={props.guidelines} />
-					</div>
+					<Frame
+						name="guidelines-list"
+						src={routes.guidelines.fragmentList.href()}
+					/>
 				</main>
 				<GuidelinesDeleteDialogInteractions />
 			</>

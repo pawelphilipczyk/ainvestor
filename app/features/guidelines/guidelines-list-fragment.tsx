@@ -95,9 +95,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 												id: g.id,
 											})}
 											class="inline-flex min-w-0 items-center gap-2"
-											data-fetch-submit
-											data-fragment-id="guidelines-list"
-											data-fragment-url={routes.guidelines.fragmentList.href()}
+											data-frame-submit="guidelines-list"
 											data-error-id={targetErrorId}
 										>
 											<FieldLabel
@@ -171,9 +169,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 											<form
 												method="post"
 												action={routes.guidelines.delete.href({ id: g.id })}
-												data-fetch-submit
-												data-fragment-id="guidelines-list"
-												data-fragment-url={routes.guidelines.fragmentList.href()}
+												data-frame-submit="guidelines-list"
 											>
 												<input type="hidden" name="_method" value="DELETE" />
 												<button
