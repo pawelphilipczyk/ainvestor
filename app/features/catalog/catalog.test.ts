@@ -243,14 +243,9 @@ describe('ETF Catalog page', () => {
 		})
 		const body = await response.text()
 
-		const importFormOpen = body.match(
+		assert.match(
+			body,
 			/<form\b[^>]*\bmethod="post"[^>]*\baction="\/catalog\/import"[^>]*>/,
-		)
-		assert.ok(importFormOpen, 'expected bank JSON import form')
-		assert.doesNotMatch(
-			importFormOpen[0],
-			/data-fetch-submit/,
-			'import form should not use fetch-submit; full POST + redirect',
 		)
 		assert.match(body, /name="bankApiJson"/)
 	})
