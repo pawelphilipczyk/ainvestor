@@ -132,6 +132,7 @@ For **standalone actions** that trigger work in the browser (for example `fetch`
 - Style the control as **primary**: reuse **`submitButtonDefaultClasses`** from `app/components/form-control-classes.ts` (same visual weight as `SubmitButton`).
 - Show a **spinner while the request is in flight**: reuse **`busyControlRootStateClasses`**, **`busyControlLabelClass`**, **`busyControlOverlayClass`**, and **`busyControlSpinnerClass`** from `app/components/busy-control-overlay.ts`. Structure the button with an inner label `span` and an overlay `span` containing the spinner, matching `SubmitButton`.
 - While waiting on the network, set **`data-loading`** and **`aria-busy="true"`** on the button so the overlay appears (same contract as fetch-submit and navigation-link loading). Clear both when the request settles (success or error).
+- The visible busy state relies on **`busy-control-root` / `busy-control-label` / `busy-control-overlay`** classes from `busy-control-overlay.ts` plus matching rules in **`document-styles.ts`** (Tailwind CDN may not emit `group-data-[loading]:*` utilities for classes composed only from TS modules).
 
 **Reference implementation:** ETF catalog detail — “ETF analysis” button (`catalog-etf-page.tsx` + `catalog-etf-analysis.component.js`).
 
