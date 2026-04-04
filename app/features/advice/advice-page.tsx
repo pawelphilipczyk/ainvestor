@@ -18,8 +18,6 @@ import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import { findCatalogEntryByTicker } from '../catalog/lib.ts'
-// @ts-expect-error Runtime-only remix clientEntry (localStorage snapshot of last result)
-import { AdviceAnalysisPersistence } from './advice-analysis-persistence.component.js'
 import type {
 	AdviceBlock,
 	AdviceDocument,
@@ -76,6 +74,10 @@ type AdvicePageProps = {
 	advice?: AdviceDocument
 	/** Shared catalog for resolving ETF detail links on proposal rows. */
 	catalog?: CatalogEntry[]
+	/** Last run was loaded from `advice-analysis.json` in the user gist. */
+	adviceFromGist?: boolean
+	/** ISO timestamp when gist snapshot was written (for notice line). */
+	adviceGistSavedAt?: string
 	formError?: FormError
 	pendingApproval?: boolean
 }
@@ -691,36 +693,23 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</Card>
 					)}
 				</div>
-				{pendingApproval ? null : (
-					<>
-						<div
-							id="advice-client-restored"
-							class="min-w-0 max-w-full hidden"
-							aria-live="polite"
-						/>
-						<AdviceAnalysisPersistence />
-					</>
-				)}
 				{props.advice !== undefined &&
 				resultMode !== null &&
 				(props.cashAmount !== undefined ||
 					resultMode === 'portfolio_review') ? (
-					<Card
-						id="advice-last-result"
-						class="min-w-0 max-w-full p-6"
-						aria-live="polite"
-						data-last-analysis-mode={resultMode}
-						data-cash-currency={cashCurrency}
-						data-selected-model={selectedModel}
-						{...(resultMode === 'buy_next' && props.cashAmount !== undefined
-							? { 'data-cash-amount': props.cashAmount }
-							: {})}
-					>
-						<script
-							type="application/json"
-							data-advice-document-snapshot
-							innerHTML={JSON.stringify(props.advice)}
-						/>
+					<Card class="min-w-0 max-w-full p-6" aria-live="polite">
+						{props.adviceFromGist === true &&
+						props.adviceGistSavedAt !== undefined &&
+						props.adviceGistSavedAt.length > 0 ? (
+							<p
+								class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+								role="status"
+							>
+								{format(t('advice.restore.fromGistNotice'), {
+									savedAt: props.adviceGistSavedAt,
+								})}
+							</p>
+						) : null}
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
 							{resultMode === 'portfolio_review'
 								? t('advice.result.titleReview')

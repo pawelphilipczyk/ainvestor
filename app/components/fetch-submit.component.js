@@ -114,7 +114,6 @@ async function handleFetchSubmit(form, submitBtn) {
 				const pageContent = document.getElementById('page-content')
 				if (main && pageContent) {
 					pageContent.innerHTML = main.outerHTML
-					document.dispatchEvent(new CustomEvent('rmx-page-content-updated'))
 				}
 				if (resetForm) form.reset()
 			} else {

@@ -22,6 +22,10 @@ import { routes } from '../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
+import {
+	fetchStoredAdviceAnalysis,
+	saveStoredAdviceAnalysis,
+} from './advice-gist.ts'
 import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
 import {
 	ADVICE_ANALYSIS_MODES,
@@ -72,6 +76,9 @@ function renderAdviceResponse(options: {
 		advice?: AdviceDocument
 		/** Shared catalog snapshot for ETF detail links on proposal rows. */
 		catalog?: CatalogEntry[]
+		/** Shown when `advice` was loaded from `advice-analysis.json` in the user gist. */
+		adviceFromGist?: boolean
+		adviceGistSavedAt?: string
 		formError?: { summary: string; detail?: string }
 		pendingApproval?: boolean
 	}
@@ -97,13 +104,62 @@ export const adviceController = {
 			const layoutSession = getLayoutSession(context.get(Session))
 			const pendingApproval = layoutSession?.approvalStatus === 'pending'
 			const activeTab = parseAdviceTabParam(context.request.url)
+			const session = getSessionData(context.get(Session))
+
+			const baseProps = {
+				pendingApproval,
+				analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+				activeTab,
+			}
+
+			if (
+				pendingApproval ||
+				!session?.token ||
+				!session.gistId ||
+				session.approvalStatus === 'pending'
+			) {
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: baseProps,
+				})
+			}
+
+			try {
+				const stored = await fetchStoredAdviceAnalysis(
+					session.token,
+					session.gistId,
+				)
+				const tabForStored = stored?.activeTab ?? stored?.lastAnalysisMode
+				if (stored !== null && tabForStored === activeTab) {
+					const catalog = await fetchCatalog()
+					const adviceGistSavedAt = new Date(stored.savedAt).toISOString()
+					return renderAdviceResponse({
+						session: layoutSession,
+						props: {
+							...baseProps,
+							analysisMode: stored.lastAnalysisMode,
+							lastAnalysisMode: stored.lastAnalysisMode,
+							selectedModel: stored.selectedModel,
+							...(stored.lastAnalysisMode === 'portfolio_review'
+								? {}
+								: {
+										cashAmount: stored.cashAmount ?? '',
+										cashCurrency: stored.cashCurrency,
+									}),
+							advice: stored.document,
+							catalog,
+							adviceFromGist: true,
+							adviceGistSavedAt,
+						},
+					})
+				}
+			} catch (err) {
+				console.warn('[advice] could not load gist snapshot', err)
+			}
+
 			return renderAdviceResponse({
 				session: layoutSession,
-				props: {
-					pendingApproval,
-					analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
-					activeTab,
-				},
+				props: baseProps,
 			})
 		},
 
@@ -259,6 +315,24 @@ export const adviceController = {
 					model: adviceModel,
 					analysisMode,
 				})
+
+				if (session?.token && session.gistId) {
+					try {
+						await saveStoredAdviceAnalysis(session.token, session.gistId, {
+							version: 1,
+							savedAt: Date.now(),
+							lastAnalysisMode: analysisMode,
+							cashCurrency,
+							...(analysisMode === 'buy_next' ? { cashAmount } : {}),
+							selectedModel: adviceModel,
+							activeTab: activeTabFromUrl,
+							document: advice,
+						})
+					} catch (gistErr) {
+						console.warn('[advice] could not save gist snapshot', gistErr)
+					}
+				}
+
 				return renderAdviceResponse({
 					session: layoutSession,
 					props: {

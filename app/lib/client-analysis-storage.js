@@ -1,8 +1,8 @@
-/** Browser-only: scoped localStorage snapshots for advice and catalog ETF analysis. */
+/** Browser-only: optional cache for catalog ETF on-demand analysis text. */
 
 export const CLIENT_ANALYSIS_STORAGE_VERSION = 1
 
-/** 24 hours — refuse stale restores (PR review). */
+/** 24 hours — ignore stale cached ETF overview text. */
 export const CLIENT_ANALYSIS_TTL_MS = 24 * 60 * 60 * 1000
 
 const KEY_PREFIX = 'etf-portfolio:v1'
@@ -41,27 +41,8 @@ export function getClientAnalysisScopePrefix() {
 /**
  * @returns {string}
  */
-export function getAdviceAnalysisStorageKey() {
-	return `${getClientAnalysisScopePrefix()}:lastAdviceAnalysis`
-}
-
-/**
- * @returns {string}
- */
 export function getCatalogEtfAnalysisStorageKey() {
 	return `${getClientAnalysisScopePrefix()}:lastCatalogEtfAnalysis`
-}
-
-export function clearAdviceAnalysisStorage() {
-	if (typeof localStorage === 'undefined') return
-	try {
-		localStorage.removeItem(getAdviceAnalysisStorageKey())
-	} catch (err) {
-		console.warn(
-			'[client-analysis-storage] failed to clear advice snapshot',
-			err,
-		)
-	}
 }
 
 /**
@@ -80,24 +61,6 @@ function isFreshRecord(record) {
 /**
  * @returns {Record<string, unknown> | null}
  */
-export function readAdviceAnalysisRecord() {
-	if (typeof localStorage === 'undefined') return null
-	try {
-		const raw = localStorage.getItem(getAdviceAnalysisStorageKey())
-		if (raw == null || raw === '') return null
-		const parsed = JSON.parse(raw)
-		if (parsed == null || typeof parsed !== 'object') return null
-		if (parsed.version !== CLIENT_ANALYSIS_STORAGE_VERSION) return null
-		if (!isFreshRecord(parsed)) return null
-		return parsed
-	} catch {
-		return null
-	}
-}
-
-/**
- * @returns {Record<string, unknown> | null}
- */
 export function readCatalogEtfAnalysisRecord() {
 	if (typeof localStorage === 'undefined') return null
 	try {
@@ -110,51 +73,6 @@ export function readCatalogEtfAnalysisRecord() {
 		return parsed
 	} catch {
 		return null
-	}
-}
-
-/**
- * @param {{
- *   pathname: string
- *   search: string
- *   lastAnalysisMode: string
- *   cashAmount?: string
- *   cashCurrency?: string
- *   selectedModel?: string
- *   adviceDocument: unknown
- * }} payload
- */
-export function writeAdviceAnalysisSnapshot(payload) {
-	if (typeof localStorage === 'undefined') return
-	try {
-		const record = {
-			version: CLIENT_ANALYSIS_STORAGE_VERSION,
-			savedAt: Date.now(),
-			pathname: payload.pathname,
-			search: payload.search,
-			lastAnalysisMode: payload.lastAnalysisMode,
-			cashAmount:
-				typeof payload.cashAmount === 'string' && payload.cashAmount.length > 0
-					? payload.cashAmount
-					: undefined,
-			cashCurrency:
-				typeof payload.cashCurrency === 'string' &&
-				payload.cashCurrency.length > 0
-					? payload.cashCurrency
-					: 'PLN',
-			selectedModel:
-				typeof payload.selectedModel === 'string' &&
-				payload.selectedModel.length > 0
-					? payload.selectedModel
-					: undefined,
-			adviceDocument: payload.adviceDocument,
-		}
-		localStorage.setItem(getAdviceAnalysisStorageKey(), JSON.stringify(record))
-	} catch (err) {
-		console.warn(
-			'[client-analysis-storage] failed to save advice snapshot',
-			err,
-		)
 	}
 }
 
