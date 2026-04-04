@@ -145,7 +145,6 @@ export const en = {
 	'catalog.table.description': 'Description',
 	'catalog.table.isin': 'ISIN',
 	'catalog.table.value': 'Value',
-	'catalog.table.learnMore': 'Learn more',
 	'catalog.etfDetail.back': 'Back',
 	'catalog.etfDetail.pendingBody':
 		'ETF details are available after your account is approved.',
@@ -236,7 +235,7 @@ export const en = {
 	'advice.table.amount': 'Amount',
 	'advice.table.currency': 'Currency',
 	'advice.table.note': 'Note',
-	'advice.table.learnMore': 'Learn more',
+	'advice.table.etfDetailsLink': 'ETF details',
 	'advice.capital.title': 'Portfolio mix',
 	'advice.capital.snapshotError':
 		'Portfolio snapshot could not be shown because the data from the model was inconsistent (for example mixed currencies or invalid amounts).',

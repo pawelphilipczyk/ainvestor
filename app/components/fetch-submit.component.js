@@ -1,6 +1,6 @@
 import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import { setSubmitButtonLoading } from './submit-button-loading.component.js'
 
-const SPINNER_ICON_ID = 'form-spinner-icon'
 const CLIENT_MESSAGES_ID = 'ui-client-messages'
 
 function readClientMessages() {
@@ -11,79 +11,6 @@ function readClientMessages() {
 		return JSON.parse(messagesElement.textContent)
 	} catch {
 		return null
-	}
-}
-
-function setSubmitButtonLoading(control, loading) {
-	if (!(control instanceof HTMLElement)) return
-
-	if (control instanceof HTMLInputElement && control.type === 'submit') {
-		if (loading) {
-			control.dataset.originalValue = control.value
-			const msgs = readClientMessages()
-			const loadingLabel =
-				typeof msgs?.submitLoadingLabel === 'string'
-					? msgs.submitLoadingLabel
-					: 'Loading…'
-			control.value = loadingLabel
-			control.setAttribute('disabled', '')
-			control.setAttribute('aria-busy', 'true')
-		} else {
-			const originalValue = control.dataset.originalValue
-			if (originalValue !== undefined) {
-				control.value = originalValue
-				delete control.dataset.originalValue
-			}
-			control.removeAttribute('disabled')
-			control.removeAttribute('aria-busy')
-		}
-		return
-	}
-
-	if (!(control instanceof HTMLButtonElement)) return
-
-	const usesBusyOverlay = control.querySelector('.submit-button-busy-overlay')
-
-	if (usesBusyOverlay) {
-		if (loading) {
-			control.setAttribute('disabled', '')
-			control.setAttribute('aria-busy', 'true')
-			control.setAttribute('data-loading', '')
-		} else {
-			control.removeAttribute('data-loading')
-			control.removeAttribute('disabled')
-			control.removeAttribute('aria-busy')
-		}
-		return
-	}
-
-	const spinnerHost = document.getElementById(SPINNER_ICON_ID)
-
-	if (loading) {
-		control.setAttribute('disabled', '')
-		control.setAttribute('aria-busy', 'true')
-		if (spinnerHost) {
-			control.dataset.originalContent = control.innerHTML
-			const row = control.ownerDocument.createElement('span')
-			row.className =
-				'inline-flex w-full max-w-full items-center justify-center gap-2'
-			const spinner = spinnerHost.firstElementChild?.cloneNode(true)
-			const label = control.ownerDocument.createElement('span')
-			label.className = 'submit-button-busy-label min-w-0 flex-1 text-center'
-			label.innerHTML = control.innerHTML
-			control.innerHTML = ''
-			if (spinner) row.append(spinner)
-			row.append(label)
-			control.append(row)
-		}
-	} else {
-		const original = control.dataset.originalContent
-		if (original !== undefined) {
-			control.innerHTML = original
-			delete control.dataset.originalContent
-		}
-		control.removeAttribute('disabled')
-		control.removeAttribute('aria-busy')
 	}
 }
 
@@ -128,25 +55,12 @@ function buildGetNavigationUrl(form, submitControl) {
 	return actionUrl.toString()
 }
 
-function clearJsonErrorTarget(form) {
-	const selector = form.getAttribute('data-json-error-target')
-	if (!selector) return
-	const el = document.querySelector(selector)
-	if (el) {
-		el.textContent = ''
-		el.classList.add('hidden')
-	}
-}
-
 async function handleFetchSubmit(form, submitBtn) {
 	const fragmentId = form.dataset.fragmentId
 	const fragmentUrl = form.dataset.fragmentUrl
 	const errorId = form.dataset.errorId
 	const resetForm = form.hasAttribute('data-reset-form')
 	const replaceMain = form.hasAttribute('data-replace-main')
-	const fetchSubmitJson = form.hasAttribute('data-fetch-submit-json')
-	const jsonResultTarget = form.getAttribute('data-json-result-target')
-	const jsonErrorTarget = form.getAttribute('data-json-error-target')
 
 	const hideError = () => {
 		if (errorId) {
@@ -156,7 +70,6 @@ async function handleFetchSubmit(form, submitBtn) {
 				errorElement.classList.add('hidden')
 			}
 		}
-		clearJsonErrorTarget(form)
 	}
 
 	const showError = (message) => {
@@ -173,70 +86,12 @@ async function handleFetchSubmit(form, submitBtn) {
 	hideError()
 
 	try {
-		let response
-		if (fetchSubmitJson) {
-			const payload = {}
-			for (const el of form.querySelectorAll(
-				'input[name], select[name], textarea[name]',
-			)) {
-				if (
-					el instanceof HTMLInputElement &&
-					(el.type === 'submit' || el.type === 'button')
-				) {
-					continue
-				}
-				if (el.name) {
-					payload[el.name] = el.value
-				}
-			}
-			response = await fetch(form.action, {
-				method: form.method,
-				body: JSON.stringify(payload),
-				redirect: 'follow',
-				headers: {
-					Accept: 'application/json',
-					'Content-Type': 'application/json',
-				},
-			})
-		} else {
-			response = await fetch(form.action, {
-				method: form.method,
-				body: new FormData(form),
-				redirect: 'follow',
-				headers: { Accept: 'application/json' },
-			})
-		}
-
-		if (response.ok && fetchSubmitJson && jsonResultTarget) {
-			const data = await response.json().catch(() => ({}))
-			const out = document.querySelector(jsonResultTarget)
-			if (out) {
-				out.textContent = typeof data.text === 'string' ? data.text : ''
-				out.classList.remove('hidden')
-			}
-			form.classList.add('hidden')
-			return
-		}
-
-		if (!response.ok && fetchSubmitJson && jsonErrorTarget) {
-			const data = await response.json().catch(() => ({}))
-			const errEl = document.querySelector(jsonErrorTarget)
-			const msgs = readClientMessages()
-			const fallback =
-				typeof msgs?.catalogEtfAnalysisNetworkError === 'string'
-					? msgs.catalogEtfAnalysisNetworkError
-					: typeof msgs?.genericFormError === 'string'
-						? msgs.genericFormError
-						: 'Something went wrong.'
-			if (errEl) {
-				errEl.textContent =
-					typeof data.error === 'string' && data.error.length > 0
-						? data.error
-						: fallback
-				errEl.classList.remove('hidden')
-			}
-			return
-		}
+		const response = await fetch(form.action, {
+			method: form.method,
+			body: new FormData(form),
+			redirect: 'follow',
+			headers: { Accept: 'application/json' },
+		})
 
 		if (response.ok) {
 			if (fragmentId && fragmentUrl) {
@@ -290,22 +145,7 @@ async function handleFetchSubmit(form, submitBtn) {
 			window.location.href = response.url || '/'
 		}
 	} catch {
-		if (fetchSubmitJson && jsonErrorTarget) {
-			const errEl = document.querySelector(jsonErrorTarget)
-			const msgs = readClientMessages()
-			const message =
-				typeof msgs?.catalogEtfAnalysisNetworkError === 'string'
-					? msgs.catalogEtfAnalysisNetworkError
-					: typeof msgs?.genericFormError === 'string'
-						? msgs.genericFormError
-						: 'Something went wrong.'
-			if (errEl) {
-				errEl.textContent = message
-				errEl.classList.remove('hidden')
-			}
-		} else {
-			window.location.href = '/'
-		}
+		window.location.href = '/'
 	} finally {
 		setSubmitButtonLoading(submitBtn, false)
 	}

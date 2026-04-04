@@ -70,7 +70,7 @@ function renderAdviceResponse(options: {
 		lastAnalysisMode?: AdviceAnalysisMode
 		selectedModel?: AdviceModelId
 		advice?: AdviceDocument
-		/** Shared catalog snapshot for Learn more links on proposal rows. */
+		/** Shared catalog snapshot for ETF detail links on proposal rows. */
 		catalog?: CatalogEntry[]
 		formError?: { summary: string; detail?: string }
 		pendingApproval?: boolean

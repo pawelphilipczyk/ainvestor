@@ -76,7 +76,7 @@ describe('ETF Catalog page', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /href="\/catalog\/etf\/row-ticker-link-test/)
-		assert.doesNotMatch(body, />Learn more</)
+		assert.doesNotMatch(body, />ETF details</)
 	})
 
 	it('GET /catalog/etf/:id renders detail without inline AI text (analysis is on demand)', async () => {
@@ -104,7 +104,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /From your catalog/)
 		assert.match(body, /AI overview/)
 		assert.match(body, /action="\/catalog\/etf\/row-detail-test\/analysis"/)
-		assert.match(body, /data-fetch-submit-json/)
+		assert.match(body, /data-catalog-etf-analysis-form/)
 		assert.match(body, /ETF analysis/)
 		assert.doesNotMatch(body, /Educational ETF paragraph/)
 		assert.match(body, /Back/)

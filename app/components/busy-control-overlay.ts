@@ -1,6 +1,6 @@
 /**
  * Shared loading UI: label hidden and centered spinner when `data-loading` is set
- * (see `navigation-link-loading.component.js` and fetch-submit `setSubmitButtonLoading`).
+ * (see `submit-button-loading.component.js`, used by fetch-submit and feature forms).
  *
  * `busy-control-root` / `busy-control-label` / `busy-control-overlay` pair with rules in
  * `document-styles.ts` so the CDN Tailwind build always shows the overlay (JIT often skips
@@ -10,7 +10,7 @@ export const busyControlRootStateClasses = 'relative group busy-control-root'
 
 export const busyControlLabelClass = 'relative z-10 busy-control-label'
 
-/** Marker for fetch-submit: prefer `data-loading` overlay over legacy innerHTML swap. */
+/** Marker for submit busy overlay: prefer `data-loading` over legacy innerHTML swap. */
 export const busyControlOverlayClass =
 	'submit-button-busy-overlay busy-control-overlay absolute inset-0'
 

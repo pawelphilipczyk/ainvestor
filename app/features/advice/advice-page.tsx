@@ -72,13 +72,13 @@ type AdvicePageProps = {
 	lastAnalysisMode?: AdviceAnalysisMode
 	selectedModel?: AdviceModelId
 	advice?: AdviceDocument
-	/** Shared catalog for resolving Learn more links on proposal rows. */
+	/** Shared catalog for resolving ETF detail links on proposal rows. */
 	catalog?: CatalogEntry[]
 	formError?: FormError
 	pendingApproval?: boolean
 }
 
-function resolveLearnMoreCatalogEntryId(
+function resolveProposalEtfDetailsCatalogEntryId(
 	catalog: CatalogEntry[] | undefined,
 	row: AdviceEtfProposalRow,
 ): string | null {
@@ -415,7 +415,9 @@ function renderEtfProposals(
 									scope="col"
 									class="px-3 py-2 text-left font-medium text-card-foreground"
 								>
-									<span class="sr-only">{t('advice.table.learnMore')}</span>
+									<span class="sr-only">
+										{t('advice.table.etfDetailsLink')}
+									</span>
 								</th>
 							)}
 						</tr>
@@ -426,11 +428,11 @@ function renderEtfProposals(
 								row.amount !== undefined
 									? (row.currency ?? defaultCashCurrency)
 									: null
-							const catalogEntryId = resolveLearnMoreCatalogEntryId(
+							const catalogEntryId = resolveProposalEtfDetailsCatalogEntryId(
 								catalog,
 								row,
 							)
-							const learnMoreHref =
+							const etfDetailsHref =
 								catalogEntryId !== null
 									? routes.catalog.etf.href(
 											{ catalogEntryId },
@@ -459,13 +461,13 @@ function renderEtfProposals(
 									</td>
 									{pendingApproval ? null : (
 										<td class="px-3 py-2 align-top">
-											{learnMoreHref !== null ? (
+											{etfDetailsHref !== null ? (
 												<Link
-													href={learnMoreHref}
+													href={etfDetailsHref}
 													navigationLoading={true}
 													class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 												>
-													{t('advice.table.learnMore')}
+													{t('advice.table.etfDetailsLink')}
 												</Link>
 											) : (
 												<span class="text-xs text-muted-foreground">

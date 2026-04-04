@@ -125,17 +125,17 @@ When formatting, deduplication, validation, or labeling rules start affecting mo
 
 This keeps pages focused on composition and prevents subtle drift between similar screens.
 
-### 7. Primary JSON actions (client): use `SubmitButton` + fetch-submit
+### 7. Primary JSON POSTs (client): `SubmitButton` + small `clientEntry`
 
-When a **POST** should return **JSON** (not a full navigation) and you want the **same busy spinner** as forms, **do not** hand-roll `fetch` + `data-loading` on a plain button.
+**`data-fetch-submit`** is for **HTML** responses (replace main, redirect, fragments). Do **not** extend it for one-off JSON APIs — that keeps the shared handler easy to follow.
 
-Prefer:
+When a **POST** returns **JSON** and you want the **same busy spinner** as submit buttons:
 
-- A **`<form method="post" action="…" data-fetch-submit data-fetch-submit-json>`** with **`SubmitButton`** inside.
-- **`data-json-result-target`** and **`data-json-error-target`**: CSS selectors for elements to show `{ "text" }` or `{ "error" }` (see `fetch-submit.component.js`).
-- Server: accept **`application/x-www-form-urlencoded`** (normal `FormData` from the browser) **or** `application/json` for the same handler.
+- Use a **normal `<form method="post">`** with **`SubmitButton`** (not `data-fetch-submit`).
+- Add a **feature-scoped `clientEntry`** that listens for `submit`, calls `preventDefault`, builds a JSON body from named fields, runs `fetch`, and toggles busy state via **`setSubmitButtonLoading`** from `app/components/submit-button-loading.component.js` (shared with `fetch-submit.component.js`).
+- Mount that `clientEntry` once from **`DocumentShell`** (or another shell) so it survives `data-replace-main` updates.
 
-**Reference implementation:** ETF catalog detail — “ETF analysis” (`catalog-etf-page.tsx` + `fetch-submit.component.js`).
+**Reference implementation:** ETF catalog detail — `data-catalog-etf-analysis-form` in `catalog-etf-page.tsx` + `catalog-etf-analysis-form.component.js`.
 
 ---
 

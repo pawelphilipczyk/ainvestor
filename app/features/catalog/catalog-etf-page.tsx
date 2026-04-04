@@ -161,10 +161,9 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 								<form
 									method="post"
 									action={props.analysisPostHref}
-									data-fetch-submit
-									data-fetch-submit-json
-									data-json-result-target="#catalog-etf-analysis-output"
-									data-json-error-target="#catalog-etf-analysis-error"
+									data-catalog-etf-analysis-form
+									data-result-target="#catalog-etf-analysis-output"
+									data-error-target="#catalog-etf-analysis-error"
 									class="min-w-0"
 								>
 									<input

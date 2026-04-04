@@ -642,7 +642,7 @@ describe('Advice', () => {
 		assert.match(body, /value="gpt-5.4-nano"/)
 	})
 
-	it('renders Learn more with catalogEntryId when etf_proposals include it', async () => {
+	it('renders ETF details link with catalogEntryId when etf_proposals include it', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -688,10 +688,10 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /\/catalog\/etf\/advice-learn-row/)
-		assert.match(body, /Learn more/)
+		assert.match(body, /ETF details/)
 	})
 
-	it('renders Learn more from ticker match when catalogEntryId is absent', async () => {
+	it('renders ETF details link from ticker match when catalogEntryId is absent', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -736,6 +736,6 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /\/catalog\/etf\/ticker-only-row/)
-		assert.match(body, /Learn more/)
+		assert.match(body, /ETF details/)
 	})
 })
