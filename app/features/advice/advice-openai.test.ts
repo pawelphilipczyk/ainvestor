@@ -424,6 +424,32 @@ describe('getInvestmentAdvice', () => {
 		assert.match(capturedMessage, /equity/)
 	})
 
+	it('buy_next system prompt asks for novice-friendly short plain-text advice', async () => {
+		let systemPrompt = ''
+		const client: AdviceClient = {
+			chat: {
+				completions: {
+					create: async (params) => {
+						systemPrompt = params.messages[0].content
+						return { choices: [{ message: { content: 'ok' } }] }
+					},
+				},
+			},
+		}
+
+		await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
+
+		assert.match(systemPrompt, /new to investing/i)
+		assert.match(systemPrompt, /3–8 bullets/)
+	})
+
 	it('includes server allocation diagnostics for asset-class bucket guidelines', async () => {
 		let capturedMessage = ''
 		const client: AdviceClient = {
@@ -514,6 +540,8 @@ describe('getInvestmentAdvice', () => {
 		})
 
 		assert.match(systemPrompt, /qualitative review/i)
+		assert.match(systemPrompt, /new to investing/i)
+		assert.match(systemPrompt, /8–16 short bullets/)
 		assert.match(systemPrompt, /Do \*\*not\*\* include "etf_proposals"/)
 		assert.match(userMessage, /Allocation context/)
 		assert.match(userMessage, /ETF catalog/)
