@@ -1,4 +1,6 @@
 import { jsx } from 'remix/component/jsx-runtime'
+import { renderToStream } from 'remix/component/server'
+import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
@@ -16,7 +18,7 @@ import {
 	fetchCatalog,
 	instrumentSelectOptionsFromCatalog,
 } from '../catalog/lib.ts'
-import { addEtfFormHandlers } from './add-etf-form/index.ts'
+import { addEtfFormHandlers, ListFragment } from './add-etf-form/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
 
 export { resetEtfEntries, resetTestSessionCookieJar } from './state.ts'
@@ -51,7 +53,15 @@ export const portfolioController = {
 		},
 
 		async fragmentList(context: AppRequestContext) {
-			return addEtfFormHandlers.actions.fragmentList(context)
+			const session = getSessionData(context.get(Session))
+			const entries =
+				session?.gistId && session.token
+					? await fetchEtfs(session.token, session.gistId)
+					: getGuestEtfs(context.get(Session))
+			return createHtmlResponse(
+				renderToStream(jsx(ListFragment, { entries })),
+				{ headers: { 'Cache-Control': 'no-store' } },
+			)
 		},
 
 		async create(context: AppRequestContext) {
@@ -166,7 +176,7 @@ type RenderPortfolioPageParams = {
 async function renderPage(params: RenderPortfolioPageParams) {
 	const { entries, session, flashError, catalog } = params
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
-	const body = jsx(PortfolioPage, { entries, instrumentOptions })
+	const body = jsx(PortfolioPage, { instrumentOptions })
 	return render({
 		title: t('meta.title.portfolio'),
 		session,
@@ -174,5 +184,11 @@ async function renderPage(params: RenderPortfolioPageParams) {
 		body,
 		flashError,
 		init: { headers: { 'Cache-Control': 'no-store' } },
+		resolveFrame(source) {
+			if (source === routes.portfolio.fragmentList.href()) {
+				return renderToStream(jsx(ListFragment, { entries }))
+			}
+			return ''
+		},
 	})
 }
