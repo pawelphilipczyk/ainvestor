@@ -179,6 +179,7 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('analysisMode', 'portfolio_review')
+		form.set('adviceIntent', 'run')
 
 		const response = await testSessionFetch(
 			new Request(adviceUrl('portfolio_review'), {
@@ -191,6 +192,109 @@ describe('Advice', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /Portfolio review/)
 		assert.match(body, /Concentrated in equities/)
+	})
+
+	it('GET /advice?tab=portfolio_review shows last guest portfolio review without calling the model', async () => {
+		let createCalls = 0
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => {
+						createCalls += 1
+						return {
+							choices: [
+								{
+									message: {
+										content: JSON.stringify({
+											blocks: [
+												{
+													type: 'paragraph',
+													text: 'Persisted guest portfolio line.',
+												},
+											],
+										}),
+									},
+								},
+							],
+						}
+					},
+				},
+			},
+		})
+
+		const postForm = new FormData()
+		postForm.set('analysisMode', 'portfolio_review')
+		postForm.set('adviceIntent', 'run')
+		const postResponse = await testSessionFetch(
+			new Request(adviceUrl('portfolio_review'), {
+				method: 'POST',
+				body: postForm,
+			}),
+		)
+		assert.equal(postResponse.status, 200)
+		assert.equal(createCalls, 1)
+
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => {
+						createCalls += 1
+						throw new Error('model must not run on GET')
+					},
+				},
+			},
+		})
+
+		const getResponse = await testSessionFetch(
+			'http://localhost/advice?tab=portfolio_review',
+		)
+		const body = await getResponse.text()
+		assert.equal(getResponse.status, 200)
+		assert.match(body, /Persisted guest portfolio line/)
+		assert.equal(createCalls, 1)
+		assert.match(body, /Clear saved review/)
+		assert.match(body, /Regenerate analysis/)
+	})
+
+	it('POST clear removes stored guest portfolio review', async () => {
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [{ type: 'paragraph', text: 'To be cleared.' }],
+				}),
+			),
+		)
+
+		const runForm = new FormData()
+		runForm.set('analysisMode', 'portfolio_review')
+		runForm.set('adviceIntent', 'run')
+		await testSessionFetch(
+			new Request(adviceUrl('portfolio_review'), {
+				method: 'POST',
+				body: runForm,
+			}),
+		)
+
+		const clearForm = new FormData()
+		clearForm.set('analysisMode', 'portfolio_review')
+		clearForm.set('adviceIntent', 'clear')
+		const clearResponse = await testSessionFetch(
+			new Request(adviceUrl('portfolio_review'), {
+				method: 'POST',
+				body: clearForm,
+			}),
+		)
+		const clearedBody = await clearResponse.text()
+		assert.equal(clearResponse.status, 200)
+		assert.doesNotMatch(clearedBody, /To be cleared/)
+
+		const getResponse = await testSessionFetch(
+			'http://localhost/advice?tab=portfolio_review',
+		)
+		const body = await getResponse.text()
+		assert.equal(getResponse.status, 200)
+		assert.doesNotMatch(body, /To be cleared/)
+		assert.doesNotMatch(body, /Clear saved review/)
 	})
 
 	it('returns 503 with AdvicePage HTML when the advice client throws', async () => {

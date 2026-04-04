@@ -588,6 +588,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								data-replace-main
 							>
 								<input type="hidden" name="analysisMode" value="buy_next" />
+								<input type="hidden" name="adviceIntent" value="run" />
 								{props.formError ? (
 									<FormErrorAlert error={props.formError} />
 								) : null}
@@ -647,6 +648,29 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</Card>
 					) : (
 						<Card variant="muted" class="rounded-t-none border-t-0 p-6">
+							{props.advice !== undefined ? (
+								<form
+									method="post"
+									action={reviewAction}
+									class="mb-4"
+									data-fetch-submit
+									data-replace-main
+								>
+									<input
+										type="hidden"
+										name="analysisMode"
+										value="portfolio_review"
+									/>
+									<input type="hidden" name="adviceIntent" value="clear" />
+									<button
+										type="submit"
+										disabled={pendingApproval}
+										class="inline-flex h-10 min-h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+									>
+										{t('advice.portfolioReview.clearStored')}
+									</button>
+								</form>
+							) : null}
 							<form
 								method="post"
 								action={reviewAction}
@@ -659,6 +683,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									name="analysisMode"
 									value="portfolio_review"
 								/>
+								<input type="hidden" name="adviceIntent" value="run" />
 								{props.formError ? (
 									<FormErrorAlert error={props.formError} />
 								) : null}
@@ -682,7 +707,9 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 										disabled={pendingApproval}
 										class="sm:!w-auto sm:shrink-0"
 									>
-										{t('advice.form.submit')}
+										{props.advice !== undefined
+											? t('advice.form.submitPortfolioRegenerate')
+											: t('advice.form.submit')}
 									</SubmitButton>
 								</div>
 							</form>

@@ -220,6 +220,8 @@ export const en = {
 	'advice.form.field.model': 'Model',
 	'advice.form.placeholder.cash': 'e.g. 1000',
 	'advice.form.submit': 'Ask AI',
+	'advice.form.submitPortfolioRegenerate': 'Regenerate analysis',
+	'advice.portfolioReview.clearStored': 'Clear saved review',
 	'advice.analysisMode.buy_next': 'What to buy next',
 	'advice.analysisMode.portfolio_review': 'Portfolio health review',
 	'advice.result.title': 'Investment Advice',

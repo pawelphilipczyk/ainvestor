@@ -1,5 +1,7 @@
 import type { Session } from 'remix/session'
 
+import type { AdviceDocument } from '../features/advice/advice-document.ts'
+import type { AdviceModelId } from '../features/advice/advice-openai.ts'
 import type { CatalogEntry } from '../features/catalog/lib.ts'
 import type { EtfEntry } from './gist.ts'
 import type { EtfGuideline } from './guidelines.ts'
@@ -7,9 +9,15 @@ import type { EtfGuideline } from './guidelines.ts'
 const KEY = 'guestState'
 const GUIDELINES_REF_KEY = 'guestGuidelinesRef'
 
+export type GuestPortfolioReview = {
+	advice: AdviceDocument
+	model: AdviceModelId
+}
+
 type GuestState = {
 	etfs: EtfEntry[]
 	catalog: CatalogEntry[]
+	portfolioReview?: GuestPortfolioReview | null
 }
 
 /** Server-side guest guidelines (cookie holds only `guestGuidelinesRef`). */
@@ -51,9 +59,19 @@ function readState(session: Session): GuestState {
 	if (!raw) return emptyState()
 	try {
 		const partial = JSON.parse(raw) as Partial<GuestState>
+		const portfolioReview =
+			partial.portfolioReview === null
+				? null
+				: partial.portfolioReview !== undefined &&
+						typeof partial.portfolioReview === 'object' &&
+						partial.portfolioReview !== null &&
+						'advice' in partial.portfolioReview
+					? (partial.portfolioReview as GuestPortfolioReview)
+					: undefined
 		return {
 			etfs: Array.isArray(partial.etfs) ? partial.etfs : [],
 			catalog: Array.isArray(partial.catalog) ? partial.catalog : [],
+			...(portfolioReview !== undefined ? { portfolioReview } : {}),
 		}
 	} catch {
 		return emptyState()
@@ -103,4 +121,27 @@ export function setGuestGuidelines(
 		session.set(GUIDELINES_REF_KEY, ref)
 	}
 	guidelinesCacheSet(ref, guidelines)
+}
+
+export function getGuestPortfolioReview(
+	session: Session,
+): GuestPortfolioReview | null {
+	const stored = readState(session).portfolioReview
+	if (stored === null || stored === undefined) return null
+	return stored
+}
+
+export function setGuestPortfolioReview(
+	session: Session,
+	stored: GuestPortfolioReview,
+): void {
+	const state = readState(session)
+	state.portfolioReview = stored
+	writeState(session, state)
+}
+
+export function clearGuestPortfolioReview(session: Session): void {
+	const state = readState(session)
+	state.portfolioReview = null
+	writeState(session, state)
 }

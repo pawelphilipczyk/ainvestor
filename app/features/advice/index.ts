@@ -7,11 +7,19 @@ import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
 import {
+	clearGuestPortfolioReview,
 	getGuestEtfs,
 	getGuestGuidelines,
+	getGuestPortfolioReview,
+	setGuestPortfolioReview,
 } from '../../lib/guest-session-state.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
+import {
+	clearPortfolioReviewFromGist,
+	fetchPortfolioReviewFromGist,
+	savePortfolioReviewToGist,
+} from '../../lib/portfolio-review-gist.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import {
 	getLayoutSession,
@@ -33,6 +41,8 @@ import {
 } from './advice-openai.ts'
 import { AdvicePage } from './advice-page.tsx'
 
+const ADVICE_INTENTS = ['run', 'clear'] as const
+
 const AdviceSchema = object({
 	cashAmount: string(),
 	cashCurrency: defaulted(enum_(CURRENCIES), 'PLN'),
@@ -41,6 +51,7 @@ const AdviceSchema = object({
 		enum_(ADVICE_ANALYSIS_MODES),
 		DEFAULT_ADVICE_ANALYSIS_MODE,
 	),
+	adviceIntent: defaulted(enum_(ADVICE_INTENTS), 'run'),
 })
 
 function parseAdviceTabParam(url: string): AdviceAnalysisMode {
@@ -97,6 +108,43 @@ export const adviceController = {
 			const layoutSession = getLayoutSession(context.get(Session))
 			const pendingApproval = layoutSession?.approvalStatus === 'pending'
 			const activeTab = parseAdviceTabParam(context.request.url)
+			const remixSession = context.get(Session)
+			const fullSession = getSessionData(remixSession)
+
+			if (!pendingApproval && activeTab === 'portfolio_review') {
+				const catalog = await fetchCatalog()
+				const stored =
+					fullSession?.token && fullSession.gistId
+						? await fetchPortfolioReviewFromGist(
+								fullSession.token,
+								fullSession.gistId,
+							)
+						: getGuestPortfolioReview(remixSession)
+				if (stored !== null) {
+					return renderAdviceResponse({
+						session: layoutSession,
+						props: {
+							pendingApproval,
+							analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+							activeTab,
+							catalog,
+							advice: stored.advice,
+							lastAnalysisMode: 'portfolio_review',
+							selectedModel: stored.model,
+						},
+					})
+				}
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: {
+						pendingApproval,
+						analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+						activeTab,
+						catalog,
+					},
+				})
+			}
+
 			return renderAdviceResponse({
 				session: layoutSession,
 				props: {
@@ -151,6 +199,11 @@ export const adviceController = {
 					rawEntries.analysisMode.length > 0
 						? rawEntries.analysisMode
 						: undefined,
+				adviceIntent:
+					typeof rawEntries.adviceIntent === 'string' &&
+					rawEntries.adviceIntent.length > 0
+						? rawEntries.adviceIntent
+						: undefined,
 			}
 			const result = parseSafe(AdviceSchema, formPayload)
 			if (!result.success) {
@@ -196,6 +249,7 @@ export const adviceController = {
 				cashCurrency,
 				adviceModel,
 				analysisMode,
+				adviceIntent,
 			} = result.value
 			const trimmedCash = rawCashAmount.trim()
 			if (analysisMode === 'buy_next' && trimmedCash === '') {
@@ -235,6 +289,28 @@ export const adviceController = {
 				})
 			}
 
+			if (analysisMode === 'portfolio_review' && adviceIntent === 'clear') {
+				if (session?.token && session.gistId) {
+					await clearPortfolioReviewFromGist(session.token, session.gistId)
+				} else {
+					clearGuestPortfolioReview(context.get(Session))
+				}
+				const catalog =
+					activeTabFromUrl === 'portfolio_review'
+						? await fetchCatalog()
+						: undefined
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: {
+						pendingApproval,
+						analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+						activeTab: activeTabFromUrl,
+						selectedModel: adviceModel,
+						...(catalog !== undefined ? { catalog } : {}),
+					},
+				})
+			}
+
 			try {
 				const { catalog, entries } =
 					session?.gistId && session.token
@@ -259,6 +335,20 @@ export const adviceController = {
 					model: adviceModel,
 					analysisMode,
 				})
+				if (analysisMode === 'portfolio_review') {
+					if (session?.token && session.gistId) {
+						await savePortfolioReviewToGist({
+							token: session.token,
+							gistId: session.gistId,
+							stored: { advice, model: adviceModel },
+						})
+					} else {
+						setGuestPortfolioReview(context.get(Session), {
+							advice,
+							model: adviceModel,
+						})
+					}
+				}
 				return renderAdviceResponse({
 					session: layoutSession,
 					props: {
