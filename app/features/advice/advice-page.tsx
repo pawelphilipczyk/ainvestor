@@ -691,12 +691,16 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</Card>
 					)}
 				</div>
-				<div
-					id="advice-client-restored"
-					class="min-w-0 max-w-full hidden"
-					aria-live="polite"
-				/>
-				<AdviceAnalysisPersistence />
+				{pendingApproval ? null : (
+					<>
+						<div
+							id="advice-client-restored"
+							class="min-w-0 max-w-full hidden"
+							aria-live="polite"
+						/>
+						<AdviceAnalysisPersistence />
+					</>
+				)}
 				{props.advice !== undefined &&
 				resultMode !== null &&
 				(props.cashAmount !== undefined ||
@@ -712,6 +716,11 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 							? { 'data-cash-amount': props.cashAmount }
 							: {})}
 					>
+						<script
+							type="application/json"
+							data-advice-document-snapshot
+							innerHTML={JSON.stringify(props.advice)}
+						/>
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
 							{resultMode === 'portfolio_review'
 								? t('advice.result.titleReview')

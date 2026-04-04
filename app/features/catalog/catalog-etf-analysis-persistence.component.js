@@ -1,6 +1,6 @@
 import { addEventListeners, clientEntry, createElement } from 'remix/component'
 import {
-	readClientAnalysisRecord,
+	readCatalogEtfAnalysisRecord,
 	writeCatalogEtfAnalysisSnapshot,
 } from '../../lib/client-analysis-storage.js'
 
@@ -15,8 +15,8 @@ function readScopePathFromMain() {
 }
 
 function applyStoredCatalogAnalysis(scopePath) {
-	const record = readClientAnalysisRecord()
-	if (record == null || record.kind !== 'catalog_etf') return
+	const record = readCatalogEtfAnalysisRecord()
+	if (record == null) return
 	if (typeof record.scopePath !== 'string' || record.scopePath !== scopePath)
 		return
 	if (

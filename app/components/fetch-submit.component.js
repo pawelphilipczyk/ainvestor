@@ -128,7 +128,6 @@ async function handleFetchSubmit(form, submitBtn) {
 			const pageContent = document.getElementById('page-content')
 			if (main && pageContent) {
 				pageContent.innerHTML = main.outerHTML
-				document.dispatchEvent(new CustomEvent('rmx-page-content-updated'))
 			} else {
 				// Keep the fetched HTML (e.g. error page) instead of replaying as GET.
 				document.open()

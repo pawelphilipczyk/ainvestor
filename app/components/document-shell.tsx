@@ -37,6 +37,13 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				<meta name="viewport" content="width=device-width,initial-scale=1" />
 				<title>{props.title}</title>
 				<script innerHTML="if(localStorage.getItem('theme')==='light')document.documentElement.classList.remove('dark')" />
+				<script
+					innerHTML={`(function(){try{var p="etf-portfolio:v1:";var k=${JSON.stringify(
+						props.session?.login
+							? `etf-portfolio:v1:u:${encodeURIComponent(props.session.login)}:`
+							: 'etf-portfolio:v1:guest:',
+					)};for(var i=0,a=Object.keys(localStorage);i<a.length;i++){var x=a[i];if(x.indexOf(p)===0&&x.indexOf(k)!==0)localStorage.removeItem(x)}}catch(e){}})()`}
+				/>
 				<script src="https://cdn.tailwindcss.com" />
 				<script
 					innerHTML={`tailwind.config = ${JSON.stringify(tailwindConfig)}`}
@@ -52,6 +59,48 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 						catalogEtfAnalysisNetworkError: t(
 							'client.catalogEtfAnalysisNetworkError',
 						),
+					})}
+				/>
+				<script
+					type="application/json"
+					id="ui-client-scope"
+					innerHTML={JSON.stringify(
+						props.session?.login
+							? { login: props.session.login }
+							: { guest: true },
+					)}
+				/>
+				<script
+					type="application/json"
+					id="ui-advice-restore-labels"
+					innerHTML={JSON.stringify({
+						staleNoticeTemplate: t('advice.restore.staleNotice'),
+						invalid: t('advice.restore.invalid'),
+						resultTitleBuy: t('advice.result.title'),
+						resultTitleReview: t('advice.result.titleReview'),
+						resultSubtitleBuy: t('advice.result.subtitle'),
+						resultSubtitleReview: t(
+							'advice.result.subtitleReviewGuidelinesOnly',
+						),
+						tableEmpty: t('advice.table.empty'),
+						tableCaption: t('advice.table.caption'),
+						tableFund: t('advice.table.fund'),
+						tableTicker: t('advice.table.ticker'),
+						tableAmount: t('advice.table.amount'),
+						tableCurrency: t('advice.table.currency'),
+						tableNote: t('advice.table.note'),
+						tableEtfDetails: t('advice.table.etfDetailsLink'),
+						emptyCell: t('catalog.emptyCell'),
+						capitalTitle: t('advice.capital.title'),
+						capitalSnapshotError: t('advice.capital.snapshotError'),
+						capitalSrOnly: t('advice.capital.srOnly'),
+						capitalAriaBar: t('advice.capital.ariaBar'),
+						capitalSegmentTitle: t('advice.capital.segmentTitle'),
+						guidelineDefaultCaption: t('advice.guideline.defaultCaption'),
+						guidelineEmptyRows: t('advice.guideline.emptyRows'),
+						guidelineLegend: t('advice.guideline.legend'),
+						guidelineAriaSummary: t('advice.guideline.ariaSummary'),
+						guidelineAfterProposedBuys: t('advice.guideline.afterProposedBuys'),
 					})}
 				/>
 			</head>

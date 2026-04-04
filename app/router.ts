@@ -31,7 +31,9 @@ const appStatic = staticFiles('app', {
 		path.endsWith('.component.js') ||
 		path === 'entry.js' ||
 		path === 'lib/dialog-trigger.js' ||
-		path === 'lib/client-analysis-storage.js',
+		path === 'lib/client-analysis-storage.js' ||
+		path === 'lib/advice-document-storage-validation.js' ||
+		path === 'lib/advice-restore-dom.js',
 })
 
 const remixRuntime = staticFiles('node_modules', {

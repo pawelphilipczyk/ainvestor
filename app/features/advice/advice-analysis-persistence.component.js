@@ -1,11 +1,14 @@
 import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import { validateAdviceDocumentForClientStorage } from '../../lib/advice-document-storage-validation.js'
+import { buildAdviceRestoredCard } from '../../lib/advice-restore-dom.js'
 import {
-	readClientAnalysisRecord,
+	readAdviceAnalysisRecord,
 	writeAdviceAnalysisSnapshot,
 } from '../../lib/client-analysis-storage.js'
 
 const RESULT_ID = 'advice-last-result'
 const RESTORE_TARGET_ID = 'advice-client-restored'
+const RESTORE_LABELS_ID = 'ui-advice-restore-labels'
 
 function normalizeAdviceTabFromSearch(search) {
 	const normalized =
@@ -18,10 +21,39 @@ function normalizeAdviceTabFromSearch(search) {
 	return tab === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
 }
 
+/**
+ * @returns {Record<string, string> | null}
+ */
+function readRestoreLabels() {
+	if (typeof document === 'undefined') return null
+	const el = document.getElementById(RESTORE_LABELS_ID)
+	if (!el?.textContent) return null
+	try {
+		const parsed = JSON.parse(el.textContent)
+		if (parsed == null || typeof parsed !== 'object') return null
+		return /** @type {Record<string, string>} */ (parsed)
+	} catch {
+		return null
+	}
+}
+
 function persistAdviceResultIfPresent() {
 	const card = document.getElementById(RESULT_ID)
 	if (!(card instanceof HTMLElement)) return
 	if (card.innerHTML.trim() === '') return
+
+	const snapshotEl = card.querySelector('[data-advice-document-snapshot]')
+	if (!(snapshotEl instanceof HTMLElement)) return
+	const raw = snapshotEl.textContent?.trim() ?? ''
+	if (raw === '') return
+	let parsed
+	try {
+		parsed = JSON.parse(raw)
+	} catch {
+		return
+	}
+	const adviceDocument = validateAdviceDocumentForClientStorage(parsed)
+	if (adviceDocument == null) return
 
 	const pathname = window.location.pathname
 	const search = window.location.search
@@ -41,7 +73,7 @@ function persistAdviceResultIfPresent() {
 		cashAmount,
 		cashCurrency,
 		selectedModel,
-		resultCardHtml: card.outerHTML,
+		adviceDocument,
 	})
 }
 
@@ -50,22 +82,17 @@ function restoreAdviceFromStorage() {
 	if (serverCard instanceof HTMLElement) {
 		const target = document.getElementById(RESTORE_TARGET_ID)
 		if (target instanceof HTMLElement) {
-			target.innerHTML = ''
+			target.replaceChildren()
 			target.classList.add('hidden')
 		}
 		return
 	}
 
-	const record = readClientAnalysisRecord()
-	if (record == null || record.kind !== 'advice') return
+	const record = readAdviceAnalysisRecord()
+	if (record == null) return
 	if (
 		typeof record.pathname !== 'string' ||
 		record.pathname !== window.location.pathname
-	)
-		return
-	if (
-		typeof record.resultCardHtml !== 'string' ||
-		record.resultCardHtml.trim() === ''
 	)
 		return
 
@@ -75,11 +102,60 @@ function restoreAdviceFromStorage() {
 	const currentTab = normalizeAdviceTabFromSearch(window.location.search)
 	if (storedTab !== currentTab) return
 
+	const docPayload = validateAdviceDocumentForClientStorage(
+		record.adviceDocument,
+	)
+	if (docPayload == null) return
+
+	const lastAnalysisMode =
+		record.lastAnalysisMode === 'portfolio_review' ||
+		record.lastAnalysisMode === 'buy_next'
+			? record.lastAnalysisMode
+			: 'buy_next'
+	const cashCurrency =
+		typeof record.cashCurrency === 'string' && record.cashCurrency.length > 0
+			? record.cashCurrency
+			: 'PLN'
+	const selectedModel =
+		typeof record.selectedModel === 'string' && record.selectedModel.length > 0
+			? record.selectedModel
+			: 'gpt-5.4-mini'
+	const cashAmount =
+		typeof record.cashAmount === 'string' ? record.cashAmount : undefined
+	const savedAt =
+		typeof record.savedAt === 'number' ? record.savedAt : Date.now()
+
+	const labels = readRestoreLabels()
 	const target = document.getElementById(RESTORE_TARGET_ID)
 	if (!(target instanceof HTMLElement)) return
 
-	target.innerHTML = record.resultCardHtml
-	target.classList.remove('hidden')
+	target.replaceChildren()
+
+	if (labels == null) {
+		console.warn('[advice-persistence] missing #ui-advice-restore-labels')
+		return
+	}
+
+	try {
+		const card = buildAdviceRestoredCard(document, labels, {
+			adviceDocument: docPayload,
+			lastAnalysisMode,
+			cashAmount,
+			cashCurrency,
+			selectedModel,
+			savedAt,
+		})
+		target.appendChild(card)
+		target.classList.remove('hidden')
+	} catch (err) {
+		console.warn('[advice-persistence] restore render failed', err)
+		const p = document.createElement('p')
+		p.className = 'text-sm text-muted-foreground'
+		p.setAttribute('role', 'alert')
+		p.textContent = labels.invalid
+		target.appendChild(p)
+		target.classList.remove('hidden')
+	}
 }
 
 export const AdviceAnalysisPersistence = clientEntry(

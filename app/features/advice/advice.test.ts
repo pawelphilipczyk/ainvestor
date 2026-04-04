@@ -94,6 +94,8 @@ describe('Advice', () => {
 		assert.match(body, /Portfolio health review/)
 		assert.match(body, /id="advice-client-restored"/)
 		assert.match(body, /advice-analysis-persistence\.component\.js/)
+		assert.match(body, /id="ui-client-scope"/)
+		assert.match(body, /id="ui-advice-restore-labels"/)
 	})
 
 	it('GET /advice shows pending approval when session login is not on allowlist', async () => {
@@ -115,6 +117,8 @@ describe('Advice', () => {
 		assert.match(body, /Account pending approval/)
 		assert.match(body, /approved-github-logins\.ts/)
 		assert.match(body, /disabled/)
+		assert.doesNotMatch(body, /id="advice-client-restored"/)
+		assert.doesNotMatch(body, /advice-analysis-persistence\.component\.js/)
 	})
 
 	it('POST /advice returns 403 for pending-approval session', async () => {
@@ -153,7 +157,7 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 403)
 		assert.match(body, /not approved yet/)
-		assert.doesNotMatch(body, /Investment Advice/)
+		assert.doesNotMatch(body, /id="advice-last-result"/)
 	})
 
 	it('returns 400 with AdvicePage HTML when buy_next has empty cashAmount', async () => {
@@ -275,6 +279,7 @@ describe('Advice', () => {
 		assert.match(body, /id="advice-last-result"/)
 		assert.match(body, /data-last-analysis-mode="buy_next"/)
 		assert.match(body, /data-cash-amount="1000"/)
+		assert.match(body, /data-advice-document-snapshot/)
 		assert.match(body, /Buy VTI for broad market exposure\./)
 	})
 
