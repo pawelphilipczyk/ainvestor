@@ -1,5 +1,6 @@
 import { addEventListeners, clientEntry, createElement } from 'remix/component'
 import { setSubmitButtonLoading } from '../../components/submit-button-loading.component.js'
+import { dispatchCatalogEtfAnalysisSaved } from './catalog-etf-analysis-persistence.component.js'
 
 const FORM_ATTR = 'data-catalog-etf-analysis-form'
 
@@ -104,10 +105,14 @@ export const CatalogEtfAnalysisFormEnhancement = clientEntry(
 								)
 								return
 							}
-							resultEl.textContent =
-								typeof data.text === 'string' ? data.text : ''
+							const text = typeof data.text === 'string' ? data.text : ''
+							resultEl.textContent = text
 							resultEl.classList.remove('hidden')
 							form.classList.add('hidden')
+							const scopePath = form.getAttribute('data-catalog-scope-path')
+							if (typeof scopePath === 'string' && scopePath.length > 0) {
+								dispatchCatalogEtfAnalysisSaved(scopePath, text)
+							}
 							return
 						}
 

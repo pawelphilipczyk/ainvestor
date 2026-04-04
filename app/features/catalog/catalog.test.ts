@@ -105,6 +105,15 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /AI overview/)
 		assert.match(body, /action="\/catalog\/etf\/row-detail-test\/analysis"/)
 		assert.match(body, /data-catalog-etf-analysis-form/)
+		assert.match(
+			body,
+			/data-catalog-scope-path="\/catalog\/etf\/row-detail-test"/,
+		)
+		assert.match(
+			body,
+			/data-catalog-entry-scope="\/catalog\/etf\/row-detail-test"/,
+		)
+		assert.match(body, /catalog-etf-analysis-persistence\.component\.js/)
 		assert.match(body, /ETF analysis/)
 		assert.doesNotMatch(body, /Educational ETF paragraph/)
 		assert.match(body, /Back/)

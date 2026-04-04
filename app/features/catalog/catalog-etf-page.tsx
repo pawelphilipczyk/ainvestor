@@ -4,9 +4,12 @@ import { Link } from '../../components/link.tsx'
 import { SubmitButton } from '../../components/submit-button.tsx'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
+import { routes } from '../../routes.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
 // @ts-expect-error Runtime-only remix clientEntry (scoped to this page)
 import { CatalogEtfAnalysisFormEnhancement } from './catalog-etf-analysis-form.component.js'
+// @ts-expect-error Runtime-only remix clientEntry (localStorage snapshot of last analysis)
+import { CatalogEtfAnalysisPersistence } from './catalog-etf-analysis-persistence.component.js'
 import type { CatalogEntry } from './lib.ts'
 
 export type CatalogEtfPageProps = {
@@ -124,7 +127,12 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 						</div>
 					</div>
 				</header>
-				<main class="mx-auto w-full min-w-0 max-w-3xl flex-1 space-y-6 overflow-x-hidden px-4 py-6">
+				<main
+					class="mx-auto w-full min-w-0 max-w-3xl flex-1 space-y-6 overflow-x-hidden px-4 py-6"
+					data-catalog-entry-scope={routes.catalog.etf.href({
+						catalogEntryId: entry.id,
+					})}
+				>
 					<Card class="min-w-0 max-w-full overflow-x-hidden p-5">
 						<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 							{t('catalog.etfDetail.catalogCardTitle')}
@@ -164,6 +172,9 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 									method="post"
 									action={props.analysisPostHref}
 									data-catalog-etf-analysis-form
+									data-catalog-scope-path={routes.catalog.etf.href({
+										catalogEntryId: entry.id,
+									})}
 									data-result-target="#catalog-etf-analysis-output"
 									data-error-target="#catalog-etf-analysis-error"
 									class="min-w-0"
@@ -187,6 +198,7 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 									class="mt-4 hidden min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground"
 								/>
 								<CatalogEtfAnalysisFormEnhancement />
+								<CatalogEtfAnalysisPersistence />
 							</>
 						) : (
 							<div class="min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
