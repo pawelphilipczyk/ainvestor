@@ -132,7 +132,7 @@ This keeps pages focused on composition and prevents subtle drift between simila
 When a **POST** returns **JSON** and you want the **same busy spinner** as submit buttons:
 
 - Use a **normal `<form method="post">`** with **`SubmitButton`** (not `data-fetch-submit`).
-- Add a **feature-scoped `clientEntry`** that listens for `submit`, calls `preventDefault`, builds a JSON body from named fields, runs `fetch`, and toggles busy state via **`setSubmitButtonLoading`** from `app/components/submit-button-loading.component.js` (shared with `fetch-submit.component.js`).
+- Add a **feature-scoped `clientEntry`** that listens for `submit`, calls `preventDefault`, builds the JSON body from **`new FormData(form)`** (matches checkbox/radio inclusion like a real submit), runs `fetch`, and toggles busy state via **`setSubmitButtonLoading`** from `app/components/submit-button-loading.component.js` (shared with `fetch-submit.component.js`).
 - Mount the `clientEntry` **next to the form** on the page that needs it (same pattern as `GuidelinesDeleteDialogInteractions` on the guidelines page). Only use the document shell for behavior that must exist on **every** route.
 
 **Reference implementation:** ETF catalog detail — `CatalogEtfAnalysisFormEnhancement` in `catalog-etf-page.tsx` + `catalog-etf-analysis-form.component.js`.
