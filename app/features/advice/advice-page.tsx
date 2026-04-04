@@ -78,8 +78,12 @@ type AdvicePageProps = {
 	adviceFromGist?: boolean
 	/** ISO timestamp when gist snapshot was written (for notice line). */
 	adviceGistSavedAt?: string
+	/** Older gists may only have `portfolio-review.json`; show a migration hint. */
+	adviceFromLegacyPortfolioReviewFile?: boolean
 	formError?: FormError
 	pendingApproval?: boolean
+	/** Guest or signed-in user without a private gist — forms disabled; explain sign-in / Portfolio. */
+	adviceGistGate?: 'sign_in' | 'connect_gist'
 }
 
 function resolveProposalEtfDetailsCatalogEntryId(
@@ -539,6 +543,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					DEFAULT_ADVICE_ANALYSIS_MODE)
 				: null
 		const pendingApproval = props.pendingApproval === true
+		const adviceGistGate = props.adviceGistGate
+		const adviceFormDisabled = pendingApproval || adviceGistGate !== undefined
 		const buyNextHref = routes.advice.index.href({}, { tab: 'buy_next' })
 		const reviewHref = routes.advice.index.href({}, { tab: 'portfolio_review' })
 		const buyNextAction = routes.advice.action.href({}, { tab: 'buy_next' })
@@ -569,6 +575,44 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</p>
 					</div>
 				) : null}
+				{!pendingApproval && adviceGistGate === 'sign_in' ? (
+					<div
+						role="status"
+						class="rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-card-foreground"
+					>
+						<p class="font-medium">{t('advice.requiresGist.title')}</p>
+						<p class="mt-1 text-muted-foreground">
+							{t('advice.requiresGist.bodySignIn')}
+						</p>
+						<p class="mt-3">
+							<Link
+								href={routes.auth.login.href()}
+								class="font-medium text-primary underline-offset-4 hover:underline"
+							>
+								{t('advice.requiresGist.linkSignIn')}
+							</Link>
+						</p>
+					</div>
+				) : null}
+				{!pendingApproval && adviceGistGate === 'connect_gist' ? (
+					<div
+						role="status"
+						class="rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-card-foreground"
+					>
+						<p class="font-medium">{t('advice.requiresGist.title')}</p>
+						<p class="mt-1 text-muted-foreground">
+							{t('advice.requiresGist.bodyConnectGist')}
+						</p>
+						<p class="mt-3">
+							<Link
+								href={routes.portfolio.index.href()}
+								class="font-medium text-primary underline-offset-4 hover:underline"
+							>
+								{t('advice.requiresGist.linkPortfolio')}
+							</Link>
+						</p>
+					</div>
+				) : null}
 				<div class="flex flex-col">
 					<TabsNav
 						activeId={activeTab}
@@ -592,6 +636,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								data-replace-main
 							>
 								<input type="hidden" name="analysisMode" value="buy_next" />
+								<input type="hidden" name="adviceIntent" value="run" />
 								{props.formError ? (
 									<FormErrorAlert error={props.formError} />
 								) : null}
@@ -613,7 +658,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 											inputMode="decimal"
 											pattern={LOCALE_DECIMAL_HTML_PATTERN}
 											defaultValue={props.cashAmount}
-											disabled={pendingApproval}
+											disabled={adviceFormDisabled}
 										/>
 									</div>
 									<div class="grid w-full gap-2 sm:w-36">
@@ -625,7 +670,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 											name="cashCurrency"
 											options={currencyOptions}
 											value={cashCurrency}
-											disabled={pendingApproval}
+											disabled={adviceFormDisabled}
 										/>
 									</div>
 									<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
@@ -637,11 +682,11 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 											name="adviceModel"
 											options={modelOptions}
 											value={selectedModel}
-											disabled={pendingApproval}
+											disabled={adviceFormDisabled}
 										/>
 									</div>
 									<SubmitButton
-										disabled={pendingApproval}
+										disabled={adviceFormDisabled}
 										class="sm:!w-auto sm:shrink-0"
 									>
 										{t('advice.form.submit')}
@@ -651,6 +696,29 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</Card>
 					) : (
 						<Card variant="muted" class="rounded-t-none border-t-0 p-6">
+							{props.advice !== undefined ? (
+								<form
+									method="post"
+									action={reviewAction}
+									class="mb-4"
+									data-fetch-submit
+									data-replace-main
+								>
+									<input
+										type="hidden"
+										name="analysisMode"
+										value="portfolio_review"
+									/>
+									<input type="hidden" name="adviceIntent" value="clear" />
+									<button
+										type="submit"
+										disabled={adviceFormDisabled}
+										class="inline-flex h-10 min-h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+									>
+										{t('advice.portfolioReview.clearStored')}
+									</button>
+								</form>
+							) : null}
 							<form
 								method="post"
 								action={reviewAction}
@@ -663,6 +731,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									name="analysisMode"
 									value="portfolio_review"
 								/>
+								<input type="hidden" name="adviceIntent" value="run" />
 								{props.formError ? (
 									<FormErrorAlert error={props.formError} />
 								) : null}
@@ -679,14 +748,16 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 											name="adviceModel"
 											options={modelOptions}
 											value={selectedModel}
-											disabled={pendingApproval}
+											disabled={adviceFormDisabled}
 										/>
 									</div>
 									<SubmitButton
-										disabled={pendingApproval}
+										disabled={adviceFormDisabled}
 										class="sm:!w-auto sm:shrink-0"
 									>
-										{t('advice.form.submit')}
+										{props.advice !== undefined
+											? t('advice.form.submitPortfolioRegenerate')
+											: t('advice.form.submit')}
 									</SubmitButton>
 								</div>
 							</form>
@@ -709,6 +780,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									savedAt: props.adviceGistSavedAt,
 								})}
 							</p>
+						) : props.adviceFromLegacyPortfolioReviewFile === true ? (
+							<p
+								class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+								role="status"
+							>
+								{t('advice.restore.fromLegacyPortfolioReviewFile')}
+							</p>
 						) : null}
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
 							{resultMode === 'portfolio_review'
@@ -728,7 +806,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
 									{renderAdviceBlock(block, cashCurrency, i, {
 										selectedModel,
-										pendingApproval,
+										pendingApproval:
+											pendingApproval || adviceGistGate !== undefined,
 										catalog: props.catalog,
 									})}
 								</div>

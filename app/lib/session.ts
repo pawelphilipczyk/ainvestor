@@ -70,7 +70,15 @@ export function getLayoutSession(session: Session): SessionData | null {
 	}
 }
 
+/** Session with a GitHub token and private data gist (not guest, not pending-only identity). */
+export type SessionWithGithubGist = SessionData & {
+	token: string
+	gistId: string
+}
+
 /** True when the session can read/write the private GitHub Gist (not guest, not pending). */
-export function sessionUsesGithubGist(session: SessionData | null): boolean {
+export function sessionUsesGithubGist(
+	session: SessionData | null,
+): session is SessionWithGithubGist {
 	return Boolean(session?.token && session.gistId)
 }

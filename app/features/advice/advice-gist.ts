@@ -180,6 +180,7 @@ export async function saveStoredAdviceAnalysis(
 ): Promise<void> {
 	if (gistTestState.enabled) {
 		gistTestState.lastSaved = stored
+		gistTestState.fetchReturn = stored
 		return
 	}
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
@@ -190,6 +191,37 @@ export async function saveStoredAdviceAnalysis(
 	if (!response.ok) {
 		throw new Error(
 			`GitHub API error saving advice snapshot: ${response.status}`,
+		)
+	}
+}
+
+function buildClearAdviceAnalysisGistPatch(): {
+	files: Record<string, null>
+} {
+	return {
+		files: {
+			[ADVICE_STORAGE_FILENAME]: null,
+		},
+	}
+}
+
+export async function clearStoredAdviceAnalysis(
+	token: string,
+	gistId: string,
+): Promise<void> {
+	if (gistTestState.enabled) {
+		gistTestState.fetchReturn = null
+		gistTestState.lastSaved = null
+		return
+	}
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+		method: 'PATCH',
+		headers: githubHeaders(token),
+		body: JSON.stringify(buildClearAdviceAnalysisGistPatch()),
+	})
+	if (!response.ok) {
+		throw new Error(
+			`GitHub API error clearing advice snapshot: ${response.status}`,
 		)
 	}
 }
