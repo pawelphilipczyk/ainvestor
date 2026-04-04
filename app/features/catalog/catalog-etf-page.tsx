@@ -5,6 +5,8 @@ import { SubmitButton } from '../../components/submit-button.tsx'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
+// @ts-expect-error Runtime-only remix clientEntry (scoped to this page)
+import { CatalogEtfAnalysisFormEnhancement } from './catalog-etf-analysis-form.component.js'
 import type { CatalogEntry } from './lib.ts'
 
 export type CatalogEtfPageProps = {
@@ -184,6 +186,7 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 									id="catalog-etf-analysis-output"
 									class="mt-4 hidden min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground"
 								/>
+								<CatalogEtfAnalysisFormEnhancement />
 							</>
 						) : (
 							<div class="min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">

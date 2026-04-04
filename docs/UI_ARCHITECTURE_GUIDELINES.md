@@ -133,9 +133,11 @@ When a **POST** returns **JSON** and you want the **same busy spinner** as submi
 
 - Use a **normal `<form method="post">`** with **`SubmitButton`** (not `data-fetch-submit`).
 - Add a **feature-scoped `clientEntry`** that listens for `submit`, calls `preventDefault`, builds a JSON body from named fields, runs `fetch`, and toggles busy state via **`setSubmitButtonLoading`** from `app/components/submit-button-loading.component.js` (shared with `fetch-submit.component.js`).
-- Mount that `clientEntry` once from **`DocumentShell`** (or another shell) so it survives `data-replace-main` updates.
+- Mount the `clientEntry` **next to the form** on the page that needs it (same pattern as `GuidelinesDeleteDialogInteractions` on the guidelines page). Only use the document shell for behavior that must exist on **every** route.
 
-**Reference implementation:** ETF catalog detail — `data-catalog-etf-analysis-form` in `catalog-etf-page.tsx` + `catalog-etf-analysis-form.component.js`.
+**Reference implementation:** ETF catalog detail — `CatalogEtfAnalysisFormEnhancement` in `catalog-etf-page.tsx` + `catalog-etf-analysis-form.component.js`.
+
+**Note:** If a feature lives inside HTML that is **replaced client-side** (e.g. `data-replace-main` without a full navigation), a document-level listener can still see those submits—but full page loads only hydrate `clientEntry` components that appear in the current response. Prefer full navigation for pages that need their own `clientEntry` trees.
 
 ---
 
