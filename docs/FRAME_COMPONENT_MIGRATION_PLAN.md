@@ -17,13 +17,14 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 
 ### Phase 1 — Redirect-only POSTs (no partial UI)
 
-- [ ] **Catalog import** — Remove `data-fetch-submit` from the bank JSON import form on `CatalogPage` (`app/features/catalog/catalog-page.tsx`). Rely on normal POST + redirect from `routes.catalog.import`. Update `app/features/catalog/catalog.test.ts` expectations.
+- [x] **Catalog import** — Remove `data-fetch-submit` from the bank JSON import form on `CatalogPage` (`app/features/catalog/catalog-page.tsx`). Rely on normal POST + redirect from `routes.catalog.import`. Update `app/features/catalog/catalog.test.ts` expectations. **Follow-up:** Phase 2 frames the ETF list below; until then a full redirect reloads the whole catalog page (including a future frame’s initial `src` fetch).
 - [ ] **Sidebar sign-out** — Remove `data-fetch-submit` from the logout form in `app/components/sidebar.tsx`. Rely on normal POST + redirect. Update `app/components/sidebar.test.ts` if it asserts fetch-submit attributes.
 
 ### Phase 2 — List regions currently using fragment `innerHTML`
 
 - [ ] **Portfolio: frame around the holdings list** — Introduce `<Frame>` wrapping `#portfolio-list` (or equivalent) with a dedicated GET URL that renders only the list markup (reuse or align with `routes.portfolio.fragmentList`). Replace `data-fragment-id` / `data-fragment-url` on add/import/update forms with POST handlers that redirect or respond in a way that triggers **`handle.frame.reload()`** from a small `clientEntry` inside the frame (or Remix-documented frame reload pattern). Remove corresponding branches from `fetch-submit.component.js` once unused.
 - [ ] **Guidelines: frame around the guidelines list** — Same pattern for `guidelines-list` / `routes.guidelines.fragmentList` and forms in `guidelines-page.tsx` + `guidelines-list-fragment.tsx`.
+- [ ] **Catalog: frame around ETF list** — Keep section intro, import card, and filter **outside** `<Frame>`. Add a GET route that returns **only** the catalog list markup (holdings + available tables, respecting current filter query params). Wrap that region in `<Frame src={…}>` so the list loads asynchronously when the page opens. After **import** completes, refresh the list via **`handle.frame.reload()`** (from a small `clientEntry` tied to the catalog page or frame boundary) **or**, while import still uses a **full-page redirect**, rely on the navigation to re-run the frame’s initial load; prefer explicit reload once import stops doing a full document navigation.
 
 ### Phase 3 — Full main-region swap (`data-replace-main`)
 

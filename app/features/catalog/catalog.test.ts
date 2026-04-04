@@ -243,9 +243,11 @@ describe('ETF Catalog page', () => {
 		})
 		const body = await response.text()
 
-		assert.match(body, /data-fetch-submit/)
+		assert.match(
+			body,
+			/<form\b[^>]*\bmethod="post"[^>]*\baction="\/catalog\/import"[^>]*>/,
+		)
 		assert.match(body, /name="bankApiJson"/)
-		assert.match(body, /action="\/catalog\/import"/)
 	})
 
 	it('GET /catalog hides import section for users without import permission', async () => {
