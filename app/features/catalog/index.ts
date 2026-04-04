@@ -18,6 +18,7 @@ import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import {
 	catalogCanImport,
+	loadCatalogEtfDetailContext,
 	loadCatalogPageContext,
 } from './catalog-load-context.ts'
 import { CatalogPage } from './catalog-page.tsx'
@@ -153,7 +154,7 @@ export const catalogController = {
 			}
 
 			const { catalogSnapshot, layoutSession } =
-				await loadCatalogPageContext(context)
+				await loadCatalogEtfDetailContext(context)
 			const pendingApproval = layoutSession?.approvalStatus === 'pending'
 			const backHref = catalogEtfBackHref(context.request)
 			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)

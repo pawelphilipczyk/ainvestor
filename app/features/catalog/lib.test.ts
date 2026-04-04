@@ -162,7 +162,7 @@ describe('parseBankJsonToCatalog', () => {
 		assert.equal(result[0].id, 't:XMOV+GR')
 	})
 
-	it('uses plain ISIN as id when it is unique in the import batch', () => {
+	it('always qualifies ISIN-based id with market or ticker (stable across import batches)', () => {
 		const result = parseBankJsonToCatalog({
 			data: [
 				{
@@ -174,7 +174,7 @@ describe('parseBankJsonToCatalog', () => {
 			],
 		})
 		assert.equal(result.length, 1)
-		assert.equal(result[0].id, 'IE00BGV5VR99')
+		assert.equal(result[0].id, 'IE00BGV5VR99:GR')
 	})
 
 	it('appends market suffix to ISIN when the same ISIN lists on multiple tickers', () => {

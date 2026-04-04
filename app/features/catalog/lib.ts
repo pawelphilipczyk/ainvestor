@@ -250,10 +250,10 @@ export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 		if (explicitId.length > 0) {
 			id = explicitId
 		} else if (isinNorm !== null) {
-			const distinctTickersForIsin = isinToTickerKeys.get(isinNorm)?.size ?? 0
-			const needsQualifier = distinctTickersForIsin > 1
+			// Always include ticker (or market) in the id so separate imports that each
+			// contain a single line for the same ISIN never collide on a bare ISIN id.
 			const qualifier = marketToken ?? tickerKey
-			id = needsQualifier ? `${isinNorm}:${qualifier}` : isinNorm
+			id = `${isinNorm}:${qualifier}`
 		} else {
 			id = `t:${tickerKey}`
 		}

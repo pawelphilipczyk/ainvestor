@@ -74,16 +74,17 @@ export const CatalogEtfAnalysisFormEnhancement = clientEntry(
 
 					try {
 						const payload = {}
-						for (const field of form.querySelectorAll(
-							'input[name], select[name], textarea[name]',
-						)) {
-							if (
-								field instanceof HTMLInputElement &&
-								(field.type === 'submit' || field.type === 'button')
-							) {
-								continue
+						const formData = new FormData(form)
+						for (const [name, value] of formData.entries()) {
+							if (typeof value !== 'string') continue
+							const prior = payload[name]
+							if (prior === undefined) {
+								payload[name] = value
+							} else if (Array.isArray(prior)) {
+								prior.push(value)
+							} else {
+								payload[name] = [prior, value]
 							}
-							if (field.name) payload[field.name] = field.value
 						}
 
 						const response = await fetch(form.action, {
@@ -97,11 +98,15 @@ export const CatalogEtfAnalysisFormEnhancement = clientEntry(
 						const data = await response.json().catch(() => ({}))
 
 						if (response.ok) {
-							if (resultEl) {
-								resultEl.textContent =
-									typeof data.text === 'string' ? data.text : ''
-								resultEl.classList.remove('hidden')
+							if (!resultEl) {
+								console.error(
+									'[catalog-etf-analysis] missing data-result-target element',
+								)
+								return
 							}
+							resultEl.textContent =
+								typeof data.text === 'string' ? data.text : ''
+							resultEl.classList.remove('hidden')
 							form.classList.add('hidden')
 							return
 						}

@@ -18,8 +18,24 @@ export type CatalogPageLoadContext = {
 	layoutSession: SessionData | null
 }
 
+export type CatalogEtfDetailLoadContext = {
+	catalogSnapshot: CatalogPageLoadContext['catalogSnapshot']
+	layoutSession: SessionData | null
+}
+
 /**
- * Shared data for catalog list and ETF detail: shared gist snapshot + user holdings (guest or gist).
+ * Catalog ETF detail page: shared gist snapshot + session headers only (no holdings fetch).
+ */
+export async function loadCatalogEtfDetailContext(
+	context: AppRequestContext,
+): Promise<CatalogEtfDetailLoadContext> {
+	const layoutSession = getLayoutSession(context.get(Session))
+	const catalogSnapshot = await fetchSharedCatalogSnapshot()
+	return { catalogSnapshot, layoutSession }
+}
+
+/**
+ * Catalog list page: shared gist snapshot + user holdings (guest or gist).
  */
 export async function loadCatalogPageContext(
 	context: AppRequestContext,
