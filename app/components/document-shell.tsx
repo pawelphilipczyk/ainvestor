@@ -75,7 +75,6 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					id="ui-advice-restore-labels"
 					innerHTML={JSON.stringify({
 						staleNoticeTemplate: t('advice.restore.staleNotice'),
-						invalid: t('advice.restore.invalid'),
 						resultTitleBuy: t('advice.result.title'),
 						resultTitleReview: t('advice.result.titleReview'),
 						resultSubtitleBuy: t('advice.result.subtitle'),

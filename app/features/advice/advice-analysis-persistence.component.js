@@ -1,7 +1,7 @@
 import { addEventListeners, clientEntry, createElement } from 'remix/component'
-import { validateAdviceDocumentForClientStorage } from '../../lib/advice-document-storage-validation.js'
 import { buildAdviceRestoredCard } from '../../lib/advice-restore-dom.js'
 import {
+	clearAdviceAnalysisStorage,
 	readAdviceAnalysisRecord,
 	writeAdviceAnalysisSnapshot,
 } from '../../lib/client-analysis-storage.js'
@@ -46,14 +46,13 @@ function persistAdviceResultIfPresent() {
 	if (!(snapshotEl instanceof HTMLElement)) return
 	const raw = snapshotEl.textContent?.trim() ?? ''
 	if (raw === '') return
-	let parsed
+	let adviceDocument
 	try {
-		parsed = JSON.parse(raw)
+		adviceDocument = JSON.parse(raw)
 	} catch {
 		return
 	}
-	const adviceDocument = validateAdviceDocumentForClientStorage(parsed)
-	if (adviceDocument == null) return
+	if (adviceDocument == null || typeof adviceDocument !== 'object') return
 
 	const pathname = window.location.pathname
 	const search = window.location.search
@@ -102,10 +101,11 @@ function restoreAdviceFromStorage() {
 	const currentTab = normalizeAdviceTabFromSearch(window.location.search)
 	if (storedTab !== currentTab) return
 
-	const docPayload = validateAdviceDocumentForClientStorage(
-		record.adviceDocument,
-	)
-	if (docPayload == null) return
+	const adviceDocument = record.adviceDocument
+	if (adviceDocument == null || typeof adviceDocument !== 'object') {
+		clearAdviceAnalysisStorage()
+		return
+	}
 
 	const lastAnalysisMode =
 		record.lastAnalysisMode === 'portfolio_review' ||
@@ -138,7 +138,7 @@ function restoreAdviceFromStorage() {
 
 	try {
 		const card = buildAdviceRestoredCard(document, labels, {
-			adviceDocument: docPayload,
+			adviceDocument,
 			lastAnalysisMode,
 			cashAmount,
 			cashCurrency,
@@ -148,13 +148,13 @@ function restoreAdviceFromStorage() {
 		target.appendChild(card)
 		target.classList.remove('hidden')
 	} catch (err) {
-		console.warn('[advice-persistence] restore render failed', err)
-		const p = document.createElement('p')
-		p.className = 'text-sm text-muted-foreground'
-		p.setAttribute('role', 'alert')
-		p.textContent = labels.invalid
-		target.appendChild(p)
-		target.classList.remove('hidden')
+		console.warn(
+			'[advice-persistence] restore render failed; clearing storage',
+			err,
+		)
+		clearAdviceAnalysisStorage()
+		target.replaceChildren()
+		target.classList.add('hidden')
 	}
 }
 

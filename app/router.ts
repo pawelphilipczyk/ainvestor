@@ -32,7 +32,6 @@ const appStatic = staticFiles('app', {
 		path === 'entry.js' ||
 		path === 'lib/dialog-trigger.js' ||
 		path === 'lib/client-analysis-storage.js' ||
-		path === 'lib/advice-document-storage-validation.js' ||
 		path === 'lib/advice-restore-dom.js',
 })
 

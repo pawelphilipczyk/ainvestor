@@ -1,7 +1,5 @@
 /** Browser-only: scoped localStorage snapshots for advice and catalog ETF analysis. */
 
-import { validateAdviceDocumentForClientStorage } from './advice-document-storage-validation.js'
-
 export const CLIENT_ANALYSIS_STORAGE_VERSION = 1
 
 /** 24 hours — refuse stale restores (PR review). */
@@ -52,6 +50,18 @@ export function getAdviceAnalysisStorageKey() {
  */
 export function getCatalogEtfAnalysisStorageKey() {
 	return `${getClientAnalysisScopePrefix()}:lastCatalogEtfAnalysis`
+}
+
+export function clearAdviceAnalysisStorage() {
+	if (typeof localStorage === 'undefined') return
+	try {
+		localStorage.removeItem(getAdviceAnalysisStorageKey())
+	} catch (err) {
+		console.warn(
+			'[client-analysis-storage] failed to clear advice snapshot',
+			err,
+		)
+	}
 }
 
 /**
@@ -116,8 +126,6 @@ export function readCatalogEtfAnalysisRecord() {
  */
 export function writeAdviceAnalysisSnapshot(payload) {
 	if (typeof localStorage === 'undefined') return
-	const doc = validateAdviceDocumentForClientStorage(payload.adviceDocument)
-	if (doc == null) return
 	try {
 		const record = {
 			version: CLIENT_ANALYSIS_STORAGE_VERSION,
@@ -139,7 +147,7 @@ export function writeAdviceAnalysisSnapshot(payload) {
 				payload.selectedModel.length > 0
 					? payload.selectedModel
 					: undefined,
-			adviceDocument: doc,
+			adviceDocument: payload.adviceDocument,
 		}
 		localStorage.setItem(getAdviceAnalysisStorageKey(), JSON.stringify(record))
 	} catch (err) {

@@ -230,8 +230,6 @@ export const en = {
 		'Based on your current ETF holdings, catalog, and guidelines.',
 	'advice.restore.staleNotice':
 		'Restored from your browser (saved {savedAt}). Generate a new analysis if your portfolio or cash changed.',
-	'advice.restore.invalid':
-		'The saved analysis could not be shown. Run Ask AI again.',
 	'advice.table.empty': 'No specific ETF proposals in this response.',
 	'advice.table.caption': 'Proposed ETF investments',
 	'advice.table.fund': 'Fund',
