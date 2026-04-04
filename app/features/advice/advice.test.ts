@@ -92,6 +92,8 @@ describe('Advice', () => {
 		assert.match(body, /tab=portfolio_review/)
 		assert.match(body, /What to buy next/)
 		assert.match(body, /Portfolio health review/)
+		assert.match(body, /id="advice-client-restored"/)
+		assert.match(body, /advice-analysis-persistence\.component\.js/)
 	})
 
 	it('GET /advice shows pending approval when session login is not on allowlist', async () => {
@@ -270,6 +272,9 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Advice/)
+		assert.match(body, /id="advice-last-result"/)
+		assert.match(body, /data-last-analysis-mode="buy_next"/)
+		assert.match(body, /data-cash-amount="1000"/)
 		assert.match(body, /Buy VTI for broad market exposure\./)
 	})
 

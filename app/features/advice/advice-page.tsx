@@ -18,6 +18,8 @@ import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import { findCatalogEntryByTicker } from '../catalog/lib.ts'
+// @ts-expect-error Runtime-only remix clientEntry (localStorage snapshot of last result)
+import { AdviceAnalysisPersistence } from './advice-analysis-persistence.component.js'
 import type {
 	AdviceBlock,
 	AdviceDocument,
@@ -689,11 +691,27 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</Card>
 					)}
 				</div>
+				<div
+					id="advice-client-restored"
+					class="min-w-0 max-w-full hidden"
+					aria-live="polite"
+				/>
+				<AdviceAnalysisPersistence />
 				{props.advice !== undefined &&
 				resultMode !== null &&
 				(props.cashAmount !== undefined ||
 					resultMode === 'portfolio_review') ? (
-					<Card class="min-w-0 max-w-full p-6" aria-live="polite">
+					<Card
+						id="advice-last-result"
+						class="min-w-0 max-w-full p-6"
+						aria-live="polite"
+						data-last-analysis-mode={resultMode}
+						data-cash-currency={cashCurrency}
+						data-selected-model={selectedModel}
+						{...(resultMode === 'buy_next' && props.cashAmount !== undefined
+							? { 'data-cash-amount': props.cashAmount }
+							: {})}
+					>
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
 							{resultMode === 'portfolio_review'
 								? t('advice.result.titleReview')
