@@ -111,7 +111,6 @@ describe('Advice', () => {
 		assert.match(body, /tab=portfolio_review/)
 		assert.match(body, /What to buy next/)
 		assert.match(body, /Portfolio health review/)
-		assert.match(body, /id="ui-client-scope"/)
 	})
 
 	it('GET /advice shows pending approval when session login is not on allowlist', async () => {

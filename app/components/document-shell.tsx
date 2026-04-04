@@ -54,15 +54,6 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 						),
 					})}
 				/>
-				<script
-					type="application/json"
-					id="ui-client-scope"
-					innerHTML={JSON.stringify(
-						props.session?.login
-							? { login: props.session.login }
-							: { guest: true },
-					)}
-				/>
 			</head>
 			<body class="min-h-screen overflow-x-hidden bg-background font-sans text-foreground antialiased">
 				<SessionProvider session={props.session}>
