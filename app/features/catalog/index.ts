@@ -46,12 +46,11 @@ function jsonResponse(
 	body: Record<string, unknown>,
 	init?: ResponseInit,
 ): Response {
+	const headers = new Headers(init?.headers)
+	headers.set('content-type', 'application/json; charset=utf-8')
 	return new Response(JSON.stringify(body), {
 		...init,
-		headers: {
-			'content-type': 'application/json; charset=utf-8',
-			...Object.fromEntries(new Headers(init?.headers).entries()),
-		},
+		headers,
 	})
 }
 
@@ -144,7 +143,7 @@ export const catalogController = {
 
 		async etf(context: AppRequestContext) {
 			const entryId = decodeCatalogEntryIdFromPath(
-				context.params.catalogEntryId,
+				(context.params as Record<string, string>).catalogEntryId,
 			)
 			if (entryId === null) {
 				return new Response('Not found', {
@@ -201,7 +200,7 @@ export const catalogController = {
 
 		async etfAnalysis(context: AppRequestContext) {
 			const entryId = decodeCatalogEntryIdFromPath(
-				context.params.catalogEntryId,
+				(context.params as Record<string, string>).catalogEntryId,
 			)
 			if (entryId === null) {
 				return jsonResponse(
