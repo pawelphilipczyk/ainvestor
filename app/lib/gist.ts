@@ -1,4 +1,5 @@
 import { type CatalogEntry, fetchCatalog } from '../features/catalog/lib.ts'
+import { takePrivateGistFetchTestEtfs } from './private-gist-fetch-test-overlay.ts'
 
 export const GIST_FILENAME = 'etfs.json'
 
@@ -114,6 +115,8 @@ export async function fetchEtfs(
 	token: string,
 	gistId: string,
 ): Promise<EtfEntry[]> {
+	const testEtfs = takePrivateGistFetchTestEtfs(token, gistId)
+	if (testEtfs !== null) return testEtfs
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		headers: githubHeaders(token),
 	})

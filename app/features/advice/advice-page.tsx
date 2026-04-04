@@ -78,6 +78,8 @@ type AdvicePageProps = {
 	adviceFromGist?: boolean
 	/** ISO timestamp when gist snapshot was written (for notice line). */
 	adviceGistSavedAt?: string
+	/** Older gists may only have `portfolio-review.json`; show a migration hint. */
+	adviceFromLegacyPortfolioReviewFile?: boolean
 	formError?: FormError
 	pendingApproval?: boolean
 	/** Guest or signed-in user without a private gist — forms disabled; explain sign-in / Portfolio. */
@@ -777,6 +779,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								{format(t('advice.restore.fromGistNotice'), {
 									savedAt: props.adviceGistSavedAt,
 								})}
+							</p>
+						) : props.adviceFromLegacyPortfolioReviewFile === true ? (
+							<p
+								class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+								role="status"
+							>
+								{t('advice.restore.fromLegacyPortfolioReviewFile')}
 							</p>
 						) : null}
 						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">

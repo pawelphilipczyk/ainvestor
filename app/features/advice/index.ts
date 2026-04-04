@@ -84,6 +84,8 @@ function renderAdviceResponse(options: {
 		/** Shown when `advice` was loaded from `advice-analysis.json` in the user gist. */
 		adviceFromGist?: boolean
 		adviceGistSavedAt?: string
+		/** Legacy migration: loaded from `portfolio-review.json` before unified snapshot existed. */
+		adviceFromLegacyPortfolioReviewFile?: boolean
 		formError?: { summary: string; detail?: string }
 		pendingApproval?: boolean
 		adviceGistGate?: 'sign_in' | 'connect_gist'
@@ -210,6 +212,7 @@ export const adviceController = {
 									advice: legacy.advice,
 									lastAnalysisMode: 'portfolio_review',
 									selectedModel: legacy.model,
+									adviceFromLegacyPortfolioReviewFile: true,
 								},
 								layoutSession,
 								session,
@@ -421,7 +424,14 @@ export const adviceController = {
 				} catch (err) {
 					console.warn('[advice] could not read gist before clear', err)
 				}
-				await clearPortfolioReviewFromGist(session.token, session.gistId)
+				try {
+					await clearPortfolioReviewFromGist(session.token, session.gistId)
+				} catch (err) {
+					console.warn(
+						'[advice] could not clear legacy portfolio-review file',
+						err,
+					)
+				}
 				if (clearUnifiedSnapshot) {
 					try {
 						await clearStoredAdviceAnalysis(session.token, session.gistId)

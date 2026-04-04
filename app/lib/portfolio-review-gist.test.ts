@@ -3,7 +3,6 @@ import { describe, it } from 'node:test'
 
 import {
 	buildClearPortfolioReviewGistPatch,
-	buildPortfolioReviewGistPatch,
 	PORTFOLIO_REVIEW_FILENAME,
 	parsePortfolioReviewFromGist,
 } from './portfolio-review-gist.ts'
@@ -46,20 +45,6 @@ describe('portfolio-review-gist', () => {
 		assert.ok(stored)
 		assert.equal(stored.model, 'gpt-5.4-mini')
 		assert.deepEqual(stored.advice, advice)
-	})
-
-	it('buildPortfolioReviewGistPatch wraps model and advice', () => {
-		const patch = buildPortfolioReviewGistPatch({
-			model: 'gpt-5.4',
-			advice: {
-				blocks: [{ type: 'paragraph', text: 'x' }],
-			},
-		})
-		const parsed = JSON.parse(
-			patch.files[PORTFOLIO_REVIEW_FILENAME].content,
-		) as { model: string; advice: unknown }
-		assert.equal(parsed.model, 'gpt-5.4')
-		assert.ok(parsed.advice)
 	})
 
 	it('buildClearPortfolioReviewGistPatch nulls the file', () => {

@@ -1,3 +1,7 @@
+/**
+ * Legacy gist file `portfolio-review.json` (read + clear only). New analyses are
+ * stored in `advice-analysis.json` (`app/features/advice/advice-gist.ts`).
+ */
 import { parseSafe } from 'remix/data-schema'
 
 import type { AdviceDocument } from '../features/advice/advice-document.ts'
@@ -59,26 +63,6 @@ export function parsePortfolioReviewFromGist(
 	return { advice: legacy.value as AdviceDocument, model: DEFAULT_ADVICE_MODEL }
 }
 
-/** PATCH body: write or replace the single stored review (no history). */
-export function buildPortfolioReviewGistPatch(stored: StoredPortfolioReview): {
-	files: Record<string, { content: string }>
-} {
-	return {
-		files: {
-			[PORTFOLIO_REVIEW_FILENAME]: {
-				content: JSON.stringify(
-					{
-						model: stored.model,
-						advice: stored.advice,
-					},
-					null,
-					2,
-				),
-			},
-		},
-	}
-}
-
 /** PATCH body: remove the portfolio review file from the gist. */
 export function buildClearPortfolioReviewGistPatch(): {
 	files: Record<string, null>
@@ -113,25 +97,18 @@ export async function fetchPortfolioReviewFromGist(
 	return parsePortfolioReviewFromGist(gist)
 }
 
-export async function savePortfolioReviewToGist(options: {
-	token: string
-	gistId: string
-	stored: StoredPortfolioReview
-}): Promise<void> {
-	await fetch(`${GITHUB_API}/gists/${options.gistId}`, {
-		method: 'PATCH',
-		headers: githubHeaders(options.token),
-		body: JSON.stringify(buildPortfolioReviewGistPatch(options.stored)),
-	})
-}
-
 export async function clearPortfolioReviewFromGist(
 	token: string,
 	gistId: string,
 ): Promise<void> {
-	await fetch(`${GITHUB_API}/gists/${gistId}`, {
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		method: 'PATCH',
 		headers: githubHeaders(token),
 		body: JSON.stringify(buildClearPortfolioReviewGistPatch()),
 	})
+	if (!response.ok) {
+		throw new Error(
+			`GitHub API error clearing portfolio review file: ${response.status}`,
+		)
+	}
 }

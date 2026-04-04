@@ -1,5 +1,6 @@
 import { ETF_TYPE_LABELS } from '../locales/en.ts'
 import { t } from './i18n.ts'
+import { takePrivateGistFetchTestGuidelines } from './private-gist-fetch-test-overlay.ts'
 
 export const GUIDELINES_FILENAME = 'guidelines.json'
 
@@ -200,6 +201,8 @@ export async function fetchGuidelines(
 	token: string,
 	gistId: string,
 ): Promise<EtfGuideline[]> {
+	const testRows = takePrivateGistFetchTestGuidelines(token, gistId)
+	if (testRows !== null) return testRows
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		headers: githubHeaders(token),
 	})

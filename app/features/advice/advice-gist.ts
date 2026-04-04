@@ -180,6 +180,7 @@ export async function saveStoredAdviceAnalysis(
 ): Promise<void> {
 	if (gistTestState.enabled) {
 		gistTestState.lastSaved = stored
+		gistTestState.fetchReturn = stored
 		return
 	}
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
@@ -210,6 +211,7 @@ export async function clearStoredAdviceAnalysis(
 ): Promise<void> {
 	if (gistTestState.enabled) {
 		gistTestState.fetchReturn = null
+		gistTestState.lastSaved = null
 		return
 	}
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {

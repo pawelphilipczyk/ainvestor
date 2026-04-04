@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
+import { setPrivateGistFetchTestOverlay } from '../../lib/private-gist-fetch-test-overlay.ts'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
 	resetTestSessionCookieJar,
@@ -77,6 +78,7 @@ afterEach(() => {
 	resetTestSessionCookieJar()
 	resetSharedCatalogForTests()
 	resetAdviceGistTestOverlay()
+	setPrivateGistFetchTestOverlay(null)
 	setAdviceClient(null)
 	if (originalApprovedGithubLogins === undefined) {
 		delete process.env.APPROVED_GITHUB_LOGINS
@@ -214,6 +216,105 @@ describe('Advice', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /Portfolio review/)
 		assert.match(body, /Concentrated in equities/)
+	})
+
+	it('includes current ETF holdings in the advice prompt for gist-backed sessions', async () => {
+		const cookie = await signInWithGist()
+		let capturedUserMessage = ''
+		setPrivateGistFetchTestOverlay({
+			etfs: [
+				{
+					id: 'h1',
+					name: 'VXUS',
+					ticker: 'VXUS',
+					value: 3000,
+					currency: 'USD',
+				},
+			],
+			guidelines: [],
+		})
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async (params: AdviceCompletionCreateParams) => {
+						capturedUserMessage = params.messages[1].content
+						return { choices: [{ message: { content: 'advice' } }] }
+					},
+				},
+			},
+		})
+
+		const bankJson = JSON.stringify({
+			data: [{ fund_name: 'VXUS', ticker: 'VXUS', assets: 'akcje' }],
+			count: 1,
+		})
+		seedSharedCatalog(bankJson)
+
+		const form = new FormData()
+		form.set('cashAmount', '500')
+		form.set('analysisMode', 'buy_next')
+		form.set('adviceIntent', 'run')
+		await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.match(capturedUserMessage, /VXUS/)
+		assert.match(capturedUserMessage, /3000 USD/)
+		assert.match(capturedUserMessage, /500 PLN/)
+		assert.match(capturedUserMessage, /ETF catalog/)
+		assert.match(capturedUserMessage, /Allocation context/)
+	})
+
+	it('passes guidelines into the advice prompt when they exist (gist-backed)', async () => {
+		const cookie = await signInWithGist()
+		let capturedUserMessage = ''
+		setPrivateGistFetchTestOverlay({
+			etfs: [],
+			guidelines: [
+				{
+					id: 'g1',
+					kind: 'instrument',
+					etfName: 'VTI',
+					targetPct: 60,
+					etfType: 'equity',
+				},
+			],
+		})
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async (params: AdviceCompletionCreateParams) => {
+						capturedUserMessage = params.messages[1].content
+						return { choices: [{ message: { content: 'advice' } }] }
+					},
+				},
+			},
+		})
+
+		const bankJson = JSON.stringify({
+			data: [{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' }],
+			count: 1,
+		})
+		seedSharedCatalog(bankJson)
+
+		const form = new FormData()
+		form.set('cashAmount', '1000')
+		form.set('analysisMode', 'buy_next')
+		form.set('adviceIntent', 'run')
+		await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.match(capturedUserMessage, /VTI.*60%/)
+		assert.match(capturedUserMessage, /equity/)
 	})
 
 	it('POST /advice returns 403 for guest without GitHub gist when running analysis', async () => {
