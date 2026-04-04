@@ -182,7 +182,6 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								method="post"
 								action={routes.catalog.import.href()}
 								class="mt-3 grid max-w-xl gap-3"
-								data-fetch-submit
 							>
 								<FieldLabel fieldId="pasteZone" variant="screenReader">
 									{t('catalog.import.pasteLabel.screenReader')}
