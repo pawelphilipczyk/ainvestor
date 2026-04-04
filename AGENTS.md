@@ -12,6 +12,26 @@ Before writing any JS/TS/CSS code, read:
 
 - `docs/BIOME_RULES.md`
 
+## Plan before implementing (first message)
+
+When the **first message in a thread** asks for a **code change** (feature, fix, or refactor), **do not start editing or running broad refactors immediately.** First **plan and summarize** so the user can refine the approach and answer questions.
+
+**Before writing or changing code, briefly provide:**
+
+1. **Understanding** — Restate the goal in your own words.
+2. **Proposed approach** — How you will tackle it (patterns, libraries, or subsystems you will use).
+3. **Scope** — Files or areas you expect to touch (best-effort; adjust after reading the codebase if needed).
+4. **Risks and unknowns** — Assumptions, edge cases, or missing context.
+5. **Open questions** — Anything you need the user to decide or clarify.
+
+**Then** implement (or wait for the user to confirm or adjust the plan, depending on how they reply). This mirrors a common **plan-first** agent workflow: summarize how the relevant area works, co-design a small written plan (what changes where and what “done” means), then execute so mistakes surface before code review.
+
+**Exceptions — you may skip a separate planning message when:**
+
+- The user explicitly asks you to **implement immediately** or says the plan is already agreed.
+- The change is **trivial** (for example a one-line fix or a rename with obvious scope).
+- You are **continuing** an existing thread where the plan was already set in a prior message.
+
 ## UI translations (i18n)
 
 User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed by dot-separated paths (for example `nav.portfolio`, `portfolio.title`). This keeps all English strings in one module for now; when the map grows unwieldy, split into feature files and merge into `en` (or add `app/locales/pl.ts`, etc.) without changing call sites.
