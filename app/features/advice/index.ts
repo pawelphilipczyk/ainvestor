@@ -6,13 +6,6 @@ import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
-import {
-	clearGuestPortfolioReview,
-	getGuestEtfs,
-	getGuestGuidelines,
-	getGuestPortfolioReview,
-	setGuestPortfolioReview,
-} from '../../lib/guest-session-state.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import {
@@ -24,6 +17,7 @@ import {
 	getLayoutSession,
 	getSessionData,
 	type SessionData,
+	sessionUsesGithubGist,
 } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
@@ -92,6 +86,7 @@ function renderAdviceResponse(options: {
 		adviceGistSavedAt?: string
 		formError?: { summary: string; detail?: string }
 		pendingApproval?: boolean
+		adviceGistGate?: 'sign_in' | 'connect_gist'
 	}
 	init?: ResponseInit
 }) {
@@ -102,6 +97,31 @@ function renderAdviceResponse(options: {
 		body: jsx(AdvicePage, options.props),
 		init: options.init,
 	})
+}
+
+function adviceGistGateProps(
+	layoutSession: SessionData | null,
+	fullSession: SessionData | null,
+	pendingApproval: boolean,
+): { adviceGistGate?: 'sign_in' | 'connect_gist' } {
+	if (pendingApproval) return {}
+	if (sessionUsesGithubGist(fullSession)) return {}
+	if (layoutSession === null) return { adviceGistGate: 'sign_in' }
+	return { adviceGistGate: 'connect_gist' }
+}
+
+type AdvicePageRenderProps = Parameters<typeof renderAdviceResponse>[0]['props']
+
+function withAdviceGate(
+	props: Omit<AdvicePageRenderProps, 'adviceGistGate'>,
+	layoutSession: SessionData | null,
+	fullSession: SessionData | null,
+	pendingApproval: boolean,
+): AdvicePageRenderProps {
+	return {
+		...props,
+		...adviceGistGateProps(layoutSession, fullSession, pendingApproval),
+	}
 }
 
 export { setAdviceClient } from './advice-client.ts'
@@ -115,41 +135,12 @@ export const adviceController = {
 			const layoutSession = getLayoutSession(context.get(Session))
 			const pendingApproval = layoutSession?.approvalStatus === 'pending'
 			const activeTab = parseAdviceTabParam(context.request.url)
-			const remixSession = context.get(Session)
-			const session = getSessionData(remixSession)
+			const session = getSessionData(context.get(Session))
 
 			const baseProps = {
 				pendingApproval,
 				analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
 				activeTab,
-			}
-
-			if (
-				!pendingApproval &&
-				activeTab === 'portfolio_review' &&
-				(!session?.token || !session.gistId)
-			) {
-				const catalog = await fetchCatalog()
-				const guestStored = getGuestPortfolioReview(remixSession)
-				if (guestStored !== null) {
-					return renderAdviceResponse({
-						session: layoutSession,
-						props: {
-							...baseProps,
-							catalog,
-							advice: guestStored.advice,
-							lastAnalysisMode: 'portfolio_review',
-							selectedModel: guestStored.model,
-						},
-					})
-				}
-				return renderAdviceResponse({
-					session: layoutSession,
-					props: {
-						...baseProps,
-						catalog,
-					},
-				})
 			}
 
 			if (
@@ -160,7 +151,12 @@ export const adviceController = {
 			) {
 				return renderAdviceResponse({
 					session: layoutSession,
-					props: baseProps,
+					props: withAdviceGate(
+						baseProps,
+						layoutSession,
+						session,
+						pendingApproval,
+					),
 				})
 			}
 
@@ -175,22 +171,27 @@ export const adviceController = {
 					const adviceGistSavedAt = new Date(stored.savedAt).toISOString()
 					return renderAdviceResponse({
 						session: layoutSession,
-						props: {
-							...baseProps,
-							analysisMode: stored.lastAnalysisMode,
-							lastAnalysisMode: stored.lastAnalysisMode,
-							selectedModel: stored.selectedModel,
-							...(stored.lastAnalysisMode === 'portfolio_review'
-								? {}
-								: {
-										cashAmount: stored.cashAmount ?? '',
-										cashCurrency: stored.cashCurrency,
-									}),
-							advice: stored.document,
-							catalog,
-							adviceFromGist: true,
-							adviceGistSavedAt,
-						},
+						props: withAdviceGate(
+							{
+								...baseProps,
+								analysisMode: stored.lastAnalysisMode,
+								lastAnalysisMode: stored.lastAnalysisMode,
+								selectedModel: stored.selectedModel,
+								...(stored.lastAnalysisMode === 'portfolio_review'
+									? {}
+									: {
+											cashAmount: stored.cashAmount ?? '',
+											cashCurrency: stored.cashCurrency,
+										}),
+								advice: stored.document,
+								catalog,
+								adviceFromGist: true,
+								adviceGistSavedAt,
+							},
+							layoutSession,
+							session,
+							pendingApproval,
+						),
 					})
 				}
 				if (activeTab === 'portfolio_review') {
@@ -202,13 +203,18 @@ export const adviceController = {
 						const catalog = await fetchCatalog()
 						return renderAdviceResponse({
 							session: layoutSession,
-							props: {
-								...baseProps,
-								catalog,
-								advice: legacy.advice,
-								lastAnalysisMode: 'portfolio_review',
-								selectedModel: legacy.model,
-							},
+							props: withAdviceGate(
+								{
+									...baseProps,
+									catalog,
+									advice: legacy.advice,
+									lastAnalysisMode: 'portfolio_review',
+									selectedModel: legacy.model,
+								},
+								layoutSession,
+								session,
+								pendingApproval,
+							),
 						})
 					}
 				}
@@ -218,7 +224,12 @@ export const adviceController = {
 
 			return renderAdviceResponse({
 				session: layoutSession,
-				props: baseProps,
+				props: withAdviceGate(
+					baseProps,
+					layoutSession,
+					session,
+					pendingApproval,
+				),
 			})
 		},
 
@@ -231,15 +242,20 @@ export const adviceController = {
 			if (!form) {
 				return renderAdviceResponse({
 					session: layoutSession,
-					props: {
-						pendingApproval,
-						analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
-						activeTab: activeTabFromUrl,
-						formError: {
-							summary: t('errors.advice.formRead'),
-							detail: t('errors.advice.formReadDetail'),
+					props: withAdviceGate(
+						{
+							pendingApproval,
+							analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+							activeTab: activeTabFromUrl,
+							formError: {
+								summary: t('errors.advice.formRead'),
+								detail: t('errors.advice.formReadDetail'),
+							},
 						},
-					},
+						layoutSession,
+						session,
+						pendingApproval,
+					),
 					init: { status: 400 },
 				})
 			}
@@ -296,18 +312,23 @@ export const adviceController = {
 						: DEFAULT_ADVICE_ANALYSIS_MODE
 				return renderAdviceResponse({
 					session: layoutSession,
-					props: {
-						pendingApproval,
-						cashAmount,
-						cashCurrency,
-						analysisMode,
-						activeTab: activeTabFromUrl,
-						selectedModel,
-						formError: {
-							summary: t('errors.advice.validation'),
-							detail: formatSchemaIssues(result.issues),
+					props: withAdviceGate(
+						{
+							pendingApproval,
+							cashAmount,
+							cashCurrency,
+							analysisMode,
+							activeTab: activeTabFromUrl,
+							selectedModel,
+							formError: {
+								summary: t('errors.advice.validation'),
+								detail: formatSchemaIssues(result.issues),
+							},
 						},
-					},
+						layoutSession,
+						session,
+						pendingApproval,
+					),
 					init: { status: 400 },
 				})
 			}
@@ -322,17 +343,22 @@ export const adviceController = {
 			if (analysisMode === 'buy_next' && trimmedCash === '') {
 				return renderAdviceResponse({
 					session: layoutSession,
-					props: {
-						pendingApproval,
-						cashAmount: rawCashAmount,
-						cashCurrency,
-						analysisMode,
-						activeTab: activeTabFromUrl,
-						selectedModel: adviceModel,
-						formError: {
-							summary: t('errors.advice.buyNextCashRequired'),
+					props: withAdviceGate(
+						{
+							pendingApproval,
+							cashAmount: rawCashAmount,
+							cashCurrency,
+							analysisMode,
+							activeTab: activeTabFromUrl,
+							selectedModel: adviceModel,
+							formError: {
+								summary: t('errors.advice.buyNextCashRequired'),
+							},
 						},
-					},
+						layoutSession,
+						session,
+						pendingApproval,
+					),
 					init: { status: 400 },
 				})
 			}
@@ -341,46 +367,67 @@ export const adviceController = {
 			if (pendingApproval) {
 				return renderAdviceResponse({
 					session: layoutSession,
-					props: {
-						pendingApproval: true,
-						cashAmount: rawCashAmount,
-						cashCurrency,
-						analysisMode,
-						activeTab: activeTabFromUrl,
-						selectedModel: adviceModel,
-						formError: {
-							summary: t('errors.advice.notApproved'),
+					props: withAdviceGate(
+						{
+							pendingApproval: true,
+							cashAmount: rawCashAmount,
+							cashCurrency,
+							analysisMode,
+							activeTab: activeTabFromUrl,
+							selectedModel: adviceModel,
+							formError: {
+								summary: t('errors.advice.notApproved'),
+							},
 						},
-					},
+						layoutSession,
+						session,
+						true,
+					),
 					init: { status: 403 },
 				})
 			}
 
 			if (analysisMode === 'portfolio_review' && adviceIntent === 'clear') {
-				if (session?.token && session.gistId) {
-					let clearUnifiedSnapshot = false
+				if (!sessionUsesGithubGist(session)) {
+					return renderAdviceResponse({
+						session: layoutSession,
+						props: withAdviceGate(
+							{
+								pendingApproval,
+								analysisMode,
+								activeTab: activeTabFromUrl,
+								selectedModel: adviceModel,
+								formError: {
+									summary: t('errors.advice.requiresGithubGist'),
+								},
+							},
+							layoutSession,
+							session,
+							pendingApproval,
+						),
+						init: { status: 403 },
+					})
+				}
+				let clearUnifiedSnapshot = false
+				try {
+					const snapshot = await fetchStoredAdviceAnalysis(
+						session.token,
+						session.gistId,
+					)
+					clearUnifiedSnapshot =
+						snapshot !== null &&
+						(snapshot.lastAnalysisMode === 'portfolio_review' ||
+							snapshot.activeTab === 'portfolio_review')
+				} catch (err) {
+					console.warn('[advice] could not read gist before clear', err)
+				}
+				await clearPortfolioReviewFromGist(session.token, session.gistId)
+				if (clearUnifiedSnapshot) {
 					try {
-						const snapshot = await fetchStoredAdviceAnalysis(
-							session.token,
-							session.gistId,
-						)
-						clearUnifiedSnapshot =
-							snapshot !== null &&
-							(snapshot.lastAnalysisMode === 'portfolio_review' ||
-								snapshot.activeTab === 'portfolio_review')
+						await clearStoredAdviceAnalysis(session.token, session.gistId)
 					} catch (err) {
-						console.warn('[advice] could not read gist before clear', err)
+						console.warn('[advice] could not clear advice snapshot', err)
 					}
-					await clearPortfolioReviewFromGist(session.token, session.gistId)
-					if (clearUnifiedSnapshot) {
-						try {
-							await clearStoredAdviceAnalysis(session.token, session.gistId)
-						} catch (err) {
-							console.warn('[advice] could not clear advice snapshot', err)
-						}
-					}
-				} else {
-					clearGuestPortfolioReview(context.get(Session))
 				}
 				const catalog =
 					activeTabFromUrl === 'portfolio_review'
@@ -388,28 +435,51 @@ export const adviceController = {
 						: undefined
 				return renderAdviceResponse({
 					session: layoutSession,
-					props: {
+					props: withAdviceGate(
+						{
+							pendingApproval,
+							analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
+							activeTab: activeTabFromUrl,
+							selectedModel: adviceModel,
+							...(catalog !== undefined ? { catalog } : {}),
+						},
+						layoutSession,
+						session,
 						pendingApproval,
-						analysisMode: DEFAULT_ADVICE_ANALYSIS_MODE,
-						activeTab: activeTabFromUrl,
-						selectedModel: adviceModel,
-						...(catalog !== undefined ? { catalog } : {}),
-					},
+					),
+				})
+			}
+
+			if (!sessionUsesGithubGist(session)) {
+				return renderAdviceResponse({
+					session: layoutSession,
+					props: withAdviceGate(
+						{
+							pendingApproval,
+							...(analysisMode === 'portfolio_review'
+								? {}
+								: { cashAmount, cashCurrency }),
+							analysisMode,
+							activeTab: activeTabFromUrl,
+							selectedModel: adviceModel,
+							formError: {
+								summary: t('errors.advice.requiresGithubGist'),
+							},
+						},
+						layoutSession,
+						session,
+						pendingApproval,
+					),
+					init: { status: 403 },
 				})
 			}
 
 			try {
-				const { catalog, entries } =
-					session?.gistId && session.token
-						? await fetchPortfolioSnapshot(session.token, session.gistId)
-						: {
-								catalog: await fetchCatalog(),
-								entries: getGuestEtfs(context.get(Session)),
-							}
-				const guidelines =
-					session?.gistId && session.token
-						? await fetchGuidelines(session.token, session.gistId)
-						: getGuestGuidelines(context.get(Session))
+				const { catalog, entries } = await fetchPortfolioSnapshot(
+					session.token,
+					session.gistId,
+				)
+				const guidelines = await fetchGuidelines(session.token, session.gistId)
 
 				const client = getOrCreateAdviceClient()
 				const advice = await getInvestmentAdvice({
@@ -422,41 +492,39 @@ export const adviceController = {
 					model: adviceModel,
 					analysisMode,
 				})
-				if (session?.token && session.gistId) {
-					try {
-						await saveStoredAdviceAnalysis(session.token, session.gistId, {
-							version: 1,
-							savedAt: Date.now(),
-							lastAnalysisMode: analysisMode,
-							cashCurrency,
-							...(analysisMode === 'buy_next' ? { cashAmount } : {}),
-							selectedModel: adviceModel,
-							activeTab: activeTabFromUrl,
-							document: advice,
-						})
-					} catch (gistErr) {
-						console.warn('[advice] could not save gist snapshot', gistErr)
-					}
-				} else if (analysisMode === 'portfolio_review') {
-					setGuestPortfolioReview(context.get(Session), {
-						advice,
-						model: adviceModel,
+				try {
+					await saveStoredAdviceAnalysis(session.token, session.gistId, {
+						version: 1,
+						savedAt: Date.now(),
+						lastAnalysisMode: analysisMode,
+						cashCurrency,
+						...(analysisMode === 'buy_next' ? { cashAmount } : {}),
+						selectedModel: adviceModel,
+						activeTab: activeTabFromUrl,
+						document: advice,
 					})
+				} catch (gistErr) {
+					console.warn('[advice] could not save gist snapshot', gistErr)
 				}
 				return renderAdviceResponse({
 					session: layoutSession,
-					props: {
+					props: withAdviceGate(
+						{
+							pendingApproval,
+							...(analysisMode === 'portfolio_review'
+								? {}
+								: { cashAmount, cashCurrency }),
+							analysisMode,
+							activeTab: activeTabFromUrl,
+							lastAnalysisMode: analysisMode,
+							selectedModel: adviceModel,
+							advice,
+							catalog,
+						},
+						layoutSession,
+						session,
 						pendingApproval,
-						...(analysisMode === 'portfolio_review'
-							? {}
-							: { cashAmount, cashCurrency }),
-						analysisMode,
-						activeTab: activeTabFromUrl,
-						lastAnalysisMode: analysisMode,
-						selectedModel: adviceModel,
-						advice,
-						catalog,
-					},
+					),
 				})
 			} catch (err) {
 				console.error('[advice] request failed', err)
@@ -469,20 +537,25 @@ export const adviceController = {
 						: String(err)
 				return renderAdviceResponse({
 					session: layoutSession,
-					props: {
-						pendingApproval,
-						...(analysisMode === 'portfolio_review'
-							? {}
-							: { cashAmount, cashCurrency }),
-						analysisMode,
-						activeTab: activeTabFromUrl,
-						lastAnalysisMode: analysisMode,
-						selectedModel: adviceModel,
-						formError: {
-							summary: t('errors.advice.service'),
-							detail,
+					props: withAdviceGate(
+						{
+							pendingApproval,
+							...(analysisMode === 'portfolio_review'
+								? {}
+								: { cashAmount, cashCurrency }),
+							analysisMode,
+							activeTab: activeTabFromUrl,
+							lastAnalysisMode: analysisMode,
+							selectedModel: adviceModel,
+							formError: {
+								summary: t('errors.advice.service'),
+								detail,
+							},
 						},
-					},
+						layoutSession,
+						session,
+						pendingApproval,
+					),
 					init: { status: 503 },
 				})
 			}

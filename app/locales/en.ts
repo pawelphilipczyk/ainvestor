@@ -297,6 +297,15 @@ export const en = {
 		'Enter how much cash you plan to invest for What to buy next.',
 	'errors.advice.notApproved':
 		'Your account is not approved yet. You cannot request advice until your GitHub username is added to app/lib/approved-github-logins.ts and deployed.',
+	'errors.advice.requiresGithubGist':
+		'AI advice uses your portfolio and guidelines from your private GitHub gist. Sign in with GitHub and set up your data gist from the Portfolio page before running analysis.',
+	'advice.requiresGist.title': 'Sign in to run AI advice',
+	'advice.requiresGist.bodySignIn':
+		'Advice is generated from your saved portfolio and guidelines. Use Sign in with GitHub in the header, then open Portfolio to create or connect your private gist.',
+	'advice.requiresGist.bodyConnectGist':
+		'Open the Portfolio page to create or connect your private data gist. After that, you can run portfolio review and buy-next analysis here.',
+	'advice.requiresGist.linkSignIn': 'Sign in with GitHub',
+	'advice.requiresGist.linkPortfolio': 'Open Portfolio',
 	'errors.advice.service':
 		"We couldn't get advice right now. Please try again in a moment.",
 	'client.formSubmit.genericError': 'Please check your input.',

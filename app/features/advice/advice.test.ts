@@ -92,6 +92,7 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Get Advice/)
+		assert.match(body, /Sign in to run AI advice/)
 		const cashInput = body.match(
 			/<input\b[^>]*\bid="cashAmount-buy-next"[^>]*>/,
 		)
@@ -194,6 +195,7 @@ describe('Advice', () => {
 	})
 
 	it('returns 200 for portfolio_review without cashAmount', async () => {
+		const cookie = await signInWithGist()
 		setAdviceClient(makeMockClient('Concentrated in equities; consider bonds.'))
 
 		const form = new FormData()
@@ -204,6 +206,7 @@ describe('Advice', () => {
 			new Request(adviceUrl('portfolio_review'), {
 				method: 'POST',
 				body: form,
+				headers: { Cookie: cookie },
 			}),
 		)
 		const body = await response.text()
@@ -213,110 +216,33 @@ describe('Advice', () => {
 		assert.match(body, /Concentrated in equities/)
 	})
 
-	it('GET /advice?tab=portfolio_review shows last guest portfolio review without calling the model', async () => {
-		let createCalls = 0
+	it('POST /advice returns 403 for guest without GitHub gist when running analysis', async () => {
 		setAdviceClient({
 			chat: {
 				completions: {
 					create: async () => {
-						createCalls += 1
-						return {
-							choices: [
-								{
-									message: {
-										content: JSON.stringify({
-											blocks: [
-												{
-													type: 'paragraph',
-													text: 'Persisted guest portfolio line.',
-												},
-											],
-										}),
-									},
-								},
-							],
-						}
+						throw new Error('advice client must not run for guests')
 					},
 				},
 			},
 		})
 
-		const postForm = new FormData()
-		postForm.set('analysisMode', 'portfolio_review')
-		postForm.set('adviceIntent', 'run')
-		const postResponse = await testSessionFetch(
-			new Request(adviceUrl('portfolio_review'), {
-				method: 'POST',
-				body: postForm,
-			}),
-		)
-		assert.equal(postResponse.status, 200)
-		assert.equal(createCalls, 1)
+		const form = new FormData()
+		form.set('cashAmount', '500')
+		form.set('analysisMode', 'buy_next')
+		form.set('adviceIntent', 'run')
 
-		setAdviceClient({
-			chat: {
-				completions: {
-					create: async () => {
-						createCalls += 1
-						throw new Error('model must not run on GET')
-					},
-				},
-			},
-		})
-
-		const getResponse = await testSessionFetch(
-			'http://localhost/advice?tab=portfolio_review',
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
 		)
-		const body = await getResponse.text()
-		assert.equal(getResponse.status, 200)
-		assert.match(body, /Persisted guest portfolio line/)
-		assert.equal(createCalls, 1)
-		assert.match(body, /Clear saved review/)
-		assert.match(body, /Regenerate analysis/)
-	})
+		const body = await response.text()
 
-	it('POST clear removes stored guest portfolio review', async () => {
-		setAdviceClient(
-			makeMockClient(
-				JSON.stringify({
-					blocks: [{ type: 'paragraph', text: 'To be cleared.' }],
-				}),
-			),
-		)
-
-		const runForm = new FormData()
-		runForm.set('analysisMode', 'portfolio_review')
-		runForm.set('adviceIntent', 'run')
-		await testSessionFetch(
-			new Request(adviceUrl('portfolio_review'), {
-				method: 'POST',
-				body: runForm,
-			}),
-		)
-
-		const clearForm = new FormData()
-		clearForm.set('analysisMode', 'portfolio_review')
-		clearForm.set('adviceIntent', 'clear')
-		const clearResponse = await testSessionFetch(
-			new Request(adviceUrl('portfolio_review'), {
-				method: 'POST',
-				body: clearForm,
-			}),
-		)
-		const clearedBody = await clearResponse.text()
-		assert.equal(clearResponse.status, 200)
-		assert.doesNotMatch(clearedBody, /To be cleared/)
-
-		const getResponse = await testSessionFetch(
-			'http://localhost/advice?tab=portfolio_review',
-		)
-		const body = await getResponse.text()
-		assert.equal(getResponse.status, 200)
-		assert.doesNotMatch(body, /To be cleared/)
-		assert.doesNotMatch(body, /Clear saved review/)
+		assert.equal(response.status, 403)
+		assert.match(body, /private GitHub gist/)
 	})
 
 	it('returns 503 with AdvicePage HTML when the advice client throws', async () => {
+		const cookie = await signInWithGist()
 		setAdviceClient({
 			chat: {
 				completions: {
@@ -332,7 +258,11 @@ describe('Advice', () => {
 
 		form.set('analysisMode', 'buy_next')
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
@@ -352,12 +282,17 @@ describe('Advice', () => {
 		delete process.env.OPENAI_API_KEY
 
 		try {
+			const cookie = await signInWithGist()
 			const form = new FormData()
 			form.set('cashAmount', '100')
 			form.set('analysisMode', 'buy_next')
 
 			const response = await testSessionFetch(
-				new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+				new Request(adviceUrl('buy_next'), {
+					method: 'POST',
+					body: form,
+					headers: { Cookie: cookie },
+				}),
 			)
 			const body = await response.text()
 
@@ -473,6 +408,7 @@ describe('Advice', () => {
 	})
 
 	it('renders capital_snapshot and guideline_bars when the model returns them', async () => {
+		const cookie = await signInWithGist()
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -522,7 +458,11 @@ describe('Advice', () => {
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
@@ -536,6 +476,7 @@ describe('Advice', () => {
 	})
 
 	it('renders guideline_bars with default heading when caption is omitted', async () => {
+		const cookie = await signInWithGist()
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -579,7 +520,11 @@ describe('Advice', () => {
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
@@ -591,6 +536,7 @@ describe('Advice', () => {
 	})
 
 	it('renders guideline_bars default heading when caption is only whitespace', async () => {
+		const cookie = await signInWithGist()
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -634,7 +580,11 @@ describe('Advice', () => {
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
@@ -644,6 +594,7 @@ describe('Advice', () => {
 	})
 
 	it('shows a fallback when capital_snapshot segments fail UI validation', async () => {
+		const cookie = await signInWithGist()
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -670,7 +621,11 @@ describe('Advice', () => {
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
@@ -683,6 +638,7 @@ describe('Advice', () => {
 	})
 
 	it('renders an ETF proposals table when the model returns etf_proposals blocks', async () => {
+		const cookie = await signInWithGist()
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -714,7 +670,11 @@ describe('Advice', () => {
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
@@ -726,94 +686,8 @@ describe('Advice', () => {
 		assert.match(body, /Broad ex-US equities/)
 	})
 
-	it('includes current ETF holdings in the advice context', async () => {
-		let capturedUserMessage = ''
-		setAdviceClient({
-			chat: {
-				completions: {
-					create: async (params: AdviceCompletionCreateParams) => {
-						capturedUserMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'advice' } }] }
-					},
-				},
-			},
-		})
-
-		const bankJson = JSON.stringify({
-			data: [{ fund_name: 'VXUS', ticker: 'VXUS', assets: 'akcje' }],
-			count: 1,
-		})
-		seedSharedCatalog(bankJson)
-
-		const addForm = new FormData()
-		addForm.set('instrumentTicker', 'VXUS')
-		addForm.set('value', '3000')
-		addForm.set('currency', 'USD')
-		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
-		)
-
-		const adviceForm = new FormData()
-		adviceForm.set('cashAmount', '500')
-		adviceForm.set('analysisMode', 'buy_next')
-		await testSessionFetch(
-			new Request(adviceUrl('buy_next'), {
-				method: 'POST',
-				body: adviceForm,
-			}),
-		)
-
-		assert.match(capturedUserMessage, /VXUS/)
-		assert.match(capturedUserMessage, /3000 USD/)
-		assert.match(capturedUserMessage, /500 PLN/)
-		assert.match(capturedUserMessage, /ETF catalog/)
-		assert.match(capturedUserMessage, /Allocation context/)
-	})
-
-	it('passes guidelines into the advice prompt when they exist', async () => {
-		let capturedUserMessage = ''
-		setAdviceClient({
-			chat: {
-				completions: {
-					create: async (params: AdviceCompletionCreateParams) => {
-						capturedUserMessage = params.messages[1].content
-						return { choices: [{ message: { content: 'advice' } }] }
-					},
-				},
-			},
-		})
-
-		const bankJson = JSON.stringify({
-			data: [{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' }],
-			count: 1,
-		})
-		seedSharedCatalog(bankJson)
-
-		const guidelineForm = new FormData()
-		guidelineForm.set('instrumentTicker', 'VTI')
-		guidelineForm.set('targetPct', '60')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: guidelineForm,
-			}),
-		)
-
-		const adviceForm = new FormData()
-		adviceForm.set('cashAmount', '1000')
-		adviceForm.set('analysisMode', 'buy_next')
-		await testSessionFetch(
-			new Request(adviceUrl('buy_next'), {
-				method: 'POST',
-				body: adviceForm,
-			}),
-		)
-
-		assert.match(capturedUserMessage, /VTI.*60%/)
-		assert.match(capturedUserMessage, /equity/)
-	})
-
 	it('passes the selected advice model to the OpenAI client', async () => {
+		const cookie = await signInWithGist()
 		let capturedModel = ''
 		setAdviceClient({
 			chat: {
@@ -832,7 +706,11 @@ describe('Advice', () => {
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
@@ -842,6 +720,7 @@ describe('Advice', () => {
 	})
 
 	it('renders ETF details link with catalogEntryId when etf_proposals include it', async () => {
+		const cookie = await signInWithGist()
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -881,7 +760,11 @@ describe('Advice', () => {
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
@@ -891,6 +774,7 @@ describe('Advice', () => {
 	})
 
 	it('renders ETF details link from ticker match when catalogEntryId is absent', async () => {
+		const cookie = await signInWithGist()
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -929,7 +813,11 @@ describe('Advice', () => {
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
