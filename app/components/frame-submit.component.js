@@ -24,6 +24,21 @@ function getSubmitControl(form, submitter) {
 	return form.querySelector('button[type="submit"], input[type="submit"]')
 }
 
+function createFormData(form, submitControl) {
+	if (
+		submitControl instanceof HTMLButtonElement ||
+		(submitControl instanceof HTMLInputElement &&
+			submitControl.type === 'submit')
+	) {
+		try {
+			return new FormData(form, submitControl)
+		} catch {
+			return new FormData(form)
+		}
+	}
+	return new FormData(form)
+}
+
 /**
  * Intercepts forms with `data-frame-submit="<frameName>"` and POSTs via
  * fetch. On success, reloads the named Remix Frame so the server re-renders
@@ -79,7 +94,7 @@ export const FrameSubmitEnhancement = clientEntry(
 					try {
 						const response = await fetch(form.action, {
 							method: form.method,
-							body: new FormData(form),
+							body: createFormData(form, submitControl),
 							redirect: 'follow',
 							headers: { Accept: 'application/json' },
 						})
