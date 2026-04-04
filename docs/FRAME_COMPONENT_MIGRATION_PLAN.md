@@ -10,6 +10,7 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 - Prefer **normal `<form method="post">`** + full navigation when a full page refresh is acceptable and no partial region needs updating.
 - **Retire JSON responses** used only to drive client DOM patches for HTML-shaped UI; return **HTML fragments** suited to Frame boundaries instead (including errors where today we return `422` + JSON).
 - Keep **feature-scoped `clientEntry`** only for behavior that is not “replace this server-rendered subtree” (loading chrome, theme, scroll restore, etc.).
+- For **in-document navigation** that should drive **`<Frame>` reloads** (including named frames), Remix’s component runtime exposes **`link`** (a mixin for `<a>` / `<area>`) and **`navigate()`** (imperative), both built on the **Navigation API** with frame-aware state. They replace ad hoc `location` / full reloads where a frame partial would suffice—but only if the destination behavior matches (correct `src` / partial HTML). See **`remix/component`** exports and `docs/REMIX_V3_PACKAGES.md`.
 
 ---
 
@@ -52,6 +53,10 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 - [ ] **Delete or gut `fetch-submit.component.js`** — Once no `data-fetch-submit`, `data-fragment-*`, `data-replace-main`, or `data-navigation-loading` remain, remove `FetchSubmitEnhancement` from `document-shell.tsx` and delete the module (or leave a stub only if something still needs it).
 - [ ] **Docs** — Update `docs/UI_ARCHITECTURE_GUIDELINES.md` (fetch-submit section) to describe Frame as the default for partial HTML and link to this plan.
 
+### Phase 8 — Frame-aware navigation (`link` + `navigate`)
+
+- [ ] **Audit navigations** — Walk sidebar and in-app links, GET-driven URL changes, and any `clientEntry` that sets `window.location` or forces a full document reload. Flag flows where a **`<Frame>`** (or named frame) could refresh instead. Where that fits, prefer **`mix={[link(href, options)]}`** on anchors or **`navigate(href, options)`** in handlers (`target` / `src` / `history` / `resetScroll` per `NavigationOptions`). **GET `<form>`** submissions are not handled the same way as `link` in the runtime—those flows may need a deliberate design change (e.g. filter via frame `src` query, or submit handler calling `navigate`). Expect **some architectural changes** (route splits, partial HTML, or moving controls inside/outside a frame) when adopting this; capture decisions inline in this file or the PR.
+
 ---
 
 ## Edge cases that did not map cleanly — planned direction
@@ -72,4 +77,5 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 
 - `docs/UI_ARCHITECTURE_GUIDELINES.md` — partial UI via `<Frame>` and `handle.frame.reload()`.
 - `docs/REMIX_V3_PACKAGES.md` — `remix/component`, `<Frame>`, `run({ loadModule, resolveFrame })`.
+- `remix/component` — **`link`**, **`navigate`**, **`NavigationOptions`** (frame-aware navigation alongside `<Frame>`; see `@remix-run/component` types in `node_modules` for the current surface).
 - `app/entry.js` — `resolveFrame` implementation.
