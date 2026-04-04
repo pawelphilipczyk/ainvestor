@@ -18,7 +18,7 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 ### Phase 1 — Redirect-only POSTs (no partial UI)
 
 - [x] **Catalog import** — Remove `data-fetch-submit` from the bank JSON import form on `CatalogPage` (`app/features/catalog/catalog-page.tsx`). Rely on normal POST + redirect from `routes.catalog.import`. Update `app/features/catalog/catalog.test.ts` expectations. **Follow-up:** Phase 2 frames the ETF list below; until then a full redirect reloads the whole catalog page (including a future frame’s initial `src` fetch).
-- [ ] **Sidebar sign-out** — Remove `data-fetch-submit` from the logout form in `app/components/sidebar.tsx`. Rely on normal POST + redirect. Update `app/components/sidebar.test.ts` if it asserts fetch-submit attributes.
+- [x] **Sidebar sign-out** — Remove `data-fetch-submit` from the logout form in `app/components/sidebar.tsx`. Rely on normal POST + redirect. Update `app/components/sidebar.test.ts` if it asserts fetch-submit attributes.
 
 ### Phase 2 — List regions currently using fragment `innerHTML`
 
