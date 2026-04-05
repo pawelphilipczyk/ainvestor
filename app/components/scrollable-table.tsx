@@ -1,7 +1,11 @@
 import type { Handle, RemixNode } from 'remix/component'
 
-function frameClassNames(extra?: string) {
-	return `min-w-0 max-w-full overflow-x-auto rounded-lg border border-border ${extra ?? ''}`.trim()
+function clipClassNames(extra?: string) {
+	return `min-w-0 max-w-full overflow-hidden rounded-lg border border-border ${extra ?? ''}`.trim()
+}
+
+function scrollClassNames() {
+	return 'min-w-0 overflow-x-auto'
 }
 
 function tableClassNames(extra?: string) {
@@ -9,13 +13,15 @@ function tableClassNames(extra?: string) {
 }
 
 /**
- * Horizontally scrollable table: outer frame (`min-w-0`, `overflow-x-auto`) plus
- * inner `<table>` (`min-w-full w-max`) so wide content scrolls inside the card on
- * narrow viewports.
+ * Horizontally scrollable table: **clip** wrapper (`min-w-0`, `overflow-hidden`)
+ * bounds width for the flex/grid ancestor, inner **scroll** layer (`overflow-x-auto`)
+ * holds the wide `<table>` (`min-w-full w-max`). Without the clip, a single
+ * `overflow-x-auto` box can still pass the table’s intrinsic min-width up and grow
+ * the page (e.g. advice result inside a Remix Frame).
  *
  * Props match `<table>` composition: use **`class`** (and other table attributes)
  * on this component; they are forwarded to the inner `<table>` after merging scroll
- * layout classes. Use **`wrapperClass`** for the scroll container (e.g. `mt-3`).
+ * layout classes. Use **`wrapperClass`** for the outer clip (e.g. `mt-3`).
  */
 export function ScrollableTable(_handle: Handle, _setup?: unknown) {
 	return (props: {
@@ -35,14 +41,16 @@ export function ScrollableTable(_handle: Handle, _setup?: unknown) {
 		)
 		return (
 			<div
-				data-scrollable-table-frame
-				class={frameClassNames(
+				data-scrollable-table-clip
+				class={clipClassNames(
 					typeof wrapperClass === 'string' ? wrapperClass : undefined,
 				)}
 			>
-				<table {...tableRest} class={tableClass}>
-					{children}
-				</table>
+				<div data-scrollable-table-frame class={scrollClassNames()}>
+					<table {...tableRest} class={tableClass}>
+						{children}
+					</table>
+				</div>
 			</div>
 		)
 	}

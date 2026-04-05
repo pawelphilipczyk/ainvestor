@@ -425,8 +425,13 @@ describe('ETF Catalog page', () => {
 		)
 		assert.match(
 			body,
+			/<div\b(?=[^>]*\bdata-scrollable-table-clip\b)(?=[^>]*\bclass="(?=[^"]*\bmin-w-0\b)(?=[^"]*\boverflow-hidden\b)[^"]*")[^>]*>/,
+			'ScrollableTable clip div needs min-w-0 and overflow-hidden (contains intrinsic table width)',
+		)
+		assert.match(
+			body,
 			/<div\b(?=[^>]*\bdata-scrollable-table-frame\b)(?=[^>]*\bclass="(?=[^"]*\bmin-w-0\b)(?=[^"]*\boverflow-x-auto\b)[^"]*")[^>]*>/,
-			'ScrollableTable outer div needs min-w-0 and overflow-x-auto on class (any order)',
+			'ScrollableTable scroll div needs min-w-0 and overflow-x-auto',
 		)
 		assert.match(
 			body,
