@@ -406,58 +406,58 @@ function renderEtfProposals(
 					<caption class="sr-only">{t('advice.table.caption')}</caption>
 					{pendingApproval ? (
 						<colgroup>
-							<col class="w-[30%]" />
-							<col class="w-[12%]" />
-							<col class="w-[16%]" />
-							<col class="w-[10%]" />
-							<col class="w-[32%]" />
+							<col class="w-[28%]" />
+							<col class="w-[14%]" />
+							<col class="w-[14%]" />
+							<col class="w-[9%]" />
+							<col class="w-[35%]" />
 						</colgroup>
 					) : (
 						<colgroup>
-							<col class="w-[26%]" />
-							<col class="w-[11%]" />
-							<col class="w-[14%]" />
-							<col class="w-[7%]" />
-							<col class="w-[34%]" />
+							<col class="w-[24%]" />
+							<col class="w-[13%]" />
+							<col class="w-[12%]" />
 							<col class="w-[8%]" />
+							<col class="w-[31%]" />
+							<col class="w-[12%]" />
 						</colgroup>
 					)}
 					<thead class="bg-muted/40">
 						<tr>
 							<th
 								scope="col"
-								class="min-w-0 px-3 py-2 text-left font-medium text-card-foreground"
+								class="min-w-0 whitespace-nowrap px-3 py-2 text-left font-medium text-card-foreground"
 							>
 								{t('advice.table.fund')}
 							</th>
 							<th
 								scope="col"
-								class="min-w-0 px-3 py-2 text-left font-medium text-card-foreground"
+								class="min-w-0 whitespace-nowrap px-3 py-2 text-left font-medium text-card-foreground"
 							>
 								{t('advice.table.ticker')}
 							</th>
 							<th
 								scope="col"
-								class="min-w-0 px-3 py-2 text-right font-medium text-card-foreground"
+								class="min-w-0 whitespace-nowrap px-3 py-2 text-right font-medium text-card-foreground"
 							>
 								{t('advice.table.amount')}
 							</th>
 							<th
 								scope="col"
-								class="min-w-0 px-3 py-2 text-left font-medium text-card-foreground"
+								class="min-w-0 whitespace-nowrap px-3 py-2 text-left font-medium text-card-foreground"
 							>
 								{t('advice.table.currency')}
 							</th>
 							<th
 								scope="col"
-								class="min-w-0 px-3 py-2 text-left font-medium text-card-foreground"
+								class="min-w-0 whitespace-nowrap px-3 py-2 text-left font-medium text-card-foreground"
 							>
 								{t('advice.table.note')}
 							</th>
 							{pendingApproval ? null : (
 								<th
 									scope="col"
-									class="min-w-0 px-3 py-2 text-left font-medium text-card-foreground"
+									class="min-w-0 whitespace-nowrap px-3 py-2 text-left font-medium text-card-foreground"
 								>
 									<span class="sr-only">
 										{t('advice.table.etfDetailsLink')}
@@ -488,25 +488,25 @@ function renderEtfProposals(
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
 									class="border-t border-border"
 								>
-									<td class="min-w-0 max-w-0 break-words px-3 py-2 text-card-foreground">
+									<td class="min-w-0 break-words px-3 py-2 align-top text-card-foreground">
 										{row.name}
 									</td>
-									<td class="min-w-0 max-w-0 break-words px-3 py-2 text-muted-foreground">
+									<td class="min-w-[5.5rem] whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
 										{row.ticker ?? t('catalog.emptyCell')}
 									</td>
-									<td class="min-w-0 max-w-0 whitespace-nowrap px-3 py-2 text-right tabular-nums text-card-foreground">
+									<td class="min-w-[5rem] whitespace-nowrap px-3 py-2 text-right align-top tabular-nums text-card-foreground">
 										{row.amount !== undefined
 											? formatAmountNumber(row.amount)
 											: t('catalog.emptyCell')}
 									</td>
-									<td class="min-w-0 max-w-0 whitespace-nowrap px-3 py-2 text-muted-foreground">
+									<td class="min-w-[3.25rem] whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
 										{displayCurrency ?? t('catalog.emptyCell')}
 									</td>
-									<td class="min-w-0 max-w-0 break-words px-3 py-2 text-muted-foreground">
+									<td class="min-w-0 break-words px-3 py-2 align-top text-muted-foreground">
 										{row.note ?? t('catalog.emptyCell')}
 									</td>
 									{pendingApproval ? null : (
-										<td class="min-w-0 max-w-0 px-3 py-2 align-top">
+										<td class="min-w-[7.5rem] whitespace-nowrap px-3 py-2 align-top">
 											{etfDetailsHref !== null ? (
 												<Link
 													href={etfDetailsHref}

@@ -875,7 +875,8 @@ describe('Advice', () => {
 			'advice ETF table uses fixed layout so columns respect colgroup widths',
 		)
 		assert.match(body, /<colgroup>/)
-		assert.match(body, /<col\b[^>]*\bclass="[^"]*w-\[26%\][^"]*"/)
+		assert.match(body, /\bmin-w-\[40rem\]/)
+		assert.match(body, /<col\b[^>]*\bclass="[^"]*w-\[24%\][^"]*"/)
 	})
 
 	it('passes the selected advice model to the OpenAI client', async () => {

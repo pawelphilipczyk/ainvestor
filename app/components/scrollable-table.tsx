@@ -13,7 +13,8 @@ function tableClassNamesAuto(extra?: string) {
 }
 
 function tableClassNamesFixed(extra?: string) {
-	return `w-full min-w-0 table-fixed border-collapse ${extra ?? ''}`.trim()
+	/* min-width so narrow viewports scroll horizontally instead of squeezing % columns */
+	return `w-full min-w-[40rem] table-fixed border-collapse ${extra ?? ''}`.trim()
 }
 
 /**
@@ -21,7 +22,8 @@ function tableClassNamesFixed(extra?: string) {
  * bounds width for the flex/grid ancestor, inner **scroll** layer (`overflow-x-auto`)
  * holds the wide `<table>`. Default layout is **`auto`** (`min-w-full w-max`) for
  * intrinsic column widths; use **`layout="fixed"`** with `<colgroup>` / `%` widths when
- * the table should stay within the container and wrap cells instead of widening the page.
+ * the table should use column hints + horizontal scroll on very narrow screens (clip +
+ * scroll wrapper), not shrink % columns below readable size.
  *
  * Props match `<table>` composition: use **`class`** (and other table attributes)
  * on this component; they are forwarded to the inner `<table>` after merging scroll
