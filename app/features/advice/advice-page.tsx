@@ -471,7 +471,7 @@ function renderEtfProposals(
 									<td class="min-w-0 max-w-[min(100%,20rem)] break-words px-3 py-2 text-card-foreground">
 										{row.name}
 									</td>
-									<td class="px-3 py-2 text-muted-foreground">
+									<td class="min-w-0 max-w-[min(100%,12rem)] break-words px-3 py-2 text-muted-foreground">
 										{row.ticker ?? t('catalog.emptyCell')}
 									</td>
 									<td class="px-3 py-2 text-right tabular-nums text-card-foreground">
@@ -640,13 +640,15 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 		const frameSrc = props.adviceResultFrameSrc
 		const accessBanner = adviceAccessBannerFromProps(props)
 		return (
-			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
-				<SectionIntroCard
-					page="advice"
-					variant="page"
-					title={SECTION_INTROS.advice.title}
-					description={SECTION_INTROS.advice.description}
-				/>
+			<main class="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-6">
+				<div class="min-w-0 w-full">
+					<SectionIntroCard
+						page="advice"
+						variant="page"
+						title={SECTION_INTROS.advice.title}
+						description={SECTION_INTROS.advice.description}
+					/>
+				</div>
 				{accessBanner === 'pending_approval' ? (
 					<div
 						role="status"
@@ -712,7 +714,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</TabLink>
 					</TabsNav>
 					{activeTab === 'buy_next' ? (
-						<Card variant="muted" class="rounded-t-none border-t-0 p-6">
+						<Card variant="muted" class="min-w-0 rounded-t-none border-t-0 p-6">
 							<form
 								method="post"
 								action={buyNextAction}
