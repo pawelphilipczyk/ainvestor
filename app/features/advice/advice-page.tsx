@@ -716,6 +716,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								action={buyNextAction}
 								class="space-y-4"
 								data-frame-submit="advice-result"
+								data-frame-reload-src={frameSrc ?? ''}
 							>
 								<input type="hidden" name="analysisMode" value="buy_next" />
 								<input type="hidden" name="adviceIntent" value="run" />
@@ -784,6 +785,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 									action={reviewAction}
 									class="mb-4"
 									data-frame-submit="advice-result"
+									data-frame-reload-src={frameSrc ?? ''}
 								>
 									<input
 										type="hidden"
@@ -805,6 +807,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								action={reviewAction}
 								class="space-y-4"
 								data-frame-submit="advice-result"
+								data-frame-reload-src={frameSrc ?? ''}
 							>
 								<input
 									type="hidden"

@@ -23,9 +23,10 @@ import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
 import {
-	clearStoredAdviceAnalysis,
-	fetchStoredAdviceAnalysis,
-	saveStoredAdviceAnalysis,
+	clearLegacyUnifiedAdviceAnalysis,
+	clearStoredAdviceAnalysisForTab,
+	fetchStoredAdviceAnalysisForTab,
+	saveStoredAdviceAnalysisForTab,
 } from './advice-gist.ts'
 import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
 import {
@@ -201,12 +202,12 @@ async function loadAdvicePageState(options: {
 	const gistSession: SessionWithGithubGist = session
 
 	try {
-		const stored = await fetchStoredAdviceAnalysis(
+		const stored = await fetchStoredAdviceAnalysisForTab(
 			gistSession.token,
 			gistSession.gistId,
+			activeTab,
 		)
-		const tabForStored = stored?.activeTab ?? stored?.lastAnalysisMode
-		if (stored !== null && tabForStored === activeTab) {
+		if (stored !== null) {
 			const catalog = await fetchCatalog()
 			const adviceGistSavedAt = new Date(stored.savedAt).toISOString()
 			return {
@@ -488,25 +489,22 @@ export const adviceController = {
 						init: { status: 403 },
 					})
 				}
-				let clearUnifiedSnapshot = false
 				try {
-					const snapshot = await fetchStoredAdviceAnalysis(
+					await clearStoredAdviceAnalysisForTab(
 						session.token,
 						session.gistId,
+						'portfolio_review',
 					)
-					clearUnifiedSnapshot =
-						snapshot !== null &&
-						(snapshot.lastAnalysisMode === 'portfolio_review' ||
-							snapshot.activeTab === 'portfolio_review')
 				} catch (err) {
-					console.warn('[advice] could not read gist before clear', err)
+					console.warn(
+						'[advice] could not clear portfolio review snapshot',
+						err,
+					)
 				}
-				if (clearUnifiedSnapshot) {
-					try {
-						await clearStoredAdviceAnalysis(session.token, session.gistId)
-					} catch (err) {
-						console.warn('[advice] could not clear advice snapshot', err)
-					}
+				try {
+					await clearLegacyUnifiedAdviceAnalysis(session.token, session.gistId)
+				} catch (err) {
+					console.warn('[advice] could not clear legacy advice snapshot', err)
 				}
 				const catalog =
 					activeTabFromUrl === 'portfolio_review'
@@ -572,16 +570,21 @@ export const adviceController = {
 					analysisMode,
 				})
 				try {
-					await saveStoredAdviceAnalysis(session.token, session.gistId, {
-						version: 1,
-						savedAt: Date.now(),
-						lastAnalysisMode: analysisMode,
-						cashCurrency,
-						...(analysisMode === 'buy_next' ? { cashAmount } : {}),
-						selectedModel: adviceModel,
-						activeTab: activeTabFromUrl,
-						document: advice,
-					})
+					await saveStoredAdviceAnalysisForTab(
+						session.token,
+						session.gistId,
+						analysisMode,
+						{
+							version: 1,
+							savedAt: Date.now(),
+							lastAnalysisMode: analysisMode,
+							cashCurrency,
+							...(analysisMode === 'buy_next' ? { cashAmount } : {}),
+							selectedModel: adviceModel,
+							activeTab: activeTabFromUrl,
+							document: advice,
+						},
+					)
 				} catch (gistErr) {
 					console.warn('[advice] could not save gist snapshot', gistErr)
 				}
