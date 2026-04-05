@@ -8,16 +8,20 @@ function scrollClassNames() {
 	return 'min-w-0 overflow-x-auto'
 }
 
-function tableClassNames(extra?: string) {
+function tableClassNamesAuto(extra?: string) {
 	return `min-w-full w-max table-auto border-collapse ${extra ?? ''}`.trim()
+}
+
+function tableClassNamesFixed(extra?: string) {
+	return `w-full min-w-0 table-fixed border-collapse ${extra ?? ''}`.trim()
 }
 
 /**
  * Horizontally scrollable table: **clip** wrapper (`min-w-0`, `overflow-hidden`)
  * bounds width for the flex/grid ancestor, inner **scroll** layer (`overflow-x-auto`)
- * holds the wide `<table>` (`min-w-full w-max`). Without the clip, a single
- * `overflow-x-auto` box can still pass the table’s intrinsic min-width up and grow
- * the page (e.g. advice result inside a Remix Frame).
+ * holds the wide `<table>`. Default layout is **`auto`** (`min-w-full w-max`) for
+ * intrinsic column widths; use **`layout="fixed"`** with `<colgroup>` / `%` widths when
+ * the table should stay within the container and wrap cells instead of widening the page.
  *
  * Props match `<table>` composition: use **`class`** (and other table attributes)
  * on this component; they are forwarded to the inner `<table>` after merging scroll
@@ -28,17 +32,29 @@ export function ScrollableTable(_handle: Handle, _setup?: unknown) {
 		wrapperClass?: string
 		children?: RemixNode
 		class?: string
+		/** `auto`: intrinsic width + horizontal scroll. `fixed`: fill width, column widths from `<colgroup>` / cells. */
+		layout?: 'auto' | 'fixed'
 		[key: string]: unknown
 	}) => {
 		const {
 			wrapperClass,
 			children,
 			class: tableClassFromProps,
+			layout = 'auto',
 			...tableRest
 		} = props
-		const tableClass = tableClassNames(
-			typeof tableClassFromProps === 'string' ? tableClassFromProps : undefined,
-		)
+		const tableClass =
+			layout === 'fixed'
+				? tableClassNamesFixed(
+						typeof tableClassFromProps === 'string'
+							? tableClassFromProps
+							: undefined,
+					)
+				: tableClassNamesAuto(
+						typeof tableClassFromProps === 'string'
+							? tableClassFromProps
+							: undefined,
+					)
 		return (
 			<div
 				data-scrollable-table-clip
