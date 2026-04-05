@@ -468,7 +468,9 @@ function renderEtfProposals(
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
 									class="border-t border-border"
 								>
-									<td class="px-3 py-2 text-card-foreground">{row.name}</td>
+									<td class="min-w-0 max-w-[min(100%,20rem)] break-words px-3 py-2 text-card-foreground">
+										{row.name}
+									</td>
 									<td class="px-3 py-2 text-muted-foreground">
 										{row.ticker ?? t('catalog.emptyCell')}
 									</td>
@@ -480,7 +482,7 @@ function renderEtfProposals(
 									<td class="px-3 py-2 text-muted-foreground">
 										{displayCurrency ?? t('catalog.emptyCell')}
 									</td>
-									<td class="px-3 py-2 text-muted-foreground">
+									<td class="min-w-0 max-w-[min(100%,16rem)] break-words px-3 py-2 text-muted-foreground">
 										{row.note ?? t('catalog.emptyCell')}
 									</td>
 									{pendingApproval ? null : (
@@ -567,7 +569,7 @@ function adviceResultCardView(props: {
 	const pendingApproval = props.pendingApproval === true
 	const adviceGistGate = props.adviceGistGate
 	return (
-		<Card class="min-w-0 max-w-full p-6" aria-live="polite">
+		<Card class="min-w-0 max-w-full overflow-x-auto p-6" aria-live="polite">
 			{props.adviceFromGist === true &&
 			props.adviceGistSavedAt !== undefined &&
 			props.adviceGistSavedAt.length > 0 ? (
@@ -696,7 +698,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</p>
 					</div>
 				) : null}
-				<div class="flex flex-col">
+				<div class="flex min-w-0 w-full flex-col">
 					<TabsNav
 						activeId={activeTab}
 						aria-label={t('advice.tabs.navAria')}
@@ -726,7 +728,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								<p class="text-xs text-muted-foreground">
 									{t('advice.tab.hint.buyNext')}
 								</p>
-								<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+								<div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
 									<div class="grid min-w-0 flex-1 gap-2">
 										<FieldLabel fieldId="cashAmount-buy-next">
 											{t('advice.form.field.cash')}
@@ -778,7 +780,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 							</form>
 						</Card>
 					) : (
-						<Card variant="muted" class="rounded-t-none border-t-0 p-6">
+						<Card variant="muted" class="min-w-0 rounded-t-none border-t-0 p-6">
 							{props.advice !== undefined ? (
 								<form
 									method="post"
@@ -821,8 +823,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								<p class="text-xs text-muted-foreground">
 									{t('advice.tab.hint.portfolioReview')}
 								</p>
-								<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
-									<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
+								<div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+									<div class="grid min-w-0 w-full gap-2 sm:min-w-[11rem] sm:flex-1">
 										<FieldLabel fieldId="adviceModel-review">
 											{t('advice.form.field.model')}
 										</FieldLabel>
