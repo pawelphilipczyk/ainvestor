@@ -10,15 +10,12 @@ import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
-import {
-	clearPortfolioReviewFromGist,
-	fetchPortfolioReviewFromGist,
-} from '../../lib/portfolio-review-gist.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import {
 	getLayoutSession,
 	getSessionData,
 	type SessionData,
+	type SessionWithGithubGist,
 	sessionUsesGithubGist,
 } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
@@ -88,8 +85,6 @@ type AdvicePageRenderProps = {
 	/** Shown when `advice` was loaded from `advice-analysis.json` in the user gist. */
 	adviceFromGist?: boolean
 	adviceGistSavedAt?: string
-	/** Legacy migration: loaded from `portfolio-review.json` before unified snapshot existed. */
-	adviceFromLegacyPortfolioReviewFile?: boolean
 	formError?: { summary: string; detail?: string }
 	pendingApproval?: boolean
 	adviceGistGate?: 'sign_in' | 'connect_gist'
@@ -126,8 +121,6 @@ function adviceResultCardPropsFromPage(
 		catalog: props.catalog,
 		adviceFromGist: props.adviceFromGist,
 		adviceGistSavedAt: props.adviceGistSavedAt,
-		adviceFromLegacyPortfolioReviewFile:
-			props.adviceFromLegacyPortfolioReviewFile,
 		pendingApproval: props.pendingApproval === true,
 		adviceGistGate: props.adviceGistGate,
 	}
@@ -169,6 +162,19 @@ function renderAdvicePageResponse(options: {
 	})
 }
 
+/** True when the session cannot read gist-backed advice data (layout pending, gist not linked, or account pending). */
+function sessionCannotLoadAdviceFromGist(options: {
+	pendingApproval: boolean
+	session: SessionData | null
+}): boolean {
+	const { pendingApproval, session } = options
+	return (
+		pendingApproval ||
+		!sessionUsesGithubGist(session) ||
+		session?.approvalStatus === 'pending'
+	)
+}
+
 async function loadAdvicePageState(options: {
 	layoutSession: SessionData | null
 	session: SessionData | null
@@ -182,19 +188,18 @@ async function loadAdvicePageState(options: {
 		activeTab,
 	}
 
-	if (
-		pendingApproval ||
-		!session?.token ||
-		!session.gistId ||
-		session.approvalStatus === 'pending'
-	) {
+	if (sessionCannotLoadAdviceFromGist({ pendingApproval, session })) {
 		return baseProps
 	}
+	if (!sessionUsesGithubGist(session)) {
+		return baseProps
+	}
+	const gistSession: SessionWithGithubGist = session
 
 	try {
 		const stored = await fetchStoredAdviceAnalysis(
-			session.token,
-			session.gistId,
+			gistSession.token,
+			gistSession.gistId,
 		)
 		const tabForStored = stored?.activeTab ?? stored?.lastAnalysisMode
 		if (stored !== null && tabForStored === activeTab) {
@@ -215,23 +220,6 @@ async function loadAdvicePageState(options: {
 				catalog,
 				adviceFromGist: true,
 				adviceGistSavedAt,
-			}
-		}
-		if (activeTab === 'portfolio_review') {
-			const legacy = await fetchPortfolioReviewFromGist(
-				session.token,
-				session.gistId,
-			)
-			if (legacy !== null) {
-				const catalog = await fetchCatalog()
-				return {
-					...baseProps,
-					catalog,
-					advice: legacy.advice,
-					lastAnalysisMode: 'portfolio_review',
-					selectedModel: legacy.model,
-					adviceFromLegacyPortfolioReviewFile: true,
-				}
 			}
 		}
 	} catch (err) {
@@ -510,14 +498,6 @@ export const adviceController = {
 							snapshot.activeTab === 'portfolio_review')
 				} catch (err) {
 					console.warn('[advice] could not read gist before clear', err)
-				}
-				try {
-					await clearPortfolioReviewFromGist(session.token, session.gistId)
-				} catch (err) {
-					console.warn(
-						'[advice] could not clear legacy portfolio-review file',
-						err,
-					)
 				}
 				if (clearUnifiedSnapshot) {
 					try {
