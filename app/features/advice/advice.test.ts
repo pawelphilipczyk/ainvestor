@@ -871,12 +871,9 @@ describe('Advice', () => {
 		assert.match(body, /Broad ex-US equities/)
 		assert.match(
 			body,
-			/<table\b[^>]*\bclass="[^"]*\btable-fixed\b[^"]*"/,
-			'advice ETF table uses fixed layout so columns respect colgroup widths',
+			/<table\b[^>]*\bclass="(?=[^"]*\bmin-w-full\b)(?=[^"]*\bw-max\b)(?=[^"]*\btable-auto\b)[^"]*"/,
+			'advice ETF table matches catalog ScrollableTable (min-w-full w-max table-auto)',
 		)
-		assert.match(body, /<colgroup>/)
-		assert.match(body, /\bmin-w-\[40rem\]/)
-		assert.match(body, /<col\b[^>]*\bclass="[^"]*w-\[24%\][^"]*"/)
 	})
 
 	it('passes the selected advice model to the OpenAI client', async () => {

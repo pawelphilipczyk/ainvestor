@@ -8,22 +8,15 @@ function scrollClassNames() {
 	return 'min-w-0 overflow-x-auto'
 }
 
-function tableClassNamesAuto(extra?: string) {
+function tableClassNames(extra?: string) {
 	return `min-w-full w-max table-auto border-collapse ${extra ?? ''}`.trim()
-}
-
-function tableClassNamesFixed(extra?: string) {
-	/* min-width so narrow viewports scroll horizontally instead of squeezing % columns */
-	return `w-full min-w-[40rem] table-fixed border-collapse ${extra ?? ''}`.trim()
 }
 
 /**
  * Horizontally scrollable table: **clip** wrapper (`min-w-0`, `overflow-hidden`)
  * bounds width for the flex/grid ancestor, inner **scroll** layer (`overflow-x-auto`)
- * holds the wide `<table>`. Default layout is **`auto`** (`min-w-full w-max`) for
- * intrinsic column widths; use **`layout="fixed"`** with `<colgroup>` / `%` widths when
- * the table should use column hints + horizontal scroll on very narrow screens (clip +
- * scroll wrapper), not shrink % columns below readable size.
+ * holds the wide `<table>` (`min-w-full w-max table-auto`) — same pattern as the
+ * catalog ETF tables inside a Frame.
  *
  * Props match `<table>` composition: use **`class`** (and other table attributes)
  * on this component; they are forwarded to the inner `<table>` after merging scroll
@@ -34,29 +27,17 @@ export function ScrollableTable(_handle: Handle, _setup?: unknown) {
 		wrapperClass?: string
 		children?: RemixNode
 		class?: string
-		/** `auto`: intrinsic width + horizontal scroll. `fixed`: fill width, column widths from `<colgroup>` / cells. */
-		layout?: 'auto' | 'fixed'
 		[key: string]: unknown
 	}) => {
 		const {
 			wrapperClass,
 			children,
 			class: tableClassFromProps,
-			layout = 'auto',
 			...tableRest
 		} = props
-		const tableClass =
-			layout === 'fixed'
-				? tableClassNamesFixed(
-						typeof tableClassFromProps === 'string'
-							? tableClassFromProps
-							: undefined,
-					)
-				: tableClassNamesAuto(
-						typeof tableClassFromProps === 'string'
-							? tableClassFromProps
-							: undefined,
-					)
+		const tableClass = tableClassNames(
+			typeof tableClassFromProps === 'string' ? tableClassFromProps : undefined,
+		)
 		return (
 			<div
 				data-scrollable-table-clip

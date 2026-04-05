@@ -402,62 +402,44 @@ function renderEtfProposals(
 			{block.rows.length === 0 ? (
 				<p class="text-sm text-muted-foreground">{t('advice.table.empty')}</p>
 			) : (
-				<ScrollableTable layout="fixed" class="text-sm">
+				<ScrollableTable class="text-sm">
 					<caption class="sr-only">{t('advice.table.caption')}</caption>
-					{pendingApproval ? (
-						<colgroup>
-							<col class="w-[28%]" />
-							<col class="w-[14%]" />
-							<col class="w-[14%]" />
-							<col class="w-[9%]" />
-							<col class="w-[35%]" />
-						</colgroup>
-					) : (
-						<colgroup>
-							<col class="w-[24%]" />
-							<col class="w-[13%]" />
-							<col class="w-[12%]" />
-							<col class="w-[8%]" />
-							<col class="w-[31%]" />
-							<col class="w-[12%]" />
-						</colgroup>
-					)}
 					<thead class="bg-muted/40">
 						<tr>
 							<th
 								scope="col"
-								class="min-w-0 whitespace-nowrap px-3 py-2 text-left font-medium text-card-foreground"
+								class="max-w-[min(100%,18rem)] px-3 py-2 text-left font-medium text-card-foreground"
 							>
 								{t('advice.table.fund')}
 							</th>
 							<th
 								scope="col"
-								class="min-w-0 whitespace-nowrap px-3 py-2 text-left font-medium text-card-foreground"
+								class="px-3 py-2 text-left font-medium text-card-foreground"
 							>
 								{t('advice.table.ticker')}
 							</th>
 							<th
 								scope="col"
-								class="min-w-0 whitespace-nowrap px-3 py-2 text-right font-medium text-card-foreground"
+								class="px-3 py-2 text-right font-medium text-card-foreground"
 							>
 								{t('advice.table.amount')}
 							</th>
 							<th
 								scope="col"
-								class="min-w-0 whitespace-nowrap px-3 py-2 text-left font-medium text-card-foreground"
+								class="px-3 py-2 text-left font-medium text-card-foreground"
 							>
 								{t('advice.table.currency')}
 							</th>
 							<th
 								scope="col"
-								class="min-w-0 whitespace-nowrap px-3 py-2 text-left font-medium text-card-foreground"
+								class="max-w-[min(100%,18rem)] px-3 py-2 text-left font-medium text-card-foreground"
 							>
 								{t('advice.table.note')}
 							</th>
 							{pendingApproval ? null : (
 								<th
 									scope="col"
-									class="min-w-0 whitespace-nowrap px-3 py-2 text-left font-medium text-card-foreground"
+									class="px-3 py-2 text-left font-medium text-card-foreground"
 								>
 									<span class="sr-only">
 										{t('advice.table.etfDetailsLink')}
@@ -488,25 +470,25 @@ function renderEtfProposals(
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
 									class="border-t border-border"
 								>
-									<td class="min-w-0 break-words px-3 py-2 align-top text-card-foreground">
+									<td class="max-w-[min(100%,18rem)] break-words px-3 py-2 align-top text-card-foreground">
 										{row.name}
 									</td>
-									<td class="min-w-[5.5rem] whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+									<td class="whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
 										{row.ticker ?? t('catalog.emptyCell')}
 									</td>
-									<td class="min-w-[5rem] whitespace-nowrap px-3 py-2 text-right align-top tabular-nums text-card-foreground">
+									<td class="whitespace-nowrap px-3 py-2 text-right align-top tabular-nums text-card-foreground">
 										{row.amount !== undefined
 											? formatAmountNumber(row.amount)
 											: t('catalog.emptyCell')}
 									</td>
-									<td class="min-w-[3.25rem] whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+									<td class="whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
 										{displayCurrency ?? t('catalog.emptyCell')}
 									</td>
-									<td class="min-w-0 break-words px-3 py-2 align-top text-muted-foreground">
+									<td class="max-w-[min(100%,18rem)] break-words px-3 py-2 align-top text-muted-foreground">
 										{row.note ?? t('catalog.emptyCell')}
 									</td>
 									{pendingApproval ? null : (
-										<td class="min-w-[7.5rem] whitespace-nowrap px-3 py-2 align-top">
+										<td class="whitespace-nowrap px-3 py-2 align-top">
 											{etfDetailsHref !== null ? (
 												<Link
 													href={etfDetailsHref}
@@ -590,7 +572,7 @@ function adviceResultCardView(props: {
 	const pendingApproval = props.pendingApproval === true
 	const adviceGistGate = props.adviceGistGate
 	return (
-		<Card class="min-w-0 max-w-full overflow-x-auto p-6" aria-live="polite">
+		<Card class="min-w-0 max-w-full p-6" aria-live="polite">
 			{props.adviceGistPersistFailed === true ? (
 				<p
 					class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-card-foreground"
