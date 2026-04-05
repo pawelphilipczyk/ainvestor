@@ -108,7 +108,26 @@ export const FrameSubmitEnhancement = clientEntry(
 						if (response.ok) {
 							const frameHandle = handle.frames.get(frameName)
 							let refreshed = false
-							if (frameReloadSrc && frameReloadSrc.length > 0) {
+							// Advice: gist save can fail while the model succeeds; fragment GET then 204s. Replace main from this HTML instead of reloading the frame.
+							const gistStale =
+								response.headers.get('X-Advice-Gist-Stale') === '1'
+							if (gistStale) {
+								const html = await response.text()
+								const parser = new DOMParser()
+								const doc = parser.parseFromString(html, 'text/html')
+								const main = doc.querySelector('main')
+								const pageContent = document.getElementById('page-content')
+								if (main && pageContent) {
+									pageContent.innerHTML = main.outerHTML
+									refreshed = true
+								} else {
+									window.location.assign(
+										new URL(form.action, window.location.href).href,
+									)
+									refreshed = true
+								}
+							}
+							if (!refreshed && frameReloadSrc && frameReloadSrc.length > 0) {
 								const fragmentUrl = new URL(
 									frameReloadSrc,
 									window.location.href,
@@ -129,7 +148,7 @@ export const FrameSubmitEnhancement = clientEntry(
 									window.location.assign(documentUrl)
 									refreshed = true
 								}
-							} else if (frameHandle) {
+							} else if (!refreshed && frameHandle) {
 								await frameHandle.reload()
 								refreshed = true
 							}

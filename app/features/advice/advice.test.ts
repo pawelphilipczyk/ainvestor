@@ -19,6 +19,7 @@ import {
 	resetAdviceGistTestOverlay,
 	type StoredAdviceAnalysis,
 	setAdviceGistTestOverlay,
+	setAdviceGistTestSaveShouldFail,
 } from './advice-gist.ts'
 import { adviceTabHref, setAdviceClient } from './index.ts'
 
@@ -442,6 +443,31 @@ describe('Advice', () => {
 		assert.equal(saved?.lastAnalysisMode, 'buy_next')
 		assert.equal(saved?.cashAmount, '1000')
 		assert.equal(saved?.document.blocks[0]?.type, 'paragraph')
+	})
+
+	it('POST /advice sets X-Advice-Gist-Stale and still returns analysis HTML when gist save fails', async () => {
+		const cookie = await signInWithGist()
+		setAdviceGistTestOverlay(null)
+		setAdviceGistTestSaveShouldFail(true)
+		setAdviceClient(makeMockClient('Shown despite gist save failure.'))
+
+		const form = new FormData()
+		form.set('cashAmount', '1000')
+		form.set('analysisMode', 'buy_next')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie, Accept: 'application/json' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.equal(response.headers.get('X-Advice-Gist-Stale'), '1')
+		assert.match(body, /Shown despite gist save failure\./)
+		assert.match(body, /Could not save this analysis to your data gist/)
 	})
 
 	it('GET /advice shows last analysis from gist when tab matches snapshot', async () => {

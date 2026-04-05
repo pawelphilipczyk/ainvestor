@@ -78,6 +78,8 @@ type AdvicePageProps = {
 	adviceFromGist?: boolean
 	/** ISO timestamp when gist snapshot was written (for notice line). */
 	adviceGistSavedAt?: string
+	/** Saving to gist failed; this run is visible until reload only. */
+	adviceGistPersistFailed?: boolean
 	formError?: FormError
 	pendingApproval?: boolean
 	/** Guest or signed-in user without a private gist — forms disabled; explain sign-in / Portfolio. */
@@ -559,6 +561,7 @@ function adviceResultCardView(props: {
 	catalog?: CatalogEntry[]
 	adviceFromGist?: boolean
 	adviceGistSavedAt?: string
+	adviceGistPersistFailed?: boolean
 	pendingApproval?: boolean
 	adviceGistGate?: 'sign_in' | 'connect_gist'
 }) {
@@ -570,6 +573,14 @@ function adviceResultCardView(props: {
 	const adviceGistGate = props.adviceGistGate
 	return (
 		<Card class="min-w-0 max-w-full overflow-x-auto p-6" aria-live="polite">
+			{props.adviceGistPersistFailed === true ? (
+				<p
+					class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-card-foreground"
+					role="status"
+				>
+					{t('advice.persistFailed.notice')}
+				</p>
+			) : null}
 			{props.adviceFromGist === true &&
 			props.adviceGistSavedAt !== undefined &&
 			props.adviceGistSavedAt.length > 0 ? (
@@ -870,6 +881,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 							catalog={props.catalog}
 							adviceFromGist={props.adviceFromGist}
 							adviceGistSavedAt={props.adviceGistSavedAt}
+							adviceGistPersistFailed={props.adviceGistPersistFailed}
 							pendingApproval={pendingApproval}
 							adviceGistGate={adviceGistGate}
 						/>

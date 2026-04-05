@@ -58,16 +58,19 @@ const gistTestState: {
 	enabled: boolean
 	byTab: Partial<Record<AdviceAnalysisMode, StoredAdviceAnalysis | null>>
 	lastSaved: StoredAdviceAnalysis | null
+	saveShouldFail: boolean
 } = {
 	enabled: false,
 	byTab: {},
 	lastSaved: null,
+	saveShouldFail: false,
 }
 
 export function setAdviceGistTestOverlay(
 	fetchReturn: StoredAdviceAnalysis | null,
 ): void {
 	gistTestState.enabled = true
+	gistTestState.saveShouldFail = false
 	gistTestState.lastSaved = null
 	if (fetchReturn === null) {
 		gistTestState.byTab = {}
@@ -81,6 +84,12 @@ export function resetAdviceGistTestOverlay(): void {
 	gistTestState.enabled = false
 	gistTestState.byTab = {}
 	gistTestState.lastSaved = null
+	gistTestState.saveShouldFail = false
+}
+
+/** When the test overlay is on, the next gist save throws (simulates API failure). */
+export function setAdviceGistTestSaveShouldFail(shouldFail: boolean): void {
+	gistTestState.saveShouldFail = shouldFail
 }
 
 export function getAdviceGistLastSavedInTest(): StoredAdviceAnalysis | null {
@@ -238,6 +247,9 @@ export async function saveStoredAdviceAnalysisForTab(
 	stored: StoredAdviceAnalysis,
 ): Promise<void> {
 	if (gistTestState.enabled) {
+		if (gistTestState.saveShouldFail) {
+			throw new Error('simulated gist save failure (test overlay)')
+		}
 		gistTestState.lastSaved = stored
 		gistTestState.byTab[tab] = stored
 		return

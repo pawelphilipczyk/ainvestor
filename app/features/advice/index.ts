@@ -86,10 +86,14 @@ type AdvicePageRenderProps = {
 	/** Shown when `advice` was loaded from `advice-analysis.json` in the user gist. */
 	adviceFromGist?: boolean
 	adviceGistSavedAt?: string
+	/** Gist persistence failed for this response; analysis is shown from the action only. */
+	adviceGistPersistFailed?: boolean
 	formError?: { summary: string; detail?: string }
 	pendingApproval?: boolean
 	adviceGistGate?: 'sign_in' | 'connect_gist'
 }
+
+const ADVICE_GIST_STALE_HEADER = 'X-Advice-Gist-Stale'
 
 function adviceResultFragmentSrc(activeTab: AdviceAnalysisMode): string {
 	const tabQuery =
@@ -122,6 +126,7 @@ function adviceResultCardPropsFromPage(
 		catalog: props.catalog,
 		adviceFromGist: props.adviceFromGist,
 		adviceGistSavedAt: props.adviceGistSavedAt,
+		adviceGistPersistFailed: props.adviceGistPersistFailed,
 		pendingApproval: props.pendingApproval === true,
 		adviceGistGate: props.adviceGistGate,
 	}
@@ -148,6 +153,11 @@ function renderAdvicePageResponse(options: {
 		? adviceResultFragmentSrc(activeTab)
 		: undefined
 
+	const responseHeaders =
+		options.props.adviceGistPersistFailed === true
+			? { [ADVICE_GIST_STALE_HEADER]: '1' }
+			: undefined
+
 	return render({
 		title: t('meta.title.advice'),
 		session: options.session,
@@ -157,6 +167,7 @@ function renderAdvicePageResponse(options: {
 			adviceResultFrameSrc: frameSrc,
 		}),
 		init: options.init,
+		responseHeaders,
 		resolveFrame(source) {
 			return resolveAdviceResultFrame(source, frameSrc, options.props)
 		},
@@ -569,6 +580,7 @@ export const adviceController = {
 					model: adviceModel,
 					analysisMode,
 				})
+				let adviceGistPersistFailed = false
 				try {
 					await saveStoredAdviceAnalysisForTab(
 						session.token,
@@ -586,6 +598,8 @@ export const adviceController = {
 						},
 					)
 				} catch (gistErr) {
+					// Frame reload reads from gist; without this flag + client handling the result would disappear.
+					adviceGistPersistFailed = true
 					console.warn('[advice] could not save gist snapshot', gistErr)
 				}
 				return renderAdvicePageResponse({
@@ -602,6 +616,9 @@ export const adviceController = {
 							selectedModel: adviceModel,
 							advice,
 							catalog,
+							...(adviceGistPersistFailed
+								? { adviceGistPersistFailed: true }
+								: {}),
 						},
 						layoutSession,
 						session,
