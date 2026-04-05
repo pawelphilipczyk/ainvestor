@@ -2,10 +2,16 @@
  * Base CSS variables for light/dark themes. Inlined in document shell style tag.
  */
 export const baseCss = `@layer base {
-  /* Prevent rare wide descendants (tables, pre) from growing the viewport width. */
-  html {
+  /* Prevent rare wide descendants (tables, pre, off-screen layers) from growing scroll width. */
+  html,
+  body {
     max-width: 100%;
     overflow-x: hidden;
+  }
+
+  #page-content {
+    min-width: 0;
+    max-width: 100%;
   }
 
   @view-transition {
