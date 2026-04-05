@@ -86,20 +86,6 @@ type AdvicePageProps = {
 	adviceResultFrameSrc?: string
 }
 
-export type AdviceResultCardProps = {
-	advice: AdviceDocument
-	lastAnalysisMode?: AdviceAnalysisMode
-	analysisMode?: AdviceAnalysisMode
-	cashAmount?: string
-	cashCurrency?: string
-	selectedModel?: AdviceModelId
-	catalog?: CatalogEntry[]
-	adviceFromGist?: boolean
-	adviceGistSavedAt?: string
-	pendingApproval?: boolean
-	adviceGistGate?: 'sign_in' | 'connect_gist'
-}
-
 type AdviceAccessBanner =
 	| 'none'
 	| 'pending_approval'
@@ -561,58 +547,71 @@ function renderAdviceBlock(
 	})
 }
 
-export function AdviceResultCard(_handle: Handle, _setup?: unknown) {
-	return (props: AdviceResultCardProps) => {
-		const cashCurrency = props.cashCurrency ?? 'PLN'
-		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
-		const resultMode =
-			props.lastAnalysisMode ??
-			props.analysisMode ??
-			DEFAULT_ADVICE_ANALYSIS_MODE
-		const pendingApproval = props.pendingApproval === true
-		const adviceGistGate = props.adviceGistGate
-		return (
-			<Card class="min-w-0 max-w-full p-6" aria-live="polite">
-				{props.adviceFromGist === true &&
-				props.adviceGistSavedAt !== undefined &&
-				props.adviceGistSavedAt.length > 0 ? (
-					<p
-						class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
-						role="status"
-					>
-						{format(t('advice.restore.fromGistNotice'), {
-							savedAt: props.adviceGistSavedAt,
-						})}
-					</p>
-				) : null}
-				<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
-					{resultMode === 'portfolio_review'
-						? t('advice.result.titleReview')
-						: t('advice.result.title')}
-				</h2>
-				<p class="mt-1 text-sm text-muted-foreground">
-					{resultMode === 'portfolio_review'
-						? t('advice.result.subtitleReviewGuidelinesOnly')
-						: format(t('advice.result.subtitle'), {
-								amount: props.cashAmount ?? '',
-								currency: cashCurrency,
-							})}
+function adviceResultCardView(props: {
+	advice: AdviceDocument
+	lastAnalysisMode?: AdviceAnalysisMode
+	analysisMode?: AdviceAnalysisMode
+	cashAmount?: string
+	cashCurrency?: string
+	selectedModel?: AdviceModelId
+	catalog?: CatalogEntry[]
+	adviceFromGist?: boolean
+	adviceGistSavedAt?: string
+	pendingApproval?: boolean
+	adviceGistGate?: 'sign_in' | 'connect_gist'
+}) {
+	const cashCurrency = props.cashCurrency ?? 'PLN'
+	const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
+	const resultMode =
+		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
+	const pendingApproval = props.pendingApproval === true
+	const adviceGistGate = props.adviceGistGate
+	return (
+		<Card class="min-w-0 max-w-full p-6" aria-live="polite">
+			{props.adviceFromGist === true &&
+			props.adviceGistSavedAt !== undefined &&
+			props.adviceGistSavedAt.length > 0 ? (
+				<p
+					class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+					role="status"
+				>
+					{format(t('advice.restore.fromGistNotice'), {
+						savedAt: props.adviceGistSavedAt,
+					})}
 				</p>
-				<div class="mt-4 min-w-0 space-y-6">
-					{props.advice.blocks.map((block, i) => (
-						<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
-							{renderAdviceBlock(block, cashCurrency, i, {
-								selectedModel,
-								pendingApproval:
-									pendingApproval || adviceGistGate !== undefined,
-								catalog: props.catalog,
-							})}
-						</div>
-					))}
-				</div>
-			</Card>
-		)
-	}
+			) : null}
+			<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
+				{resultMode === 'portfolio_review'
+					? t('advice.result.titleReview')
+					: t('advice.result.title')}
+			</h2>
+			<p class="mt-1 text-sm text-muted-foreground">
+				{resultMode === 'portfolio_review'
+					? t('advice.result.subtitleReviewGuidelinesOnly')
+					: format(t('advice.result.subtitle'), {
+							amount: props.cashAmount ?? '',
+							currency: cashCurrency,
+						})}
+			</p>
+			<div class="mt-4 min-w-0 space-y-6">
+				{props.advice.blocks.map((block, i) => (
+					<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
+						{renderAdviceBlock(block, cashCurrency, i, {
+							selectedModel,
+							pendingApproval: pendingApproval || adviceGistGate !== undefined,
+							catalog: props.catalog,
+						})}
+					</div>
+				))}
+			</div>
+		</Card>
+	)
+}
+
+export type AdviceResultCardProps = Parameters<typeof adviceResultCardView>[0]
+
+export function AdviceResultCard(_handle: Handle, _setup?: unknown) {
+	return adviceResultCardView
 }
 
 export function AdvicePage(_handle: Handle, _setup?: unknown) {

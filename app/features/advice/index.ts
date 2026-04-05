@@ -162,21 +162,24 @@ function renderAdvicePageResponse(options: {
 	})
 }
 
-/** True when the session cannot read gist-backed advice data (layout pending, gist not linked, or account pending). */
-function sessionCannotLoadAdviceFromGist(options: {
+/**
+ * True when we cannot load `advice-analysis.json` from the user's gist for this request
+ * (layout pending approval, missing session, account pending, or no linked gist).
+ */
+function cannotLoadAdviceGistSnapshot(options: {
 	pendingApproval: boolean
 	session: SessionData | null
 }): boolean {
 	const { pendingApproval, session } = options
 	return (
 		pendingApproval ||
-		!sessionUsesGithubGist(session) ||
-		session?.approvalStatus === 'pending'
+		session == null ||
+		session.approvalStatus === 'pending' ||
+		!sessionUsesGithubGist(session)
 	)
 }
 
 async function loadAdvicePageState(options: {
-	layoutSession: SessionData | null
 	session: SessionData | null
 	pendingApproval: boolean
 	activeTab: AdviceAnalysisMode
@@ -188,9 +191,10 @@ async function loadAdvicePageState(options: {
 		activeTab,
 	}
 
-	if (sessionCannotLoadAdviceFromGist({ pendingApproval, session })) {
+	if (cannotLoadAdviceGistSnapshot({ pendingApproval, session })) {
 		return baseProps
 	}
+	// Type guard: `cannotLoadAdviceGistSnapshot` already implies this; TS needs the call to narrow `session`.
 	if (!sessionUsesGithubGist(session)) {
 		return baseProps
 	}
@@ -265,7 +269,6 @@ export const adviceController = {
 			const activeTab = parseAdviceTabParam(context.request.url)
 			const session = getSessionData(context.get(Session))
 			const baseProps = await loadAdvicePageState({
-				layoutSession,
 				session,
 				pendingApproval,
 				activeTab,
@@ -287,7 +290,6 @@ export const adviceController = {
 			const activeTab = parseAdviceTabParam(context.request.url)
 			const session = getSessionData(context.get(Session))
 			const baseProps = await loadAdvicePageState({
-				layoutSession,
 				session,
 				pendingApproval,
 				activeTab,

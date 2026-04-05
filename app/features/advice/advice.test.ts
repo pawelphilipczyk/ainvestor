@@ -483,10 +483,10 @@ describe('Advice', () => {
 		assert.match(body, /Cached gist paragraph\./)
 		assert.match(body, /Showing your last saved analysis from your data gist/)
 		assert.match(body, /"name":"advice-result"/)
-		assert.match(body, /\/fragments\/result\?tab=buy_next/)
+		assert.match(body, /\/fragments\/advice-result\?tab=buy_next/)
 	})
 
-	it('GET /advice/fragments/result returns HTML for stored gist advice when tab matches', async () => {
+	it('GET /advice/fragments/advice-result returns HTML for stored gist advice when tab matches', async () => {
 		const cookie = await signInWithGist()
 		seedSharedCatalog(
 			JSON.stringify({
@@ -527,7 +527,7 @@ describe('Advice', () => {
 		assert.doesNotMatch(body, /<html\b/i)
 	})
 
-	it('GET /advice/fragments/result returns 204 when there is no result for the tab', async () => {
+	it('GET /advice/fragments/advice-result returns 204 when there is no result for the tab', async () => {
 		const cookie = await signInWithGist()
 		setAdviceGistTestOverlay(null)
 

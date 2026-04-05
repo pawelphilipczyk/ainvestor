@@ -29,7 +29,7 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 
 ### Phase 3 — Full main-region swap (`data-replace-main`)
 
-- [x] **Advice analysis forms** — Replace `data-fetch-submit` + `data-replace-main` on `AdvicePage` with a **`<Frame>`** for the analysis result area. `GET /advice/fragments/result?tab=` returns the result card HTML; forms use `data-frame-submit="advice-result"` (`FrameSubmitEnhancement`). `render()` passes `resolveFrame` for SSR. No remaining `data-replace-main` in app features (handler branch in `fetch-submit.component.js` kept until Phase 7 cleanup).
+- [x] **Advice analysis forms** — Replace `data-fetch-submit` + `data-replace-main` on `AdvicePage` with a **`<Frame>`** for the analysis result area. `GET /advice/fragments/advice-result?tab=` returns the result card HTML; forms use `data-frame-submit="advice-result"` (`FrameSubmitEnhancement`). `render()` passes `resolveFrame` for SSR. No remaining `data-replace-main` in app features (handler branch in `fetch-submit.component.js` kept until Phase 7 cleanup).
 
 ### Phase 4 — Catalog ETF deep-dive (today: JSON + text node)
 
