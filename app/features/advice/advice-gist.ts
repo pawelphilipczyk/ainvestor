@@ -23,6 +23,12 @@ export const ADVICE_BUY_NEXT_STORAGE_FILENAME = 'advice-buy-next.json'
 export const ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME =
 	'advice-portfolio-review.json'
 
+/** Gist filename per analysis mode (single source for save / fetch / clear). */
+export const ADVICE_GIST_FILENAME_BY_MODE = {
+	buy_next: ADVICE_BUY_NEXT_STORAGE_FILENAME,
+	portfolio_review: ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME,
+} as const satisfies Record<AdviceAnalysisMode, string>
+
 const STORED_VERSION = 1 as const
 
 const storedAdviceAnalysisSchema = object({
@@ -45,12 +51,6 @@ export type StoredAdviceAnalysis = {
 	selectedModel: AdviceModelId
 	activeTab?: AdviceAnalysisMode
 	document: AdviceDocument
-}
-
-function storageFilenameForAnalysisMode(mode: AdviceAnalysisMode): string {
-	return mode === 'portfolio_review'
-		? ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME
-		: ADVICE_BUY_NEXT_STORAGE_FILENAME
 }
 
 /** In-memory overlay for tests (avoids mocking `fetch`). */
@@ -185,7 +185,7 @@ export async function fetchStoredAdviceAnalysisForTab(
 	})
 	if (!response.ok) return null
 	const gist = (await response.json()) as GistPayload
-	const primaryName = storageFilenameForAnalysisMode(tab)
+	const primaryName = ADVICE_GIST_FILENAME_BY_MODE[tab]
 	const primary = parseStoredAdviceAnalysisFromGistFile(
 		gist.files[primaryName]?.content ?? null,
 	)
@@ -254,7 +254,7 @@ export async function saveStoredAdviceAnalysisForTab(
 		gistTestState.byTab[tab] = stored
 		return
 	}
-	const filename = storageFilenameForAnalysisMode(tab)
+	const filename = ADVICE_GIST_FILENAME_BY_MODE[tab]
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		method: 'PATCH',
 		headers: githubHeaders(token),
@@ -292,7 +292,7 @@ export async function clearStoredAdviceAnalysisForTab(
 		gistTestState.byTab[tab] = null
 		return
 	}
-	const filename = storageFilenameForAnalysisMode(tab)
+	const filename = ADVICE_GIST_FILENAME_BY_MODE[tab]
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		method: 'PATCH',
 		headers: githubHeaders(token),

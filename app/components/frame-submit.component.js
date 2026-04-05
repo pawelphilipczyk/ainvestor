@@ -45,10 +45,30 @@ function createFormData(form, submitControl) {
 }
 
 /**
+ * Full-document navigation via the Navigation API (no `window.location`).
+ * Remix `navigate` attaches the frame runtime state the listener expects.
+ */
+async function navigateDocumentUrl(href, history = 'push') {
+	if (typeof globalThis.navigation?.navigate !== 'function') {
+		throw new Error(
+			'[frame-submit] Document navigation requires window.navigation',
+		)
+	}
+	await navigate(href, { history })
+}
+
+/**
  * Intercepts forms with `data-frame-submit="<frameName>"` and POSTs via
  * fetch. On success, reloads the named Remix Frame so the server re-renders
  * the list region. Supports `data-error-id` for 422 JSON validation errors
  * and `data-reset-form` to clear fields after success.
+ *
+ * **`data-frame-reload-src`:** Optional fragment URL for the named frame.
+ * After a successful POST, `frameHandle.reload()` alone can keep the frame on
+ * the wrong `src` (e.g. still pointing at the document URL). Call
+ * `navigate(documentUrl, { target: frameName, src: fragmentUrl, history: 'replace' })`
+ * so the Navigation API updates that frame’s `src` before reload — same as
+ * loading the full page with a resolved Frame.
  */
 export const FrameSubmitEnhancement = clientEntry(
 	'/components/frame-submit.component.js#FrameSubmitEnhancement',
@@ -108,7 +128,7 @@ export const FrameSubmitEnhancement = clientEntry(
 						if (response.ok) {
 							const frameHandle = handle.frames.get(frameName)
 							let refreshed = false
-							// Advice: gist save can fail while the model succeeds; fragment GET then 204s. Replace main from this HTML instead of reloading the frame.
+							// Gist save can fail while the model succeeds; fragment GET then 204. Swap in `<main>` from this response instead of reloading the frame.
 							const gistStale =
 								response.headers.get('X-Advice-Gist-Stale') === '1'
 							if (gistStale) {
@@ -121,7 +141,7 @@ export const FrameSubmitEnhancement = clientEntry(
 									pageContent.innerHTML = main.outerHTML
 									refreshed = true
 								} else {
-									window.location.assign(
+									await navigateDocumentUrl(
 										new URL(form.action, window.location.href).href,
 									)
 									refreshed = true
@@ -145,7 +165,7 @@ export const FrameSubmitEnhancement = clientEntry(
 									await frameHandle.reload()
 									refreshed = true
 								} else {
-									window.location.assign(documentUrl)
+									await navigateDocumentUrl(documentUrl)
 									refreshed = true
 								}
 							} else if (!refreshed && frameHandle) {
@@ -153,7 +173,7 @@ export const FrameSubmitEnhancement = clientEntry(
 								refreshed = true
 							}
 							if (!refreshed && response.url) {
-								window.location.assign(response.url)
+								await navigateDocumentUrl(response.url)
 							}
 							if (resetForm) form.reset()
 						} else if (response.status === 422 && errorId) {
@@ -165,10 +185,10 @@ export const FrameSubmitEnhancement = clientEntry(
 									: 'Please check your input.'
 							showError(data.error || fallback)
 						} else {
-							window.location.href = response.url || '/'
+							await navigateDocumentUrl(response.url || '/')
 						}
 					} catch {
-						window.location.href = '/'
+						await navigateDocumentUrl('/')
 					} finally {
 						setSubmitButtonLoading(submitControl, false)
 					}
