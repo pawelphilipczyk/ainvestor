@@ -848,24 +848,28 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					)}
 				</div>
 				{frameSrc !== undefined ? (
-					<Frame name="advice-result" src={frameSrc} />
+					<div class="min-w-0 w-full max-w-full">
+						<Frame name="advice-result" src={frameSrc} />
+					</div>
 				) : props.advice !== undefined &&
 					resultMode !== null &&
 					(props.cashAmount !== undefined ||
 						resultMode === 'portfolio_review') ? (
-					<AdviceResultCard
-						advice={props.advice}
-						lastAnalysisMode={props.lastAnalysisMode}
-						analysisMode={props.analysisMode}
-						cashAmount={props.cashAmount}
-						cashCurrency={cashCurrency}
-						selectedModel={selectedModel}
-						catalog={props.catalog}
-						adviceFromGist={props.adviceFromGist}
-						adviceGistSavedAt={props.adviceGistSavedAt}
-						pendingApproval={pendingApproval}
-						adviceGistGate={adviceGistGate}
-					/>
+					<div class="min-w-0 w-full max-w-full">
+						<AdviceResultCard
+							advice={props.advice}
+							lastAnalysisMode={props.lastAnalysisMode}
+							analysisMode={props.analysisMode}
+							cashAmount={props.cashAmount}
+							cashCurrency={cashCurrency}
+							selectedModel={selectedModel}
+							catalog={props.catalog}
+							adviceFromGist={props.adviceFromGist}
+							adviceGistSavedAt={props.adviceGistSavedAt}
+							pendingApproval={pendingApproval}
+							adviceGistGate={adviceGistGate}
+						/>
+					</div>
 				) : null}
 			</main>
 		)
