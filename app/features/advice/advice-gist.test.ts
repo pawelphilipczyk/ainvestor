@@ -54,7 +54,11 @@ describe('advice gist storage', () => {
 			'portfolio_review',
 		)
 		assert.ok(forBuy)
-		assert.equal(forBuy?.document.blocks[0]?.text, 'Buy')
+		const firstBlock = forBuy.document.blocks[0]
+		assert.equal(firstBlock?.type, 'paragraph')
+		if (firstBlock?.type === 'paragraph') {
+			assert.equal(firstBlock.text, 'Buy')
+		}
 		assert.equal(forReview, null)
 	})
 })
