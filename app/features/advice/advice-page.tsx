@@ -1,4 +1,4 @@
-import { Frame, type Handle } from 'remix/component'
+import type { Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
@@ -82,8 +82,6 @@ type AdvicePageProps = {
 	pendingApproval?: boolean
 	/** Guest or signed-in user without a private gist — forms disabled; explain sign-in / Portfolio. */
 	adviceGistGate?: 'sign_in' | 'connect_gist'
-	/** When set, analysis results load inside a Remix `<Frame>` at this URL. */
-	adviceResultFrameSrc?: string
 }
 
 type AdviceAccessBanner =
@@ -468,9 +466,7 @@ function renderEtfProposals(
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
 									class="border-t border-border"
 								>
-									<td class="min-w-0 max-w-[min(100%,20rem)] break-words px-3 py-2 text-card-foreground">
-										{row.name}
-									</td>
+									<td class="px-3 py-2 text-card-foreground">{row.name}</td>
 									<td class="px-3 py-2 text-muted-foreground">
 										{row.ticker ?? t('catalog.emptyCell')}
 									</td>
@@ -482,7 +478,7 @@ function renderEtfProposals(
 									<td class="px-3 py-2 text-muted-foreground">
 										{displayCurrency ?? t('catalog.emptyCell')}
 									</td>
-									<td class="min-w-0 max-w-[min(100%,16rem)] break-words px-3 py-2 text-muted-foreground">
+									<td class="px-3 py-2 text-muted-foreground">
 										{row.note ?? t('catalog.emptyCell')}
 									</td>
 									{pendingApproval ? null : (
@@ -549,73 +545,6 @@ function renderAdviceBlock(
 	})
 }
 
-function adviceResultCardView(props: {
-	advice: AdviceDocument
-	lastAnalysisMode?: AdviceAnalysisMode
-	analysisMode?: AdviceAnalysisMode
-	cashAmount?: string
-	cashCurrency?: string
-	selectedModel?: AdviceModelId
-	catalog?: CatalogEntry[]
-	adviceFromGist?: boolean
-	adviceGistSavedAt?: string
-	pendingApproval?: boolean
-	adviceGistGate?: 'sign_in' | 'connect_gist'
-}) {
-	const cashCurrency = props.cashCurrency ?? 'PLN'
-	const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
-	const resultMode =
-		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
-	const pendingApproval = props.pendingApproval === true
-	const adviceGistGate = props.adviceGistGate
-	return (
-		<Card class="min-w-0 max-w-full overflow-x-auto p-6" aria-live="polite">
-			{props.adviceFromGist === true &&
-			props.adviceGistSavedAt !== undefined &&
-			props.adviceGistSavedAt.length > 0 ? (
-				<p
-					class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
-					role="status"
-				>
-					{format(t('advice.restore.fromGistNotice'), {
-						savedAt: props.adviceGistSavedAt,
-					})}
-				</p>
-			) : null}
-			<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
-				{resultMode === 'portfolio_review'
-					? t('advice.result.titleReview')
-					: t('advice.result.title')}
-			</h2>
-			<p class="mt-1 text-sm text-muted-foreground">
-				{resultMode === 'portfolio_review'
-					? t('advice.result.subtitleReviewGuidelinesOnly')
-					: format(t('advice.result.subtitle'), {
-							amount: props.cashAmount ?? '',
-							currency: cashCurrency,
-						})}
-			</p>
-			<div class="mt-4 min-w-0 space-y-6">
-				{props.advice.blocks.map((block, i) => (
-					<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
-						{renderAdviceBlock(block, cashCurrency, i, {
-							selectedModel,
-							pendingApproval: pendingApproval || adviceGistGate !== undefined,
-							catalog: props.catalog,
-						})}
-					</div>
-				))}
-			</div>
-		</Card>
-	)
-}
-
-export type AdviceResultCardProps = Parameters<typeof adviceResultCardView>[0]
-
-export function AdviceResultCard(_handle: Handle, _setup?: unknown) {
-	return adviceResultCardView
-}
-
 export function AdvicePage(_handle: Handle, _setup?: unknown) {
 	return (props: AdvicePageProps) => {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
@@ -637,7 +566,6 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 			{},
 			{ tab: 'portfolio_review' },
 		)
-		const frameSrc = props.adviceResultFrameSrc
 		const accessBanner = adviceAccessBannerFromProps(props)
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
@@ -698,7 +626,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</p>
 					</div>
 				) : null}
-				<div class="flex min-w-0 w-full flex-col">
+				<div class="flex flex-col">
 					<TabsNav
 						activeId={activeTab}
 						aria-label={t('advice.tabs.navAria')}
@@ -717,8 +645,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								method="post"
 								action={buyNextAction}
 								class="space-y-4"
-								data-frame-submit="advice-result"
-								data-frame-reload-src={frameSrc ?? ''}
+								data-fetch-submit
+								data-replace-main
 							>
 								<input type="hidden" name="analysisMode" value="buy_next" />
 								<input type="hidden" name="adviceIntent" value="run" />
@@ -728,7 +656,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								<p class="text-xs text-muted-foreground">
 									{t('advice.tab.hint.buyNext')}
 								</p>
-								<div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+								<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
 									<div class="grid min-w-0 flex-1 gap-2">
 										<FieldLabel fieldId="cashAmount-buy-next">
 											{t('advice.form.field.cash')}
@@ -780,14 +708,14 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 							</form>
 						</Card>
 					) : (
-						<Card variant="muted" class="min-w-0 rounded-t-none border-t-0 p-6">
+						<Card variant="muted" class="rounded-t-none border-t-0 p-6">
 							{props.advice !== undefined ? (
 								<form
 									method="post"
 									action={reviewAction}
 									class="mb-4"
-									data-frame-submit="advice-result"
-									data-frame-reload-src={frameSrc ?? ''}
+									data-fetch-submit
+									data-replace-main
 								>
 									<input
 										type="hidden"
@@ -808,8 +736,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								method="post"
 								action={reviewAction}
 								class="space-y-4"
-								data-frame-submit="advice-result"
-								data-frame-reload-src={frameSrc ?? ''}
+								data-fetch-submit
+								data-replace-main
 							>
 								<input
 									type="hidden"
@@ -823,8 +751,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								<p class="text-xs text-muted-foreground">
 									{t('advice.tab.hint.portfolioReview')}
 								</p>
-								<div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
-									<div class="grid min-w-0 w-full gap-2 sm:min-w-[11rem] sm:flex-1">
+								<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+									<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
 										<FieldLabel fieldId="adviceModel-review">
 											{t('advice.form.field.model')}
 										</FieldLabel>
@@ -849,29 +777,49 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</Card>
 					)}
 				</div>
-				{frameSrc !== undefined ? (
-					<div class="min-w-0 w-full max-w-full">
-						<Frame name="advice-result" src={frameSrc} />
-					</div>
-				) : props.advice !== undefined &&
-					resultMode !== null &&
-					(props.cashAmount !== undefined ||
-						resultMode === 'portfolio_review') ? (
-					<div class="min-w-0 w-full max-w-full">
-						<AdviceResultCard
-							advice={props.advice}
-							lastAnalysisMode={props.lastAnalysisMode}
-							analysisMode={props.analysisMode}
-							cashAmount={props.cashAmount}
-							cashCurrency={cashCurrency}
-							selectedModel={selectedModel}
-							catalog={props.catalog}
-							adviceFromGist={props.adviceFromGist}
-							adviceGistSavedAt={props.adviceGistSavedAt}
-							pendingApproval={pendingApproval}
-							adviceGistGate={adviceGistGate}
-						/>
-					</div>
+				{props.advice !== undefined &&
+				resultMode !== null &&
+				(props.cashAmount !== undefined ||
+					resultMode === 'portfolio_review') ? (
+					<Card class="min-w-0 max-w-full p-6" aria-live="polite">
+						{props.adviceFromGist === true &&
+						props.adviceGistSavedAt !== undefined &&
+						props.adviceGistSavedAt.length > 0 ? (
+							<p
+								class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+								role="status"
+							>
+								{format(t('advice.restore.fromGistNotice'), {
+									savedAt: props.adviceGistSavedAt,
+								})}
+							</p>
+						) : null}
+						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
+							{resultMode === 'portfolio_review'
+								? t('advice.result.titleReview')
+								: t('advice.result.title')}
+						</h2>
+						<p class="mt-1 text-sm text-muted-foreground">
+							{resultMode === 'portfolio_review'
+								? t('advice.result.subtitleReviewGuidelinesOnly')
+								: format(t('advice.result.subtitle'), {
+										amount: props.cashAmount ?? '',
+										currency: cashCurrency,
+									})}
+						</p>
+						<div class="mt-4 min-w-0 space-y-6">
+							{props.advice.blocks.map((block, i) => (
+								<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
+									{renderAdviceBlock(block, cashCurrency, i, {
+										selectedModel,
+										pendingApproval:
+											pendingApproval || adviceGistGate !== undefined,
+										catalog: props.catalog,
+									})}
+								</div>
+							))}
+						</div>
+					</Card>
 				) : null}
 			</main>
 		)

@@ -1,9 +1,4 @@
-import {
-	addEventListeners,
-	clientEntry,
-	createElement,
-	navigate,
-} from 'remix/component'
+import { addEventListeners, clientEntry, createElement } from 'remix/component'
 import { setSubmitButtonLoading } from './submit-button-loading.component.js'
 
 const CLIENT_MESSAGES_ID = 'ui-client-messages'
@@ -61,7 +56,6 @@ export const FrameSubmitEnhancement = clientEntry(
 
 					const frameName = form.dataset.frameSubmit
 					if (!frameName) return
-					const frameReloadSrc = form.dataset.frameReloadSrc?.trim()
 
 					if (!form.checkValidity()) {
 						form.reportValidity()
@@ -107,34 +101,8 @@ export const FrameSubmitEnhancement = clientEntry(
 
 						if (response.ok) {
 							const frameHandle = handle.frames.get(frameName)
-							let refreshed = false
-							if (frameReloadSrc && frameReloadSrc.length > 0) {
-								const fragmentUrl = new URL(
-									frameReloadSrc,
-									window.location.href,
-								).href
-								const documentUrl = new URL(form.action, window.location.href)
-									.href
-								if (typeof globalThis.navigation?.navigate === 'function') {
-									await navigate(documentUrl, {
-										target: frameName,
-										src: fragmentUrl,
-										history: 'replace',
-									})
-									refreshed = true
-								} else if (frameHandle) {
-									await frameHandle.reload()
-									refreshed = true
-								} else {
-									window.location.assign(documentUrl)
-									refreshed = true
-								}
-							} else if (frameHandle) {
+							if (frameHandle) {
 								await frameHandle.reload()
-								refreshed = true
-							}
-							if (!refreshed && response.url) {
-								window.location.assign(response.url)
 							}
 							if (resetForm) form.reset()
 						} else if (response.status === 422 && errorId) {

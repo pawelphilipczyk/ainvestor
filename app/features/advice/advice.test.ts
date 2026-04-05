@@ -7,7 +7,6 @@ import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
-import { routes } from '../../routes.ts'
 import {
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
@@ -482,63 +481,8 @@ describe('Advice', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /Cached gist paragraph\./)
 		assert.match(body, /Showing your last saved analysis from your data gist/)
-		assert.match(body, /"name":"advice-result"/)
-		assert.match(body, /\/fragments\/advice-result\?tab=buy_next/)
-	})
-
-	it('GET /advice/fragments/advice-result returns HTML for stored gist advice when tab matches', async () => {
-		const cookie = await signInWithGist()
-		seedSharedCatalog(
-			JSON.stringify({
-				data: [
-					{
-						id: 'c1',
-						fund_name: 'Test',
-						ticker: 'TST',
-						assets: 'akcje',
-					},
-				],
-				count: 1,
-			}),
-		)
-		const stored: StoredAdviceAnalysis = {
-			version: 1,
-			savedAt: 1_700_000_000_000,
-			lastAnalysisMode: 'buy_next',
-			cashCurrency: 'PLN',
-			cashAmount: '500',
-			selectedModel: 'gpt-5.4-mini',
-			activeTab: 'buy_next',
-			document: {
-				blocks: [{ type: 'paragraph', text: 'Fragment-only paragraph.' }],
-			},
-		}
-		setAdviceGistTestOverlay(stored)
-
-		const url = `${routes.advice.fragmentResult.href()}?tab=buy_next`
-		const response = await testSessionFetch(`http://localhost${url}`, {
-			headers: { Cookie: cookie },
-		})
-		const body = await response.text()
-
-		assert.equal(response.status, 200)
-		assert.match(body, /Fragment-only paragraph\./)
-		assert.match(body, /Investment Advice/)
-		assert.doesNotMatch(body, /<html\b/i)
-	})
-
-	it('GET /advice/fragments/advice-result returns 204 when there is no result for the tab', async () => {
-		const cookie = await signInWithGist()
-		setAdviceGistTestOverlay(null)
-
-		const url = `${routes.advice.fragmentResult.href()}?tab=buy_next`
-		const response = await testSessionFetch(`http://localhost${url}`, {
-			headers: { Cookie: cookie },
-		})
-		const body = await response.text()
-
-		assert.equal(response.status, 204)
-		assert.equal(body, '')
+		assert.match(body, /data-fetch-submit/)
+		assert.match(body, /data-replace-main/)
 	})
 
 	it('GET /advice does not show gist snapshot when URL tab differs from snapshot tab', async () => {

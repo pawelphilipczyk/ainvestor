@@ -29,7 +29,7 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 
 ### Phase 3 — Full main-region swap (`data-replace-main`)
 
-- [x] **Advice analysis forms** — Replace `data-fetch-submit` + `data-replace-main` on `AdvicePage` with a **`<Frame>`** for the analysis result area. `GET /advice/fragments/advice-result?tab=` returns the result card HTML; forms use `data-frame-submit="advice-result"` plus `data-frame-reload-src` so `FrameSubmitEnhancement` refreshes the named frame via Remix `navigate()` (correct fragment `src` for the Navigation API). Gist snapshots use **separate files** per mode (`advice-buy-next.json` / `advice-portfolio-review.json`), with legacy `advice-analysis.json` still read when present. `render()` passes `resolveFrame` for SSR. No remaining `data-replace-main` in app features (handler branch in `fetch-submit.component.js` kept until Phase 7 cleanup).
+- [ ] **Advice analysis forms** — **Reverted to prod behavior:** `data-fetch-submit` + `data-replace-main` on `AdvicePage` (full-document `#page-content` swap after POST). A **Remix `<Frame>`** for the result area caused layout/hydration issues on mobile (horizontal pan into empty area). **Follow-up:** Revisit Frame + fragment route with a minimal repro and Remix guidance. **Kept:** separate gist files per tab (`advice-buy-next.json` / `advice-portfolio-review.json`) and related server logic; no `/advice/fragments/advice-result` route until Phase 3 ships for real.
 
 ### Phase 4 — Catalog ETF deep-dive (today: JSON + text node)
 

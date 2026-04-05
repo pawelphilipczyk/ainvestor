@@ -1,8 +1,6 @@
 import { jsx } from 'remix/component/jsx-runtime'
-import { renderToStream } from 'remix/component/server'
 import type { Issue } from 'remix/data-schema'
 import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
-import { createHtmlResponse } from 'remix/response/html'
 import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
@@ -37,11 +35,7 @@ import {
 	getInvestmentAdvice,
 	normalizeAdviceAnalysisTab,
 } from './advice-openai.ts'
-import {
-	AdvicePage,
-	AdviceResultCard,
-	type AdviceResultCardProps,
-} from './advice-page.tsx'
+import { AdvicePage } from './advice-page.tsx'
 
 const ADVICE_INTENTS = ['run', 'clear'] as const
 
@@ -91,80 +85,22 @@ type AdvicePageRenderProps = {
 	adviceGistGate?: 'sign_in' | 'connect_gist'
 }
 
-function adviceResultFragmentSrc(activeTab: AdviceAnalysisMode): string {
-	const tabQuery =
-		activeTab === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
-	const base = routes.advice.fragmentResult.href()
-	return `${base}?tab=${tabQuery}`
-}
-
-function shouldStreamAdviceResult(props: AdvicePageRenderProps): boolean {
-	if (props.adviceGistGate !== undefined) return false
-	if (props.advice === undefined) return false
-	const resultMode =
-		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
-	return props.cashAmount !== undefined || resultMode === 'portfolio_review'
-}
-
-function adviceResultCardPropsFromPage(
-	props: AdvicePageRenderProps,
-): AdviceResultCardProps | null {
-	if (!shouldStreamAdviceResult(props) || props.advice === undefined) {
-		return null
-	}
-	return {
-		advice: props.advice,
-		lastAnalysisMode: props.lastAnalysisMode,
-		analysisMode: props.analysisMode,
-		cashAmount: props.cashAmount,
-		cashCurrency: props.cashCurrency,
-		selectedModel: props.selectedModel,
-		catalog: props.catalog,
-		adviceFromGist: props.adviceFromGist,
-		adviceGistSavedAt: props.adviceGistSavedAt,
-		pendingApproval: props.pendingApproval === true,
-		adviceGistGate: props.adviceGistGate,
-	}
-}
-
-function resolveAdviceResultFrame(
-	source: string,
-	frameSrc: string | undefined,
-	props: AdvicePageRenderProps,
-) {
-	if (frameSrc === undefined || source !== frameSrc) return ''
-	const cardProps = adviceResultCardPropsFromPage(props)
-	if (cardProps === null) return ''
-	return renderToStream(jsx(AdviceResultCard, cardProps))
-}
-
 function renderAdvicePageResponse(options: {
 	session: SessionData | null
 	props: AdvicePageRenderProps
 	init?: ResponseInit
 }) {
-	const activeTab = normalizeAdviceAnalysisTab(options.props.activeTab)
-	const frameSrc = shouldStreamAdviceResult(options.props)
-		? adviceResultFragmentSrc(activeTab)
-		: undefined
-
 	return render({
 		title: t('meta.title.advice'),
 		session: options.session,
 		currentPage: 'advice',
-		body: jsx(AdvicePage, {
-			...options.props,
-			adviceResultFrameSrc: frameSrc,
-		}),
+		body: jsx(AdvicePage, options.props),
 		init: options.init,
-		resolveFrame(source) {
-			return resolveAdviceResultFrame(source, frameSrc, options.props)
-		},
 	})
 }
 
 /**
- * True when we cannot load `advice-analysis.json` from the user's gist for this request
+ * True when we cannot load per-tab advice snapshots from the user's gist for this request
  * (layout pending approval, missing session, account pending, or no linked gist).
  */
 function cannotLoadAdviceGistSnapshot(options: {
@@ -283,35 +219,6 @@ export const adviceController = {
 					pendingApproval,
 				),
 			})
-		},
-
-		async fragmentResult(context: AppRequestContext) {
-			const layoutSession = getLayoutSession(context.get(Session))
-			const pendingApproval = layoutSession?.approvalStatus === 'pending'
-			const activeTab = parseAdviceTabParam(context.request.url)
-			const session = getSessionData(context.get(Session))
-			const baseProps = await loadAdvicePageState({
-				session,
-				pendingApproval,
-				activeTab,
-			})
-			const props = withAdviceGate(
-				baseProps,
-				layoutSession,
-				session,
-				pendingApproval,
-			)
-			const cardProps = adviceResultCardPropsFromPage(props)
-			if (cardProps === null) {
-				return new Response(null, {
-					status: 204,
-					headers: { 'Cache-Control': 'no-store' },
-				})
-			}
-			return createHtmlResponse(
-				renderToStream(jsx(AdviceResultCard, cardProps)),
-				{ headers: { 'Cache-Control': 'no-store' } },
-			)
 		},
 
 		async action(context: AppRequestContext) {
