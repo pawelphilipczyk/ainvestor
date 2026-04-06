@@ -8,6 +8,11 @@ export const baseCss = `@layer base {
     overflow-x: hidden;
   }
 
+  body {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
   @view-transition {
     navigation: auto;
   }
