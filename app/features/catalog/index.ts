@@ -16,7 +16,10 @@ import {
 	type AdviceModelId,
 	DEFAULT_ADVICE_MODEL,
 } from '../advice/advice-openai.ts'
-import { CatalogEtfAnalysisFragment } from './catalog-etf-analysis-fragment.tsx'
+import {
+	CatalogEtfAnalysisFragment,
+	type CatalogEtfAnalysisFragmentProps,
+} from './catalog-etf-analysis-fragment.tsx'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
@@ -106,7 +109,7 @@ function catalogEtfAnalysisFrameSrc(
 }
 
 function renderCatalogEtfAnalysisFragmentHtml(
-	props: { text?: string; error?: string },
+	props: CatalogEtfAnalysisFragmentProps,
 	init?: ResponseInit,
 ): Response {
 	const headers = new Headers(init?.headers)

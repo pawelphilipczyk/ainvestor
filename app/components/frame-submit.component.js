@@ -142,9 +142,9 @@ export const FrameSubmitEnhancement = clientEntry(
 								const frameHandle = handle.frames.get(frameName)
 								if (frameHandle) {
 									await frameHandle.replace(html)
-								}
-								if (response.ok) {
-									form.classList.add('hidden')
+									if (response.ok) {
+										form.classList.add('hidden')
+									}
 								}
 								if (resetForm) form.reset()
 								return
