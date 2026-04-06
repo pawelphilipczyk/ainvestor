@@ -734,6 +734,22 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(body, /data-frame-submit="portfolio-list"/)
 	})
 
+	it('holdings list uses read-only value with edit-in-details pattern', async () => {
+		await seedGuestCatalog()
+		const form = new FormData()
+		form.set('instrumentTicker', 'VTI')
+		form.set('value', '250')
+		form.set('currency', 'PLN')
+		await testSessionFetch(
+			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
+		)
+		const response = await testSessionFetch('http://localhost/portfolio')
+		const body = await response.text()
+		assert.match(body, /PLN/)
+		assert.match(body, /<details\b/)
+		assert.match(body, /portfolio-edit-/)
+	})
+
 	it('portfolio page renders a named Frame for the holdings list', async () => {
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()

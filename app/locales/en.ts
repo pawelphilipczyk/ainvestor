@@ -87,6 +87,8 @@ export const en = {
 	'portfolio.etf.updateQuantityLabel': 'Quantity',
 	'portfolio.etf.updateQuantityScreenReader': 'Share quantity for {name}',
 	'portfolio.etf.save': 'Save',
+	'portfolio.etf.edit': 'Edit',
+	'portfolio.etf.editDetailsSummary': 'Edit {name}',
 	'portfolio.etf.valueShareBarAria':
 		'{percent}% of total holdings value for {name}',
 

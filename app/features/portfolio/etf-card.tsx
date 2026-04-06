@@ -19,6 +19,10 @@ type EtfCardProps = {
 	entryId: string
 	name: string
 	currency: string
+	/** Formatted market value for read-only summary (e.g. `PLN 1,234.56`). */
+	valueDisplay: string
+	/** Optional shares line under the value when quantity is set. */
+	quantitySummaryLine?: string
 	valueForInput: string
 	quantityForInput: string
 	identifier: string
@@ -31,12 +35,14 @@ type EtfCardProps = {
 
 /**
  * Server-rendered ETF card for portfolio list.
+ * Read-only by default; edit form lives in `<details>` so list refreshes show correct values without stale inputs.
  * Interactivity is provided by EtfCardInteractions (clientEntry) in etf-card.component.js.
  */
 export function EtfCard(_handle: Handle, _setup?: unknown) {
 	return (props: EtfCardProps) => {
 		const valueFieldId = `portfolio-value-${props.entryId}`
 		const quantityFieldId = `portfolio-quantity-${props.entryId}`
+		const editDetailsId = `portfolio-edit-${props.entryId}`
 		const valueSharePercent =
 			props.valueSharePercent === undefined
 				? undefined
@@ -64,56 +70,79 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						{props.identifier}
 					</span>
 				</div>
-				<div class="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-2">
-					<form
-						method="post"
-						action={props.updateHref}
-						class="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-2"
-						data-frame-submit="portfolio-list"
-						data-frame-replace-from-response="1"
-					>
-						<div class="grid w-auto shrink-0 gap-0.5">
-							<FieldLabel fieldId={valueFieldId} variant="dense">
-								{format(t('portfolio.etf.updateValueLabel'), {
-									currency: props.currency,
-								})}
-							</FieldLabel>
-							<NumberInput
-								id={valueFieldId}
-								name="value"
-								class="!w-28 shrink-0"
-								value={props.valueForInput}
-								required={true}
-								inputMode="decimal"
-								pattern={LOCALE_DECIMAL_HTML_PATTERN}
-								aria-label={format(t('portfolio.etf.updateValueScreenReader'), {
-									name: props.name,
-								})}
-							/>
-						</div>
-						<div class="grid w-auto shrink-0 gap-0.5">
-							<FieldLabel fieldId={quantityFieldId} variant="dense">
-								{t('portfolio.etf.updateQuantityLabel')}
-							</FieldLabel>
-							<NumberInput
-								id={quantityFieldId}
-								name="quantity"
-								class="!w-20 shrink-0"
-								value={props.quantityForInput}
-								inputMode="numeric"
-								pattern="[0-9]*"
-								aria-label={format(
-									t('portfolio.etf.updateQuantityScreenReader'),
-									{
-										name: props.name,
-									},
-								)}
-							/>
-						</div>
-						<button type="submit" class={portfolioRowGhostButtonClass}>
-							{t('portfolio.etf.save')}
-						</button>
-					</form>
+				<div class="flex min-w-0 flex-col gap-1">
+					<p class="text-sm tabular-nums text-card-foreground">
+						{props.valueDisplay}
+					</p>
+					{props.quantitySummaryLine !== undefined ? (
+						<p class="text-xs text-muted-foreground">
+							{props.quantitySummaryLine}
+						</p>
+					) : null}
+				</div>
+				<div class="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-2">
+					<details id={editDetailsId} class="min-w-0">
+						<summary
+							class="cursor-pointer list-none rounded-md px-0 py-1 text-sm font-medium text-primary underline underline-offset-2 outline-none marker:hidden focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&::-webkit-details-marker]:hidden"
+							aria-label={format(t('portfolio.etf.editDetailsSummary'), {
+								name: props.name,
+							})}
+						>
+							{t('portfolio.etf.edit')}
+						</summary>
+						<form
+							method="post"
+							action={props.updateHref}
+							class="mt-3 flex min-w-0 flex-wrap items-end gap-x-2 gap-y-2 border-t border-border pt-3"
+							data-frame-submit="portfolio-list"
+							data-frame-replace-from-response="1"
+						>
+							<div class="grid w-auto shrink-0 gap-0.5">
+								<FieldLabel fieldId={valueFieldId} variant="dense">
+									{format(t('portfolio.etf.updateValueLabel'), {
+										currency: props.currency,
+									})}
+								</FieldLabel>
+								<NumberInput
+									id={valueFieldId}
+									name="value"
+									class="!w-28 shrink-0"
+									value={props.valueForInput}
+									required={true}
+									inputMode="decimal"
+									pattern={LOCALE_DECIMAL_HTML_PATTERN}
+									aria-label={format(
+										t('portfolio.etf.updateValueScreenReader'),
+										{
+											name: props.name,
+										},
+									)}
+								/>
+							</div>
+							<div class="grid w-auto shrink-0 gap-0.5">
+								<FieldLabel fieldId={quantityFieldId} variant="dense">
+									{t('portfolio.etf.updateQuantityLabel')}
+								</FieldLabel>
+								<NumberInput
+									id={quantityFieldId}
+									name="quantity"
+									class="!w-20 shrink-0"
+									value={props.quantityForInput}
+									inputMode="numeric"
+									pattern="[0-9]*"
+									aria-label={format(
+										t('portfolio.etf.updateQuantityScreenReader'),
+										{
+											name: props.name,
+										},
+									)}
+								/>
+							</div>
+							<button type="submit" class={portfolioRowGhostButtonClass}>
+								{t('portfolio.etf.save')}
+							</button>
+						</form>
+					</details>
 					<form
 						method="post"
 						action={props.deleteHref}
