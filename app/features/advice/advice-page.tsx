@@ -865,7 +865,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					)}
 				</div>
 				{props.adviceLayoutSample === true ? (
-					<div class="min-w-0 w-full space-y-2">
+					<div class="min-w-0 w-full max-w-full space-y-2 overflow-x-clip">
 						<p
 							role="status"
 							class="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-card-foreground"
