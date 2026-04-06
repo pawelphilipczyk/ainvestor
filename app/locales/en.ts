@@ -311,8 +311,6 @@ export const en = {
 	'errors.advice.service':
 		"We couldn't get advice right now. Please try again in a moment.",
 	'client.formSubmit.genericError': 'Please check your input.',
-	'client.catalogEtfAnalysisNetworkError':
-		'Could not load ETF analysis. Check your connection and try again.',
 } as const
 
 export type MessageKey = keyof typeof en

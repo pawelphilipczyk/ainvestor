@@ -69,6 +69,10 @@ async function navigateDocumentUrl(href, history = 'push') {
  * `navigate(documentUrl, { target: frameName, src: fragmentUrl, history: 'replace' })`
  * so the Navigation API updates that frame’s `src` before reload — same as
  * loading the full page with a resolved Frame.
+ *
+ * **`data-frame-replace-from-response`:** When set, POST uses `Accept: text/html`
+ * and applies the response body into the named frame via `frameHandle.replace()`
+ * when the response is HTML (e.g. catalog ETF analysis fragment).
  */
 export const FrameSubmitEnhancement = clientEntry(
 	'/components/frame-submit.component.js#FrameSubmitEnhancement',
@@ -82,6 +86,9 @@ export const FrameSubmitEnhancement = clientEntry(
 					const frameName = form.dataset.frameSubmit
 					if (!frameName) return
 					const frameReloadSrc = form.dataset.frameReloadSrc?.trim()
+					const replaceFromResponse =
+						form.dataset.frameReplaceFromResponse === '1' ||
+						form.dataset.frameReplaceFromResponse === 'true'
 
 					if (!form.checkValidity()) {
 						form.reportValidity()
@@ -118,12 +125,31 @@ export const FrameSubmitEnhancement = clientEntry(
 					hideError()
 
 					try {
+						const acceptHeader = replaceFromResponse
+							? 'text/html'
+							: 'application/json'
 						const response = await fetch(form.action, {
 							method: form.method,
 							body: createFormData(form, submitControl),
 							redirect: 'follow',
-							headers: { Accept: 'application/json' },
+							headers: { Accept: acceptHeader },
 						})
+
+						if (replaceFromResponse) {
+							const contentType = response.headers.get('content-type') ?? ''
+							if (contentType.includes('text/html')) {
+								const html = await response.text()
+								const frameHandle = handle.frames.get(frameName)
+								if (frameHandle) {
+									await frameHandle.replace(html)
+									if (response.ok) {
+										form.classList.add('hidden')
+									}
+								}
+								if (resetForm) form.reset()
+								return
+							}
+						}
 
 						if (response.ok) {
 							const frameHandle = handle.frames.get(frameName)

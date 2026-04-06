@@ -1,12 +1,10 @@
-import type { Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/component'
 import { Card } from '../../components/card.tsx'
 import { Link } from '../../components/link.tsx'
 import { SubmitButton } from '../../components/submit-button.tsx'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
-// @ts-expect-error Runtime-only remix clientEntry (scoped to this page)
-import { CatalogEtfAnalysisFormEnhancement } from './catalog-etf-analysis-form.component.js'
 import type { CatalogEntry } from './lib.ts'
 
 export type CatalogEtfPageProps = {
@@ -16,6 +14,8 @@ export type CatalogEtfPageProps = {
 	descriptionText?: string
 	/** POST URL for on-demand AI analysis (`null` when pending). */
 	analysisPostHref?: string | null
+	/** GET fragment URL for Remix `<Frame>` (empty analysis until POST succeeds). */
+	analysisFrameSrc?: string
 	selectedModel?: AdviceModelId
 }
 
@@ -158,14 +158,13 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 						>
 							{t('catalog.etfDetail.analysisTitle')}
 						</h2>
-						{props.analysisPostHref ? (
+						{props.analysisPostHref && props.analysisFrameSrc ? (
 							<>
 								<form
 									method="post"
 									action={props.analysisPostHref}
-									data-catalog-etf-analysis-form
-									data-result-target="#catalog-etf-analysis-output"
-									data-error-target="#catalog-etf-analysis-error"
+									data-frame-submit="catalog-etf-analysis"
+									data-frame-replace-from-response="1"
 									class="min-w-0"
 								>
 									<input
@@ -177,16 +176,10 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 										{t('catalog.etfDetail.loadAnalysisButton')}
 									</SubmitButton>
 								</form>
-								<p
-									id="catalog-etf-analysis-error"
-									role="alert"
-									class="mt-3 hidden text-sm text-destructive"
+								<Frame
+									name="catalog-etf-analysis"
+									src={props.analysisFrameSrc}
 								/>
-								<div
-									id="catalog-etf-analysis-output"
-									class="mt-4 hidden min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground"
-								/>
-								<CatalogEtfAnalysisFormEnhancement />
 							</>
 						) : (
 							<div class="min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">

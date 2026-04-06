@@ -16,6 +16,10 @@ import {
 	type AdviceModelId,
 	DEFAULT_ADVICE_MODEL,
 } from '../advice/advice-openai.ts'
+import {
+	CatalogEtfAnalysisFragment,
+	type CatalogEtfAnalysisFragmentProps,
+} from './catalog-etf-analysis-fragment.tsx'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
@@ -44,18 +48,6 @@ function parseAdviceModelFromJsonBody(body: unknown): AdviceModelId {
 		return raw as AdviceModelId
 	}
 	return DEFAULT_ADVICE_MODEL
-}
-
-function jsonResponse(
-	body: Record<string, unknown>,
-	init?: ResponseInit,
-): Response {
-	const headers = new Headers(init?.headers)
-	headers.set('content-type', 'application/json; charset=utf-8')
-	return new Response(JSON.stringify(body), {
-		...init,
-		headers,
-	})
 }
 
 const catalogIndexRedirect = () =>
@@ -102,6 +94,43 @@ function parseOptionalAdviceModelFromUrl(url: string): AdviceModelId {
 		return raw as AdviceModelId
 	}
 	return DEFAULT_ADVICE_MODEL
+}
+
+function catalogEtfAnalysisFrameSrc(
+	entryId: string,
+	model: AdviceModelId,
+): string {
+	const base = routes.catalog.fragmentEtfAnalysis.href({
+		catalogEntryId: entryId,
+	})
+	if (model === DEFAULT_ADVICE_MODEL) return base
+	const searchParams = new URLSearchParams({ model })
+	return `${base}?${searchParams.toString()}`
+}
+
+function renderCatalogEtfAnalysisFragmentHtml(
+	props: CatalogEtfAnalysisFragmentProps,
+	init?: ResponseInit,
+): Response {
+	const headers = new Headers(init?.headers)
+	headers.set('Cache-Control', 'no-store')
+	return createHtmlResponse(
+		renderToStream(jsx(CatalogEtfAnalysisFragment, props)),
+		{
+			...init,
+			headers,
+		},
+	)
+}
+
+function samePathAndSearch(a: string, b: string): boolean {
+	try {
+		const urlA = new URL(a, 'https://frame-resolve.local')
+		const urlB = new URL(b, 'https://frame-resolve.local')
+		return urlA.pathname === urlB.pathname && urlA.search === urlB.search
+	} catch {
+		return a === b
+	}
 }
 
 /** Parses `bankApiJson` form field; empty or invalid JSON yields a redirect response. */
@@ -185,6 +214,7 @@ export const catalogController = {
 			}
 
 			const model = parseOptionalAdviceModelFromUrl(context.request.url)
+			const analysisFrameSrc = catalogEtfAnalysisFrameSrc(entry.id, model)
 
 			return render({
 				title: format(t('meta.title.catalogEtf'), { name: fundName }),
@@ -196,9 +226,16 @@ export const catalogController = {
 					analysisPostHref: routes.catalog.etfAnalysis.href({
 						catalogEntryId: entry.id,
 					}),
+					analysisFrameSrc,
 					selectedModel: model,
 				}),
 				init: { headers: { 'Cache-Control': 'no-store' } },
+				resolveFrame(source) {
+					if (samePathAndSearch(source, analysisFrameSrc)) {
+						return renderToStream(jsx(CatalogEtfAnalysisFragment, {}))
+					}
+					return ''
+				},
 			})
 		},
 
@@ -207,17 +244,15 @@ export const catalogController = {
 				(context.params as Record<string, string>).catalogEntryId,
 			)
 			if (entryId === null) {
-				return jsonResponse(
+				return renderCatalogEtfAnalysisFragmentHtml(
 					{ error: t('errors.catalog.etfDetail.notFound') },
-					{
-						status: 404,
-					},
+					{ status: 404 },
 				)
 			}
 
 			const layoutSession = getLayoutSession(context.get(Session))
 			if (layoutSession?.approvalStatus === 'pending') {
-				return jsonResponse(
+				return renderCatalogEtfAnalysisFragmentHtml(
 					{ error: t('errors.catalog.etfDetail.pendingAnalysis') },
 					{ status: 403 },
 				)
@@ -247,11 +282,9 @@ export const catalogController = {
 			const catalogSnapshot = await fetchSharedCatalogSnapshot()
 			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
 			if (entry === undefined) {
-				return jsonResponse(
+				return renderCatalogEtfAnalysisFragmentHtml(
 					{ error: t('errors.catalog.etfDetail.notFound') },
-					{
-						status: 404,
-					},
+					{ status: 404 },
 				)
 			}
 
@@ -262,19 +295,47 @@ export const catalogController = {
 					client,
 					model,
 				})
-				return jsonResponse(
-					{ text },
-					{
-						headers: { 'Cache-Control': 'no-store' },
-					},
-				)
+				return renderCatalogEtfAnalysisFragmentHtml({ text })
 			} catch (err) {
 				console.error('[catalog] etf analysis POST failed', err)
-				return jsonResponse(
+				return renderCatalogEtfAnalysisFragmentHtml(
 					{ error: t('errors.catalog.etfDetail.service') },
 					{ status: 503 },
 				)
 			}
+		},
+
+		async fragmentEtfAnalysis(context: AppRequestContext) {
+			const entryId = decodeCatalogEntryIdFromPath(
+				(context.params as Record<string, string>).catalogEntryId,
+			)
+			if (entryId === null) {
+				return renderCatalogEtfAnalysisFragmentHtml(
+					{ error: t('errors.catalog.etfDetail.notFound') },
+					{ status: 404 },
+				)
+			}
+
+			const layoutSession = getLayoutSession(context.get(Session))
+			if (layoutSession?.approvalStatus === 'pending') {
+				return renderCatalogEtfAnalysisFragmentHtml(
+					{ error: t('errors.catalog.etfDetail.pendingAnalysis') },
+					{ status: 403 },
+				)
+			}
+
+			const catalogSnapshot = await fetchSharedCatalogSnapshot()
+			if (!catalogSnapshot.entries.some((row) => row.id === entryId)) {
+				return renderCatalogEtfAnalysisFragmentHtml(
+					{ error: t('errors.catalog.etfDetail.notFound') },
+					{ status: 404 },
+				)
+			}
+
+			return createHtmlResponse(
+				renderToStream(jsx(CatalogEtfAnalysisFragment, {})),
+				{ headers: { 'Cache-Control': 'no-store' } },
+			)
 		},
 
 		async import(context: AppRequestContext) {
