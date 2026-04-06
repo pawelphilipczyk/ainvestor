@@ -389,7 +389,10 @@ describe('ETF Catalog page', () => {
 		addForm.set('value', '5000')
 		addForm.set('currency', 'USD')
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: addForm,
+			}),
 		)
 
 		const response = await testSessionFetch('http://localhost/catalog')

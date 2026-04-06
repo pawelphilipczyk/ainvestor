@@ -693,8 +693,8 @@ import { route, form, resources, get, post } from 'remix/fetch-router/routes'
 export const routes = route({
   health: get('/health'),
   portfolio: {
-    index: get('/'),
-    create: post('/etfs'),
+    index: get('/portfolio'),
+    create: post('/portfolio'),
   },
   auth: {
     login: get('/auth/github'),
@@ -739,10 +739,10 @@ Replace manual `session.read()`/`session.save()` calls in every handler with the
 Parse and validate all form inputs at the action boundary before processing.
 
 ```ts
-router.post(routes.etfs.create, ({ formData }) => {
-  let result = parseSafe(CreateEtfSchema, Object.fromEntries(formData))
+router.post(routes.portfolio.create, ({ formData }) => {
+  let result = parseSafe(CreateHoldingSchema, Object.fromEntries(formData))
   if (!result.success) return createHtmlResponse(renderForm(result.issues), { status: 422 })
-  let etf = result.value
+  let holding = result.value
   // ...
 })
 ```
