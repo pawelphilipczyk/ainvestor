@@ -29,9 +29,6 @@ export const CatalogEtfBackEnhancement = clientEntry(
 						return
 					}
 					if (isModifiedClick(event)) return
-					if (anchor.hasAttribute('download')) return
-					const anchorTarget = anchor.getAttribute('target')
-					if (anchorTarget && anchorTarget !== '_self') return
 
 					event.preventDefault()
 					if (typeof history !== 'undefined' && history.length > 1) {
