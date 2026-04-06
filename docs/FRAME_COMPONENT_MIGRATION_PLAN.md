@@ -41,7 +41,7 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 
 Today these flows use **`Accept: application/json`** and client-side error elements. To align with Frame-first HTML:
 
-- [x] **Portfolio add ETF** — Return **HTML** for validation failures (list fragment with top **inline error** callout) and for **successful** create/update when `Accept: text/html` (Frame replace); add/update forms use **`data-frame-replace-from-response`** without **`data-error-id`**. JSON `422` kept for API-style `Accept: application/json` tests.
+- [x] **Portfolio add ETF** — Return **HTML** for validation failures (list fragment with top **inline error** callout) and for **successful** create/update when **`Accept` is exactly `text/html`** (matches `FrameSubmitEnhancement` fetch; ordinary browser POSTs keep redirect + flash). Add/update forms use **`data-frame-replace-from-response`** without **`data-error-id`**. JSON `422` kept for API-style `Accept: application/json` tests.
 - [ ] **Guidelines mutations** — Same: prefer **HTML error partials** inside a Frame or full redirect with flash; remove `prefersJson` / JSON error branches where replaced.
 
 ### Phase 6 — GET forms with `data-navigation-loading`

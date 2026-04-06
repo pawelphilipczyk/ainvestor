@@ -82,8 +82,10 @@ function prefersJson(request: Request): boolean {
 	return request.headers.get('Accept')?.includes('application/json') ?? false
 }
 
+/** Matches `FrameSubmitEnhancement` fetch (`Accept: text/html` only), not browser document navigations. */
 function prefersHtmlFrame(request: Request): boolean {
-	return request.headers.get('Accept')?.includes('text/html') ?? false
+	const accept = request.headers.get('Accept') ?? ''
+	return accept.trim() === 'text/html'
 }
 
 function portfolioListFragmentHtmlResponse(params: {
@@ -174,7 +176,11 @@ export const addEtfFormHandlers = {
 				if (prefersHtmlFrame(context.request)) {
 					const entries = await loadPortfolioEntries(context)
 					if (entries === null) {
-						return portfolioPersistenceFailureResponse(context)
+						return portfolioListFragmentHtmlResponse({
+							entries: [],
+							inlineError: t('errors.portfolio.persistence'),
+							status: 422,
+						})
 					}
 					return portfolioListFragmentHtmlResponse({
 						entries,
@@ -315,7 +321,11 @@ export const addEtfFormHandlers = {
 				if (prefersHtmlFrame(context.request)) {
 					const entries = await loadPortfolioEntries(context)
 					if (entries === null) {
-						return portfolioPersistenceFailureResponse(context)
+						return portfolioListFragmentHtmlResponse({
+							entries: [],
+							inlineError: t('errors.portfolio.persistence'),
+							status: 422,
+						})
 					}
 					return portfolioListFragmentHtmlResponse({
 						entries,
