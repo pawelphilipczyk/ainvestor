@@ -35,7 +35,6 @@ type EtfCardProps = {
  */
 export function EtfCard(_handle: Handle, _setup?: unknown) {
 	return (props: EtfCardProps) => {
-		const updateErrorId = `portfolio-entry-${props.entryId}-error`
 		const valueFieldId = `portfolio-value-${props.entryId}`
 		const quantityFieldId = `portfolio-quantity-${props.entryId}`
 		const valueSharePercent =
@@ -51,11 +50,6 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 					})
 		return (
 			<Card as="li" class="flex min-w-0 flex-col gap-2 px-4 py-3">
-				<div
-					id={updateErrorId}
-					role="alert"
-					class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-				/>
 				{valueSharePercent !== undefined && shareBarLabel !== undefined ? (
 					<PercentageBar
 						ariaLabel={shareBarLabel}
@@ -76,7 +70,7 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						action={props.updateHref}
 						class="flex min-w-0 flex-wrap items-end gap-x-2 gap-y-2"
 						data-frame-submit="portfolio-list"
-						data-error-id={updateErrorId}
+						data-frame-replace-from-response="1"
 					>
 						<div class="grid w-auto shrink-0 gap-0.5">
 							<FieldLabel fieldId={valueFieldId} variant="dense">

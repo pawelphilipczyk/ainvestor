@@ -483,6 +483,43 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.doesNotMatch(after, /50 shares/)
 	})
 
+	it('returns 422 HTML list fragment when portfolio update validation fails with Accept: text/html', async () => {
+		await seedGuestCatalog()
+		const addForm = new FormData()
+		addForm.set('instrumentTicker', 'VTI')
+		addForm.set('value', '100')
+		addForm.set('currency', 'USD')
+
+		await testSessionFetch(
+			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
+		)
+
+		const listBody = await (
+			await testSessionFetch('http://localhost/portfolio')
+		).text()
+		const updateMatch = listBody.match(
+			/<form[^>]*method="post"[^>]*action="(\/etfs\/[a-f0-9-]+)"/,
+		)
+		assert.ok(updateMatch)
+		const updateUrl = `http://localhost${updateMatch[1]}`
+
+		const badForm = new FormData()
+		badForm.set('value', '-1')
+		const htmlRes = await testSessionFetch(
+			new Request(updateUrl, {
+				method: 'POST',
+				body: badForm,
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		assert.equal(htmlRes.status, 422)
+		const ct = htmlRes.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		const fragmentBody = await htmlRes.text()
+		assert.match(fragmentBody, /valid value/)
+		assert.match(fragmentBody, /Your Holdings/)
+	})
+
 	it('returns 422 JSON when portfolio update validation fails with Accept: application/json', async () => {
 		await seedGuestCatalog()
 		const addForm = new FormData()
@@ -593,6 +630,50 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			data.error,
 			'Please select a fund from your catalog and enter a valid value (number >= 0).',
 		)
+	})
+
+	it('returns 422 HTML list fragment when validation fails with Accept: text/html', async () => {
+		const form = new FormData()
+		form.set('instrumentTicker', '')
+		form.set('value', '-1')
+		form.set('currency', 'PLN')
+		const htmlErrorResponse = await testSessionFetch(
+			new Request('http://localhost/etfs', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		assert.equal(htmlErrorResponse.status, 422)
+		const ct = htmlErrorResponse.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		const body = await htmlErrorResponse.text()
+		assert.match(
+			body,
+			/Please select a fund from your catalog and enter a valid value/,
+		)
+		assert.match(body, /Your Holdings/)
+	})
+
+	it('returns HTML list fragment on successful add when Accept: text/html', async () => {
+		await seedGuestCatalog()
+		const form = new FormData()
+		form.set('instrumentTicker', 'VTI')
+		form.set('value', '900')
+		form.set('currency', 'USD')
+		const htmlOkResponse = await testSessionFetch(
+			new Request('http://localhost/etfs', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		assert.equal(htmlOkResponse.status, 200)
+		const ct = htmlOkResponse.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		const body = await htmlOkResponse.text()
+		assert.match(body, /VTI/)
+		assert.match(body, /900/)
 	})
 
 	it('shows sign-in link when not authenticated', async () => {

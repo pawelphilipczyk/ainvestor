@@ -168,6 +168,7 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 									action={props.analysisPostHref}
 									data-frame-submit="catalog-etf-analysis"
 									data-frame-replace-from-response="1"
+									data-frame-hide-form-on-success="1"
 									class="min-w-0"
 								>
 									<input

@@ -31,19 +31,14 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 
 		return (
 			<>
-				<div
-					id="portfolio-form-error"
-					role="alert"
-					class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
-				/>
 				<p class="mt-2 text-xs text-muted-foreground">{t('addEtf.hint')}</p>
 				<form
 					method="post"
 					action={routes.portfolio.create.href()}
 					class="mt-4 grid gap-4"
 					data-frame-submit="portfolio-list"
+					data-frame-replace-from-response="1"
 					data-reset-form
-					data-error-id="portfolio-form-error"
 				>
 					<div class="grid gap-2">
 						<FieldLabel fieldId="instrumentTicker">

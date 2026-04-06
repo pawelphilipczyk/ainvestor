@@ -15,12 +15,21 @@ import { EtfCard } from '../etf-card.tsx'
  * Used by GET /fragments/portfolio-list for fetch-based form updates.
  */
 export function ListFragment(_handle: Handle, _setup?: unknown) {
-	return (props: { entries?: EtfEntry[] }) => {
+	return (props: { entries?: EtfEntry[]; inlineError?: string }) => {
 		const entries = props.entries ?? []
 		const holdingsTotal = totalHoldingsValueForShareBars(entries)
 		const canShowShareBars = holdingsTotal !== null && holdingsTotal > 0
+		const inlineError = props.inlineError?.trim() ?? ''
 		return (
 			<Card class="p-4">
+				{inlineError.length > 0 ? (
+					<div
+						role="alert"
+						class="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+					>
+						{inlineError}
+					</div>
+				) : null}
 				<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 					{t('portfolio.holdings.title')}
 				</h2>
