@@ -3,6 +3,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
+		"postinstall": "patch-package",
 		"ensure-deps": "node ./scripts/ensure-deps.mjs",
 		"dev": "tsx watch server.ts",
 		"start": "tsx server.ts",
@@ -21,6 +22,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.7",
 		"@types/node": "^24.5.2",
+		"patch-package": "^8.0.1",
 		"typescript": "^5.9.2"
 	}
 }

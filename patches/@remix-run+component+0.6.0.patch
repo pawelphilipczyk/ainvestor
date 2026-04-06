@@ -1,0 +1,16 @@
+diff --git a/node_modules/@remix-run/component/dist/lib/diff-dom.js b/node_modules/@remix-run/component/dist/lib/diff-dom.js
+index ebab8af..43e4a44 100644
+--- a/node_modules/@remix-run/component/dist/lib/diff-dom.js
++++ b/node_modules/@remix-run/component/dist/lib/diff-dom.js
+@@ -130,7 +130,10 @@ function shouldPreserveLiveAttribute(current, next, name) {
+         if (current instanceof HTMLInputElement &&
+             next instanceof HTMLInputElement &&
+             shouldPreserveInputValue(current)) {
+-            return current.value !== next.value;
++            // Server-driven fragments (e.g. Frame.replace / reload) must apply new
++            // `value` attributes. Preserving the live value here left portfolio row
++            // inputs stuck on the previous number when the merged total changed.
++            return false;
+         }
+     }
+     if (name === 'selected') {
