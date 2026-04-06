@@ -117,17 +117,6 @@ function samePathAndSearch(a: string, b: string): boolean {
 	}
 }
 
-/** Parses `bankApiJson` form field; empty or invalid JSON yields a redirect response. */
-async function parseBankJsonField(raw: string): Promise<unknown | Response> {
-	const trimmed = raw.trim()
-	if (trimmed.length === 0) return catalogIndexRedirect()
-	try {
-		return JSON.parse(trimmed)
-	} catch {
-		return catalogIndexRedirect()
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
@@ -342,20 +331,39 @@ export const catalogController = {
 				return catalogIndexRedirect()
 			}
 
+			const sessionFlash = context.get(Session)
 			const rawFromForm = context.get(FormData)?.get('bankApiJson')
 			if (typeof rawFromForm !== 'string') {
+				sessionFlash.flash('error', t('errors.catalog.import.fieldMissing'))
 				return catalogIndexRedirect()
 			}
-			const parsed = await parseBankJsonField(rawFromForm)
-			if (parsed instanceof Response) return parsed
-			const json = parsed
+			const trimmedJson = rawFromForm.trim()
+			if (trimmedJson.length === 0) {
+				sessionFlash.flash('error', t('errors.catalog.import.emptyJson'))
+				return catalogIndexRedirect()
+			}
+			let parsedJson: unknown
+			try {
+				parsedJson = JSON.parse(trimmedJson)
+			} catch {
+				sessionFlash.flash('error', t('errors.catalog.import.invalidJson'))
+				return catalogIndexRedirect()
+			}
 
-			const imported = parseBankJsonToCatalog(json)
-			if (imported.length === 0)
-				return createRedirectResponse(routes.catalog.index.href())
+			const imported = parseBankJsonToCatalog(parsedJson)
+			if (imported.length === 0) {
+				sessionFlash.flash('error', t('errors.catalog.import.noRowsParsed'))
+				return catalogIndexRedirect()
+			}
 
 			const merged = mergeBankIntoCatalog(entries, imported)
-			await saveCatalog({ token: session.token, entries: merged })
+			try {
+				await saveCatalog({ token: session.token, entries: merged })
+			} catch (error) {
+				console.error('[catalog] import save failed', error)
+				sessionFlash.flash('error', t('errors.catalog.import.saveFailed'))
+				return catalogIndexRedirect()
+			}
 
 			return createRedirectResponse(routes.catalog.index.href())
 		},

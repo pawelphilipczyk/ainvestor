@@ -282,6 +282,10 @@ describe('ETF Catalog page', () => {
 			/<form\b[^>]*\bmethod="post"[^>]*\baction="\/catalog\/import"[^>]*>/,
 		)
 		assert.match(body, /name="bankApiJson"/)
+		assert.match(
+			body,
+			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")(?=[^>]*\bdata-navigation-loading\b)[^>]*>/,
+		)
 	})
 
 	it('GET /catalog hides import section for users without import permission', async () => {
@@ -403,6 +407,101 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /OLD/)
 		assert.match(body, /XMOV GR/)
 		assert.match(body, /Xtrackers Future Mobility/)
+	})
+
+	it('POST /catalog/import flashes when JSON is invalid', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set('bankApiJson', '{ not json')
+					return formData
+				})(),
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.equal(importResponse.status, 302)
+		assert.equal(importResponse.headers.get('location'), '/catalog')
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await catalogResponse.text()
+
+		assert.match(body, /role="alert"/)
+		assert.match(body, /not valid JSON/)
+	})
+
+	it('POST /catalog/import flashes when paste is empty after trim', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set('bankApiJson', '   \n  ')
+					return formData
+				})(),
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.equal(importResponse.status, 302)
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await catalogResponse.text()
+
+		assert.match(body, /Paste is empty/)
+	})
+
+	it('POST /catalog/import flashes when JSON parses but no ETF rows are extracted', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set('bankApiJson', JSON.stringify({ data: [] }))
+					return formData
+				})(),
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.equal(importResponse.status, 302)
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await catalogResponse.text()
+
+		assert.match(body, /No ETF rows could be read/)
 	})
 
 	it('catalog shows Your Holdings section when a holding matches a catalog ticker', async () => {

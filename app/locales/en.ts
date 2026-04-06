@@ -274,6 +274,16 @@ export const en = {
 		'Could not save your portfolio. Please try again in a moment.',
 	'errors.catalog.importNotAllowed':
 		'Only the shared catalog gist owner can import catalog updates.',
+	'errors.catalog.import.fieldMissing':
+		'The import did not include any pasted text. Paste the bank API JSON and try again.',
+	'errors.catalog.import.emptyJson':
+		'Paste is empty. Paste the full bank API JSON response (an object with a "data" array of funds), then click Import.',
+	'errors.catalog.import.invalidJson':
+		'That text is not valid JSON. Copy the full fetch response body from your browser’s network tab and try again.',
+	'errors.catalog.import.noRowsParsed':
+		'No ETF rows could be read from that JSON. Expected an object with a "data" array; each item needs a ticker and fund_name (and usually matches your broker’s API shape).',
+	'errors.catalog.import.saveFailed':
+		'Could not save the catalog to GitHub. Check your connection and permissions, then try again.',
 	'errors.catalog.etfDetail.service':
 		"We couldn't load this ETF description right now. Please try again in a moment.",
 	'errors.catalog.etfDetail.notFound': 'That catalog entry was not found.',
