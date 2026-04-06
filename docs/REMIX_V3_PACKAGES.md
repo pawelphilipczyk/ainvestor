@@ -78,6 +78,10 @@ The heart of Remix v3. A composable, Fetch API–native router.
 - **Middleware** — runs before/after actions; global or per-route
 - **Type-safe links** — `routes.home.href()` generates correct URLs at compile time
 
+### Overlapping patterns (literal vs `:param`)
+
+`createRouter()` defaults to `ArrayMatcher`, which gathers **all** patterns that match the request URL, then ranks them by **specificity** via `@remix-run/route-pattern` — not by “first registered wins” (Express-style). A **static** path segment is more specific than a **dynamic** `:param` in the same position, so e.g. `POST /portfolio/import` resolves to a handler for `/portfolio/import` rather than `/portfolio/:id` with `id === 'import'`, even if the `:id` route appears earlier in `routes.ts`. For the implementation, see `packages/fetch-router` and `packages/route-pattern` in [remix-run/remix](https://github.com/remix-run/remix).
+
 ### Route helpers (`remix/fetch-router/routes`)
 
 ```ts
@@ -693,8 +697,8 @@ import { route, form, resources, get, post } from 'remix/fetch-router/routes'
 export const routes = route({
   health: get('/health'),
   portfolio: {
-    index: get('/'),
-    create: post('/etfs'),
+    index: get('/portfolio'),
+    create: post('/portfolio'),
   },
   auth: {
     login: get('/auth/github'),
@@ -739,10 +743,10 @@ Replace manual `session.read()`/`session.save()` calls in every handler with the
 Parse and validate all form inputs at the action boundary before processing.
 
 ```ts
-router.post(routes.etfs.create, ({ formData }) => {
-  let result = parseSafe(CreateEtfSchema, Object.fromEntries(formData))
+router.post(routes.portfolio.create, ({ formData }) => {
+  let result = parseSafe(CreateHoldingSchema, Object.fromEntries(formData))
   if (!result.success) return createHtmlResponse(renderForm(result.issues), { status: 422 })
-  let etf = result.value
+  let holding = result.value
   // ...
 })
 ```

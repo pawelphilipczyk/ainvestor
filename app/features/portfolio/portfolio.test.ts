@@ -79,9 +79,9 @@ describe('Portfolio page', () => {
 			'body should clip horizontal overflow so narrow viewports do not scroll sideways',
 		)
 		assert.match(body, /<h1[^>]*>\s*Portfolio\s*<\/h1>/)
-		assert.match(body, /<form[^>]*method="post"[^>]*action="\/etfs"/)
+		assert.match(body, /<form[^>]*method="post"[^>]*action="\/portfolio"/)
 		assert.match(body, /Import from CSV/)
-		assert.match(body, /action="\/etfs\/import"/)
+		assert.match(body, /action="\/portfolio\/import"/)
 		assert.match(body, /Add one ETF manually/)
 		assert.match(body, /name="portfolioCsvPaste"/)
 	})
@@ -128,7 +128,7 @@ describe('Portfolio page', () => {
 		form.set('currency', 'PLN')
 
 		const postResponse = await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 		assert.equal(postResponse.status, 302)
 
@@ -160,7 +160,7 @@ describe('Portfolio page', () => {
 		form.set('quantity', '')
 
 		const postResponse = await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 		assert.equal(postResponse.status, 302)
 
@@ -179,7 +179,7 @@ describe('Portfolio page', () => {
 		form.set('quantity', '186')
 
 		const postResponse = await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 		assert.equal(postResponse.status, 302)
 
@@ -197,7 +197,7 @@ describe('Portfolio page', () => {
 		form.set('currency', 'USD')
 
 		const postResponse = await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 
 		assert.equal(postResponse.status, 302)
@@ -218,7 +218,7 @@ IBTA LN ETF;GBR-LSE;186;4087.48;PLN`
 		form.set('portfolioCsvPaste', csv)
 
 		const importResponse = await testSessionFetch(
-			new Request('http://localhost/etfs/import', {
+			new Request('http://localhost/portfolio/import', {
 				method: 'POST',
 				body: form,
 			}),
@@ -245,7 +245,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 
 		const importResponse = await testSessionFetch(
-			new Request('http://localhost/etfs/import', {
+			new Request('http://localhost/portfolio/import', {
 				method: 'POST',
 				body: form,
 			}),
@@ -272,7 +272,10 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form1.set('currency', 'USD')
 
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form1 }),
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: form1,
+			}),
 		)
 
 		const form2 = new FormData()
@@ -281,7 +284,10 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form2.set('currency', 'USD')
 
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form2 }),
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: form2,
+			}),
 		)
 
 		const homeResponse = await testSessionFetch('http://localhost/portfolio')
@@ -307,14 +313,20 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		formVti.set('value', '400')
 		formVti.set('currency', 'PLN')
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: formVti }),
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: formVti,
+			}),
 		)
 		const formIbta = new FormData()
 		formIbta.set('instrumentTicker', 'IBTA')
 		formIbta.set('value', '600')
 		formIbta.set('currency', 'PLN')
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: formIbta }),
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: formIbta,
+			}),
 		)
 
 		const listResponse = await testSessionFetch('http://localhost/portfolio')
@@ -335,7 +347,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('currency', 'USD')
 
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 
 		const listResponse = await testSessionFetch('http://localhost/portfolio')
@@ -402,7 +414,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('currency', 'USD')
 
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 
 		const response = await testSessionFetch('http://localhost/portfolio')
@@ -414,7 +426,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 	})
 
-	it('POST /etfs/:id updates value and quantity for a holding', async () => {
+	it('POST /portfolio/:id updates value and quantity for a holding', async () => {
 		await seedGuestCatalog()
 		const addForm = new FormData()
 		addForm.set('instrumentTicker', 'VTI')
@@ -423,13 +435,16 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		addForm.set('quantity', '10')
 
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: addForm,
+			}),
 		)
 
 		const listResponse = await testSessionFetch('http://localhost/portfolio')
 		const listBody = await listResponse.text()
 		const updateMatch = listBody.match(
-			/<form[^>]*method="post"[^>]*action="(\/etfs\/[a-f0-9-]+)"/,
+			/<form[^>]*method="post"[^>]*action="(\/portfolio\/[a-f0-9-]+)"/,
 		)
 		assert.ok(updateMatch, 'update form action should be present')
 		const updateUrl = `http://localhost${updateMatch[1]}`
@@ -449,7 +464,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(after, /850/)
 	})
 
-	it('POST /etfs/:id clears quantity when quantity field is empty', async () => {
+	it('POST /portfolio/:id clears quantity when quantity field is empty', async () => {
 		await seedGuestCatalog()
 		const addForm = new FormData()
 		addForm.set('instrumentTicker', 'IBTA')
@@ -458,14 +473,17 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		addForm.set('quantity', '50')
 
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: addForm,
+			}),
 		)
 
 		const listBody = await (
 			await testSessionFetch('http://localhost/portfolio')
 		).text()
 		const updateMatch = listBody.match(
-			/<form[^>]*method="post"[^>]*action="(\/etfs\/[a-f0-9-]+)"/,
+			/<form[^>]*method="post"[^>]*action="(\/portfolio\/[a-f0-9-]+)"/,
 		)
 		assert.ok(updateMatch)
 		const updateUrl = `http://localhost${updateMatch[1]}`
@@ -491,14 +509,17 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		addForm.set('currency', 'USD')
 
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: addForm,
+			}),
 		)
 
 		const listBody = await (
 			await testSessionFetch('http://localhost/portfolio')
 		).text()
 		const updateMatch = listBody.match(
-			/<form[^>]*method="post"[^>]*action="(\/etfs\/[a-f0-9-]+)"/,
+			/<form[^>]*method="post"[^>]*action="(\/portfolio\/[a-f0-9-]+)"/,
 		)
 		assert.ok(updateMatch)
 		const updateUrl = `http://localhost${updateMatch[1]}`
@@ -528,14 +549,17 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		addForm.set('currency', 'USD')
 
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: addForm }),
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: addForm,
+			}),
 		)
 
 		const listBody = await (
 			await testSessionFetch('http://localhost/portfolio')
 		).text()
 		const updateMatch = listBody.match(
-			/<form[^>]*method="post"[^>]*action="(\/etfs\/[a-f0-9-]+)"/,
+			/<form[^>]*method="post"[^>]*action="(\/portfolio\/[a-f0-9-]+)"/,
 		)
 		assert.ok(updateMatch)
 		const updateUrl = `http://localhost${updateMatch[1]}`
@@ -554,7 +578,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(data.error, /valid value/)
 	})
 
-	it('DELETE /etfs/:id removes the ETF via method override', async () => {
+	it('DELETE /portfolio/:id removes the ETF via method override', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()
 		form.set('instrumentTicker', 'VTI')
@@ -562,19 +586,19 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('currency', 'USD')
 
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 
 		const listResponse = await testSessionFetch('http://localhost/portfolio')
 		const listBody = await listResponse.text()
-		const idMatch = listBody.match(/action="\/etfs\/([a-f0-9-]+)"/)
+		const idMatch = listBody.match(/action="\/portfolio\/([a-f0-9-]+)"/)
 		assert.ok(idMatch, 'delete form action should be present')
 		const id = idMatch[1]
 
 		const deleteForm = new FormData()
 		deleteForm.set('_method', 'DELETE')
 		const deleteResponse = await testSessionFetch(
-			new Request(`http://localhost/etfs/${id}`, {
+			new Request(`http://localhost/portfolio/${id}`, {
 				method: 'POST',
 				body: deleteForm,
 			}),
@@ -594,7 +618,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('value', '-1')
 		form.set('currency', 'PLN')
 		const postResponse = await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 		assert.equal(postResponse.status, 302)
 		const location = postResponse.headers.get('Location')
@@ -618,7 +642,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('value', '-1')
 		form.set('currency', 'PLN')
 		const jsonErrorResponse = await testSessionFetch(
-			new Request('http://localhost/etfs', {
+			new Request('http://localhost/portfolio', {
 				method: 'POST',
 				body: form,
 				headers: { Accept: 'application/json' },
@@ -638,7 +662,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('value', '-1')
 		form.set('currency', 'PLN')
 		const htmlErrorResponse = await testSessionFetch(
-			new Request('http://localhost/etfs', {
+			new Request('http://localhost/portfolio', {
 				method: 'POST',
 				body: form,
 				headers: { Accept: 'text/html' },
@@ -662,7 +686,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('value', '900')
 		form.set('currency', 'USD')
 		const htmlOkResponse = await testSessionFetch(
-			new Request('http://localhost/etfs', {
+			new Request('http://localhost/portfolio', {
 				method: 'POST',
 				body: form,
 				headers: { Accept: 'text/html' },
@@ -693,7 +717,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		form.set('value', '1000')
 		form.set('currency', 'PLN')
 		await testSessionFetch(
-			new Request('http://localhost/etfs', { method: 'POST', body: form }),
+			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 		const fragmentResponse = await testSessionFetch(
 			'http://localhost/fragments/portfolio-list',
