@@ -118,20 +118,6 @@ describe('Advice', () => {
 		assert.match(body, /Portfolio health review/)
 	})
 
-	it('GET /advice?adviceLayoutSample=1 renders temporary static sample for anonymous users', async () => {
-		const response = await testSessionFetch(
-			'http://localhost/advice?adviceLayoutSample=1',
-		)
-		const body = await response.text()
-
-		assert.equal(response.status, 200)
-		assert.match(body, /Temporary layout sample/)
-		assert.match(body, /Investment Advice/)
-		assert.match(body, /Buy plan/)
-		assert.match(body, /data-scrollable-table-clip/)
-		assert.doesNotMatch(body, /Sign in to run AI advice/)
-	})
-
 	it('GET /advice shows pending approval when session login is not on allowlist', async () => {
 		process.env.APPROVED_GITHUB_LOGINS = 'someone-else'
 		const session = await sessionStorage.read(null)
