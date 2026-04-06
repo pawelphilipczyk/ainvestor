@@ -73,6 +73,10 @@ async function navigateDocumentUrl(href, history = 'push') {
  * **`data-frame-replace-from-response`:** When set, POST uses `Accept: text/html`
  * and applies the response body into the named frame via `frameHandle.replace()`
  * when the response is HTML (e.g. catalog ETF analysis fragment).
+ *
+ * **`data-frame-hide-form-on-success`:** With replace-from-response, hide the
+ * submitted form after a successful HTML response (catalog analysis); omit for
+ * forms that stay visible (portfolio list updates).
  */
 export const FrameSubmitEnhancement = clientEntry(
 	'/components/frame-submit.component.js#FrameSubmitEnhancement',
@@ -142,11 +146,14 @@ export const FrameSubmitEnhancement = clientEntry(
 								const frameHandle = handle.frames.get(frameName)
 								if (frameHandle) {
 									await frameHandle.replace(html)
-									if (response.ok) {
+									const hideFormOnSuccess =
+										form.dataset.frameHideFormOnSuccess === '1' ||
+										form.dataset.frameHideFormOnSuccess === 'true'
+									if (response.ok && hideFormOnSuccess) {
 										form.classList.add('hidden')
 									}
 								}
-								if (resetForm) form.reset()
+								if (resetForm && response.ok) form.reset()
 								return
 							}
 						}

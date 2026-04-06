@@ -1,6 +1,9 @@
+import { jsx } from 'remix/component/jsx-runtime'
+import { renderToStream } from 'remix/component/server'
 import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
+import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
@@ -79,18 +82,72 @@ function prefersJson(request: Request): boolean {
 	return request.headers.get('Accept')?.includes('application/json') ?? false
 }
 
-function portfolioPersistenceFailureResponse(params: {
-	request: Request
-	session: Session
+function prefersHtmlFrame(request: Request): boolean {
+	return request.headers.get('Accept')?.includes('text/html') ?? false
+}
+
+function portfolioListFragmentHtmlResponse(params: {
+	entries: EtfEntry[]
+	inlineError?: string
+	status?: number
 }) {
+	return createHtmlResponse(
+		renderToStream(
+			jsx(ListFragment, {
+				entries: params.entries,
+				...(params.inlineError !== undefined && params.inlineError.length > 0
+					? { inlineError: params.inlineError }
+					: {}),
+			}),
+		),
+		{
+			status: params.status ?? 200,
+			headers: { 'Cache-Control': 'no-store' },
+		},
+	)
+}
+
+/**
+ * Loads current holdings for the session. Returns `null` when the gist snapshot
+ * cannot be read (same class of failure as save errors).
+ */
+async function loadPortfolioEntries(
+	context: AppRequestContext,
+): Promise<EtfEntry[] | null> {
+	const session = getSessionData(context.get(Session))
+	if (session?.gistId && session.token) {
+		try {
+			const snapshot = await fetchPortfolioSnapshot(
+				session.token,
+				session.gistId,
+			)
+			return snapshot.entries
+		} catch {
+			return null
+		}
+	}
+	return getGuestEtfs(context.get(Session))
+}
+
+async function portfolioPersistenceFailureResponse(
+	context: AppRequestContext,
+): Promise<Response> {
 	const message = t('errors.portfolio.persistence')
-	if (prefersJson(params.request)) {
+	if (prefersJson(context.request)) {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
-	params.session.flash('error', message)
+	if (prefersHtmlFrame(context.request)) {
+		const entries = await loadPortfolioEntries(context)
+		return portfolioListFragmentHtmlResponse({
+			entries: entries ?? [],
+			inlineError: message,
+			status: 422,
+		})
+	}
+	context.get(Session).flash('error', message)
 	return createRedirectResponse(routes.portfolio.index.href())
 }
 
@@ -114,6 +171,17 @@ export const addEtfFormHandlers = {
 						headers: { 'Content-Type': 'application/json' },
 					})
 				}
+				if (prefersHtmlFrame(context.request)) {
+					const entries = await loadPortfolioEntries(context)
+					if (entries === null) {
+						return portfolioPersistenceFailureResponse(context)
+					}
+					return portfolioListFragmentHtmlResponse({
+						entries,
+						inlineError: message,
+						status: 422,
+					})
+				}
 				context.get(Session).flash('error', message)
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
@@ -131,10 +199,7 @@ export const addEtfFormHandlers = {
 					catalog = snapshot.catalog
 					current = snapshot.entries
 				} catch {
-					return portfolioPersistenceFailureResponse({
-						request: context.request,
-						session: context.get(Session),
-					})
+					return portfolioPersistenceFailureResponse(context)
 				}
 			} else {
 				catalog = await fetchCatalog()
@@ -157,6 +222,13 @@ export const addEtfFormHandlers = {
 							headers: { 'Content-Type': 'application/json' },
 						},
 					)
+				}
+				if (prefersHtmlFrame(context.request)) {
+					return portfolioListFragmentHtmlResponse({
+						entries: current,
+						inlineError: message,
+						status: 422,
+					})
 				}
 				context.get(Session).flash('error', message)
 				return createRedirectResponse(routes.portfolio.index.href())
@@ -203,15 +275,15 @@ export const addEtfFormHandlers = {
 				try {
 					await saveEtfs(session.token, session.gistId, updated)
 				} catch {
-					return portfolioPersistenceFailureResponse({
-						request: context.request,
-						session: context.get(Session),
-					})
+					return portfolioPersistenceFailureResponse(context)
 				}
 			} else {
 				setGuestEtfs(context.get(Session), updated)
 			}
 
+			if (prefersHtmlFrame(context.request)) {
+				return portfolioListFragmentHtmlResponse({ entries: updated })
+			}
 			return createRedirectResponse(routes.portfolio.index.href())
 		},
 
@@ -240,6 +312,17 @@ export const addEtfFormHandlers = {
 						headers: { 'Content-Type': 'application/json' },
 					})
 				}
+				if (prefersHtmlFrame(context.request)) {
+					const entries = await loadPortfolioEntries(context)
+					if (entries === null) {
+						return portfolioPersistenceFailureResponse(context)
+					}
+					return portfolioListFragmentHtmlResponse({
+						entries,
+						inlineError: message,
+						status: 422,
+					})
+				}
 				context.get(Session).flash('error', message)
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
@@ -252,10 +335,7 @@ export const addEtfFormHandlers = {
 				try {
 					current = await fetchEtfs(session.token, session.gistId)
 				} catch {
-					return portfolioPersistenceFailureResponse({
-						request: context.request,
-						session: context.get(Session),
-					})
+					return portfolioPersistenceFailureResponse(context)
 				}
 			} else {
 				current = getGuestEtfs(context.get(Session))
@@ -268,6 +348,13 @@ export const addEtfFormHandlers = {
 					return new Response(JSON.stringify({ error: message }), {
 						status: 422,
 						headers: { 'Content-Type': 'application/json' },
+					})
+				}
+				if (prefersHtmlFrame(context.request)) {
+					return portfolioListFragmentHtmlResponse({
+						entries: current,
+						inlineError: message,
+						status: 422,
 					})
 				}
 				context.get(Session).flash('error', message)
@@ -289,15 +376,15 @@ export const addEtfFormHandlers = {
 				try {
 					await saveEtfs(session.token, session.gistId, updated)
 				} catch {
-					return portfolioPersistenceFailureResponse({
-						request: context.request,
-						session: context.get(Session),
-					})
+					return portfolioPersistenceFailureResponse(context)
 				}
 			} else {
 				setGuestEtfs(context.get(Session), updated)
 			}
 
+			if (prefersHtmlFrame(context.request)) {
+				return portfolioListFragmentHtmlResponse({ entries: updated })
+			}
 			return createRedirectResponse(routes.portfolio.index.href())
 		},
 	},
