@@ -9,10 +9,10 @@ export const routes = route({
 	},
 	portfolio: {
 		index: get('/portfolio'),
-		create: post('/etfs'),
-		update: post('/etfs/:id'),
-		import: post('/etfs/import'),
-		delete: del('/etfs/:id'),
+		create: post('/portfolio'),
+		update: post('/portfolio/:id'),
+		import: post('/portfolio/import'),
+		delete: del('/portfolio/:id'),
 		fragmentList: get('/fragments/portfolio-list'),
 	},
 	auth: {
