@@ -174,10 +174,12 @@ export const FetchSubmitEnhancement = clientEntry(
 						return
 					}
 
-					if (
-						!form.hasAttribute('data-navigation-loading') ||
-						form.method.toLowerCase() !== 'get'
-					) {
+					if (!form.hasAttribute('data-navigation-loading')) {
+						return
+					}
+
+					const method = form.method.toLowerCase()
+					if (method !== 'get' && method !== 'post') {
 						return
 					}
 
@@ -189,7 +191,11 @@ export const FetchSubmitEnhancement = clientEntry(
 					event.preventDefault()
 					setSubmitButtonLoading(submitControl, true)
 					requestAnimationFrame(() => {
-						window.location.assign(buildGetNavigationUrl(form, submitControl))
+						if (method === 'get') {
+							window.location.assign(buildGetNavigationUrl(form, submitControl))
+						} else {
+							form.submit()
+						}
 					})
 				},
 			})
