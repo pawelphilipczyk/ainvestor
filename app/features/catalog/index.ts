@@ -72,22 +72,6 @@ function decodeCatalogEntryIdFromPath(raw: string | undefined): string | null {
 	}
 }
 
-function catalogEtfBackHref(request: Request): string {
-	const referer = request.headers.get('Referer')
-	if (referer) {
-		try {
-			const refererUrl = new URL(referer)
-			const selfUrl = new URL(request.url)
-			if (refererUrl.origin === selfUrl.origin) {
-				return `${refererUrl.pathname}${refererUrl.search}`
-			}
-		} catch {
-			/* ignore */
-		}
-	}
-	return routes.catalog.index.href()
-}
-
 function parseOptionalAdviceModelFromUrl(url: string): AdviceModelId {
 	const raw = new URL(url).searchParams.get('model')
 	if (raw && (ADVICE_MODEL_IDS as readonly string[]).includes(raw)) {
@@ -188,7 +172,7 @@ export const catalogController = {
 			const { catalogSnapshot, layoutSession } =
 				await loadCatalogEtfDetailContext(context)
 			const pendingApproval = layoutSession?.approvalStatus === 'pending'
-			const backHref = catalogEtfBackHref(context.request)
+			const catalogFallbackHref = routes.catalog.index.href()
 			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
 			if (entry === undefined) {
 				return new Response('Not found', {
@@ -207,7 +191,7 @@ export const catalogController = {
 					body: jsx(CatalogEtfPage, {
 						entry,
 						descriptionText: t('catalog.etfDetail.pendingBody'),
-						backHref,
+						catalogFallbackHref,
 					}),
 					init: { headers: { 'Cache-Control': 'no-store' } },
 				})
@@ -222,7 +206,7 @@ export const catalogController = {
 				currentPage: 'catalog',
 				body: jsx(CatalogEtfPage, {
 					entry,
-					backHref,
+					catalogFallbackHref,
 					analysisPostHref: routes.catalog.etfAnalysis.href({
 						catalogEntryId: entry.id,
 					}),

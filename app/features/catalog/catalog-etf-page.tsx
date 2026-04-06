@@ -1,15 +1,17 @@
 import { Frame, type Handle } from 'remix/component'
 import { Card } from '../../components/card.tsx'
-import { Link } from '../../components/link.tsx'
 import { SubmitButton } from '../../components/submit-button.tsx'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
+// @ts-expect-error Runtime-only remix clientEntry (scoped to this page)
+import { CatalogEtfBackEnhancement } from './catalog-etf-back.component.js'
 import type { CatalogEntry } from './lib.ts'
 
 export type CatalogEtfPageProps = {
 	entry: CatalogEntry
-	backHref: string
+	/** Used when the browser has no session history to go back to (e.g. new tab). */
+	catalogFallbackHref: string
 	/** Shown when account is pending approval (no client analysis). */
 	descriptionText?: string
 	/** POST URL for on-demand AI analysis (`null` when pending). */
@@ -107,13 +109,14 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 			<div class="flex min-h-[calc(100dvh-7rem)] w-full min-w-0 max-w-full flex-col overflow-x-hidden">
 				<header class="sticky top-0 z-20 w-full min-w-0 max-w-full border-b border-border bg-background px-4 py-3">
 					<div class="mx-auto flex w-full min-w-0 max-w-3xl items-center gap-3">
-						<Link
-							href={props.backHref}
-							navigationLoading={true}
+						<a
+							href={props.catalogFallbackHref}
+							rmx-document
 							class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							data-catalog-etf-back=""
 						>
 							{t('catalog.etfDetail.back')}
-						</Link>
+						</a>
 						<div class="min-w-0">
 							<h1 class="truncate text-lg font-semibold tracking-tight text-foreground">
 								{entry.name}
@@ -188,6 +191,7 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 						)}
 					</section>
 				</main>
+				<CatalogEtfBackEnhancement />
 			</div>
 		)
 	}

@@ -109,6 +109,12 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /ETF analysis/)
 		assert.doesNotMatch(body, /Educational ETF paragraph/)
 		assert.match(body, /Back/)
+		assert.match(
+			body,
+			/<a\b[^>]*\bhref="\/catalog"[^>]*\bdata-catalog-etf-back\b/,
+			'Back uses catalog as no-JS fallback; JS prefers history.back()',
+		)
+		assert.match(body, /catalog-etf-back\.component\.js/)
 	})
 
 	it('GET /catalog/fragments/etf-analysis/:id returns empty fragment when signed in', async () => {
