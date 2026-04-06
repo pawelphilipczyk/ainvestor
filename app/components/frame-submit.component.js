@@ -1,4 +1,9 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import {
+	addEventListeners,
+	clientEntry,
+	createElement,
+	navigate,
+} from 'remix/component'
 import { setSubmitButtonLoading } from './submit-button-loading.component.js'
 
 const CLIENT_MESSAGES_ID = 'ui-client-messages'
@@ -40,10 +45,34 @@ function createFormData(form, submitControl) {
 }
 
 /**
+ * Full-document navigation via the Navigation API (no `window.location`).
+ * Remix `navigate` attaches the frame runtime state the listener expects.
+ */
+async function navigateDocumentUrl(href, history = 'push') {
+	if (typeof globalThis.navigation?.navigate !== 'function') {
+		throw new Error(
+			'[frame-submit] Document navigation requires window.navigation',
+		)
+	}
+	await navigate(href, { history })
+}
+
+/**
  * Intercepts forms with `data-frame-submit="<frameName>"` and POSTs via
  * fetch. On success, reloads the named Remix Frame so the server re-renders
  * the list region. Supports `data-error-id` for 422 JSON validation errors
  * and `data-reset-form` to clear fields after success.
+ *
+ * **`data-frame-reload-src`:** Optional fragment URL for the named frame.
+ * After a successful POST, `frameHandle.reload()` alone can keep the frame on
+ * the wrong `src` (e.g. still pointing at the document URL). Call
+ * `navigate(documentUrl, { target: frameName, src: fragmentUrl, history: 'replace' })`
+ * so the Navigation API updates that frame’s `src` before reload — same as
+ * loading the full page with a resolved Frame.
+ *
+ * **`data-frame-replace-from-response`:** When set, POST uses `Accept: text/html`
+ * and applies the response body into the named frame via `frameHandle.replace()`
+ * when the response is HTML (e.g. catalog ETF analysis fragment).
  */
 export const FrameSubmitEnhancement = clientEntry(
 	'/components/frame-submit.component.js#FrameSubmitEnhancement',
@@ -56,6 +85,10 @@ export const FrameSubmitEnhancement = clientEntry(
 
 					const frameName = form.dataset.frameSubmit
 					if (!frameName) return
+					const frameReloadSrc = form.dataset.frameReloadSrc?.trim()
+					const replaceFromResponse =
+						form.dataset.frameReplaceFromResponse === '1' ||
+						form.dataset.frameReplaceFromResponse === 'true'
 
 					if (!form.checkValidity()) {
 						form.reportValidity()
@@ -92,17 +125,81 @@ export const FrameSubmitEnhancement = clientEntry(
 					hideError()
 
 					try {
+						const acceptHeader = replaceFromResponse
+							? 'text/html'
+							: 'application/json'
 						const response = await fetch(form.action, {
 							method: form.method,
 							body: createFormData(form, submitControl),
 							redirect: 'follow',
-							headers: { Accept: 'application/json' },
+							headers: { Accept: acceptHeader },
 						})
+
+						if (replaceFromResponse) {
+							const contentType = response.headers.get('content-type') ?? ''
+							if (contentType.includes('text/html')) {
+								const html = await response.text()
+								const frameHandle = handle.frames.get(frameName)
+								if (frameHandle) {
+									await frameHandle.replace(html)
+									if (response.ok) {
+										form.classList.add('hidden')
+									}
+								}
+								if (resetForm) form.reset()
+								return
+							}
+						}
 
 						if (response.ok) {
 							const frameHandle = handle.frames.get(frameName)
-							if (frameHandle) {
+							let refreshed = false
+							// Gist save can fail while the model succeeds; fragment GET then 204. Swap in `<main>` from this response instead of reloading the frame.
+							const gistStale =
+								response.headers.get('X-Advice-Gist-Stale') === '1'
+							if (gistStale) {
+								const html = await response.text()
+								const parser = new DOMParser()
+								const doc = parser.parseFromString(html, 'text/html')
+								const main = doc.querySelector('main')
+								const pageContent = document.getElementById('page-content')
+								if (main && pageContent) {
+									pageContent.innerHTML = main.outerHTML
+									refreshed = true
+								} else {
+									await navigateDocumentUrl(
+										new URL(form.action, window.location.href).href,
+									)
+									refreshed = true
+								}
+							}
+							if (!refreshed && frameReloadSrc && frameReloadSrc.length > 0) {
+								const fragmentUrl = new URL(
+									frameReloadSrc,
+									window.location.href,
+								).href
+								const documentUrl = new URL(form.action, window.location.href)
+									.href
+								if (typeof globalThis.navigation?.navigate === 'function') {
+									await navigate(documentUrl, {
+										target: frameName,
+										src: fragmentUrl,
+										history: 'replace',
+									})
+									refreshed = true
+								} else if (frameHandle) {
+									await frameHandle.reload()
+									refreshed = true
+								} else {
+									await navigateDocumentUrl(documentUrl)
+									refreshed = true
+								}
+							} else if (!refreshed && frameHandle) {
 								await frameHandle.reload()
+								refreshed = true
+							}
+							if (!refreshed && response.url) {
+								await navigateDocumentUrl(response.url)
 							}
 							if (resetForm) form.reset()
 						} else if (response.status === 422 && errorId) {
@@ -114,10 +211,10 @@ export const FrameSubmitEnhancement = clientEntry(
 									: 'Please check your input.'
 							showError(data.error || fallback)
 						} else {
-							window.location.href = response.url || '/'
+							await navigateDocumentUrl(response.url || '/')
 						}
 					} catch {
-						window.location.href = '/'
+						await navigateDocumentUrl('/')
 					} finally {
 						setSubmitButtonLoading(submitControl, false)
 					}

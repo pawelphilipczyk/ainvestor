@@ -232,8 +232,8 @@ export const en = {
 		'Based on your current ETF holdings, catalog, and guidelines.',
 	'advice.restore.fromGistNotice':
 		'Showing your last saved analysis from your data gist (saved {savedAt}). Run Ask AI again after you change holdings or cash.',
-	'advice.restore.fromLegacyPortfolioReviewFile':
-		'Showing a portfolio review from an older gist file (portfolio-review.json). New analyses are saved to advice-analysis.json. Run Ask AI again after you change holdings.',
+	'advice.persistFailed.notice':
+		'Could not save this analysis to your data gist. The result below is shown for this visit only; reload may lose it until saving works again.',
 	'advice.table.empty': 'No specific ETF proposals in this response.',
 	'advice.table.caption': 'Proposed ETF investments',
 	'advice.table.fund': 'Fund',
@@ -311,8 +311,6 @@ export const en = {
 	'errors.advice.service':
 		"We couldn't get advice right now. Please try again in a moment.",
 	'client.formSubmit.genericError': 'Please check your input.',
-	'client.catalogEtfAnalysisNetworkError':
-		'Could not load ETF analysis. Check your connection and try again.',
 } as const
 
 export type MessageKey = keyof typeof en

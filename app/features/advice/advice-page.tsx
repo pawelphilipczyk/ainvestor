@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/component'
 import {
 	Card,
 	FieldLabel,
@@ -31,6 +31,9 @@ import {
 	DEFAULT_ADVICE_MODEL,
 	normalizeAdviceAnalysisTab,
 } from './advice-openai.ts'
+
+/** Same max-width tokens as catalog list tables (`catalog-list-fragment.tsx`) for apples-to-apples layout. */
+const adviceTableTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
 
 type FormError = {
 	summary: string
@@ -78,12 +81,30 @@ type AdvicePageProps = {
 	adviceFromGist?: boolean
 	/** ISO timestamp when gist snapshot was written (for notice line). */
 	adviceGistSavedAt?: string
-	/** Older gists may only have `portfolio-review.json`; show a migration hint. */
-	adviceFromLegacyPortfolioReviewFile?: boolean
+	/** Saving to gist failed; this run is visible until reload only. */
+	adviceGistPersistFailed?: boolean
 	formError?: FormError
 	pendingApproval?: boolean
 	/** Guest or signed-in user without a private gist — forms disabled; explain sign-in / Portfolio. */
 	adviceGistGate?: 'sign_in' | 'connect_gist'
+	/** When set, analysis results load inside a Remix `<Frame>` at this URL. */
+	adviceResultFrameSrc?: string
+}
+
+type AdviceAccessBanner =
+	| 'none'
+	| 'pending_approval'
+	| 'sign_in_for_gist'
+	| 'connect_gist'
+
+function adviceAccessBannerFromProps(props: {
+	pendingApproval?: boolean
+	adviceGistGate?: 'sign_in' | 'connect_gist'
+}): AdviceAccessBanner {
+	if (props.pendingApproval === true) return 'pending_approval'
+	if (props.adviceGistGate === 'sign_in') return 'sign_in_for_gist'
+	if (props.adviceGistGate === 'connect_gist') return 'connect_gist'
+	return 'none'
 }
 
 function resolveProposalEtfDetailsCatalogEntryId(
@@ -374,55 +395,47 @@ function renderEtfProposals(
 ) {
 	const { defaultCashCurrency, selectedModel, pendingApproval, catalog } =
 		options
+	const tableColSpan = pendingApproval ? 5 : 6
 	return (
-		<section class="min-w-0 max-w-full space-y-2">
+		<section>
 			{block.caption ? (
-				<h3 class="text-base font-semibold tracking-tight text-card-foreground">
+				<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 					{block.caption}
-				</h3>
+				</h2>
 			) : null}
 			{block.rows.length === 0 ? (
 				<p class="text-sm text-muted-foreground">{t('advice.table.empty')}</p>
 			) : (
-				<ScrollableTable class="text-sm">
+				<ScrollableTable wrapperClass="mt-3" class="text-sm">
 					<caption class="sr-only">{t('advice.table.caption')}</caption>
-					<thead class="bg-muted/40">
+					<thead class="bg-muted/40 px-4">
 						<tr>
+							<td colspan={tableColSpan} class="h-1" />
+						</tr>
+						<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
 							<th
 								scope="col"
-								class="px-3 py-2 text-left font-medium text-card-foreground"
+								class={`pb-2 pl-4 pr-4 align-top ${adviceTableTextColMax}`}
 							>
 								{t('advice.table.fund')}
 							</th>
-							<th
-								scope="col"
-								class="px-3 py-2 text-left font-medium text-card-foreground"
-							>
+							<th scope="col" class="pb-2 pr-4 align-top">
 								{t('advice.table.ticker')}
 							</th>
-							<th
-								scope="col"
-								class="px-3 py-2 text-right font-medium text-card-foreground"
-							>
+							<th scope="col" class="pb-2 pr-4 align-top text-right">
 								{t('advice.table.amount')}
 							</th>
-							<th
-								scope="col"
-								class="px-3 py-2 text-left font-medium text-card-foreground"
-							>
+							<th scope="col" class="pb-2 pr-4 align-top">
 								{t('advice.table.currency')}
 							</th>
 							<th
 								scope="col"
-								class="px-3 py-2 text-left font-medium text-card-foreground"
+								class={`pb-2 pr-4 align-top ${adviceTableTextColMax}`}
 							>
 								{t('advice.table.note')}
 							</th>
 							{pendingApproval ? null : (
-								<th
-									scope="col"
-									class="px-3 py-2 text-left font-medium text-card-foreground"
-								>
+								<th scope="col" class="pb-2 pl-4 pr-4 align-top">
 									<span class="sr-only">
 										{t('advice.table.etfDetailsLink')}
 									</span>
@@ -450,25 +463,31 @@ function renderEtfProposals(
 							return (
 								<tr
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
-									class="border-t border-border"
+									class="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
 								>
-									<td class="px-3 py-2 text-card-foreground">{row.name}</td>
-									<td class="px-3 py-2 text-muted-foreground">
+									<td
+										class={`py-2 pr-4 align-top text-sm break-words text-card-foreground ${adviceTableTextColMax}`}
+									>
+										{row.name}
+									</td>
+									<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold text-muted-foreground">
 										{row.ticker ?? t('catalog.emptyCell')}
 									</td>
-									<td class="px-3 py-2 text-right tabular-nums text-card-foreground">
+									<td class="py-2 pr-4 align-top text-right text-sm tabular-nums text-card-foreground">
 										{row.amount !== undefined
 											? formatAmountNumber(row.amount)
 											: t('catalog.emptyCell')}
 									</td>
-									<td class="px-3 py-2 text-muted-foreground">
+									<td class="py-2 pr-4 align-top text-sm text-muted-foreground">
 										{displayCurrency ?? t('catalog.emptyCell')}
 									</td>
-									<td class="px-3 py-2 text-muted-foreground">
+									<td
+										class={`py-2 pr-4 align-top text-sm break-words text-muted-foreground ${adviceTableTextColMax}`}
+									>
 										{row.note ?? t('catalog.emptyCell')}
 									</td>
 									{pendingApproval ? null : (
-										<td class="px-3 py-2 align-top">
+										<td class="py-2 pl-4 pr-4 align-top">
 											{etfDetailsHref !== null ? (
 												<Link
 													href={etfDetailsHref}
@@ -531,6 +550,82 @@ function renderAdviceBlock(
 	})
 }
 
+function adviceResultCardView(props: {
+	advice: AdviceDocument
+	lastAnalysisMode?: AdviceAnalysisMode
+	analysisMode?: AdviceAnalysisMode
+	cashAmount?: string
+	cashCurrency?: string
+	selectedModel?: AdviceModelId
+	catalog?: CatalogEntry[]
+	adviceFromGist?: boolean
+	adviceGistSavedAt?: string
+	adviceGistPersistFailed?: boolean
+	pendingApproval?: boolean
+	adviceGistGate?: 'sign_in' | 'connect_gist'
+}) {
+	const cashCurrency = props.cashCurrency ?? 'PLN'
+	const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
+	const resultMode =
+		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
+	const pendingApproval = props.pendingApproval === true
+	const adviceGistGate = props.adviceGistGate
+	return (
+		<Card class="min-w-0 p-4" aria-live="polite">
+			{props.adviceGistPersistFailed === true ? (
+				<p
+					class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-card-foreground"
+					role="status"
+				>
+					{t('advice.persistFailed.notice')}
+				</p>
+			) : null}
+			{props.adviceFromGist === true &&
+			props.adviceGistSavedAt !== undefined &&
+			props.adviceGistSavedAt.length > 0 ? (
+				<p
+					class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
+					role="status"
+				>
+					{format(t('advice.restore.fromGistNotice'), {
+						savedAt: props.adviceGistSavedAt,
+					})}
+				</p>
+			) : null}
+			<h2 class="text-base font-semibold tracking-tight text-card-foreground">
+				{resultMode === 'portfolio_review'
+					? t('advice.result.titleReview')
+					: t('advice.result.title')}
+			</h2>
+			<p class="mt-0.5 text-xs text-muted-foreground">
+				{resultMode === 'portfolio_review'
+					? t('advice.result.subtitleReviewGuidelinesOnly')
+					: format(t('advice.result.subtitle'), {
+							amount: props.cashAmount ?? '',
+							currency: cashCurrency,
+						})}
+			</p>
+			<div class="mt-3 space-y-6">
+				{props.advice.blocks.map((block, i) => (
+					<div key={`${block.type}-${i}`}>
+						{renderAdviceBlock(block, cashCurrency, i, {
+							selectedModel,
+							pendingApproval: pendingApproval || adviceGistGate !== undefined,
+							catalog: props.catalog,
+						})}
+					</div>
+				))}
+			</div>
+		</Card>
+	)
+}
+
+export type AdviceResultCardProps = Parameters<typeof adviceResultCardView>[0]
+
+export function AdviceResultCard(_handle: Handle, _setup?: unknown) {
+	return adviceResultCardView
+}
+
 export function AdvicePage(_handle: Handle, _setup?: unknown) {
 	return (props: AdvicePageProps) => {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
@@ -552,15 +647,19 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 			{},
 			{ tab: 'portfolio_review' },
 		)
+		const frameSrc = props.adviceResultFrameSrc
+		const accessBanner = adviceAccessBannerFromProps(props)
 		return (
-			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
-				<SectionIntroCard
-					page="advice"
-					variant="page"
-					title={SECTION_INTROS.advice.title}
-					description={SECTION_INTROS.advice.description}
-				/>
-				{pendingApproval ? (
+			<main class="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-6">
+				<div class="min-w-0 w-full">
+					<SectionIntroCard
+						page="advice"
+						variant="page"
+						title={SECTION_INTROS.advice.title}
+						description={SECTION_INTROS.advice.description}
+					/>
+				</div>
+				{accessBanner === 'pending_approval' ? (
 					<div
 						role="status"
 						class="rounded-md border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm text-card-foreground"
@@ -574,8 +673,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 							{t('advice.pending.afterPath')}
 						</p>
 					</div>
-				) : null}
-				{!pendingApproval && adviceGistGate === 'sign_in' ? (
+				) : accessBanner === 'sign_in_for_gist' ? (
 					<div
 						role="status"
 						class="rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-card-foreground"
@@ -593,8 +691,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 							</Link>
 						</p>
 					</div>
-				) : null}
-				{!pendingApproval && adviceGistGate === 'connect_gist' ? (
+				) : accessBanner === 'connect_gist' ? (
 					<div
 						role="status"
 						class="rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-card-foreground"
@@ -613,7 +710,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</p>
 					</div>
 				) : null}
-				<div class="flex flex-col">
+				<div class="flex min-w-0 w-full flex-col">
 					<TabsNav
 						activeId={activeTab}
 						aria-label={t('advice.tabs.navAria')}
@@ -627,13 +724,13 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</TabLink>
 					</TabsNav>
 					{activeTab === 'buy_next' ? (
-						<Card variant="muted" class="rounded-t-none border-t-0 p-6">
+						<Card variant="muted" class="min-w-0 rounded-t-none border-t-0 p-6">
 							<form
 								method="post"
 								action={buyNextAction}
 								class="space-y-4"
-								data-fetch-submit
-								data-replace-main
+								data-frame-submit="advice-result"
+								data-frame-reload-src={frameSrc ?? ''}
 							>
 								<input type="hidden" name="analysisMode" value="buy_next" />
 								<input type="hidden" name="adviceIntent" value="run" />
@@ -643,7 +740,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								<p class="text-xs text-muted-foreground">
 									{t('advice.tab.hint.buyNext')}
 								</p>
-								<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+								<div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
 									<div class="grid min-w-0 flex-1 gap-2">
 										<FieldLabel fieldId="cashAmount-buy-next">
 											{t('advice.form.field.cash')}
@@ -695,14 +792,14 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 							</form>
 						</Card>
 					) : (
-						<Card variant="muted" class="rounded-t-none border-t-0 p-6">
+						<Card variant="muted" class="min-w-0 rounded-t-none border-t-0 p-6">
 							{props.advice !== undefined ? (
 								<form
 									method="post"
 									action={reviewAction}
 									class="mb-4"
-									data-fetch-submit
-									data-replace-main
+									data-frame-submit="advice-result"
+									data-frame-reload-src={frameSrc ?? ''}
 								>
 									<input
 										type="hidden"
@@ -723,8 +820,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								method="post"
 								action={reviewAction}
 								class="space-y-4"
-								data-fetch-submit
-								data-replace-main
+								data-frame-submit="advice-result"
+								data-frame-reload-src={frameSrc ?? ''}
 							>
 								<input
 									type="hidden"
@@ -738,8 +835,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 								<p class="text-xs text-muted-foreground">
 									{t('advice.tab.hint.portfolioReview')}
 								</p>
-								<div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
-									<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
+								<div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+									<div class="grid min-w-0 w-full gap-2 sm:min-w-[11rem] sm:flex-1">
 										<FieldLabel fieldId="adviceModel-review">
 											{t('advice.form.field.model')}
 										</FieldLabel>
@@ -764,56 +861,26 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</Card>
 					)}
 				</div>
-				{props.advice !== undefined &&
-				resultMode !== null &&
-				(props.cashAmount !== undefined ||
-					resultMode === 'portfolio_review') ? (
-					<Card class="min-w-0 max-w-full p-6" aria-live="polite">
-						{props.adviceFromGist === true &&
-						props.adviceGistSavedAt !== undefined &&
-						props.adviceGistSavedAt.length > 0 ? (
-							<p
-								class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
-								role="status"
-							>
-								{format(t('advice.restore.fromGistNotice'), {
-									savedAt: props.adviceGistSavedAt,
-								})}
-							</p>
-						) : props.adviceFromLegacyPortfolioReviewFile === true ? (
-							<p
-								class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
-								role="status"
-							>
-								{t('advice.restore.fromLegacyPortfolioReviewFile')}
-							</p>
-						) : null}
-						<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
-							{resultMode === 'portfolio_review'
-								? t('advice.result.titleReview')
-								: t('advice.result.title')}
-						</h2>
-						<p class="mt-1 text-sm text-muted-foreground">
-							{resultMode === 'portfolio_review'
-								? t('advice.result.subtitleReviewGuidelinesOnly')
-								: format(t('advice.result.subtitle'), {
-										amount: props.cashAmount ?? '',
-										currency: cashCurrency,
-									})}
-						</p>
-						<div class="mt-4 min-w-0 space-y-6">
-							{props.advice.blocks.map((block, i) => (
-								<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
-									{renderAdviceBlock(block, cashCurrency, i, {
-										selectedModel,
-										pendingApproval:
-											pendingApproval || adviceGistGate !== undefined,
-										catalog: props.catalog,
-									})}
-								</div>
-							))}
-						</div>
-					</Card>
+				{frameSrc !== undefined ? (
+					<Frame name="advice-result" src={frameSrc} />
+				) : props.advice !== undefined &&
+					resultMode !== null &&
+					(props.cashAmount !== undefined ||
+						resultMode === 'portfolio_review') ? (
+					<AdviceResultCard
+						advice={props.advice}
+						lastAnalysisMode={props.lastAnalysisMode}
+						analysisMode={props.analysisMode}
+						cashAmount={props.cashAmount}
+						cashCurrency={cashCurrency}
+						selectedModel={selectedModel}
+						catalog={props.catalog}
+						adviceFromGist={props.adviceFromGist}
+						adviceGistSavedAt={props.adviceGistSavedAt}
+						adviceGistPersistFailed={props.adviceGistPersistFailed}
+						pendingApproval={pendingApproval}
+						adviceGistGate={adviceGistGate}
+					/>
 				) : null}
 			</main>
 		)

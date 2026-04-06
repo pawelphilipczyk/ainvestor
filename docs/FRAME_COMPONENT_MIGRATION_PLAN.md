@@ -29,13 +29,13 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 
 ### Phase 3 — Full main-region swap (`data-replace-main`)
 
-- [ ] **Advice analysis forms** — Replace `data-fetch-submit` + `data-replace-main` on `AdvicePage` with a **`<Frame>`** (or nested frames) for the analysis result area. Add/adjust a route that returns **HTML partials** for the frame `src` after POST success (no full-document parse on the client). Drop `data-replace-main` handling for advice once unused.
+- [x] **Advice analysis forms** — Replace `data-fetch-submit` + `data-replace-main` on `AdvicePage` with a **`<Frame>`** for the analysis result area. `GET /advice/fragments/advice-result?tab=` returns the result card HTML; forms use `data-frame-submit="advice-result"` plus `data-frame-reload-src` so `FrameSubmitEnhancement` refreshes the named frame via Remix `navigate()` (correct fragment `src` for the Navigation API). Gist snapshots use **separate files** per mode (`advice-buy-next.json` / `advice-portfolio-review.json`), with legacy `advice-analysis.json` still read when present. `render()` passes `resolveFrame` for SSR. No remaining `data-replace-main` in app features (handler branch in `fetch-submit.component.js` kept until Phase 7 cleanup). **Global shell CSS** (`document-shell.tsx`, `document-styles.ts`) intentionally matches **`main`** — do not add extra `body`/`#page-content` overflow rules when debugging advice Frame layout.
 
 ### Phase 4 — Catalog ETF deep-dive (today: JSON + text node)
 
-- [ ] **Server: HTML instead of JSON** — Change the catalog ETF analysis POST handler to return **HTML** (fragment suitable for a Frame), e.g. rendered prose + error markup, with appropriate status codes, instead of `{ text }` / `{ error }` JSON.
-- [ ] **UI: `<Frame>` for the result** — Wrap the result region in `<Frame>`; after successful analysis, **reload the frame** (or navigate the frame `src`) so content stays server-owned. Remove `catalog-etf-analysis-form.component.js` JSON `fetch` + `textContent` patching; any minimal `clientEntry` should only trigger **`handle.frame.reload()`** or submit via native form if compatible with Frame navigation.
-- [ ] **Document shell** — Remove `catalogEtfAnalysisNetworkError` from `#ui-client-messages` in `document-shell.tsx` if no longer needed for client-only copy.
+- [x] **Server: HTML instead of JSON** — The catalog ETF analysis POST handler returns **HTML** via `CatalogEtfAnalysisFragment` (prose + error callout), with appropriate status codes. `GET /catalog/fragments/etf-analysis/:id` returns an empty fragment for SSR / initial frame load.
+- [x] **UI: `<Frame>` for the result** — `CatalogEtfPage` uses `<Frame name="catalog-etf-analysis">` and **`FrameSubmitEnhancement`** with `data-frame-submit` + **`data-frame-replace-from-response`** so the POST response HTML is applied with **`frameHandle.replace()`** (avoids storing large analysis text in the session cookie). The bespoke `catalog-etf-analysis-form.component.js` clientEntry was removed.
+- [x] **Document shell** — Removed `catalogEtfAnalysisNetworkError` from `#ui-client-messages` in `document-shell.tsx`.
 
 ### Phase 5 — JSON `422` validation + `data-error-id` (portfolio / guidelines)
 
@@ -64,7 +64,7 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 | Component | Purpose |
 |-----------|---------|
 | `render()` `resolveFrame` option | Forwards a `resolveFrame` callback to `renderToStream` so `<Frame>` components resolve during SSR |
-| `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`, POSTs via fetch, reloads the named Frame on success. Supports `data-error-id` for 422 JSON errors and `data-reset-form`. |
+| `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`, POSTs via fetch, reloads the named Frame on success (or applies **`data-frame-replace-from-response`** HTML via `frameHandle.replace()`). Supports `data-frame-reload-src`, `data-error-id` for 422 JSON errors, and `data-reset-form`. |
 
 ---
 

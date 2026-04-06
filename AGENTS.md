@@ -97,6 +97,9 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 
 - **Keep types simple:** Prefer small object literals, `as const` for fixed maps/unions, and `keyof typeof` over hand-maintained string union types when a single source of truth exists.
 - **Prefer inference:** Omit redundant annotations on locals and private helpers. For component props, **inline the props object** on the inner implementation. If another module needs the props type, derive it once: **`type FooProps = Parameters<ReturnType<typeof Foo>>[0]`** (do not hand-duplicate a parallel `type FooProps = { ... }`).
+
+- **One props shape per UI boundary:** Do not restate the same object shape in two places. If a Remix component or fragment exports **`export type FooProps`** (or **`CatalogEtfAnalysisFragmentProps`**), any controller, helper, or test that builds props for **`jsx(Foo, props)`** must **import and use that type** (or derive it with **`Parameters<ReturnType<typeof Foo>>[0]`** if the type is not exported). Never parallel an anonymous `{ field?: string }` or a second `type` alias that mirrors the component’s props — those drift silently when fields change. Apply the same idea to shared DTOs: one exported type, imported everywhere it crosses a module boundary.
+
 - **When to annotate explicitly:** Public boundaries, `remix` discriminated props (e.g. inputs where `type` narrows other attributes), or places where inference produces `any` or overly wide types.
 
 - **Form controls:** Prefer **MDN / HTML attribute names** on props (`name`, `type`, `autocomplete`, `class`, …). Do not rename to `fieldName` or similar. Listing a small `type` shape for each wrapper is OK; avoid `...rest as Props<'input'>` — `Props<'input'>` from `remix/component` is a discriminated union, and spreading `rest` breaks narrowing (e.g. `role`, `list` on `<input>`).

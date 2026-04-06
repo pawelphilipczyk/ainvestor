@@ -7,6 +7,7 @@ import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
+import { routes } from '../../routes.ts'
 import {
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
@@ -18,6 +19,7 @@ import {
 	resetAdviceGistTestOverlay,
 	type StoredAdviceAnalysis,
 	setAdviceGistTestOverlay,
+	setAdviceGistTestSaveShouldFail,
 } from './advice-gist.ts'
 import { adviceTabHref, setAdviceClient } from './index.ts'
 
@@ -443,6 +445,31 @@ describe('Advice', () => {
 		assert.equal(saved?.document.blocks[0]?.type, 'paragraph')
 	})
 
+	it('POST /advice sets X-Advice-Gist-Stale and still returns analysis HTML when gist save fails', async () => {
+		const cookie = await signInWithGist()
+		setAdviceGistTestOverlay(null)
+		setAdviceGistTestSaveShouldFail(true)
+		setAdviceClient(makeMockClient('Shown despite gist save failure.'))
+
+		const form = new FormData()
+		form.set('cashAmount', '1000')
+		form.set('analysisMode', 'buy_next')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie, Accept: 'application/json' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.equal(response.headers.get('X-Advice-Gist-Stale'), '1')
+		assert.match(body, /Shown despite gist save failure\./)
+		assert.match(body, /Could not save this analysis to your data gist/)
+	})
+
 	it('GET /advice shows last analysis from gist when tab matches snapshot', async () => {
 		const cookie = await signInWithGist()
 		seedSharedCatalog(
@@ -481,6 +508,63 @@ describe('Advice', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /Cached gist paragraph\./)
 		assert.match(body, /Showing your last saved analysis from your data gist/)
+		assert.match(body, /"name":"advice-result"/)
+		assert.match(body, /\/fragments\/advice-result\?tab=buy_next/)
+	})
+
+	it('GET /advice/fragments/advice-result returns HTML for stored gist advice when tab matches', async () => {
+		const cookie = await signInWithGist()
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'c1',
+						fund_name: 'Test',
+						ticker: 'TST',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		const stored: StoredAdviceAnalysis = {
+			version: 1,
+			savedAt: 1_700_000_000_000,
+			lastAnalysisMode: 'buy_next',
+			cashCurrency: 'PLN',
+			cashAmount: '500',
+			selectedModel: 'gpt-5.4-mini',
+			activeTab: 'buy_next',
+			document: {
+				blocks: [{ type: 'paragraph', text: 'Fragment-only paragraph.' }],
+			},
+		}
+		setAdviceGistTestOverlay(stored)
+
+		const url = `${routes.advice.fragmentResult.href()}?tab=buy_next`
+		const response = await testSessionFetch(`http://localhost${url}`, {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Fragment-only paragraph\./)
+		assert.match(body, /Investment Advice/)
+		assert.doesNotMatch(body, /<html\b/i)
+	})
+
+	it('GET /advice/fragments/advice-result returns 204 when there is no result for the tab', async () => {
+		const cookie = await signInWithGist()
+		setAdviceGistTestOverlay(null)
+
+		const url = `${routes.advice.fragmentResult.href()}?tab=buy_next`
+		const response = await testSessionFetch(`http://localhost${url}`, {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		assert.equal(response.status, 204)
+		assert.equal(body, '')
 	})
 
 	it('GET /advice does not show gist snapshot when URL tab differs from snapshot tab', async () => {
@@ -785,6 +869,11 @@ describe('Advice', () => {
 		assert.match(body, /400\.00/)
 		assert.match(body, /PLN/)
 		assert.match(body, /Broad ex-US equities/)
+		assert.match(
+			body,
+			/<table\b[^>]*\bclass="(?=[^"]*\bmin-w-full\b)(?=[^"]*\bw-max\b)(?=[^"]*\btable-auto\b)[^"]*"/,
+			'advice ETF table matches catalog ScrollableTable (min-w-full w-max table-auto)',
+		)
 	})
 
 	it('passes the selected advice model to the OpenAI client', async () => {

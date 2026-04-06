@@ -22,6 +22,7 @@ export const routes = route({
 	},
 	advice: {
 		...adviceForm,
+		fragmentResult: get('/fragments/advice-result'),
 	},
 	guidelines: {
 		index: get('/guidelines'),
@@ -37,5 +38,6 @@ export const routes = route({
 		etfAnalysis: post('/etf/:catalogEntryId/analysis'),
 		import: post('/import'),
 		fragmentList: get('/fragments/list'),
+		fragmentEtfAnalysis: get('/fragments/etf-analysis/:catalogEntryId'),
 	}),
 })
