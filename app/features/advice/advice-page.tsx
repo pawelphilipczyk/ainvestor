@@ -23,6 +23,7 @@ import type {
 	AdviceDocument,
 	AdviceEtfProposalRow,
 } from './advice-document.ts'
+import { ADVICE_LAYOUT_SAMPLE_HTML } from './advice-layout-sample-html.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -89,6 +90,8 @@ type AdvicePageProps = {
 	adviceGistGate?: 'sign_in' | 'connect_gist'
 	/** When set, analysis results load inside a Remix `<Frame>` at this URL. */
 	adviceResultFrameSrc?: string
+	/** TEMPORARY: guest-only static HTML from `?adviceLayoutSample=1` for layout debugging. */
+	adviceLayoutSample?: boolean
 }
 
 type AdviceAccessBanner =
@@ -861,6 +864,17 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						</Card>
 					)}
 				</div>
+				{props.adviceLayoutSample === true ? (
+					<div class="min-w-0 w-full space-y-2">
+						<p
+							role="status"
+							class="rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-card-foreground"
+						>
+							{t('advice.layoutSample.banner')}
+						</p>
+						<div class="min-w-0 w-full" innerHTML={ADVICE_LAYOUT_SAMPLE_HTML} />
+					</div>
+				) : null}
 				{frameSrc !== undefined ? (
 					<Frame name="advice-result" src={frameSrc} />
 				) : props.advice !== undefined &&

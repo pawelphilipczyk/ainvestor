@@ -61,6 +61,11 @@ function parseAdviceTabParam(url: string): AdviceAnalysisMode {
 	return normalizeAdviceAnalysisTab(tab)
 }
 
+/** TEMPORARY: `?adviceLayoutSample=1` shows static captured HTML for anonymous layout debugging. */
+function parseAdviceLayoutSampleParam(url: string): boolean {
+	return new URL(url).searchParams.get('adviceLayoutSample') === '1'
+}
+
 function formatSchemaIssues(issues: ReadonlyArray<Issue>): string {
 	return issues
 		.map((issue) => {
@@ -91,6 +96,8 @@ type AdvicePageRenderProps = {
 	formError?: { summary: string; detail?: string }
 	pendingApproval?: boolean
 	adviceGistGate?: 'sign_in' | 'connect_gist'
+	/** TEMPORARY: guest-only static HTML sample when `?adviceLayoutSample=1`. */
+	adviceLayoutSample?: boolean
 }
 
 const ADVICE_GIST_STALE_HEADER = 'X-Advice-Gist-Stale'
@@ -285,14 +292,22 @@ export const adviceController = {
 				pendingApproval,
 				activeTab,
 			})
+			const layoutSampleGuest =
+				session === null && parseAdviceLayoutSampleParam(context.request.url)
+			const gated = withAdviceGate(
+				{
+					...baseProps,
+					...(layoutSampleGuest ? { adviceLayoutSample: true } : {}),
+				},
+				layoutSession,
+				session,
+				pendingApproval,
+			)
 			return renderAdvicePageResponse({
 				session: layoutSession,
-				props: withAdviceGate(
-					baseProps,
-					layoutSession,
-					session,
-					pendingApproval,
-				),
+				props: layoutSampleGuest
+					? { ...gated, adviceGistGate: undefined }
+					: gated,
 			})
 		},
 
