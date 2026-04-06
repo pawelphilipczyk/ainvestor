@@ -32,6 +32,9 @@ import {
 	normalizeAdviceAnalysisTab,
 } from './advice-openai.ts'
 
+/** Same max-width tokens as catalog list tables (`catalog-list-fragment.tsx`) for apples-to-apples layout. */
+const adviceTableTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
+
 type FormError = {
 	summary: string
 	detail?: string
@@ -392,55 +395,47 @@ function renderEtfProposals(
 ) {
 	const { defaultCashCurrency, selectedModel, pendingApproval, catalog } =
 		options
+	const tableColSpan = pendingApproval ? 5 : 6
 	return (
-		<section class="min-w-0 max-w-full space-y-2">
+		<section>
 			{block.caption ? (
-				<h3 class="text-base font-semibold tracking-tight text-card-foreground">
+				<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 					{block.caption}
-				</h3>
+				</h2>
 			) : null}
 			{block.rows.length === 0 ? (
 				<p class="text-sm text-muted-foreground">{t('advice.table.empty')}</p>
 			) : (
-				<ScrollableTable class="text-sm">
+				<ScrollableTable wrapperClass="mt-3" class="text-sm">
 					<caption class="sr-only">{t('advice.table.caption')}</caption>
-					<thead class="bg-muted/40">
+					<thead class="bg-muted/40 px-4">
 						<tr>
+							<td colspan={tableColSpan} class="h-1" />
+						</tr>
+						<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
 							<th
 								scope="col"
-								class="max-w-[min(100%,18rem)] px-3 py-2 text-left font-medium text-card-foreground"
+								class={`pb-2 pl-4 pr-4 align-top ${adviceTableTextColMax}`}
 							>
 								{t('advice.table.fund')}
 							</th>
-							<th
-								scope="col"
-								class="px-3 py-2 text-left font-medium text-card-foreground"
-							>
+							<th scope="col" class="pb-2 pr-4 align-top">
 								{t('advice.table.ticker')}
 							</th>
-							<th
-								scope="col"
-								class="px-3 py-2 text-right font-medium text-card-foreground"
-							>
+							<th scope="col" class="pb-2 pr-4 align-top text-right">
 								{t('advice.table.amount')}
 							</th>
-							<th
-								scope="col"
-								class="px-3 py-2 text-left font-medium text-card-foreground"
-							>
+							<th scope="col" class="pb-2 pr-4 align-top">
 								{t('advice.table.currency')}
 							</th>
 							<th
 								scope="col"
-								class="max-w-[min(100%,18rem)] px-3 py-2 text-left font-medium text-card-foreground"
+								class={`pb-2 pr-4 align-top ${adviceTableTextColMax}`}
 							>
 								{t('advice.table.note')}
 							</th>
 							{pendingApproval ? null : (
-								<th
-									scope="col"
-									class="px-3 py-2 text-left font-medium text-card-foreground"
-								>
+								<th scope="col" class="pb-2 pl-4 pr-4 align-top">
 									<span class="sr-only">
 										{t('advice.table.etfDetailsLink')}
 									</span>
@@ -468,27 +463,31 @@ function renderEtfProposals(
 							return (
 								<tr
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
-									class="border-t border-border"
+									class="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
 								>
-									<td class="max-w-[min(100%,18rem)] break-words px-3 py-2 align-top text-card-foreground">
+									<td
+										class={`py-2 pr-4 align-top text-sm break-words text-card-foreground ${adviceTableTextColMax}`}
+									>
 										{row.name}
 									</td>
-									<td class="whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+									<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold text-muted-foreground">
 										{row.ticker ?? t('catalog.emptyCell')}
 									</td>
-									<td class="whitespace-nowrap px-3 py-2 text-right align-top tabular-nums text-card-foreground">
+									<td class="py-2 pr-4 align-top text-right text-sm tabular-nums text-card-foreground">
 										{row.amount !== undefined
 											? formatAmountNumber(row.amount)
 											: t('catalog.emptyCell')}
 									</td>
-									<td class="whitespace-nowrap px-3 py-2 align-top text-muted-foreground">
+									<td class="py-2 pr-4 align-top text-sm text-muted-foreground">
 										{displayCurrency ?? t('catalog.emptyCell')}
 									</td>
-									<td class="max-w-[min(100%,18rem)] break-words px-3 py-2 align-top text-muted-foreground">
+									<td
+										class={`py-2 pr-4 align-top text-sm break-words text-muted-foreground ${adviceTableTextColMax}`}
+									>
 										{row.note ?? t('catalog.emptyCell')}
 									</td>
 									{pendingApproval ? null : (
-										<td class="whitespace-nowrap px-3 py-2 align-top">
+										<td class="py-2 pl-4 pr-4 align-top">
 											{etfDetailsHref !== null ? (
 												<Link
 													href={etfDetailsHref}
@@ -572,7 +571,7 @@ function adviceResultCardView(props: {
 	const pendingApproval = props.pendingApproval === true
 	const adviceGistGate = props.adviceGistGate
 	return (
-		<Card class="min-w-0 max-w-full p-6" aria-live="polite">
+		<Card class="min-w-0 p-4" aria-live="polite">
 			{props.adviceGistPersistFailed === true ? (
 				<p
 					class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-card-foreground"
@@ -593,12 +592,12 @@ function adviceResultCardView(props: {
 					})}
 				</p>
 			) : null}
-			<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
+			<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 				{resultMode === 'portfolio_review'
 					? t('advice.result.titleReview')
 					: t('advice.result.title')}
 			</h2>
-			<p class="mt-1 text-sm text-muted-foreground">
+			<p class="mt-0.5 text-xs text-muted-foreground">
 				{resultMode === 'portfolio_review'
 					? t('advice.result.subtitleReviewGuidelinesOnly')
 					: format(t('advice.result.subtitle'), {
@@ -606,9 +605,9 @@ function adviceResultCardView(props: {
 							currency: cashCurrency,
 						})}
 			</p>
-			<div class="mt-4 min-w-0 space-y-6">
+			<div class="mt-3 space-y-6">
 				{props.advice.blocks.map((block, i) => (
-					<div key={`${block.type}-${i}`} class="min-w-0 max-w-full">
+					<div key={`${block.type}-${i}`}>
 						{renderAdviceBlock(block, cashCurrency, i, {
 							selectedModel,
 							pendingApproval: pendingApproval || adviceGistGate !== undefined,
@@ -863,29 +862,25 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					)}
 				</div>
 				{frameSrc !== undefined ? (
-					<div class="min-w-0 w-full max-w-full">
-						<Frame name="advice-result" src={frameSrc} />
-					</div>
+					<Frame name="advice-result" src={frameSrc} />
 				) : props.advice !== undefined &&
 					resultMode !== null &&
 					(props.cashAmount !== undefined ||
 						resultMode === 'portfolio_review') ? (
-					<div class="min-w-0 w-full max-w-full">
-						<AdviceResultCard
-							advice={props.advice}
-							lastAnalysisMode={props.lastAnalysisMode}
-							analysisMode={props.analysisMode}
-							cashAmount={props.cashAmount}
-							cashCurrency={cashCurrency}
-							selectedModel={selectedModel}
-							catalog={props.catalog}
-							adviceFromGist={props.adviceFromGist}
-							adviceGistSavedAt={props.adviceGistSavedAt}
-							adviceGistPersistFailed={props.adviceGistPersistFailed}
-							pendingApproval={pendingApproval}
-							adviceGistGate={adviceGistGate}
-						/>
-					</div>
+					<AdviceResultCard
+						advice={props.advice}
+						lastAnalysisMode={props.lastAnalysisMode}
+						analysisMode={props.analysisMode}
+						cashAmount={props.cashAmount}
+						cashCurrency={cashCurrency}
+						selectedModel={selectedModel}
+						catalog={props.catalog}
+						adviceFromGist={props.adviceFromGist}
+						adviceGistSavedAt={props.adviceGistSavedAt}
+						adviceGistPersistFailed={props.adviceGistPersistFailed}
+						pendingApproval={pendingApproval}
+						adviceGistGate={adviceGistGate}
+					/>
 				) : null}
 			</main>
 		)
