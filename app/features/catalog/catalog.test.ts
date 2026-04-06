@@ -104,13 +104,40 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /From your catalog/)
 		assert.match(body, /AI overview/)
 		assert.match(body, /action="\/catalog\/etf\/row-detail-test\/analysis"/)
-		assert.match(body, /data-catalog-etf-analysis-form/)
+		assert.match(body, /data-frame-submit="catalog-etf-analysis"/)
+		assert.match(body, /\/catalog\/fragments\/etf-analysis\/row-detail-test/)
 		assert.match(body, /ETF analysis/)
 		assert.doesNotMatch(body, /Educational ETF paragraph/)
 		assert.match(body, /Back/)
 	})
 
-	it('POST /catalog/etf/:id/analysis returns JSON text when OpenAI succeeds', async () => {
+	it('GET /catalog/fragments/etf-analysis/:id returns empty fragment when signed in', async () => {
+		await signInAs('catalog-fragment-test')
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'row-fragment-test',
+						fund_name: 'Fragment Fund',
+						ticker: 'FRG',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+
+		const response = await testSessionFetch(
+			'http://localhost/catalog/fragments/etf-analysis/row-fragment-test',
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(response.headers.get('content-type') ?? '', /text\/html/)
+		assert.doesNotMatch(body, /Fragment Fund/)
+	})
+
+	it('POST /catalog/etf/:id/analysis returns HTML fragment with text when OpenAI succeeds', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -138,16 +165,16 @@ describe('ETF Catalog page', () => {
 			new Request('http://localhost/catalog/etf/row-detail-test/analysis', {
 				method: 'POST',
 				headers: {
-					Accept: 'application/json',
-					'Content-Type': 'application/json',
+					Accept: 'text/html',
 				},
-				body: JSON.stringify({}),
+				body: new FormData(),
 			}),
 		)
-		const data = (await response.json()) as { text?: string }
+		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.equal(data.text, 'Educational ETF paragraph.')
+		assert.match(response.headers.get('content-type') ?? '', /text\/html/)
+		assert.match(body, /Educational ETF paragraph\./)
 	})
 
 	it('POST /catalog/etf/:id/analysis returns 403 when session is pending approval', async () => {
@@ -179,15 +206,16 @@ describe('ETF Catalog page', () => {
 				{
 					method: 'POST',
 					headers: {
-						Accept: 'application/json',
-						'Content-Type': 'application/json',
+						Accept: 'text/html',
 						Cookie: cookie,
 					},
-					body: JSON.stringify({}),
+					body: new FormData(),
 				},
 			),
 		)
 		assert.equal(response.status, 403)
+		const body = await response.text()
+		assert.match(body, /approved/)
 	})
 
 	it('GET /catalog/etf/:id returns 404 for unknown catalog entry id', async () => {
