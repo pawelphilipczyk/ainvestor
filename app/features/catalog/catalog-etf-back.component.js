@@ -22,10 +22,7 @@ export const CatalogEtfBackEnhancement = clientEntry(
 					const target = event.target
 					if (!(target instanceof Element)) return
 					const anchor = target.closest(`a[${ATTR}]`)
-					if (
-						!(anchor instanceof HTMLAnchorElement) ||
-						!anchor.hasAttribute(ATTR)
-					) {
+					if (!(anchor instanceof HTMLAnchorElement)) {
 						return
 					}
 					if (isModifiedClick(event)) return
