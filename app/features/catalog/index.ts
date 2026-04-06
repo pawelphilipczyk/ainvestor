@@ -312,11 +312,10 @@ export const catalogController = {
 		},
 
 		async import(context: AppRequestContext) {
-			const session = getSessionData(context.get(Session))
+			const sessionFlash = context.get(Session)
+			const session = getSessionData(sessionFlash)
 			if (!session?.token || !session?.login) {
-				context
-					.get(Session)
-					.flash('error', t('errors.catalog.importNotAllowed'))
+				sessionFlash.flash('error', t('errors.catalog.importNotAllowed'))
 				return catalogIndexRedirect()
 			}
 			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot()
@@ -325,13 +324,10 @@ export const catalogController = {
 				ownerLogin,
 			})
 			if (!canImport) {
-				context
-					.get(Session)
-					.flash('error', t('errors.catalog.importNotAllowed'))
+				sessionFlash.flash('error', t('errors.catalog.importNotAllowed'))
 				return catalogIndexRedirect()
 			}
 
-			const sessionFlash = context.get(Session)
 			const rawFromForm = context.get(FormData)?.get('bankApiJson')
 			if (typeof rawFromForm !== 'string') {
 				sessionFlash.flash('error', t('errors.catalog.import.fieldMissing'))
