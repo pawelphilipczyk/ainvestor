@@ -14,6 +14,8 @@ export type RenderOptions = {
 	body: RemixNode
 	flashError?: string
 	init?: ResponseInit
+	/** Merged into the response headers (e.g. client hints for fetch-submit). */
+	responseHeaders?: HeadersInit
 	resolveFrame?: RenderToStreamOptions['resolveFrame']
 }
 
@@ -34,8 +36,15 @@ export async function render(options: RenderOptions): Promise<Response> {
 		? { resolveFrame: options.resolveFrame }
 		: undefined
 
-	return createHtmlResponse(
-		renderToStream(document, streamOptions),
-		options.init,
-	)
+	const mergedHeaders = new Headers(options.init?.headers)
+	if (options.responseHeaders !== undefined) {
+		new Headers(options.responseHeaders).forEach((value, key) => {
+			mergedHeaders.set(key, value)
+		})
+	}
+
+	return createHtmlResponse(renderToStream(document, streamOptions), {
+		...options.init,
+		headers: mergedHeaders,
+	})
 }

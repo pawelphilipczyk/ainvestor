@@ -1,6 +1,7 @@
 /**
- * Legacy gist file `portfolio-review.json` (read + clear only). New analyses are
+ * Parse helpers for legacy gist file `portfolio-review.json`. New analyses are
  * stored in `advice-analysis.json` (`app/features/advice/advice-gist.ts`).
+ * Network read/clear helpers were removed; the app no longer loads this file.
  */
 import { parseSafe } from 'remix/data-schema'
 
@@ -71,44 +72,5 @@ export function buildClearPortfolioReviewGistPatch(): {
 		files: {
 			[PORTFOLIO_REVIEW_FILENAME]: null,
 		},
-	}
-}
-
-const GITHUB_API = 'https://api.github.com'
-
-function githubHeaders(token: string): HeadersInit {
-	return {
-		Authorization: `Bearer ${token}`,
-		Accept: 'application/vnd.github+json',
-		'Content-Type': 'application/json',
-		'X-GitHub-Api-Version': '2022-11-28',
-	}
-}
-
-export async function fetchPortfolioReviewFromGist(
-	token: string,
-	gistId: string,
-): Promise<StoredPortfolioReview | null> {
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		headers: githubHeaders(token),
-	})
-	if (!response.ok) return null
-	const gist = (await response.json()) as GistPayload
-	return parsePortfolioReviewFromGist(gist)
-}
-
-export async function clearPortfolioReviewFromGist(
-	token: string,
-	gistId: string,
-): Promise<void> {
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		method: 'PATCH',
-		headers: githubHeaders(token),
-		body: JSON.stringify(buildClearPortfolioReviewGistPatch()),
-	})
-	if (!response.ok) {
-		throw new Error(
-			`GitHub API error clearing portfolio review file: ${response.status}`,
-		)
 	}
 }
