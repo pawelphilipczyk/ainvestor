@@ -14,11 +14,13 @@ import { t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+import type { CatalogRiskBand } from './lib.ts'
 
 type CatalogPageProps = {
 	catalogCount: number
 	canImport: boolean
 	typeFilter: string
+	riskFilter: '' | CatalogRiskBand
 	query: string
 	sharedCatalogOwnerLogin: string | null
 	catalogListFrameSrc: string
@@ -107,13 +109,42 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									id="type"
 									name="type"
 									compact={true}
+									value={props.typeFilter}
 									options={[
 										{ value: '', label: t('catalog.filter.allTypes') },
 										...ETF_TYPES.map((etfType) => ({
 											value: etfType,
 											label: formatEtfTypeLabel(etfType),
-											selected: props.typeFilter === etfType,
 										})),
+									]}
+								/>
+							</div>
+							<div class="grid gap-1.5">
+								<FieldLabel fieldId="risk" variant="filter">
+									{t('catalog.filter.risk')}
+								</FieldLabel>
+								<SelectInput
+									id="risk"
+									name="risk"
+									compact={true}
+									value={props.riskFilter || ''}
+									options={[
+										{
+											value: '',
+											label: t('catalog.filter.allRisks'),
+										},
+										{
+											value: 'low',
+											label: t('catalog.riskBand.low'),
+										},
+										{
+											value: 'medium',
+											label: t('catalog.riskBand.medium'),
+										},
+										{
+											value: 'high',
+											label: t('catalog.riskBand.high'),
+										},
 									]}
 								/>
 							</div>
@@ -137,7 +168,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							>
 								{t('catalog.filter.submit')}
 							</SubmitButton>
-							{props.typeFilter || props.query ? (
+							{props.typeFilter || props.riskFilter || props.query ? (
 								<a
 									href={routes.catalog.index.href()}
 									rmx-document

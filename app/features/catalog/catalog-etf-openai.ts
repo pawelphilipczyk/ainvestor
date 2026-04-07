@@ -16,7 +16,7 @@ Cover, in plain language and short sections (use ## headings and bullets where h
 2. **Where and what it invests** — geography, sectors, asset class; tie to catalog fields.
 3. **Past performance** — cite **only** numbers from the catalog. If none, say the app does not provide historical return data here.
 4. **Outlook** — do **not** claim precise forecasts. You may discuss **drivers and uncertainties** in educational terms only.
-5. **Risks** — concentration, currency, credit, duration, tracking error, liquidity, regulatory/KID-style risk where catalog supports it; generic ETF risks if needed.
+5. **Risks** — concentration, currency, credit, duration, tracking error, liquidity, regulatory-style risk where catalog supports it; generic ETF risks if needed.
 
 End with a one-line reminder that this is educational, not personalized investment advice, and that past performance does not guarantee future results.
 
