@@ -18,6 +18,7 @@ import { t } from '../../../lib/i18n.ts'
 import { parseLocaleDecimalString } from '../../../lib/locale-decimal-input.ts'
 import type { AppRequestContext } from '../../../lib/request-context.ts'
 import { getSessionData } from '../../../lib/session.ts'
+import { flashBanner } from '../../../lib/session-flash.ts'
 import { routes } from '../../../routes.ts'
 import {
 	type CatalogEntry,
@@ -149,7 +150,7 @@ async function portfolioPersistenceFailureResponse(
 			status: 422,
 		})
 	}
-	context.get(Session).flash('error', message)
+	flashBanner(context.get(Session), { text: message, tone: 'error' })
 	return createRedirectResponse(routes.portfolio.index.href())
 }
 
@@ -188,7 +189,7 @@ export const addEtfFormHandlers = {
 						status: 422,
 					})
 				}
-				context.get(Session).flash('error', message)
+				flashBanner(context.get(Session), { text: message, tone: 'error' })
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
 
@@ -236,7 +237,7 @@ export const addEtfFormHandlers = {
 						status: 422,
 					})
 				}
-				context.get(Session).flash('error', message)
+				flashBanner(context.get(Session), { text: message, tone: 'error' })
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
 			const name = match.name
@@ -333,7 +334,7 @@ export const addEtfFormHandlers = {
 						status: 422,
 					})
 				}
-				context.get(Session).flash('error', message)
+				flashBanner(context.get(Session), { text: message, tone: 'error' })
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
 
@@ -367,7 +368,7 @@ export const addEtfFormHandlers = {
 						status: 422,
 					})
 				}
-				context.get(Session).flash('error', message)
+				flashBanner(context.get(Session), { text: message, tone: 'error' })
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
 

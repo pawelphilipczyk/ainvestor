@@ -7,6 +7,7 @@ import {
 	catalogMergeKey,
 	mergeBankIntoCatalog,
 	normalizeCatalogTickerLookupKey,
+	parseBankJsonForImport,
 	parseBankJsonToCatalog,
 	parseCatalogFromGist,
 } from './lib.ts'
@@ -224,7 +225,7 @@ describe('parseBankJsonToCatalog', () => {
 		assert.equal(result[1].id, 'IE00B4L5Y983:LSE')
 	})
 
-	it('returns one row per data item; merge collapses duplicate keys', () => {
+	it('import parse keeps first duplicate merge key in paste and skips later row', () => {
 		const row = {
 			isin: 'IE00BGV5VR99',
 			fund_name: 'Xtrackers Future Mobility UCITS ETF 1C',
@@ -234,21 +235,71 @@ describe('parseBankJsonToCatalog', () => {
 			sector: 'technologia',
 			id: 'id-a',
 		}
-		const parsed = parseBankJsonToCatalog({
-			data: [
-				row,
-				{
-					...row,
-					description: 'Second wins',
-					id: 'id-b',
-				},
-			],
-		})
-		assert.equal(parsed.length, 2)
-		const merged = mergeBankIntoCatalog([], parsed)
+		const result = parseBankJsonForImport(
+			{
+				data: [
+					row,
+					{
+						...row,
+						description: 'Second wins',
+						id: 'id-b',
+					},
+				],
+			},
+			[],
+		)
+		assert.equal(result.entries.length, 1)
+		assert.equal(result.entries[0].description, 'First')
+		assert.equal(result.skippedRowDiagnostics.length, 1)
+		assert.equal(result.skippedRowDiagnostics[0].index, 2)
+	})
+
+	it('merge collapses duplicate keys when two entries share the same merge key', () => {
+		const first: Parameters<typeof mergeBankIntoCatalog>[1][number] = {
+			id: 'id-a',
+			isin: 'IE00BGV5VR99',
+			ticker: 'XMOV GR',
+			name: 'Xtrackers Future Mobility UCITS ETF 1C',
+			type: 'equity',
+			description: 'First',
+		}
+		const second = {
+			...first,
+			id: 'id-b',
+			description: 'Second wins',
+		}
+		const merged = mergeBankIntoCatalog([], [first, second])
 		assert.equal(merged.length, 1)
 		assert.equal(merged[0].id, 'id-a')
 		assert.equal(merged[0].description, 'Second wins')
+	})
+
+	it('parseBankJsonForImport reports rows missing ticker or name', () => {
+		const result = parseBankJsonForImport(
+			{
+				data: [
+					{ fund_name: 'No Ticker', ticker: '' },
+					{ fund_name: '', ticker: 'TICK' },
+					{ fund_name: 'Both', ticker: 'OK' },
+				],
+			},
+			[],
+		)
+		assert.equal(result.entries.length, 1)
+		assert.equal(result.skippedRowDiagnostics.length, 2)
+	})
+
+	it('parseBankJsonForImport merges first duplicate in paste and skips later duplicate', () => {
+		const row = {
+			isin: 'IE00BGV5VR99',
+			fund_name: 'Xtrackers',
+			ticker: 'XMOV GR',
+			assets: 'akcje',
+		}
+		const result = parseBankJsonForImport({ data: [row, row] }, [])
+		assert.equal(result.entries.length, 1)
+		assert.equal(result.skippedRowDiagnostics.length, 1)
+		assert.equal(result.skippedRowDiagnostics[0].index, 2)
 	})
 })
 
