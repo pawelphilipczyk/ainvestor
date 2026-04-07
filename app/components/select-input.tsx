@@ -45,6 +45,7 @@ export function SelectInput(_handle: Handle, _setup?: unknown) {
 			: selectControlDefaultClasses
 		const selectClasses =
 			`${shellClasses} ${selectWithChevronClasses} ${classProp ?? ''}`.trim()
+		const isControlledSelect = value !== undefined
 		return (
 			<div class="relative w-full">
 				<select
@@ -59,7 +60,14 @@ export function SelectInput(_handle: Handle, _setup?: unknown) {
 					class={`peer ${selectClasses}`.trim()}
 				>
 					{options.map((opt) => (
-						<option value={opt.value} selected={opt.selected}>
+						<option
+							value={opt.value}
+							{...(isControlledSelect
+								? {}
+								: opt.selected
+									? { selected: true }
+									: {})}
+						>
 							{opt.label}
 						</option>
 					))}

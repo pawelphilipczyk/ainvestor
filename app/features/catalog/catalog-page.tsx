@@ -109,12 +109,12 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 									id="type"
 									name="type"
 									compact={true}
+									value={props.typeFilter}
 									options={[
 										{ value: '', label: t('catalog.filter.allTypes') },
 										...ETF_TYPES.map((etfType) => ({
 											value: etfType,
 											label: formatEtfTypeLabel(etfType),
-											selected: props.typeFilter === etfType,
 										})),
 									]}
 								/>
