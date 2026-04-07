@@ -1,3 +1,3 @@
 import type { EntryComponent } from '@remix-run/component'
 
-export declare const PortfolioSellShortcut: EntryComponent
+export declare const PortfolioTradeFocus: EntryComponent

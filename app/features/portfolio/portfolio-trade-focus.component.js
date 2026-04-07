@@ -1,21 +1,23 @@
 import { addEventListeners, clientEntry, createElement } from 'remix/component'
 
 /**
- * Holding row "Sell" buttons: scroll to the trade form and prefill operation + fund.
- * Uses `data-instrument-ticker` (catalog form value) on the trigger.
+ * Holding row actions: scroll to the trade form and set operation + fund.
+ * Triggers use `data-portfolio-trade-focus` and `data-portfolio-operation` (buy|sell)
+ * plus `data-instrument-ticker` (catalog form value).
  */
-export const PortfolioSellShortcut = clientEntry(
-	'/features/portfolio/portfolio-sell-shortcut.component.js#PortfolioSellShortcut',
-	function PortfolioSellShortcut(handle) {
+export const PortfolioTradeFocus = clientEntry(
+	'/features/portfolio/portfolio-trade-focus.component.js#PortfolioTradeFocus',
+	function PortfolioTradeFocus(handle) {
 		if (typeof document !== 'undefined') {
 			addEventListeners(document, handle.signal, {
 				click(event) {
 					const target = event.target
 					if (!(target instanceof Element)) return
-					const trigger = target.closest('[data-portfolio-sell-shortcut]')
+					const trigger = target.closest('[data-portfolio-trade-focus]')
 					if (!(trigger instanceof HTMLElement)) return
 					const ticker = trigger.dataset.instrumentTicker?.trim()
-					if (!ticker) return
+					const operation = trigger.dataset.portfolioOperation?.trim()
+					if (!ticker || (operation !== 'buy' && operation !== 'sell')) return
 
 					const formCard = document.getElementById('portfolio-operation-form')
 					if (formCard) {
@@ -27,7 +29,7 @@ export const PortfolioSellShortcut = clientEntry(
 
 					const op = form.querySelector('#portfolioOperation')
 					if (op instanceof HTMLSelectElement) {
-						op.value = 'sell'
+						op.value = operation
 					}
 
 					const inst = form.querySelector('#instrumentTicker')
@@ -51,7 +53,7 @@ export const PortfolioSellShortcut = clientEntry(
 			createElement('span', {
 				hidden: true,
 				'aria-hidden': 'true',
-				'data-component': 'portfolio-sell-shortcut',
+				'data-component': 'portfolio-trade-focus',
 			})
 	},
 )

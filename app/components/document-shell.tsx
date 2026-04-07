@@ -1,5 +1,5 @@
 import type { Handle, RemixNode } from 'remix/component'
-import { PortfolioSellShortcut } from '../features/portfolio/portfolio-sell-shortcut.component.js'
+import { PortfolioTradeFocus } from '../features/portfolio/portfolio-trade-focus.component.js'
 import type { AppPage } from '../lib/app-page.ts'
 import { baseCss } from '../lib/document-styles.ts'
 import { t } from '../lib/i18n.ts'
@@ -145,7 +145,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				</SessionProvider>
 				<FetchSubmitEnhancement />
 				<FrameSubmitEnhancement />
-				{props.currentPage === 'portfolio' ? <PortfolioSellShortcut /> : null}
+				{props.currentPage === 'portfolio' ? <PortfolioTradeFocus /> : null}
 				<NavigationLinkLoadingEnhancement />
 				<TabsNavScrollRestoration />
 				<script type="module" src="/entry.js" />

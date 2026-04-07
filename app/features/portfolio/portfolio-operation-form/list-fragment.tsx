@@ -37,7 +37,7 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 	}) => {
 		const entries = props.entries ?? []
 		const catalog = props.catalog ?? []
-		const canUseSellShortcut = catalog.length > 0
+		const showRowTradeActions = catalog.length > 0
 		const holdingsTotal = totalHoldingsValueForShareBars(entries)
 		const canShowShareBars = holdingsTotal !== null && holdingsTotal > 0
 		const inlineError = props.inlineError?.trim() ?? ''
@@ -74,7 +74,7 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 									valueDisplay={formatValue(entry.value, entry.currency)}
 									identifier={identifier}
 									instrumentTickerForForm={instrumentTickerForForm}
-									showSellShortcut={canUseSellShortcut}
+									showRowTradeActions={showRowTradeActions}
 									valueSharePercent={
 										canShowShareBars
 											? valueShareOfHoldingsTotalPercent({

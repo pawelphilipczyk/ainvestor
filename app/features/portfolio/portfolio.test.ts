@@ -663,7 +663,9 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		assert.equal(fragmentResponse.status, 200)
 		assert.match(body, /VTI/)
 		assert.match(body, /PLN/)
-		assert.match(body, /data-portfolio-sell-shortcut/)
+		assert.match(body, /data-portfolio-trade-focus/)
+		assert.match(body, /data-portfolio-operation="buy"/)
+		assert.match(body, /data-portfolio-operation="sell"/)
 		assert.match(body, /data-instrument-ticker="VTI"/)
 	})
 
