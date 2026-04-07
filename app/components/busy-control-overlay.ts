@@ -1,6 +1,6 @@
 /**
  * Shared loading UI: label hidden and centered spinner when `data-loading` is set
- * (see `submit-button-loading.component.js`, used by fetch-submit and feature forms).
+ * (see `submit-button-loading.component.js`, used by frame-submit and feature forms).
  *
  * `busy-control-root` / `busy-control-label` / `busy-control-overlay` pair with rules in
  * `document-styles.ts` so the CDN Tailwind build always shows the overlay (JIT often skips

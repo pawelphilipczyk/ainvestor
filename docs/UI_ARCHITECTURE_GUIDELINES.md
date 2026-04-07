@@ -125,19 +125,19 @@ When formatting, deduplication, validation, or labeling rules start affecting mo
 
 This keeps pages focused on composition and prevents subtle drift between similar screens.
 
-### 7. Primary JSON POSTs (client): `SubmitButton` + small `clientEntry`
+### 7. Partial HTML (client): Remix `<Frame>` + `FrameSubmitEnhancement`; JSON POSTs: `SubmitButton` + small `clientEntry`
 
-**`data-fetch-submit`** is for **HTML** responses (replace main, redirect, fragments). Do **not** extend it for one-off JSON APIs — that keeps the shared handler easy to follow.
+**Server-authored partials** (lists, analysis panels, validation errors as HTML) should use **`<Frame>`** and attributes handled by **`FrameSubmitEnhancement`** in `document-shell.tsx` (`app/components/frame-submit.component.js`): **`data-frame-submit`**, optional **`data-frame-reload-src`**, **`data-frame-replace-from-response`**, **`data-frame-get-fragment-action`** (GET forms that must sync the URL bar with a named frame’s fragment `src`). See **`docs/FRAME_COMPONENT_MIGRATION_PLAN.md`** for the full attribute matrix and migration notes.
 
-When a **POST** returns **JSON** and you want the **same busy spinner** as submit buttons:
+When a **POST** returns **JSON** (not a Frame partial) and you want the **same busy spinner** as submit buttons:
 
-- Use a **normal `<form method="post">`** with **`SubmitButton`** (not `data-fetch-submit`).
-- Add a **feature-scoped `clientEntry`** that listens for `submit`, calls `preventDefault`, builds the JSON body from **`new FormData(form)`** (matches checkbox/radio inclusion like a real submit), runs `fetch`, and toggles busy state via **`setSubmitButtonLoading`** from `app/components/submit-button-loading.component.js` (shared with `fetch-submit.component.js`).
+- Use a **normal `<form method="post">`** with **`SubmitButton`**.
+- Add a **feature-scoped `clientEntry`** that listens for `submit`, calls `preventDefault`, builds the JSON body from **`new FormData(form)`** (matches checkbox/radio inclusion like a real submit), runs `fetch`, and toggles busy state via **`setSubmitButtonLoading`** from `app/components/submit-button-loading.component.js`.
 - Mount the `clientEntry` **next to the form** on the page that needs it (same pattern as `GuidelinesDeleteDialogInteractions` on the guidelines page). Only use the document shell for behavior that must exist on **every** route.
 
-**Reference implementation:** ETF catalog detail — `<Frame name="catalog-etf-analysis">` on `catalog-etf-page.tsx` with `data-frame-submit` + `data-frame-replace-from-response` handled by `FrameSubmitEnhancement` (`frame-submit.component.js`).
+**Reference implementation:** ETF catalog detail — `<Frame name="catalog-etf-analysis">` on `catalog-etf-page.tsx` with `data-frame-submit` + `data-frame-replace-from-response`.
 
-**Note:** If a feature lives inside HTML that is **replaced client-side** (e.g. `data-replace-main` without a full navigation), a document-level listener can still see those submits—but full page loads only hydrate `clientEntry` components that appear in the current response. Prefer full navigation for pages that need their own `clientEntry` trees.
+**Note:** Full page loads only hydrate `clientEntry` components that appear in the current response. Prefer **full navigation** or **Frame** boundaries so the server always supplies the markup and scripts a screen needs.
 
 ---
 
@@ -461,7 +461,7 @@ The Remix v3 component package documentation ([`packages/component` README](http
 
 That model does **not** center on fetching raw HTML strings, parsing them with **`DOMParser`**, and assigning **`innerHTML`** on a large container. That approach is ordinary DOM scripting and remains useful for progressive enhancement, but it is **not** the pattern Remix highlights in its examples.
 
-**Current state in this repository:** `data-fetch-submit` with **`data-replace-main`** (`app/components/fetch-submit.component.js`) still swaps **`#page-content`** by injecting parsed HTML. Related features may use **`querySelector`** and **`innerHTML`** for small restore targets or cached snapshots. **We plan to move toward Frame-based reloads and server-authored content in a follow-up pull request**; until then, new work may continue to match existing fetch-submit and island patterns for consistency.
+**Current state in this repository:** Partial HTML updates go through **`<Frame>`** and **`FrameSubmitEnhancement`**; the legacy **`FetchSubmitEnhancement`** / **`data-fetch-submit`** path has been removed. Small islands may still use **`querySelector`** and intentional DOM updates for focus, dialogs, or cached snapshots — not for wholesale replacement of large server-rendered regions.
 
 Refer to `REMIX_V3_PACKAGES.md` for the full package reference.
 

@@ -360,9 +360,9 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		assert.doesNotMatch(listBody, /data-island="features\/portfolio\/etf-card"/)
 	})
 
-	it('serves fetch-submit component entry for form enhancement', async () => {
+	it('serves frame-submit component entry for form enhancement', async () => {
 		const componentScriptResponse = await testSessionFetch(
-			'http://localhost/components/fetch-submit.component.js',
+			'http://localhost/components/frame-submit.component.js',
 		)
 		assert.equal(componentScriptResponse.status, 200)
 		assert.match(

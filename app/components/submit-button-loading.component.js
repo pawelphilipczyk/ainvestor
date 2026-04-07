@@ -1,4 +1,4 @@
-/** Shared busy state for submit controls (fetch-submit, navigation GET, feature forms). */
+/** Shared busy state for submit controls (frame-submit, navigation loading, feature forms). */
 
 const SPINNER_ICON_ID = 'form-spinner-icon'
 const CLIENT_MESSAGES_ID = 'ui-client-messages'

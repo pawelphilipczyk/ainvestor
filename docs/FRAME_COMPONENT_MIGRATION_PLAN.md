@@ -29,7 +29,7 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 
 ### Phase 3 — Full main-region swap (`data-replace-main`)
 
-- [x] **Advice analysis forms** — Replace `data-fetch-submit` + `data-replace-main` on `AdvicePage` with a **`<Frame>`** for the analysis result area. `GET /advice/fragments/advice-result?tab=` returns the result card HTML; forms use `data-frame-submit="advice-result"` plus `data-frame-reload-src` so `FrameSubmitEnhancement` refreshes the named frame via Remix `navigate()` (correct fragment `src` for the Navigation API). Gist snapshots use **separate files** per mode (`advice-buy-next.json` / `advice-portfolio-review.json`), with legacy `advice-analysis.json` still read when present. `render()` passes `resolveFrame` for SSR. No remaining `data-replace-main` in app features (handler branch in `fetch-submit.component.js` kept until Phase 7 cleanup). **Global shell CSS** (`document-shell.tsx`, `document-styles.ts`) intentionally matches **`main`** — do not add extra `body`/`#page-content` overflow rules when debugging advice Frame layout.
+- [x] **Advice analysis forms** — Replace `data-fetch-submit` + `data-replace-main` on `AdvicePage` with a **`<Frame>`** for the analysis result area. `GET /advice/fragments/advice-result?tab=` returns the result card HTML; forms use `data-frame-submit="advice-result"` plus `data-frame-reload-src` so `FrameSubmitEnhancement` refreshes the named frame via Remix `navigate()` (correct fragment `src` for the Navigation API). Gist snapshots use **separate files** per mode (`advice-buy-next.json` / `advice-portfolio-review.json`), with legacy `advice-analysis.json` still read when present. `render()` passes `resolveFrame` for SSR. No remaining `data-replace-main` in app features. **Global shell CSS** (`document-shell.tsx`, `document-styles.ts`) intentionally matches **`main`** — do not add extra `body`/`#page-content` overflow rules when debugging advice Frame layout.
 
 ### Phase 4 — Catalog ETF deep-dive (today: JSON + text node)
 
@@ -46,12 +46,12 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 
 ### Phase 6 — GET forms with `data-navigation-loading`
 
-- [x] **Catalog filter (and any similar GET forms)** — Catalog filter uses **`data-frame-submit="catalog-list"`** + **`data-frame-get-fragment-action`** on **`FrameSubmitEnhancement`**: GET submit builds the document URL and matching fragment URL, then **`navigate(documentUrl, { target, src, history: 'replace' })`** so the list frame stays aligned with the URL bar. Import POST uses a plain form (no loading intercept). **GET interception removed** from `fetch-submit.component.js`. Clear-filters link uses **`data-navigation-loading`** (link enhancement) for spinner UX.
+- [x] **Catalog filter (and any similar GET forms)** — Catalog filter uses **`data-frame-submit="catalog-list"`** + **`data-frame-get-fragment-action`** on **`FrameSubmitEnhancement`**: GET submit builds the document URL and matching fragment URL, then **`navigate(documentUrl, { target, src, history: 'replace' })`** so the list frame stays aligned with the URL bar. Import POST uses a plain form (no loading intercept). **`FetchSubmitEnhancement` removed** (no remaining `data-fetch-submit` / GET form interception). Clear-filters link uses **`data-navigation-loading`** (link enhancement) for spinner UX.
 
-### Phase 7 — Shared `FetchSubmitEnhancement` removal
+### Phase 7 — Legacy `FetchSubmitEnhancement` (`fetch-submit`) removal
 
-- [ ] **Delete or gut `fetch-submit.component.js`** — Once no `data-fetch-submit`, `data-fragment-*`, `data-replace-main`, or `data-navigation-loading` remain, remove `FetchSubmitEnhancement` from `document-shell.tsx` and delete the module (or leave a stub only if something still needs it).
-- [ ] **Docs** — Update `docs/UI_ARCHITECTURE_GUIDELINES.md` (fetch-submit section) to describe Frame as the default for partial HTML and link to this plan.
+- [x] **Delete `fetch-submit.component.js`** — Removed `FetchSubmitEnhancement` from `document-shell.tsx` and deleted the module; no templates used `data-fetch-submit`, `data-fragment-*`, or `data-replace-main`.
+- [x] **Docs** — Updated `docs/UI_ARCHITECTURE_GUIDELINES.md` to describe **`<Frame>`** + **`FrameSubmitEnhancement`** as the default for partial HTML and linked `docs/FRAME_COMPONENT_MIGRATION_PLAN.md`.
 
 ### Phase 8 — Frame-aware navigation (`link` + `navigate`)
 
@@ -64,7 +64,7 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 | Component | Purpose |
 |-----------|---------|
 | `render()` `resolveFrame` option | Forwards a `resolveFrame` callback to `renderToStream` so `<Frame>` components resolve during SSR |
-| `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`, POSTs via fetch, reloads the named Frame on success (or applies **`data-frame-replace-from-response`** HTML via `frameHandle.replace()` for **both** 200 and **422** when the response is HTML). Supports `data-frame-reload-src`, optional **`data-frame-hide-form-on-success`** with replace-from-response, `data-error-id` for **non-HTML** 422 JSON fallbacks, and `data-reset-form`. |
+| `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`. **POST:** fetch + reload or **`data-frame-replace-from-response`** (`frameHandle.replace()` for 200 and **422** when the response is HTML). Supports `data-frame-reload-src`, optional **`data-frame-hide-form-on-success`** with replace-from-response, `data-error-id` for **non-HTML** 422 JSON fallbacks, and `data-reset-form`. **GET:** when **`data-frame-get-fragment-action`** is set, **`navigate(documentUrl, { target, src, history: 'replace' })`** so the frame `src` matches the document query string. |
 | `requestAcceptsFrameSubmitHtml` / `requestAcceptsApplicationJson` (`app/lib/frame-submit-request.ts`) | Single source of truth for **`Accept`** branching in POST handlers (must stay aligned with the headers this clientEntry sends). |
 
 ---

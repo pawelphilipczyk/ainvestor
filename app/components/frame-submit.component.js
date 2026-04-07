@@ -122,7 +122,7 @@ async function handleReplaceFromResponseNonHtmlError(
  * base URL of the **HTML fragment** that mirrors the document query (e.g. list
  * frame). When set, submit is intercepted: **`navigate(documentUrl, { target,
  * src: fragmentUrl, history: 'replace' })`** so the URL bar and named Frame
- * stay in sync without `fetch-submit` GET handling.
+ * stay in sync without a separate GET submit handler.
  */
 export const FrameSubmitEnhancement = clientEntry(
 	'/components/frame-submit.component.js#FrameSubmitEnhancement',

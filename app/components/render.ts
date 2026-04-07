@@ -15,7 +15,7 @@ export type RenderOptions = {
 	body: RemixNode
 	flashBanner?: FlashedBanner
 	init?: ResponseInit
-	/** Merged into the response headers (e.g. client hints for fetch-submit). */
+	/** Merged into the response headers (e.g. client hints). */
 	responseHeaders?: HeadersInit
 	resolveFrame?: RenderToStreamOptions['resolveFrame']
 }
