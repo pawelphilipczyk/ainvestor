@@ -648,6 +648,66 @@ describe('Guidelines page', () => {
 		assert.match(html, /Total allocated:\s*<strong[^>]*>55%<\/strong>/)
 	})
 
+	it('POST /guidelines/instrument returns 422 HTML fragment when ticker not in catalog and Accept is text/html', async () => {
+		await seedGuestCatalog()
+		const form = new FormData()
+		form.set('instrumentTicker', 'ZZZZ')
+		form.set('targetPct', '10')
+		const response = await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		assert.equal(response.status, 422)
+		const ct = response.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		const html = await response.text()
+		assert.match(html, /Your Guidelines/)
+		assert.match(html, /no longer in your catalog/)
+	})
+
+	it('POST /guidelines/instrument returns 422 HTML fragment when schema fails and Accept is text/html', async () => {
+		await seedGuestCatalog()
+		const form = new FormData()
+		form.set('instrumentTicker', 'VTI')
+		form.set('targetPct', '0')
+		const response = await testSessionFetch(
+			new Request('http://localhost/guidelines/instrument', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		assert.equal(response.status, 422)
+		const ct = response.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		const html = await response.text()
+		assert.match(html, /Your Guidelines/)
+		assert.match(html, /Check the fund or bucket/)
+	})
+
+	it('POST /guidelines/asset-class returns 422 HTML when asset class not in catalog options and Accept is text/html', async () => {
+		await seedGuestCatalog()
+		const form = new FormData()
+		form.set('assetClassType', 'commodity')
+		form.set('targetPct', '10')
+		const response = await testSessionFetch(
+			new Request('http://localhost/guidelines/asset-class', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		assert.equal(response.status, 422)
+		const ct = response.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		const html = await response.text()
+		assert.match(html, /Your Guidelines/)
+		assert.match(html, /no longer available/)
+	})
+
 	it('POST /guidelines/instrument returns HTML list fragment on success when Accept is text/html', async () => {
 		await seedGuestCatalog()
 		const form = new FormData()

@@ -439,13 +439,30 @@ export const guidelinesController = {
 
 		async instrument(context: AppRequestContext) {
 			const form = context.get(FormData)
-			if (!form)
+			if (!form) {
+				if (requestAcceptsFrameSubmitHtml(context.request)) {
+					const guidelines = await loadGuidelinesForSession(context)
+					return guidelinesListFragmentHtmlResponse({
+						guidelines,
+						inlineError: t('errors.guidelines.addFormInvalid'),
+						status: 422,
+					})
+				}
 				return createRedirectResponse(guidelinesIndexHref('instrument'))
+			}
 
 			const formPayload = objectFromFormData(form)
 			normalizeGuidelineTargetPctInput(formPayload)
 			const result = parseSafe(InstrumentGuidelineSchema, formPayload)
 			if (!result.success) {
+				if (requestAcceptsFrameSubmitHtml(context.request)) {
+					const guidelines = await loadGuidelinesForSession(context)
+					return guidelinesListFragmentHtmlResponse({
+						guidelines,
+						inlineError: t('errors.guidelines.addFormInvalid'),
+						status: 422,
+					})
+				}
 				return createRedirectResponse(guidelinesIndexHref('instrument'))
 			}
 
@@ -454,10 +471,26 @@ export const guidelinesController = {
 
 			const ticker = (result.value.instrumentTicker ?? '').trim()
 			if (!ticker) {
+				if (requestAcceptsFrameSubmitHtml(context.request)) {
+					const guidelines = await loadGuidelinesForSession(context)
+					return guidelinesListFragmentHtmlResponse({
+						guidelines,
+						inlineError: t('errors.guidelines.addFormInvalid'),
+						status: 422,
+					})
+				}
 				return createRedirectResponse(guidelinesIndexHref('instrument'))
 			}
 			const match = findCatalogEntryByTicker(catalog, ticker)
 			if (!match) {
+				if (requestAcceptsFrameSubmitHtml(context.request)) {
+					const guidelines = await loadGuidelinesForSession(context)
+					return guidelinesListFragmentHtmlResponse({
+						guidelines,
+						inlineError: t('errors.guidelines.catalogEntryStale'),
+						status: 422,
+					})
+				}
 				return createRedirectResponse(guidelinesIndexHref('instrument'))
 			}
 
@@ -488,12 +521,30 @@ export const guidelinesController = {
 
 		async assetClass(context: AppRequestContext) {
 			const form = context.get(FormData)
-			if (!form) return createRedirectResponse(guidelinesIndexHref('bucket'))
+			if (!form) {
+				if (requestAcceptsFrameSubmitHtml(context.request)) {
+					const guidelines = await loadGuidelinesForSession(context)
+					return guidelinesListFragmentHtmlResponse({
+						guidelines,
+						inlineError: t('errors.guidelines.addFormInvalid'),
+						status: 422,
+					})
+				}
+				return createRedirectResponse(guidelinesIndexHref('bucket'))
+			}
 
 			const formPayload = objectFromFormData(form)
 			normalizeGuidelineTargetPctInput(formPayload)
 			const result = parseSafe(AssetClassGuidelineSchema, formPayload)
 			if (!result.success) {
+				if (requestAcceptsFrameSubmitHtml(context.request)) {
+					const guidelines = await loadGuidelinesForSession(context)
+					return guidelinesListFragmentHtmlResponse({
+						guidelines,
+						inlineError: t('errors.guidelines.addFormInvalid'),
+						status: 422,
+					})
+				}
 				return createRedirectResponse(guidelinesIndexHref('bucket'))
 			}
 
@@ -505,6 +556,14 @@ export const guidelinesController = {
 
 			const raw = (result.value.assetClassType ?? '').trim()
 			if (!raw || !isEtfType(raw) || !allowedAssetClasses.has(raw)) {
+				if (requestAcceptsFrameSubmitHtml(context.request)) {
+					const guidelines = await loadGuidelinesForSession(context)
+					return guidelinesListFragmentHtmlResponse({
+						guidelines,
+						inlineError: t('errors.guidelines.assetClassStale'),
+						status: 422,
+					})
+				}
 				return createRedirectResponse(guidelinesIndexHref('bucket'))
 			}
 

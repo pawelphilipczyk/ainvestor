@@ -80,6 +80,7 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 | `NavigationLinkLoadingEnhancement` | Not a Frame concern; keep a small enhancement or move loading state to **link `mix={on(...)}`** where practical. |
 | `TabsNavScrollRestoration` | Remains a focused `clientEntry`; no Frame migration. |
 | Theme toggle | Unchanged; local enhancement only. |
+| `data-frame-replace-from-response` + **302** to a full page | `fetch(..., redirect: 'follow')` ends with **200 `text/html`** document HTML; **`frameHandle.replace()`** would swap the frame with the whole page. Handlers that use replace-from-response must return **422/200 list fragments** for `requestAcceptsFrameSubmitHtml` on every exit path (including “stale catalog” / schema failures), not redirects. |
 
 ---
 

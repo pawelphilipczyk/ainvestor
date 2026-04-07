@@ -333,6 +333,12 @@ export const en = {
 		'You already have a guideline for {ticker}. To change it, edit or remove that line — you cannot add a second guideline for the same fund.',
 	'errors.guidelines.duplicateAssetClass':
 		'You already have a guideline for the {label} asset class. To change it, edit or remove that line — you cannot add a second bucket guideline for the same class.',
+	'errors.guidelines.addFormInvalid':
+		'Check the fund or bucket, target percentage, and try again.',
+	'errors.guidelines.catalogEntryStale':
+		'That fund is no longer in your catalog. Refresh the page and choose a fund from the list.',
+	'errors.guidelines.assetClassStale':
+		'That asset class is no longer available. Refresh the page and choose from the list.',
 
 	'errors.advice.formRead': 'Could not read your form. Please try again.',
 	'errors.advice.formReadDetail':
