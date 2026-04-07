@@ -9,6 +9,11 @@ import { format, t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
+import {
+	type FlashedBanner,
+	flashBanner,
+	readFlashedBanner,
+} from '../../lib/session-flash.ts'
 import { routes } from '../../routes.ts'
 import { getOrCreateAdviceClient } from '../advice/advice-client.ts'
 import {
@@ -31,14 +36,127 @@ import {
 import { CatalogPage } from './catalog-page.tsx'
 import type { CatalogEntry } from './lib.ts'
 import {
+	type BankJsonImportRowIssue,
+	type BankJsonParseForImportResult,
 	fetchSharedCatalogSnapshot,
 	isSharedCatalogAdmin,
 	mergeBankIntoCatalog,
-	parseBankJsonToCatalog,
+	parseBankJsonForImport,
 	saveCatalog,
 } from './lib.ts'
 
 export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-session-fetch.ts'
+
+/** Cookie session storage (~4KB total); keep flash small so login + flash still fit. */
+const MAX_IMPORT_FLASH_UTF16_UNITS = 2_400
+const NOTE_ROW_DETAIL_LIMIT = 10
+
+function truncateImportFlashForCookieSession(message: string): string {
+	if (message.length <= MAX_IMPORT_FLASH_UTF16_UNITS) return message
+	const suffix = t('errors.catalog.import.diagnostic.flashTruncated')
+	const newlineAndSuffix = `\n${suffix}`
+	const budget = MAX_IMPORT_FLASH_UTF16_UNITS - newlineAndSuffix.length
+	if (budget <= 0) return suffix
+	return `${message.slice(0, budget)}${newlineAndSuffix}`
+}
+
+function formatBankImportRowIssue(issue: BankJsonImportRowIssue): string {
+	switch (issue.kind) {
+		case 'rowNotObject':
+			return t('errors.catalog.import.issue.rowNotObject')
+		case 'missingTicker':
+			return t('errors.catalog.import.issue.missingTicker')
+		case 'missingFundName':
+			return t('errors.catalog.import.issue.missingFundName')
+		case 'isinInvalid':
+			return t('errors.catalog.import.issue.isinInvalid')
+		case 'duplicateIdInPaste':
+			return format(t('errors.catalog.import.issue.duplicateIdInPaste'), {
+				id: issue.id,
+				otherIndex: issue.otherIndex,
+			})
+		case 'duplicateMergeKeyInPaste':
+			return format(t('errors.catalog.import.issue.duplicateMergeKeyInPaste'), {
+				otherIndex: issue.otherIndex,
+			})
+		case 'alreadyInCatalog':
+			return t('errors.catalog.import.issue.alreadyInCatalog')
+		case 'idAlreadyInCatalog':
+			return format(t('errors.catalog.import.issue.idAlreadyInCatalog'), {
+				id: issue.id,
+			})
+		default: {
+			const exhaustive: never = issue
+			return String(exhaustive)
+		}
+	}
+}
+
+function formatCatalogImportOutcomeFlash(params: {
+	appliedCount: number
+	parseResult: BankJsonParseForImportResult
+}): string | null {
+	const { appliedCount, parseResult } = params
+	const { skippedRowDiagnostics, noteRowDiagnostics } = parseResult
+
+	const lines: string[] = []
+	if (appliedCount > 0) {
+		lines.push(
+			format(t('errors.catalog.import.diagnostic.savedLead'), {
+				appliedCount,
+			}),
+		)
+	} else {
+		if (skippedRowDiagnostics.length === 0 && noteRowDiagnostics.length === 0) {
+			return null
+		}
+		lines.push(t('errors.catalog.import.diagnostic.nothingSavedLead'))
+	}
+
+	if (skippedRowDiagnostics.length > 0) {
+		lines.push('')
+		lines.push(t('errors.catalog.import.diagnostic.skippedHeading'))
+		for (const row of skippedRowDiagnostics) {
+			lines.push(`Row ${row.index} (${row.label}):`)
+			for (const issue of row.issues) {
+				lines.push(`  • ${formatBankImportRowIssue(issue)}`)
+			}
+		}
+	}
+
+	if (noteRowDiagnostics.length > 0) {
+		lines.push('')
+		lines.push(t('errors.catalog.import.diagnostic.notesHeading'))
+		if (noteRowDiagnostics.length <= NOTE_ROW_DETAIL_LIMIT) {
+			for (const row of noteRowDiagnostics) {
+				lines.push(`Row ${row.index} (${row.label}):`)
+				for (const issue of row.issues) {
+					lines.push(`  • ${formatBankImportRowIssue(issue)}`)
+				}
+			}
+		} else {
+			lines.push(
+				`  • ${format(t('errors.catalog.import.diagnostic.notesSummaryMany'), {
+					count: noteRowDiagnostics.length,
+				})}`,
+			)
+		}
+	}
+
+	return truncateImportFlashForCookieSession(lines.join('\n'))
+}
+
+function catalogImportOutcomeTone(
+	parseResult: BankJsonParseForImportResult,
+): 'error' | 'info' | 'success' {
+	if (
+		parseResult.skippedRowDiagnostics.length > 0 ||
+		parseResult.noteRowDiagnostics.length > 0
+	) {
+		return 'info'
+	}
+	return 'success'
+}
 
 function parseAdviceModelFromJsonBody(body: unknown): AdviceModelId {
 	if (body === null || typeof body !== 'object') return DEFAULT_ADVICE_MODEL
@@ -117,17 +235,6 @@ function samePathAndSearch(a: string, b: string): boolean {
 	}
 }
 
-/** Parses `bankApiJson` form field; empty or invalid JSON yields a redirect response. */
-async function parseBankJsonField(raw: string): Promise<unknown | Response> {
-	const trimmed = raw.trim()
-	if (trimmed.length === 0) return catalogIndexRedirect()
-	try {
-		return JSON.parse(trimmed)
-	} catch {
-		return catalogIndexRedirect()
-	}
-}
-
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
@@ -154,7 +261,7 @@ export const catalogController = {
 				sharedCatalogOwnerLogin: catalogSnapshot.ownerLogin,
 				typeFilter,
 				query,
-				flashError: context.get(Session).get('error') as string | undefined,
+				flashBanner: readFlashedBanner(context.get(Session)),
 			})
 		},
 
@@ -323,39 +430,118 @@ export const catalogController = {
 		},
 
 		async import(context: AppRequestContext) {
-			const session = getSessionData(context.get(Session))
-			if (!session?.token || !session?.login) {
-				context
-					.get(Session)
-					.flash('error', t('errors.catalog.importNotAllowed'))
+			const session = context.get(Session)
+			const sessionData = getSessionData(session)
+			if (!sessionData?.token || !sessionData?.login) {
+				flashBanner(session, {
+					text: t('errors.catalog.importNotAllowed'),
+					tone: 'error',
+				})
 				return catalogIndexRedirect()
 			}
 			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot()
 			const canImport = isSharedCatalogAdmin({
-				sessionLogin: session.login,
+				sessionLogin: sessionData.login,
 				ownerLogin,
 			})
 			if (!canImport) {
-				context
-					.get(Session)
-					.flash('error', t('errors.catalog.importNotAllowed'))
+				flashBanner(session, {
+					text: t('errors.catalog.importNotAllowed'),
+					tone: 'error',
+				})
 				return catalogIndexRedirect()
 			}
 
 			const rawFromForm = context.get(FormData)?.get('bankApiJson')
 			if (typeof rawFromForm !== 'string') {
+				flashBanner(session, {
+					text: t('errors.catalog.import.fieldMissing'),
+					tone: 'error',
+				})
 				return catalogIndexRedirect()
 			}
-			const parsed = await parseBankJsonField(rawFromForm)
-			if (parsed instanceof Response) return parsed
-			const json = parsed
+			const trimmedJson = rawFromForm.trim()
+			if (trimmedJson.length === 0) {
+				flashBanner(session, {
+					text: t('errors.catalog.import.emptyJson'),
+					tone: 'error',
+				})
+				return catalogIndexRedirect()
+			}
+			let parsedJson: unknown
+			try {
+				parsedJson = JSON.parse(trimmedJson)
+			} catch {
+				flashBanner(session, {
+					text: t('errors.catalog.import.invalidJson'),
+					tone: 'error',
+				})
+				return catalogIndexRedirect()
+			}
 
-			const imported = parseBankJsonToCatalog(json)
-			if (imported.length === 0)
-				return createRedirectResponse(routes.catalog.index.href())
+			const parseResult = parseBankJsonForImport(parsedJson, entries)
+			if (parseResult.structuralIssue === 'notObject') {
+				flashBanner(session, {
+					text: t('errors.catalog.import.issue.expectedObject'),
+					tone: 'error',
+				})
+				return catalogIndexRedirect()
+			}
+			if (parseResult.structuralIssue === 'dataNotArray') {
+				flashBanner(session, {
+					text: t('errors.catalog.import.issue.dataNotArray'),
+					tone: 'error',
+				})
+				return catalogIndexRedirect()
+			}
+			if (
+				parseResult.expectedDataRows === 0 &&
+				parseResult.skippedRowDiagnostics.length === 0
+			) {
+				flashBanner(session, {
+					text: t('errors.catalog.import.dataArrayEmpty'),
+					tone: 'error',
+				})
+				return catalogIndexRedirect()
+			}
+
+			const imported = parseResult.entries
+			if (imported.length === 0) {
+				const detailedFlash = formatCatalogImportOutcomeFlash({
+					appliedCount: 0,
+					parseResult,
+				})
+				flashBanner(session, {
+					text: detailedFlash ?? t('errors.catalog.import.noRowsParsed'),
+					tone: 'error',
+				})
+				return catalogIndexRedirect()
+			}
 
 			const merged = mergeBankIntoCatalog(entries, imported)
-			await saveCatalog({ token: session.token, entries: merged })
+			try {
+				await saveCatalog({ token: sessionData.token, entries: merged })
+			} catch (error) {
+				console.error('[catalog] import save failed', error)
+				flashBanner(session, {
+					text: t('errors.catalog.import.saveFailed'),
+					tone: 'error',
+				})
+				return catalogIndexRedirect()
+			}
+
+			const outcomeFlash = formatCatalogImportOutcomeFlash({
+				appliedCount: imported.length,
+				parseResult,
+			})
+			flashBanner(session, {
+				text:
+					outcomeFlash ??
+					format(t('errors.catalog.import.diagnostic.savedLead'), {
+						appliedCount: imported.length,
+					}),
+				tone: catalogImportOutcomeTone(parseResult),
+			})
 
 			return createRedirectResponse(routes.catalog.index.href())
 		},
@@ -411,7 +597,7 @@ async function renderCatalogPage(params: {
 	sharedCatalogOwnerLogin: string | null
 	typeFilter: string
 	query: string
-	flashError?: string
+	flashBanner?: FlashedBanner
 }) {
 	const {
 		catalog,
@@ -422,7 +608,7 @@ async function renderCatalogPage(params: {
 		sharedCatalogOwnerLogin,
 		typeFilter,
 		query,
-		flashError,
+		flashBanner,
 	} = params
 	const frameSrc = catalogListFrameSrc({ typeFilter, query })
 	const body = jsx(CatalogPage, {
@@ -438,7 +624,7 @@ async function renderCatalogPage(params: {
 		session,
 		currentPage: 'catalog',
 		body,
-		flashError,
+		flashBanner,
 		resolveFrame(source) {
 			if (source === frameSrc) {
 				return renderToStream(
