@@ -43,14 +43,6 @@ const TICKER_ALIASES = ['papier', 'ticker', 'symbol', 'code', 'paper']
 const VALUE_ALIASES = ['wartość', 'wartosc', 'value', 'warto']
 const CURRENCY_ALIASES = ['waluta', 'currency']
 const EXCHANGE_ALIASES = ['giełda', 'gielda', 'exchange', 'gie']
-const QUANTITY_ALIASES = [
-	'liczba dostępna',
-	'liczba dostepna',
-	'quantity',
-	'shares',
-	'liczba',
-]
-
 function normaliseHeader(h: string): string {
 	return h
 		.toLowerCase()
@@ -108,7 +100,6 @@ export function parsePortfolioCsv(csvText: string): EtfEntry[] {
 	const tickerCol = colIndex(headers, TICKER_ALIASES)
 	const valueCol = colIndex(headers, VALUE_ALIASES)
 	const exchangeCol = colIndex(headers, EXCHANGE_ALIASES)
-	const quantityCol = colIndex(headers, QUANTITY_ALIASES)
 
 	if (tickerCol === -1 || valueCol === -1) return []
 
@@ -140,19 +131,12 @@ export function parsePortfolioCsv(csvText: string): EtfEntry[] {
 			exchangeCol >= 0
 				? (cols[exchangeCol] ?? '').trim() || undefined
 				: undefined
-		const quantityRaw =
-			quantityCol >= 0 ? (cols[quantityCol] ?? '').replace(/\s/g, '') : ''
-		const quantity = quantityRaw ? Number.parseInt(quantityRaw, 10) : undefined
-
 		entries.push({
 			id: crypto.randomUUID(),
 			name: ticker,
 			value,
 			currency: currency || 'PLN',
 			...(exchange ? { exchange } : {}),
-			...(quantity !== undefined && !Number.isNaN(quantity) && quantity >= 0
-				? { quantity }
-				: {}),
 		})
 	}
 

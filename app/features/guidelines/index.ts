@@ -29,6 +29,11 @@ import { parseLocaleDecimalString } from '../../lib/locale-decimal-input.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
+import {
+	type FlashedBanner,
+	flashBanner,
+	readFlashedBanner,
+} from '../../lib/session-flash.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import {
@@ -98,7 +103,7 @@ function guidelinesTotalCapErrorResponse(params: {
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
-	params.session.flash('error', message)
+	flashBanner(params.session, { text: message, tone: 'error' })
 	return createRedirectResponse(guidelinesIndexHref(params.addTab))
 }
 
@@ -122,7 +127,7 @@ function guidelinesDuplicateErrorResponse(params: {
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
-	params.session.flash('error', message)
+	flashBanner(params.session, { text: message, tone: 'error' })
 	return createRedirectResponse(guidelinesIndexHref(params.addTab))
 }
 
@@ -163,7 +168,7 @@ function guidelinesUpdateSchemaValidationResponse(params: {
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
-	params.session.flash('error', error)
+	flashBanner(params.session, { text: error, tone: 'error' })
 	return createRedirectResponse(guidelinesIndexHref())
 }
 
@@ -185,7 +190,7 @@ function guidelinesUpdateCapErrorResponse(params: {
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
-	params.session.flash('error', message)
+	flashBanner(params.session, { text: message, tone: 'error' })
 	return createRedirectResponse(guidelinesIndexHref())
 }
 
@@ -338,7 +343,7 @@ export const guidelinesController = {
 		async index(context: AppRequestContext) {
 			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
-			const flashError = context.get(Session).get('error') as string | undefined
+			const flashBanner = readFlashedBanner(context.get(Session))
 			const activeAddTab = normalizeGuidelinesAddTab(
 				new URL(context.request.url).searchParams.get('tab'),
 			)
@@ -352,7 +357,7 @@ export const guidelinesController = {
 				guidelines,
 				session: layoutSession,
 				catalog,
-				flashError,
+				flashBanner,
 				activeAddTab,
 			})
 		},
@@ -518,10 +523,10 @@ async function renderGuidelinesPage(params: {
 	guidelines: EtfGuideline[]
 	session: SessionData | null
 	catalog: CatalogEntry[]
-	flashError?: string
+	flashBanner?: FlashedBanner
 	activeAddTab: GuidelinesAddTabId
 }) {
-	const { guidelines, session, catalog, flashError, activeAddTab } = params
+	const { guidelines, session, catalog, flashBanner, activeAddTab } = params
 	const assetClassOptions = assetClassSelectOptionsFromCatalog(catalog)
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(GuidelinesPage, {
@@ -534,7 +539,7 @@ async function renderGuidelinesPage(params: {
 		session,
 		currentPage: 'guidelines',
 		body,
-		flashError,
+		flashBanner,
 		resolveFrame(source) {
 			if (source === routes.guidelines.fragmentList.href()) {
 				return renderToStream(jsx(GuidelinesListFragment, { guidelines }))

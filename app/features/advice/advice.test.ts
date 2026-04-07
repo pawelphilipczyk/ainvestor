@@ -48,6 +48,8 @@ async function signInWithGist(login = 'advice-test-user') {
 	const value = await sessionStorage.save(session)
 	if (value == null) throw new Error('expected session save value')
 	const cookieHeader = await sessionCookie.serialize(value)
+	// Avoid real GitHub fetches: fetchEtfs throws on non-2xx unless overlay supplies data.
+	setPrivateGistFetchTestOverlay({ etfs: [], guidelines: [] })
 	return cookieHeader.split(';')[0]
 }
 

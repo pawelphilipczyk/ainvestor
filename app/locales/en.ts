@@ -19,6 +19,10 @@ export const en = {
 	'app.name': 'AI Investor',
 	'app.previewChip': 'Preview',
 
+	'chrome.flash.error': 'Error',
+	'chrome.flash.info': 'Info',
+	'chrome.flash.success': 'Success',
+
 	'meta.title.home': 'AI Investor',
 	'meta.title.portfolio': 'AI Investor – Portfolio',
 	'meta.title.advice': 'AI Investor – Get Advice',
@@ -73,41 +77,32 @@ export const en = {
 		'Paste rows from your export (include the header row)…',
 	'portfolio.import.uploadLabel': 'Or upload a file',
 	'portfolio.import.submit': 'Import',
-	'portfolio.addManual.summary': 'Add one ETF manually',
+	'portfolio.operation.title': 'Buy or sell',
+	'portfolio.operation.hint':
+		'Pick a fund from your catalog. Buy adds or increases a holding; sell reduces or removes it.',
+	'portfolio.operation.field.fund': 'Fund',
+	'portfolio.operation.field.value': 'Value',
+	'portfolio.operation.field.currency': 'Currency',
+	'portfolio.operation.placeholder.value': 'e.g. 1200.50',
+	'portfolio.operation.field.operation': 'Operation',
+	'portfolio.operation.optionBuy': 'Buy (add or increase)',
+	'portfolio.operation.optionSell': 'Sell (reduce or remove)',
+	'portfolio.operation.submit': 'Apply',
+	'portfolio.operation.footer.beforeLink': 'Import or paste funds on the',
+	'portfolio.operation.footer.link': 'ETF Catalog',
+	'portfolio.operation.footer.after': 'to populate the list.',
 	'portfolio.holdings.title': 'Your Holdings',
 	'portfolio.holdings.empty': 'No ETFs added yet.',
-	'portfolio.holdings.shares': '{count} shares',
-	'portfolio.etf.sell': 'Sell',
-	'portfolio.etf.removeConfirm': 'Remove {name} from your portfolio?',
-	'portfolio.etf.removeAria': 'Remove {name} from portfolio',
-	'portfolio.etf.cancel': 'Cancel',
-	'portfolio.etf.remove': 'Remove',
-	'portfolio.etf.updateValueLabel': 'Value ({currency})',
-	'portfolio.etf.updateValueScreenReader': 'Market value for {name}',
-	'portfolio.etf.updateQuantityLabel': 'Quantity',
-	'portfolio.etf.updateQuantityScreenReader': 'Share quantity for {name}',
-	'portfolio.etf.save': 'Save',
 	'portfolio.etf.valueShareBarAria':
 		'{percent}% of total holdings value for {name}',
+	'portfolio.etf.buyMore': 'Buy more',
+	'portfolio.etf.sell': 'Sell',
 
 	'forms.catalog.emptyPlaceholder':
 		'No funds in catalog — import on ETF Catalog',
 	'forms.catalog.selectFundPlaceholder': 'Select a fund…',
 	'forms.targetPct.placeholder': 'e.g. 60',
 	'forms.targetPct.placeholderAsset': 'e.g. 40',
-
-	'addEtf.hint':
-		'Pick a fund from your catalog. Its name comes from the catalog row.',
-	'addEtf.field.fund': 'Fund',
-	'addEtf.field.value': 'Value',
-	'addEtf.field.currency': 'Currency',
-	'addEtf.field.quantityOptional': 'Quantity (optional)',
-	'addEtf.placeholder.value': 'e.g. 1200.50',
-	'addEtf.placeholder.quantity': 'e.g. 186',
-	'addEtf.submit': 'Add ETF',
-	'addEtf.footer.beforeLink': 'Import or paste funds on the',
-	'addEtf.footer.link': 'ETF Catalog',
-	'addEtf.footer.after': 'to populate the list.',
 
 	'catalog.savedGist': 'Your portfolio is matched against the shared catalog.',
 	'catalog.sharedSource':
@@ -269,17 +264,59 @@ export const en = {
 	'advice.model.gpt-5.4': 'GPT-5.4',
 
 	'errors.portfolio.addInvalid':
-		'Please select a fund from your catalog and enter a valid value (number >= 0).',
+		'Please choose an operation (Buy or Sell), select a fund from your catalog, and enter a valid value (for sell, value must be greater than 0).',
 	'errors.portfolio.catalogEntryMissing':
 		'Selected catalog entry not found. Update your catalog or pick another fund.',
-	'errors.portfolio.updateInvalid':
-		'Enter a valid value (number >= 0) and optional quantity (whole number >= 0).',
-	'errors.portfolio.entryNotFound':
-		'That holding is no longer in your portfolio.',
+	'errors.portfolio.sellNoHolding':
+		'You do not hold that fund in this currency yet — use Buy to add it.',
+	'errors.portfolio.sellExceedsHoldings':
+		'That amount is more than your current holding value.',
+	'errors.portfolio.sellValueNotPositive':
+		'Enter an amount greater than zero to sell.',
 	'errors.portfolio.persistence':
 		'Could not save your portfolio. Please try again in a moment.',
 	'errors.catalog.importNotAllowed':
 		'Only the shared catalog gist owner can import catalog updates.',
+	'errors.catalog.import.fieldMissing':
+		'The import did not include any pasted text. Paste the bank API JSON and try again.',
+	'errors.catalog.import.emptyJson':
+		'Paste is empty. Paste the full bank API JSON response (an object with a "data" array of funds), then click Import.',
+	'errors.catalog.import.invalidJson':
+		'That text is not valid JSON. Copy the full fetch response body from your browser’s network tab and try again.',
+	'errors.catalog.import.noRowsParsed':
+		'No ETF rows could be read from that JSON. Expected an object with a "data" array; each item needs a ticker and fund_name (and usually matches your broker’s API shape).',
+	'errors.catalog.import.diagnostic.savedLead':
+		'Catalog saved. Merged {appliedCount} row(s) from this paste.',
+	'errors.catalog.import.diagnostic.nothingSavedLead':
+		'Nothing was saved from this paste.',
+	'errors.catalog.import.diagnostic.skippedHeading': 'Skipped rows:',
+	'errors.catalog.import.diagnostic.notesHeading': 'Notes:',
+	'errors.catalog.import.diagnostic.notesSummaryMany':
+		'{count} row(s) refreshed existing catalog lines (same ISIN and ticker); incoming fields were merged.',
+	'errors.catalog.import.diagnostic.flashTruncated':
+		'(Message was shortened to fit your session cookie size limit.)',
+	'errors.catalog.import.issue.expectedObject':
+		'JSON must be an object with a "data" array of funds.',
+	'errors.catalog.import.issue.dataNotArray':
+		'Property "data" must be an array of fund objects.',
+	'errors.catalog.import.issue.rowNotObject':
+		'Item is not an object — skipped.',
+	'errors.catalog.import.issue.missingTicker': 'Missing ticker.',
+	'errors.catalog.import.issue.missingFundName': 'Missing fund_name.',
+	'errors.catalog.import.issue.isinInvalid':
+		'ISIN is present but not valid (expected 12-character format).',
+	'errors.catalog.import.issue.duplicateIdInPaste':
+		'Duplicate id "{id}" in this paste (clashes with row {otherIndex}).',
+	'errors.catalog.import.issue.duplicateMergeKeyInPaste':
+		'Same catalog key as row {otherIndex} (duplicate ISIN + ticker line in this paste).',
+	'errors.catalog.import.issue.alreadyInCatalog':
+		'This line matches an existing catalog row (same ISIN and ticker); the catalog row was updated from this paste.',
+	'errors.catalog.import.issue.idAlreadyInCatalog':
+		'Fund id "{id}" already exists in the catalog; incoming fields were merged into that row.',
+	'errors.catalog.import.dataArrayEmpty':
+		'The pasted JSON has an empty "data" array — no funds to import.',
+	'errors.catalog.import.saveFailed':
+		'Could not save the catalog to GitHub. Check your connection and permissions, then try again.',
 	'errors.catalog.etfDetail.service':
 		"We couldn't load this ETF description right now. Please try again in a moment.",
 	'errors.catalog.etfDetail.notFound': 'That catalog entry was not found.',

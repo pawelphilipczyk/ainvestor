@@ -3,10 +3,12 @@ import { describe, it } from 'node:test'
 
 import {
 	buildGistBody,
+	fetchEtfs,
 	GIST_FILENAME,
 	getGistDescription,
 	isPreview,
 	parseEtfsFromGist,
+	saveEtfs,
 } from './gist.ts'
 
 describe('gist', () => {
@@ -36,6 +38,24 @@ describe('gist', () => {
 			files: { [GIST_FILENAME]: { content: JSON.stringify(entries) } },
 		})
 		assert.deepEqual(result, entries)
+	})
+
+	it('parseEtfsFromGist drops legacy quantity from stored JSON', () => {
+		const raw = [
+			{
+				id: 'abc-1',
+				name: 'VTI',
+				value: 1000,
+				currency: 'USD',
+				quantity: 10,
+			},
+		]
+		const result = parseEtfsFromGist({
+			files: { [GIST_FILENAME]: { content: JSON.stringify(raw) } },
+		})
+		assert.deepEqual(result, [
+			{ id: 'abc-1', name: 'VTI', value: 1000, currency: 'USD' },
+		])
 	})
 
 	it('parseEtfsFromGist returns empty array for invalid JSON', () => {
@@ -90,6 +110,37 @@ describe('gist', () => {
 		} finally {
 			if (previousFlyAppName === undefined) delete process.env.FLY_APP_NAME
 			else process.env.FLY_APP_NAME = previousFlyAppName
+		}
+	})
+
+	it('fetchEtfs throws when GitHub API returns an error status', async () => {
+		const previousFetch = globalThis.fetch
+		globalThis.fetch = async () =>
+			new Response(null, { status: 403, statusText: 'Forbidden' })
+		try {
+			await assert.rejects(
+				async () => fetchEtfs('token', 'gist-id'),
+				/GitHub API error fetching portfolio gist: 403/,
+			)
+		} finally {
+			globalThis.fetch = previousFetch
+		}
+	})
+
+	it('saveEtfs throws when GitHub API returns an error status', async () => {
+		const previousFetch = globalThis.fetch
+		globalThis.fetch = async () =>
+			new Response(null, { status: 422, statusText: 'Unprocessable' })
+		try {
+			await assert.rejects(
+				async () =>
+					saveEtfs('token', 'gist-id', [
+						{ id: 'a', name: 'X', value: 1, currency: 'PLN' },
+					]),
+				/GitHub API error saving portfolio gist: 422/,
+			)
+		} finally {
+			globalThis.fetch = previousFetch
 		}
 	})
 
