@@ -46,7 +46,7 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 
 ### Phase 6 — GET forms with `data-navigation-loading`
 
-- [ ] **Catalog filter (and any similar GET forms)** — Either keep full navigation without intercepting submit or move filtering behind a **Frame** `src` query URL so results update inside the frame without custom `window.location.assign` deferral. Goal: delete GET interception from `fetch-submit.component.js` when nothing uses it.
+- [x] **Catalog filter (and any similar GET forms)** — Catalog filter uses **`data-frame-submit="catalog-list"`** + **`data-frame-get-fragment-action`** on **`FrameSubmitEnhancement`**: GET submit builds the document URL and matching fragment URL, then **`navigate(documentUrl, { target, src, history: 'replace' })`** so the list frame stays aligned with the URL bar. Import POST uses a plain form (no loading intercept). **GET interception removed** from `fetch-submit.component.js`. Clear-filters link uses **`data-navigation-loading`** (link enhancement) for spinner UX.
 
 ### Phase 7 — Shared `FetchSubmitEnhancement` removal
 

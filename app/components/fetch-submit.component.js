@@ -25,36 +25,6 @@ function getSubmitControl(form, submitter) {
 	return form.querySelector('button[type="submit"], input[type="submit"]')
 }
 
-function createFormData(form, submitControl) {
-	if (
-		submitControl instanceof HTMLButtonElement ||
-		(submitControl instanceof HTMLInputElement &&
-			submitControl.type === 'submit')
-	) {
-		try {
-			return new FormData(form, submitControl)
-		} catch {
-			return new FormData(form)
-		}
-	}
-
-	return new FormData(form)
-}
-
-function buildGetNavigationUrl(form, submitControl) {
-	const actionUrl = new URL(form.action, window.location.href)
-	const searchParams = new URLSearchParams(actionUrl.search)
-
-	for (const [name, value] of createFormData(form, submitControl).entries()) {
-		if (typeof value === 'string') {
-			searchParams.append(name, value)
-		}
-	}
-
-	actionUrl.search = searchParams.toString()
-	return actionUrl.toString()
-}
-
 async function handleFetchSubmit(form, submitBtn) {
 	const fragmentId = form.dataset.fragmentId
 	const fragmentUrl = form.dataset.fragmentUrl
@@ -173,30 +143,6 @@ export const FetchSubmitEnhancement = clientEntry(
 						await handleFetchSubmit(form, submitControl)
 						return
 					}
-
-					if (!form.hasAttribute('data-navigation-loading')) {
-						return
-					}
-
-					const method = form.method.toLowerCase()
-					if (method !== 'get' && method !== 'post') {
-						return
-					}
-
-					if (!form.checkValidity()) {
-						form.reportValidity()
-						return
-					}
-
-					event.preventDefault()
-					setSubmitButtonLoading(submitControl, true)
-					requestAnimationFrame(() => {
-						if (method === 'get') {
-							window.location.assign(buildGetNavigationUrl(form, submitControl))
-						} else {
-							form.submit()
-						}
-					})
 				},
 			})
 		}

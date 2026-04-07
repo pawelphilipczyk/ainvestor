@@ -44,6 +44,20 @@ function createFormData(form, submitControl) {
 	return new FormData(form)
 }
 
+function buildGetNavigationUrl(form, submitControl) {
+	const actionUrl = new URL(form.action, window.location.href)
+	const searchParams = new URLSearchParams(actionUrl.search)
+
+	for (const [name, value] of createFormData(form, submitControl).entries()) {
+		if (typeof value === 'string') {
+			searchParams.append(name, value)
+		}
+	}
+
+	actionUrl.search = searchParams.toString()
+	return actionUrl.toString()
+}
+
 /**
  * Full-document navigation via the Navigation API (no `window.location`).
  * Remix `navigate` attaches the frame runtime state the listener expects.
@@ -103,6 +117,12 @@ async function handleReplaceFromResponseNonHtmlError(
  * **`data-frame-hide-form-on-success`:** With replace-from-response, hide the
  * submitted form after a successful HTML response (catalog analysis); omit for
  * forms that stay visible (portfolio list updates).
+ *
+ * **`data-frame-get-fragment-action`:** For **`method="get"`** forms, optional
+ * base URL of the **HTML fragment** that mirrors the document query (e.g. list
+ * frame). When set, submit is intercepted: **`navigate(documentUrl, { target,
+ * src: fragmentUrl, history: 'replace' })`** so the URL bar and named Frame
+ * stay in sync without `fetch-submit` GET handling.
  */
 export const FrameSubmitEnhancement = clientEntry(
 	'/components/frame-submit.component.js#FrameSubmitEnhancement',
@@ -115,6 +135,47 @@ export const FrameSubmitEnhancement = clientEntry(
 
 					const frameName = form.dataset.frameSubmit
 					if (!frameName) return
+
+					const method = form.method.toLowerCase()
+					const getFragmentBase = form.dataset.frameGetFragmentAction?.trim()
+
+					if (method === 'get' && getFragmentBase) {
+						if (!form.checkValidity()) {
+							form.reportValidity()
+							return
+						}
+						event.preventDefault()
+						const submitControl = getSubmitControl(form, event.submitter)
+						setSubmitButtonLoading(submitControl, true)
+						try {
+							const documentUrl = buildGetNavigationUrl(form, submitControl)
+							const fragmentUrl = new URL(getFragmentBase, window.location.href)
+							const documentUrlObject = new URL(
+								documentUrl,
+								window.location.href,
+							)
+							fragmentUrl.search = documentUrlObject.search
+							if (typeof globalThis.navigation?.navigate === 'function') {
+								await navigate(documentUrl, {
+									target: frameName,
+									src: fragmentUrl.href,
+									history: 'replace',
+								})
+							} else {
+								window.location.assign(documentUrl)
+							}
+						} catch {
+							window.location.assign('/')
+						} finally {
+							setSubmitButtonLoading(submitControl, false)
+						}
+						return
+					}
+
+					if (method !== 'post') {
+						return
+					}
+
 					const frameReloadSrc = form.dataset.frameReloadSrc?.trim()
 					const replaceFromResponse =
 						form.dataset.frameReplaceFromResponse === '1' ||

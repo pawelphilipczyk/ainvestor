@@ -284,7 +284,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /name="bankApiJson"/)
 		assert.match(
 			body,
-			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")(?=[^>]*\bdata-navigation-loading\b)[^>]*>/,
+			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")[^>]*>/,
 		)
 	})
 
@@ -854,7 +854,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /1 ETF in catalog/)
 	})
 
-	it('catalog filter form opts into native navigation loading for SubmitButton spinner', async () => {
+	it('catalog filter form uses Frame submit + fragment action for list updates', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -873,11 +873,15 @@ describe('ETF Catalog page', () => {
 
 		assert.match(
 			body,
-			/<form\b[^>]*\bmethod="get"[^>]*\bdata-navigation-loading\b/,
+			/<form\b[^>]*\bmethod="get"[^>]*\bdata-frame-submit="catalog-list"/,
 		)
 		assert.match(
 			body,
-			/<form\b(?=[^>]*\bmethod="get")(?=[^>]*\bdata-navigation-loading\b)[^>]*>[\s\S]*?submit-button-busy-overlay[\s\S]*?<\/form>/,
+			/<form\b[^>]*\bdata-frame-get-fragment-action="\/catalog\/fragments\/list"/,
+		)
+		assert.match(
+			body,
+			/<form\b(?=[^>]*\bmethod="get")(?=[^>]*\bdata-frame-submit="catalog-list")[^>]*>[\s\S]*?submit-button-busy-overlay[\s\S]*?<\/form>/,
 		)
 	})
 

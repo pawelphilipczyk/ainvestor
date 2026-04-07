@@ -66,7 +66,6 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								method="post"
 								action={routes.catalog.import.href()}
 								class="mt-3 grid max-w-xl gap-3"
-								data-navigation-loading
 							>
 								<FieldLabel fieldId="pasteZone" variant="screenReader">
 									{t('catalog.import.pasteLabel.screenReader')}
@@ -99,7 +98,8 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							method="get"
 							action={routes.catalog.index.href()}
 							class="flex flex-wrap items-end gap-3"
-							data-navigation-loading
+							data-frame-submit="catalog-list"
+							data-frame-get-fragment-action={routes.catalog.fragmentList.href()}
 						>
 							<div class="grid gap-1.5">
 								<FieldLabel fieldId="type" variant="filter">
@@ -171,6 +171,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							{props.typeFilter || props.riskFilter || props.query ? (
 								<a
 									href={routes.catalog.index.href()}
+									data-navigation-loading
 									rmx-document
 									class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
 								>
