@@ -58,6 +58,31 @@ async function navigateDocumentUrl(href, history = 'push') {
 }
 
 /**
+ * `data-frame-replace-from-response` asks the server for **HTML** (`Accept: text/html`).
+ * Valid errors should be HTML fragments (422 + `text/html`) so we never hit this path for
+ * portfolio/guidelines/catalog flows. This branch only covers **unexpected** shapes:
+ * e.g. 422 JSON if a route regresses, or a proxy error page — same fallback as the
+ * non-replace JSON path (`data-error-id` + navigate).
+ */
+async function handleReplaceFromResponseNonHtmlError(
+	response,
+	showError,
+	readClientMessages,
+) {
+	if (response.status === 422) {
+		const data = await response.json().catch(() => ({}))
+		const msgs = readClientMessages()
+		const fallback =
+			typeof msgs?.genericFormError === 'string'
+				? msgs.genericFormError
+				: 'Please check your input.'
+		showError(data.error || fallback)
+		return
+	}
+	await navigateDocumentUrl(response.url || '/')
+}
+
+/**
  * Intercepts forms with `data-frame-submit="<frameName>"` and POSTs via
  * fetch. On success, reloads the named Remix Frame so the server re-renders
  * the list region. Supports `data-error-id` for 422 JSON validation errors
@@ -72,7 +97,8 @@ async function navigateDocumentUrl(href, history = 'push') {
  *
  * **`data-frame-replace-from-response`:** When set, POST uses `Accept: text/html`
  * and applies the response body into the named frame via `frameHandle.replace()`
- * when the response is HTML (e.g. catalog ETF analysis fragment).
+ * when the response is HTML — including **422** validation fragments (portfolio /
+ * guidelines list) as well as success HTML (e.g. catalog ETF analysis).
  *
  * **`data-frame-hide-form-on-success`:** With replace-from-response, hide the
  * submitted form after a successful HTML response (catalog analysis); omit for
@@ -154,6 +180,14 @@ export const FrameSubmitEnhancement = clientEntry(
 									}
 								}
 								if (resetForm && response.ok) form.reset()
+								return
+							}
+							if (!response.ok) {
+								await handleReplaceFromResponseNonHtmlError(
+									response,
+									showError,
+									readClientMessages,
+								)
 								return
 							}
 						}

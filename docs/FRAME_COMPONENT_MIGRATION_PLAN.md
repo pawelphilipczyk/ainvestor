@@ -42,7 +42,7 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 Today these flows use **`Accept: application/json`** and client-side error elements. To align with Frame-first HTML:
 
 - [x] **Portfolio add ETF** — Return **HTML** for validation failures (list fragment with top **inline error** callout) and for **successful** create/update when **`Accept` is exactly `text/html`** (matches `FrameSubmitEnhancement` fetch; ordinary browser POSTs keep redirect + flash). Add/update forms use **`data-frame-replace-from-response`** without **`data-error-id`**. JSON `422` kept for API-style `Accept: application/json` tests.
-- [ ] **Guidelines mutations** — Same: prefer **HTML error partials** inside a Frame or full redirect with flash; remove `prefersJson` / JSON error branches where replaced.
+- [x] **Guidelines mutations** — Same as portfolio: **`Accept: text/html`** returns list fragment with **inline error** (422) or updated list (200); add/update/delete forms use **`data-frame-replace-from-response`**. **`Accept: application/json`** keeps **422 JSON** for tests/API-style callers.
 
 ### Phase 6 — GET forms with `data-navigation-loading`
 
@@ -64,7 +64,8 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 | Component | Purpose |
 |-----------|---------|
 | `render()` `resolveFrame` option | Forwards a `resolveFrame` callback to `renderToStream` so `<Frame>` components resolve during SSR |
-| `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`, POSTs via fetch, reloads the named Frame on success (or applies **`data-frame-replace-from-response`** HTML via `frameHandle.replace()`). Supports `data-frame-reload-src`, optional **`data-frame-hide-form-on-success`** with replace-from-response, `data-error-id` for 422 JSON errors (guidelines, etc.), and `data-reset-form`. |
+| `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`, POSTs via fetch, reloads the named Frame on success (or applies **`data-frame-replace-from-response`** HTML via `frameHandle.replace()` for **both** 200 and **422** when the response is HTML). Supports `data-frame-reload-src`, optional **`data-frame-hide-form-on-success`** with replace-from-response, `data-error-id` for **non-HTML** 422 JSON fallbacks, and `data-reset-form`. |
+| `requestAcceptsFrameSubmitHtml` / `requestAcceptsApplicationJson` (`app/lib/frame-submit-request.ts`) | Single source of truth for **`Accept`** branching in POST handlers (must stay aligned with the headers this clientEntry sends). |
 
 ---
 
@@ -79,6 +80,7 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 | `NavigationLinkLoadingEnhancement` | Not a Frame concern; keep a small enhancement or move loading state to **link `mix={on(...)}`** where practical. |
 | `TabsNavScrollRestoration` | Remains a focused `clientEntry`; no Frame migration. |
 | Theme toggle | Unchanged; local enhancement only. |
+| `data-frame-replace-from-response` + **302** to a full page | `fetch(..., redirect: 'follow')` ends with **200 `text/html`** document HTML; **`frameHandle.replace()`** would swap the frame with the whole page. Handlers that use replace-from-response must return **422/200 list fragments** for `requestAcceptsFrameSubmitHtml` on every exit path (including “stale catalog” / schema failures), not redirects. |
 
 ---
 
