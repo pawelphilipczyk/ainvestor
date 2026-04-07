@@ -974,6 +974,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /data-risk-band="low"/)
 		assert.match(body, /data-risk-band="medium"/)
 		assert.match(body, /data-risk-band="high"/)
+		assert.match(body, /bg-sky-/)
 	})
 
 	it('catalog text search narrows results', async () => {

@@ -14,6 +14,9 @@ import {
 
 const catalogTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
 
+/** Slightly roomier than default `px-2 py-0.5` so type and risk pills match visually. */
+const catalogTableChipShellClass = 'rounded-full px-2.5 py-1 text-xs'
+
 function catalogRiskBandLabel(band: CatalogRiskBand): string {
 	if (band === 'low') return t('catalog.riskBand.low')
 	if (band === 'medium') return t('catalog.riskBand.medium')
@@ -21,9 +24,9 @@ function catalogRiskBandLabel(band: CatalogRiskBand): string {
 }
 
 function catalogRiskBandChipClassName(band: CatalogRiskBand): string {
-	const shell = 'rounded-full px-2 py-0.5 text-xs'
+	const shell = catalogTableChipShellClass
 	if (band === 'low') {
-		return `${shell} bg-neutral-800/20 text-white dark:bg-white/15 dark:text-white`
+		return `${shell} bg-sky-200/80 text-sky-900 dark:bg-sky-500/20 dark:text-sky-200`
 	}
 	if (band === 'medium') {
 		return `${shell} bg-yellow-400/25 text-yellow-700 dark:bg-yellow-400/15 dark:text-yellow-200`
@@ -105,7 +108,9 @@ function renderCatalogRow(
 				{entry.name}
 			</td>
 			<td class="py-2 pr-4 align-top">
-				<span class="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+				<span
+					class={`${catalogTableChipShellClass} bg-muted text-muted-foreground`}
+				>
 					{formatEtfTypeLabel(entry.type) || t('catalog.etfTypeUnknown')}
 				</span>
 			</td>
