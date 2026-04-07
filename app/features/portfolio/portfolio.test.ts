@@ -34,6 +34,40 @@ async function seedGuestCatalog() {
 	})
 }
 
+function portfolioBuyForm(fields: {
+	instrumentTicker: string
+	value: string
+	currency: string
+	quantity?: string
+}) {
+	const form = new FormData()
+	form.set('portfolioAction', 'buy')
+	form.set('instrumentTicker', fields.instrumentTicker)
+	form.set('value', fields.value)
+	form.set('currency', fields.currency)
+	if (fields.quantity !== undefined) {
+		form.set('quantity', fields.quantity)
+	}
+	return form
+}
+
+function portfolioSellForm(fields: {
+	instrumentTicker: string
+	value: string
+	currency: string
+	quantity?: string
+}) {
+	const form = new FormData()
+	form.set('portfolioAction', 'sell')
+	form.set('instrumentTicker', fields.instrumentTicker)
+	form.set('value', fields.value)
+	form.set('currency', fields.currency)
+	if (fields.quantity !== undefined) {
+		form.set('quantity', fields.quantity)
+	}
+	return form
+}
+
 describe('Health endpoint', () => {
 	it('returns ok', async () => {
 		const response = await testSessionFetch('http://localhost/health')
@@ -82,7 +116,7 @@ describe('Portfolio page', () => {
 		assert.match(body, /<form[^>]*method="post"[^>]*action="\/portfolio"/)
 		assert.match(body, /Import from CSV/)
 		assert.match(body, /action="\/portfolio\/import"/)
-		assert.match(body, /Add one ETF manually/)
+		assert.match(body, /Buy or sell/)
 		assert.match(body, /name="portfolioCsvPaste"/)
 	})
 
@@ -122,10 +156,11 @@ describe('Portfolio page', () => {
 
 	it('adds ETF with PLN currency', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('value', '1000')
-		form.set('currency', 'PLN')
+		const form = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '1000',
+			currency: 'PLN',
+		})
 
 		const postResponse = await testSessionFetch(
 			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
@@ -153,11 +188,12 @@ describe('Portfolio page', () => {
 
 	it('adds ETF when optional quantity is left empty', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('value', '1000')
-		form.set('currency', 'PLN')
-		form.set('quantity', '')
+		const form = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '1000',
+			currency: 'PLN',
+			quantity: '',
+		})
 
 		const postResponse = await testSessionFetch(
 			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
@@ -172,11 +208,12 @@ describe('Portfolio page', () => {
 
 	it('adds ETF with optional quantity when provided', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'IBTA')
-		form.set('value', '4087.48')
-		form.set('currency', 'PLN')
-		form.set('quantity', '186')
+		const form = portfolioBuyForm({
+			instrumentTicker: 'IBTA',
+			value: '4087.48',
+			currency: 'PLN',
+			quantity: '186',
+		})
 
 		const postResponse = await testSessionFetch(
 			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
@@ -191,10 +228,11 @@ describe('Portfolio page', () => {
 
 	it('adds an ETF on form submit and displays it on the portfolio page', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('value', '1200.50')
-		form.set('currency', 'USD')
+		const form = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '1200.50',
+			currency: 'USD',
+		})
 
 		const postResponse = await testSessionFetch(
 			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
@@ -266,10 +304,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 
 	it('adds to existing ETF value when adding same name instead of replacing', async () => {
 		await seedGuestCatalog()
-		const form1 = new FormData()
-		form1.set('instrumentTicker', 'VTI')
-		form1.set('value', '1200')
-		form1.set('currency', 'USD')
+		const form1 = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '1200',
+			currency: 'USD',
+		})
 
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', {
@@ -278,10 +317,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			}),
 		)
 
-		const form2 = new FormData()
-		form2.set('instrumentTicker', 'VTI')
-		form2.set('value', '500')
-		form2.set('currency', 'USD')
+		const form2 = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '500',
+			currency: 'USD',
+		})
 
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', {
@@ -296,32 +336,26 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(homeBody, /VTI/)
 		assert.match(homeBody, /1[,.]?700/)
 		assert.match(homeBody, /USD/)
-		const deleteMethodFields = homeBody.match(
-			/name="_method"\s+value="DELETE"/g,
-		)
-		assert.equal(
-			deleteMethodFields?.length ?? 0,
-			2,
-			'sell row POST + dialog confirm each include DELETE override',
-		)
 	})
 
 	it('renders value share bars when all holdings share one currency', async () => {
 		await seedGuestCatalog()
-		const formVti = new FormData()
-		formVti.set('instrumentTicker', 'VTI')
-		formVti.set('value', '400')
-		formVti.set('currency', 'PLN')
+		const formVti = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '400',
+			currency: 'PLN',
+		})
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', {
 				method: 'POST',
 				body: formVti,
 			}),
 		)
-		const formIbta = new FormData()
-		formIbta.set('instrumentTicker', 'IBTA')
-		formIbta.set('value', '600')
-		formIbta.set('currency', 'PLN')
+		const formIbta = portfolioBuyForm({
+			instrumentTicker: 'IBTA',
+			value: '600',
+			currency: 'PLN',
+		})
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', {
 				method: 'POST',
@@ -341,10 +375,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 
 	it('portfolio page no longer uses legacy etf-card data-island hooks', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('value', '1000')
-		form.set('currency', 'USD')
+		const form = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '1000',
+			currency: 'USD',
+		})
 
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
@@ -374,65 +409,14 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(response.headers.get('content-type') ?? '', /text\/javascript/)
 	})
 
-	it('serves etf-card component entry and hides old island endpoint', async () => {
-		const componentResponse = await testSessionFetch(
-			'http://localhost/features/portfolio/etf-card.component.js',
-		)
-		assert.equal(componentResponse.status, 200)
-		assert.match(
-			componentResponse.headers.get('content-type') ?? '',
-			/text\/javascript/,
-		)
-		const legacyResponse = await testSessionFetch(
-			'http://localhost/features/portfolio/etf-card.island.js',
-		)
-		assert.equal(legacyResponse.status, 404)
-	})
-
-	it('ETF card component entry wires document listeners via handle.signal', async () => {
-		const componentResponse = await testSessionFetch(
-			'http://localhost/features/portfolio/etf-card.component.js',
-		)
-		const componentBody = await componentResponse.text()
-		assert.match(componentBody, /clientEntry/)
-		assert.match(componentBody, /from 'remix\/component'/)
-		assert.match(componentBody, /addEventListeners/)
-		assert.match(componentBody, /handle\.signal/)
-		assert.match(componentBody, /addEventListeners\(doc, handle\.signal/)
-		assert.match(
-			componentBody,
-			/data-enhance-dialog/,
-			'sell uses dialog enhancement on native DELETE form submit',
-		)
-	})
-
-	it('uses explicit readable colors for the sell confirmation cancel button', async () => {
+	it('POST /portfolio sell reduces value and quantity for a holding', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('value', '1000')
-		form.set('currency', 'USD')
-
-		await testSessionFetch(
-			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
-		)
-
-		const response = await testSessionFetch('http://localhost/portfolio')
-		const body = await response.text()
-
-		assert.match(
-			body,
-			/<button\s+type="submit"\s+class="[^"]*bg-background[^"]*text-card-foreground[^"]*"[\s\S]*?>\s*Cancel\s*<\/button>/,
-		)
-	})
-
-	it('POST /portfolio/:id updates value and quantity for a holding', async () => {
-		await seedGuestCatalog()
-		const addForm = new FormData()
-		addForm.set('instrumentTicker', 'VTI')
-		addForm.set('value', '1000')
-		addForm.set('currency', 'USD')
-		addForm.set('quantity', '10')
+		const addForm = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '1000',
+			currency: 'USD',
+			quantity: '10',
+		})
 
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', {
@@ -441,21 +425,19 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			}),
 		)
 
-		const listResponse = await testSessionFetch('http://localhost/portfolio')
-		const listBody = await listResponse.text()
-		const updateMatch = listBody.match(
-			/<form[^>]*method="post"[^>]*action="(\/portfolio\/[a-f0-9-]+)"/,
+		const sellForm = portfolioSellForm({
+			instrumentTicker: 'VTI',
+			value: '149.75',
+			currency: 'USD',
+			quantity: '2',
+		})
+		const sellResponse = await testSessionFetch(
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: sellForm,
+			}),
 		)
-		assert.ok(updateMatch, 'update form action should be present')
-		const updateUrl = `http://localhost${updateMatch[1]}`
-
-		const updateForm = new FormData()
-		updateForm.set('value', '850.25')
-		updateForm.set('quantity', '8')
-		const updateResponse = await testSessionFetch(
-			new Request(updateUrl, { method: 'POST', body: updateForm }),
-		)
-		assert.equal(updateResponse.status, 302)
+		assert.equal(sellResponse.status, 302)
 
 		const after = await (
 			await testSessionFetch('http://localhost/portfolio')
@@ -464,13 +446,14 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(after, /850/)
 	})
 
-	it('POST /portfolio/:id clears quantity when quantity field is empty', async () => {
+	it('POST /portfolio sell clears quantity when sold shares match recorded quantity', async () => {
 		await seedGuestCatalog()
-		const addForm = new FormData()
-		addForm.set('instrumentTicker', 'IBTA')
-		addForm.set('value', '2000')
-		addForm.set('currency', 'PLN')
-		addForm.set('quantity', '50')
+		const addForm = portfolioBuyForm({
+			instrumentTicker: 'IBTA',
+			value: '2000',
+			currency: 'PLN',
+			quantity: '50',
+		})
 
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', {
@@ -479,34 +462,33 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			}),
 		)
 
-		const listBody = await (
-			await testSessionFetch('http://localhost/portfolio')
-		).text()
-		const updateMatch = listBody.match(
-			/<form[^>]*method="post"[^>]*action="(\/portfolio\/[a-f0-9-]+)"/,
-		)
-		assert.ok(updateMatch)
-		const updateUrl = `http://localhost${updateMatch[1]}`
-
-		const updateForm = new FormData()
-		updateForm.set('value', '2100')
-		updateForm.set('quantity', '')
+		const sellForm = portfolioSellForm({
+			instrumentTicker: 'IBTA',
+			value: '100',
+			currency: 'PLN',
+			quantity: '50',
+		})
 		await testSessionFetch(
-			new Request(updateUrl, { method: 'POST', body: updateForm }),
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: sellForm,
+			}),
 		)
 
 		const after = await (
 			await testSessionFetch('http://localhost/portfolio')
 		).text()
 		assert.doesNotMatch(after, /50 shares/)
+		assert.match(after, /1[,.]?900/)
 	})
 
-	it('returns 422 HTML list fragment when portfolio update validation fails with Accept: text/html', async () => {
+	it('returns 422 HTML list fragment when sell validation fails with Accept: text/html', async () => {
 		await seedGuestCatalog()
-		const addForm = new FormData()
-		addForm.set('instrumentTicker', 'VTI')
-		addForm.set('value', '100')
-		addForm.set('currency', 'USD')
+		const addForm = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '100',
+			currency: 'USD',
+		})
 
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', {
@@ -515,21 +497,15 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			}),
 		)
 
-		const listBody = await (
-			await testSessionFetch('http://localhost/portfolio')
-		).text()
-		const updateMatch = listBody.match(
-			/<form[^>]*method="post"[^>]*action="(\/portfolio\/[a-f0-9-]+)"/,
-		)
-		assert.ok(updateMatch)
-		const updateUrl = `http://localhost${updateMatch[1]}`
-
-		const badForm = new FormData()
-		badForm.set('value', '-1')
+		const badSell = portfolioSellForm({
+			instrumentTicker: 'VTI',
+			value: '-1',
+			currency: 'USD',
+		})
 		const htmlRes = await testSessionFetch(
-			new Request(updateUrl, {
+			new Request('http://localhost/portfolio', {
 				method: 'POST',
-				body: badForm,
+				body: badSell,
 				headers: { Accept: 'text/html' },
 			}),
 		)
@@ -537,16 +513,17 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		const ct = htmlRes.headers.get('content-type') ?? ''
 		assert.match(ct, /text\/html/)
 		const fragmentBody = await htmlRes.text()
-		assert.match(fragmentBody, /valid value/)
+		assert.match(fragmentBody, /Buy or Sell/)
 		assert.match(fragmentBody, /Your Holdings/)
 	})
 
-	it('returns 422 JSON when portfolio update validation fails with Accept: application/json', async () => {
+	it('returns 422 JSON when sell validation fails with Accept: application/json', async () => {
 		await seedGuestCatalog()
-		const addForm = new FormData()
-		addForm.set('instrumentTicker', 'VTI')
-		addForm.set('value', '100')
-		addForm.set('currency', 'USD')
+		const addForm = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '100',
+			currency: 'USD',
+		})
 
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', {
@@ -555,44 +532,41 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			}),
 		)
 
-		const listBody = await (
-			await testSessionFetch('http://localhost/portfolio')
-		).text()
-		const updateMatch = listBody.match(
-			/<form[^>]*method="post"[^>]*action="(\/portfolio\/[a-f0-9-]+)"/,
-		)
-		assert.ok(updateMatch)
-		const updateUrl = `http://localhost${updateMatch[1]}`
-
-		const badForm = new FormData()
-		badForm.set('value', '-1')
+		const badSell = portfolioSellForm({
+			instrumentTicker: 'VTI',
+			value: '-1',
+			currency: 'USD',
+		})
 		const jsonRes = await testSessionFetch(
-			new Request(updateUrl, {
+			new Request('http://localhost/portfolio', {
 				method: 'POST',
-				body: badForm,
+				body: badSell,
 				headers: { Accept: 'application/json' },
 			}),
 		)
 		assert.equal(jsonRes.status, 422)
 		const data = await jsonRes.json()
-		assert.match(data.error, /valid value/)
+		assert.match(data.error, /Buy or Sell/)
 	})
 
-	it('DELETE /portfolio/:id removes the ETF via method override', async () => {
+	it('DELETE /portfolio/:id still removes a holding when called directly', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('value', '1000')
-		form.set('currency', 'USD')
+		const form = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '1000',
+			currency: 'USD',
+		})
 
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 
-		const listResponse = await testSessionFetch('http://localhost/portfolio')
+		const listResponse = await testSessionFetch(
+			'http://localhost/fragments/portfolio-list',
+		)
 		const listBody = await listResponse.text()
-		const idMatch = listBody.match(/action="\/portfolio\/([a-f0-9-]+)"/)
-		assert.ok(idMatch, 'delete form action should be present')
+		const idMatch = listBody.match(/data-holding-id="([a-f0-9-]+)"/)
+		assert.ok(idMatch, 'expected holding id on list row')
 		const id = idMatch[1]
 
 		const deleteForm = new FormData()
@@ -613,10 +587,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 	})
 
 	it('shows validation error when adding ETF with invalid data (full-page)', async () => {
-		const form = new FormData()
-		form.set('instrumentTicker', '')
-		form.set('value', '-1')
-		form.set('currency', 'PLN')
+		const form = portfolioBuyForm({
+			instrumentTicker: '',
+			value: '-1',
+			currency: 'PLN',
+		})
 		const postResponse = await testSessionFetch(
 			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
@@ -630,17 +605,15 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			{ headers: cookie ? { Cookie: cookie.split(';')[0] } : undefined },
 		)
 		const body = await homeResponse.text()
-		assert.match(
-			body,
-			/Please select a fund from your catalog and enter a valid value/,
-		)
+		assert.match(body, /Buy or Sell/)
 	})
 
 	it('returns 422 JSON when fetch sends Accept: application/json and validation fails', async () => {
-		const form = new FormData()
-		form.set('instrumentTicker', '')
-		form.set('value', '-1')
-		form.set('currency', 'PLN')
+		const form = portfolioBuyForm({
+			instrumentTicker: '',
+			value: '-1',
+			currency: 'PLN',
+		})
 		const jsonErrorResponse = await testSessionFetch(
 			new Request('http://localhost/portfolio', {
 				method: 'POST',
@@ -650,17 +623,18 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		)
 		assert.equal(jsonErrorResponse.status, 422)
 		const data = await jsonErrorResponse.json()
-		assert.equal(
+		assert.match(
 			data.error,
-			'Please select a fund from your catalog and enter a valid value (number >= 0).',
+			/Please choose Buy or Sell, select a fund from your catalog/,
 		)
 	})
 
 	it('returns 422 HTML list fragment when validation fails with Accept: text/html', async () => {
-		const form = new FormData()
-		form.set('instrumentTicker', '')
-		form.set('value', '-1')
-		form.set('currency', 'PLN')
+		const form = portfolioBuyForm({
+			instrumentTicker: '',
+			value: '-1',
+			currency: 'PLN',
+		})
 		const htmlErrorResponse = await testSessionFetch(
 			new Request('http://localhost/portfolio', {
 				method: 'POST',
@@ -672,19 +646,17 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		const ct = htmlErrorResponse.headers.get('content-type') ?? ''
 		assert.match(ct, /text\/html/)
 		const body = await htmlErrorResponse.text()
-		assert.match(
-			body,
-			/Please select a fund from your catalog and enter a valid value/,
-		)
+		assert.match(body, /Buy or Sell/)
 		assert.match(body, /Your Holdings/)
 	})
 
 	it('returns HTML list fragment on successful add when Accept: text/html', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('value', '900')
-		form.set('currency', 'USD')
+		const form = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '900',
+			currency: 'USD',
+		})
 		const htmlOkResponse = await testSessionFetch(
 			new Request('http://localhost/portfolio', {
 				method: 'POST',
@@ -712,10 +684,11 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 
 	it('GET /fragments/portfolio-list returns ETF list HTML fragment', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('value', '1000')
-		form.set('currency', 'PLN')
+		const form = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '1000',
+			currency: 'PLN',
+		})
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
@@ -734,20 +707,23 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(body, /data-frame-submit="portfolio-list"/)
 	})
 
-	it('holdings list uses read-only value with edit-in-details pattern', async () => {
+	it('buy/sell form appears above the holdings frame', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('value', '250')
-		form.set('currency', 'PLN')
+		const form = portfolioBuyForm({
+			instrumentTicker: 'VTI',
+			value: '250',
+			currency: 'PLN',
+		})
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
 		)
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 		assert.match(body, /PLN/)
-		assert.match(body, /<details\b/)
-		assert.match(body, /portfolio-edit-/)
+		const buySellIdx = body.indexOf('Buy or sell')
+		const frameIdx = body.indexOf('"name":"portfolio-list"')
+		assert.ok(buySellIdx !== -1 && frameIdx !== -1 && buySellIdx < frameIdx)
+		assert.match(body, /name="portfolioAction"/)
 	})
 
 	it('portfolio page renders a named Frame for the holdings list', async () => {

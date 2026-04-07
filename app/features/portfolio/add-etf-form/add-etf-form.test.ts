@@ -1,17 +1,18 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { parseSafe } from 'remix/data-schema'
-import { CreateEtfSchema, normalizeAddEtfInput } from './index.ts'
+import { normalizePortfolioTradeInput, PortfolioBuySchema } from './index.ts'
 
-describe('CreateEtfSchema with optional field preprocessing', () => {
+describe('PortfolioBuySchema with optional field preprocessing', () => {
 	it('normalizes money-style value strings before coercion', () => {
 		const raw: Record<string, unknown> = {
+			portfolioAction: 'buy',
 			instrumentTicker: 'VTI',
 			value: '2,000',
 			currency: 'PLN',
 		}
-		normalizeAddEtfInput(raw)
-		const result = parseSafe(CreateEtfSchema, raw)
+		normalizePortfolioTradeInput(raw)
+		const result = parseSafe(PortfolioBuySchema, raw)
 		assert.equal(result.success, true, JSON.stringify(result))
 		if (result.success) {
 			assert.equal(result.value.value, 2000)
@@ -20,14 +21,15 @@ describe('CreateEtfSchema with optional field preprocessing', () => {
 
 	it('accepts empty quantity when normalized to absent', () => {
 		const raw: Record<string, unknown> = {
+			portfolioAction: 'buy',
 			instrumentTicker: 'VTI',
 			value: '1000',
 			currency: 'PLN',
 			quantity: '',
 		}
-		normalizeAddEtfInput(raw)
+		normalizePortfolioTradeInput(raw)
 
-		const result = parseSafe(CreateEtfSchema, raw)
+		const result = parseSafe(PortfolioBuySchema, raw)
 		assert.equal(result.success, true, JSON.stringify(result))
 		if (result.success) {
 			assert.equal(result.value.quantity, undefined)
@@ -36,25 +38,27 @@ describe('CreateEtfSchema with optional field preprocessing', () => {
 
 	it('rejects decimal quantity after locale normalization', () => {
 		const raw: Record<string, unknown> = {
+			portfolioAction: 'buy',
 			instrumentTicker: 'VTI',
 			value: '1000',
 			currency: 'PLN',
 			quantity: '1,5',
 		}
-		normalizeAddEtfInput(raw)
-		const result = parseSafe(CreateEtfSchema, raw)
+		normalizePortfolioTradeInput(raw)
+		const result = parseSafe(PortfolioBuySchema, raw)
 		assert.equal(result.success, false)
 	})
 
 	it('parses quantity with thousands separator without corrupting decimals', () => {
 		const raw: Record<string, unknown> = {
+			portfolioAction: 'buy',
 			instrumentTicker: 'VTI',
 			value: '1000',
 			currency: 'PLN',
 			quantity: '2,000',
 		}
-		normalizeAddEtfInput(raw)
-		const result = parseSafe(CreateEtfSchema, raw)
+		normalizePortfolioTradeInput(raw)
+		const result = parseSafe(PortfolioBuySchema, raw)
 		assert.equal(result.success, true, JSON.stringify(result))
 		if (result.success) {
 			assert.equal(result.value.quantity, 2000)

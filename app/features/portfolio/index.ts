@@ -68,10 +68,6 @@ export const portfolioController = {
 			return addEtfFormHandlers.actions.create(context)
 		},
 
-		async update(context: AppRequestContext) {
-			return addEtfFormHandlers.actions.update(context)
-		},
-
 		async import(context: AppRequestContext) {
 			const form = context.get(FormData)
 			if (!form) return createRedirectResponse(routes.portfolio.index.href())
