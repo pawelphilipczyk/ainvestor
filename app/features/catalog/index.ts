@@ -80,9 +80,6 @@ function formatCatalogImportOutcomeFlash(params: {
 }): string | null {
 	const { appliedCount, parseResult } = params
 	const { skippedRowDiagnostics, noteRowDiagnostics } = parseResult
-	if (skippedRowDiagnostics.length === 0 && noteRowDiagnostics.length === 0) {
-		return null
-	}
 
 	const lines: string[] = []
 	if (appliedCount > 0) {
@@ -92,6 +89,9 @@ function formatCatalogImportOutcomeFlash(params: {
 			}),
 		)
 	} else {
+		if (skippedRowDiagnostics.length === 0 && noteRowDiagnostics.length === 0) {
+			return null
+		}
 		lines.push(t('errors.catalog.import.diagnostic.nothingSavedLead'))
 	}
 

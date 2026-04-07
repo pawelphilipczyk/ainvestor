@@ -409,6 +409,43 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Xtrackers Future Mobility/)
 	})
 
+	it('POST /catalog/import flashes success line when all rows merge with no skips', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+		const cookie = await signInAs('catalog-admin')
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					isin: 'IE00BGV5VR99',
+					fund_name: 'Xtrackers Future Mobility UCITS ETF 1C',
+					ticker: 'XMOV GR',
+					assets: 'akcje',
+					sector: 'technologia',
+				},
+			],
+			count: 1,
+		})
+
+		await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set('bankApiJson', bankJson)
+					return formData
+				})(),
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await catalogResponse.text()
+
+		assert.match(body, /Catalog saved/)
+		assert.match(body, /Merged 1 row/)
+	})
+
 	it('POST /catalog/import flashes when JSON is invalid', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
