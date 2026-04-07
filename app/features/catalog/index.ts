@@ -445,7 +445,14 @@ export const catalogController = {
 
 			const imported = parseResult.entries
 			if (imported.length === 0) {
-				session.flash('error', t('errors.catalog.import.noRowsParsed'))
+				const detailedFlash = formatCatalogImportOutcomeFlash({
+					appliedCount: 0,
+					parseResult,
+				})
+				session.flash(
+					'error',
+					detailedFlash ?? t('errors.catalog.import.noRowsParsed'),
+				)
 				return catalogIndexRedirect()
 			}
 

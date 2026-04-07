@@ -504,6 +504,50 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /empty "data" array/)
 	})
 
+	it('POST /catalog/import flashes per-row details when every row fails', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set(
+						'bankApiJson',
+						JSON.stringify({
+							data: [
+								{ fund_name: 'First bad', ticker: '', assets: 'akcje' },
+								{ fund_name: '', ticker: 'SECOND', assets: 'akcje' },
+							],
+						}),
+					)
+					return formData
+				})(),
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.equal(importResponse.status, 302)
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await catalogResponse.text()
+
+		assert.match(body, /Nothing was saved/)
+		assert.match(body, /Skipped rows:/)
+		assert.match(body, /Row 1/)
+		assert.match(body, /Row 2/)
+		assert.match(body, /Missing ticker/)
+		assert.match(body, /Missing fund_name/)
+	})
+
 	it('POST /catalog/import flashes per-row details when a row is skipped', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
