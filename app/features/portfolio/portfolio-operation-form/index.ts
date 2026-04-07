@@ -20,58 +20,65 @@ import {
 	fetchCatalog,
 	findCatalogEntryByTicker,
 } from '../../catalog/lib.ts'
-import { PortfolioBuySellForm } from './buy-sell-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
+import { PortfolioOperationForm } from './operation-form.tsx'
 
-const portfolioBuyFields = {
+const portfolioOperationFields = {
 	instrumentTicker: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
 }
 
-export const PortfolioBuySchema = object({
-	portfolioAction: literal('buy'),
-	...portfolioBuyFields,
+export const PortfolioBuyOperationSchema = object({
+	portfolioOperation: literal('buy'),
+	...portfolioOperationFields,
 })
 
-export const PortfolioSellSchema = object({
-	portfolioAction: literal('sell'),
-	...portfolioBuyFields,
+export const PortfolioSellOperationSchema = object({
+	portfolioOperation: literal('sell'),
+	...portfolioOperationFields,
 	value: coerce
 		.number()
 		.pipe(min(0))
 		.refine((n) => n > 0, t('errors.portfolio.sellValueNotPositive')),
 })
 
-export const PortfolioTradeSchema = variant('portfolioAction', {
-	buy: PortfolioBuySchema,
-	sell: PortfolioSellSchema,
+export const PortfolioOperationSchema = variant('portfolioOperation', {
+	buy: PortfolioBuyOperationSchema,
+	sell: PortfolioSellOperationSchema,
 })
 
-/** @deprecated Use {@link PortfolioBuySchema} — same shape for tests and tools. */
+/** @deprecated Use {@link PortfolioBuyOperationSchema}. */
 export const CreateEtfSchema = object({
 	instrumentTicker: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
 })
 
-function normalizePortfolioTradeValue(raw: Record<string, unknown>): void {
+function normalizePortfolioOperationValue(raw: Record<string, unknown>): void {
 	if (typeof raw.value === 'string') {
 		const parsed = parseLocaleDecimalString(raw.value)
 		raw.value = parsed === null ? raw.value : String(parsed)
 	}
 }
 
-/** Normalizes buy/sell form payload before schema parse. */
+/** Normalizes portfolio operation form payload before schema parse. */
+export function normalizePortfolioOperationInput(
+	raw: Record<string, unknown>,
+): void {
+	normalizePortfolioOperationValue(raw)
+}
+
+/** @deprecated Use {@link normalizePortfolioOperationInput}. */
 export function normalizePortfolioTradeInput(
 	raw: Record<string, unknown>,
 ): void {
-	normalizePortfolioTradeValue(raw)
+	normalizePortfolioOperationInput(raw)
 }
 
-/** @deprecated Use {@link normalizePortfolioTradeInput}. */
+/** @deprecated Use {@link normalizePortfolioOperationInput}. */
 export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
-	normalizePortfolioTradeInput(raw)
+	normalizePortfolioOperationInput(raw)
 }
 
 function prefersJson(request: Request): boolean {
@@ -164,18 +171,18 @@ function findExistingHoldingIndex(params: {
 	})
 }
 
-export { ListFragment, PortfolioBuySellForm }
+export { ListFragment, PortfolioOperationForm }
 
-export const addEtfFormHandlers = {
+export const portfolioOperationFormHandlers = {
 	actions: {
 		async create(context: AppRequestContext) {
 			const form = context.get(FormData)
 			if (!form) return createRedirectResponse(routes.portfolio.index.href())
 
 			const formPayload = objectFromFormData(form)
-			normalizePortfolioTradeInput(formPayload)
+			normalizePortfolioOperationInput(formPayload)
 
-			const result = parseSafe(PortfolioTradeSchema, formPayload)
+			const result = parseSafe(PortfolioOperationSchema, formPayload)
 			if (!result.success) {
 				const message = t('errors.portfolio.addInvalid')
 				if (prefersJson(context.request)) {
@@ -203,7 +210,7 @@ export const addEtfFormHandlers = {
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
 
-			const trade = result.value
+			const operation = result.value
 			const session = getSessionData(context.get(Session))
 			let catalog: CatalogEntry[]
 			let current: EtfEntry[]
@@ -223,7 +230,7 @@ export const addEtfFormHandlers = {
 				current = getGuestEtfs(context.get(Session))
 			}
 
-			const { instrumentTicker, value, currency } = trade
+			const { instrumentTicker, value, currency } = operation
 			const match = findCatalogEntryByTicker(catalog, instrumentTicker)
 			if (!match) {
 				const message = t('errors.portfolio.catalogEntryMissing')
@@ -268,7 +275,7 @@ export const addEtfFormHandlers = {
 
 			let updated: EtfEntry[]
 
-			if (trade.portfolioAction === 'buy') {
+			if (operation.portfolioOperation === 'buy') {
 				const entry: EtfEntry = existing
 					? {
 							...existing,
@@ -357,3 +364,18 @@ export const addEtfFormHandlers = {
 		},
 	},
 }
+
+/** @deprecated Use {@link portfolioOperationFormHandlers}. */
+export const addEtfFormHandlers = portfolioOperationFormHandlers
+
+/** @deprecated Use {@link PortfolioOperationForm}. */
+export const PortfolioBuySellForm = PortfolioOperationForm
+
+/** @deprecated Use {@link PortfolioBuyOperationSchema}. */
+export const PortfolioBuySchema = PortfolioBuyOperationSchema
+
+/** @deprecated Use {@link PortfolioSellOperationSchema}. */
+export const PortfolioSellSchema = PortfolioSellOperationSchema
+
+/** @deprecated Use {@link PortfolioOperationSchema}. */
+export const PortfolioTradeSchema = PortfolioOperationSchema

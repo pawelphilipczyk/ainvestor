@@ -40,7 +40,7 @@ function portfolioBuyForm(fields: {
 	currency: string
 }) {
 	const form = new FormData()
-	form.set('portfolioAction', 'buy')
+	form.set('portfolioOperation', 'buy')
 	form.set('instrumentTicker', fields.instrumentTicker)
 	form.set('value', fields.value)
 	form.set('currency', fields.currency)
@@ -53,7 +53,7 @@ function portfolioSellForm(fields: {
 	currency: string
 }) {
 	const form = new FormData()
-	form.set('portfolioAction', 'sell')
+	form.set('portfolioOperation', 'sell')
 	form.set('instrumentTicker', fields.instrumentTicker)
 	form.set('value', fields.value)
 	form.set('currency', fields.currency)
@@ -135,7 +135,7 @@ describe('Portfolio page', () => {
 		assert.match(body, /name="instrumentTicker"/)
 		assert.match(body, /name="value"/)
 		assert.match(body, /name="currency"/)
-		assert.match(body, /name="portfolioAction"/)
+		assert.match(body, /name="portfolioOperation"/)
 	})
 
 	it('form defaults currency to PLN (first option)', async () => {
@@ -475,7 +475,7 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		const ct = htmlRes.headers.get('content-type') ?? ''
 		assert.match(ct, /text\/html/)
 		const fragmentBody = await htmlRes.text()
-		assert.match(fragmentBody, /Buy or Sell/)
+		assert.match(fragmentBody, /operation \(Buy or Sell\)/)
 		assert.match(fragmentBody, /Your Holdings/)
 	})
 
@@ -508,7 +508,7 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		)
 		assert.equal(jsonRes.status, 422)
 		const data = await jsonRes.json()
-		assert.match(data.error, /Buy or Sell/)
+		assert.match(data.error, /operation \(Buy or Sell\)/)
 	})
 
 	it('DELETE /portfolio/:id still removes a holding when called directly', async () => {
@@ -567,7 +567,7 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 			{ headers: cookie ? { Cookie: cookie.split(';')[0] } : undefined },
 		)
 		const body = await homeResponse.text()
-		assert.match(body, /Buy or Sell/)
+		assert.match(body, /operation \(Buy or Sell\)/)
 	})
 
 	it('returns 422 JSON when fetch sends Accept: application/json and validation fails', async () => {
@@ -587,7 +587,7 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		const data = await jsonErrorResponse.json()
 		assert.match(
 			data.error,
-			/Please choose Buy or Sell, select a fund from your catalog/,
+			/Please choose an operation \(Buy or Sell\), select a fund from your catalog/,
 		)
 	})
 
@@ -608,7 +608,7 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		const ct = htmlErrorResponse.headers.get('content-type') ?? ''
 		assert.match(ct, /text\/html/)
 		const body = await htmlErrorResponse.text()
-		assert.match(body, /Buy or Sell/)
+		assert.match(body, /operation \(Buy or Sell\)/)
 		assert.match(body, /Your Holdings/)
 	})
 
@@ -682,10 +682,12 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 		assert.match(body, /PLN/)
-		const buySellIdx = body.indexOf('Buy or sell')
+		const operationFormIdx = body.indexOf('Buy or sell')
 		const frameIdx = body.indexOf('"name":"portfolio-list"')
-		assert.ok(buySellIdx !== -1 && frameIdx !== -1 && buySellIdx < frameIdx)
-		assert.match(body, /name="portfolioAction"/)
+		assert.ok(
+			operationFormIdx !== -1 && frameIdx !== -1 && operationFormIdx < frameIdx,
+		)
+		assert.match(body, /name="portfolioOperation"/)
 	})
 
 	it('portfolio page renders a named Frame for the holdings list', async () => {

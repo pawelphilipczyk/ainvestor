@@ -6,15 +6,15 @@ import { t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { PortfolioBuySellForm } from './add-etf-form/index.ts'
 import { ImportEtfForm } from './import-etf-form/import-etf-form.tsx'
+import { PortfolioOperationForm } from './portfolio-operation-form/index.ts'
 
 type PortfolioPageProps = {
 	instrumentOptions: { value: string; label: string }[]
 }
 
 /**
- * Portfolio page: CSV import, buy/sell form, holdings list in a Frame.
+ * Portfolio page: CSV import, operation form (buy/sell), holdings list in a Frame.
  */
 export function PortfolioPage(handle: Handle, _setup?: unknown) {
 	return (props: PortfolioPageProps) => {
@@ -44,9 +44,9 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 				<ImportEtfForm />
 				<Card variant="muted" class="p-4">
 					<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
-						{t('portfolio.buySell.title')}
+						{t('portfolio.operation.title')}
 					</h2>
-					<PortfolioBuySellForm instrumentOptions={props.instrumentOptions} />
+					<PortfolioOperationForm instrumentOptions={props.instrumentOptions} />
 				</Card>
 				<Frame
 					name="portfolio-list"

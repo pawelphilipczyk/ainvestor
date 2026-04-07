@@ -18,7 +18,10 @@ import {
 	fetchCatalog,
 	instrumentSelectOptionsFromCatalog,
 } from '../catalog/lib.ts'
-import { addEtfFormHandlers, ListFragment } from './add-etf-form/index.ts'
+import {
+	ListFragment,
+	portfolioOperationFormHandlers,
+} from './portfolio-operation-form/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
 
 export { resetEtfEntries, resetTestSessionCookieJar } from './state.ts'
@@ -65,7 +68,7 @@ export const portfolioController = {
 		},
 
 		async create(context: AppRequestContext) {
-			return addEtfFormHandlers.actions.create(context)
+			return portfolioOperationFormHandlers.actions.create(context)
 		},
 
 		async import(context: AppRequestContext) {

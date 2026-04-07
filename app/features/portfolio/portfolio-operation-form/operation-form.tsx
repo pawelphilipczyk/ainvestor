@@ -10,15 +10,15 @@ import { t } from '../../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../../lib/locale-decimal-input.ts'
 import { routes } from '../../../routes.ts'
 
-type PortfolioBuySellFormProps = {
+type PortfolioOperationFormProps = {
 	instrumentOptions: { value: string; label: string }[]
 }
 
 /**
- * Single trade form: choose buy or sell, then submit once with the same fields as the former manual add form.
+ * Portfolio buy/sell as a single form: operation, fund, value, currency, then Apply.
  */
-export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
-	return (props: PortfolioBuySellFormProps) => {
+export function PortfolioOperationForm(_handle: Handle, _setup?: unknown) {
+	return (props: PortfolioOperationFormProps) => {
 		const instrumentPlaceholder =
 			props.instrumentOptions.length === 0
 				? t('forms.catalog.emptyPlaceholder')
@@ -27,15 +27,15 @@ export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
 			{ value: '', label: instrumentPlaceholder },
 			...props.instrumentOptions,
 		]
-		const actionOptions = [
-			{ value: 'buy', label: t('portfolio.buySell.optionBuy') },
-			{ value: 'sell', label: t('portfolio.buySell.optionSell') },
+		const operationOptions = [
+			{ value: 'buy', label: t('portfolio.operation.optionBuy') },
+			{ value: 'sell', label: t('portfolio.operation.optionSell') },
 		]
 
 		return (
 			<>
 				<p class="mt-2 text-xs text-muted-foreground">
-					{t('portfolio.buySell.hint')}
+					{t('portfolio.operation.hint')}
 				</p>
 				<form
 					method="post"
@@ -46,19 +46,19 @@ export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
 					data-reset-form
 				>
 					<div class="grid gap-2">
-						<FieldLabel fieldId="portfolioAction">
-							{t('portfolio.buySell.field.action')}
+						<FieldLabel fieldId="portfolioOperation">
+							{t('portfolio.operation.field.operation')}
 						</FieldLabel>
 						<SelectInput
-							id="portfolioAction"
-							name="portfolioAction"
-							options={actionOptions}
+							id="portfolioOperation"
+							name="portfolioOperation"
+							options={operationOptions}
 							required={true}
 						/>
 					</div>
 					<div class="grid gap-2">
 						<FieldLabel fieldId="instrumentTicker">
-							{t('portfolio.buySell.field.fund')}
+							{t('portfolio.operation.field.fund')}
 						</FieldLabel>
 						<SelectInput
 							id="instrumentTicker"
@@ -70,12 +70,12 @@ export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
 					<div class="grid grid-cols-2 gap-3">
 						<div class="grid gap-2">
 							<FieldLabel fieldId="value">
-								{t('portfolio.buySell.field.value')}
+								{t('portfolio.operation.field.value')}
 							</FieldLabel>
 							<NumberInput
 								id="value"
 								name="value"
-								placeholder={t('portfolio.buySell.placeholder.value')}
+								placeholder={t('portfolio.operation.placeholder.value')}
 								required={true}
 								inputMode="decimal"
 								pattern={LOCALE_DECIMAL_HTML_PATTERN}
@@ -83,7 +83,7 @@ export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
 						</div>
 						<div class="grid gap-2">
 							<FieldLabel fieldId="currency">
-								{t('portfolio.buySell.field.currency')}
+								{t('portfolio.operation.field.currency')}
 							</FieldLabel>
 							<SelectInput
 								id="currency"
@@ -92,18 +92,18 @@ export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
 							/>
 						</div>
 					</div>
-					<SubmitButton>{t('portfolio.buySell.submit')}</SubmitButton>
+					<SubmitButton>{t('portfolio.operation.submit')}</SubmitButton>
 				</form>
 				<p class="mt-4 text-xs text-muted-foreground">
-					{t('portfolio.buySell.footer.beforeLink')}{' '}
+					{t('portfolio.operation.footer.beforeLink')}{' '}
 					<a
 						href={routes.catalog.index.href()}
 						rmx-document
 						class="font-medium text-primary underline underline-offset-2"
 					>
-						{t('portfolio.buySell.footer.link')}
+						{t('portfolio.operation.footer.link')}
 					</a>{' '}
-					{t('portfolio.buySell.footer.after')}
+					{t('portfolio.operation.footer.after')}
 				</p>
 			</>
 		)

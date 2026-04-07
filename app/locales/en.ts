@@ -73,20 +73,20 @@ export const en = {
 		'Paste rows from your export (include the header row)…',
 	'portfolio.import.uploadLabel': 'Or upload a file',
 	'portfolio.import.submit': 'Import',
-	'portfolio.buySell.title': 'Buy or sell',
-	'portfolio.buySell.hint':
+	'portfolio.operation.title': 'Buy or sell',
+	'portfolio.operation.hint':
 		'Pick a fund from your catalog. Buy adds or increases a holding; sell reduces or removes it.',
-	'portfolio.buySell.field.fund': 'Fund',
-	'portfolio.buySell.field.value': 'Value',
-	'portfolio.buySell.field.currency': 'Currency',
-	'portfolio.buySell.placeholder.value': 'e.g. 1200.50',
-	'portfolio.buySell.field.action': 'Action',
-	'portfolio.buySell.optionBuy': 'Buy (add or increase)',
-	'portfolio.buySell.optionSell': 'Sell (reduce or remove)',
-	'portfolio.buySell.submit': 'Apply',
-	'portfolio.buySell.footer.beforeLink': 'Import or paste funds on the',
-	'portfolio.buySell.footer.link': 'ETF Catalog',
-	'portfolio.buySell.footer.after': 'to populate the list.',
+	'portfolio.operation.field.fund': 'Fund',
+	'portfolio.operation.field.value': 'Value',
+	'portfolio.operation.field.currency': 'Currency',
+	'portfolio.operation.placeholder.value': 'e.g. 1200.50',
+	'portfolio.operation.field.operation': 'Operation',
+	'portfolio.operation.optionBuy': 'Buy (add or increase)',
+	'portfolio.operation.optionSell': 'Sell (reduce or remove)',
+	'portfolio.operation.submit': 'Apply',
+	'portfolio.operation.footer.beforeLink': 'Import or paste funds on the',
+	'portfolio.operation.footer.link': 'ETF Catalog',
+	'portfolio.operation.footer.after': 'to populate the list.',
 	'portfolio.holdings.title': 'Your Holdings',
 	'portfolio.holdings.empty': 'No ETFs added yet.',
 	'portfolio.etf.valueShareBarAria':
@@ -252,7 +252,7 @@ export const en = {
 	'advice.model.gpt-5.4': 'GPT-5.4',
 
 	'errors.portfolio.addInvalid':
-		'Please choose Buy or Sell, select a fund from your catalog, and enter a valid value (for sell, value must be greater than 0).',
+		'Please choose an operation (Buy or Sell), select a fund from your catalog, and enter a valid value (for sell, value must be greater than 0).',
 	'errors.portfolio.catalogEntryMissing':
 		'Selected catalog entry not found. Update your catalog or pick another fund.',
 	'errors.portfolio.sellNoHolding':
