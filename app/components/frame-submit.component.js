@@ -72,7 +72,8 @@ async function navigateDocumentUrl(href, history = 'push') {
  *
  * **`data-frame-replace-from-response`:** When set, POST uses `Accept: text/html`
  * and applies the response body into the named frame via `frameHandle.replace()`
- * when the response is HTML (e.g. catalog ETF analysis fragment).
+ * when the response is HTML — including **422** validation fragments (portfolio /
+ * guidelines list) as well as success HTML (e.g. catalog ETF analysis).
  *
  * **`data-frame-hide-form-on-success`:** With replace-from-response, hide the
  * submitted form after a successful HTML response (catalog analysis); omit for
@@ -154,6 +155,20 @@ export const FrameSubmitEnhancement = clientEntry(
 									}
 								}
 								if (resetForm && response.ok) form.reset()
+								return
+							}
+							if (!response.ok) {
+								if (response.status === 422 && errorId) {
+									const data = await response.json().catch(() => ({}))
+									const msgs = readClientMessages()
+									const fallback =
+										typeof msgs?.genericFormError === 'string'
+											? msgs.genericFormError
+											: 'Please check your input.'
+									showError(data.error || fallback)
+								} else {
+									await navigateDocumentUrl(response.url || '/')
+								}
 								return
 							}
 						}
