@@ -77,41 +77,32 @@ export const en = {
 		'Paste rows from your export (include the header row)…',
 	'portfolio.import.uploadLabel': 'Or upload a file',
 	'portfolio.import.submit': 'Import',
-	'portfolio.addManual.summary': 'Add one ETF manually',
+	'portfolio.operation.title': 'Buy or sell',
+	'portfolio.operation.hint':
+		'Pick a fund from your catalog. Buy adds or increases a holding; sell reduces or removes it.',
+	'portfolio.operation.field.fund': 'Fund',
+	'portfolio.operation.field.value': 'Value',
+	'portfolio.operation.field.currency': 'Currency',
+	'portfolio.operation.placeholder.value': 'e.g. 1200.50',
+	'portfolio.operation.field.operation': 'Operation',
+	'portfolio.operation.optionBuy': 'Buy (add or increase)',
+	'portfolio.operation.optionSell': 'Sell (reduce or remove)',
+	'portfolio.operation.submit': 'Apply',
+	'portfolio.operation.footer.beforeLink': 'Import or paste funds on the',
+	'portfolio.operation.footer.link': 'ETF Catalog',
+	'portfolio.operation.footer.after': 'to populate the list.',
 	'portfolio.holdings.title': 'Your Holdings',
 	'portfolio.holdings.empty': 'No ETFs added yet.',
-	'portfolio.holdings.shares': '{count} shares',
-	'portfolio.etf.sell': 'Sell',
-	'portfolio.etf.removeConfirm': 'Remove {name} from your portfolio?',
-	'portfolio.etf.removeAria': 'Remove {name} from portfolio',
-	'portfolio.etf.cancel': 'Cancel',
-	'portfolio.etf.remove': 'Remove',
-	'portfolio.etf.updateValueLabel': 'Value ({currency})',
-	'portfolio.etf.updateValueScreenReader': 'Market value for {name}',
-	'portfolio.etf.updateQuantityLabel': 'Quantity',
-	'portfolio.etf.updateQuantityScreenReader': 'Share quantity for {name}',
-	'portfolio.etf.save': 'Save',
 	'portfolio.etf.valueShareBarAria':
 		'{percent}% of total holdings value for {name}',
+	'portfolio.etf.buyMore': 'Buy more',
+	'portfolio.etf.sell': 'Sell',
 
 	'forms.catalog.emptyPlaceholder':
 		'No funds in catalog — import on ETF Catalog',
 	'forms.catalog.selectFundPlaceholder': 'Select a fund…',
 	'forms.targetPct.placeholder': 'e.g. 60',
 	'forms.targetPct.placeholderAsset': 'e.g. 40',
-
-	'addEtf.hint':
-		'Pick a fund from your catalog. Its name comes from the catalog row.',
-	'addEtf.field.fund': 'Fund',
-	'addEtf.field.value': 'Value',
-	'addEtf.field.currency': 'Currency',
-	'addEtf.field.quantityOptional': 'Quantity (optional)',
-	'addEtf.placeholder.value': 'e.g. 1200.50',
-	'addEtf.placeholder.quantity': 'e.g. 186',
-	'addEtf.submit': 'Add ETF',
-	'addEtf.footer.beforeLink': 'Import or paste funds on the',
-	'addEtf.footer.link': 'ETF Catalog',
-	'addEtf.footer.after': 'to populate the list.',
 
 	'catalog.savedGist': 'Your portfolio is matched against the shared catalog.',
 	'catalog.sharedSource':
@@ -267,13 +258,15 @@ export const en = {
 	'advice.model.gpt-5.4': 'GPT-5.4',
 
 	'errors.portfolio.addInvalid':
-		'Please select a fund from your catalog and enter a valid value (number >= 0).',
+		'Please choose an operation (Buy or Sell), select a fund from your catalog, and enter a valid value (for sell, value must be greater than 0).',
 	'errors.portfolio.catalogEntryMissing':
 		'Selected catalog entry not found. Update your catalog or pick another fund.',
-	'errors.portfolio.updateInvalid':
-		'Enter a valid value (number >= 0) and optional quantity (whole number >= 0).',
-	'errors.portfolio.entryNotFound':
-		'That holding is no longer in your portfolio.',
+	'errors.portfolio.sellNoHolding':
+		'You do not hold that fund in this currency yet — use Buy to add it.',
+	'errors.portfolio.sellExceedsHoldings':
+		'That amount is more than your current holding value.',
+	'errors.portfolio.sellValueNotPositive':
+		'Enter an amount greater than zero to sell.',
 	'errors.portfolio.persistence':
 		'Could not save your portfolio. Please try again in a moment.',
 	'errors.catalog.importNotAllowed':

@@ -1,7 +1,7 @@
 import type { Session } from 'remix/session'
 
 import type { CatalogEntry } from '../features/catalog/lib.ts'
-import type { EtfEntry } from './gist.ts'
+import { type EtfEntry, normalizeStoredEtfEntries } from './gist.ts'
 import type { EtfGuideline } from './guidelines.ts'
 
 const KEY = 'guestState'
@@ -52,7 +52,7 @@ function readState(session: Session): GuestState {
 	try {
 		const partial = JSON.parse(raw) as Partial<GuestState>
 		return {
-			etfs: Array.isArray(partial.etfs) ? partial.etfs : [],
+			etfs: normalizeStoredEtfEntries(partial.etfs),
 			catalog: Array.isArray(partial.catalog) ? partial.catalog : [],
 		}
 	} catch {

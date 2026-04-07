@@ -10,16 +10,15 @@ import { t } from '../../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../../lib/locale-decimal-input.ts'
 import { routes } from '../../../routes.ts'
 
-type AddEtfFormProps = {
+type PortfolioOperationFormProps = {
 	instrumentOptions: { value: string; label: string }[]
 }
 
 /**
- * Add ETF form feature: form UI and progressive enhancement.
- * Self-contained; used by PortfolioPage. List is rendered separately.
+ * Portfolio buy/sell as a single form: operation, fund, value, currency, then Apply.
  */
-export function AddEtfForm(_handle: Handle, _setup?: unknown) {
-	return (props: AddEtfFormProps) => {
+export function PortfolioOperationForm(_handle: Handle, _setup?: unknown) {
+	return (props: PortfolioOperationFormProps) => {
 		const instrumentPlaceholder =
 			props.instrumentOptions.length === 0
 				? t('forms.catalog.emptyPlaceholder')
@@ -28,11 +27,18 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 			{ value: '', label: instrumentPlaceholder },
 			...props.instrumentOptions,
 		]
+		const operationOptions = [
+			{ value: 'buy', label: t('portfolio.operation.optionBuy') },
+			{ value: 'sell', label: t('portfolio.operation.optionSell') },
+		]
 
 		return (
 			<>
-				<p class="mt-2 text-xs text-muted-foreground">{t('addEtf.hint')}</p>
+				<p class="mt-2 text-xs text-muted-foreground">
+					{t('portfolio.operation.hint')}
+				</p>
 				<form
+					id="portfolio-trade-form"
 					method="post"
 					action={routes.portfolio.create.href()}
 					class="mt-4 grid gap-4"
@@ -41,8 +47,19 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 					data-reset-form
 				>
 					<div class="grid gap-2">
+						<FieldLabel fieldId="portfolioOperation">
+							{t('portfolio.operation.field.operation')}
+						</FieldLabel>
+						<SelectInput
+							id="portfolioOperation"
+							name="portfolioOperation"
+							options={operationOptions}
+							required={true}
+						/>
+					</div>
+					<div class="grid gap-2">
 						<FieldLabel fieldId="instrumentTicker">
-							{t('addEtf.field.fund')}
+							{t('portfolio.operation.field.fund')}
 						</FieldLabel>
 						<SelectInput
 							id="instrumentTicker"
@@ -53,11 +70,13 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 					</div>
 					<div class="grid grid-cols-2 gap-3">
 						<div class="grid gap-2">
-							<FieldLabel fieldId="value">{t('addEtf.field.value')}</FieldLabel>
+							<FieldLabel fieldId="value">
+								{t('portfolio.operation.field.value')}
+							</FieldLabel>
 							<NumberInput
-								id="value"
+								id="portfolio-trade-value"
 								name="value"
-								placeholder={t('addEtf.placeholder.value')}
+								placeholder={t('portfolio.operation.placeholder.value')}
 								required={true}
 								inputMode="decimal"
 								pattern={LOCALE_DECIMAL_HTML_PATTERN}
@@ -65,7 +84,7 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 						</div>
 						<div class="grid gap-2">
 							<FieldLabel fieldId="currency">
-								{t('addEtf.field.currency')}
+								{t('portfolio.operation.field.currency')}
 							</FieldLabel>
 							<SelectInput
 								id="currency"
@@ -74,28 +93,18 @@ export function AddEtfForm(_handle: Handle, _setup?: unknown) {
 							/>
 						</div>
 					</div>
-					<div class="grid gap-2">
-						<FieldLabel fieldId="quantity">
-							{t('addEtf.field.quantityOptional')}
-						</FieldLabel>
-						<NumberInput
-							id="quantity"
-							name="quantity"
-							placeholder={t('addEtf.placeholder.quantity')}
-						/>
-					</div>
-					<SubmitButton>{t('addEtf.submit')}</SubmitButton>
+					<SubmitButton>{t('portfolio.operation.submit')}</SubmitButton>
 				</form>
 				<p class="mt-4 text-xs text-muted-foreground">
-					{t('addEtf.footer.beforeLink')}{' '}
+					{t('portfolio.operation.footer.beforeLink')}{' '}
 					<a
 						href={routes.catalog.index.href()}
 						rmx-document
 						class="font-medium text-primary underline underline-offset-2"
 					>
-						{t('addEtf.footer.link')}
+						{t('portfolio.operation.footer.link')}
 					</a>{' '}
-					{t('addEtf.footer.after')}
+					{t('portfolio.operation.footer.after')}
 				</p>
 			</>
 		)
