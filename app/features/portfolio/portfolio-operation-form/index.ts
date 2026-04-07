@@ -48,13 +48,6 @@ export const PortfolioOperationSchema = variant('portfolioOperation', {
 	sell: PortfolioSellOperationSchema,
 })
 
-/** @deprecated Use {@link PortfolioBuyOperationSchema}. */
-export const CreateEtfSchema = object({
-	instrumentTicker: string().pipe(minLength(1)),
-	value: coerce.number().pipe(min(0)),
-	currency: string(),
-})
-
 function normalizePortfolioOperationValue(raw: Record<string, unknown>): void {
 	if (typeof raw.value === 'string') {
 		const parsed = parseLocaleDecimalString(raw.value)
@@ -67,18 +60,6 @@ export function normalizePortfolioOperationInput(
 	raw: Record<string, unknown>,
 ): void {
 	normalizePortfolioOperationValue(raw)
-}
-
-/** @deprecated Use {@link normalizePortfolioOperationInput}. */
-export function normalizePortfolioTradeInput(
-	raw: Record<string, unknown>,
-): void {
-	normalizePortfolioOperationInput(raw)
-}
-
-/** @deprecated Use {@link normalizePortfolioOperationInput}. */
-export function normalizeAddEtfInput(raw: Record<string, unknown>): void {
-	normalizePortfolioOperationInput(raw)
 }
 
 function prefersJson(request: Request): boolean {
@@ -364,18 +345,3 @@ export const portfolioOperationFormHandlers = {
 		},
 	},
 }
-
-/** @deprecated Use {@link portfolioOperationFormHandlers}. */
-export const addEtfFormHandlers = portfolioOperationFormHandlers
-
-/** @deprecated Use {@link PortfolioOperationForm}. */
-export const PortfolioBuySellForm = PortfolioOperationForm
-
-/** @deprecated Use {@link PortfolioBuyOperationSchema}. */
-export const PortfolioBuySchema = PortfolioBuyOperationSchema
-
-/** @deprecated Use {@link PortfolioSellOperationSchema}. */
-export const PortfolioSellSchema = PortfolioSellOperationSchema
-
-/** @deprecated Use {@link PortfolioOperationSchema}. */
-export const PortfolioTradeSchema = PortfolioOperationSchema
