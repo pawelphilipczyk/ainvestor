@@ -198,6 +198,8 @@ export const en = {
 	'guidelines.list.bucketSuffix': '(bucket)',
 	'guidelines.list.remove': 'Remove',
 	'guidelines.list.saveTarget': 'Save',
+	'guidelines.list.editTarget': 'Edit target',
+	'guidelines.list.cancelEditTarget': 'Cancel',
 	'guidelines.list.targetPctSuffix': '%',
 	'guidelines.list.targetPctLabel': 'Target percent for {label}',
 	'guidelines.list.shareBarAria': 'Target {percent}% of portfolio for {label}',

@@ -534,7 +534,7 @@ describe('Guidelines page', () => {
 		assert.match(body, /bond/)
 	})
 
-	it('guidelines list fragment shows compact target field and delete dialog', async () => {
+	it('guidelines list fragment shows read-only target, hidden edit form, and delete dialog', async () => {
 		await seedGuestCatalog()
 		const add = new FormData()
 		add.set('instrumentTicker', 'VTI')
@@ -552,6 +552,12 @@ describe('Guidelines page', () => {
 		const html = await frag.text()
 		assert.equal(frag.status, 200)
 		assert.match(html, /Your Guidelines/)
+		assert.match(html, /data-guideline-read/)
+		assert.match(html, /25\s*%/)
+		assert.match(html, /data-guideline-edit/)
+		assert.match(html, /data-guideline-original-target="25"/)
+		assert.match(html, /<form[^>]*\bhidden\b[^>]*data-guideline-edit-form/)
+		assert.match(html, /name="targetPct"/)
 		assert.match(html, /value="25"/)
 		assert.match(html, /!w-16/)
 		assert.match(html, /<span[^>]*aria-hidden="true"[^>]*>\s*%\s*<\/span>/)
@@ -604,8 +610,8 @@ describe('Guidelines page', () => {
 		const after = await (
 			await testSessionFetch('http://localhost/guidelines')
 		).text()
-		assert.match(after, /name="targetPct"/)
-		assert.match(after, /value="55"/)
+		assert.match(after, /data-guideline-read/)
+		assert.match(after, /55\s*%/)
 		assert.match(after, /Total allocated:\s*<strong[^>]*>55%<\/strong>/)
 	})
 
@@ -644,7 +650,8 @@ describe('Guidelines page', () => {
 		assert.match(ct, /text\/html/)
 		const html = await postRes.text()
 		assert.match(html, /Your Guidelines/)
-		assert.match(html, /value="55"/)
+		assert.match(html, /data-guideline-read/)
+		assert.match(html, /55\s*%/)
 		assert.match(html, /Total allocated:\s*<strong[^>]*>55%<\/strong>/)
 	})
 

@@ -91,15 +91,34 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 												: formatEtfTypeLabel(g.etfType)}
 										</span>
 									</div>
-									<div class="flex min-w-0 items-center justify-between gap-3">
+									<div class="flex min-w-0 flex-wrap items-center justify-between gap-3">
+										<div
+											class="flex min-w-0 flex-wrap items-center gap-2"
+											data-guideline-read={g.id}
+										>
+											<p class="text-sm tabular-nums text-card-foreground">
+												{targetPercentDisplay}
+												{t('guidelines.list.targetPctSuffix')}
+											</p>
+											<button
+												type="button"
+												class={guidelineSaveGhostClass}
+												data-guideline-edit={g.id}
+											>
+												{t('guidelines.list.editTarget')}
+											</button>
+										</div>
 										<form
+											hidden={true}
 											method="post"
 											action={routes.guidelines.updateTarget.href({
 												id: g.id,
 											})}
-											class="inline-flex min-w-0 items-center gap-2"
+											class="inline-flex min-w-0 flex-wrap items-center gap-2"
 											data-frame-submit="guidelines-list"
 											data-frame-replace-from-response="1"
+											data-guideline-edit-form={g.id}
+											data-guideline-original-target={targetPercentDisplay}
 										>
 											<FieldLabel
 												fieldId={targetFieldId}
@@ -128,6 +147,13 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 											</span>
 											<button type="submit" class={guidelineSaveGhostClass}>
 												{t('guidelines.list.saveTarget')}
+											</button>
+											<button
+												type="button"
+												class={guidelineSaveGhostClass}
+												data-guideline-cancel-edit={g.id}
+											>
+												{t('guidelines.list.cancelEditTarget')}
 											</button>
 										</form>
 										<button
