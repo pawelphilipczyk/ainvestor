@@ -65,7 +65,9 @@ function renderCatalogRow(
 	const riskBand = riskBandFromRiskKid(entry.risk_kid)
 	const riskCell =
 		riskBand === undefined ? (
-			t('catalog.emptyCell')
+			<span class="text-sm text-muted-foreground">
+				{t('catalog.emptyCell')}
+			</span>
 		) : (
 			<span
 				class={catalogRiskBandChipClassName(riskBand)}
@@ -114,9 +116,7 @@ function renderCatalogRow(
 					{formatEtfTypeLabel(entry.type) || t('catalog.etfTypeUnknown')}
 				</span>
 			</td>
-			<td class="py-2 pr-4 align-top text-sm text-muted-foreground">
-				{riskCell}
-			</td>
+			<td class="py-2 pr-4 align-top">{riskCell}</td>
 			<td
 				class={`py-2 pr-4 align-top text-sm break-words text-muted-foreground ${catalogTextColMax}`}
 			>
