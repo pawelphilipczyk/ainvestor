@@ -288,6 +288,10 @@ export const en = {
 		'Nothing was saved from this paste.',
 	'errors.catalog.import.diagnostic.skippedHeading': 'Skipped rows:',
 	'errors.catalog.import.diagnostic.notesHeading': 'Notes:',
+	'errors.catalog.import.diagnostic.notesSummaryMany':
+		'{count} row(s) refreshed existing catalog lines (same ISIN and ticker); incoming fields were merged.',
+	'errors.catalog.import.diagnostic.flashTruncated':
+		'(Message was shortened to fit your session cookie size limit.)',
 	'errors.catalog.import.issue.expectedObject':
 		'JSON must be an object with a "data" array of funds.',
 	'errors.catalog.import.issue.dataNotArray':

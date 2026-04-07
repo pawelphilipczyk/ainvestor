@@ -724,6 +724,38 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /XMOV GR/)
 	})
 
+	it('POST /catalog/import summarizes many refresh notes so flash fits cookie session', async () => {
+		const rows = Array.from({ length: 15 }, (_, index) => ({
+			isin: `IE${String(index).padStart(10, '0')}`,
+			fund_name: `Fund ${index}`,
+			ticker: `T${index} LN`,
+			assets: 'akcje',
+		}))
+		seedSharedCatalog(JSON.stringify({ data: rows, count: rows.length }))
+		const cookie = await signInAs('catalog-admin')
+
+		await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set('bankApiJson', JSON.stringify({ data: rows }))
+					return formData
+				})(),
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await catalogResponse.text()
+
+		assert.match(body, /Catalog saved/)
+		assert.match(body, /15 row\(s\) refreshed existing catalog lines/)
+		assert.doesNotMatch(body, /Row 12 \(/)
+	})
+
 	it('catalog shows Your Holdings section when a holding matches a catalog ticker', async () => {
 		const bankJson = JSON.stringify({
 			data: [

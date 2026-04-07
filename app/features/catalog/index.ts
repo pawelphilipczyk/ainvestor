@@ -42,6 +42,19 @@ import {
 
 export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-session-fetch.ts'
 
+/** Cookie session storage (~4KB total); keep flash small so login + flash still fit. */
+const MAX_IMPORT_FLASH_UTF16_UNITS = 2_400
+const NOTE_ROW_DETAIL_LIMIT = 10
+
+function truncateImportFlashForCookieSession(message: string): string {
+	if (message.length <= MAX_IMPORT_FLASH_UTF16_UNITS) return message
+	const suffix = t('errors.catalog.import.diagnostic.flashTruncated')
+	const newlineAndSuffix = `\n${suffix}`
+	const budget = MAX_IMPORT_FLASH_UTF16_UNITS - newlineAndSuffix.length
+	if (budget <= 0) return suffix
+	return `${message.slice(0, budget)}${newlineAndSuffix}`
+}
+
 function formatBankImportRowIssue(issue: BankJsonImportRowIssue): string {
 	switch (issue.kind) {
 		case 'rowNotObject':
@@ -109,15 +122,23 @@ function formatCatalogImportOutcomeFlash(params: {
 	if (noteRowDiagnostics.length > 0) {
 		lines.push('')
 		lines.push(t('errors.catalog.import.diagnostic.notesHeading'))
-		for (const row of noteRowDiagnostics) {
-			lines.push(`Row ${row.index} (${row.label}):`)
-			for (const issue of row.issues) {
-				lines.push(`  • ${formatBankImportRowIssue(issue)}`)
+		if (noteRowDiagnostics.length <= NOTE_ROW_DETAIL_LIMIT) {
+			for (const row of noteRowDiagnostics) {
+				lines.push(`Row ${row.index} (${row.label}):`)
+				for (const issue of row.issues) {
+					lines.push(`  • ${formatBankImportRowIssue(issue)}`)
+				}
 			}
+		} else {
+			lines.push(
+				`  • ${format(t('errors.catalog.import.diagnostic.notesSummaryMany'), {
+					count: noteRowDiagnostics.length,
+				})}`,
+			)
 		}
 	}
 
-	return lines.join('\n')
+	return truncateImportFlashForCookieSession(lines.join('\n'))
 }
 
 function parseAdviceModelFromJsonBody(body: unknown): AdviceModelId {
@@ -469,9 +490,7 @@ export const catalogController = {
 				appliedCount: imported.length,
 				parseResult,
 			})
-			if (outcomeFlash) {
-				session.flash('error', outcomeFlash)
-			}
+			session.flash('error', outcomeFlash)
 
 			return createRedirectResponse(routes.catalog.index.href())
 		},
