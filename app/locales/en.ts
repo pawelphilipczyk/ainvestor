@@ -19,6 +19,10 @@ export const en = {
 	'app.name': 'AI Investor',
 	'app.previewChip': 'Preview',
 
+	'chrome.flash.error': 'Error',
+	'chrome.flash.info': 'Info',
+	'chrome.flash.success': 'Success',
+
 	'meta.title.home': 'AI Investor',
 	'meta.title.portfolio': 'AI Investor – Portfolio',
 	'meta.title.advice': 'AI Investor – Get Advice',

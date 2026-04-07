@@ -5,6 +5,7 @@ import { renderToStream } from 'remix/component/server'
 import { createHtmlResponse } from 'remix/response/html'
 import type { AppPage } from '../lib/app-page.ts'
 import type { SessionData } from '../lib/session.ts'
+import type { FlashedBanner } from '../lib/session-flash.ts'
 import { DocumentShell } from './document-shell.tsx'
 
 export type RenderOptions = {
@@ -12,7 +13,7 @@ export type RenderOptions = {
 	session: SessionData | null
 	currentPage: AppPage
 	body: RemixNode
-	flashError?: string
+	flashBanner?: FlashedBanner
 	init?: ResponseInit
 	/** Merged into the response headers (e.g. client hints for fetch-submit). */
 	responseHeaders?: HeadersInit
@@ -28,7 +29,7 @@ export async function render(options: RenderOptions): Promise<Response> {
 		title: options.title,
 		session: options.session,
 		currentPage: options.currentPage,
-		flashError: options.flashError,
+		flashBanner: options.flashBanner,
 		children: options.body,
 	})
 

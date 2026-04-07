@@ -12,6 +12,10 @@ import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
+import {
+	type FlashedBanner,
+	readFlashedBanner,
+} from '../../lib/session-flash.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import {
@@ -31,7 +35,7 @@ export const portfolioController = {
 		async index(context: AppRequestContext) {
 			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
-			const flashError = context.get(Session).get('error') as string | undefined
+			const flashBanner = readFlashedBanner(context.get(Session))
 			if (session?.gistId && session.token) {
 				const { entries, catalog } = await fetchPortfolioSnapshot(
 					session.token,
@@ -40,14 +44,14 @@ export const portfolioController = {
 				return renderPage({
 					entries,
 					session: layoutSession,
-					flashError,
+					flashBanner,
 					catalog,
 				})
 			}
 			return renderPage({
 				entries: getGuestEtfs(context.get(Session)),
 				session: layoutSession,
-				flashError,
+				flashBanner,
 				catalog: await fetchCatalog(),
 			})
 		},
@@ -169,12 +173,12 @@ export const portfolioController = {
 type RenderPortfolioPageParams = {
 	entries: EtfEntry[]
 	session: SessionData | null
-	flashError?: string
+	flashBanner?: FlashedBanner
 	catalog: CatalogEntry[]
 }
 
 async function renderPage(params: RenderPortfolioPageParams) {
-	const { entries, session, flashError, catalog } = params
+	const { entries, session, flashBanner, catalog } = params
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(PortfolioPage, { instrumentOptions })
 	return render({
@@ -182,7 +186,7 @@ async function renderPage(params: RenderPortfolioPageParams) {
 		session,
 		currentPage: 'portfolio',
 		body,
-		flashError,
+		flashBanner,
 		init: { headers: { 'Cache-Control': 'no-store' } },
 		resolveFrame(source) {
 			if (source === routes.portfolio.fragmentList.href()) {

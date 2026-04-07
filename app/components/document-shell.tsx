@@ -3,6 +3,7 @@ import type { AppPage } from '../lib/app-page.ts'
 import { baseCss } from '../lib/document-styles.ts'
 import { t } from '../lib/i18n.ts'
 import type { SessionData } from '../lib/session.ts'
+import type { FlashBannerTone } from '../lib/session-flash.ts'
 import { tailwindConfig } from '../lib/tailwind-config.ts'
 import { AppTopBar } from './app-top-bar.tsx'
 // @ts-expect-error Runtime-only JS client entry module
@@ -26,8 +27,53 @@ type DocumentShellProps = {
 	title: string
 	session: SessionData | null
 	currentPage: AppPage
-	flashError?: string
+	flashBanner?: { text: string; tone: FlashBannerTone }
 	children: RemixNode
+}
+
+function flashToneLabel(tone: FlashBannerTone): string {
+	switch (tone) {
+		case 'error':
+			return t('chrome.flash.error')
+		case 'success':
+			return t('chrome.flash.success')
+		case 'info':
+			return t('chrome.flash.info')
+		default: {
+			const exhaustive: never = tone
+			return String(exhaustive)
+		}
+	}
+}
+
+function flashToneAccentClass(tone: FlashBannerTone): string {
+	switch (tone) {
+		case 'error':
+			return 'border-l-destructive'
+		case 'success':
+			return 'border-l-emerald-500'
+		case 'info':
+			return 'border-l-amber-500'
+		default: {
+			const exhaustive: never = tone
+			return exhaustive
+		}
+	}
+}
+
+function flashToneBadgeClass(tone: FlashBannerTone): string {
+	switch (tone) {
+		case 'error':
+			return 'border-destructive/40 bg-destructive/10 text-destructive'
+		case 'success':
+			return 'border-emerald-600/35 bg-emerald-500/10 text-emerald-900 dark:text-emerald-100'
+		case 'info':
+			return 'border-amber-600/35 bg-amber-500/12 text-amber-950 dark:text-amber-100'
+		default: {
+			const exhaustive: never = tone
+			return exhaustive
+		}
+	}
 }
 
 export function DocumentShell(_handle: Handle, _setup?: unknown) {
@@ -77,13 +123,21 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					<Sidebar navLinks={getNavLinks()} currentPage={props.currentPage} />
 					<AppTopBar />
 					<div id="page-content" class="min-w-0 p-4 md:ml-64">
-						{props.flashError ? (
-							<div
-								role="alert"
-								class="mb-4 whitespace-pre-wrap rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+						{props.flashBanner ? (
+							<section
+								class={`mx-auto mb-4 max-w-5xl min-w-0 rounded-md border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm border-l-4 ${flashToneAccentClass(props.flashBanner.tone)}`}
+								aria-label={flashToneLabel(props.flashBanner.tone)}
 							>
-								{props.flashError}
-							</div>
+								<p class="sr-only">{flashToneLabel(props.flashBanner.tone)}</p>
+								<div class="mb-2 flex flex-wrap items-center gap-2">
+									<span
+										class={`inline-flex rounded border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${flashToneBadgeClass(props.flashBanner.tone)}`}
+									>
+										{flashToneLabel(props.flashBanner.tone)}
+									</span>
+								</div>
+								<div class="whitespace-pre-wrap">{props.flashBanner.text}</div>
+							</section>
 						) : null}
 						{props.children}
 					</div>

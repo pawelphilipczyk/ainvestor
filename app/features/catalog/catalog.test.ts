@@ -444,6 +444,7 @@ describe('ETF Catalog page', () => {
 
 		assert.match(body, /Catalog saved/)
 		assert.match(body, /Merged 1 row/)
+		assert.match(body, /aria-label="Success"/)
 	})
 
 	it('POST /catalog/import flashes when JSON is invalid', async () => {
@@ -475,7 +476,7 @@ describe('ETF Catalog page', () => {
 		})
 		const body = await catalogResponse.text()
 
-		assert.match(body, /role="alert"/)
+		assert.match(body, /<section[^>]*aria-label="Error"/)
 		assert.match(body, /not valid JSON/)
 	})
 
@@ -630,6 +631,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Row 2/)
 		assert.match(body, /Missing ticker/)
 		assert.match(body, /Good/)
+		assert.match(body, /aria-label="Info"/)
 	})
 
 	it('POST /catalog/import flashes when paste duplicates the same catalog line', async () => {
