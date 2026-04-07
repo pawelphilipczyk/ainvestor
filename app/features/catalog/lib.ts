@@ -169,33 +169,125 @@ function normaliseTypeFromBank(assets: string, sector: string): EtfType {
 	return 'equity'
 }
 
+/** Per-row problems detected while reading bank JSON (formatted in the catalog controller). */
+export type BankJsonImportRowIssue =
+	| { kind: 'rowNotObject' }
+	| { kind: 'missingTicker' }
+	| { kind: 'missingFundName' }
+	| { kind: 'isinInvalid' }
+	| { kind: 'duplicateIdInPaste'; id: string; otherIndex: number }
+	| { kind: 'duplicateMergeKeyInPaste'; otherIndex: number }
+	| { kind: 'alreadyInCatalog' }
+	| { kind: 'idAlreadyInCatalog'; id: string }
+
+export type BankJsonImportRowDiagnostics = {
+	/** 1-based index in the pasted `data` array. */
+	index: number
+	/** Short label for the row (ticker or fund name snippet). */
+	label: string
+	issues: BankJsonImportRowIssue[]
+}
+
+export type BankJsonParseForImportResult = {
+	entries: CatalogEntry[]
+	/** One group per `data` element that has at least one issue. */
+	rowDiagnostics: BankJsonImportRowDiagnostics[]
+	/** Count of elements in `data` when it is an array; otherwise 0. */
+	expectedDataRows: number
+	/** Elements that were not objects (each counts as a skipped row with an issue). */
+	skippedNonObjectCount: number
+	/** Set when the JSON is not `{ data: array }` as expected (no per-row pass). */
+	structuralIssue: 'notObject' | 'dataNotArray' | null
+}
+
+function rowLabelFromItem(item: BankEtfItem): string {
+	const ticker = (item.ticker ?? '').trim()
+	const name = (item.fund_name ?? '').trim()
+	if (ticker && name) return `${ticker} — ${name}`
+	if (ticker) return ticker
+	if (name) return name.slice(0, 80)
+	return '(no ticker or name)'
+}
+
+function firstOtherIndex(indices: number[], self: number): number {
+	for (const value of indices) {
+		if (value !== self) return value
+	}
+	return indices[0] ?? self
+}
+
 /**
- * Parse bank/investment website fetch response JSON into CatalogEntry array.
- * Extracts only investment-relevant fields. Duplicate rows collapse when merged
- * (see {@link mergeBankIntoCatalog}).
+ * Parse bank JSON for catalog import with per-row diagnostics.
+ * Callers should not save when {@link BankJsonParseForImportResult.rowDiagnostics} is non-empty.
  */
-export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
-	if (!json || typeof json !== 'object') return []
+export function parseBankJsonForImport(
+	json: unknown,
+	existingCatalog: CatalogEntry[],
+): BankJsonParseForImportResult {
+	const empty = (
+		expectedDataRows: number,
+		structuralIssue: BankJsonParseForImportResult['structuralIssue'],
+	): BankJsonParseForImportResult => ({
+		entries: [],
+		rowDiagnostics: [],
+		expectedDataRows,
+		skippedNonObjectCount: 0,
+		structuralIssue,
+	})
+
+	if (!json || typeof json !== 'object' || Array.isArray(json)) {
+		return empty(0, 'notObject')
+	}
 	const payload = json as Record<string, unknown>
 	const data = payload.data
-	if (!Array.isArray(data)) return []
-
-	type ParsedBankRow = {
-		item: BankEtfItem
-		tickerUpper: string
-		name: string
-		description: string
-		type: EtfType
-		isinNorm: string | null
-		tickerKey: string
-		marketToken: string | null
+	if (!Array.isArray(data)) {
+		return empty(0, 'dataNotArray')
 	}
 
-	const parsedRows: ParsedBankRow[] = []
-	for (const item of data as BankEtfItem[]) {
+	type ValidCandidate = {
+		item: BankEtfItem
+		dataIndex: number
+		entry: CatalogEntry
+	}
+
+	const rowDiagnostics: BankJsonImportRowDiagnostics[] = []
+	let skippedNonObjectCount = 0
+	const candidates: ValidCandidate[] = []
+
+	for (let index = 0; index < data.length; index++) {
+		const element = data[index]
+		const dataIndex = index + 1
+		if (!element || typeof element !== 'object' || Array.isArray(element)) {
+			skippedNonObjectCount += 1
+			rowDiagnostics.push({
+				index: dataIndex,
+				label: '(invalid row)',
+				issues: [{ kind: 'rowNotObject' }],
+			})
+			continue
+		}
+
+		const item = element as BankEtfItem
+		const issues: BankJsonImportRowIssue[] = []
 		const ticker = (item.ticker ?? '').trim()
 		const name = (item.fund_name ?? '').trim()
-		if (!ticker || !name) continue
+		if (!ticker) issues.push({ kind: 'missingTicker' })
+		if (!name) issues.push({ kind: 'missingFundName' })
+
+		const rawIsin = item.isin
+		const isinTrimmed = rawIsin === undefined ? '' : String(rawIsin).trim()
+		if (isinTrimmed.length > 0 && normalizeIsinForCatalogId(rawIsin) === null) {
+			issues.push({ kind: 'isinInvalid' })
+		}
+
+		if (issues.length > 0) {
+			rowDiagnostics.push({
+				index: dataIndex,
+				label: rowLabelFromItem(item),
+				issues,
+			})
+			continue
+		}
 
 		const tickerUpper = ticker.toUpperCase()
 		const tickerKey = normalizeCatalogTickerLookupKey(tickerUpper)
@@ -209,49 +301,11 @@ export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 		const type = normaliseTypeFromBank(item.assets ?? '', item.sector ?? '')
 		const description = (item.description ?? '').trim()
 
-		parsedRows.push({
-			item,
-			tickerUpper,
-			name,
-			description,
-			type,
-			isinNorm,
-			tickerKey,
-			marketToken,
-		})
-	}
-
-	const isinToTickerKeys = new Map<string, Set<string>>()
-	for (const row of parsedRows) {
-		if (row.isinNorm === null) continue
-		let set = isinToTickerKeys.get(row.isinNorm)
-		if (!set) {
-			set = new Set()
-			isinToTickerKeys.set(row.isinNorm, set)
-		}
-		set.add(row.tickerKey)
-	}
-
-	const entries: CatalogEntry[] = []
-	for (const row of parsedRows) {
-		const {
-			item,
-			tickerUpper,
-			name,
-			description,
-			type,
-			isinNorm,
-			tickerKey,
-			marketToken,
-		} = row
-
 		let id: string
 		const explicitId = (item.id ?? '').trim()
 		if (explicitId.length > 0) {
 			id = explicitId
 		} else if (isinNorm !== null) {
-			// Always include ticker (or market) in the id so separate imports that each
-			// contain a single line for the same ISIN never collide on a bare ISIN id.
 			const qualifier = marketToken ?? tickerKey
 			id = `${isinNorm}:${qualifier}`
 		} else {
@@ -281,9 +335,90 @@ export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
 					? { esg: false }
 					: {}),
 		}
+
+		candidates.push({ item, dataIndex, entry })
+	}
+
+	const idToIndices = new Map<string, number[]>()
+	const mergeKeyToIndices = new Map<string, number[]>()
+	for (const candidate of candidates) {
+		const mergeKey = catalogMergeKey(candidate.entry)
+		const idList = idToIndices.get(candidate.entry.id) ?? []
+		idList.push(candidate.dataIndex)
+		idToIndices.set(candidate.entry.id, idList)
+
+		const keyList = mergeKeyToIndices.get(mergeKey) ?? []
+		keyList.push(candidate.dataIndex)
+		mergeKeyToIndices.set(mergeKey, keyList)
+	}
+
+	const existingIds = new Set(existingCatalog.map((row) => row.id))
+	const existingMergeKeys = new Set(
+		existingCatalog.map((row) => catalogMergeKey(row)),
+	)
+
+	const entries: CatalogEntry[] = []
+	for (const candidate of candidates) {
+		const { item, dataIndex, entry } = candidate
+		const mergeKey = catalogMergeKey(entry)
+		const issues: BankJsonImportRowIssue[] = []
+
+		const idIndices = idToIndices.get(entry.id) ?? []
+		if (idIndices.length > 1) {
+			issues.push({
+				kind: 'duplicateIdInPaste',
+				id: entry.id,
+				otherIndex: firstOtherIndex(idIndices, dataIndex),
+			})
+		}
+
+		const keyIndices = mergeKeyToIndices.get(mergeKey) ?? []
+		if (keyIndices.length > 1) {
+			issues.push({
+				kind: 'duplicateMergeKeyInPaste',
+				otherIndex: firstOtherIndex(keyIndices, dataIndex),
+			})
+		}
+
+		if (existingIds.has(entry.id)) {
+			issues.push({ kind: 'idAlreadyInCatalog', id: entry.id })
+		}
+		if (existingMergeKeys.has(mergeKey)) {
+			issues.push({ kind: 'alreadyInCatalog' })
+		}
+
+		if (issues.length > 0) {
+			rowDiagnostics.push({
+				index: dataIndex,
+				label: rowLabelFromItem(item),
+				issues,
+			})
+			continue
+		}
+
 		entries.push(entry)
 	}
-	return entries
+
+	rowDiagnostics.sort((a, b) => a.index - b.index)
+
+	return {
+		entries,
+		rowDiagnostics,
+		expectedDataRows: data.length,
+		skippedNonObjectCount,
+		structuralIssue: null,
+	}
+}
+
+/**
+ * Parse bank/investment website fetch response JSON into CatalogEntry array.
+ * Extracts only investment-relevant fields. Duplicate rows collapse when merged
+ * (see {@link mergeBankIntoCatalog}).
+ *
+ * For import UX with per-row error detail, use {@link parseBankJsonForImport} instead.
+ */
+export function parseBankJsonToCatalog(json: unknown): CatalogEntry[] {
+	return parseBankJsonForImport(json, []).entries
 }
 
 function normalizeIsinForMerge(isin: string | undefined): string | null {

@@ -31,14 +31,71 @@ import {
 import { CatalogPage } from './catalog-page.tsx'
 import type { CatalogEntry } from './lib.ts'
 import {
+	type BankJsonImportRowIssue,
+	type BankJsonParseForImportResult,
 	fetchSharedCatalogSnapshot,
 	isSharedCatalogAdmin,
 	mergeBankIntoCatalog,
-	parseBankJsonToCatalog,
+	parseBankJsonForImport,
 	saveCatalog,
 } from './lib.ts'
 
 export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-session-fetch.ts'
+
+function formatBankImportRowIssue(issue: BankJsonImportRowIssue): string {
+	switch (issue.kind) {
+		case 'rowNotObject':
+			return t('errors.catalog.import.issue.rowNotObject')
+		case 'missingTicker':
+			return t('errors.catalog.import.issue.missingTicker')
+		case 'missingFundName':
+			return t('errors.catalog.import.issue.missingFundName')
+		case 'isinInvalid':
+			return t('errors.catalog.import.issue.isinInvalid')
+		case 'duplicateIdInPaste':
+			return format(t('errors.catalog.import.issue.duplicateIdInPaste'), {
+				id: issue.id,
+				otherIndex: issue.otherIndex,
+			})
+		case 'duplicateMergeKeyInPaste':
+			return format(t('errors.catalog.import.issue.duplicateMergeKeyInPaste'), {
+				otherIndex: issue.otherIndex,
+			})
+		case 'alreadyInCatalog':
+			return t('errors.catalog.import.issue.alreadyInCatalog')
+		case 'idAlreadyInCatalog':
+			return format(t('errors.catalog.import.issue.idAlreadyInCatalog'), {
+				id: issue.id,
+			})
+		default: {
+			const exhaustive: never = issue
+			return String(exhaustive)
+		}
+	}
+}
+
+function formatBankImportDiagnostics(
+	parseResult: BankJsonParseForImportResult,
+): string | null {
+	if (parseResult.rowDiagnostics.length === 0) return null
+	const issueCount = parseResult.rowDiagnostics.reduce(
+		(sum, row) => sum + row.issues.length,
+		0,
+	)
+	const lines: string[] = [
+		format(t('errors.catalog.import.diagnostic.lead'), {
+			issueCount,
+			dataRowCount: parseResult.expectedDataRows,
+		}),
+	]
+	for (const row of parseResult.rowDiagnostics) {
+		lines.push(`Row ${row.index} (${row.label}):`)
+		for (const issue of row.issues) {
+			lines.push(`  • ${formatBankImportRowIssue(issue)}`)
+		}
+	}
+	return lines.join('\n')
+}
 
 function parseAdviceModelFromJsonBody(body: unknown): AdviceModelId {
 	if (body === null || typeof body !== 'object') return DEFAULT_ADVICE_MODEL
@@ -312,52 +369,81 @@ export const catalogController = {
 		},
 
 		async import(context: AppRequestContext) {
-			const sessionFlash = context.get(Session)
-			const session = getSessionData(sessionFlash)
-			if (!session?.token || !session?.login) {
-				sessionFlash.flash('error', t('errors.catalog.importNotAllowed'))
+			const sessionStore = context.get(Session)
+			const sessionData = getSessionData(sessionStore)
+			if (!sessionData?.token || !sessionData?.login) {
+				sessionStore.flash('error', t('errors.catalog.importNotAllowed'))
 				return catalogIndexRedirect()
 			}
 			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot()
 			const canImport = isSharedCatalogAdmin({
-				sessionLogin: session.login,
+				sessionLogin: sessionData.login,
 				ownerLogin,
 			})
 			if (!canImport) {
-				sessionFlash.flash('error', t('errors.catalog.importNotAllowed'))
+				sessionStore.flash('error', t('errors.catalog.importNotAllowed'))
 				return catalogIndexRedirect()
 			}
 
 			const rawFromForm = context.get(FormData)?.get('bankApiJson')
 			if (typeof rawFromForm !== 'string') {
-				sessionFlash.flash('error', t('errors.catalog.import.fieldMissing'))
+				sessionStore.flash('error', t('errors.catalog.import.fieldMissing'))
 				return catalogIndexRedirect()
 			}
 			const trimmedJson = rawFromForm.trim()
 			if (trimmedJson.length === 0) {
-				sessionFlash.flash('error', t('errors.catalog.import.emptyJson'))
+				sessionStore.flash('error', t('errors.catalog.import.emptyJson'))
 				return catalogIndexRedirect()
 			}
 			let parsedJson: unknown
 			try {
 				parsedJson = JSON.parse(trimmedJson)
 			} catch {
-				sessionFlash.flash('error', t('errors.catalog.import.invalidJson'))
+				sessionStore.flash('error', t('errors.catalog.import.invalidJson'))
 				return catalogIndexRedirect()
 			}
 
-			const imported = parseBankJsonToCatalog(parsedJson)
+			const parseResult = parseBankJsonForImport(parsedJson, entries)
+			if (parseResult.structuralIssue === 'notObject') {
+				sessionStore.flash(
+					'error',
+					t('errors.catalog.import.issue.expectedObject'),
+				)
+				return catalogIndexRedirect()
+			}
+			if (parseResult.structuralIssue === 'dataNotArray') {
+				sessionStore.flash(
+					'error',
+					t('errors.catalog.import.issue.dataNotArray'),
+				)
+				return catalogIndexRedirect()
+			}
+			if (
+				parseResult.expectedDataRows === 0 &&
+				parseResult.rowDiagnostics.length === 0
+			) {
+				sessionStore.flash('error', t('errors.catalog.import.dataArrayEmpty'))
+				return catalogIndexRedirect()
+			}
+
+			const diagnosticMessage = formatBankImportDiagnostics(parseResult)
+			if (diagnosticMessage) {
+				sessionStore.flash('error', diagnosticMessage)
+				return catalogIndexRedirect()
+			}
+
+			const imported = parseResult.entries
 			if (imported.length === 0) {
-				sessionFlash.flash('error', t('errors.catalog.import.noRowsParsed'))
+				sessionStore.flash('error', t('errors.catalog.import.noRowsParsed'))
 				return catalogIndexRedirect()
 			}
 
 			const merged = mergeBankIntoCatalog(entries, imported)
 			try {
-				await saveCatalog({ token: session.token, entries: merged })
+				await saveCatalog({ token: sessionData.token, entries: merged })
 			} catch (error) {
 				console.error('[catalog] import save failed', error)
-				sessionFlash.flash('error', t('errors.catalog.import.saveFailed'))
+				sessionStore.flash('error', t('errors.catalog.import.saveFailed'))
 				return catalogIndexRedirect()
 			}
 

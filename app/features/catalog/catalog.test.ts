@@ -501,7 +501,138 @@ describe('ETF Catalog page', () => {
 		})
 		const body = await catalogResponse.text()
 
-		assert.match(body, /No ETF rows could be read/)
+		assert.match(body, /empty "data" array/)
+	})
+
+	it('POST /catalog/import flashes per-row details when a row is skipped', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set(
+						'bankApiJson',
+						JSON.stringify({
+							data: [
+								{
+									fund_name: 'Good',
+									ticker: 'NEW',
+									assets: 'akcje',
+								},
+								{ fund_name: 'Bad row', ticker: '', assets: 'akcje' },
+							],
+						}),
+					)
+					return formData
+				})(),
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.equal(importResponse.status, 302)
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await catalogResponse.text()
+
+		assert.match(body, /Import blocked:/)
+		assert.match(body, /Row 2/)
+		assert.match(body, /Missing ticker/)
+	})
+
+	it('POST /catalog/import flashes when paste duplicates the same catalog line', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+		const duplicateRow = {
+			isin: 'IE00BGV5VR99',
+			fund_name: 'Xtrackers Future Mobility UCITS ETF 1C',
+			ticker: 'XMOV GR',
+			assets: 'akcje',
+			sector: 'technologia',
+		}
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set(
+						'bankApiJson',
+						JSON.stringify({
+							data: [duplicateRow, duplicateRow],
+						}),
+					)
+					return formData
+				})(),
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.equal(importResponse.status, 302)
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await catalogResponse.text()
+
+		assert.match(body, /Same catalog key/)
+	})
+
+	it('POST /catalog/import flashes when a row matches an existing catalog entry', async () => {
+		const existing = {
+			isin: 'IE00BGV5VR99',
+			fund_name: 'Xtrackers Future Mobility UCITS ETF 1C',
+			ticker: 'XMOV GR',
+			assets: 'akcje',
+			sector: 'technologia',
+		}
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [existing],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set(
+						'bankApiJson',
+						JSON.stringify({
+							data: [existing],
+						}),
+					)
+					return formData
+				})(),
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.equal(importResponse.status, 302)
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await catalogResponse.text()
+
+		assert.match(body, /already present/)
 	})
 
 	it('catalog shows Your Holdings section when a holding matches a catalog ticker', async () => {

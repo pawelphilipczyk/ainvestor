@@ -282,6 +282,28 @@ export const en = {
 		'That text is not valid JSON. Copy the full fetch response body from your browser’s network tab and try again.',
 	'errors.catalog.import.noRowsParsed':
 		'No ETF rows could be read from that JSON. Expected an object with a "data" array; each item needs a ticker and fund_name (and usually matches your broker’s API shape).',
+	'errors.catalog.import.diagnostic.lead':
+		'Import blocked: {issueCount} problem(s) in {dataRowCount} pasted row(s). Nothing was saved.',
+	'errors.catalog.import.issue.expectedObject':
+		'JSON must be an object with a "data" array of funds.',
+	'errors.catalog.import.issue.dataNotArray':
+		'Property "data" must be an array of fund objects.',
+	'errors.catalog.import.issue.rowNotObject':
+		'Item is not an object — skipped.',
+	'errors.catalog.import.issue.missingTicker': 'Missing ticker.',
+	'errors.catalog.import.issue.missingFundName': 'Missing fund_name.',
+	'errors.catalog.import.issue.isinInvalid':
+		'ISIN is present but not valid (expected 12-character format).',
+	'errors.catalog.import.issue.duplicateIdInPaste':
+		'Duplicate id "{id}" in this paste (clashes with row {otherIndex}).',
+	'errors.catalog.import.issue.duplicateMergeKeyInPaste':
+		'Same catalog key as row {otherIndex} (duplicate ISIN + ticker line in this paste).',
+	'errors.catalog.import.issue.alreadyInCatalog':
+		'This line matches an existing catalog row (same ISIN and ticker) — already present; remove duplicates or fix the paste.',
+	'errors.catalog.import.issue.idAlreadyInCatalog':
+		'Fund id "{id}" is already in the shared catalog — change the source row or remove the duplicate from the paste.',
+	'errors.catalog.import.dataArrayEmpty':
+		'The pasted JSON has an empty "data" array — no funds to import.',
 	'errors.catalog.import.saveFailed':
 		'Could not save the catalog to GitHub. Check your connection and permissions, then try again.',
 	'errors.catalog.etfDetail.service':
