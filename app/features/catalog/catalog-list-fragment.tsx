@@ -6,9 +6,19 @@ import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
 import { DEFAULT_ADVICE_MODEL } from '../advice/advice-openai.ts'
-import type { CatalogEntry } from './lib.ts'
+import {
+	type CatalogEntry,
+	type CatalogRiskBand,
+	riskBandFromRiskKid,
+} from './lib.ts'
 
 const catalogTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
+
+function catalogRiskBandLabel(band: CatalogRiskBand): string {
+	if (band === 'low') return t('catalog.riskBand.low')
+	if (band === 'medium') return t('catalog.riskBand.medium')
+	return t('catalog.riskBand.high')
+}
 
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 	return () => (
@@ -18,6 +28,7 @@ function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 				{t('catalog.table.name')}
 			</th>
 			<th class="pb-2 pr-4 align-top">{t('catalog.table.type')}</th>
+			<th class="pb-2 pr-4 align-top">{t('catalog.table.risk')}</th>
 			<th class={`pb-2 pr-4 align-top ${catalogTextColMax}`}>
 				{t('catalog.table.description')}
 			</th>
@@ -37,6 +48,10 @@ function renderCatalogRow(
 		{ catalogEntryId: entry.id },
 		{ model: DEFAULT_ADVICE_MODEL },
 	)
+	const riskBand = riskBandFromRiskKid(entry.risk_kid)
+	const riskCellText = riskBand
+		? catalogRiskBandLabel(riskBand)
+		: t('catalog.emptyCell')
 	const valueCell = holding ? (
 		<td class="py-2 pl-4 pr-4 align-top text-sm font-medium text-foreground">
 			{formatValue(holding.value, holding.currency)}
@@ -75,6 +90,9 @@ function renderCatalogRow(
 					{formatEtfTypeLabel(entry.type) || t('catalog.etfTypeUnknown')}
 				</span>
 			</td>
+			<td class="py-2 pr-4 align-top text-sm text-muted-foreground">
+				{riskCellText}
+			</td>
 			<td
 				class={`py-2 pr-4 align-top text-sm break-words text-muted-foreground ${catalogTextColMax}`}
 			>
@@ -92,6 +110,7 @@ type CatalogListFragmentProps = {
 	catalog: CatalogEntry[]
 	holdings: EtfEntry[]
 	typeFilter: string
+	riskFilter: '' | CatalogRiskBand
 	query: string
 	totalCatalogCount: number
 	pendingApproval?: boolean
@@ -104,7 +123,7 @@ type CatalogListFragmentProps = {
 export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
 	return (props: CatalogListFragmentProps) => {
 		const tickerLinksToDetail = !props.pendingApproval
-		const tableColSpan = 6
+		const tableColSpan = 7
 		const holdingKey = (s: string) => s.toUpperCase()
 		const holdingsByTicker = new Map(
 			props.holdings.flatMap((e) => {
@@ -116,13 +135,16 @@ export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
 
 		const filtered = props.catalog.filter((entry) => {
 			const matchesType = !props.typeFilter || entry.type === props.typeFilter
+			const band = riskBandFromRiskKid(entry.risk_kid)
+			const matchesRisk =
+				!props.riskFilter || (band !== undefined && band === props.riskFilter)
 			const queryLower = props.query.toLowerCase()
 			const matchesQuery =
 				!props.query ||
 				entry.ticker.toLowerCase().includes(queryLower) ||
 				entry.name.toLowerCase().includes(queryLower) ||
 				entry.description.toLowerCase().includes(queryLower)
-			return matchesType && matchesQuery
+			return matchesType && matchesRisk && matchesQuery
 		})
 
 		const ownedInCatalog = filtered.filter((catalogEntry) =>
@@ -135,7 +157,7 @@ export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
 		return (
 			<>
 				<p class="text-sm text-muted-foreground">
-					{props.typeFilter || props.query
+					{props.typeFilter || props.riskFilter || props.query
 						? format(t('catalog.count.showing'), {
 								filtered: filtered.length,
 								total: props.totalCatalogCount,

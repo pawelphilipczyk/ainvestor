@@ -29,12 +29,13 @@ import {
 	loadCatalogPageContext,
 } from './catalog-load-context.ts'
 import { CatalogPage } from './catalog-page.tsx'
-import type { CatalogEntry } from './lib.ts'
+import type { CatalogEntry, CatalogRiskBand } from './lib.ts'
 import {
 	fetchSharedCatalogSnapshot,
 	isSharedCatalogAdmin,
 	mergeBankIntoCatalog,
 	parseBankJsonToCatalog,
+	parseCatalogRiskFilterParam,
 	saveCatalog,
 } from './lib.ts'
 
@@ -136,6 +137,9 @@ export const catalogController = {
 		async index(context: AppRequestContext) {
 			const url = new URL(context.request.url)
 			const typeFilter = url.searchParams.get('type') ?? ''
+			const riskFilter = parseCatalogRiskFilterParam(
+				url.searchParams.get('risk'),
+			)
 			const query = url.searchParams.get('q') ?? ''
 
 			const load = await loadCatalogPageContext(context)
@@ -153,6 +157,7 @@ export const catalogController = {
 				}),
 				sharedCatalogOwnerLogin: catalogSnapshot.ownerLogin,
 				typeFilter,
+				riskFilter,
 				query,
 				flashError: context.get(Session).get('error') as string | undefined,
 			})
@@ -363,6 +368,9 @@ export const catalogController = {
 		async fragmentList(context: AppRequestContext) {
 			const url = new URL(context.request.url)
 			const typeFilter = url.searchParams.get('type') ?? ''
+			const riskFilter = parseCatalogRiskFilterParam(
+				url.searchParams.get('risk'),
+			)
 			const query = url.searchParams.get('q') ?? ''
 
 			const load = await loadCatalogPageContext(context)
@@ -376,6 +384,7 @@ export const catalogController = {
 						catalog: catalogSnapshot.entries,
 						holdings: entries,
 						typeFilter,
+						riskFilter,
 						query,
 						totalCatalogCount: catalogSnapshot.entries.length,
 						pendingApproval,
@@ -392,10 +401,12 @@ export const catalogController = {
 // ---------------------------------------------------------------------------
 function catalogListFrameSrc(params: {
 	typeFilter: string
+	riskFilter: '' | CatalogRiskBand
 	query: string
 }): string {
 	const searchParams = new URLSearchParams()
 	if (params.typeFilter) searchParams.set('type', params.typeFilter)
+	if (params.riskFilter) searchParams.set('risk', params.riskFilter)
 	if (params.query) searchParams.set('q', params.query)
 	const qs = searchParams.toString()
 	const base = routes.catalog.fragmentList.href()
@@ -410,6 +421,7 @@ async function renderCatalogPage(params: {
 	canImport: boolean
 	sharedCatalogOwnerLogin: string | null
 	typeFilter: string
+	riskFilter: '' | CatalogRiskBand
 	query: string
 	flashError?: string
 }) {
@@ -421,14 +433,16 @@ async function renderCatalogPage(params: {
 		canImport,
 		sharedCatalogOwnerLogin,
 		typeFilter,
+		riskFilter,
 		query,
 		flashError,
 	} = params
-	const frameSrc = catalogListFrameSrc({ typeFilter, query })
+	const frameSrc = catalogListFrameSrc({ typeFilter, riskFilter, query })
 	const body = jsx(CatalogPage, {
 		catalogCount: catalog.length,
 		canImport,
 		typeFilter,
+		riskFilter,
 		query,
 		sharedCatalogOwnerLogin,
 		catalogListFrameSrc: frameSrc,
@@ -446,6 +460,7 @@ async function renderCatalogPage(params: {
 						catalog,
 						holdings: entries,
 						typeFilter,
+						riskFilter,
 						query,
 						totalCatalogCount: catalog.length,
 						pendingApproval,

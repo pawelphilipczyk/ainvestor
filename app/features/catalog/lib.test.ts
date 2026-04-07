@@ -9,7 +9,43 @@ import {
 	normalizeCatalogTickerLookupKey,
 	parseBankJsonToCatalog,
 	parseCatalogFromGist,
+	parseCatalogRiskFilterParam,
+	riskBandFromRiskKid,
 } from './lib.ts'
+
+describe('riskBandFromRiskKid', () => {
+	it('maps KID 1–2 to low, 3–4 to medium, 5–7 to high', () => {
+		assert.equal(riskBandFromRiskKid(1), 'low')
+		assert.equal(riskBandFromRiskKid(2), 'low')
+		assert.equal(riskBandFromRiskKid(3), 'medium')
+		assert.equal(riskBandFromRiskKid(4), 'medium')
+		assert.equal(riskBandFromRiskKid(5), 'high')
+		assert.equal(riskBandFromRiskKid(6), 'high')
+		assert.equal(riskBandFromRiskKid(7), 'high')
+	})
+
+	it('returns undefined for missing, non-integer, or out-of-range scores', () => {
+		assert.equal(riskBandFromRiskKid(undefined), undefined)
+		assert.equal(riskBandFromRiskKid(2.5), undefined)
+		assert.equal(riskBandFromRiskKid(0), undefined)
+		assert.equal(riskBandFromRiskKid(8), undefined)
+	})
+})
+
+describe('parseCatalogRiskFilterParam', () => {
+	it('accepts known bands case-insensitively', () => {
+		assert.equal(parseCatalogRiskFilterParam('low'), 'low')
+		assert.equal(parseCatalogRiskFilterParam('MEDIUM'), 'medium')
+		assert.equal(parseCatalogRiskFilterParam(' High '), 'high')
+	})
+
+	it('returns empty string for null, empty, or unknown values', () => {
+		assert.equal(parseCatalogRiskFilterParam(null), '')
+		assert.equal(parseCatalogRiskFilterParam(''), '')
+		assert.equal(parseCatalogRiskFilterParam('  '), '')
+		assert.equal(parseCatalogRiskFilterParam('extreme'), '')
+	})
+})
 
 describe('parseCatalogFromGist', () => {
 	it('returns empty array when catalog file is absent', () => {

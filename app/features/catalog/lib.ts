@@ -40,6 +40,36 @@ export type CatalogEntry = {
 	esg?: boolean
 }
 
+/** PRIIPs KID 1–7 mapped to coarse bands for catalog filter and table display. */
+export const CATALOG_RISK_BAND_VALUES = ['low', 'medium', 'high'] as const
+export type CatalogRiskBand = (typeof CATALOG_RISK_BAND_VALUES)[number]
+
+/**
+ * Maps KID risk score 1–7 to low / medium / high. Non-integer or out-of-range values yield `undefined`.
+ */
+export function riskBandFromRiskKid(
+	riskKid: number | undefined,
+): CatalogRiskBand | undefined {
+	if (typeof riskKid !== 'number' || !Number.isInteger(riskKid))
+		return undefined
+	if (riskKid < 1 || riskKid > 7) return undefined
+	if (riskKid <= 2) return 'low'
+	if (riskKid <= 4) return 'medium'
+	return 'high'
+}
+
+const CATALOG_RISK_BAND_SET = new Set<string>(CATALOG_RISK_BAND_VALUES)
+
+/** Normalizes a query param to a known risk band, or empty string when absent or invalid. */
+export function parseCatalogRiskFilterParam(
+	raw: string | null,
+): '' | CatalogRiskBand {
+	if (raw === null) return ''
+	const trimmed = raw.trim().toLowerCase()
+	if (trimmed.length === 0) return ''
+	return CATALOG_RISK_BAND_SET.has(trimmed) ? (trimmed as CatalogRiskBand) : ''
+}
+
 /** Unique ETF types present in the catalog, in canonical `ETF_TYPES` order. */
 export function uniqueEtfTypesFromCatalog(catalog: CatalogEntry[]): EtfType[] {
 	const seen = new Set<EtfType>()

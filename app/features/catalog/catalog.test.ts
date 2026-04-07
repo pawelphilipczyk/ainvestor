@@ -496,6 +496,7 @@ describe('ETF Catalog page', () => {
 
 		assert.match(body, /name="q"/)
 		assert.match(body, /name="type"/)
+		assert.match(body, /name="risk"/)
 		assert.match(body, /1 ETF in catalog/)
 	})
 
@@ -545,6 +546,45 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /BND/)
 		assert.doesNotMatch(body, /VTI/)
 		assert.match(body, /Showing 1 of 2 ETFs/)
+	})
+
+	it('catalog risk filter narrows results by KID band', async () => {
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					fund_name: 'Low Risk Fund',
+					ticker: 'LOW',
+					assets: 'akcje',
+					risk_kid: 2,
+				},
+				{
+					fund_name: 'Medium Risk Fund',
+					ticker: 'MID',
+					assets: 'akcje',
+					risk_kid: 4,
+				},
+				{
+					fund_name: 'High Risk Fund',
+					ticker: 'HI',
+					assets: 'akcje',
+					risk_kid: 6,
+				},
+			],
+			count: 3,
+			total_count: 3,
+		})
+		seedSharedCatalog(bankJson)
+
+		const response = await testSessionFetch(
+			'http://localhost/catalog?risk=medium',
+		)
+		const body = await response.text()
+
+		assert.match(body, /MID/)
+		assert.doesNotMatch(body, />LOW</)
+		assert.doesNotMatch(body, />HI</)
+		assert.match(body, /Medium \(3–4\)/)
+		assert.match(body, /Showing 1 of 3 ETFs/)
 	})
 
 	it('catalog text search narrows results', async () => {
