@@ -2,7 +2,7 @@ import type { Handle } from 'remix/component'
 import { Card } from '../../../components/index.ts'
 import { formatValue } from '../../../lib/format.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
-import { format, t } from '../../../lib/i18n.ts'
+import { t } from '../../../lib/i18n.ts'
 import {
 	totalHoldingsValueForShareBars,
 	valueShareOfHoldingsTotalPercent,
@@ -40,28 +40,14 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 					<ul class="mt-4 grid gap-2">
 						{entries.map((entry) => {
 							const idParts = [entry.ticker ?? entry.name]
-							if (entry.quantity !== undefined) {
-								idParts.push(
-									format(t('portfolio.holdings.shares'), {
-										count: entry.quantity.toLocaleString(),
-									}),
-								)
-							}
 							if (entry.exchange) idParts.push(entry.exchange)
 							const identifier = idParts.join(' · ')
-							const quantitySummaryLine =
-								entry.quantity !== undefined
-									? format(t('portfolio.holdings.shares'), {
-											count: entry.quantity.toLocaleString(),
-										})
-									: undefined
 							return (
 								<EtfCard
 									key={entry.id}
 									entryId={entry.id}
 									name={entry.name}
 									valueDisplay={formatValue(entry.value, entry.currency)}
-									quantitySummaryLine={quantitySummaryLine}
 									identifier={identifier}
 									valueSharePercent={
 										canShowShareBars

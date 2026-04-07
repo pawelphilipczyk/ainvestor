@@ -9,8 +9,6 @@ type EtfCardProps = {
 	name: string
 	/** Formatted market value for read-only summary (e.g. `PLN 1,234.56`). */
 	valueDisplay: string
-	/** Optional shares line under the value when quantity is set. */
-	quantitySummaryLine?: string
 	identifier: string
 	/** 0–100 share of total holdings value; parent computes from list + total. Omit when unknown (e.g. mixed currencies). */
 	valueSharePercent?: number
@@ -53,16 +51,9 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						{props.identifier}
 					</span>
 				</div>
-				<div class="flex min-w-0 flex-col gap-1">
-					<p class="text-sm tabular-nums text-card-foreground">
-						{props.valueDisplay}
-					</p>
-					{props.quantitySummaryLine !== undefined ? (
-						<p class="text-xs text-muted-foreground">
-							{props.quantitySummaryLine}
-						</p>
-					) : null}
-				</div>
+				<p class="text-sm tabular-nums text-card-foreground">
+					{props.valueDisplay}
+				</p>
 			</Card>
 		)
 	}

@@ -99,7 +99,7 @@ export const portfolioController = {
 					? await fetchEtfs(session.token, session.gistId)
 					: getGuestEtfs(context.get(Session))
 
-			// Merge imported with existing (same name+currency: add values, quantity)
+			// Merge imported with existing (same name+currency: add values)
 			const byKey = new Map<string, EtfEntry>()
 			for (const entry of current) {
 				byKey.set(`${entry.name.toLowerCase()}:${entry.currency}`, entry)
@@ -108,15 +108,9 @@ export const portfolioController = {
 				const key = `${importedEntry.name.toLowerCase()}:${importedEntry.currency}`
 				const existing = byKey.get(key)
 				if (existing) {
-					const quantity =
-						existing.quantity !== undefined &&
-						importedEntry.quantity !== undefined
-							? existing.quantity + importedEntry.quantity
-							: (importedEntry.quantity ?? existing.quantity)
 					byKey.set(key, {
 						...existing,
 						value: existing.value + importedEntry.value,
-						quantity,
 						exchange: existing.exchange || importedEntry.exchange || undefined,
 					})
 				} else {

@@ -38,6 +38,24 @@ describe('gist', () => {
 		assert.deepEqual(result, entries)
 	})
 
+	it('parseEtfsFromGist drops legacy quantity from stored JSON', () => {
+		const raw = [
+			{
+				id: 'abc-1',
+				name: 'VTI',
+				value: 1000,
+				currency: 'USD',
+				quantity: 10,
+			},
+		]
+		const result = parseEtfsFromGist({
+			files: { [GIST_FILENAME]: { content: JSON.stringify(raw) } },
+		})
+		assert.deepEqual(result, [
+			{ id: 'abc-1', name: 'VTI', value: 1000, currency: 'USD' },
+		])
+	})
+
 	it('parseEtfsFromGist returns empty array for invalid JSON', () => {
 		const result = parseEtfsFromGist({
 			files: { [GIST_FILENAME]: { content: 'not-json!!!' } },

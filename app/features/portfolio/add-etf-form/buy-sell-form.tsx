@@ -92,16 +92,6 @@ export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
 							/>
 						</div>
 					</div>
-					<div class="grid gap-2">
-						<FieldLabel fieldId="quantity">
-							{t('portfolio.buySell.field.quantityOptional')}
-						</FieldLabel>
-						<NumberInput
-							id="quantity"
-							name="quantity"
-							placeholder={t('portfolio.buySell.placeholder.quantity')}
-						/>
-					</div>
 					<SubmitButton>{t('portfolio.buySell.submit')}</SubmitButton>
 				</form>
 				<p class="mt-4 text-xs text-muted-foreground">

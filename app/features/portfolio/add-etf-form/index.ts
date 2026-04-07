@@ -1,13 +1,6 @@
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToStream } from 'remix/component/server'
-import {
-	literal,
-	object,
-	optional,
-	parseSafe,
-	string,
-	variant,
-} from 'remix/data-schema'
+import { literal, object, parseSafe, string, variant } from 'remix/data-schema'
 import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import { createHtmlResponse } from 'remix/response/html'
@@ -30,18 +23,10 @@ import {
 import { PortfolioBuySellForm } from './buy-sell-form.tsx'
 import { ListFragment } from './list-fragment.tsx'
 
-const optionalWholeNumberQuantity = optional(
-	coerce
-		.number()
-		.pipe(min(0))
-		.refine((n) => Number.isInteger(n)),
-)
-
 const portfolioBuyFields = {
 	instrumentTicker: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
-	quantity: optionalWholeNumberQuantity,
 }
 
 export const PortfolioBuySchema = object({
@@ -68,26 +53,12 @@ export const CreateEtfSchema = object({
 	instrumentTicker: string().pipe(minLength(1)),
 	value: coerce.number().pipe(min(0)),
 	currency: string(),
-	quantity: optionalWholeNumberQuantity,
 })
 
-/**
- * Parses locale-style `value` and cleans optional `quantity` on a form payload
- * (HTML submits "" for empty optional fields).
- */
-function normalizeEtfNumericFields(raw: Record<string, unknown>): void {
+function normalizePortfolioTradeValue(raw: Record<string, unknown>): void {
 	if (typeof raw.value === 'string') {
 		const parsed = parseLocaleDecimalString(raw.value)
 		raw.value = parsed === null ? raw.value : String(parsed)
-	}
-	if (typeof raw.quantity === 'string') {
-		const trimmed = raw.quantity.trim()
-		if (trimmed === '') {
-			delete raw.quantity
-		} else {
-			const parsed = parseLocaleDecimalString(trimmed)
-			raw.quantity = parsed === null ? raw.quantity : String(parsed)
-		}
 	}
 }
 
@@ -95,7 +66,7 @@ function normalizeEtfNumericFields(raw: Record<string, unknown>): void {
 export function normalizePortfolioTradeInput(
 	raw: Record<string, unknown>,
 ): void {
-	normalizeEtfNumericFields(raw)
+	normalizePortfolioTradeValue(raw)
 }
 
 /** @deprecated Use {@link normalizePortfolioTradeInput}. */
@@ -252,7 +223,7 @@ export const addEtfFormHandlers = {
 				current = getGuestEtfs(context.get(Session))
 			}
 
-			const { instrumentTicker, value, currency, quantity } = trade
+			const { instrumentTicker, value, currency } = trade
 			const match = findCatalogEntryByTicker(catalog, instrumentTicker)
 			if (!match) {
 				const message = t('errors.portfolio.catalogEntryMissing')
@@ -303,10 +274,6 @@ export const addEtfFormHandlers = {
 							...existing,
 							ticker: existing.ticker ?? ticker,
 							value: existing.value + value,
-							quantity:
-								existing.quantity !== undefined && quantity !== undefined
-									? existing.quantity + quantity
-									: (quantity ?? existing.quantity),
 						}
 					: {
 							id: crypto.randomUUID(),
@@ -314,7 +281,6 @@ export const addEtfFormHandlers = {
 							ticker,
 							value,
 							currency: normalizedCurrency,
-							...(quantity !== undefined ? { quantity } : {}),
 						}
 				updated =
 					existingIndex >= 0
@@ -323,25 +289,6 @@ export const addEtfFormHandlers = {
 			} else {
 				if (existingIndex < 0 || !existing) {
 					const message = t('errors.portfolio.sellNoHolding')
-					if (prefersJson(context.request)) {
-						return new Response(JSON.stringify({ error: message }), {
-							status: 422,
-							headers: { 'Content-Type': 'application/json' },
-						})
-					}
-					if (prefersHtmlFrame(context.request)) {
-						return portfolioListFragmentHtmlResponse({
-							entries: current,
-							inlineError: message,
-							status: 422,
-						})
-					}
-					context.get(Session).flash('error', message)
-					return createRedirectResponse(routes.portfolio.index.href())
-				}
-
-				if (quantity !== undefined && existing.quantity === undefined) {
-					const message = t('errors.portfolio.sellQuantityWithoutShares')
 					if (prefersJson(context.request)) {
 						return new Response(JSON.stringify({ error: message }), {
 							status: 422,
@@ -379,29 +326,6 @@ export const addEtfFormHandlers = {
 					return createRedirectResponse(routes.portfolio.index.href())
 				}
 
-				let nextQuantity = existing.quantity
-				if (existing.quantity !== undefined && quantity !== undefined) {
-					nextQuantity = existing.quantity - quantity
-					if (nextQuantity < 0) {
-						const message = t('errors.portfolio.sellExceedsShares')
-						if (prefersJson(context.request)) {
-							return new Response(JSON.stringify({ error: message }), {
-								status: 422,
-								headers: { 'Content-Type': 'application/json' },
-							})
-						}
-						if (prefersHtmlFrame(context.request)) {
-							return portfolioListFragmentHtmlResponse({
-								entries: current,
-								inlineError: message,
-								status: 422,
-							})
-						}
-						context.get(Session).flash('error', message)
-						return createRedirectResponse(routes.portfolio.index.href())
-					}
-				}
-
 				if (nextValue === 0) {
 					updated = current.filter((_, i) => i !== existingIndex)
 				} else {
@@ -409,13 +333,6 @@ export const addEtfFormHandlers = {
 						...existing,
 						ticker: existing.ticker ?? ticker,
 						value: nextValue,
-					}
-					if (nextQuantity !== undefined) {
-						if (nextQuantity === 0) {
-							delete updatedEntry.quantity
-						} else {
-							updatedEntry.quantity = nextQuantity
-						}
 					}
 					updated = current.map((e, i) =>
 						i === existingIndex ? updatedEntry : e,

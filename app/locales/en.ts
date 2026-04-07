@@ -79,9 +79,7 @@ export const en = {
 	'portfolio.buySell.field.fund': 'Fund',
 	'portfolio.buySell.field.value': 'Value',
 	'portfolio.buySell.field.currency': 'Currency',
-	'portfolio.buySell.field.quantityOptional': 'Quantity (optional)',
 	'portfolio.buySell.placeholder.value': 'e.g. 1200.50',
-	'portfolio.buySell.placeholder.quantity': 'e.g. 186',
 	'portfolio.buySell.field.action': 'Action',
 	'portfolio.buySell.optionBuy': 'Buy (add or increase)',
 	'portfolio.buySell.optionSell': 'Sell (reduce or remove)',
@@ -91,7 +89,6 @@ export const en = {
 	'portfolio.buySell.footer.after': 'to populate the list.',
 	'portfolio.holdings.title': 'Your Holdings',
 	'portfolio.holdings.empty': 'No ETFs added yet.',
-	'portfolio.holdings.shares': '{count} shares',
 	'portfolio.etf.valueShareBarAria':
 		'{percent}% of total holdings value for {name}',
 
@@ -260,12 +257,8 @@ export const en = {
 		'Selected catalog entry not found. Update your catalog or pick another fund.',
 	'errors.portfolio.sellNoHolding':
 		'You do not hold that fund in this currency yet — use Buy to add it.',
-	'errors.portfolio.sellQuantityWithoutShares':
-		'This holding has no share count on file. Sell using value only, or add shares with Buy first.',
 	'errors.portfolio.sellExceedsHoldings':
 		'That amount is more than your current holding value.',
-	'errors.portfolio.sellExceedsShares':
-		'That quantity is more than your recorded shares.',
 	'errors.portfolio.sellValueNotPositive':
 		'Enter an amount greater than zero to sell.',
 	'errors.portfolio.persistence':

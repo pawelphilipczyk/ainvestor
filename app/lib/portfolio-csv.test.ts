@@ -33,12 +33,10 @@ IQQH GR ETF;DEU-XETRA;81;9.3090;EUR;3217.14;PLN`
 		assert.equal(result[0].value, 4087.48)
 		assert.equal(result[0].currency, 'PLN')
 		assert.equal(result[0].exchange, 'GBR-LSE')
-		assert.equal(result[0].quantity, 186)
 		assert.equal(result[1].name, 'IQQH GR ETF')
 		assert.equal(result[1].value, 3217.14)
 		assert.equal(result[1].currency, 'PLN')
 		assert.equal(result[1].exchange, 'DEU-XETRA')
-		assert.equal(result[1].quantity, 81)
 	})
 
 	it('skips meta lines before header row', () => {

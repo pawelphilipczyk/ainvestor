@@ -21,7 +21,36 @@ export type EtfEntry = {
 	value: number
 	currency: string
 	exchange?: string
-	quantity?: number
+}
+
+/**
+ * Normalizes portfolio rows from JSON (gist or guest session). Legacy `quantity` is dropped.
+ */
+export function normalizeStoredEtfEntries(rows: unknown): EtfEntry[] {
+	if (!Array.isArray(rows)) return []
+	const out: EtfEntry[] = []
+	for (const row of rows) {
+		if (!row || typeof row !== 'object') continue
+		const record = row as Record<string, unknown>
+		if (typeof record.id !== 'string' || typeof record.name !== 'string')
+			continue
+		const value =
+			typeof record.value === 'number' ? record.value : Number(record.value)
+		if (Number.isNaN(value)) continue
+		const currencyRaw =
+			typeof record.currency === 'string' ? record.currency.trim() : ''
+		out.push({
+			id: record.id,
+			name: record.name,
+			value,
+			currency: currencyRaw.length > 0 ? currencyRaw : 'PLN',
+			...(typeof record.ticker === 'string' ? { ticker: record.ticker } : {}),
+			...(typeof record.exchange === 'string' && record.exchange.trim() !== ''
+				? { exchange: record.exchange.trim() }
+				: {}),
+		})
+	}
+	return out
 }
 
 type GistFile = {
@@ -43,8 +72,8 @@ export function parseEtfsFromGist(gist: GistPayload): EtfEntry[] {
 	const file = gist.files[GIST_FILENAME]
 	if (!file || !file.content) return []
 	try {
-		const parsed = JSON.parse(file.content)
-		return Array.isArray(parsed) ? (parsed as EtfEntry[]) : []
+		const parsed: unknown = JSON.parse(file.content)
+		return normalizeStoredEtfEntries(parsed)
 	} catch {
 		return []
 	}

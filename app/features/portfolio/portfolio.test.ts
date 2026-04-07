@@ -38,16 +38,12 @@ function portfolioBuyForm(fields: {
 	instrumentTicker: string
 	value: string
 	currency: string
-	quantity?: string
 }) {
 	const form = new FormData()
 	form.set('portfolioAction', 'buy')
 	form.set('instrumentTicker', fields.instrumentTicker)
 	form.set('value', fields.value)
 	form.set('currency', fields.currency)
-	if (fields.quantity !== undefined) {
-		form.set('quantity', fields.quantity)
-	}
 	return form
 }
 
@@ -55,16 +51,12 @@ function portfolioSellForm(fields: {
 	instrumentTicker: string
 	value: string
 	currency: string
-	quantity?: string
 }) {
 	const form = new FormData()
 	form.set('portfolioAction', 'sell')
 	form.set('instrumentTicker', fields.instrumentTicker)
 	form.set('value', fields.value)
 	form.set('currency', fields.currency)
-	if (fields.quantity !== undefined) {
-		form.set('quantity', fields.quantity)
-	}
 	return form
 }
 
@@ -136,14 +128,14 @@ describe('Portfolio page', () => {
 		}
 	})
 
-	it('form has instrument, value, currency, and quantity fields', async () => {
+	it('form has instrument, value, currency, and action fields', async () => {
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 
 		assert.match(body, /name="instrumentTicker"/)
 		assert.match(body, /name="value"/)
 		assert.match(body, /name="currency"/)
-		assert.match(body, /name="quantity"/)
+		assert.match(body, /name="portfolioAction"/)
 	})
 
 	it('form defaults currency to PLN (first option)', async () => {
@@ -186,33 +178,12 @@ describe('Portfolio page', () => {
 		assert.match(valueInput[0], /inputmode="decimal"/)
 	})
 
-	it('adds ETF when optional quantity is left empty', async () => {
-		await seedGuestCatalog()
-		const form = portfolioBuyForm({
-			instrumentTicker: 'VTI',
-			value: '1000',
-			currency: 'PLN',
-			quantity: '',
-		})
-
-		const postResponse = await testSessionFetch(
-			new Request('http://localhost/portfolio', { method: 'POST', body: form }),
-		)
-		assert.equal(postResponse.status, 302)
-
-		const homeResponse = await testSessionFetch('http://localhost/portfolio')
-		const homeBody = await homeResponse.text()
-		assert.match(homeBody, /VTI/)
-		assert.match(homeBody, /PLN/)
-	})
-
-	it('adds ETF with optional quantity when provided', async () => {
+	it('adds ETF for IBTA from catalog', async () => {
 		await seedGuestCatalog()
 		const form = portfolioBuyForm({
 			instrumentTicker: 'IBTA',
 			value: '4087.48',
 			currency: 'PLN',
-			quantity: '186',
 		})
 
 		const postResponse = await testSessionFetch(
@@ -223,7 +194,7 @@ describe('Portfolio page', () => {
 		const homeResponse = await testSessionFetch('http://localhost/portfolio')
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /IBTA LN ETF/)
-		assert.match(homeBody, /186 shares/)
+		assert.match(homeBody, /4[,.]?087/)
 	})
 
 	it('adds an ETF on form submit and displays it on the portfolio page', async () => {
@@ -250,8 +221,8 @@ describe('Portfolio page', () => {
 	})
 
 	it('imports portfolio from pasted CSV text with Polish headers', async () => {
-		const csv = `Papier;Giełda;Liczba dostępna;Wartość;Waluta
-IBTA LN ETF;GBR-LSE;186;4087.48;PLN`
+		const csv = `Papier;Giełda;Wartość;Waluta
+IBTA LN ETF;GBR-LSE;4087.48;PLN`
 		const form = new FormData()
 		form.set('portfolioCsvPaste', csv)
 
@@ -267,14 +238,13 @@ IBTA LN ETF;GBR-LSE;186;4087.48;PLN`
 		const homeBody = await homeResponse.text()
 		assert.match(homeBody, /IBTA LN ETF/)
 		assert.match(homeBody, /4[,.]?087/)
-		assert.match(homeBody, /186 shares/)
 		assert.match(homeBody, /GBR-LSE/)
 	})
 
-	it('imports portfolio from CSV with Polish headers including exchange and quantity', async () => {
-		const csv = `Papier;Giełda;Liczba dostępna;Wartość;Waluta
-IBTA LN ETF;GBR-LSE;186;4087.48;PLN
-IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
+	it('imports portfolio from CSV with Polish headers including exchange', async () => {
+		const csv = `Papier;Giełda;Wartość;Waluta
+IBTA LN ETF;GBR-LSE;4087.48;PLN
+IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		const form = new FormData()
 		form.set(
 			'portfolioCsv',
@@ -296,9 +266,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(homeBody, /IQQH GR ETF/)
 		assert.match(homeBody, /4[,.]?087/)
 		assert.match(homeBody, /3[,.]?217/)
-		assert.match(homeBody, /186 shares/)
 		assert.match(homeBody, /GBR-LSE/)
-		assert.match(homeBody, /81 shares/)
 		assert.match(homeBody, /DEU-XETRA/)
 	})
 
@@ -409,13 +377,12 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		assert.match(response.headers.get('content-type') ?? '', /text\/javascript/)
 	})
 
-	it('POST /portfolio sell reduces value and quantity for a holding', async () => {
+	it('POST /portfolio sell reduces value for a holding', async () => {
 		await seedGuestCatalog()
 		const addForm = portfolioBuyForm({
 			instrumentTicker: 'VTI',
 			value: '1000',
 			currency: 'USD',
-			quantity: '10',
 		})
 
 		await testSessionFetch(
@@ -429,7 +396,6 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 			instrumentTicker: 'VTI',
 			value: '149.75',
 			currency: 'USD',
-			quantity: '2',
 		})
 		const sellResponse = await testSessionFetch(
 			new Request('http://localhost/portfolio', {
@@ -442,17 +408,15 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		const after = await (
 			await testSessionFetch('http://localhost/portfolio')
 		).text()
-		assert.match(after, /8 shares/)
 		assert.match(after, /850/)
 	})
 
-	it('POST /portfolio sell clears quantity when sold shares match recorded quantity', async () => {
+	it('POST /portfolio sell removes row when value sold matches holding', async () => {
 		await seedGuestCatalog()
 		const addForm = portfolioBuyForm({
 			instrumentTicker: 'IBTA',
 			value: '2000',
 			currency: 'PLN',
-			quantity: '50',
 		})
 
 		await testSessionFetch(
@@ -464,9 +428,8 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 
 		const sellForm = portfolioSellForm({
 			instrumentTicker: 'IBTA',
-			value: '100',
+			value: '2000',
 			currency: 'PLN',
-			quantity: '50',
 		})
 		await testSessionFetch(
 			new Request('http://localhost/portfolio', {
@@ -478,8 +441,7 @@ IQQH GR ETF;DEU-XETRA;81;3217.14;PLN`
 		const after = await (
 			await testSessionFetch('http://localhost/portfolio')
 		).text()
-		assert.doesNotMatch(after, /50 shares/)
-		assert.match(after, /1[,.]?900/)
+		assert.match(after, /No ETFs added yet/)
 	})
 
 	it('returns 422 HTML list fragment when sell validation fails with Accept: text/html', async () => {
