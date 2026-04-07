@@ -14,11 +14,8 @@ type PortfolioBuySellFormProps = {
 	instrumentOptions: { value: string; label: string }[]
 }
 
-const sellButtonClass =
-	`inline-flex h-10 min-h-10 w-full items-center justify-center rounded-md border border-input bg-background px-4 py-0 text-sm font-semibold text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50`.trim()
-
 /**
- * Single trade form: buy (add / merge) or sell (reduce / remove) using the same fields as the former manual add form.
+ * Single trade form: choose buy or sell, then submit once with the same fields as the former manual add form.
  */
 export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
 	return (props: PortfolioBuySellFormProps) => {
@@ -29,6 +26,10 @@ export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
 		const instrumentSelectOptions = [
 			{ value: '', label: instrumentPlaceholder },
 			...props.instrumentOptions,
+		]
+		const actionOptions = [
+			{ value: 'buy', label: t('portfolio.buySell.optionBuy') },
+			{ value: 'sell', label: t('portfolio.buySell.optionSell') },
 		]
 
 		return (
@@ -44,6 +45,17 @@ export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
 					data-frame-replace-from-response="1"
 					data-reset-form
 				>
+					<div class="grid gap-2">
+						<FieldLabel fieldId="portfolioAction">
+							{t('portfolio.buySell.field.action')}
+						</FieldLabel>
+						<SelectInput
+							id="portfolioAction"
+							name="portfolioAction"
+							options={actionOptions}
+							required={true}
+						/>
+					</div>
 					<div class="grid gap-2">
 						<FieldLabel fieldId="instrumentTicker">
 							{t('portfolio.buySell.field.fund')}
@@ -90,19 +102,7 @@ export function PortfolioBuySellForm(_handle: Handle, _setup?: unknown) {
 							placeholder={t('portfolio.buySell.placeholder.quantity')}
 						/>
 					</div>
-					<div class="grid gap-3 sm:grid-cols-2">
-						<SubmitButton name="portfolioAction" value="buy">
-							{t('portfolio.buySell.submitBuy')}
-						</SubmitButton>
-						<button
-							type="submit"
-							name="portfolioAction"
-							value="sell"
-							class={sellButtonClass}
-						>
-							{t('portfolio.buySell.submitSell')}
-						</button>
-					</div>
+					<SubmitButton>{t('portfolio.buySell.submit')}</SubmitButton>
 				</form>
 				<p class="mt-4 text-xs text-muted-foreground">
 					{t('portfolio.buySell.footer.beforeLink')}{' '}
