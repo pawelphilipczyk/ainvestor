@@ -65,6 +65,7 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 |-----------|---------|
 | `render()` `resolveFrame` option | Forwards a `resolveFrame` callback to `renderToStream` so `<Frame>` components resolve during SSR |
 | `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`, POSTs via fetch, reloads the named Frame on success (or applies **`data-frame-replace-from-response`** HTML via `frameHandle.replace()` for **both** 200 and **422** when the response is HTML). Supports `data-frame-reload-src`, optional **`data-frame-hide-form-on-success`** with replace-from-response, `data-error-id` for **non-HTML** 422 JSON fallbacks, and `data-reset-form`. |
+| `requestAcceptsFrameSubmitHtml` / `requestAcceptsApplicationJson` (`app/lib/frame-submit-request.ts`) | Single source of truth for **`Accept`** branching in POST handlers (must stay aligned with the headers this clientEntry sends). |
 
 ---
 

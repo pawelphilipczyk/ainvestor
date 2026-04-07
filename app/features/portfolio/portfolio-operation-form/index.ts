@@ -7,6 +7,10 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
+import {
+	requestAcceptsApplicationJson,
+	requestAcceptsFrameSubmitHtml,
+} from '../../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
 import { fetchPortfolioSnapshot, saveEtfs } from '../../../lib/gist.ts'
 import { getGuestEtfs, setGuestEtfs } from '../../../lib/guest-session-state.ts'
@@ -61,16 +65,6 @@ export function normalizePortfolioOperationInput(
 	raw: Record<string, unknown>,
 ): void {
 	normalizePortfolioOperationValue(raw)
-}
-
-function prefersJson(request: Request): boolean {
-	return request.headers.get('Accept')?.includes('application/json') ?? false
-}
-
-/** Matches `FrameSubmitEnhancement` fetch (`Accept: text/html` only), not browser document navigations. */
-function prefersHtmlFrame(request: Request): boolean {
-	const accept = request.headers.get('Accept') ?? ''
-	return accept.trim() === 'text/html'
 }
 
 async function loadCatalogForPortfolioList(
@@ -143,13 +137,13 @@ async function portfolioPersistenceFailureResponse(
 	context: AppRequestContext,
 ): Promise<Response> {
 	const message = t('errors.portfolio.persistence')
-	if (prefersJson(context.request)) {
+	if (requestAcceptsApplicationJson(context.request)) {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
-	if (prefersHtmlFrame(context.request)) {
+	if (requestAcceptsFrameSubmitHtml(context.request)) {
 		const entries = await loadPortfolioEntries(context)
 		return portfolioListFragmentHtmlResponse(context, {
 			entries: entries ?? [],
@@ -190,13 +184,13 @@ export const portfolioOperationFormHandlers = {
 			const result = parseSafe(PortfolioOperationSchema, formPayload)
 			if (!result.success) {
 				const message = t('errors.portfolio.addInvalid')
-				if (prefersJson(context.request)) {
+				if (requestAcceptsApplicationJson(context.request)) {
 					return new Response(JSON.stringify({ error: message }), {
 						status: 422,
 						headers: { 'Content-Type': 'application/json' },
 					})
 				}
-				if (prefersHtmlFrame(context.request)) {
+				if (requestAcceptsFrameSubmitHtml(context.request)) {
 					const entries = await loadPortfolioEntries(context)
 					if (entries === null) {
 						return portfolioListFragmentHtmlResponse(context, {
@@ -239,7 +233,7 @@ export const portfolioOperationFormHandlers = {
 			const match = findCatalogEntryByTicker(catalog, instrumentTicker)
 			if (!match) {
 				const message = t('errors.portfolio.catalogEntryMissing')
-				if (prefersJson(context.request)) {
+				if (requestAcceptsApplicationJson(context.request)) {
 					return new Response(
 						JSON.stringify({
 							error: message,
@@ -254,7 +248,7 @@ export const portfolioOperationFormHandlers = {
 						},
 					)
 				}
-				if (prefersHtmlFrame(context.request)) {
+				if (requestAcceptsFrameSubmitHtml(context.request)) {
 					return portfolioListFragmentHtmlResponse(context, {
 						entries: current,
 						inlineError: message,
@@ -301,13 +295,13 @@ export const portfolioOperationFormHandlers = {
 			} else {
 				if (existingIndex < 0 || !existing) {
 					const message = t('errors.portfolio.sellNoHolding')
-					if (prefersJson(context.request)) {
+					if (requestAcceptsApplicationJson(context.request)) {
 						return new Response(JSON.stringify({ error: message }), {
 							status: 422,
 							headers: { 'Content-Type': 'application/json' },
 						})
 					}
-					if (prefersHtmlFrame(context.request)) {
+					if (requestAcceptsFrameSubmitHtml(context.request)) {
 						return portfolioListFragmentHtmlResponse(context, {
 							entries: current,
 							inlineError: message,
@@ -321,13 +315,13 @@ export const portfolioOperationFormHandlers = {
 				const nextValue = existing.value - value
 				if (nextValue < 0) {
 					const message = t('errors.portfolio.sellExceedsHoldings')
-					if (prefersJson(context.request)) {
+					if (requestAcceptsApplicationJson(context.request)) {
 						return new Response(JSON.stringify({ error: message }), {
 							status: 422,
 							headers: { 'Content-Type': 'application/json' },
 						})
 					}
-					if (prefersHtmlFrame(context.request)) {
+					if (requestAcceptsFrameSubmitHtml(context.request)) {
 						return portfolioListFragmentHtmlResponse(context, {
 							entries: current,
 							inlineError: message,
@@ -362,7 +356,7 @@ export const portfolioOperationFormHandlers = {
 				setGuestEtfs(context.get(Session), updated)
 			}
 
-			if (prefersHtmlFrame(context.request)) {
+			if (requestAcceptsFrameSubmitHtml(context.request)) {
 				return portfolioListFragmentHtmlResponse(context, { entries: updated })
 			}
 			return createRedirectResponse(routes.portfolio.index.href())

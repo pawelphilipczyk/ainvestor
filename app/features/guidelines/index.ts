@@ -10,6 +10,10 @@ import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import {
+	requestAcceptsApplicationJson,
+	requestAcceptsFrameSubmitHtml,
+} from '../../lib/frame-submit-request.ts'
+import {
 	getGuestGuidelines,
 	setGuestGuidelines,
 } from '../../lib/guest-session-state.ts'
@@ -81,17 +85,6 @@ function normalizeGuidelineTargetPctInput(raw: Record<string, unknown>): void {
 	}
 }
 
-/** Matches fetch-submit (`Accept: application/json`) vs full page navigation. */
-function prefersJson(request: Request): boolean {
-	return request.headers.get('Accept')?.includes('application/json') ?? false
-}
-
-/** Matches `FrameSubmitEnhancement` replace-from-response (`Accept: text/html` only). */
-function prefersHtmlFrame(request: Request): boolean {
-	const accept = request.headers.get('Accept') ?? ''
-	return accept.trim() === 'text/html'
-}
-
 async function loadGuidelinesForSession(
 	context: AppRequestContext,
 ): Promise<EtfGuideline[]> {
@@ -135,13 +128,13 @@ async function guidelinesTotalCapErrorResponse(params: {
 		current: formatGuidelineTargetPercentForInput(params.currentTotal),
 		added: formatGuidelineTargetPercentForInput(params.addedPercent),
 	})
-	if (prefersJson(params.request)) {
+	if (requestAcceptsApplicationJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
-	if (prefersHtmlFrame(params.request)) {
+	if (requestAcceptsFrameSubmitHtml(params.request)) {
 		const guidelines = await loadGuidelinesForSession(params.context)
 		return guidelinesListFragmentHtmlResponse({
 			guidelines,
@@ -168,13 +161,13 @@ async function guidelinesDuplicateErrorResponse(params: {
 			: format(t('errors.guidelines.duplicateAssetClass'), {
 					label: formatEtfTypeLabel(params.entry.etfType),
 				})
-	if (prefersJson(params.request)) {
+	if (requestAcceptsApplicationJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
-	if (prefersHtmlFrame(params.request)) {
+	if (requestAcceptsFrameSubmitHtml(params.request)) {
 		const guidelines = await loadGuidelinesForSession(params.context)
 		return guidelinesListFragmentHtmlResponse({
 			guidelines,
@@ -218,13 +211,13 @@ async function guidelinesUpdateSchemaValidationResponse(params: {
 	issues: ReadonlyArray<StandardSchemaV1.Issue>
 }): Promise<Response> {
 	const { error, details } = formatGuidelineTargetSchemaIssues(params.issues)
-	if (prefersJson(params.request)) {
+	if (requestAcceptsApplicationJson(params.request)) {
 		return new Response(JSON.stringify({ error, issues: details }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
-	if (prefersHtmlFrame(params.request)) {
+	if (requestAcceptsFrameSubmitHtml(params.request)) {
 		const guidelines = await loadGuidelinesForSession(params.context)
 		return guidelinesListFragmentHtmlResponse({
 			guidelines,
@@ -249,13 +242,13 @@ async function guidelinesUpdateCapErrorResponse(params: {
 		),
 		total: formatGuidelineTargetPercentForInput(params.resultingTotal),
 	})
-	if (prefersJson(params.request)) {
+	if (requestAcceptsApplicationJson(params.request)) {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
-	if (prefersHtmlFrame(params.request)) {
+	if (requestAcceptsFrameSubmitHtml(params.request)) {
 		const guidelines = await loadGuidelinesForSession(params.context)
 		return guidelinesListFragmentHtmlResponse({
 			guidelines,
@@ -486,7 +479,7 @@ export const guidelinesController = {
 				addTab: 'instrument',
 			})
 			if (capError) return capError
-			if (prefersHtmlFrame(context.request)) {
+			if (requestAcceptsFrameSubmitHtml(context.request)) {
 				const guidelines = await loadGuidelinesForSession(context)
 				return guidelinesListFragmentHtmlResponse({ guidelines })
 			}
@@ -533,7 +526,7 @@ export const guidelinesController = {
 				addTab: 'bucket',
 			})
 			if (capError) return capError
-			if (prefersHtmlFrame(context.request)) {
+			if (requestAcceptsFrameSubmitHtml(context.request)) {
 				const guidelines = await loadGuidelinesForSession(context)
 				return guidelinesListFragmentHtmlResponse({ guidelines })
 			}
@@ -570,7 +563,7 @@ export const guidelinesController = {
 			})
 			if (persistError) return persistError
 
-			if (prefersHtmlFrame(context.request)) {
+			if (requestAcceptsFrameSubmitHtml(context.request)) {
 				const guidelines = await loadGuidelinesForSession(context)
 				return guidelinesListFragmentHtmlResponse({ guidelines })
 			}
@@ -597,7 +590,7 @@ export const guidelinesController = {
 				)
 			}
 
-			if (prefersHtmlFrame(context.request)) {
+			if (requestAcceptsFrameSubmitHtml(context.request)) {
 				const guidelines = await loadGuidelinesForSession(context)
 				return guidelinesListFragmentHtmlResponse({ guidelines })
 			}
