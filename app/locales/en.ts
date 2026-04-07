@@ -282,8 +282,12 @@ export const en = {
 		'That text is not valid JSON. Copy the full fetch response body from your browser’s network tab and try again.',
 	'errors.catalog.import.noRowsParsed':
 		'No ETF rows could be read from that JSON. Expected an object with a "data" array; each item needs a ticker and fund_name (and usually matches your broker’s API shape).',
-	'errors.catalog.import.diagnostic.lead':
-		'Import blocked: {issueCount} problem(s) in {dataRowCount} pasted row(s). Nothing was saved.',
+	'errors.catalog.import.diagnostic.savedLead':
+		'Catalog saved. Merged {appliedCount} row(s) from this paste.',
+	'errors.catalog.import.diagnostic.nothingSavedLead':
+		'Nothing was saved from this paste.',
+	'errors.catalog.import.diagnostic.skippedHeading': 'Skipped rows:',
+	'errors.catalog.import.diagnostic.notesHeading': 'Notes:',
 	'errors.catalog.import.issue.expectedObject':
 		'JSON must be an object with a "data" array of funds.',
 	'errors.catalog.import.issue.dataNotArray':
@@ -299,9 +303,9 @@ export const en = {
 	'errors.catalog.import.issue.duplicateMergeKeyInPaste':
 		'Same catalog key as row {otherIndex} (duplicate ISIN + ticker line in this paste).',
 	'errors.catalog.import.issue.alreadyInCatalog':
-		'This line matches an existing catalog row (same ISIN and ticker) — already present; remove duplicates or fix the paste.',
+		'This line matches an existing catalog row (same ISIN and ticker); the catalog row was updated from this paste.',
 	'errors.catalog.import.issue.idAlreadyInCatalog':
-		'Fund id "{id}" is already in the shared catalog — change the source row or remove the duplicate from the paste.',
+		'Fund id "{id}" already exists in the catalog; incoming fields were merged into that row.',
 	'errors.catalog.import.dataArrayEmpty':
 		'The pasted JSON has an empty "data" array — no funds to import.',
 	'errors.catalog.import.saveFailed':

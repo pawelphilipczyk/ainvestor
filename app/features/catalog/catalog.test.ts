@@ -544,9 +544,11 @@ describe('ETF Catalog page', () => {
 		})
 		const body = await catalogResponse.text()
 
-		assert.match(body, /Import blocked:/)
+		assert.match(body, /Catalog saved/)
+		assert.match(body, /Skipped rows:/)
 		assert.match(body, /Row 2/)
 		assert.match(body, /Missing ticker/)
+		assert.match(body, /Good/)
 	})
 
 	it('POST /catalog/import flashes when paste duplicates the same catalog line', async () => {
@@ -589,10 +591,14 @@ describe('ETF Catalog page', () => {
 		})
 		const body = await catalogResponse.text()
 
+		assert.match(body, /Catalog saved/)
+		assert.match(body, /Skipped rows:/)
+		assert.match(body, /Row 2/)
 		assert.match(body, /Same catalog key/)
+		assert.match(body, /XMOV GR/)
 	})
 
-	it('POST /catalog/import flashes when a row matches an existing catalog entry', async () => {
+	it('POST /catalog/import merges refresh of existing row and flashes a note', async () => {
 		const existing = {
 			isin: 'IE00BGV5VR99',
 			fund_name: 'Xtrackers Future Mobility UCITS ETF 1C',
@@ -632,7 +638,9 @@ describe('ETF Catalog page', () => {
 		})
 		const body = await catalogResponse.text()
 
-		assert.match(body, /already present/)
+		assert.match(body, /Catalog saved/)
+		assert.match(body, /Notes:/)
+		assert.match(body, /XMOV GR/)
 	})
 
 	it('catalog shows Your Holdings section when a holding matches a catalog ticker', async () => {

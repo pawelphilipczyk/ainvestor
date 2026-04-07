@@ -225,7 +225,7 @@ describe('parseBankJsonToCatalog', () => {
 		assert.equal(result[1].id, 'IE00B4L5Y983:LSE')
 	})
 
-	it('import parse flags duplicate merge key in same paste (does not emit entries)', () => {
+	it('import parse keeps first duplicate merge key in paste and skips later row', () => {
 		const row = {
 			isin: 'IE00BGV5VR99',
 			fund_name: 'Xtrackers Future Mobility UCITS ETF 1C',
@@ -248,8 +248,10 @@ describe('parseBankJsonToCatalog', () => {
 			},
 			[],
 		)
-		assert.equal(result.entries.length, 0)
-		assert.equal(result.rowDiagnostics.length, 2)
+		assert.equal(result.entries.length, 1)
+		assert.equal(result.entries[0].description, 'First')
+		assert.equal(result.skippedRowDiagnostics.length, 1)
+		assert.equal(result.skippedRowDiagnostics[0].index, 2)
 	})
 
 	it('merge collapses duplicate keys when two entries share the same merge key', () => {
@@ -284,7 +286,20 @@ describe('parseBankJsonToCatalog', () => {
 			[],
 		)
 		assert.equal(result.entries.length, 1)
-		assert.equal(result.rowDiagnostics.length, 2)
+		assert.equal(result.skippedRowDiagnostics.length, 2)
+	})
+
+	it('parseBankJsonForImport merges first duplicate in paste and skips later duplicate', () => {
+		const row = {
+			isin: 'IE00BGV5VR99',
+			fund_name: 'Xtrackers',
+			ticker: 'XMOV GR',
+			assets: 'akcje',
+		}
+		const result = parseBankJsonForImport({ data: [row, row] }, [])
+		assert.equal(result.entries.length, 1)
+		assert.equal(result.skippedRowDiagnostics.length, 1)
+		assert.equal(result.skippedRowDiagnostics[0].index, 2)
 	})
 })
 

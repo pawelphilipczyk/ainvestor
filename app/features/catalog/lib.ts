@@ -190,8 +190,16 @@ export type BankJsonImportRowDiagnostics = {
 
 export type BankJsonParseForImportResult = {
 	entries: CatalogEntry[]
-	/** One group per `data` element that has at least one issue. */
-	rowDiagnostics: BankJsonImportRowDiagnostics[]
+	/**
+	 * Rows that were not merged (invalid shape, missing fields, invalid ISIN, or
+	 * duplicate id / duplicate merge key within the same paste).
+	 */
+	skippedRowDiagnostics: BankJsonImportRowDiagnostics[]
+	/**
+	 * Rows that were merged but had informational notes (e.g. refreshed existing
+	 * catalog line or reused an existing id).
+	 */
+	noteRowDiagnostics: BankJsonImportRowDiagnostics[]
 	/** Count of elements in `data` when it is an array; otherwise 0. */
 	expectedDataRows: number
 	/** Elements that were not objects (each counts as a skipped row with an issue). */
@@ -209,16 +217,16 @@ function rowLabelFromItem(item: BankEtfItem): string {
 	return '(no ticker or name)'
 }
 
-function firstOtherIndex(indices: number[], self: number): number {
-	for (const value of indices) {
-		if (value !== self) return value
-	}
-	return indices[0] ?? self
+function isCatalogMergeNoteIssue(issue: BankJsonImportRowIssue): boolean {
+	return (
+		issue.kind === 'alreadyInCatalog' || issue.kind === 'idAlreadyInCatalog'
+	)
 }
 
 /**
  * Parse bank JSON for catalog import with per-row diagnostics.
- * Callers should not save when {@link BankJsonParseForImportResult.rowDiagnostics} is non-empty.
+ * Valid rows are returned in `entries` even when other rows fail; callers merge
+ * `entries` and surface `skippedRowDiagnostics` / `noteRowDiagnostics` in the UI.
  */
 export function parseBankJsonForImport(
 	json: unknown,
@@ -229,7 +237,8 @@ export function parseBankJsonForImport(
 		structuralIssue: BankJsonParseForImportResult['structuralIssue'],
 	): BankJsonParseForImportResult => ({
 		entries: [],
-		rowDiagnostics: [],
+		skippedRowDiagnostics: [],
+		noteRowDiagnostics: [],
 		expectedDataRows,
 		skippedNonObjectCount: 0,
 		structuralIssue,
@@ -250,7 +259,7 @@ export function parseBankJsonForImport(
 		entry: CatalogEntry
 	}
 
-	const rowDiagnostics: BankJsonImportRowDiagnostics[] = []
+	const skippedRowDiagnostics: BankJsonImportRowDiagnostics[] = []
 	let skippedNonObjectCount = 0
 	const candidates: ValidCandidate[] = []
 
@@ -259,7 +268,7 @@ export function parseBankJsonForImport(
 		const dataIndex = index + 1
 		if (!element || typeof element !== 'object' || Array.isArray(element)) {
 			skippedNonObjectCount += 1
-			rowDiagnostics.push({
+			skippedRowDiagnostics.push({
 				index: dataIndex,
 				label: '(invalid row)',
 				issues: [{ kind: 'rowNotObject' }],
@@ -281,7 +290,7 @@ export function parseBankJsonForImport(
 		}
 
 		if (issues.length > 0) {
-			rowDiagnostics.push({
+			skippedRowDiagnostics.push({
 				index: dataIndex,
 				label: rowLabelFromItem(item),
 				issues,
@@ -358,6 +367,7 @@ export function parseBankJsonForImport(
 	)
 
 	const entries: CatalogEntry[] = []
+	const noteRowDiagnostics: BankJsonImportRowDiagnostics[] = []
 	for (const candidate of candidates) {
 		const { item, dataIndex, entry } = candidate
 		const mergeKey = catalogMergeKey(entry)
@@ -365,19 +375,25 @@ export function parseBankJsonForImport(
 
 		const idIndices = idToIndices.get(entry.id) ?? []
 		if (idIndices.length > 1) {
-			issues.push({
-				kind: 'duplicateIdInPaste',
-				id: entry.id,
-				otherIndex: firstOtherIndex(idIndices, dataIndex),
-			})
+			const firstIdIndex = Math.min(...idIndices)
+			if (dataIndex !== firstIdIndex) {
+				issues.push({
+					kind: 'duplicateIdInPaste',
+					id: entry.id,
+					otherIndex: firstIdIndex,
+				})
+			}
 		}
 
 		const keyIndices = mergeKeyToIndices.get(mergeKey) ?? []
 		if (keyIndices.length > 1) {
-			issues.push({
-				kind: 'duplicateMergeKeyInPaste',
-				otherIndex: firstOtherIndex(keyIndices, dataIndex),
-			})
+			const firstKeyIndex = Math.min(...keyIndices)
+			if (dataIndex !== firstKeyIndex) {
+				issues.push({
+					kind: 'duplicateMergeKeyInPaste',
+					otherIndex: firstKeyIndex,
+				})
+			}
 		}
 
 		if (existingIds.has(entry.id)) {
@@ -387,8 +403,13 @@ export function parseBankJsonForImport(
 			issues.push({ kind: 'alreadyInCatalog' })
 		}
 
-		if (issues.length > 0) {
-			rowDiagnostics.push({
+		const blockingIssues = issues.filter(
+			(issue) => !isCatalogMergeNoteIssue(issue),
+		)
+		const noteIssues = issues.filter(isCatalogMergeNoteIssue)
+
+		if (blockingIssues.length > 0) {
+			skippedRowDiagnostics.push({
 				index: dataIndex,
 				label: rowLabelFromItem(item),
 				issues,
@@ -397,13 +418,22 @@ export function parseBankJsonForImport(
 		}
 
 		entries.push(entry)
+		if (noteIssues.length > 0) {
+			noteRowDiagnostics.push({
+				index: dataIndex,
+				label: rowLabelFromItem(item),
+				issues: noteIssues,
+			})
+		}
 	}
 
-	rowDiagnostics.sort((a, b) => a.index - b.index)
+	skippedRowDiagnostics.sort((a, b) => a.index - b.index)
+	noteRowDiagnostics.sort((a, b) => a.index - b.index)
 
 	return {
 		entries,
-		rowDiagnostics,
+		skippedRowDiagnostics,
+		noteRowDiagnostics,
 		expectedDataRows: data.length,
 		skippedNonObjectCount,
 		structuralIssue: null,

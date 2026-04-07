@@ -74,26 +74,49 @@ function formatBankImportRowIssue(issue: BankJsonImportRowIssue): string {
 	}
 }
 
-function formatBankImportDiagnostics(
-	parseResult: BankJsonParseForImportResult,
-): string | null {
-	if (parseResult.rowDiagnostics.length === 0) return null
-	const issueCount = parseResult.rowDiagnostics.reduce(
-		(sum, row) => sum + row.issues.length,
-		0,
-	)
-	const lines: string[] = [
-		format(t('errors.catalog.import.diagnostic.lead'), {
-			issueCount,
-			dataRowCount: parseResult.expectedDataRows,
-		}),
-	]
-	for (const row of parseResult.rowDiagnostics) {
-		lines.push(`Row ${row.index} (${row.label}):`)
-		for (const issue of row.issues) {
-			lines.push(`  • ${formatBankImportRowIssue(issue)}`)
+function formatCatalogImportOutcomeFlash(params: {
+	appliedCount: number
+	parseResult: BankJsonParseForImportResult
+}): string | null {
+	const { appliedCount, parseResult } = params
+	const { skippedRowDiagnostics, noteRowDiagnostics } = parseResult
+	if (skippedRowDiagnostics.length === 0 && noteRowDiagnostics.length === 0) {
+		return null
+	}
+
+	const lines: string[] = []
+	if (appliedCount > 0) {
+		lines.push(
+			format(t('errors.catalog.import.diagnostic.savedLead'), {
+				appliedCount,
+			}),
+		)
+	} else {
+		lines.push(t('errors.catalog.import.diagnostic.nothingSavedLead'))
+	}
+
+	if (skippedRowDiagnostics.length > 0) {
+		lines.push('')
+		lines.push(t('errors.catalog.import.diagnostic.skippedHeading'))
+		for (const row of skippedRowDiagnostics) {
+			lines.push(`Row ${row.index} (${row.label}):`)
+			for (const issue of row.issues) {
+				lines.push(`  • ${formatBankImportRowIssue(issue)}`)
+			}
 		}
 	}
+
+	if (noteRowDiagnostics.length > 0) {
+		lines.push('')
+		lines.push(t('errors.catalog.import.diagnostic.notesHeading'))
+		for (const row of noteRowDiagnostics) {
+			lines.push(`Row ${row.index} (${row.label}):`)
+			for (const issue of row.issues) {
+				lines.push(`  • ${formatBankImportRowIssue(issue)}`)
+			}
+		}
+	}
+
 	return lines.join('\n')
 }
 
@@ -369,10 +392,10 @@ export const catalogController = {
 		},
 
 		async import(context: AppRequestContext) {
-			const sessionStore = context.get(Session)
-			const sessionData = getSessionData(sessionStore)
+			const session = context.get(Session)
+			const sessionData = getSessionData(session)
 			if (!sessionData?.token || !sessionData?.login) {
-				sessionStore.flash('error', t('errors.catalog.importNotAllowed'))
+				session.flash('error', t('errors.catalog.importNotAllowed'))
 				return catalogIndexRedirect()
 			}
 			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot()
@@ -381,60 +404,48 @@ export const catalogController = {
 				ownerLogin,
 			})
 			if (!canImport) {
-				sessionStore.flash('error', t('errors.catalog.importNotAllowed'))
+				session.flash('error', t('errors.catalog.importNotAllowed'))
 				return catalogIndexRedirect()
 			}
 
 			const rawFromForm = context.get(FormData)?.get('bankApiJson')
 			if (typeof rawFromForm !== 'string') {
-				sessionStore.flash('error', t('errors.catalog.import.fieldMissing'))
+				session.flash('error', t('errors.catalog.import.fieldMissing'))
 				return catalogIndexRedirect()
 			}
 			const trimmedJson = rawFromForm.trim()
 			if (trimmedJson.length === 0) {
-				sessionStore.flash('error', t('errors.catalog.import.emptyJson'))
+				session.flash('error', t('errors.catalog.import.emptyJson'))
 				return catalogIndexRedirect()
 			}
 			let parsedJson: unknown
 			try {
 				parsedJson = JSON.parse(trimmedJson)
 			} catch {
-				sessionStore.flash('error', t('errors.catalog.import.invalidJson'))
+				session.flash('error', t('errors.catalog.import.invalidJson'))
 				return catalogIndexRedirect()
 			}
 
 			const parseResult = parseBankJsonForImport(parsedJson, entries)
 			if (parseResult.structuralIssue === 'notObject') {
-				sessionStore.flash(
-					'error',
-					t('errors.catalog.import.issue.expectedObject'),
-				)
+				session.flash('error', t('errors.catalog.import.issue.expectedObject'))
 				return catalogIndexRedirect()
 			}
 			if (parseResult.structuralIssue === 'dataNotArray') {
-				sessionStore.flash(
-					'error',
-					t('errors.catalog.import.issue.dataNotArray'),
-				)
+				session.flash('error', t('errors.catalog.import.issue.dataNotArray'))
 				return catalogIndexRedirect()
 			}
 			if (
 				parseResult.expectedDataRows === 0 &&
-				parseResult.rowDiagnostics.length === 0
+				parseResult.skippedRowDiagnostics.length === 0
 			) {
-				sessionStore.flash('error', t('errors.catalog.import.dataArrayEmpty'))
-				return catalogIndexRedirect()
-			}
-
-			const diagnosticMessage = formatBankImportDiagnostics(parseResult)
-			if (diagnosticMessage) {
-				sessionStore.flash('error', diagnosticMessage)
+				session.flash('error', t('errors.catalog.import.dataArrayEmpty'))
 				return catalogIndexRedirect()
 			}
 
 			const imported = parseResult.entries
 			if (imported.length === 0) {
-				sessionStore.flash('error', t('errors.catalog.import.noRowsParsed'))
+				session.flash('error', t('errors.catalog.import.noRowsParsed'))
 				return catalogIndexRedirect()
 			}
 
@@ -443,8 +454,16 @@ export const catalogController = {
 				await saveCatalog({ token: sessionData.token, entries: merged })
 			} catch (error) {
 				console.error('[catalog] import save failed', error)
-				sessionStore.flash('error', t('errors.catalog.import.saveFailed'))
+				session.flash('error', t('errors.catalog.import.saveFailed'))
 				return catalogIndexRedirect()
+			}
+
+			const outcomeFlash = formatCatalogImportOutcomeFlash({
+				appliedCount: imported.length,
+				parseResult,
+			})
+			if (outcomeFlash) {
+				session.flash('error', outcomeFlash)
 			}
 
 			return createRedirectResponse(routes.catalog.index.href())
