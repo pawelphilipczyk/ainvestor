@@ -40,12 +40,12 @@ export type CatalogEntry = {
 	esg?: boolean
 }
 
-/** PRIIPs KID 1–7 mapped to coarse bands for catalog filter and table display. */
+/** Coarse risk bands for catalog filter and table display (from `risk_kid` when present). */
 export const CATALOG_RISK_BAND_VALUES = ['low', 'medium', 'high'] as const
 export type CatalogRiskBand = (typeof CATALOG_RISK_BAND_VALUES)[number]
 
 /**
- * Maps KID risk score 1–7 to low / medium / high. Non-integer or out-of-range values yield `undefined`.
+ * Maps numeric `risk_kid` to low / medium / high. Non-integer or out-of-range values yield `undefined`.
  */
 export function riskBandFromRiskKid(
 	riskKid: number | undefined,

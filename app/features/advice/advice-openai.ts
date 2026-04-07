@@ -164,7 +164,7 @@ and optional target-allocation guidelines. The catalog is the only source for ti
    heavily in one fund or category? Mention overlap or geography/sector only when the catalog supports it
    and it helps the reader.
 2. **Risk posture** — in simple terms (e.g. "mostly stocks tends to swing more than mostly bonds"). Use
-   catalog fields (volatility, return/risk, risk KID) only as light support; do not invent numbers.
+   catalog fields (volatility, return/risk, risk score) only as light support; do not invent numbers.
 3. **Vs guidelines** — if targets exist, say in a few bullets whether they are roughly on track or not
    (by bucket), without repeating a full percentage table. If there are no guidelines, say the review is
    based on holdings and catalog only.
@@ -650,7 +650,7 @@ export function formatCatalogForAdvice(catalog: CatalogEntry[]): string {
 			if (entry.sector) bits.push(`sector: ${entry.sector}`)
 			if (entry.fund_size) bits.push(`fund size: ${entry.fund_size}`)
 			if (typeof entry.risk_kid === 'number')
-				bits.push(`risk (KID 1–7): ${entry.risk_kid}`)
+				bits.push(`risk: ${entry.risk_kid}`)
 			if (entry.esg !== undefined) bits.push(`ESG: ${entry.esg ? 'yes' : 'no'}`)
 			return `- ${bits.join(' | ')}`
 		})

@@ -21,15 +21,14 @@ function catalogRiskBandLabel(band: CatalogRiskBand): string {
 }
 
 function catalogRiskBandChipClassName(band: CatalogRiskBand): string {
-	const shell =
-		'inline-flex max-w-full items-center rounded-full border border-white px-2 py-0.5 text-xs font-medium leading-snug break-words text-left shadow-sm'
+	const shell = 'rounded-full px-2 py-0.5 text-xs'
 	if (band === 'low') {
-		return `${shell} bg-emerald-900/30 text-white dark:bg-emerald-950/55`
+		return `${shell} bg-neutral-800/20 text-white dark:bg-white/15 dark:text-white`
 	}
 	if (band === 'medium') {
-		return `${shell} bg-amber-900/35 text-yellow-200 dark:bg-amber-950/50 dark:text-yellow-200`
+		return `${shell} bg-yellow-400/25 text-yellow-700 dark:bg-yellow-400/15 dark:text-yellow-200`
 	}
-	return `${shell} bg-red-900/35 text-red-300 dark:bg-red-950/55 dark:text-red-300`
+	return `${shell} bg-red-500/25 text-red-700 dark:bg-red-500/15 dark:text-red-300`
 }
 
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {

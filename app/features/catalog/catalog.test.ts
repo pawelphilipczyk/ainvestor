@@ -902,7 +902,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Showing 1 of 2 ETFs/)
 	})
 
-	it('catalog risk filter narrows results by KID band', async () => {
+	it('catalog risk filter narrows results by risk band', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -937,11 +937,11 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /MID/)
 		assert.doesNotMatch(body, />LOW</)
 		assert.doesNotMatch(body, />HI</)
-		assert.match(body, /Medium \(3–4\)/)
+		assert.match(body, />medium</)
 		assert.match(body, /Showing 1 of 3 ETFs/)
 	})
 
-	it('catalog risk column renders chips with band markers and white border', async () => {
+	it('catalog risk column renders chips with band markers', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -974,7 +974,6 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /data-risk-band="low"/)
 		assert.match(body, /data-risk-band="medium"/)
 		assert.match(body, /data-risk-band="high"/)
-		assert.match(body, /border-white/)
 	})
 
 	it('catalog text search narrows results', async () => {

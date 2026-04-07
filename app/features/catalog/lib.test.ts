@@ -15,7 +15,7 @@ import {
 } from './lib.ts'
 
 describe('riskBandFromRiskKid', () => {
-	it('maps KID 1–2 to low, 3–4 to medium, 5–7 to high', () => {
+	it('maps risk_kid scores to low, medium, and high bands', () => {
 		assert.equal(riskBandFromRiskKid(1), 'low')
 		assert.equal(riskBandFromRiskKid(2), 'low')
 		assert.equal(riskBandFromRiskKid(3), 'medium')
