@@ -556,7 +556,10 @@ describe('Guidelines page', () => {
 		assert.match(html, /25\s*%/)
 		assert.match(html, /data-guideline-edit/)
 		assert.match(html, /data-guideline-original-target="25"/)
-		assert.match(html, /<form[^>]*\bhidden\b[^>]*data-guideline-edit-form/)
+		assert.match(
+			html,
+			/data-guideline-edit-form="[^"]+"[^>]*class="[^"]*\bhidden\b/,
+		)
 		assert.match(html, /name="targetPct"/)
 		assert.match(html, /value="25"/)
 		assert.match(html, /!w-16/)

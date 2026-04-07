@@ -6,11 +6,15 @@ function guidelineIdFromDataset(element, attributeName) {
 	return typeof raw === 'string' && raw.length > 0 ? raw : null
 }
 
+function guidelineEditFormIsVisible(form) {
+	return form instanceof HTMLFormElement && !form.classList.contains('hidden')
+}
+
 function showGuidelineTargetEdit(document, guidelineId) {
 	for (const openForm of document.querySelectorAll(
 		'[data-guideline-edit-form]',
 	)) {
-		if (openForm instanceof HTMLFormElement && !openForm.hidden) {
+		if (guidelineEditFormIsVisible(openForm)) {
 			const otherId = openForm.getAttribute('data-guideline-edit-form')
 			if (otherId && otherId !== guidelineId) {
 				hideGuidelineTargetEdit(document, otherId)
@@ -25,8 +29,8 @@ function showGuidelineTargetEdit(document, guidelineId) {
 	if (!(read instanceof HTMLElement) || !(form instanceof HTMLFormElement)) {
 		return
 	}
-	read.hidden = true
-	form.hidden = false
+	read.classList.add('hidden')
+	form.classList.remove('hidden')
 	const input = form.querySelector('input[name="targetPct"]')
 	if (input instanceof HTMLInputElement) {
 		const original = form.dataset.guidelineOriginalTarget?.trim() ?? ''
@@ -52,8 +56,8 @@ function hideGuidelineTargetEdit(document, guidelineId) {
 			input.value = original
 		}
 	}
-	form.hidden = true
-	read.hidden = false
+	form.classList.add('hidden')
+	read.classList.remove('hidden')
 }
 
 export const GuidelinesDeleteDialogInteractions = clientEntry(

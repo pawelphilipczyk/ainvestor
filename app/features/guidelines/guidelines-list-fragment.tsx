@@ -109,12 +109,11 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 											</button>
 										</div>
 										<form
-											hidden={true}
 											method="post"
 											action={routes.guidelines.updateTarget.href({
 												id: g.id,
 											})}
-											class="inline-flex min-w-0 flex-wrap items-center gap-2"
+											class="hidden inline-flex min-w-0 flex-wrap items-center gap-2"
 											data-frame-submit="guidelines-list"
 											data-frame-replace-from-response="1"
 											data-guideline-edit-form={g.id}
