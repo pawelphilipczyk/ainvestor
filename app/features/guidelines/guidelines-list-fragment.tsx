@@ -27,13 +27,22 @@ const guidelineRemoveGhostClass = `${guidelineGhostBase} hover:bg-destructive/10
  * Renders the guidelines list and summary as HTML fragment for fetch-based form updates.
  */
 export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
-	return (props: { guidelines?: EtfGuideline[] }) => {
+	return (props: { guidelines?: EtfGuideline[]; inlineError?: string }) => {
 		const guidelines = props.guidelines ?? []
 		const totalPercent = sumGuidelineTargetPercent(guidelines)
 		const remaining = Math.max(0, 100 - totalPercent)
+		const inlineError = props.inlineError?.trim() ?? ''
 
 		return (
 			<Card class="p-4">
+				{inlineError.length > 0 ? (
+					<div
+						role="alert"
+						class="mb-4 rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+					>
+						{inlineError}
+					</div>
+				) : null}
 				<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 					{t('guidelines.list.title')}
 				</h2>
@@ -60,7 +69,6 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 									? `${formatEtfTypeLabel(g.etfType)} ${t('guidelines.list.bucketSuffix')}`
 									: g.etfName
 							const targetFieldId = `guideline-target-${g.id}`
-							const targetErrorId = `guidelines-target-${g.id}-error`
 							const targetPercentDisplay = formatGuidelineTargetPercentForInput(
 								g.targetPct,
 							)
@@ -71,11 +79,6 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 							})
 							return (
 								<Card as="li" key={g.id} class="flex flex-col gap-2 px-4 py-3">
-									<div
-										id={targetErrorId}
-										role="alert"
-										class="hidden rounded-md border border-destructive/50 bg-destructive/10 px-3 py-2 text-xs text-destructive"
-									/>
 									<PercentageBar
 										ariaLabel={shareBarLabel}
 										widthPercent={barWidthPercent}
@@ -96,7 +99,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 											})}
 											class="inline-flex min-w-0 items-center gap-2"
 											data-frame-submit="guidelines-list"
-											data-error-id={targetErrorId}
+											data-frame-replace-from-response="1"
 										>
 											<FieldLabel
 												fieldId={targetFieldId}
@@ -170,6 +173,7 @@ export function GuidelinesListFragment(_handle: Handle, _setup?: unknown) {
 												method="post"
 												action={routes.guidelines.delete.href({ id: g.id })}
 												data-frame-submit="guidelines-list"
+												data-frame-replace-from-response="1"
 											>
 												<input type="hidden" name="_method" value="DELETE" />
 												<button

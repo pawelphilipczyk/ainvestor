@@ -86,13 +86,51 @@ function prefersJson(request: Request): boolean {
 	return request.headers.get('Accept')?.includes('application/json') ?? false
 }
 
-function guidelinesTotalCapErrorResponse(params: {
+/** Matches `FrameSubmitEnhancement` replace-from-response (`Accept: text/html` only). */
+function prefersHtmlFrame(request: Request): boolean {
+	const accept = request.headers.get('Accept') ?? ''
+	return accept.trim() === 'text/html'
+}
+
+async function loadGuidelinesForSession(
+	context: AppRequestContext,
+): Promise<EtfGuideline[]> {
+	const session = getSessionData(context.get(Session))
+	if (session?.gistId && session.token) {
+		return fetchGuidelines(session.token, session.gistId)
+	}
+	return getGuestGuidelines(context.get(Session))
+}
+
+async function guidelinesListFragmentHtmlResponse(params: {
+	guidelines: EtfGuideline[]
+	inlineError?: string
+	status?: number
+}) {
+	return createHtmlResponse(
+		renderToStream(
+			jsx(GuidelinesListFragment, {
+				guidelines: params.guidelines,
+				...(params.inlineError !== undefined && params.inlineError.length > 0
+					? { inlineError: params.inlineError }
+					: {}),
+			}),
+		),
+		{
+			status: params.status ?? 200,
+			headers: { 'Cache-Control': 'no-store' },
+		},
+	)
+}
+
+async function guidelinesTotalCapErrorResponse(params: {
+	context: AppRequestContext
 	request: Request
 	session: Session
 	currentTotal: number
 	addedPercent: number
 	addTab: GuidelinesAddTabId
-}): Response {
+}): Promise<Response> {
 	const message = format(t('errors.guidelines.totalExceeds100'), {
 		current: formatGuidelineTargetPercentForInput(params.currentTotal),
 		added: formatGuidelineTargetPercentForInput(params.addedPercent),
@@ -103,16 +141,25 @@ function guidelinesTotalCapErrorResponse(params: {
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
+	if (prefersHtmlFrame(params.request)) {
+		const guidelines = await loadGuidelinesForSession(params.context)
+		return guidelinesListFragmentHtmlResponse({
+			guidelines,
+			inlineError: message,
+			status: 422,
+		})
+	}
 	flashBanner(params.session, { text: message, tone: 'error' })
 	return createRedirectResponse(guidelinesIndexHref(params.addTab))
 }
 
-function guidelinesDuplicateErrorResponse(params: {
+async function guidelinesDuplicateErrorResponse(params: {
+	context: AppRequestContext
 	request: Request
 	session: Session
 	entry: EtfGuideline
 	addTab: GuidelinesAddTabId
-}): Response {
+}): Promise<Response> {
 	const message =
 		params.entry.kind === 'instrument'
 			? format(t('errors.guidelines.duplicateInstrument'), {
@@ -125,6 +172,14 @@ function guidelinesDuplicateErrorResponse(params: {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	if (prefersHtmlFrame(params.request)) {
+		const guidelines = await loadGuidelinesForSession(params.context)
+		return guidelinesListFragmentHtmlResponse({
+			guidelines,
+			inlineError: message,
+			status: 422,
 		})
 	}
 	flashBanner(params.session, { text: message, tone: 'error' })
@@ -156,11 +211,12 @@ function formatGuidelineTargetSchemaIssues(
 	return { error, details }
 }
 
-function guidelinesUpdateSchemaValidationResponse(params: {
+async function guidelinesUpdateSchemaValidationResponse(params: {
+	context: AppRequestContext
 	request: Request
 	session: Session
 	issues: ReadonlyArray<StandardSchemaV1.Issue>
-}): Response {
+}): Promise<Response> {
 	const { error, details } = formatGuidelineTargetSchemaIssues(params.issues)
 	if (prefersJson(params.request)) {
 		return new Response(JSON.stringify({ error, issues: details }), {
@@ -168,16 +224,25 @@ function guidelinesUpdateSchemaValidationResponse(params: {
 			headers: { 'Content-Type': 'application/json' },
 		})
 	}
+	if (prefersHtmlFrame(params.request)) {
+		const guidelines = await loadGuidelinesForSession(params.context)
+		return guidelinesListFragmentHtmlResponse({
+			guidelines,
+			inlineError: error,
+			status: 422,
+		})
+	}
 	flashBanner(params.session, { text: error, tone: 'error' })
 	return createRedirectResponse(guidelinesIndexHref())
 }
 
-function guidelinesUpdateCapErrorResponse(params: {
+async function guidelinesUpdateCapErrorResponse(params: {
+	context: AppRequestContext
 	request: Request
 	session: Session
 	newTargetPercent: number
 	resultingTotal: number
-}): Response {
+}): Promise<Response> {
 	const message = format(t('errors.guidelines.updateTotalExceeds100'), {
 		newTargetPercent: formatGuidelineTargetPercentForInput(
 			params.newTargetPercent,
@@ -188,6 +253,14 @@ function guidelinesUpdateCapErrorResponse(params: {
 		return new Response(JSON.stringify({ error: message }), {
 			status: 422,
 			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	if (prefersHtmlFrame(params.request)) {
+		const guidelines = await loadGuidelinesForSession(params.context)
+		return guidelinesListFragmentHtmlResponse({
+			guidelines,
+			inlineError: message,
+			status: 422,
 		})
 	}
 	flashBanner(params.session, { text: message, tone: 'error' })
@@ -204,13 +277,15 @@ async function persistGuideline(params: {
 	session: SessionData | null
 	remixSession: Session
 	request: Request
+	context: AppRequestContext
 	addTab: GuidelinesAddTabId
 }): Promise<Response | null> {
-	const { entry, session, remixSession, request, addTab } = params
+	const { entry, session, remixSession, request, context, addTab } = params
 	if (session?.gistId && session.token) {
 		const current = await fetchGuidelines(session.token, session.gistId)
 		if (findGuidelineDuplicateOf(current, entry)) {
 			return guidelinesDuplicateErrorResponse({
+				context,
 				request,
 				session: remixSession,
 				entry,
@@ -224,6 +299,7 @@ async function persistGuideline(params: {
 			})
 		) {
 			return guidelinesTotalCapErrorResponse({
+				context,
 				request,
 				session: remixSession,
 				currentTotal: sumGuidelineTargetPercent(current),
@@ -238,6 +314,7 @@ async function persistGuideline(params: {
 	const current = getGuestGuidelines(remixSession)
 	if (findGuidelineDuplicateOf(current, entry)) {
 		return guidelinesDuplicateErrorResponse({
+			context,
 			request,
 			session: remixSession,
 			entry,
@@ -251,6 +328,7 @@ async function persistGuideline(params: {
 		})
 	) {
 		return guidelinesTotalCapErrorResponse({
+			context,
 			request,
 			session: remixSession,
 			currentTotal: sumGuidelineTargetPercent(current),
@@ -272,8 +350,10 @@ async function updateGuidelineTarget(params: {
 	session: SessionData | null
 	remixSession: Session
 	request: Request
+	context: AppRequestContext
 }): Promise<Response | null> {
-	const { id, newTargetPercent, session, remixSession, request } = params
+	const { id, newTargetPercent, session, remixSession, request, context } =
+		params
 
 	if (session?.gistId && session.token) {
 		const current = await fetchGuidelines(session.token, session.gistId)
@@ -290,6 +370,7 @@ async function updateGuidelineTarget(params: {
 			})
 		) {
 			return guidelinesUpdateCapErrorResponse({
+				context,
 				request,
 				session: remixSession,
 				newTargetPercent,
@@ -320,6 +401,7 @@ async function updateGuidelineTarget(params: {
 		})
 	) {
 		return guidelinesUpdateCapErrorResponse({
+			context,
 			request,
 			session: remixSession,
 			newTargetPercent,
@@ -400,9 +482,14 @@ export const guidelinesController = {
 				session,
 				remixSession: context.get(Session),
 				request: context.request,
+				context,
 				addTab: 'instrument',
 			})
 			if (capError) return capError
+			if (prefersHtmlFrame(context.request)) {
+				const guidelines = await loadGuidelinesForSession(context)
+				return guidelinesListFragmentHtmlResponse({ guidelines })
+			}
 			return createRedirectResponse(guidelinesIndexHref('instrument'))
 		},
 
@@ -442,9 +529,14 @@ export const guidelinesController = {
 				session,
 				remixSession: context.get(Session),
 				request: context.request,
+				context,
 				addTab: 'bucket',
 			})
 			if (capError) return capError
+			if (prefersHtmlFrame(context.request)) {
+				const guidelines = await loadGuidelinesForSession(context)
+				return guidelinesListFragmentHtmlResponse({ guidelines })
+			}
 			return createRedirectResponse(guidelinesIndexHref('bucket'))
 		},
 
@@ -460,6 +552,7 @@ export const guidelinesController = {
 			const result = parseSafe(UpdateGuidelineTargetSchema, formPayload)
 			if (!result.success) {
 				return guidelinesUpdateSchemaValidationResponse({
+					context,
 					request: context.request,
 					session: context.get(Session),
 					issues: result.issues,
@@ -473,9 +566,14 @@ export const guidelinesController = {
 				session,
 				remixSession: context.get(Session),
 				request: context.request,
+				context,
 			})
 			if (persistError) return persistError
 
+			if (prefersHtmlFrame(context.request)) {
+				const guidelines = await loadGuidelinesForSession(context)
+				return guidelinesListFragmentHtmlResponse({ guidelines })
+			}
 			return createRedirectResponse(routes.guidelines.index.href())
 		},
 
@@ -499,6 +597,10 @@ export const guidelinesController = {
 				)
 			}
 
+			if (prefersHtmlFrame(context.request)) {
+				const guidelines = await loadGuidelinesForSession(context)
+				return guidelinesListFragmentHtmlResponse({ guidelines })
+			}
 			return createRedirectResponse(routes.guidelines.index.href())
 		},
 
