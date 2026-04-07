@@ -14,6 +14,7 @@ import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import {
 	type FlashedBanner,
+	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
 import { routes } from '../../routes.ts'
@@ -38,35 +39,61 @@ export const portfolioController = {
 		async index(context: AppRequestContext) {
 			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
-			const flashBanner = readFlashedBanner(context.get(Session))
+			const flashedBanner = readFlashedBanner(context.get(Session))
 			if (session?.gistId && session.token) {
-				const { entries, catalog } = await fetchPortfolioSnapshot(
-					session.token,
-					session.gistId,
-				)
-				return renderPage({
-					entries,
-					session: layoutSession,
-					flashBanner,
-					catalog,
-				})
+				try {
+					const { entries, catalog } = await fetchPortfolioSnapshot(
+						session.token,
+						session.gistId,
+					)
+					return renderPage({
+						entries,
+						session: layoutSession,
+						flashBanner: flashedBanner,
+						catalog,
+					})
+				} catch {
+					const catalog = await fetchCatalog()
+					return renderPage({
+						entries: [],
+						session: layoutSession,
+						flashBanner: {
+							text: t('errors.portfolio.persistence'),
+							tone: 'error',
+						},
+						catalog,
+					})
+				}
 			}
 			return renderPage({
 				entries: getGuestEtfs(context.get(Session)),
 				session: layoutSession,
-				flashBanner,
+				flashBanner: flashedBanner,
 				catalog: await fetchCatalog(),
 			})
 		},
 
 		async fragmentList(context: AppRequestContext) {
 			const session = getSessionData(context.get(Session))
-			const entries =
-				session?.gistId && session.token
-					? await fetchEtfs(session.token, session.gistId)
-					: getGuestEtfs(context.get(Session))
+			let entries: EtfEntry[]
+			let inlineError: string | undefined
+			if (session?.gistId && session.token) {
+				try {
+					entries = await fetchEtfs(session.token, session.gistId)
+				} catch {
+					entries = []
+					inlineError = t('errors.portfolio.persistence')
+				}
+			} else {
+				entries = getGuestEtfs(context.get(Session))
+			}
 			return createHtmlResponse(
-				renderToStream(jsx(ListFragment, { entries })),
+				renderToStream(
+					jsx(ListFragment, {
+						entries,
+						...(inlineError !== undefined ? { inlineError } : {}),
+					}),
+				),
 				{ headers: { 'Cache-Control': 'no-store' } },
 			)
 		},
@@ -101,10 +128,20 @@ export const portfolioController = {
 				return createRedirectResponse(routes.portfolio.index.href())
 
 			const session = getSessionData(context.get(Session))
-			const current =
-				session?.gistId && session.token
-					? await fetchEtfs(session.token, session.gistId)
-					: getGuestEtfs(context.get(Session))
+			let current: EtfEntry[]
+			if (session?.gistId && session.token) {
+				try {
+					current = await fetchEtfs(session.token, session.gistId)
+				} catch {
+					flashBanner(context.get(Session), {
+						text: t('errors.portfolio.persistence'),
+						tone: 'error',
+					})
+					return createRedirectResponse(routes.portfolio.index.href())
+				}
+			} else {
+				current = getGuestEtfs(context.get(Session))
+			}
 
 			// Merge imported with existing (same name+currency: add values)
 			const byKey = new Map<string, EtfEntry>()
@@ -127,7 +164,15 @@ export const portfolioController = {
 			const updated = Array.from(byKey.values())
 
 			if (session?.gistId && session.token) {
-				await saveEtfs(session.token, session.gistId, updated)
+				try {
+					await saveEtfs(session.token, session.gistId, updated)
+				} catch {
+					flashBanner(context.get(Session), {
+						text: t('errors.portfolio.persistence'),
+						tone: 'error',
+					})
+					return createRedirectResponse(routes.portfolio.index.href())
+				}
 			} else {
 				setGuestEtfs(context.get(Session), updated)
 			}
@@ -142,12 +187,19 @@ export const portfolioController = {
 			const session = getSessionData(context.get(Session))
 
 			if (session?.gistId && session.token) {
-				const current = await fetchEtfs(session.token, session.gistId)
-				await saveEtfs(
-					session.token,
-					session.gistId,
-					current.filter((entry) => entry.id !== id),
-				)
+				try {
+					const current = await fetchEtfs(session.token, session.gistId)
+					await saveEtfs(
+						session.token,
+						session.gistId,
+						current.filter((entry) => entry.id !== id),
+					)
+				} catch {
+					flashBanner(context.get(Session), {
+						text: t('errors.portfolio.persistence'),
+						tone: 'error',
+					})
+				}
 			} else {
 				const filtered = getGuestEtfs(context.get(Session)).filter(
 					(entry) => entry.id !== id,

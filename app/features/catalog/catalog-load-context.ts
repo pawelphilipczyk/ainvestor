@@ -44,9 +44,16 @@ export async function loadCatalogPageContext(
 	const layoutSession = getLayoutSession(context.get(Session))
 	const [catalogSnapshot, entries] = await Promise.all([
 		fetchSharedCatalogSnapshot(),
-		session?.gistId && session.token
-			? fetchEtfs(session.token, session.gistId)
-			: getGuestEtfs(context.get(Session)),
+		(async (): Promise<EtfEntry[]> => {
+			if (!session?.gistId || !session.token) {
+				return getGuestEtfs(context.get(Session))
+			}
+			try {
+				return await fetchEtfs(session.token, session.gistId)
+			} catch {
+				return []
+			}
+		})(),
 	])
 	return { catalogSnapshot, entries, session, layoutSession }
 }

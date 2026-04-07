@@ -149,7 +149,11 @@ export async function fetchEtfs(
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		headers: githubHeaders(token),
 	})
-	if (!response.ok) return []
+	if (!response.ok) {
+		throw new Error(
+			`GitHub API error fetching portfolio gist: ${response.status}`,
+		)
+	}
 	const gist = (await response.json()) as GistPayload
 	return parseEtfsFromGist(gist)
 }
@@ -177,9 +181,15 @@ export async function saveEtfs(
 	gistId: string,
 	entries: EtfEntry[],
 ): Promise<void> {
-	await fetch(`${GITHUB_API}/gists/${gistId}`, {
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		method: 'PATCH',
 		headers: githubHeaders(token),
 		body: JSON.stringify(buildGistBody(entries)),
 	})
+	if (!response.ok) {
+		const detail = await response.text().catch(() => '')
+		throw new Error(
+			`GitHub API error saving portfolio gist: ${response.status}${detail ? ` ${detail}` : ''}`,
+		)
+	}
 }
