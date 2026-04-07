@@ -73,15 +73,38 @@ function prefersHtmlFrame(request: Request): boolean {
 	return accept.trim() === 'text/html'
 }
 
-function portfolioListFragmentHtmlResponse(params: {
-	entries: EtfEntry[]
-	inlineError?: string
-	status?: number
-}) {
+async function loadCatalogForPortfolioList(
+	context: AppRequestContext,
+): Promise<CatalogEntry[]> {
+	const session = getSessionData(context.get(Session))
+	if (session?.gistId && session.token) {
+		try {
+			const snapshot = await fetchPortfolioSnapshot(
+				session.token,
+				session.gistId,
+			)
+			return snapshot.catalog
+		} catch {
+			return fetchCatalog()
+		}
+	}
+	return fetchCatalog()
+}
+
+async function portfolioListFragmentHtmlResponse(
+	context: AppRequestContext,
+	params: {
+		entries: EtfEntry[]
+		inlineError?: string
+		status?: number
+	},
+) {
+	const catalog = await loadCatalogForPortfolioList(context)
 	return createHtmlResponse(
 		renderToStream(
 			jsx(ListFragment, {
 				entries: params.entries,
+				catalog,
 				...(params.inlineError !== undefined && params.inlineError.length > 0
 					? { inlineError: params.inlineError }
 					: {}),
@@ -128,7 +151,7 @@ async function portfolioPersistenceFailureResponse(
 	}
 	if (prefersHtmlFrame(context.request)) {
 		const entries = await loadPortfolioEntries(context)
-		return portfolioListFragmentHtmlResponse({
+		return portfolioListFragmentHtmlResponse(context, {
 			entries: entries ?? [],
 			inlineError: message,
 			status: 422,
@@ -176,13 +199,13 @@ export const portfolioOperationFormHandlers = {
 				if (prefersHtmlFrame(context.request)) {
 					const entries = await loadPortfolioEntries(context)
 					if (entries === null) {
-						return portfolioListFragmentHtmlResponse({
+						return portfolioListFragmentHtmlResponse(context, {
 							entries: [],
 							inlineError: t('errors.portfolio.persistence'),
 							status: 422,
 						})
 					}
-					return portfolioListFragmentHtmlResponse({
+					return portfolioListFragmentHtmlResponse(context, {
 						entries,
 						inlineError: message,
 						status: 422,
@@ -232,7 +255,7 @@ export const portfolioOperationFormHandlers = {
 					)
 				}
 				if (prefersHtmlFrame(context.request)) {
-					return portfolioListFragmentHtmlResponse({
+					return portfolioListFragmentHtmlResponse(context, {
 						entries: current,
 						inlineError: message,
 						status: 422,
@@ -285,7 +308,7 @@ export const portfolioOperationFormHandlers = {
 						})
 					}
 					if (prefersHtmlFrame(context.request)) {
-						return portfolioListFragmentHtmlResponse({
+						return portfolioListFragmentHtmlResponse(context, {
 							entries: current,
 							inlineError: message,
 							status: 422,
@@ -305,7 +328,7 @@ export const portfolioOperationFormHandlers = {
 						})
 					}
 					if (prefersHtmlFrame(context.request)) {
-						return portfolioListFragmentHtmlResponse({
+						return portfolioListFragmentHtmlResponse(context, {
 							entries: current,
 							inlineError: message,
 							status: 422,
@@ -340,7 +363,7 @@ export const portfolioOperationFormHandlers = {
 			}
 
 			if (prefersHtmlFrame(context.request)) {
-				return portfolioListFragmentHtmlResponse({ entries: updated })
+				return portfolioListFragmentHtmlResponse(context, { entries: updated })
 			}
 			return createRedirectResponse(routes.portfolio.index.href())
 		},

@@ -172,8 +172,10 @@ describe('Portfolio page', () => {
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 
-		const valueInput = body.match(/<input\b[^>]*\bid="value"[^>]*>/)
-		assert.ok(valueInput, 'expected #value input')
+		const valueInput = body.match(
+			/<input\b[^>]*\bid="portfolio-trade-value"[^>]*>/,
+		)
+		assert.ok(valueInput, 'expected #portfolio-trade-value input')
 		assert.match(valueInput[0], /type="text"/)
 		assert.match(valueInput[0], /inputmode="decimal"/)
 	})
@@ -661,6 +663,8 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		assert.equal(fragmentResponse.status, 200)
 		assert.match(body, /VTI/)
 		assert.match(body, /PLN/)
+		assert.match(body, /data-portfolio-sell-shortcut/)
+		assert.match(body, /data-instrument-ticker="VTI"/)
 	})
 
 	it('forms use data-frame-submit for Frame-based list reload', async () => {

@@ -87,10 +87,25 @@ export const portfolioController = {
 			} else {
 				entries = getGuestEtfs(context.get(Session))
 			}
+			let catalog: CatalogEntry[]
+			if (session?.gistId && session.token) {
+				try {
+					const snapshot = await fetchPortfolioSnapshot(
+						session.token,
+						session.gistId,
+					)
+					catalog = snapshot.catalog
+				} catch {
+					catalog = await fetchCatalog()
+				}
+			} else {
+				catalog = await fetchCatalog()
+			}
 			return createHtmlResponse(
 				renderToStream(
 					jsx(ListFragment, {
 						entries,
+						catalog,
 						...(inlineError !== undefined ? { inlineError } : {}),
 					}),
 				),
@@ -235,7 +250,9 @@ async function renderPage(params: RenderPortfolioPageParams) {
 		init: { headers: { 'Cache-Control': 'no-store' } },
 		resolveFrame(source) {
 			if (source === routes.portfolio.fragmentList.href()) {
-				return renderToStream(jsx(ListFragment, { entries }))
+				return renderToStream(
+					jsx(ListFragment, { entries, catalog: params.catalog }),
+				)
 			}
 			return ''
 		},

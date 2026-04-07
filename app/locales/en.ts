@@ -95,6 +95,7 @@ export const en = {
 	'portfolio.holdings.empty': 'No ETFs added yet.',
 	'portfolio.etf.valueShareBarAria':
 		'{percent}% of total holdings value for {name}',
+	'portfolio.etf.sellShortcut': 'Sell',
 
 	'forms.catalog.emptyPlaceholder':
 		'No funds in catalog — import on ETF Catalog',

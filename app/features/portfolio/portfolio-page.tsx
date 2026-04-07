@@ -42,7 +42,11 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 					)}
 				</SectionIntroCard>
 				<ImportEtfForm />
-				<Card variant="muted" class="p-4">
+				<Card
+					id="portfolio-operation-form"
+					variant="muted"
+					class="scroll-mt-4 p-4"
+				>
 					<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
 						{t('portfolio.operation.title')}
 					</h2>

@@ -38,6 +38,7 @@ export function PortfolioOperationForm(_handle: Handle, _setup?: unknown) {
 					{t('portfolio.operation.hint')}
 				</p>
 				<form
+					id="portfolio-trade-form"
 					method="post"
 					action={routes.portfolio.create.href()}
 					class="mt-4 grid gap-4"
@@ -73,7 +74,7 @@ export function PortfolioOperationForm(_handle: Handle, _setup?: unknown) {
 								{t('portfolio.operation.field.value')}
 							</FieldLabel>
 							<NumberInput
-								id="value"
+								id="portfolio-trade-value"
 								name="value"
 								placeholder={t('portfolio.operation.placeholder.value')}
 								required={true}

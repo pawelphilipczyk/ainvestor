@@ -7,15 +7,37 @@ import {
 	totalHoldingsValueForShareBars,
 	valueShareOfHoldingsTotalPercent,
 } from '../../../lib/portfolio-holdings-share.ts'
+import type { CatalogEntry } from '../../catalog/lib.ts'
+import { findCatalogEntryByTicker } from '../../catalog/lib.ts'
 import { EtfCard } from '../etf-card.tsx'
+
+function instrumentTickerForPortfolioTradeForm(
+	entry: EtfEntry,
+	catalog: CatalogEntry[],
+): string {
+	if (entry.ticker) {
+		const byTicker = findCatalogEntryByTicker(catalog, entry.ticker)
+		if (byTicker) return byTicker.ticker
+	}
+	const normalizedName = entry.name.toLowerCase()
+	const byName = catalog.find((c) => c.name.toLowerCase() === normalizedName)
+	if (byName) return byName.ticker
+	return entry.ticker ?? entry.name
+}
 
 /**
  * Renders the ETF list as HTML fragment for progressive enhancement.
  * Used by GET /fragments/portfolio-list for fetch-based form updates.
  */
 export function ListFragment(_handle: Handle, _setup?: unknown) {
-	return (props: { entries?: EtfEntry[]; inlineError?: string }) => {
+	return (props: {
+		entries?: EtfEntry[]
+		inlineError?: string
+		catalog?: CatalogEntry[]
+	}) => {
 		const entries = props.entries ?? []
+		const catalog = props.catalog ?? []
+		const canUseSellShortcut = catalog.length > 0
 		const holdingsTotal = totalHoldingsValueForShareBars(entries)
 		const canShowShareBars = holdingsTotal !== null && holdingsTotal > 0
 		const inlineError = props.inlineError?.trim() ?? ''
@@ -42,6 +64,8 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 							const idParts = [entry.ticker ?? entry.name]
 							if (entry.exchange) idParts.push(entry.exchange)
 							const identifier = idParts.join(' · ')
+							const instrumentTickerForForm =
+								instrumentTickerForPortfolioTradeForm(entry, catalog)
 							return (
 								<EtfCard
 									key={entry.id}
@@ -49,6 +73,8 @@ export function ListFragment(_handle: Handle, _setup?: unknown) {
 									name={entry.name}
 									valueDisplay={formatValue(entry.value, entry.currency)}
 									identifier={identifier}
+									instrumentTickerForForm={instrumentTickerForForm}
+									showSellShortcut={canUseSellShortcut}
 									valueSharePercent={
 										canShowShareBars
 											? valueShareOfHoldingsTotalPercent({
