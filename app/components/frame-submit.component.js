@@ -58,6 +58,31 @@ async function navigateDocumentUrl(href, history = 'push') {
 }
 
 /**
+ * `data-frame-replace-from-response` asks the server for **HTML** (`Accept: text/html`).
+ * Valid errors should be HTML fragments (422 + `text/html`) so we never hit this path for
+ * portfolio/guidelines/catalog flows. This branch only covers **unexpected** shapes:
+ * e.g. 422 JSON if a route regresses, or a proxy error page — same fallback as the
+ * non-replace JSON path (`data-error-id` + navigate).
+ */
+async function handleReplaceFromResponseNonHtmlError(
+	response,
+	showError,
+	readClientMessages,
+) {
+	if (response.status === 422) {
+		const data = await response.json().catch(() => ({}))
+		const msgs = readClientMessages()
+		const fallback =
+			typeof msgs?.genericFormError === 'string'
+				? msgs.genericFormError
+				: 'Please check your input.'
+		showError(data.error || fallback)
+		return
+	}
+	await navigateDocumentUrl(response.url || '/')
+}
+
+/**
  * Intercepts forms with `data-frame-submit="<frameName>"` and POSTs via
  * fetch. On success, reloads the named Remix Frame so the server re-renders
  * the list region. Supports `data-error-id` for 422 JSON validation errors
@@ -158,17 +183,11 @@ export const FrameSubmitEnhancement = clientEntry(
 								return
 							}
 							if (!response.ok) {
-								if (response.status === 422 && errorId) {
-									const data = await response.json().catch(() => ({}))
-									const msgs = readClientMessages()
-									const fallback =
-										typeof msgs?.genericFormError === 'string'
-											? msgs.genericFormError
-											: 'Please check your input.'
-									showError(data.error || fallback)
-								} else {
-									await navigateDocumentUrl(response.url || '/')
-								}
+								await handleReplaceFromResponseNonHtmlError(
+									response,
+									showError,
+									readClientMessages,
+								)
 								return
 							}
 						}
