@@ -20,6 +20,18 @@ function catalogRiskBandLabel(band: CatalogRiskBand): string {
 	return t('catalog.riskBand.high')
 }
 
+function catalogRiskBandChipClassName(band: CatalogRiskBand): string {
+	const shell =
+		'inline-flex max-w-full items-center rounded-full border border-white px-2 py-0.5 text-xs font-medium leading-snug break-words text-left shadow-sm'
+	if (band === 'low') {
+		return `${shell} bg-emerald-900/30 text-white dark:bg-emerald-950/55`
+	}
+	if (band === 'medium') {
+		return `${shell} bg-amber-900/35 text-yellow-200 dark:bg-amber-950/50 dark:text-yellow-200`
+	}
+	return `${shell} bg-red-900/35 text-red-300 dark:bg-red-950/55 dark:text-red-300`
+}
+
 function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 	return () => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
@@ -49,9 +61,17 @@ function renderCatalogRow(
 		{ model: DEFAULT_ADVICE_MODEL },
 	)
 	const riskBand = riskBandFromRiskKid(entry.risk_kid)
-	const riskCellText = riskBand
-		? catalogRiskBandLabel(riskBand)
-		: t('catalog.emptyCell')
+	const riskCell =
+		riskBand === undefined ? (
+			t('catalog.emptyCell')
+		) : (
+			<span
+				class={catalogRiskBandChipClassName(riskBand)}
+				data-risk-band={riskBand}
+			>
+				{catalogRiskBandLabel(riskBand)}
+			</span>
+		)
 	const valueCell = holding ? (
 		<td class="py-2 pl-4 pr-4 align-top text-sm font-medium text-foreground">
 			{formatValue(holding.value, holding.currency)}
@@ -91,7 +111,7 @@ function renderCatalogRow(
 				</span>
 			</td>
 			<td class="py-2 pr-4 align-top text-sm text-muted-foreground">
-				{riskCellText}
+				{riskCell}
 			</td>
 			<td
 				class={`py-2 pr-4 align-top text-sm break-words text-muted-foreground ${catalogTextColMax}`}

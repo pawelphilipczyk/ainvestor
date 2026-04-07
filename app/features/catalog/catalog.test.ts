@@ -941,6 +941,42 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Showing 1 of 3 ETFs/)
 	})
 
+	it('catalog risk column renders chips with band markers and white border', async () => {
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					fund_name: 'Low Risk Fund',
+					ticker: 'LOW',
+					assets: 'akcje',
+					risk_kid: 2,
+				},
+				{
+					fund_name: 'Medium Risk Fund',
+					ticker: 'MID',
+					assets: 'akcje',
+					risk_kid: 4,
+				},
+				{
+					fund_name: 'High Risk Fund',
+					ticker: 'HI',
+					assets: 'akcje',
+					risk_kid: 6,
+				},
+			],
+			count: 3,
+			total_count: 3,
+		})
+		seedSharedCatalog(bankJson)
+
+		const response = await testSessionFetch('http://localhost/catalog')
+		const body = await response.text()
+
+		assert.match(body, /data-risk-band="low"/)
+		assert.match(body, /data-risk-band="medium"/)
+		assert.match(body, /data-risk-band="high"/)
+		assert.match(body, /border-white/)
+	})
+
 	it('catalog text search narrows results', async () => {
 		const bankJson = JSON.stringify({
 			data: [
