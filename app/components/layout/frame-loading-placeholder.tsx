@@ -1,4 +1,5 @@
 import { t } from '../../lib/i18n.ts'
+import { busyControlSpinnerClass } from '../forms/busy-control-overlay.ts'
 
 /**
  * Shown as `<Frame fallback={…}>` while SSR streams the real frame HTML after the document shell.
@@ -8,9 +9,11 @@ export function frameLoadingPlaceholder() {
 	return (
 		<div
 			role="status"
-			class="rounded-md border border-border bg-muted/30 px-4 py-6 text-sm text-muted-foreground"
+			aria-busy="true"
+			class="flex items-center gap-3 rounded-md border border-border bg-muted/30 px-4 py-6 text-sm text-muted-foreground"
 		>
-			{t('chrome.loading')}
+			<span class={busyControlSpinnerClass} aria-hidden="true" />
+			<span>{t('chrome.loading')}</span>
 		</div>
 	)
 }
