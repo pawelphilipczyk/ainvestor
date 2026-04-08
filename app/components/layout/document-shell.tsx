@@ -7,7 +7,6 @@ import type { SessionData } from '../../lib/session.ts'
 import type { FlashBannerTone } from '../../lib/session-flash.ts'
 import { tailwindConfig } from '../../lib/tailwind-config.ts'
 import { FrameSubmitEnhancement } from '../client/frame-submit.component.js'
-// @ts-expect-error Runtime-only JS client entry module
 import { NavigationLinkLoadingEnhancement } from '../navigation/navigation-link-loading.component.js'
 import { TabsNavScrollRestoration } from '../navigation/tabs-nav-scroll.component.js'
 import { AppTopBar } from './app-top-bar.tsx'
