@@ -22,8 +22,9 @@ type SubmitButtonProps = {
 }
 
 /**
- * Server-rendered submit button. Fetch-submit sets `data-loading` + `aria-busy`
- * and shows a centered spinner (label hidden), matching {@link Link} navigation loading.
+ * Server-rendered submit button. Frame-submit and feature `clientEntry` handlers
+ * set `data-loading` + `aria-busy` and show a centered spinner (label hidden),
+ * matching {@link Link} navigation loading.
  */
 export function SubmitButton(_handle: Handle, _setup?: unknown) {
 	return (props: SubmitButtonProps) => {

@@ -46,7 +46,7 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 
 **Sidebar nav:** Use **`getNavLinks()`** from `app/components/sidebar-nav.ts` (not a module-level array) so link labels are resolved when the shell or intro page renders, not at import time.
 
-**Client islands:** A tiny JSON blob in **`DocumentShell`** (`#ui-client-messages`) exposes strings that browser-only code must show (for example the fetch-submit fallback error). Prefer keeping user-visible text on the server; add fields there only when an island has no other way to obtain copy.
+**Client islands:** A tiny JSON blob in **`DocumentShell`** (`#ui-client-messages`) exposes strings that browser-only code must show (for example generic form error copy for JSON validation fallbacks). Prefer keeping user-visible text on the server; add fields there only when an island has no other way to obtain copy.
 
 ## Required defaults for UI work
 
@@ -55,7 +55,7 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 3. Use Tailwind utility classes as the default styling approach.
 4. Keep JavaScript modular, minimal, and enhancement-only.
 5. Do not introduce React/Vue-style component frameworks unless explicitly requested.
-6. **Primary JSON POSTs from the page**: use **`SubmitButton`** + a **small feature `clientEntry`** (not `data-fetch-submit`); share **`setSubmitButtonLoading`** from `submit-button-loading.component.js`. See **§7** in `docs/UI_ARCHITECTURE_GUIDELINES.md`.
+6. **Partial HTML from forms**: use **`<Frame>`** + **`FrameSubmitEnhancement`** (`data-frame-submit`, etc.). **Primary JSON POSTs from the page**: use **`SubmitButton`** + a **small feature `clientEntry`**; share **`setSubmitButtonLoading`** from `submit-button-loading.component.js`. See **§7** in `docs/UI_ARCHITECTURE_GUIDELINES.md`.
 
 ## Required defaults for Remix work
 

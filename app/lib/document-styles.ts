@@ -88,7 +88,7 @@ export const baseCss = `@layer base {
     max-width: 100%;
   }
 
-  /* Legacy fetch-submit busy state (buttons without .submit-button-busy-overlay). */
+  /* Busy state for submit buttons without .submit-button-busy-overlay (innerHTML swap). */
   html:not(.dark) button[type='submit'][aria-busy='true']:not(:has(.submit-button-busy-overlay)),
   html:not(.dark) input[type='submit'][aria-busy='true'] {
     background-color: hsl(var(--foreground));

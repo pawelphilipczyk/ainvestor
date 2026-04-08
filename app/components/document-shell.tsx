@@ -7,8 +7,6 @@ import type { SessionData } from '../lib/session.ts'
 import type { FlashBannerTone } from '../lib/session-flash.ts'
 import { tailwindConfig } from '../lib/tailwind-config.ts'
 import { AppTopBar } from './app-top-bar.tsx'
-// @ts-expect-error Runtime-only JS client entry module
-import { FetchSubmitEnhancement } from './fetch-submit.component.js'
 import { FrameSubmitEnhancement } from './frame-submit.component.js'
 // @ts-expect-error Runtime-only JS client entry module
 import { NavigationLinkLoadingEnhancement } from './navigation-link-loading.component.js'
@@ -143,7 +141,6 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 						{props.children}
 					</div>
 				</SessionProvider>
-				<FetchSubmitEnhancement />
 				<FrameSubmitEnhancement />
 				{props.currentPage === 'portfolio' ? <PortfolioTradeFocus /> : null}
 				<NavigationLinkLoadingEnhancement />
