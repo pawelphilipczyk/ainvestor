@@ -8,7 +8,6 @@ export function frameLoadingPlaceholder() {
 	return (
 		<div
 			role="status"
-			aria-live="polite"
 			class="rounded-md border border-border bg-muted/30 px-4 py-6 text-sm text-muted-foreground"
 		>
 			{t('chrome.loading')}
