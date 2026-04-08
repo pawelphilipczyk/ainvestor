@@ -4,12 +4,14 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
+import { requestAcceptsApplicationJson } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { format, t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import {
+	type FlashBannerTone,
 	type FlashedBanner,
 	flashBanner,
 	readFlashedBanner,
@@ -436,13 +438,27 @@ export const catalogController = {
 
 		async import(context: AppRequestContext) {
 			const session = context.get(Session)
+			const wantsFrameSubmitJson = requestAcceptsApplicationJson(
+				context.request,
+			)
+
+			function importFailureResponse(
+				text: string,
+				tone: FlashBannerTone = 'error',
+			): Response {
+				if (wantsFrameSubmitJson) {
+					return new Response(JSON.stringify({ error: text }), {
+						status: 422,
+						headers: { 'Content-Type': 'application/json' },
+					})
+				}
+				flashBanner(session, { text, tone })
+				return catalogIndexRedirect()
+			}
+
 			const sessionData = getSessionData(session)
 			if (!sessionData?.token || !sessionData?.login) {
-				flashBanner(session, {
-					text: t('errors.catalog.importNotAllowed'),
-					tone: 'error',
-				})
-				return catalogIndexRedirect()
+				return importFailureResponse(t('errors.catalog.importNotAllowed'))
 			}
 			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot()
 			const canImport = isSharedCatalogAdmin({
@@ -450,64 +466,40 @@ export const catalogController = {
 				ownerLogin,
 			})
 			if (!canImport) {
-				flashBanner(session, {
-					text: t('errors.catalog.importNotAllowed'),
-					tone: 'error',
-				})
-				return catalogIndexRedirect()
+				return importFailureResponse(t('errors.catalog.importNotAllowed'))
 			}
 
 			const rawFromForm = context.get(FormData)?.get('bankApiJson')
 			if (typeof rawFromForm !== 'string') {
-				flashBanner(session, {
-					text: t('errors.catalog.import.fieldMissing'),
-					tone: 'error',
-				})
-				return catalogIndexRedirect()
+				return importFailureResponse(t('errors.catalog.import.fieldMissing'))
 			}
 			const trimmedJson = rawFromForm.trim()
 			if (trimmedJson.length === 0) {
-				flashBanner(session, {
-					text: t('errors.catalog.import.emptyJson'),
-					tone: 'error',
-				})
-				return catalogIndexRedirect()
+				return importFailureResponse(t('errors.catalog.import.emptyJson'))
 			}
 			let parsedJson: unknown
 			try {
 				parsedJson = JSON.parse(trimmedJson)
 			} catch {
-				flashBanner(session, {
-					text: t('errors.catalog.import.invalidJson'),
-					tone: 'error',
-				})
-				return catalogIndexRedirect()
+				return importFailureResponse(t('errors.catalog.import.invalidJson'))
 			}
 
 			const parseResult = parseBankJsonForImport(parsedJson, entries)
 			if (parseResult.structuralIssue === 'notObject') {
-				flashBanner(session, {
-					text: t('errors.catalog.import.issue.expectedObject'),
-					tone: 'error',
-				})
-				return catalogIndexRedirect()
+				return importFailureResponse(
+					t('errors.catalog.import.issue.expectedObject'),
+				)
 			}
 			if (parseResult.structuralIssue === 'dataNotArray') {
-				flashBanner(session, {
-					text: t('errors.catalog.import.issue.dataNotArray'),
-					tone: 'error',
-				})
-				return catalogIndexRedirect()
+				return importFailureResponse(
+					t('errors.catalog.import.issue.dataNotArray'),
+				)
 			}
 			if (
 				parseResult.expectedDataRows === 0 &&
 				parseResult.skippedRowDiagnostics.length === 0
 			) {
-				flashBanner(session, {
-					text: t('errors.catalog.import.dataArrayEmpty'),
-					tone: 'error',
-				})
-				return catalogIndexRedirect()
+				return importFailureResponse(t('errors.catalog.import.dataArrayEmpty'))
 			}
 
 			const imported = parseResult.entries
@@ -516,11 +508,9 @@ export const catalogController = {
 					appliedCount: 0,
 					parseResult,
 				})
-				flashBanner(session, {
-					text: detailedFlash ?? t('errors.catalog.import.noRowsParsed'),
-					tone: 'error',
-				})
-				return catalogIndexRedirect()
+				return importFailureResponse(
+					detailedFlash ?? t('errors.catalog.import.noRowsParsed'),
+				)
 			}
 
 			const merged = mergeBankIntoCatalog(entries, imported)
@@ -528,24 +518,37 @@ export const catalogController = {
 				await saveCatalog({ token: sessionData.token, entries: merged })
 			} catch (error) {
 				console.error('[catalog] import save failed', error)
-				flashBanner(session, {
-					text: t('errors.catalog.import.saveFailed'),
-					tone: 'error',
-				})
-				return catalogIndexRedirect()
+				return importFailureResponse(t('errors.catalog.import.saveFailed'))
 			}
 
 			const outcomeFlash = formatCatalogImportOutcomeFlash({
 				appliedCount: imported.length,
 				parseResult,
 			})
-			flashBanner(session, {
-				text:
-					outcomeFlash ??
-					format(t('errors.catalog.import.diagnostic.savedLead'), {
-						appliedCount: imported.length,
+			const successText =
+				outcomeFlash ??
+				format(t('errors.catalog.import.diagnostic.savedLead'), {
+					appliedCount: imported.length,
+				})
+			const successTone = catalogImportOutcomeTone(parseResult)
+
+			if (wantsFrameSubmitJson) {
+				return new Response(
+					JSON.stringify({
+						ok: true,
+						bannerText: successText,
+						bannerTone: successTone,
 					}),
-				tone: catalogImportOutcomeTone(parseResult),
+					{
+						status: 200,
+						headers: { 'Content-Type': 'application/json' },
+					},
+				)
+			}
+
+			flashBanner(session, {
+				text: successText,
+				tone: successTone,
 			})
 
 			return createRedirectResponse(routes.catalog.index.href())
