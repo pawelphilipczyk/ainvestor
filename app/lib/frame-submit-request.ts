@@ -3,7 +3,7 @@
  * `FrameSubmitEnhancement` fetches (`data-frame-submit` / `data-frame-replace-from-response`).
  *
  * Keep these in one place so portfolio, guidelines, and future features stay aligned
- * with `app/components/frame-submit.component.js`.
+ * with `app/components/client/frame-submit.component.js`.
  */
 
 /** True when the client asked for JSON (API-style tests and ad hoc fetch callers). */

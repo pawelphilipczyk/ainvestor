@@ -1,4 +1,5 @@
 import { Frame, type Handle } from 'remix/component'
+import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import {
 	Card,
 	FieldLabel,
@@ -8,8 +9,7 @@ import {
 	TabLink,
 	TabsNav,
 } from '../../components/index.ts'
-import { SectionIntroCard } from '../../components/section-intro-card.tsx'
-import { SessionProvider } from '../../components/session-provider.tsx'
+import { SessionProvider } from '../../components/layout/session-provider.tsx'
 import type { EtfType } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'

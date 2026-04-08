@@ -1,5 +1,5 @@
 import type { Handle, RemixNode } from 'remix/component'
-import type { SectionIntroPage } from '../lib/section-intros.ts'
+import type { SectionIntroPage } from '../../lib/section-intros.ts'
 import { Card } from './card.tsx'
 
 const transitionName = (page: SectionIntroPage) => `section-${page}`

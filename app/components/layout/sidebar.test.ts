@@ -5,9 +5,9 @@ import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
-import type { AppPage } from '../lib/app-page.ts'
-import type { SessionData } from '../lib/session.ts'
-import { router } from '../router.ts'
+import type { AppPage } from '../../lib/app-page.ts'
+import type { SessionData } from '../../lib/session.ts'
+import { router } from '../../router.ts'
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
 import { getNavLinks, type NavLink } from './sidebar-nav.ts'
@@ -28,7 +28,7 @@ function renderSidebarWithSession(
 }
 
 describe('sidebar component', () => {
-	it('sidebar.tsx exists in app/components/', () => {
+	it('sidebar.tsx exists in app/components/layout/', () => {
 		const filePath = join(componentsDir, 'sidebar.tsx')
 		assert.ok(existsSync(filePath), 'sidebar.tsx must exist')
 	})
@@ -143,9 +143,9 @@ describe('remix component runtime in document', () => {
 })
 
 describe('sidebar component entry static file', () => {
-	it('GET /components/sidebar.component.js returns 200 with javascript content-type', async () => {
+	it('GET /components/layout/sidebar.component.js returns 200 with javascript content-type', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/sidebar.component.js',
+			'http://localhost/components/layout/sidebar.component.js',
 		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
@@ -160,7 +160,7 @@ describe('sidebar component entry static file', () => {
 
 	it('sidebar component entry wires document listeners via handle.signal', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/sidebar.component.js',
+			'http://localhost/components/layout/sidebar.component.js',
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)

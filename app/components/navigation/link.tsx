@@ -4,7 +4,7 @@ import {
 	busyControlOverlayClass,
 	busyControlRootStateClasses,
 	busyControlSpinnerClass,
-} from './busy-control-overlay.ts'
+} from '../forms/busy-control-overlay.ts'
 
 type LinkProps = {
 	href: string

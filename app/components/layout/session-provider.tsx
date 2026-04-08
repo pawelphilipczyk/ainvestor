@@ -1,5 +1,5 @@
 import type { Handle, RemixNode } from 'remix/component'
-import type { SessionData } from '../lib/session.ts'
+import type { SessionData } from '../../lib/session.ts'
 
 export type SessionContext = { session: SessionData | null }
 

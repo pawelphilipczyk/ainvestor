@@ -5,13 +5,13 @@ import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
-import { router } from '../router.ts'
+import { router } from '../../router.ts'
 import { ThemeToggleButton } from './theme-toggle.tsx'
 
 const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 
 describe('theme-toggle component', () => {
-	it('theme-toggle.tsx exists in app/components/', () => {
+	it('theme-toggle.tsx exists in app/components/navigation/', () => {
 		const filePath = join(componentsDir, 'theme-toggle.tsx')
 		assert.ok(existsSync(filePath), 'theme-toggle.tsx must exist')
 	})
@@ -30,9 +30,9 @@ describe('theme-toggle component', () => {
 })
 
 describe('theme-toggle component entry static file', () => {
-	it('GET /components/theme-toggle.component.js returns 200 with javascript content-type', async () => {
+	it('GET /components/navigation/theme-toggle.component.js returns 200 with javascript content-type', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/theme-toggle.component.js',
+			'http://localhost/components/navigation/theme-toggle.component.js',
 		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
@@ -47,7 +47,7 @@ describe('theme-toggle component entry static file', () => {
 
 	it('theme-toggle component entry wires document listeners via handle.signal', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/theme-toggle.component.js',
+			'http://localhost/components/navigation/theme-toggle.component.js',
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)

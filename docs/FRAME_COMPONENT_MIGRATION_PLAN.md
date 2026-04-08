@@ -19,7 +19,7 @@ Work proceeds in **multiple small pull requests**. When a task ships, change its
 ### Phase 1 — Redirect-only POSTs (no partial UI)
 
 - [x] **Catalog import** — Bank JSON import form uses **`data-frame-submit="catalog-list"`** + **`data-error-id`** + **`data-reset-form`**; `POST /catalog/import` returns **JSON** when **`Accept` includes `application/json`** (matches `FrameSubmitEnhancement`) so fetch does not follow redirect and consume flash — **`200`** with **`bannerText` / `bannerTone`** on success, **`422`** with **`error`** on failure. Full POST without that header keeps **redirect + flash** (progressive enhancement).
-- [x] **Sidebar sign-out** — Remove `data-fetch-submit` from the logout form in `app/components/sidebar.tsx`. Rely on normal POST + redirect.
+- [x] **Sidebar sign-out** — Remove `data-fetch-submit` from the logout form in `app/components/layout/sidebar.tsx`. Rely on normal POST + redirect.
 
 ### Phase 2 — List regions currently using fragment `innerHTML`
 
@@ -92,7 +92,7 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 | Component | Purpose |
 |-----------|---------|
 | `render()` `resolveFrame` option | Forwards a `resolveFrame` callback to `renderToStream` so `<Frame>` components resolve during SSR |
-| `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`. **POST:** fetch + reload or **`data-frame-replace-from-response`** (`frameHandle.replace()` for 200 and **422** when the response is HTML). Supports `data-frame-reload-src`, optional **`data-frame-hide-form-on-success`** with replace-from-response, `data-error-id` for **non-HTML** 422 JSON fallbacks, **`200` JSON** with **`bannerText`** / **`bannerTone`** (inline success/info feedback when **`data-error-id`** is set — catalog import), and `data-reset-form`. **GET:** when **`data-frame-get-fragment-action`** is set, **`handle.frames.get(name)`** → set **`src`**, **`reload()`**, **`history.replaceState`** (fallback **`navigate`** / **`location.assign`**). |
+| `FrameSubmitEnhancement` (`app/components/client/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`. **POST:** fetch + reload or **`data-frame-replace-from-response`** (`frameHandle.replace()` for 200 and **422** when the response is HTML). Supports `data-frame-reload-src`, optional **`data-frame-hide-form-on-success`** with replace-from-response, `data-error-id` for **non-HTML** 422 JSON fallbacks, **`200` JSON** with **`bannerText`** / **`bannerTone`** (inline success/info feedback when **`data-error-id`** is set — catalog import), and `data-reset-form`. **GET:** when **`data-frame-get-fragment-action`** is set, **`handle.frames.get(name)`** → set **`src`**, **`reload()`**, **`history.replaceState`** (fallback **`navigate`** / **`location.assign`**). |
 | `requestAcceptsFrameSubmitHtml` / `requestAcceptsApplicationJson` (`app/lib/frame-submit-request.ts`) | Single source of truth for **`Accept`** branching in POST handlers (must stay aligned with the headers this clientEntry sends). |
 
 ---

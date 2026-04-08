@@ -622,7 +622,7 @@ let app = run({
 
 **Component placement:**
 
-- **Shared components** (`app/components/`) — layout and form fields: `AppTopBar`, `Sidebar`, `ThemeToggleButton`, `FieldLabel`, `SelectInput`, `TextInput`, `TextareaInput`, `NumberInput`, `SubmitButton`; `DocumentShell` (document layout), `render()` (response helper)
+- **Shared components** (`app/components/`) — grouped by role (`layout/`, `navigation/`, `forms/`, `data-display/`, `client/`): `AppTopBar`, `Sidebar`, `ThemeToggleButton`, `FieldLabel`, `SelectInput`, `TextInput`, `TextareaInput`, `NumberInput`, `SubmitButton`; `DocumentShell` (document layout), `render()` (response helper at `app/components/render.ts`)
 - **Feature-specific pages** (`app/features/{feature}/`) — page body components: `PortfolioPage`, `GuidelinesPage`, `CatalogPage`, `AdvicePage`
 - **Utilities** (`app/lib/`) — `auth.ts` (getClientId, getClientSecret), `format.ts` (formatValue), `session.ts` (getSessionData), `guidelines.ts` (ETF_TYPES)
 

@@ -1,6 +1,6 @@
 import type { Handle } from 'remix/component'
-import { SectionIntroCard } from '../../components/section-intro-card.tsx'
-import { getNavLinks } from '../../components/sidebar-nav.ts'
+import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
+import { getNavLinks } from '../../components/layout/sidebar-nav.ts'
 import { t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 

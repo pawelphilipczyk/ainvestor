@@ -6,7 +6,7 @@ import { createHtmlResponse } from 'remix/response/html'
 import type { AppPage } from '../lib/app-page.ts'
 import type { SessionData } from '../lib/session.ts'
 import type { FlashedBanner } from '../lib/session-flash.ts'
-import { DocumentShell } from './document-shell.tsx'
+import { DocumentShell } from './layout/document-shell.tsx'
 
 export type RenderOptions = {
 	title: string

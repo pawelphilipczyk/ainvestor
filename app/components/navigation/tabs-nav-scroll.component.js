@@ -83,7 +83,7 @@ function restoreScrollForCurrentTab(doc, win) {
 }
 
 export const TabsNavScrollRestoration = clientEntry(
-	'/components/tabs-nav-scroll.component.js#TabsNavScrollRestoration',
+	'/components/navigation/tabs-nav-scroll.component.js#TabsNavScrollRestoration',
 	function TabsNavScrollRestoration(handle) {
 		if (typeof document !== 'undefined') {
 			const doc = document

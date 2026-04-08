@@ -362,7 +362,7 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 
 	it('serves frame-submit component entry for form enhancement', async () => {
 		const componentScriptResponse = await testSessionFetch(
-			'http://localhost/components/frame-submit.component.js',
+			'http://localhost/components/client/frame-submit.component.js',
 		)
 		assert.equal(componentScriptResponse.status, 200)
 		assert.match(
@@ -373,7 +373,7 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 
 	it('serves navigation-link-loading component entry', async () => {
 		const response = await testSessionFetch(
-			'http://localhost/components/navigation-link-loading.component.js',
+			'http://localhost/components/navigation/navigation-link-loading.component.js',
 		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /text\/javascript/)
