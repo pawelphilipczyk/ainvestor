@@ -46,7 +46,8 @@ function createFormData(form, submitControl) {
 
 function buildGetNavigationUrl(form, submitControl) {
 	const actionUrl = new URL(form.action, window.location.href)
-	const searchParams = new URLSearchParams(actionUrl.search)
+	// Match native GET submit: query is only serialised form fields, not action's ?query.
+	const searchParams = new URLSearchParams()
 
 	for (const [name, value] of createFormData(form, submitControl).entries()) {
 		if (typeof value === 'string') {
