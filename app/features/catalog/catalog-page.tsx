@@ -15,6 +15,8 @@ import { t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+// @ts-expect-error Runtime-only remix clientEntry (scoped to this page)
+import { CatalogFilterPrefsEnhancement } from './catalog-filter-prefs.component.js'
 import type { CatalogRiskBand } from './lib.ts'
 
 type CatalogPageProps = {
@@ -33,6 +35,9 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 
 		return (
 			<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
+				<CatalogFilterPrefsEnhancement
+					data-catalog-index-href={routes.catalog.index.href()}
+				/>
 				<SectionIntroCard
 					page="catalog"
 					variant="page"
@@ -107,6 +112,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							method="get"
 							action={routes.catalog.index.href()}
 							class="flex flex-wrap items-end gap-3"
+							data-catalog-filter-form
 							data-frame-submit="catalog-list"
 							data-frame-get-fragment-action={routes.catalog.fragmentList.href()}
 						>
@@ -180,6 +186,7 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 							{props.typeFilter || props.riskFilter || props.query ? (
 								<a
 									href={routes.catalog.index.href()}
+									data-catalog-filter-clear
 									data-navigation-loading
 									rmx-document
 									class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
