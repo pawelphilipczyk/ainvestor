@@ -55,7 +55,35 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 
 ### Phase 8 — Frame-aware navigation (`link` + `navigate`)
 
-- [ ] **Audit navigations** — Walk sidebar and in-app links, GET-driven URL changes, and any `clientEntry` that sets `window.location` or forces a full document reload. Flag flows where a **`<Frame>`** (or named frame) could refresh instead. Where that fits, prefer **`mix={[link(href, options)]}`** on anchors or **`navigate(href, options)`** in handlers (`target` / `src` / `history` / `resetScroll` per `NavigationOptions`). **GET `<form>`** submissions are not handled the same way as `link` in the runtime—those flows may need a deliberate design change (e.g. filter via frame `src` query, or submit handler calling `navigate`). Expect **some architectural changes** (route splits, partial HTML, or moving controls inside/outside a frame) when adopting this; capture decisions inline in this file or the PR.
+- [x] **Audit navigations** — Findings below (2026-04-08). Implementation of `link` / `navigate` outside existing Frame flows is **optional** and can be scoped in a follow-up PR if desired.
+
+#### Phase 8 — Audit findings
+
+**Scope checked:** `app/` for `window.location`, `location.assign`, full reloads, `rmx-document` anchors, GET forms, and every `clientEntry`.
+
+| Area | What we do today | Frame / `navigate` fit |
+|------|------------------|-------------------------|
+| **Sidebar primary nav** | `<a href={…} rmx-document>` per item in `sidebar.tsx` — full document navigation, no `data-navigation-loading`. | **Keep full nav.** Section changes replace the whole page; no named frame owns “the rest of the shell” in a way that would benefit from a partial reload only. |
+| **Login (`Link` + loading)** | `navigationLoading` → `NavigationLinkLoadingEnhancement` → `preventDefault` + busy state + `window.location.assign(href)` (`navigation-link-loading.component.js`). | **Optional follow-up:** try Remix **`navigate(href)`** (or `link` mixin on the anchor) if it preserves the same UX without a hard assign. Note `entry.js` stubs `window.navigation` on Firefox/Safari — verify behavior before swapping. |
+| **Catalog filter** | GET form with `data-frame-submit` + `data-frame-get-fragment-action`; `FrameSubmitEnhancement` sets frame `src`, `reload()`, `history.replaceState` (primary) with **`navigate` / `location.assign` fallbacks** (`frame-submit.component.js`). | **Already aligned** with frame-first navigation; fallbacks are intentional. |
+| **Catalog “clear filters” / in-page links** | `Link` / `data-navigation-loading` where a spinner is wanted (`catalog-page.tsx`). | Same as login link: **optional** `navigate` instead of `assign` if validated cross-browser. |
+| **Catalog ETF back** | `CatalogEtfBackEnhancement`: `history.back()` when possible, else `location.assign(href)`. | **Keep.** Back semantics are not a named-frame refresh. |
+| **Other `rmx-document` links** | Home cards (`section-intro-card.tsx`), branding (`app-branding.tsx`), tab rows (`tabs-nav.tsx`), portfolio/guidelines/catalog ETF inline links. | **Keep full nav** unless a specific screen is redesigned around a persistent frame boundary. |
+| **`PortfolioTradeFocus`** | Scroll + form field focus only; no navigation. | **N/A** |
+| **`SidebarInteractions`** | Mobile overlay open/close. | **N/A** |
+| **`ThemeToggleInteractions`** | `classList` + `localStorage`. | **N/A** (per edge-case table) |
+| **`TabsNavScrollRestoration`** | `sessionStorage` scroll restore on tab navigations. | **N/A** (per edge-case table) |
+| **`GuidelinesDeleteDialogInteractions`** | Document-level click delegation for edit/delete dialogs. | **Optional hygiene** (from edge-case table): scope listeners to the guidelines tree / frame root — not required for `navigate`, but reduces global listeners. |
+
+**`navigate` usage already in app:** `frame-submit.component.js` imports and uses **`navigate()`** for advice result reload and GET-fragment flows (with documented fallbacks when `target` / Navigation API behavior is unreliable).
+
+#### Phase 8 — Follow-up todos (separate PRs)
+
+- [ ] **Guidelines: scope `GuidelinesDeleteDialogInteractions` off `document`** — `GuidelinesDeleteDialogInteractions` (`guidelines-list.component.js`) registers a **`click` listener on `document`** and uses `target.closest(...)` for `[data-guideline-edit]`, `[data-guideline-cancel-edit]`, and `[data-dialog-id]`. That means every click on the page runs the handler (cheap guards, but global). **Goal:** attach the same listener to a **narrower root** that always wraps guidelines UI when the client entry is mounted—for example the guidelines list container or the guidelines `<Frame>` subtree—so clicks outside guidelines never enter this code path. Keep the same `<dialog>` HTML and `openDialogForTrigger` behavior; this is **listener hygiene**, not a Frame navigation change.
+
+- [ ] **`NavigationLinkLoadingEnhancement`: prefer Remix `navigate()` when the Navigation API is available** — Today (`navigation-link-loading.component.js`) the enhancement **`preventDefault`s** the click, sets busy state, and calls **`window.location.assign(anchor.href)`**. Remix **`navigate(href)`** (`remix/component`) drives **`window.navigation.navigate`** with Remix frame state and is what the runtime expects for intercepted navigations. **Goal:** where product still wants the loading overlay, call **`navigate(href)`** when **`globalThis.navigation`** is the real Navigation API (not the inert stub in `app/entry.js` for older Firefox/Safari), and **fall back** to **`location.assign`** (or native navigation) when it is not—then verify **Chromium, current Firefox, current Safari** (MDN: [Window.navigation](https://developer.mozilla.org/en-US/docs/Web/API/Window/navigation), [Navigation API](https://developer.mozilla.org/en-US/docs/Web/API/Navigation_API)). Same question applies to any other **`assign`-only** paths that should participate in Remix navigation when possible.
+
+- [ ] **`link` mixin vs `rmx-document`: optional consistency pass on in-app anchors** — These behave differently in Remix’s listener (`@remix-run/component` `navigation.ts`): anchors with **`rmx-document`** **opt out** of reading `rmx-target` / `rmx-src` from the link (full **document** navigation). **`mix={[link(href, options)]}`** on `<a>` sets **`href`** plus **`rmx-target` / `rmx-src` / `rmx-reset-scroll`**, so a click can be **intercepted** and routed through the **top or named `<Frame>`** reload path. **Goal:** do **not** blanket-replace sidebar or other links that intentionally mean “replace the whole document.” Optionally **audit** a small set of routes where intercepted navigation is desired but markup only uses plain **`rmx-document`** today; adopt **`link(...)`** only there. Record the rule (“full page → `rmx-document`; frame-aware same-document → `link` + options”) in this file or **`docs/UI_ARCHITECTURE_GUIDELINES.md`** when the first example lands.
 
 ---
 
