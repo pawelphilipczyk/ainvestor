@@ -55,7 +55,29 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 
 ### Phase 8 — Frame-aware navigation (`link` + `navigate`)
 
-- [ ] **Audit navigations** — Walk sidebar and in-app links, GET-driven URL changes, and any `clientEntry` that sets `window.location` or forces a full document reload. Flag flows where a **`<Frame>`** (or named frame) could refresh instead. Where that fits, prefer **`mix={[link(href, options)]}`** on anchors or **`navigate(href, options)`** in handlers (`target` / `src` / `history` / `resetScroll` per `NavigationOptions`). **GET `<form>`** submissions are not handled the same way as `link` in the runtime—those flows may need a deliberate design change (e.g. filter via frame `src` query, or submit handler calling `navigate`). Expect **some architectural changes** (route splits, partial HTML, or moving controls inside/outside a frame) when adopting this; capture decisions inline in this file or the PR.
+- [x] **Audit navigations** — Findings below (2026-04-08). Implementation of `link` / `navigate` outside existing Frame flows is **optional** and can be scoped in a follow-up PR if desired.
+
+#### Phase 8 — Audit findings
+
+**Scope checked:** `app/` for `window.location`, `location.assign`, full reloads, `rmx-document` anchors, GET forms, and every `clientEntry`.
+
+| Area | What we do today | Frame / `navigate` fit |
+|------|------------------|-------------------------|
+| **Sidebar primary nav** | `<a href={…} rmx-document>` per item in `sidebar.tsx` — full document navigation, no `data-navigation-loading`. | **Keep full nav.** Section changes replace the whole page; no named frame owns “the rest of the shell” in a way that would benefit from a partial reload only. |
+| **Login (`Link` + loading)** | `navigationLoading` → `NavigationLinkLoadingEnhancement` → `preventDefault` + busy state + `window.location.assign(href)` (`navigation-link-loading.component.js`). | **Optional follow-up:** try Remix **`navigate(href)`** (or `link` mixin on the anchor) if it preserves the same UX without a hard assign. Note `entry.js` stubs `window.navigation` on Firefox/Safari — verify behavior before swapping. |
+| **Catalog filter** | GET form with `data-frame-submit` + `data-frame-get-fragment-action`; `FrameSubmitEnhancement` sets frame `src`, `reload()`, `history.replaceState` (primary) with **`navigate` / `location.assign` fallbacks** (`frame-submit.component.js`). | **Already aligned** with frame-first navigation; fallbacks are intentional. |
+| **Catalog “clear filters” / in-page links** | `Link` / `data-navigation-loading` where a spinner is wanted (`catalog-page.tsx`). | Same as login link: **optional** `navigate` instead of `assign` if validated cross-browser. |
+| **Catalog ETF back** | `CatalogEtfBackEnhancement`: `history.back()` when possible, else `location.assign(href)`. | **Keep.** Back semantics are not a named-frame refresh. |
+| **Other `rmx-document` links** | Home cards (`section-intro-card.tsx`), branding (`app-branding.tsx`), tab rows (`tabs-nav.tsx`), portfolio/guidelines/catalog ETF inline links. | **Keep full nav** unless a specific screen is redesigned around a persistent frame boundary. |
+| **`PortfolioTradeFocus`** | Scroll + form field focus only; no navigation. | **N/A** |
+| **`SidebarInteractions`** | Mobile overlay open/close. | **N/A** |
+| **`ThemeToggleInteractions`** | `classList` + `localStorage`. | **N/A** (per edge-case table) |
+| **`TabsNavScrollRestoration`** | `sessionStorage` scroll restore on tab navigations. | **N/A** (per edge-case table) |
+| **`GuidelinesDeleteDialogInteractions`** | Document-level click delegation for edit/delete dialogs. | **Optional hygiene** (from edge-case table): scope listeners to the guidelines tree / frame root — not required for `navigate`, but reduces global listeners. |
+
+**`navigate` usage already in app:** `frame-submit.component.js` imports and uses **`navigate()`** for advice result reload and GET-fragment flows (with documented fallbacks when `target` / Navigation API behavior is unreliable).
+
+**Conclusion:** No remaining “mystery” full reloads that clearly should become frame-only refreshes. The main **code follow-ups** are narrow: (1) optionally replace **`window.location.assign`** in **`NavigationLinkLoadingEnhancement`** (and any identical pattern) with **`navigate`**, after testing; (2) optionally **`mix={[link(…)]}`** on anchors that today only use **`rmx-document`**, if the team wants all in-app navigation on the Navigation API path for consistency — **low priority** because `rmx-document` already expresses document navigation. Sidebar nav does not need `data-navigation-loading` unless product wants a global spinner on every section change.
 
 ---
 
