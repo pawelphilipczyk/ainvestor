@@ -1,6 +1,7 @@
 import { Frame, type Handle } from 'remix/component'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import { Card } from '../../components/index.ts'
+import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
 import { SessionProvider } from '../../components/layout/session-provider.tsx'
 import { t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
@@ -55,6 +56,7 @@ export function PortfolioPage(handle: Handle, _setup?: unknown) {
 				<Frame
 					name="portfolio-list"
 					src={routes.portfolio.fragmentList.href()}
+					fallback={frameLoadingPlaceholder()}
 				/>
 			</main>
 		)

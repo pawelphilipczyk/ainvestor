@@ -1,6 +1,7 @@
 import { Frame, type Handle } from 'remix/component'
 import { Card } from '../../components/data-display/card.tsx'
 import { SubmitButton } from '../../components/forms/submit-button.tsx'
+import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
@@ -183,6 +184,7 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 								<Frame
 									name="catalog-etf-analysis"
 									src={props.analysisFrameSrc}
+									fallback={frameLoadingPlaceholder()}
 								/>
 							</>
 						) : (

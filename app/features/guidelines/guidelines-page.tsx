@@ -9,6 +9,7 @@ import {
 	TabLink,
 	TabsNav,
 } from '../../components/index.ts'
+import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
 import { SessionProvider } from '../../components/layout/session-provider.tsx'
 import type { EtfType } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
@@ -184,6 +185,7 @@ export function GuidelinesPage(handle: Handle, _setup?: unknown) {
 					<Frame
 						name="guidelines-list"
 						src={routes.guidelines.fragmentList.href()}
+						fallback={frameLoadingPlaceholder()}
 					/>
 				</main>
 				<GuidelinesDeleteDialogInteractions />
