@@ -66,7 +66,15 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 								method="post"
 								action={routes.catalog.import.href()}
 								class="mt-3 grid max-w-xl gap-3"
+								data-frame-submit="catalog-list"
+								data-error-id="catalog-import-error"
+								data-reset-form
 							>
+								<div
+									id="catalog-import-error"
+									class="hidden whitespace-pre-wrap rounded-md border border-border border-l-4 border-l-destructive bg-card px-4 py-3 text-sm text-foreground shadow-sm"
+									role="alert"
+								></div>
 								<FieldLabel fieldId="pasteZone" variant="screenReader">
 									{t('catalog.import.pasteLabel.screenReader')}
 								</FieldLabel>

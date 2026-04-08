@@ -286,6 +286,95 @@ describe('ETF Catalog page', () => {
 			body,
 			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")[^>]*>/,
 		)
+		assert.match(
+			body,
+			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")(?=[^>]*\bdata-frame-submit="catalog-list")[^>]*>/,
+		)
+		assert.match(body, /data-error-id="catalog-import-error"/)
+		assert.match(body, /data-reset-form/)
+		assert.match(
+			body,
+			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")[^>]*>[\s\S]*?submit-button-busy-overlay[\s\S]*?<\/form>/,
+		)
+	})
+
+	it('POST /catalog/import returns JSON for Accept: application/json on success without consuming flash', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+		const cookie = await signInAs('catalog-admin')
+		const bankJson = JSON.stringify({
+			data: [
+				{
+					isin: 'IE00BGV5VR99',
+					fund_name: 'Xtrackers Future Mobility UCITS ETF 1C',
+					ticker: 'XMOV GR',
+					assets: 'akcje',
+					sector: 'technologia',
+				},
+			],
+			count: 1,
+		})
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set('bankApiJson', bankJson)
+					return formData
+				})(),
+				headers: {
+					Cookie: cookie,
+					Accept: 'application/json',
+				},
+			}),
+		)
+
+		assert.equal(importResponse.status, 200)
+		const payload = (await importResponse.json()) as {
+			ok?: unknown
+			bannerText?: unknown
+			bannerTone?: unknown
+		}
+		assert.equal(payload.ok, true)
+		assert.equal(typeof payload.bannerText, 'string')
+		assert.match(payload.bannerText as string, /Merged 1 row/)
+		assert.equal(payload.bannerTone, 'success')
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const catalogBody = await catalogResponse.text()
+		assert.doesNotMatch(catalogBody, /aria-label="Success"/)
+	})
+
+	it('POST /catalog/import returns JSON error for Accept: application/json when JSON is invalid', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: (() => {
+					const formData = new FormData()
+					formData.set('bankApiJson', '{ not json')
+					return formData
+				})(),
+				headers: {
+					Cookie: cookie,
+					Accept: 'application/json',
+				},
+			}),
+		)
+
+		assert.equal(importResponse.status, 422)
+		const payload = (await importResponse.json()) as { error?: unknown }
+		assert.equal(typeof payload.error, 'string')
+		assert.match(payload.error as string, /not valid JSON/)
 	})
 
 	it('GET /catalog hides import section for users without import permission', async () => {

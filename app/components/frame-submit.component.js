@@ -19,6 +19,31 @@ function readClientMessages() {
 	}
 }
 
+/** Inline banner under forms (e.g. catalog import): swap left border color by tone. */
+const INLINE_BANNER_TONE_BORDER = {
+	error: 'border-l-destructive',
+	success: 'border-l-emerald-500',
+	info: 'border-l-amber-500',
+}
+
+function resetInlineBannerTone(element) {
+	for (const cls of Object.values(INLINE_BANNER_TONE_BORDER)) {
+		element.classList.remove(cls)
+	}
+	element.classList.add(INLINE_BANNER_TONE_BORDER.error)
+}
+
+function showInlineBanner(element, text, tone) {
+	const resolvedTone =
+		tone === 'success' || tone === 'info' || tone === 'error' ? tone : 'error'
+	for (const cls of Object.values(INLINE_BANNER_TONE_BORDER)) {
+		element.classList.remove(cls)
+	}
+	element.classList.add(INLINE_BANNER_TONE_BORDER[resolvedTone])
+	element.textContent = text
+	element.classList.remove('hidden')
+}
+
 function getSubmitControl(form, submitter) {
 	if (
 		submitter instanceof HTMLButtonElement ||
@@ -210,6 +235,7 @@ export const FrameSubmitEnhancement = clientEntry(
 							if (errorElement) {
 								errorElement.textContent = ''
 								errorElement.classList.add('hidden')
+								resetInlineBannerTone(errorElement)
 							}
 						}
 					}
@@ -218,8 +244,7 @@ export const FrameSubmitEnhancement = clientEntry(
 						if (errorId) {
 							const errorElement = document.getElementById(errorId)
 							if (errorElement) {
-								errorElement.textContent = message
-								errorElement.classList.remove('hidden')
+								showInlineBanner(errorElement, message, 'error')
 							}
 						}
 					}
@@ -287,6 +312,13 @@ export const FrameSubmitEnhancement = clientEntry(
 									refreshed = true
 								}
 							}
+							const contentType = response.headers.get('content-type') ?? ''
+							const jsonBannerPayload =
+								!gistStale &&
+								errorId &&
+								contentType.includes('application/json')
+									? await response.json().catch(() => null)
+									: null
 							if (!refreshed && frameReloadSrc && frameReloadSrc.length > 0) {
 								const fragmentUrl = new URL(
 									frameReloadSrc,
@@ -316,6 +348,21 @@ export const FrameSubmitEnhancement = clientEntry(
 								await navigateDocumentUrl(response.url)
 							}
 							if (resetForm) form.reset()
+							if (
+								jsonBannerPayload &&
+								jsonBannerPayload.ok === true &&
+								typeof jsonBannerPayload.bannerText === 'string' &&
+								errorId
+							) {
+								const bannerElement = document.getElementById(errorId)
+								if (bannerElement) {
+									showInlineBanner(
+										bannerElement,
+										jsonBannerPayload.bannerText,
+										jsonBannerPayload.bannerTone,
+									)
+								}
+							}
 						} else if (response.status === 422 && errorId) {
 							const data = await response.json().catch(() => ({}))
 							const msgs = readClientMessages()
