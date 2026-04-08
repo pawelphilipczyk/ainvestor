@@ -940,6 +940,8 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /name="q"/)
 		assert.match(body, /name="type"/)
 		assert.match(body, /name="risk"/)
+		assert.match(body, /data-catalog-filter-form/)
+		assert.match(body, /catalog-filter-prefs\.component\.js/)
 		assert.match(body, /1 ETF in catalog/)
 	})
 
