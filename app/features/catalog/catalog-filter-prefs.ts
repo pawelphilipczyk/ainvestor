@@ -2,7 +2,7 @@ import { ETF_TYPES } from '../../lib/guidelines.ts'
 import { type CatalogRiskBand, parseCatalogRiskFilterParam } from './lib.ts'
 
 /** Browser localStorage key for ETF catalog list filters (type, risk, q). */
-export const CATALOG_FILTER_PREFS_STORAGE_KEY = 'etfCatalogFiltersV1'
+export const CATALOG_FILTER_PREFS_STORAGE_KEY = 'catalog/filters/v1'
 
 /** Keeps stored search strings bounded (matches conservative URL limits). */
 export const CATALOG_FILTER_QUERY_MAX_LENGTH = 200

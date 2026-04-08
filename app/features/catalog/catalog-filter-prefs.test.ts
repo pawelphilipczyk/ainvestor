@@ -2,12 +2,19 @@ import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+	CATALOG_FILTER_PREFS_STORAGE_KEY,
 	CATALOG_FILTER_QUERY_MAX_LENGTH,
 	catalogFilterPrefsFromUnknownJson,
 	catalogFilterPrefsHaveAnyFilter,
 	catalogFilterPrefsToSearchParams,
 	normalizedCatalogFilterPrefs,
 } from './catalog-filter-prefs.ts'
+
+describe('CATALOG_FILTER_PREFS_STORAGE_KEY', () => {
+	it('uses slash-separated segments for localStorage namespacing', () => {
+		assert.equal(CATALOG_FILTER_PREFS_STORAGE_KEY, 'catalog/filters/v1')
+	})
+})
 
 describe('normalizedCatalogFilterPrefs', () => {
 	it('drops unknown type and risk values', () => {

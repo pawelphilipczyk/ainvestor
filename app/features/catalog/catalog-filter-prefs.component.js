@@ -1,6 +1,8 @@
 import { addEventListeners, clientEntry, createElement } from 'remix/component'
 
-const STORAGE_KEY = 'etfCatalogFiltersV1'
+const STORAGE_KEY = 'catalog/filters/v1'
+/** Previous key; read once and migrate so existing users keep saved filters. */
+const LEGACY_STORAGE_KEY = 'etfCatalogFiltersV1'
 const QUERY_MAX_LENGTH = 200
 
 const FORM_SELECTOR = 'form[data-catalog-filter-form]'
@@ -82,6 +84,14 @@ function readStoredPrefs() {
 	let raw
 	try {
 		raw = localStorage.getItem(STORAGE_KEY)
+		if (raw === null || raw.length === 0) {
+			const legacy = localStorage.getItem(LEGACY_STORAGE_KEY)
+			if (legacy !== null && legacy.length > 0) {
+				localStorage.setItem(STORAGE_KEY, legacy)
+				localStorage.removeItem(LEGACY_STORAGE_KEY)
+				raw = legacy
+			}
+		}
 	} catch {
 		return null
 	}
@@ -109,6 +119,7 @@ function writeStoredPrefs(prefs) {
 	try {
 		if (!prefsHaveAnyFilter(prefs)) {
 			localStorage.removeItem(STORAGE_KEY)
+			localStorage.removeItem(LEGACY_STORAGE_KEY)
 			return
 		}
 		localStorage.setItem(
@@ -119,6 +130,7 @@ function writeStoredPrefs(prefs) {
 				q: prefs.query,
 			}),
 		)
+		localStorage.removeItem(LEGACY_STORAGE_KEY)
 	} catch {
 		// Quota or private mode — ignore
 	}
@@ -128,6 +140,7 @@ function clearStoredPrefs() {
 	if (typeof localStorage === 'undefined') return
 	try {
 		localStorage.removeItem(STORAGE_KEY)
+		localStorage.removeItem(LEGACY_STORAGE_KEY)
 	} catch {
 		// ignore
 	}
