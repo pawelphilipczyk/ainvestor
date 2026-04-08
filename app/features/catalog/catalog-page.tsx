@@ -1,4 +1,5 @@
 import { Frame, type Handle } from 'remix/component'
+import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import {
 	Card,
 	FieldLabel,
@@ -7,8 +8,7 @@ import {
 	TextareaInput,
 	TextInput,
 } from '../../components/index.ts'
-import { SectionIntroCard } from '../../components/section-intro-card.tsx'
-import { SessionProvider } from '../../components/session-provider.tsx'
+import { SessionProvider } from '../../components/layout/session-provider.tsx'
 import { ETF_TYPES, formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'

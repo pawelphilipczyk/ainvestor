@@ -1,5 +1,5 @@
 import type { Handle } from 'remix/component'
-import { t } from '../lib/i18n.ts'
+import { t } from '../../lib/i18n.ts'
 
 /**
  * Server-rendered theme toggle button.

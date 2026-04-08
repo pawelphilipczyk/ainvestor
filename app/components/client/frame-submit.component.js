@@ -153,7 +153,7 @@ async function handleReplaceFromResponseNonHtmlError(
  * if the frame handle is missing.
  */
 export const FrameSubmitEnhancement = clientEntry(
-	'/components/frame-submit.component.js#FrameSubmitEnhancement',
+	'/components/client/frame-submit.component.js#FrameSubmitEnhancement',
 	function FrameSubmitEnhancement(handle) {
 		if (typeof document !== 'undefined') {
 			addEventListeners(document, handle.signal, {

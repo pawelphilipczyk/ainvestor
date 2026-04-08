@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
-import { isPreview } from '../lib/gist.ts'
-import { t } from '../lib/i18n.ts'
-import { routes } from '../routes.ts'
+import { isPreview } from '../../lib/gist.ts'
+import { t } from '../../lib/i18n.ts'
+import { routes } from '../../routes.ts'
 
 /**
  * App name (links home) and optional Preview chip for chrome (sidebar, top bar on small screens).

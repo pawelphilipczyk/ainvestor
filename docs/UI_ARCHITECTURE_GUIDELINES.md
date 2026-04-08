@@ -127,12 +127,12 @@ This keeps pages focused on composition and prevents subtle drift between simila
 
 ### 7. Partial HTML (client): Remix `<Frame>` + `FrameSubmitEnhancement`; JSON POSTs: `SubmitButton` + small `clientEntry`
 
-**Server-authored partials** (lists, analysis panels, validation errors as HTML) should use **`<Frame>`** and attributes handled by **`FrameSubmitEnhancement`** in `document-shell.tsx` (`app/components/frame-submit.component.js`): **`data-frame-submit`**, optional **`data-frame-reload-src`**, **`data-frame-replace-from-response`**, **`data-frame-get-fragment-action`** (GET forms that must sync the URL bar with a named frame’s fragment `src`). See **`docs/FRAME_COMPONENT_MIGRATION_PLAN.md`** for the full attribute matrix and migration notes.
+**Server-authored partials** (lists, analysis panels, validation errors as HTML) should use **`<Frame>`** and attributes handled by **`FrameSubmitEnhancement`** in `document-shell.tsx` (`app/components/client/frame-submit.component.js`): **`data-frame-submit`**, optional **`data-frame-reload-src`**, **`data-frame-replace-from-response`**, **`data-frame-get-fragment-action`** (GET forms that must sync the URL bar with a named frame’s fragment `src`). See **`docs/FRAME_COMPONENT_MIGRATION_PLAN.md`** for the full attribute matrix and migration notes.
 
 When a **POST** returns **JSON** (not a Frame partial) and you want the **same busy spinner** as submit buttons:
 
 - Use a **normal `<form method="post">`** with **`SubmitButton`**.
-- Add a **feature-scoped `clientEntry`** that listens for `submit`, calls `preventDefault`, builds the JSON body from **`new FormData(form)`** (matches checkbox/radio inclusion like a real submit), runs `fetch`, and toggles busy state via **`setSubmitButtonLoading`** from `app/components/submit-button-loading.component.js`.
+- Add a **feature-scoped `clientEntry`** that listens for `submit`, calls `preventDefault`, builds the JSON body from **`new FormData(form)`** (matches checkbox/radio inclusion like a real submit), runs `fetch`, and toggles busy state via **`setSubmitButtonLoading`** from `app/components/client/submit-button-loading.component.js`.
 - Mount the `clientEntry` **next to the form** on the page that needs it (same pattern as `GuidelinesDeleteDialogInteractions` on the guidelines page). Only use the document shell for behavior that must exist on **every** route.
 
 **Reference implementation:** ETF catalog detail — `<Frame name="catalog-etf-analysis">` on `catalog-etf-page.tsx` with `data-frame-submit` + `data-frame-replace-from-response`.
@@ -377,14 +377,13 @@ All UI-related files should follow this structure:
 ```text
 app/
   components/
-    app-branding.tsx     ← app name + Preview chip (sidebar, top bar on small screens)
-    app-top-bar.tsx      ← shared layout (top bar, sidebar toggle, sign-in, theme toggle)
-    document-shell.tsx   ← DocumentShell layout (head, sidebar, top bar, scripts)
+    index.ts             ← re-exports common primitives for feature imports
     render.ts            ← render() returns createHtmlResponse(renderToStream(...))
-    sidebar.tsx          ← shared navigation (header: branding)
-    theme-toggle.tsx
-    select-input.tsx     ← shared form fields
-    *.component.js       ← clientEntry for interactive components
+    layout/              ← shell chrome (DocumentShell, sidebar, session provider, branding)
+    navigation/          ← links, tabs, theme toggle, navigation-related clientEntry
+    forms/               ← inputs, labels, submit button, shared form styling helpers
+    data-display/        ← cards, tables, section intros, percentage bar
+    client/              ← shared clientEntry modules (frame submit, submit-button loading)
   lib/
     auth.ts              ← getClientId, getClientSecret
     format.ts            ← formatValue

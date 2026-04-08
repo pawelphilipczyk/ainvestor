@@ -1,12 +1,11 @@
 import type { Handle } from 'remix/component'
-import { t } from '../lib/i18n.ts'
-import { routes } from '../routes.ts'
+import { t } from '../../lib/i18n.ts'
+import { routes } from '../../routes.ts'
+import { Link } from '../navigation/link.tsx'
+import { ThemeToggleInteractions } from '../navigation/theme-toggle.component.js'
+import { ThemeToggleButton } from '../navigation/theme-toggle.tsx'
 import { AppBranding } from './app-branding.tsx'
-import { Link } from './link.tsx'
 import { SessionProvider } from './session-provider.tsx'
-// @ts-expect-error TS7016 — runtime-only remix `clientEntry` (theme-toggle.component.js); `ThemeToggleButton` below is the SSR half of the same feature.
-import { ThemeToggleInteractions } from './theme-toggle.component.js'
-import { ThemeToggleButton } from './theme-toggle.tsx'
 
 /**
  * Server-rendered top bar: branding on small screens; sign-in, username, theme toggle, then sidebar toggle on the right.

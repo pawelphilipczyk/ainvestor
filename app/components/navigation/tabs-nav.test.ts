@@ -2,7 +2,7 @@ import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToString } from 'remix/component/server'
-import { router } from '../router.ts'
+import { router } from '../../router.ts'
 import { TabLink, TabsNav } from './tabs-nav.tsx'
 
 describe('TabsNav', () => {
@@ -54,9 +54,9 @@ describe('TabsNav', () => {
 })
 
 describe('tabs-nav scroll restoration component entry', () => {
-	it('GET /components/tabs-nav-scroll.component.js returns 200 with javascript content-type', async () => {
+	it('GET /components/navigation/tabs-nav-scroll.component.js returns 200 with javascript content-type', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/tabs-nav-scroll.component.js',
+			'http://localhost/components/navigation/tabs-nav-scroll.component.js',
 		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
@@ -64,7 +64,7 @@ describe('tabs-nav scroll restoration component entry', () => {
 
 	it('tabs-nav-scroll component entry wires document listeners via handle.signal', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/tabs-nav-scroll.component.js',
+			'http://localhost/components/navigation/tabs-nav-scroll.component.js',
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)

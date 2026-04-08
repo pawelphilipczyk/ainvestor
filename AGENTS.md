@@ -44,7 +44,7 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 
 **Section intros** (`SECTION_INTROS` in `app/lib/section-intros.ts`) are built from locale keys so home cards and page headers stay aligned with `t()`.
 
-**Sidebar nav:** Use **`getNavLinks()`** from `app/components/sidebar-nav.ts` (not a module-level array) so link labels are resolved when the shell or intro page renders, not at import time.
+**Sidebar nav:** Use **`getNavLinks()`** from `app/components/layout/sidebar-nav.ts` (not a module-level array) so link labels are resolved when the shell or intro page renders, not at import time.
 
 **Client islands:** A tiny JSON blob in **`DocumentShell`** (`#ui-client-messages`) exposes strings that browser-only code must show (for example generic form error copy for JSON validation fallbacks). Prefer keeping user-visible text on the server; add fields there only when an island has no other way to obtain copy.
 

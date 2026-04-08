@@ -14,7 +14,7 @@ function isModifiedClick(event) {
 }
 
 export const NavigationLinkLoadingEnhancement = clientEntry(
-	'/components/navigation-link-loading.component.js#NavigationLinkLoadingEnhancement',
+	'/components/navigation/navigation-link-loading.component.js#NavigationLinkLoadingEnhancement',
 	function NavigationLinkLoadingEnhancement(handle) {
 		if (typeof document !== 'undefined') {
 			const doc = document

@@ -6,7 +6,7 @@ function toggleTheme(doc) {
 }
 
 export const ThemeToggleInteractions = clientEntry(
-	'/components/theme-toggle.component.js#ThemeToggleInteractions',
+	'/components/navigation/theme-toggle.component.js#ThemeToggleInteractions',
 	function ThemeToggleInteractions(handle) {
 		if (typeof document !== 'undefined') {
 			addEventListeners(document, handle.signal, {
