@@ -53,10 +53,18 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						widthPercent={valueSharePercent}
 					/>
 				) : null}
-				<div class="flex min-w-0 items-start justify-between gap-2">
-					<h3 class="min-w-0 truncate text-sm font-semibold text-card-foreground">
-						{props.name}
-					</h3>
+				<h3 class="min-w-0 break-words text-sm font-semibold text-card-foreground">
+					{props.name}
+				</h3>
+				<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
+					<span class="min-w-0 truncate font-mono text-xs text-muted-foreground">
+						{props.identifier}
+					</span>
+				</div>
+				<div class="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-2">
+					<p class="min-w-0 text-sm tabular-nums text-card-foreground">
+						{props.valueDisplay}
+					</p>
 					{props.showRowTradeActions ? (
 						<div class="flex shrink-0 flex-wrap items-center justify-end gap-1">
 							<button
@@ -80,14 +88,6 @@ export function EtfCard(_handle: Handle, _setup?: unknown) {
 						</div>
 					) : null}
 				</div>
-				<div class="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1">
-					<span class="min-w-0 truncate font-mono text-xs text-muted-foreground">
-						{props.identifier}
-					</span>
-				</div>
-				<p class="text-sm tabular-nums text-card-foreground">
-					{props.valueDisplay}
-				</p>
 			</Card>
 		)
 	}
