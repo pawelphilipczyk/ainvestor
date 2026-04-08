@@ -11,6 +11,7 @@ import {
 	TabLink,
 	TabsNav,
 } from '../../components/index.ts'
+import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
@@ -862,7 +863,11 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 					)}
 				</div>
 				{frameSrc !== undefined ? (
-					<Frame name="advice-result" src={frameSrc} />
+					<Frame
+						name="advice-result"
+						src={frameSrc}
+						fallback={frameLoadingPlaceholder()}
+					/>
 				) : props.advice !== undefined &&
 					resultMode !== null &&
 					(props.cashAmount !== undefined ||

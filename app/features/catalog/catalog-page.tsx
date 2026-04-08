@@ -8,6 +8,7 @@ import {
 	TextareaInput,
 	TextInput,
 } from '../../components/index.ts'
+import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
 import { SessionProvider } from '../../components/layout/session-provider.tsx'
 import { ETF_TYPES, formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
@@ -190,7 +191,11 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 					</Card>
 				) : null}
 
-				<Frame name="catalog-list" src={props.catalogListFrameSrc} />
+				<Frame
+					name="catalog-list"
+					src={props.catalogListFrameSrc}
+					fallback={frameLoadingPlaceholder()}
+				/>
 			</main>
 		)
 	}
