@@ -121,9 +121,11 @@ async function handleReplaceFromResponseNonHtmlError(
  *
  * **`data-frame-get-fragment-action`:** For **`method="get"`** forms, optional
  * base URL of the **HTML fragment** that mirrors the document query (e.g. list
- * frame). When set, submit is intercepted: **`navigate(documentUrl, { target,
- * src: fragmentUrl, history: 'replace' })`** so the URL bar and named Frame
- * stay in sync without a separate GET submit handler.
+ * frame). When set, submit is intercepted: set the named frame’s **`src`**,
+ * **`reload()`**, then **`history.replaceState`** for the document URL (avoids
+ * **`navigate(..., { target })`** falling back to the **top** frame and
+ * reloading the whole page). Falls back to **`navigate`** / **`location.assign`**
+ * if the frame handle is missing.
  */
 export const FrameSubmitEnhancement = clientEntry(
 	'/components/frame-submit.component.js#FrameSubmitEnhancement',
@@ -156,7 +158,16 @@ export const FrameSubmitEnhancement = clientEntry(
 								window.location.href,
 							)
 							fragmentUrl.search = documentUrlObject.search
-							if (typeof globalThis.navigation?.navigate === 'function') {
+							// Prefer the named frame handle: `navigate(..., { target })` falls back
+							// to the top frame when the name is missing, which reloads the whole doc.
+							const frameHandle = handle.frames.get(frameName)
+							if (frameHandle) {
+								frameHandle.src = fragmentUrl.href
+								await frameHandle.reload()
+								history.replaceState(null, '', documentUrl)
+							} else if (
+								typeof globalThis.navigation?.navigate === 'function'
+							) {
 								await navigate(documentUrl, {
 									target: frameName,
 									src: fragmentUrl.href,

@@ -46,7 +46,7 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 
 ### Phase 6 — GET forms with `data-navigation-loading`
 
-- [x] **Catalog filter (and any similar GET forms)** — Catalog filter uses **`data-frame-submit="catalog-list"`** + **`data-frame-get-fragment-action`** on **`FrameSubmitEnhancement`**: GET submit builds the document URL and matching fragment URL, then **`navigate(documentUrl, { target, src, history: 'replace' })`** so the list frame stays aligned with the URL bar. Import POST uses a plain form (no loading intercept). **`FetchSubmitEnhancement` removed** (no remaining `data-fetch-submit` / GET form interception). Clear-filters link uses **`data-navigation-loading`** (link enhancement) for spinner UX.
+- [x] **Catalog filter (and any similar GET forms)** — Catalog filter uses **`data-frame-submit="catalog-list"`** + **`data-frame-get-fragment-action`** on **`FrameSubmitEnhancement`**: GET submit sets the named frame’s **`src`**, **`reload()`**, then **`history.replaceState`** for the document URL so the list updates without a full document navigation (more reliable than **`navigate(..., { target })`**, which can fall back to the **top** frame or skip interception in some environments). Import POST uses a plain form (no loading intercept). **`FetchSubmitEnhancement` removed**. Clear-filters link uses **`data-navigation-loading`** (link enhancement) for spinner UX.
 
 ### Phase 7 — Legacy `FetchSubmitEnhancement` (`fetch-submit`) removal
 
@@ -64,7 +64,7 @@ Today these flows use **`Accept: application/json`** and client-side error eleme
 | Component | Purpose |
 |-----------|---------|
 | `render()` `resolveFrame` option | Forwards a `resolveFrame` callback to `renderToStream` so `<Frame>` components resolve during SSR |
-| `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`. **POST:** fetch + reload or **`data-frame-replace-from-response`** (`frameHandle.replace()` for 200 and **422** when the response is HTML). Supports `data-frame-reload-src`, optional **`data-frame-hide-form-on-success`** with replace-from-response, `data-error-id` for **non-HTML** 422 JSON fallbacks, and `data-reset-form`. **GET:** when **`data-frame-get-fragment-action`** is set, **`navigate(documentUrl, { target, src, history: 'replace' })`** so the frame `src` matches the document query string. |
+| `FrameSubmitEnhancement` (`app/components/frame-submit.component.js`) | Shared `clientEntry` mounted in `DocumentShell`; intercepts forms with `data-frame-submit="<name>"`. **POST:** fetch + reload or **`data-frame-replace-from-response`** (`frameHandle.replace()` for 200 and **422** when the response is HTML). Supports `data-frame-reload-src`, optional **`data-frame-hide-form-on-success`** with replace-from-response, `data-error-id` for **non-HTML** 422 JSON fallbacks, and `data-reset-form`. **GET:** when **`data-frame-get-fragment-action`** is set, **`handle.frames.get(name)`** → set **`src`**, **`reload()`**, **`history.replaceState`** (fallback **`navigate`** / **`location.assign`**). |
 | `requestAcceptsFrameSubmitHtml` / `requestAcceptsApplicationJson` (`app/lib/frame-submit-request.ts`) | Single source of truth for **`Accept`** branching in POST handlers (must stay aligned with the headers this clientEntry sends). |
 
 ---
