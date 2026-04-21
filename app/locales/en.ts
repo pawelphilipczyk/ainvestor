@@ -4,6 +4,19 @@
  */
 
 import type { EtfType } from '../lib/guidelines.ts'
+'section.portfolio.title': 'Portfolio',
+'section.portfolio.description':
+	'Paste or upload a broker CSV to add what you already hold or want to buy.',
+'section.advice.title': 'Get Advice',
+'section.advice.description':
+	'Review portfolio balance and risk against your catalog and targets, or get buy ideas when you add cash.',
+'section.catalog.title': 'ETF Catalog',
+'section.catalog.description':
+	'Import your broker's ETF list and browse what's available.',
+'section.guidelines.title': 'Investment Guidelines',
+'section.guidelines.description': 'Set your target allocation.',
+'admin.etfImport.title': 'Import ETF Data',
+'admin.etfImport.description': 'Import or update ETF data from your broker''s CSV export',
 
 /** Display labels for persisted `EtfType` values (catalog badges, guidelines). */
 export const ETF_TYPE_LABELS: Record<EtfType, string> = {
@@ -34,6 +47,7 @@ export const en = {
 	'nav.advice': 'Get Advice',
 	'nav.catalog': 'ETF Catalog',
 	'nav.guidelines': 'Investment Guidelines',
+	'nav.admin': 'Admin',
 
 	'intro.tagline':
 		'Choose where to go next. Everything works in the browser; sign in with GitHub when you want your portfolio and catalog saved across sessions.',
