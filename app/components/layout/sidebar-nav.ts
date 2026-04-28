@@ -10,8 +10,8 @@ export type NavLink = {
 }
 
 /** Build nav links at render time so labels follow the active locale (not module load). */
-export function getNavLinks(): NavLink[] {
-	return [
+export function getNavLinks(params: { isAdmin?: boolean } = {}): NavLink[] {
+	const links: NavLink[] = [
 		{
 			href: routes.portfolio.index.href(),
 			label: t('nav.portfolio'),
@@ -36,11 +36,16 @@ export function getNavLinks(): NavLink[] {
 			page: 'guidelines',
 			placement: 'primary',
 		},
-		{
+	]
+
+	if (params.isAdmin === true) {
+		links.push({
 			href: routes.admin.etfImport.href(),
 			label: t('nav.admin'),
 			page: 'admin',
 			placement: 'secondary',
-		},
-	]
+		})
+	}
+
+	return links
 }

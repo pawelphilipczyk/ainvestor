@@ -35,12 +35,12 @@ function seedSharedCatalog(bankJson: string, ownerLogin = 'catalog-admin') {
 	})
 }
 
-async function signInAs(login: string) {
+async function signInAs(login: string, params: { isAdmin?: boolean } = {}) {
 	const session = await sessionStorage.read(null)
 	session.set('login', login)
 	session.set('token', 'test-token')
 	session.set('gistId', 'gist-1')
-	session.set('sharedCatalogAdmin', true)
+	session.set('isAdmin', params.isAdmin ?? true)
 	process.env.APPROVED_GITHUB_LOGINS = login
 	const value = await sessionStorage.save(session)
 	if (value == null) throw new Error('expected session save value')
@@ -300,6 +300,22 @@ describe('ETF Catalog page', () => {
 			body,
 			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")[^>]*>[\s\S]*?submit-button-busy-overlay[\s\S]*?<\/form>/,
 		)
+	})
+
+	it('GET /admin/etf-import returns 404 for signed-in non-admin user', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+		const cookie = await signInAs('regular-user', { isAdmin: false })
+		const response = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 404)
+		assert.doesNotMatch(body, /Import ETF Data/)
+		assert.doesNotMatch(body, /name="bankApiJson"/)
 	})
 
 	it('GET /catalog does not show the ETF data import form', async () => {

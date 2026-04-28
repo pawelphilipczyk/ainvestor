@@ -56,9 +56,6 @@ export const en = {
 		'Update the shared ETF catalog from a broker export only when the source catalog changes.',
 	'admin.etfImport.frequencyNote':
 		'Use this only when the broker ETF catalog export changes. It updates shared data that other pages use for portfolio matching, guidelines, and advice.',
-	'admin.etfImport.unavailableTitle': 'Import unavailable',
-	'admin.etfImport.unavailableBody':
-		'Only the shared catalog gist owner can import ETF data. Sign in with that account when the catalog needs a rare update.',
 
 	'chrome.loading': 'Loading…',
 	'chrome.aria.mainNav': 'Main navigation',

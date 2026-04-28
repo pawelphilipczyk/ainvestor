@@ -118,7 +118,10 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 							aria-hidden="true"
 						/>
 					</div>
-					<Sidebar navLinks={getNavLinks()} currentPage={props.currentPage} />
+					<Sidebar
+						navLinks={getNavLinks({ isAdmin: props.session?.isAdmin })}
+						currentPage={props.currentPage}
+					/>
 					<AppTopBar />
 					<div id="page-content" class="min-w-0 p-4 md:ml-64">
 						{props.flashBanner ? (

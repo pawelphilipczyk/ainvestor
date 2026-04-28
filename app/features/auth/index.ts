@@ -123,19 +123,19 @@ export const authController = {
 
 			context.get(Session).regenerateId()
 			context.get(Session).set('login', login)
-			let sharedCatalogAdmin = false
+			let isAdmin = false
 			try {
 				const sharedCatalogSnapshot = await fetchSharedCatalogSnapshot()
-				sharedCatalogAdmin = isSharedCatalogAdmin({
+				isAdmin = isSharedCatalogAdmin({
 					sessionLogin: login,
 					ownerLogin: sharedCatalogSnapshot.ownerLogin,
 				})
 			} catch (error) {
 				console.error('[auth] Shared catalog lookup failed', error)
 			}
-			context.get(Session).set('sharedCatalogAdmin', sharedCatalogAdmin)
+			context.get(Session).set('isAdmin', isAdmin)
 
-			if (!sharedCatalogAdmin && !isGithubLoginApproved(login)) {
+			if (!isAdmin && !isGithubLoginApproved(login)) {
 				context.get(Session).unset('token')
 				context.get(Session).unset('gistId')
 				context.get(Session).set('approvalStatus', 'pending')

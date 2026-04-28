@@ -15,17 +15,24 @@ export const adminController = {
 			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
 			const catalogSnapshot = await fetchSharedCatalogSnapshot()
+			const isCurrentUserAdmin = isAdmin({
+				session,
+				layoutSession,
+				ownerLogin: catalogSnapshot.ownerLogin,
+			})
+
+			if (!isCurrentUserAdmin) {
+				return new Response('Not found', {
+					status: 404,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				})
+			}
 
 			return render({
 				title: t('meta.title.adminEtfImport'),
 				session: layoutSession,
 				currentPage: 'admin',
 				body: jsx(AdminETFImportPage, {
-					canImport: isAdmin({
-						session,
-						layoutSession,
-						ownerLogin: catalogSnapshot.ownerLogin,
-					}),
 					sharedCatalogOwnerLogin: catalogSnapshot.ownerLogin,
 				}),
 				flashBanner: readFlashedBanner(context.get(Session)),
