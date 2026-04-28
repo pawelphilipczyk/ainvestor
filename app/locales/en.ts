@@ -132,7 +132,8 @@ export const en = {
 		'Paste fetch response JSON here, then click Import',
 	'catalog.empty.title': 'No catalog imported yet.',
 	'catalog.empty.hint':
-		'The shared catalog gist is empty. If you are the gist owner, import ETFs here to populate it.',
+		'The shared catalog gist is empty. If you are the gist owner, open Admin and import broker ETF data to populate it.',
+	'catalog.empty.adminImportLink': 'Open Admin ETF import',
 	'catalog.filter.assetType': 'Asset type',
 	'catalog.filter.allTypes': 'All types',
 	'catalog.filter.search': 'Search',

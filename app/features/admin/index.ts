@@ -5,7 +5,7 @@ import { t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { readFlashedBanner } from '../../lib/session-flash.ts'
-import { catalogCanImport } from '../catalog/catalog-load-context.ts'
+import { isAdmin } from '../catalog/catalog-load-context.ts'
 import { fetchSharedCatalogSnapshot } from '../catalog/lib.ts'
 import { AdminETFImportPage } from './admin-etf-import-page.tsx'
 
@@ -21,7 +21,7 @@ export const adminController = {
 				session: layoutSession,
 				currentPage: 'admin',
 				body: jsx(AdminETFImportPage, {
-					canImport: catalogCanImport({
+					canImport: isAdmin({
 						session,
 						layoutSession,
 						ownerLogin: catalogSnapshot.ownerLogin,

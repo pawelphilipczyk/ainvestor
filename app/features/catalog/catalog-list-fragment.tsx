@@ -137,6 +137,7 @@ type CatalogListFragmentProps = {
 	riskFilter: '' | CatalogRiskBand
 	query: string
 	totalCatalogCount: number
+	isAdmin: boolean
 	pendingApproval?: boolean
 }
 
@@ -226,9 +227,33 @@ export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
 				) : null}
 
 				{restOfCatalog.length === 0 && ownedInCatalog.length === 0 ? (
-					<Card class="p-4">
-						<p class="text-sm text-muted-foreground">{t('catalog.noMatch')}</p>
-					</Card>
+					props.totalCatalogCount === 0 ? (
+						<div class="rounded-lg border border-dashed border-border bg-card/60 p-4">
+							<p class="font-medium text-foreground">
+								{t('catalog.empty.title')}
+							</p>
+							<p class="mt-1 text-sm text-muted-foreground">
+								{t('catalog.empty.hint')}
+							</p>
+							{props.isAdmin ? (
+								<p class="mt-3">
+									<Link
+										href={routes.admin.etfImport.href()}
+										rmx-document
+										class="text-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground/90"
+									>
+										{t('catalog.empty.adminImportLink')}
+									</Link>
+								</p>
+							) : null}
+						</div>
+					) : (
+						<Card class="p-4">
+							<p class="text-sm text-muted-foreground">
+								{t('catalog.noMatch')}
+							</p>
+						</Card>
+					)
 				) : restOfCatalog.length > 0 ? (
 					<Card class="min-w-0 p-4">
 						<section>

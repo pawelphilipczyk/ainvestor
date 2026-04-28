@@ -409,7 +409,22 @@ describe('ETF Catalog page', () => {
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
-		assert.match(body, /No ETFs match your search/)
+		assert.match(body, /No catalog imported yet/)
+		assert.match(body, /The shared catalog gist is empty/)
+		assert.doesNotMatch(body, /Open Admin ETF import/)
+	})
+
+	it('GET /catalog shows Admin import link for gist owner when catalog is empty', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+		const cookie = await signInAs('catalog-admin')
+		const response = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		assert.match(body, /No catalog imported yet/)
+		assert.match(body, /href="\/admin\/etf-import"/)
+		assert.match(body, /Open Admin ETF import/)
 	})
 
 	it('GET /catalog renders theme toggle button hook without escaped HTML text', async () => {

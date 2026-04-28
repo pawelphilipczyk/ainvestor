@@ -31,6 +31,7 @@ import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
+	isAdmin,
 	loadCatalogEtfDetailContext,
 	loadCatalogPageContext,
 } from './catalog-load-context.ts'
@@ -251,12 +252,17 @@ export const catalogController = {
 			const query = url.searchParams.get('q') ?? ''
 
 			const load = await loadCatalogPageContext(context)
-			const { catalogSnapshot, entries, layoutSession } = load
+			const { catalogSnapshot, entries, session, layoutSession } = load
 
 			return renderCatalogPage({
 				catalog: catalogSnapshot.entries,
 				entries,
 				session: layoutSession,
+				isAdmin: isAdmin({
+					session,
+					layoutSession,
+					ownerLogin: catalogSnapshot.ownerLogin,
+				}),
 				pendingApproval: layoutSession?.approvalStatus === 'pending',
 				typeFilter,
 				riskFilter,
@@ -556,8 +562,7 @@ export const catalogController = {
 			const query = url.searchParams.get('q') ?? ''
 
 			const load = await loadCatalogPageContext(context)
-			const { catalogSnapshot, entries } = load
-			const layoutSession = getLayoutSession(context.get(Session))
+			const { catalogSnapshot, entries, session, layoutSession } = load
 			const pendingApproval = layoutSession?.approvalStatus === 'pending'
 
 			return createHtmlResponse(
@@ -569,6 +574,11 @@ export const catalogController = {
 						riskFilter,
 						query,
 						totalCatalogCount: catalogSnapshot.entries.length,
+						isAdmin: isAdmin({
+							session,
+							layoutSession,
+							ownerLogin: catalogSnapshot.ownerLogin,
+						}),
 						pendingApproval,
 					}),
 				),
@@ -599,6 +609,7 @@ async function renderCatalogPage(params: {
 	catalog: CatalogEntry[]
 	entries: EtfEntry[]
 	session: SessionData | null
+	isAdmin: boolean
 	pendingApproval?: boolean
 	typeFilter: string
 	riskFilter: '' | CatalogRiskBand
@@ -609,6 +620,7 @@ async function renderCatalogPage(params: {
 		catalog,
 		entries,
 		session,
+		isAdmin,
 		pendingApproval,
 		typeFilter,
 		riskFilter,
@@ -639,6 +651,7 @@ async function renderCatalogPage(params: {
 						riskFilter,
 						query,
 						totalCatalogCount: catalog.length,
+						isAdmin,
 						pendingApproval,
 					}),
 				)
