@@ -31,7 +31,6 @@ import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
-	catalogCanImport,
 	loadCatalogEtfDetailContext,
 	loadCatalogPageContext,
 } from './catalog-load-context.ts'
@@ -171,8 +170,8 @@ function parseAdviceModelFromJsonBody(body: unknown): AdviceModelId {
 	return DEFAULT_ADVICE_MODEL
 }
 
-const catalogIndexRedirect = () =>
-	createRedirectResponse(routes.catalog.index.href())
+const adminEtfImportRedirect = () =>
+	createRedirectResponse(routes.admin.etfImport.href())
 
 const CATALOG_ENTRY_ID_PARAM_MAX = 128
 
@@ -252,19 +251,13 @@ export const catalogController = {
 			const query = url.searchParams.get('q') ?? ''
 
 			const load = await loadCatalogPageContext(context)
-			const { catalogSnapshot, entries, session, layoutSession } = load
+			const { catalogSnapshot, entries, layoutSession } = load
 
 			return renderCatalogPage({
 				catalog: catalogSnapshot.entries,
 				entries,
 				session: layoutSession,
 				pendingApproval: layoutSession?.approvalStatus === 'pending',
-				canImport: catalogCanImport({
-					session,
-					layoutSession,
-					ownerLogin: catalogSnapshot.ownerLogin,
-				}),
-				sharedCatalogOwnerLogin: catalogSnapshot.ownerLogin,
 				typeFilter,
 				riskFilter,
 				query,
@@ -453,7 +446,7 @@ export const catalogController = {
 					})
 				}
 				flashBanner(session, { text, tone })
-				return catalogIndexRedirect()
+				return adminEtfImportRedirect()
 			}
 
 			const sessionData = getSessionData(session)
@@ -551,7 +544,7 @@ export const catalogController = {
 				tone: successTone,
 			})
 
-			return createRedirectResponse(routes.catalog.index.href())
+			return adminEtfImportRedirect()
 		},
 
 		async fragmentList(context: AppRequestContext) {
@@ -607,8 +600,6 @@ async function renderCatalogPage(params: {
 	entries: EtfEntry[]
 	session: SessionData | null
 	pendingApproval?: boolean
-	canImport: boolean
-	sharedCatalogOwnerLogin: string | null
 	typeFilter: string
 	riskFilter: '' | CatalogRiskBand
 	query: string
@@ -619,8 +610,6 @@ async function renderCatalogPage(params: {
 		entries,
 		session,
 		pendingApproval,
-		canImport,
-		sharedCatalogOwnerLogin,
 		typeFilter,
 		riskFilter,
 		query,
@@ -629,11 +618,9 @@ async function renderCatalogPage(params: {
 	const frameSrc = catalogListFrameSrc({ typeFilter, riskFilter, query })
 	const body = jsx(CatalogPage, {
 		catalogCount: catalog.length,
-		canImport,
 		typeFilter,
 		riskFilter,
 		query,
-		sharedCatalogOwnerLogin,
 		catalogListFrameSrc: frameSrc,
 	})
 	return render({

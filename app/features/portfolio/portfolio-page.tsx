@@ -7,7 +7,6 @@ import { t } from '../../lib/i18n.ts'
 import { SECTION_INTROS } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import {  } from './import-etf-form/import-etf-form.tsx'
 import { PortfolioOperationForm } from './portfolio-operation-form/index.ts'
 
 type PortfolioPageProps = {

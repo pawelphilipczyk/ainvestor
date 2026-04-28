@@ -4,19 +4,6 @@
  */
 
 import type { EtfType } from '../lib/guidelines.ts'
-'section.portfolio.title': 'Portfolio',
-'section.portfolio.description':
-	'Paste or upload a broker CSV to add what you already hold or want to buy.',
-'section.advice.title': 'Get Advice',
-'section.advice.description':
-	'Review portfolio balance and risk against your catalog and targets, or get buy ideas when you add cash.',
-'section.catalog.title': 'ETF Catalog',
-'section.catalog.description':
-	'Import your broker's ETF list and browse what's available.',
-'section.guidelines.title': 'Investment Guidelines',
-'section.guidelines.description': 'Set your target allocation.',
-'admin.etfImport.title': 'Import ETF Data',
-'admin.etfImport.description': 'Import or update ETF data from your broker''s CSV export',
 
 /** Display labels for persisted `EtfType` values (catalog badges, guidelines). */
 export const ETF_TYPE_LABELS: Record<EtfType, string> = {
@@ -42,6 +29,7 @@ export const en = {
 	'meta.title.catalog': 'AI Investor – ETF Catalog',
 	'meta.title.catalogEtf': 'AI Investor – {name}',
 	'meta.title.guidelines': 'AI Investor – Guidelines',
+	'meta.title.adminEtfImport': 'AI Investor – Admin ETF Import',
 
 	'nav.portfolio': 'Portfolio',
 	'nav.advice': 'Get Advice',
@@ -63,6 +51,14 @@ export const en = {
 		'Import your broker’s ETF list and browse what’s available.',
 	'section.guidelines.title': 'Investment Guidelines',
 	'section.guidelines.description': 'Set your target allocation.',
+	'admin.etfImport.title': 'Import ETF Data',
+	'admin.etfImport.description':
+		'Update the shared ETF catalog from a broker export only when the source catalog changes.',
+	'admin.etfImport.frequencyNote':
+		'Use this only when the broker ETF catalog export changes. It updates shared data that other pages use for portfolio matching, guidelines, and advice.',
+	'admin.etfImport.unavailableTitle': 'Import unavailable',
+	'admin.etfImport.unavailableBody':
+		'Only the shared catalog gist owner can import ETF data. Sign in with that account when the catalog needs a rare update.',
 
 	'chrome.loading': 'Loading…',
 	'chrome.aria.mainNav': 'Main navigation',
