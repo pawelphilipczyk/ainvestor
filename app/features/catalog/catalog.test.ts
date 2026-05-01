@@ -303,7 +303,7 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('GET /admin/etf-import returns 404 for signed-in non-admin user', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+		setSharedCatalogForTests({ entries: [], ownerLogin: 'regular-user' })
 		const cookie = await signInAs('regular-user', { isAdmin: false })
 		const response = await testSessionFetch(
 			'http://localhost/admin/etf-import',
@@ -316,6 +316,21 @@ describe('ETF Catalog page', () => {
 		assert.equal(response.status, 404)
 		assert.doesNotMatch(body, /Import ETF Data/)
 		assert.doesNotMatch(body, /name="bankApiJson"/)
+	})
+
+	it('GET /admin/etf-import allows session isAdmin when login is not catalog owner', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+		const cookie = await signInAs('regular-user', { isAdmin: true })
+		const response = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Import ETF Data/)
 	})
 
 	it('GET /catalog does not show the ETF data import form', async () => {

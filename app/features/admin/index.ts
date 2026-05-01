@@ -5,7 +5,6 @@ import { t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { readFlashedBanner } from '../../lib/session-flash.ts'
-import { isAdmin } from '../catalog/catalog-load-context.ts'
 import { fetchSharedCatalogSnapshot } from '../catalog/lib.ts'
 import { AdminETFImportPage } from './admin-etf-import-page.tsx'
 
@@ -15,11 +14,9 @@ export const adminController = {
 			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
 			const catalogSnapshot = await fetchSharedCatalogSnapshot()
-			const isCurrentUserAdmin = isAdmin({
-				session,
-				layoutSession,
-				ownerLogin: catalogSnapshot.ownerLogin,
-			})
+			const isCurrentUserAdmin = Boolean(
+				session?.isAdmin === true || layoutSession?.isAdmin === true,
+			)
 
 			if (!isCurrentUserAdmin) {
 				return new Response('Not found', {
