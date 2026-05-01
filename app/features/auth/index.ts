@@ -133,7 +133,6 @@ export const authController = {
 			} catch (error) {
 				console.error('[auth] Shared catalog lookup failed', error)
 			}
-			context.get(Session).set('isAdmin', isAdmin)
 
 			if (!isAdmin && !isGithubLoginApproved(login)) {
 				context.get(Session).unset('token')
@@ -141,6 +140,8 @@ export const authController = {
 				context.get(Session).set('approvalStatus', 'pending')
 				return createRedirectResponse(routes.home.index.href())
 			}
+
+			context.get(Session).set('isAdmin', isAdmin)
 
 			const gistId = await findOrCreateGist(token)
 			context.get(Session).set('token', token)

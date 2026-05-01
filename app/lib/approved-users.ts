@@ -53,6 +53,7 @@ export function stripGithubTokenIfUnapproved(session: Session): void {
 	const token = session.get('token') as string | undefined
 	if (!login || !token) return
 	if (isGithubLoginApproved(login)) return
+	if (session.get('isAdmin') === true) return
 	session.unset('token')
 	session.unset('gistId')
 	session.unset('isAdmin')
