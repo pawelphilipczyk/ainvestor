@@ -7,6 +7,7 @@ This repository uses a server-first UI architecture. Before making UI-related ch
 Before making Remix framework changes, read:
 
 - `docs/REMIX_V3_PACKAGES.md`
+- `docs/REMIX_BETA_MIGRATION_PLAN.md` when planning or performing Remix beta upgrades
 
 Before writing any JS/TS/CSS code, read:
 
@@ -59,7 +60,7 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 
 ## Required defaults for Remix work
 
-1. **Remix documentation source:** Always use the GitHub repository as the only source of truth for Remix v3 APIs and patterns: [https://github.com/remix-run/remix](https://github.com/remix-run/remix). Do not rely on older docs or other websites.
+1. **Remix documentation sources:** Use the official Remix API docs site ([https://api.remix.run/](https://api.remix.run/)) together with the GitHub repository ([https://github.com/remix-run/remix](https://github.com/remix-run/remix)) for Remix v3 APIs, changelogs, and package source. For beta migrations, check the package changelog from this repo's current version and read `docs/REMIX_BETA_MIGRATION_PLAN.md`. Do not rely on older Remix v2 docs or unrelated websites.
 
 2. **Maximize Remix package usage:** Before writing a helper, utility, or middleware from scratch, check whether `remix` already provides it. Prefer Remix packages over custom implementations. Common examples:
    - Use `remix/cookie` instead of custom HMAC signing
@@ -96,10 +97,10 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 - **Naming — spell it out:** Prefer full words in function and variable names; avoid abbreviations (`ctx`, `req`, `res`, `idx`, `opts`, single-letter loop names, and similar). Exceptions: domain terms that are already standard words (`id`, `url`, `tab`), the project’s **`t()`** / **`format()`** helpers for i18n, and names you cannot change because they implement or shadow an external API (for example a parameter named `request` when matching a framework signature).
 
 - **Keep types simple:** Prefer small object literals, `as const` for fixed maps/unions, and `keyof typeof` over hand-maintained string union types when a single source of truth exists.
-- **Prefer inference:** Omit redundant annotations on locals and private helpers. For component props, **inline the props object** on the inner implementation. If another module needs the props type, derive it once: **`type FooProps = Parameters<ReturnType<typeof Foo>>[0]`** (do not hand-duplicate a parallel `type FooProps = { ... }`).
+- **Prefer inference:** Omit redundant annotations on locals and private helpers. For component props on the current alpha runtime, **inline the props object** on the render callback when it stays local. If another module needs the props type, derive it once from the component boundary when possible, or export one explicit props type. For Remix beta's `handle.props` signature, prefer an exported props type at the component boundary because the render callback no longer receives props.
 
-- **One props shape per UI boundary:** Do not restate the same object shape in two places. If a Remix component or fragment exports **`export type FooProps`** (or **`CatalogEtfAnalysisFragmentProps`**), any controller, helper, or test that builds props for **`jsx(Foo, props)`** must **import and use that type** (or derive it with **`Parameters<ReturnType<typeof Foo>>[0]`** if the type is not exported). Never parallel an anonymous `{ field?: string }` or a second `type` alias that mirrors the component’s props — those drift silently when fields change. Apply the same idea to shared DTOs: one exported type, imported everywhere it crosses a module boundary.
+- **One props shape per UI boundary:** Do not restate the same object shape in two places. If a Remix component or fragment exports **`export type FooProps`** (or **`CatalogEtfAnalysisFragmentProps`**), any controller, helper, or test that builds props for **`jsx(Foo, props)`** must **import and use that type**. On the current alpha runtime, deriving with **`Parameters<ReturnType<typeof Foo>>[0]`** is acceptable when no exported type exists; for Remix beta, use the exported props type because render callbacks take no props. Never parallel an anonymous `{ field?: string }` or a second `type` alias that mirrors the component’s props — those drift silently when fields change. Apply the same idea to shared DTOs: one exported type, imported everywhere it crosses a module boundary.
 
 - **When to annotate explicitly:** Public boundaries, `remix` discriminated props (e.g. inputs where `type` narrows other attributes), or places where inference produces `any` or overly wide types.
 
-- **Form controls:** Prefer **MDN / HTML attribute names** on props (`name`, `type`, `autocomplete`, `class`, …). Do not rename to `fieldName` or similar. Listing a small `type` shape for each wrapper is OK; avoid `...rest as Props<'input'>` — `Props<'input'>` from `remix/component` is a discriminated union, and spreading `rest` breaks narrowing (e.g. `role`, `list` on `<input>`).
+- **Form controls:** Prefer **MDN / HTML attribute names** on props (`name`, `type`, `autocomplete`, `class`, …). Do not rename to `fieldName` or similar. Listing a small `type` shape for each wrapper is OK; avoid `...rest as Props<'input'>` — `Props<'input'>` from the Remix UI runtime (`remix/component` on the current alpha, `remix/ui` on beta) is a discriminated union, and spreading `rest` breaks narrowing (e.g. `role`, `list` on `<input>`).

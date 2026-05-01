@@ -167,9 +167,9 @@ Global CSS should be minimal and primarily support Tailwind.
 
 ## Component Architecture
 
-### JSX Components (Remix `remix/component`)
+### JSX Components (Remix UI runtime)
 
-UI is built with **JSX components** rendered on the server via `remix/component`. Page bodies and the document shell are JSX; `render()` returns `createHtmlResponse(renderToStream(document))`.
+UI is built with **JSX components** rendered on the server via Remix's UI runtime. On `remix@3.0.0-alpha.4` the import path is `remix/component`; on the beta line the component runtime moves to `remix/ui`. Page bodies and the document shell are JSX; `render()` returns `createHtmlResponse(renderToStream(document))`.
 
 **Component placement:**
 
@@ -180,7 +180,7 @@ UI is built with **JSX components** rendered on the server via `remix/component`
 
 **Rendering pattern:** Matches the Bookstore demo. The full document is JSX (`DocumentShell` wrapping page body). Controllers call `render({ title, session, currentPage, body: jsx(PageComponent, props) })`, which returns `createHtmlResponse(renderToStream(document))`. Page bodies are passed as JSX children.
 
-**Remix component signature:** Components use `(handle, setup) => (props) => JSX`. Sub-components used only within a page (e.g. `CatalogTableHeader`) are plain functions or constants — not Remix components — to avoid the "must return a render function" requirement.
+**Remix component signature:** On the current alpha, components use `(handle, setup) => (props) => JSX`. The beta UI runtime changes this to stable `handle.props` with `(handle) => () => JSX`; see `docs/REMIX_BETA_MIGRATION_PLAN.md` before writing new component APIs. Sub-components used only within a page (e.g. `CatalogTableHeader`) are plain functions or constants — not Remix components — to avoid the "must return a render function" requirement.
 
 ### Legacy: Server-Rendered Component Partials (deprecated)
 
@@ -445,14 +445,14 @@ This architecture aligns with the packages available in `remix@next`. Key Remix 
 | `remix/response/html` | `createHtmlResponse()` — wraps HTML with proper headers |
 | `remix/response/redirect` | `createRedirectResponse()` — post-form redirect |
 | `remix/static-middleware` | Serve CSS, JS islands, and other static assets |
-| `remix/component` | JSX components for page bodies and shared UI; `clientEntry`, `run()`, and event mixins such as `on()` |
-| `remix/component/server` | `renderToStream()` — full document streamed to response |
+| `remix/component` / `remix/ui` | JSX components for page bodies and shared UI; `clientEntry`, `run()`, and event mixins such as `on()` |
+| `remix/component/server` / `remix/ui/server` | `renderToStream()` — full document streamed to response |
 
 **Rendering:** All page bodies and the document shell are JSX. `render()` returns `createHtmlResponse(renderToStream(document))`. See `REMIX_V3_PACKAGES.md` for the component rendering pattern.
 
-### Client updates: Remix `remix/component` patterns (target direction)
+### Client updates: Remix UI runtime patterns (target direction)
 
-The Remix v3 component package documentation ([`packages/component` README](https://github.com/remix-run/remix/blob/main/packages/component/README.md)) describes these defaults for browser behavior:
+The Remix v3 UI runtime documentation ([API docs](https://api.remix.run/) and [`packages/ui` README](https://github.com/remix-run/remix/blob/main/packages/ui/README.md)) describes these defaults for browser behavior:
 
 - **Partial UI without a full document navigation:** use **`<Frame>`** so the client refetches **server-rendered HTML** and the runtime **diffs** it into the page. Client entries inside a frame can call **`handle.frame.reload()`** (and named **`handle.frames.get(…)`** for adjacent regions) so the server stays the source of truth for markup.
 - **Local interactivity in an island:** keep state in the **`clientEntry` setup**, mutate it in event handlers, and call **`handle.update()`** to re-render that component. Use the **`on()`** mixin for element events and **`ref()`** for small, intentional DOM work (focus, measure, scroll)—not for wholesale replacement of large subtrees.
