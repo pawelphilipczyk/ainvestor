@@ -163,20 +163,194 @@ the static middleware allowlist.
 - Keep `remix/data-table` alpha.4 migration notes in mind only if the app starts
   using data-table APIs; this repo does not currently import them.
 
-## Suggested prompt sequence for implementation
+## Separate-chat implementation prompts
 
-1. "Upgrade the Remix package to beta and update the lockfile only. Do not change
-   app code yet. Report the first typecheck failures."
-2. "Rename Remix component imports to the beta UI runtime, including tsconfig and
-   static middleware allowlists. Keep component signatures unchanged unless the
-   compiler requires it."
-3. "Decide the beta-era props typing convention, then convert server-rendered
-   components from callback props to `handle.props`, one feature directory at a
-   time, with focused tests after each directory."
-4. "Re-test Frame/clientEntry flows and fix runtime issues around `Frame`,
-   `run`, `resolveFrame`, `navigate`, and `link`."
-5. "Audit beta-only changelog items: multipart headers, Remix test exports, Node
-   version assumptions, and newly available package helpers."
+Run these prompts one by one in separate chats. Each prompt should produce a
+small PR or a clearly scoped follow-up plan before moving to the next checkbox.
+
+- [ ] **Prompt 1 — Upgrade package metadata only**
+
+  ```text
+  We are starting the Remix beta migration. Read AGENTS.md, docs/REMIX_V3_PACKAGES.md, docs/UI_ARCHITECTURE_GUIDELINES.md, docs/BIOME_RULES.md, and docs/REMIX_BETA_MIGRATION_PLAN.md first.
+
+  Goal: upgrade package metadata from remix@3.0.0-alpha.4 to the current Remix beta and refresh the lockfile only.
+
+  Scope:
+  - Update package.json and package-lock.json for the Remix beta.
+  - Do not change app source code yet except if the package manager requires lockfile metadata normalization.
+  - Confirm the installed beta version and summarize the exact changelog range from alpha.4 to that version.
+
+  Verification:
+  - Run npm run typecheck and npm run test if the environment supports it.
+  - If checks fail because app imports still point at removed beta exports, report the first failures without fixing them in this prompt.
+  - If the environment lacks Node/npm, stop after documenting the blocker and do not fake verification.
+
+  Deliverable: a small commit/PR that only updates package metadata and records the first compiler/runtime blockers for the next prompt.
+  ```
+
+- [ ] **Prompt 2 — Rename Remix UI runtime imports**
+
+  ```text
+  Continue the Remix beta migration after package metadata has been upgraded. Read docs/REMIX_BETA_MIGRATION_PLAN.md and inspect current compiler errors before editing.
+
+  Goal: mechanically rename the removed alpha UI runtime import paths to beta import paths.
+
+  Scope:
+  - Replace remix/component with remix/ui.
+  - Replace remix/component/server with remix/ui/server.
+  - Replace remix/component/jsx-runtime with remix/ui/jsx-runtime.
+  - Replace remix/component/jsx-dev-runtime with remix/ui/jsx-dev-runtime if present.
+  - Update tsconfig.json jsxImportSource.
+  - Update static/runtime allowlists that reference @remix-run/component so beta UI runtime assets can load.
+  - Update source comments that describe these imports as current API.
+
+  Constraints:
+  - Keep component signatures unchanged unless the compiler cannot progress without a minimal compatibility edit.
+  - Do not start the handle.props migration in this prompt.
+
+  Verification:
+  - Run npm run typecheck and npm run test.
+  - Record remaining errors, grouped by import/export issue vs component signature issue.
+
+  Deliverable: a focused commit/PR for import/runtime path migration plus a short list of errors that Prompt 3 should address.
+  ```
+
+- [ ] **Prompt 3 — Decide and document beta props typing convention**
+
+  ```text
+  Before converting components to Remix beta handle.props, decide the props typing convention for this repo. Read AGENTS.md TypeScript style, docs/REMIX_BETA_MIGRATION_PLAN.md, and examples of current component prop types.
+
+  Goal: make a small documentation/code-guidance change that defines how component props are typed under the beta UI runtime.
+
+  Scope:
+  - Decide whether beta components should use explicit exported props types at UI boundaries by default.
+  - Update AGENTS.md and/or docs/UI_ARCHITECTURE_GUIDELINES.md with the chosen rule.
+  - If a tiny example change is useful, limit it to one low-risk shared component.
+
+  Constraints:
+  - Do not mass-convert app components in this prompt.
+  - Keep the rule compatible with the existing "one props shape per UI boundary" guidance.
+
+  Verification:
+  - Run npm run check if any code changed.
+  - For docs-only changes, run git diff --check.
+
+  Deliverable: a small commit/PR establishing the beta props typing rule that later conversion prompts must follow.
+  ```
+
+- [ ] **Prompt 4 — Convert shared layout and form components to `handle.props`**
+
+  ```text
+  Continue the Remix beta migration. The import paths should already point at remix/ui, and the beta props typing convention should be documented.
+
+  Goal: convert shared components under app/components/ from the alpha `(handle, setup) => (props) => JSX` shape to the beta `Handle<Props>` + `handle.props` shape.
+
+  Scope:
+  - Start with shared form components and layout/navigation/data-display components in app/components/.
+  - Remove unused `_setup?: unknown` parameters.
+  - Move render callback prop reads to `handle.props`.
+  - Export/import props types where they cross module boundaries.
+  - Keep unrelated styling and behavior unchanged.
+
+  Verification:
+  - Run npm run typecheck after this directory.
+  - Run focused tests that cover pages using shared components, then npm run test if feasible.
+
+  Deliverable: a focused commit/PR for app/components/ conversion only, with remaining component directories listed for Prompt 5.
+  ```
+
+- [ ] **Prompt 5 — Convert feature page components to `handle.props`**
+
+  ```text
+  Continue the Remix beta migration after shared components have been converted.
+
+  Goal: convert feature-level TSX components from callback props to beta `handle.props`, one feature directory at a time.
+
+  Scope:
+  - Convert app/features/portfolio first, run focused checks, then continue.
+  - Convert app/features/guidelines, app/features/catalog, and app/features/advice in separate logical commits if the diff grows.
+  - Update controllers/tests that build props for jsx(Component, props) to use the single exported props type for each component boundary.
+  - Preserve existing Frame, form, and progressive enhancement behavior.
+
+  Constraints:
+  - Do not refactor business logic while converting signatures.
+  - If one feature reveals a broader runtime issue, stop and document it before converting more features.
+
+  Verification:
+  - Run npm run typecheck after each feature directory.
+  - Run npm run test after the full feature conversion.
+
+  Deliverable: one or more small commits/PRs converting feature components, with any runtime risks called out for Prompt 6.
+  ```
+
+- [ ] **Prompt 6 — Re-test and fix Frame/clientEntry runtime flows**
+
+  ```text
+  Continue the Remix beta migration after imports and component signatures compile.
+
+  Goal: verify and fix beta runtime behavior around Frame, clientEntry, navigation, and server rendering.
+
+  Scope:
+  - Inspect app/entry.js, DocumentShell, render(), FrameSubmitEnhancement, and all uses of Frame/clientEntry.
+  - Re-test catalog import/filter/list/detail analysis flows.
+  - Re-test portfolio add/update flows.
+  - Re-test guidelines add/update/delete flows.
+  - Re-test advice analysis Frame flows.
+  - Confirm static middleware serves the beta UI runtime assets needed by hydration.
+  - Fix only issues directly tied to the beta UI runtime migration.
+
+  Verification:
+  - Run npm run typecheck, npm run test, and npm run check.
+  - If practical, start the app and manually exercise the listed flows.
+
+  Deliverable: a focused commit/PR for runtime fixes plus a concise list of any behavior that still needs manual browser verification.
+  ```
+
+- [ ] **Prompt 7 — Audit non-UI beta changelog items**
+
+  ```text
+  Finish the Remix beta migration audit. Read the upstream changelog from alpha.4 through the installed beta version and compare it to the app.
+
+  Goal: handle beta changelog items outside the UI runtime migration.
+
+  Scope:
+  - Search for remix/multipart-parser and MultipartPart.headers usage; update to object header access if present.
+  - Search for remix-test usage; replace with beta test exports if present.
+  - Evaluate whether remix/assert, remix/test, remix/node-fetch-server/test, remix/auth, remix/auth-middleware, remix/cop-middleware, or remix/csrf-middleware should replace any local helpers now.
+  - Confirm data-table breaking changes do not affect this app unless data-table imports have been added.
+  - Confirm Node.js version assumptions are documented for local development and CI.
+
+  Constraints:
+  - Prefer audit notes over speculative refactors.
+  - Only replace local helpers when the beta package clearly matches existing behavior and tests can cover it.
+
+  Verification:
+  - Run npm run check.
+  - Run npm run test.
+
+  Deliverable: a final audit commit/PR, or a docs-only note if no code changes are needed.
+  ```
+
+- [ ] **Prompt 8 — Final migration cleanup**
+
+  ```text
+  After all Remix beta migration code prompts are merged, do a final cleanup pass.
+
+  Goal: remove stale alpha-era documentation and confirm the repository now describes beta as the current baseline.
+
+  Scope:
+  - Update docs/REMIX_BETA_MIGRATION_PLAN.md checklist statuses.
+  - Update docs/REMIX_V3_PACKAGES.md "Version in use" and current usage tables.
+  - Remove or reword notes that say the app still imports remix/component.
+  - Update docs/UI_ARCHITECTURE_GUIDELINES.md and docs/FRAME_COMPONENT_MIGRATION_PLAN.md to use remix/ui as the unqualified current API.
+  - Keep historical changelog notes if they still help explain the migration.
+
+  Verification:
+  - Run git diff --check.
+  - Run npm run check if any code or checked config changed.
+
+  Deliverable: a cleanup commit/PR that makes the docs match the completed beta migration.
+  ```
 
 ## Open questions before coding the upgrade
 
