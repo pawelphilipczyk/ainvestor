@@ -29,11 +29,13 @@ export const en = {
 	'meta.title.catalog': 'AI Investor – ETF Catalog',
 	'meta.title.catalogEtf': 'AI Investor – {name}',
 	'meta.title.guidelines': 'AI Investor – Guidelines',
+	'meta.title.adminEtfImport': 'AI Investor – Admin ETF Import',
 
 	'nav.portfolio': 'Portfolio',
 	'nav.advice': 'Get Advice',
 	'nav.catalog': 'ETF Catalog',
 	'nav.guidelines': 'Investment Guidelines',
+	'nav.admin': 'Admin',
 
 	'intro.tagline':
 		'Choose where to go next. Everything works in the browser; sign in with GitHub when you want your portfolio and catalog saved across sessions.',
@@ -49,6 +51,11 @@ export const en = {
 		'Import your broker’s ETF list and browse what’s available.',
 	'section.guidelines.title': 'Investment Guidelines',
 	'section.guidelines.description': 'Set your target allocation.',
+	'admin.etfImport.title': 'Import ETF Data',
+	'admin.etfImport.description':
+		'Update the shared ETF catalog from a broker export only when the source catalog changes.',
+	'admin.etfImport.frequencyNote':
+		'Use this only when the broker ETF catalog export changes. It updates shared data that other pages use for portfolio matching, guidelines, and advice.',
 
 	'chrome.loading': 'Loading…',
 	'chrome.aria.mainNav': 'Main navigation',
@@ -122,7 +129,8 @@ export const en = {
 		'Paste fetch response JSON here, then click Import',
 	'catalog.empty.title': 'No catalog imported yet.',
 	'catalog.empty.hint':
-		'The shared catalog gist is empty. If you are the gist owner, import ETFs here to populate it.',
+		'The shared catalog gist is empty. If you are the gist owner, open Admin and import broker ETF data to populate it.',
+	'catalog.empty.adminImportLink': 'Open Admin ETF import',
 	'catalog.filter.assetType': 'Asset type',
 	'catalog.filter.allTypes': 'All types',
 	'catalog.filter.search': 'Search',

@@ -39,4 +39,7 @@ export const routes = route({
 		fragmentList: get('/fragments/list'),
 		fragmentEtfAnalysis: get('/fragments/etf-analysis/:catalogEntryId'),
 	}),
+	admin: route('/admin', {
+		etfImport: get('/etf-import'),
+	}),
 })

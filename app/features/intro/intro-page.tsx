@@ -19,20 +19,22 @@ export function IntroPage(_handle: Handle, _setup?: unknown) {
 				</p>
 			</header>
 			<ul class="grid list-none gap-4 p-0 sm:grid-cols-2">
-				{getNavLinks().map((link) => {
-					const intro = SECTION_INTROS[link.page]
-					return (
-						<li key={link.page}>
-							<SectionIntroCard
-								page={link.page}
-								variant="home-link"
-								href={link.href}
-								title={intro.title}
-								description={intro.description}
-							/>
-						</li>
-					)
-				})}
+				{getNavLinks()
+					.filter((link) => link.placement === 'primary')
+					.map((link) => {
+						const intro = SECTION_INTROS[link.page]
+						return (
+							<li key={link.page}>
+								<SectionIntroCard
+									page={link.page}
+									variant="home-link"
+									href={link.href}
+									title={intro.title}
+									description={intro.description}
+								/>
+							</li>
+						)
+					})}
 			</ul>
 		</main>
 	)

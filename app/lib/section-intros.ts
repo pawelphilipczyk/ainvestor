@@ -24,4 +24,8 @@ export const SECTION_INTROS: Record<
 		title: t('section.guidelines.title'),
 		description: t('section.guidelines.description'),
 	},
+	admin: {
+		title: t('admin.etfImport.title'),
+		description: t('admin.etfImport.description'),
+	},
 }

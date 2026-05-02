@@ -5,7 +5,6 @@ import {
 	FieldLabel,
 	SelectInput,
 	SubmitButton,
-	TextareaInput,
 	TextInput,
 } from '../../components/index.ts'
 import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
@@ -19,11 +18,9 @@ import type { CatalogRiskBand } from './lib.ts'
 
 type CatalogPageProps = {
 	catalogCount: number
-	canImport: boolean
 	typeFilter: string
 	riskFilter: '' | CatalogRiskBand
 	query: string
-	sharedCatalogOwnerLogin: string | null
 	catalogListFrameSrc: string
 }
 
@@ -48,58 +45,6 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 						</p>
 					) : null}
 				</SectionIntroCard>
-
-				{props.canImport ? (
-					<Card variant="muted" class="p-4">
-						<section>
-							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-								{t('catalog.import.title')}
-							</h2>
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{t('catalog.import.subtitle')}
-							</p>
-							{props.sharedCatalogOwnerLogin ? (
-								<p class="mt-2 text-xs text-muted-foreground">
-									{t('catalog.import.ownerActive')}
-								</p>
-							) : null}
-							<form
-								method="post"
-								action={routes.catalog.import.href()}
-								class="mt-3 grid max-w-xl gap-3"
-								data-frame-submit="catalog-list"
-								data-error-id="catalog-import-error"
-								data-reset-form
-							>
-								<div
-									id="catalog-import-error"
-									class="hidden whitespace-pre-wrap rounded-md border border-border border-l-4 border-l-destructive bg-card px-4 py-3 text-sm text-foreground shadow-sm"
-									role="alert"
-								></div>
-								<FieldLabel fieldId="pasteZone" variant="screenReader">
-									{t('catalog.import.pasteLabel.screenReader')}
-								</FieldLabel>
-								<TextareaInput
-									id="pasteZone"
-									name="bankApiJson"
-									placeholder={t('catalog.import.pastePlaceholder')}
-									rows={3}
-									required={true}
-									class="block w-full max-w-xl"
-								/>
-								<SubmitButton>{t('catalog.import.submit')}</SubmitButton>
-							</form>
-							{props.catalogCount === 0 ? (
-								<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
-									<p class="font-medium text-foreground">
-										{t('catalog.empty.title')}
-									</p>
-									<p class="mt-1">{t('catalog.empty.hint')}</p>
-								</div>
-							) : null}
-						</section>
-					</Card>
-				) : null}
 
 				{props.catalogCount > 0 ? (
 					<Card variant="muted" class="p-4">

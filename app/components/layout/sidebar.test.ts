@@ -45,6 +45,41 @@ describe('sidebar component', () => {
 		assert.match(result, /href="\/advice"/)
 		assert.match(result, /href="\/catalog"/)
 		assert.match(result, /href="\/guidelines"/)
+		assert.doesNotMatch(result, /href="\/admin\/etf-import"/)
+	})
+
+	it('Sidebar renders Admin in the lower navigation group for admins', async () => {
+		const result = await renderSidebarWithSession(
+			getNavLinks({ isAdmin: true }),
+			'admin',
+			{
+				login: 'catalog-admin',
+				token: 'tok',
+				gistId: 'gist-1',
+				isAdmin: true,
+			},
+		)
+
+		assert.match(
+			result,
+			/<div[^>]*data-sidebar-secondary-nav[^>]*>[\s\S]*href="\/admin\/etf-import"[\s\S]*<\/div>/,
+		)
+		assert.match(result, /aria-current="page"[^>]*>Admin/)
+	})
+
+	it('Sidebar hides Admin for signed-in non-admin users', async () => {
+		const result = await renderSidebarWithSession(
+			getNavLinks({ isAdmin: false }),
+			'portfolio',
+			{
+				login: 'alice',
+				token: 'tok',
+				gistId: 'gist-1',
+			},
+		)
+
+		assert.doesNotMatch(result, /href="\/admin\/etf-import"/)
+		assert.doesNotMatch(result, />Admin</)
 	})
 
 	it('Sidebar is pinned open at md breakpoint and backdrop is overlay-only below md', async () => {

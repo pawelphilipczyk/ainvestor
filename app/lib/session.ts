@@ -7,6 +7,7 @@ export type SessionData = {
 	token: string | null
 	gistId: string | null
 	login: string
+	isAdmin?: boolean
 	/** Present when login allowlist is active and this login is not on the list. */
 	approvalStatus?: 'pending'
 }
@@ -37,6 +38,7 @@ export function getSessionData(session: Session): SessionData | null {
 		token,
 		gistId: (session.get('gistId') as string | undefined) ?? null,
 		login,
+		...(session.get('isAdmin') === true ? { isAdmin: true } : {}),
 		...(approvalStatus === 'pending' ? { approvalStatus: 'pending' } : {}),
 	}
 }
@@ -64,6 +66,7 @@ export function getLayoutSession(session: Session): SessionData | null {
 		token: null,
 		gistId: null,
 		login: identity.login,
+		...(session.get('isAdmin') === true ? { isAdmin: true } : {}),
 		...(identity.approvalStatus === 'pending'
 			? { approvalStatus: 'pending' }
 			: {}),

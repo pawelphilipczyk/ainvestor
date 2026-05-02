@@ -35,12 +35,12 @@ function seedSharedCatalog(bankJson: string, ownerLogin = 'catalog-admin') {
 	})
 }
 
-async function signInAs(login: string) {
+async function signInAs(login: string, params: { isAdmin?: boolean } = {}) {
 	const session = await sessionStorage.read(null)
 	session.set('login', login)
 	session.set('token', 'test-token')
 	session.set('gistId', 'gist-1')
-	session.set('sharedCatalogAdmin', true)
+	session.set('isAdmin', params.isAdmin ?? true)
 	process.env.APPROVED_GITHUB_LOGINS = login
 	const value = await sessionStorage.save(session)
 	if (value == null) throw new Error('expected session save value')
@@ -264,7 +264,7 @@ describe('ETF Catalog page', () => {
 		assert.doesNotMatch(body, /href="[^"]*\/catalog\/etf\//)
 	})
 
-	it('GET /catalog shows import form for bank API JSON', async () => {
+	it('GET /admin/etf-import shows import form for bank API JSON', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
@@ -272,11 +272,18 @@ describe('ETF Catalog page', () => {
 			}),
 		)
 		const cookie = await signInAs('catalog-admin')
-		const response = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const response = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const body = await response.text()
 
+		assert.equal(response.status, 200)
+		assert.match(body, /Admin/)
+		assert.match(body, /Import ETF Data/)
+		assert.match(body, /Use this only when/)
 		assert.match(
 			body,
 			/<form\b[^>]*\bmethod="post"[^>]*\baction="\/catalog\/import"[^>]*>/,
@@ -286,16 +293,57 @@ describe('ETF Catalog page', () => {
 			body,
 			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")[^>]*>/,
 		)
-		assert.match(
-			body,
-			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")(?=[^>]*\bdata-frame-submit="catalog-list")[^>]*>/,
-		)
-		assert.match(body, /data-error-id="catalog-import-error"/)
-		assert.match(body, /data-reset-form/)
+		assert.doesNotMatch(body, /data-frame-submit="catalog-list"/)
+		assert.doesNotMatch(body, /data-error-id="catalog-import-error"/)
+		assert.doesNotMatch(body, /data-reset-form/)
 		assert.match(
 			body,
 			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")[^>]*>[\s\S]*?submit-button-busy-overlay[\s\S]*?<\/form>/,
 		)
+	})
+
+	it('GET /admin/etf-import returns 404 for signed-in non-admin user', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: 'regular-user' })
+		const cookie = await signInAs('regular-user', { isAdmin: false })
+		const response = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 404)
+		assert.doesNotMatch(body, /Import ETF Data/)
+		assert.doesNotMatch(body, /name="bankApiJson"/)
+	})
+
+	it('GET /admin/etf-import allows session isAdmin when login is not catalog owner', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+		const cookie = await signInAs('regular-user', { isAdmin: true })
+		const response = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Import ETF Data/)
+	})
+
+	it('GET /catalog does not show the ETF data import form', async () => {
+		const cookie = await signInAs('catalog-admin')
+		const response = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.doesNotMatch(body, /action="\/catalog\/import"/)
+		assert.doesNotMatch(body, /name="bankApiJson"/)
+		assert.doesNotMatch(body, /Paste bank API JSON/)
 	})
 
 	it('POST /catalog/import returns JSON for Accept: application/json on success without consuming flash', async () => {
@@ -340,9 +388,12 @@ describe('ETF Catalog page', () => {
 		assert.match(payload.bannerText as string, /Merged 1 row/)
 		assert.equal(payload.bannerTone, 'success')
 
-		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const catalogResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const catalogBody = await catalogResponse.text()
 		assert.doesNotMatch(catalogBody, /aria-label="Success"/)
 	})
@@ -389,7 +440,22 @@ describe('ETF Catalog page', () => {
 		const response = await testSessionFetch('http://localhost/catalog')
 		const body = await response.text()
 
-		assert.match(body, /No ETFs match your search/)
+		assert.match(body, /No catalog imported yet/)
+		assert.match(body, /The shared catalog gist is empty/)
+		assert.doesNotMatch(body, /Open Admin ETF import/)
+	})
+
+	it('GET /catalog shows Admin import link for gist owner when catalog is empty', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+		const cookie = await signInAs('catalog-admin')
+		const response = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		assert.match(body, /No catalog imported yet/)
+		assert.match(body, /href="\/admin\/etf-import"/)
+		assert.match(body, /Open Admin ETF import/)
 	})
 
 	it('GET /catalog renders theme toggle button hook without escaped HTML text', async () => {
@@ -441,7 +507,7 @@ describe('ETF Catalog page', () => {
 		)
 
 		assert.equal(importResponse.status, 302)
-		assert.equal(importResponse.headers.get('location'), '/catalog')
+		assert.equal(importResponse.headers.get('location'), '/admin/etf-import')
 
 		resetTestSessionCookieJar()
 		const catalogResponse = await testSessionFetch('http://localhost/catalog')
@@ -487,7 +553,7 @@ describe('ETF Catalog page', () => {
 		)
 
 		assert.equal(importResponse.status, 302)
-		assert.equal(importResponse.headers.get('location'), '/catalog')
+		assert.equal(importResponse.headers.get('location'), '/admin/etf-import')
 
 		const catalogResponse = await testSessionFetch('http://localhost/catalog')
 		const body = await catalogResponse.text()
@@ -526,9 +592,12 @@ describe('ETF Catalog page', () => {
 			}),
 		)
 
-		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const catalogResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const body = await catalogResponse.text()
 
 		assert.match(body, /Catalog saved/)
@@ -558,11 +627,14 @@ describe('ETF Catalog page', () => {
 		)
 
 		assert.equal(importResponse.status, 302)
-		assert.equal(importResponse.headers.get('location'), '/catalog')
+		assert.equal(importResponse.headers.get('location'), '/admin/etf-import')
 
-		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const catalogResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const body = await catalogResponse.text()
 
 		assert.match(body, /<section[^>]*aria-label="Error"/)
@@ -592,9 +664,12 @@ describe('ETF Catalog page', () => {
 
 		assert.equal(importResponse.status, 302)
 
-		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const catalogResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const body = await catalogResponse.text()
 
 		assert.match(body, /Paste is empty/)
@@ -623,9 +698,12 @@ describe('ETF Catalog page', () => {
 
 		assert.equal(importResponse.status, 302)
 
-		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const catalogResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const body = await catalogResponse.text()
 
 		assert.match(body, /empty "data" array/)
@@ -662,9 +740,12 @@ describe('ETF Catalog page', () => {
 
 		assert.equal(importResponse.status, 302)
 
-		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const catalogResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const body = await catalogResponse.text()
 
 		assert.match(body, /Nothing was saved/)
@@ -710,16 +791,18 @@ describe('ETF Catalog page', () => {
 
 		assert.equal(importResponse.status, 302)
 
-		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const catalogResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const body = await catalogResponse.text()
 
 		assert.match(body, /Catalog saved/)
 		assert.match(body, /Skipped rows:/)
 		assert.match(body, /Row 2/)
 		assert.match(body, /Missing ticker/)
-		assert.match(body, /Good/)
 		assert.match(body, /aria-label="Info"/)
 	})
 
@@ -758,9 +841,12 @@ describe('ETF Catalog page', () => {
 
 		assert.equal(importResponse.status, 302)
 
-		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const catalogResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const body = await catalogResponse.text()
 
 		assert.match(body, /Catalog saved/)
@@ -805,9 +891,12 @@ describe('ETF Catalog page', () => {
 
 		assert.equal(importResponse.status, 302)
 
-		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const catalogResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const body = await catalogResponse.text()
 
 		assert.match(body, /Catalog saved/)
@@ -837,9 +926,12 @@ describe('ETF Catalog page', () => {
 			}),
 		)
 
-		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
-			headers: { Cookie: cookie },
-		})
+		const catalogResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{
+				headers: { Cookie: cookie },
+			},
+		)
 		const body = await catalogResponse.text()
 
 		assert.match(body, /Catalog saved/)

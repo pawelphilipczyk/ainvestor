@@ -13,6 +13,21 @@ type SidebarProps = {
 	currentPage: AppPage
 }
 
+function renderSidebarNavLink(params: { link: NavLink; currentPage: AppPage }) {
+	const { link, currentPage } = params
+	const isCurrent = link.page === currentPage
+	return (
+		<a
+			href={link.href}
+			rmx-document
+			class={`flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${isCurrent ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent hover:text-accent-foreground'}`}
+			aria-current={isCurrent ? 'page' : undefined}
+		>
+			{link.label}
+		</a>
+	)
+}
+
 /**
  * Server-rendered sidebar navigation.
  * Session from DocumentShell context. Interactivity: SidebarInteractions (toggle/close).
@@ -20,6 +35,12 @@ type SidebarProps = {
 export function Sidebar(handle: Handle, _setup?: unknown) {
 	return (props: SidebarProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
+		const primaryNavLinks = props.navLinks.filter(
+			(link) => link.placement === 'primary',
+		)
+		const secondaryNavLinks = props.navLinks.filter(
+			(link) => link.placement === 'secondary',
+		)
 		return (
 			<>
 				<div
@@ -58,22 +79,28 @@ export function Sidebar(handle: Handle, _setup?: unknown) {
 							</svg>
 						</button>
 					</div>
-					<nav class="flex-1 overflow-y-auto p-4">
+					<nav class="flex flex-1 flex-col overflow-y-auto p-4">
 						<div class="grid gap-1">
-							{props.navLinks.map((link) => {
-								const isCurrent = link.page === props.currentPage
-								return (
-									<a
-										href={link.href}
-										rmx-document
-										class={`flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${isCurrent ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent hover:text-accent-foreground'}`}
-										aria-current={isCurrent ? 'page' : undefined}
-									>
-										{link.label}
-									</a>
-								)
-							})}
+							{primaryNavLinks.map((link) =>
+								renderSidebarNavLink({
+									link,
+									currentPage: props.currentPage,
+								}),
+							)}
 						</div>
+						{secondaryNavLinks.length > 0 ? (
+							<div
+								data-sidebar-secondary-nav
+								class="mt-auto grid gap-1 border-t border-border pt-4"
+							>
+								{secondaryNavLinks.map((link) =>
+									renderSidebarNavLink({
+										link,
+										currentPage: props.currentPage,
+									}),
+								)}
+							</div>
+						) : null}
 						<div class="mt-4">
 							{session ? (
 								<div class="border-t border-border pt-4">
