@@ -1,7 +1,9 @@
 # Remix GitHub Repository Analysis
 
-> Analysis of [github.com/remix-run/remix](https://github.com/remix-run/remix) for example apps, demos, and patterns.
-> Cross-checked against GitHub main branch: March 2026.
+> Analysis of [github.com/remix-run/remix](https://github.com/remix-run/remix)
+> and [api.remix.run](https://api.remix.run/) for example apps, demos, and
+> patterns. Cross-checked against GitHub main branch: March 2026; beta naming
+> notes added May 2026.
 
 ---
 
@@ -149,16 +151,23 @@ export async function uploadHandler(file: FileUpload): Promise<string> {
 }
 ```
 
-### 2.4 Component / Island Patterns
+### 2.4 UI / Island Patterns
 
-**Bookstore** uses full `remix/component` (JSX):
+**Beta package naming:** `remix@3.0.0-beta.0` removes the old
+`remix/component` exports. New work should import the consolidated UI runtime
+from `remix/ui`, server rendering from `remix/ui/server`, and JSX runtime
+helpers from `remix/ui/jsx-runtime`. Historical notes below that mention
+`remix/component` describe the alpha-era examples this app was originally built
+against.
+
+**Bookstore** uses full Remix UI/component runtime (JSX):
 
 - `clientEntry`, `renderToStream`, and component-local `mix` helpers such as `on()` and `css()`
 - router-driven server rendering plus client hydration via `run({ loadModule, resolveFrame })`
 - `RestfulForm` component for PUT/DELETE with `_method` override
 
 **Our app** uses:
-- `remix/component`: JSX page components, `clientEntry`, `renderToStream`, and `renderToString`
+- Alpha-era `remix/component`: JSX page components, `clientEntry`, `renderToStream`, and `renderToString`; migrate these imports to `remix/ui` for beta
 - server-rendered documents with clientEntry hydration
 - shared and feature-local `.component.js` files for browser behavior
 - a mostly server-first composition style instead of frame-heavy examples
