@@ -3,6 +3,13 @@ name: Deploy PR Preview
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
+  workflow_dispatch:
+    inputs:
+      ref:
+        description: Branch, tag, or commit SHA to deploy to the preview app
+        required: true
+        default: main
+        type: string
 
 concurrency:
   group: deploy-preview
@@ -13,7 +20,7 @@ env:
 
 jobs:
   preview:
-    if: github.event.pull_request.draft == false
+    if: github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.draft == false)
     runs-on: ubuntu-latest
     environment:
       name: preview
@@ -21,6 +28,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.ref || github.sha }}
 
       - name: Setup flyctl
         uses: superfly/flyctl-actions/setup-flyctl@v1.4
