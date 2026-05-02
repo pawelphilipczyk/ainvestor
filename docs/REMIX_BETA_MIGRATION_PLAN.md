@@ -194,6 +194,7 @@ small PR or a clear follow-up note before moving to the next item.
   - portfolio add/update flows
   - guidelines add/update/delete flows
   - advice analysis Frame flows
+  - non-blocking Frame SSR fallback/loading behavior from PR #133
   - static middleware for beta UI runtime assets
 
   Fix only beta runtime issues.
