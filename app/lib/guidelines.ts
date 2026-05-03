@@ -3,8 +3,8 @@ import { ETF_TYPE_LABELS_PL } from '../locales/pl.ts'
 import type { EtfType } from './etf-type.ts'
 import { ETF_TYPES } from './etf-type.ts'
 import { t } from './i18n.ts'
-import { getUiLocale } from './ui-locale.ts'
 import { takePrivateGistFetchTestGuidelines } from './private-gist-fetch-test-overlay.ts'
+import { getUiLocale } from './ui-locale.ts'
 
 export const GUIDELINES_FILENAME = 'guidelines.json'
 

@@ -6,6 +6,7 @@ import { Link } from '../navigation/link.tsx'
 import { ThemeToggleInteractions } from '../navigation/theme-toggle.component.js'
 import { ThemeToggleButton } from '../navigation/theme-toggle.tsx'
 import { AppBranding } from './app-branding.tsx'
+import { LocaleSelectSubmit } from './locale-select.component.js'
 import { SessionProvider } from './session-provider.tsx'
 
 /**
@@ -39,8 +40,8 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 							<select
 								id="ui-locale-select"
 								name="locale"
+								data-ui-locale-select
 								class="h-9 max-w-[11rem] cursor-pointer rounded-md border border-border bg-background px-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-								onInput="this.form.requestSubmit()"
 							>
 								<option value="en" selected={activeUiLocale === 'en'}>
 									{t('chrome.language.en')}
@@ -96,6 +97,7 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 					</div>
 				</div>
 				<ThemeToggleInteractions />
+				<LocaleSelectSubmit />
 			</>
 		)
 	}

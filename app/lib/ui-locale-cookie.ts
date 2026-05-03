@@ -12,7 +12,7 @@ import {
  */
 export const uiLocaleCookie = createCookie(UI_LOCALE_COOKIE_NAME, {
 	path: '/',
-	sameSite: 'lax',
+	sameSite: 'Lax',
 	maxAge: 60 * 60 * 24 * 365,
 })
 

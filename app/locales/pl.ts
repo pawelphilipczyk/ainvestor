@@ -3,8 +3,8 @@
  * Catalog fund names, tickers, and broker API field values are not translated here.
  */
 
-import type { MessageKey } from './en.ts'
 import type { EtfType } from '../lib/etf-type.ts'
+import type { MessageKey } from './en.ts'
 
 /** Polish display labels for persisted `EtfType` keys (catalog badges, guidelines). */
 export const ETF_TYPE_LABELS_PL: Record<EtfType, string> = {

@@ -1,5 +1,6 @@
 import { enum_, object, parseSafe, string } from 'remix/data-schema'
 import { createRedirectResponse } from 'remix/response/redirect'
+import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import { SUPPORTED_UI_LOCALES } from '../../lib/ui-locale.ts'
 import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
@@ -23,10 +24,7 @@ export const localeController = {
 	actions: {
 		async set(context: AppRequestContext) {
 			const form = context.get(FormData)
-			const formPayload = Object.fromEntries(form.entries()) as Record<
-				string,
-				string
-			>
+			const formPayload = objectFromFormData(form) as Record<string, string>
 			const parsed = parseSafe(SetUiLocaleSchema, formPayload)
 			if (!parsed.success) {
 				return createRedirectResponse(routes.home.index.href())
