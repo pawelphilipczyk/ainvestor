@@ -36,6 +36,10 @@ import {
 	loadCatalogPageContext,
 } from './catalog-load-context.ts'
 import { CatalogPage } from './catalog-page.tsx'
+import {
+	CATALOG_IMPORT_HAR_MAX_BYTES,
+	extractBankApiJsonFromHar,
+} from './har-bank-json-adapter.ts'
 import type { CatalogEntry, CatalogRiskBand } from './lib.ts'
 import {
 	type BankJsonImportRowIssue,
@@ -468,19 +472,40 @@ export const catalogController = {
 				return importFailureResponse(t('errors.catalog.importNotAllowed'))
 			}
 
-			const rawFromForm = context.get(FormData)?.get('bankApiJson')
-			if (typeof rawFromForm !== 'string') {
-				return importFailureResponse(t('errors.catalog.import.fieldMissing'))
-			}
-			const trimmedJson = rawFromForm.trim()
-			if (trimmedJson.length === 0) {
-				return importFailureResponse(t('errors.catalog.import.emptyJson'))
-			}
+			const form = context.get(FormData)
+			const harUpload = form?.get('bankApiHar')
+
 			let parsedJson: unknown
-			try {
-				parsedJson = JSON.parse(trimmedJson)
-			} catch {
-				return importFailureResponse(t('errors.catalog.import.invalidJson'))
+
+			if (harUpload instanceof File && harUpload.size > 0) {
+				if (harUpload.size > CATALOG_IMPORT_HAR_MAX_BYTES) {
+					return importFailureResponse(t('errors.catalog.import.harTooLarge'))
+				}
+				let harRoot: unknown
+				try {
+					harRoot = JSON.parse(await harUpload.text())
+				} catch {
+					return importFailureResponse(t('errors.catalog.import.invalidHar'))
+				}
+				const extracted = extractBankApiJsonFromHar(harRoot)
+				if (!extracted.ok) {
+					return importFailureResponse(t('errors.catalog.import.invalidHar'))
+				}
+				parsedJson = extracted.payload
+			} else {
+				const rawFromForm = form?.get('bankApiJson')
+				if (typeof rawFromForm !== 'string') {
+					return importFailureResponse(t('errors.catalog.import.fieldMissing'))
+				}
+				const trimmedJson = rawFromForm.trim()
+				if (trimmedJson.length === 0) {
+					return importFailureResponse(t('errors.catalog.import.emptyJson'))
+				}
+				try {
+					parsedJson = JSON.parse(trimmedJson)
+				} catch {
+					return importFailureResponse(t('errors.catalog.import.invalidJson'))
+				}
 			}
 
 			const parseResult = parseBankJsonForImport(parsedJson, entries)

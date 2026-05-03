@@ -116,7 +116,7 @@ export const en = {
 		'This catalog is loaded from a shared public GitHub Gist.',
 	'catalog.import.title': 'Import',
 	'catalog.import.subtitle':
-		'Paste bank API JSON below to update the shared catalog (merges with existing rows).',
+		'Paste bank API JSON or upload a DevTools HAR (.har) to update the shared catalog (merges with existing rows).',
 	'catalog.import.submit': 'Import',
 	'catalog.import.ownerOnly': 'Import updates from the shared catalog gist.',
 	'catalog.import.ownerMissing':
@@ -126,7 +126,8 @@ export const en = {
 	'catalog.import.ownerActive': 'Import updates from the shared catalog gist.',
 	'catalog.import.pasteLabel.screenReader': 'Paste bank API JSON',
 	'catalog.import.pastePlaceholder':
-		'Paste fetch response JSON here, then click Import',
+		'Paste fetch response JSON here (or use HAR upload below)',
+	'catalog.import.harLabel': 'HAR file',
 	'catalog.empty.title': 'No catalog imported yet.',
 	'catalog.empty.hint':
 		'The shared catalog gist is empty. If you are the gist owner, open Admin and import broker ETF data to populate it.',
@@ -288,11 +289,15 @@ export const en = {
 	'errors.catalog.importNotAllowed':
 		'Only the shared catalog gist owner can import catalog updates.',
 	'errors.catalog.import.fieldMissing':
-		'The import did not include any pasted text. Paste the bank API JSON and try again.',
+		'Provide pasted bank API JSON or choose a HAR file, then try again.',
 	'errors.catalog.import.emptyJson':
 		'Paste is empty. Paste the full bank API JSON response (an object with a "data" array of funds), then click Import.',
 	'errors.catalog.import.invalidJson':
 		'That text is not valid JSON. Copy the full fetch response body from your browser’s network tab and try again.',
+	'errors.catalog.import.invalidHar':
+		'That file is not a valid HAR export or it does not contain usable ETF screener API responses.',
+	'errors.catalog.import.harTooLarge':
+		'HAR file is too large. Maximum size is 3 MB.',
 	'errors.catalog.import.noRowsParsed':
 		'No ETF rows could be read from that JSON. Expected an object with a "data" array; each item needs a ticker and fund_name (and usually matches your broker’s API shape).',
 	'errors.catalog.import.diagnostic.savedLead':
