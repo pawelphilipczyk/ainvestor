@@ -60,3 +60,46 @@ test('extractBankApiJsonFromHar rejects HAR without screener entries', () => {
 	}
 	assert.equal(extractBankApiJsonFromHar(har).ok, false)
 })
+
+test('extractBankApiJsonFromHar rejects duplicate screener offsets', () => {
+	const har = {
+		log: {
+			version: '1.2',
+			entries: [
+				minimalHarEntry(0, [
+					{ ticker: 'A', fund_name: 'Alpha', isin: 'IE0000000001' },
+				]),
+				minimalHarEntry(0, [
+					{ ticker: 'B', fund_name: 'Beta', isin: 'IE0000000002' },
+				]),
+			],
+		},
+	}
+	assert.equal(extractBankApiJsonFromHar(har).ok, false)
+})
+
+test('extractBankApiJsonFromHar rejects non-numeric offset query', () => {
+	const har = {
+		log: {
+			version: '1.2',
+			entries: [
+				{
+					request: {
+						url: 'https://example.test/api/equities/widgets/etf-screener-v3?offset=bad&limit=10',
+					},
+					response: {
+						status: 200,
+						content: {
+							text: JSON.stringify({
+								data: [{ ticker: 'X', fund_name: 'Bad', isin: 'IE0000000099' }],
+								count: 1,
+								total_count: 1,
+							}),
+						},
+					},
+				},
+			],
+		},
+	}
+	assert.equal(extractBankApiJsonFromHar(har).ok, false)
+})

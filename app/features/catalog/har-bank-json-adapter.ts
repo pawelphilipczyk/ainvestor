@@ -37,14 +37,16 @@ function decodeResponseText(content: Record<string, unknown>): string | null {
 	return rawText
 }
 
-function offsetFromRequestUrl(urlString: string): number {
+function offsetFromRequestUrl(urlString: string): number | null {
 	try {
 		const offsetParam = new URL(urlString).searchParams.get('offset')
 		if (offsetParam === null || offsetParam === '') return 0
+		if (!/^\d+$/.test(offsetParam)) return null
 		const parsed = Number(offsetParam)
-		return Number.isFinite(parsed) ? parsed : 0
+		if (!Number.isSafeInteger(parsed) || parsed < 0) return null
+		return parsed
 	} catch {
-		return 0
+		return null
 	}
 }
 
@@ -98,6 +100,9 @@ export function extractBankApiJsonFromHar(
 		}
 
 		const offset = offsetFromRequestUrl(url)
+		if (offset === null || pagesByOffset.has(offset)) {
+			return { ok: false }
+		}
 		pagesByOffset.set(offset, data)
 	}
 
