@@ -286,6 +286,8 @@ export const en = {
 		'Enter an amount greater than zero to sell.',
 	'errors.portfolio.persistence':
 		'Could not save your portfolio. Please try again in a moment.',
+	'errors.upload.fileTooLarge':
+		'File upload is too large. Maximum size is 5 MB.',
 	'errors.catalog.importNotAllowed':
 		'Only the shared catalog gist owner can import catalog updates.',
 	'errors.catalog.import.fieldMissing':
@@ -296,8 +298,6 @@ export const en = {
 		'That text is not valid JSON. Copy the full fetch response body from your browser’s network tab and try again.',
 	'errors.catalog.import.invalidHar':
 		'That file is not a valid HAR export or it does not contain usable ETF screener API responses.',
-	'errors.catalog.import.harTooLarge':
-		'HAR file is too large. Maximum size is 3 MB.',
 	'errors.catalog.import.noRowsParsed':
 		'No ETF rows could be read from that JSON. Expected an object with a "data" array; each item needs a ticker and fund_name (and usually matches your broker’s API shape).',
 	'errors.catalog.import.diagnostic.savedLead':

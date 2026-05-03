@@ -7,9 +7,6 @@
  * into a single `{ data: FundRow[] }`.
  */
 
-/** Maximum upload size for catalog HAR import (3 MiB). */
-export const CATALOG_IMPORT_HAR_MAX_BYTES = 3 * 1024 * 1024
-
 const ETF_SCREENER_PATH = '/api/equities/widgets/etf-screener-v3'
 
 export type ExtractBankApiJsonFromHarResult =

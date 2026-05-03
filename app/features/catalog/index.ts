@@ -7,6 +7,7 @@ import { render } from '../../components/render.ts'
 import { requestAcceptsApplicationJson } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { format, t } from '../../lib/i18n.ts'
+import { MULTIPART_MAX_FILE_BYTES } from '../../lib/multipart-upload-limits.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
@@ -36,10 +37,7 @@ import {
 	loadCatalogPageContext,
 } from './catalog-load-context.ts'
 import { CatalogPage } from './catalog-page.tsx'
-import {
-	CATALOG_IMPORT_HAR_MAX_BYTES,
-	extractBankApiJsonFromHar,
-} from './har-bank-json-adapter.ts'
+import { extractBankApiJsonFromHar } from './har-bank-json-adapter.ts'
 import type { CatalogEntry, CatalogRiskBand } from './lib.ts'
 import {
 	type BankJsonImportRowIssue,
@@ -478,8 +476,8 @@ export const catalogController = {
 			let parsedJson: unknown
 
 			if (harUpload instanceof File && harUpload.size > 0) {
-				if (harUpload.size > CATALOG_IMPORT_HAR_MAX_BYTES) {
-					return importFailureResponse(t('errors.catalog.import.harTooLarge'))
+				if (harUpload.size > MULTIPART_MAX_FILE_BYTES) {
+					return importFailureResponse(t('errors.upload.fileTooLarge'))
 				}
 				let harRoot: unknown
 				try {
