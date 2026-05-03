@@ -1,6 +1,5 @@
 /**
- * English UI copy — single source of truth for user-visible strings (default locale).
- * Add other locales later as parallel modules; keep keys aligned across languages.
+ * English UI copy — default locale. Polish strings live in `pl.ts`; keep keys aligned.
  */
 
 import type { EtfType } from '../lib/guidelines.ts'
@@ -62,6 +61,9 @@ export const en = {
 	'chrome.aria.closeNav': 'Close navigation',
 	'chrome.aria.openNav': 'Open navigation',
 	'chrome.aria.toggleTheme': 'Toggle theme',
+	'chrome.aria.language': 'Interface language',
+	'chrome.language.en': 'English',
+	'chrome.language.pl': 'Polish',
 	'chrome.signedInAs': 'Signed in as @{login}',
 	'chrome.approvalPendingSidebar':
 		'Approval pending — ask an admin to add you to the allow list.',

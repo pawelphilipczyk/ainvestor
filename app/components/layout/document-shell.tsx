@@ -23,6 +23,8 @@ const IMPORT_MAP = JSON.stringify({
 
 type DocumentShellProps = {
 	title: string
+	/** BCP 47 language tag for `<html lang>` (from active UI locale). */
+	htmlLang: string
 	session: SessionData | null
 	currentPage: AppPage
 	flashBanner?: { text: string; tone: FlashBannerTone }
@@ -76,7 +78,7 @@ function flashToneBadgeClass(tone: FlashBannerTone): string {
 
 export function DocumentShell(_handle: Handle, _setup?: unknown) {
 	return (props: DocumentShellProps) => (
-		<html lang="en" class="dark">
+		<html lang={props.htmlLang} class="dark">
 			<head>
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width,initial-scale=1" />

@@ -1,6 +1,7 @@
 import type { Handle } from 'remix/component'
 import { t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
+import { getShellReturnPath, getUiLocale } from '../../lib/ui-locale.ts'
 import { Link } from '../navigation/link.tsx'
 import { ThemeToggleInteractions } from '../navigation/theme-toggle.component.js'
 import { ThemeToggleButton } from '../navigation/theme-toggle.tsx'
@@ -13,6 +14,8 @@ import { SessionProvider } from './session-provider.tsx'
 export function AppTopBar(handle: Handle, _setup?: unknown) {
 	return () => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
+		const activeUiLocale = getUiLocale()
+		const shellReturnPath = getShellReturnPath()
 		return (
 			<>
 				<div class="sticky top-0 z-30 flex min-h-14 items-center border-b border-border bg-background px-4 py-2.5 md:ml-64">
@@ -20,6 +23,42 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 						<AppBranding />
 					</div>
 					<div class="ml-auto flex items-center gap-3">
+						<div
+							class="flex items-center gap-1 rounded-md border border-border bg-background p-0.5"
+							role="group"
+							aria-label={t('chrome.aria.language')}
+						>
+							<form method="post" action={routes.locale.set.href()}>
+								<input type="hidden" name="locale" value="en" />
+								<input
+									type="hidden"
+									name="shellReturnPath"
+									value={shellReturnPath}
+								/>
+								<button
+									type="submit"
+									aria-pressed={activeUiLocale === 'en'}
+									class={`rounded px-2 py-1 text-xs font-medium transition-colors ${activeUiLocale === 'en' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+								>
+									{t('chrome.language.en')}
+								</button>
+							</form>
+							<form method="post" action={routes.locale.set.href()}>
+								<input type="hidden" name="locale" value="pl" />
+								<input
+									type="hidden"
+									name="shellReturnPath"
+									value={shellReturnPath}
+								/>
+								<button
+									type="submit"
+									aria-pressed={activeUiLocale === 'pl'}
+									class={`rounded px-2 py-1 text-xs font-medium transition-colors ${activeUiLocale === 'pl' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'}`}
+								>
+									{t('chrome.language.pl')}
+								</button>
+							</form>
+						</div>
 						{session ? (
 							<span class="hidden text-xs font-medium text-muted-foreground sm:inline">
 								@{session.login}

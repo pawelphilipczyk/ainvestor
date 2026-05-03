@@ -10,6 +10,7 @@ import { DocumentShell } from './layout/document-shell.tsx'
 
 export type RenderOptions = {
 	title: string
+	htmlLang: string
 	session: SessionData | null
 	currentPage: AppPage
 	body: RemixNode
@@ -27,6 +28,7 @@ export type RenderOptions = {
 export async function render(options: RenderOptions): Promise<Response> {
 	const document = jsx(DocumentShell, {
 		title: options.title,
+		htmlLang: options.htmlLang,
 		session: options.session,
 		currentPage: options.currentPage,
 		flashBanner: options.flashBanner,

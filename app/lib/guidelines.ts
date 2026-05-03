@@ -1,3 +1,4 @@
+/** English-only labels for persisted `EtfType` keys (catalog data stays language-neutral). */
 import { ETF_TYPE_LABELS } from '../locales/en.ts'
 import { t } from './i18n.ts'
 import { takePrivateGistFetchTestGuidelines } from './private-gist-fetch-test-overlay.ts'
@@ -21,7 +22,7 @@ export const ETF_TYPES = [
 	'money_market',
 ] as const satisfies readonly EtfType[]
 
-/** Human-readable ETF category label (locale-backed; default English). */
+/** Human-readable ETF category label (English display for persisted type keys). */
 export function formatEtfTypeLabel(etfType: EtfType): string {
 	const label = ETF_TYPE_LABELS[etfType]
 	if (typeof label === 'string' && label.length > 0) {

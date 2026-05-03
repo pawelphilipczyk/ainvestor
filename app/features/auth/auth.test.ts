@@ -36,7 +36,12 @@ describe('GitHub OAuth routes', () => {
 
 		assert.equal(response.status, 302)
 		assert.equal(response.headers.get('location'), '/')
-		const cookie = response.headers.get('set-cookie') ?? ''
-		assert.ok(cookie.includes('session=;') || cookie.includes('Max-Age=0'))
+		const setCookies = response.headers.getSetCookie?.() ?? []
+		const joined =
+			setCookies.length > 0
+				? setCookies.join('\n')
+				: (response.headers.get('set-cookie') ?? '')
+		assert.ok(joined.includes('session=;') || joined.includes('Max-Age=0'))
+		assert.ok(joined.includes('ui_locale=en'))
 	})
 })

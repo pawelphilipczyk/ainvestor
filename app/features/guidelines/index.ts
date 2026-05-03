@@ -33,6 +33,7 @@ import { parseLocaleDecimalString } from '../../lib/locale-decimal-input.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import {
 	type FlashedBanner,
 	flashBanner,
@@ -690,6 +691,7 @@ async function renderGuidelinesPage(params: {
 	})
 	return render({
 		title: t('meta.title.guidelines'),
+		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'guidelines',
 		body,

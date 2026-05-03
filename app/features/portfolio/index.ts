@@ -12,6 +12,7 @@ import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import {
 	type FlashedBanner,
 	flashBanner,
@@ -243,6 +244,7 @@ async function renderPage(params: RenderPortfolioPageParams) {
 	const body = jsx(PortfolioPage, { instrumentOptions })
 	return render({
 		title: t('meta.title.portfolio'),
+		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'portfolio',
 		body,
