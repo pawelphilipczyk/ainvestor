@@ -33,6 +33,7 @@ export function CatalogImportCard(_handle: Handle, _setup?: unknown) {
 				<form
 					method="post"
 					action={routes.catalog.import.href()}
+					enctype="multipart/form-data"
 					class="mt-3 grid max-w-xl gap-3"
 				>
 					<FieldLabel fieldId="pasteZone" variant="screenReader">
@@ -43,9 +44,20 @@ export function CatalogImportCard(_handle: Handle, _setup?: unknown) {
 						name="bankApiJson"
 						placeholder={t('catalog.import.pastePlaceholder')}
 						rows={8}
-						required={true}
 						class="block w-full max-w-xl"
 					/>
+					<div class="grid gap-2">
+						<FieldLabel fieldId="catalogHarUpload">
+							{t('catalog.import.harLabel')}
+						</FieldLabel>
+						<input
+							id="catalogHarUpload"
+							name="bankApiHar"
+							type="file"
+							accept=".har,application/json"
+							class="min-w-0 max-w-full cursor-pointer text-sm text-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-primary-foreground hover:file:opacity-90"
+						/>
+					</div>
 					<SubmitButton>{t('catalog.import.submit')}</SubmitButton>
 				</form>
 			</section>

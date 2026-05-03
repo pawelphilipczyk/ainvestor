@@ -286,9 +286,10 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Use this only when/)
 		assert.match(
 			body,
-			/<form\b[^>]*\bmethod="post"[^>]*\baction="\/catalog\/import"[^>]*>/,
+			/<form\b[^>]*\bmethod="post"[^>]*\baction="\/catalog\/import"[^>]*\benctype="multipart\/form-data"[^>]*>/,
 		)
 		assert.match(body, /name="bankApiJson"/)
+		assert.match(body, /name="bankApiHar"/)
 		assert.match(
 			body,
 			/<form\b(?=[^>]*\bmethod="post")(?=[^>]*\baction="\/catalog\/import")[^>]*>/,

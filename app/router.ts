@@ -21,6 +21,11 @@ import {
 	resetEtfEntries,
 } from './features/portfolio/index.ts'
 import { stripGithubTokenIfUnapproved } from './lib/approved-users.ts'
+import { multipartLimitFlashOnError } from './lib/multipart-limit-flash-middleware.ts'
+import {
+	MULTIPART_MAX_FILE_BYTES,
+	MULTIPART_MAX_TOTAL_BYTES,
+} from './lib/multipart-upload-limits.ts'
 import type { AppRequestContext } from './lib/request-context.ts'
 import { sessionCookie, sessionStorage } from './lib/session.ts'
 import { routes } from './routes.ts'
@@ -58,18 +63,26 @@ export const router = createRouter({
 					appStatic,
 					remixRuntime,
 					logger(),
-					formData(),
-					methodOverride(),
 					session(sessionCookie, sessionStorage),
+					multipartLimitFlashOnError(),
+					formData({
+						maxFileSize: MULTIPART_MAX_FILE_BYTES,
+						maxTotalSize: MULTIPART_MAX_TOTAL_BYTES,
+					}),
+					methodOverride(),
 					enforceGithubApproval(),
 				]
 			: [
 					appStatic,
 					remixRuntime,
 					compression(),
-					formData(),
-					methodOverride(),
 					session(sessionCookie, sessionStorage),
+					multipartLimitFlashOnError(),
+					formData({
+						maxFileSize: MULTIPART_MAX_FILE_BYTES,
+						maxTotalSize: MULTIPART_MAX_TOTAL_BYTES,
+					}),
+					methodOverride(),
 					enforceGithubApproval(),
 				],
 })
