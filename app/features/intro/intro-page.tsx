@@ -2,7 +2,7 @@ import type { Handle } from 'remix/component'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import { getNavLinks } from '../../components/layout/sidebar-nav.ts'
 import { t } from '../../lib/i18n.ts'
-import { SECTION_INTROS } from '../../lib/section-intros.ts'
+import { getSectionIntro } from '../../lib/section-intros.ts'
 
 /**
  * Landing page: large card links to each main section of the app.
@@ -22,7 +22,7 @@ export function IntroPage(_handle: Handle, _setup?: unknown) {
 				{getNavLinks()
 					.filter((link) => link.placement === 'primary')
 					.map((link) => {
-						const intro = SECTION_INTROS[link.page]
+						const intro = getSectionIntro(link.page)
 						return (
 							<li key={link.page}>
 								<SectionIntroCard

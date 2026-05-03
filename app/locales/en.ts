@@ -2,7 +2,7 @@
  * English UI copy — default locale. Polish strings live in `pl.ts`; keep keys aligned.
  */
 
-import type { EtfType } from '../lib/guidelines.ts'
+import type { EtfType } from '../lib/etf-type.ts'
 
 /** Display labels for persisted `EtfType` values (catalog badges, guidelines). */
 export const ETF_TYPE_LABELS: Record<EtfType, string> = {

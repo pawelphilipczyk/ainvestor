@@ -4,6 +4,17 @@
  */
 
 import type { MessageKey } from './en.ts'
+import type { EtfType } from '../lib/etf-type.ts'
+
+/** Polish display labels for persisted `EtfType` keys (catalog badges, guidelines). */
+export const ETF_TYPE_LABELS_PL: Record<EtfType, string> = {
+	equity: 'Akcje',
+	bond: 'Obligacje',
+	real_estate: 'Nieruchomości',
+	commodity: 'Towary',
+	mixed: 'Mieszany',
+	money_market: 'Rynek pieniężny',
+}
 
 export const pl = {
 	'app.name': 'AI Investor',

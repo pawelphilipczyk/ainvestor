@@ -13,11 +13,20 @@ import {
 	sumGuidelineTargetPercent,
 	wouldGuidelineTotalExceedCap,
 } from './guidelines.ts'
+import { runWithUiCopyContext } from './ui-locale.ts'
 
 describe('guidelines', () => {
-	it('formatEtfTypeLabel replaces all underscores in ETF types', () => {
+	it('formatEtfTypeLabel uses English labels by default', () => {
 		assert.equal(formatEtfTypeLabel('real_estate'), 'real estate')
 		assert.equal(formatEtfTypeLabel('money_market'), 'money market')
+	})
+
+	it('formatEtfTypeLabel uses Polish labels when UI locale is pl', () => {
+		runWithUiCopyContext({ locale: 'pl', shellReturnPath: '/' }, () => {
+			assert.equal(formatEtfTypeLabel('equity'), 'Akcje')
+			assert.equal(formatEtfTypeLabel('bond'), 'Obligacje')
+			assert.equal(formatEtfTypeLabel('real_estate'), 'Nieruchomości')
+		})
 	})
 
 	it('GUIDELINES_FILENAME is a non-empty string', () => {

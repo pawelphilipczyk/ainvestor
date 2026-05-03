@@ -15,7 +15,7 @@ import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-p
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
-import { SECTION_INTROS } from '../../lib/section-intros.ts'
+import { getSectionIntro } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import { findCatalogEntryByTicker } from '../catalog/lib.ts'
@@ -650,14 +650,15 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 		)
 		const frameSrc = props.adviceResultFrameSrc
 		const accessBanner = adviceAccessBannerFromProps(props)
+		const adviceIntro = getSectionIntro('advice')
 		return (
 			<main class="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-6">
 				<div class="min-w-0 w-full">
 					<SectionIntroCard
 						page="advice"
 						variant="page"
-						title={SECTION_INTROS.advice.title}
-						description={SECTION_INTROS.advice.description}
+						title={adviceIntro.title}
+						description={adviceIntro.description}
 					/>
 				</div>
 				{accessBanner === 'pending_approval' ? (

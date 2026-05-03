@@ -13,10 +13,10 @@ describe('ui locale', () => {
 		assert.equal(localeQueryToUiLocale('xx'), 'invalid')
 	})
 
-	it('formatEtfTypeLabel stays English for persisted keys when UI is Polish', () => {
+	it('formatEtfTypeLabel uses Polish asset-class labels when UI is Polish', () => {
 		runWithUiCopyContext({ locale: 'pl', shellReturnPath: '/catalog' }, () => {
-			assert.equal(formatEtfTypeLabel('equity'), 'equity')
-			assert.equal(formatEtfTypeLabel('real_estate'), 'real estate')
+			assert.equal(formatEtfTypeLabel('equity'), 'Akcje')
+			assert.equal(formatEtfTypeLabel('real_estate'), 'Nieruchomości')
 			assert.equal(t('catalog.table.name'), 'Nazwa')
 			assert.equal(
 				format(t('guidelines.list.deleteAria.instrument'), { name: 'VWCE' }),
