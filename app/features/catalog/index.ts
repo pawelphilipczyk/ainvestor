@@ -17,8 +17,8 @@ import {
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
-import { routes } from '../../routes.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
+import { routes } from '../../routes.ts'
 import { getOrCreateAdviceClient } from '../advice/advice-client.ts'
 import {
 	ADVICE_MODEL_IDS,

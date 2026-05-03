@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/component'
 import { t } from '../../lib/i18n.ts'
-import { routes } from '../../routes.ts'
 import { getShellReturnPath, getUiLocale } from '../../lib/ui-locale.ts'
+import { routes } from '../../routes.ts'
 import { Link } from '../navigation/link.tsx'
 import { ThemeToggleInteractions } from '../navigation/theme-toggle.component.js'
 import { ThemeToggleButton } from '../navigation/theme-toggle.tsx'

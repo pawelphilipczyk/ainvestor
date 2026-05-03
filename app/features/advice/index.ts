@@ -18,8 +18,8 @@ import {
 	type SessionWithGithubGist,
 	sessionUsesGithubGist,
 } from '../../lib/session.ts'
-import { routes } from '../../routes.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
+import { routes } from '../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'

@@ -1,9 +1,9 @@
 import { createCookie } from 'remix/cookie'
 import {
 	DEFAULT_UI_LOCALE,
-	type UiLocale,
-	UI_LOCALE_COOKIE_NAME,
 	isUiLocale,
+	UI_LOCALE_COOKIE_NAME,
+	type UiLocale,
 } from './ui-locale.ts'
 
 /**

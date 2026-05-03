@@ -2,12 +2,11 @@ import type { Middleware } from 'remix/fetch-router'
 import { createRedirectResponse } from 'remix/response/redirect'
 import {
 	localeQueryToUiLocale,
-	parseUiLocaleCookie,
 	pathAndSearch,
 	runWithUiCopyContext,
 	type UiLocale,
 } from './ui-locale.ts'
-import { uiLocaleCookie } from './ui-locale-cookie.ts'
+import { parseUiLocaleCookie, uiLocaleCookie } from './ui-locale-cookie.ts'
 
 function pathAndSearchWithoutLocale(url: URL): string {
 	const next = new URL(url.href)
@@ -43,10 +42,7 @@ export function uiLocaleMiddleware(): Middleware {
 			const location = pathAndSearchWithoutLocale(requestUrl)
 			const headers = new Headers()
 			if (fromQuery !== fromCookie) {
-				headers.append(
-					'Set-Cookie',
-					await uiLocaleCookie.serialize(fromQuery),
-				)
+				headers.append('Set-Cookie', await uiLocaleCookie.serialize(fromQuery))
 			}
 			return createRedirectResponse(location, { status: 302, headers })
 		}
@@ -56,9 +52,8 @@ export function uiLocaleMiddleware(): Middleware {
 
 		const shellReturnPath = pathAndSearch(requestUrl)
 
-		return runWithUiCopyContext(
-			{ locale: activeLocale, shellReturnPath },
-			() => next(),
+		return runWithUiCopyContext({ locale: activeLocale, shellReturnPath }, () =>
+			next(),
 		)
 	}
 }

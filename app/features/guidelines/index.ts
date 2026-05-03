@@ -33,12 +33,12 @@ import { parseLocaleDecimalString } from '../../lib/locale-decimal-input.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
-import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import {
 	type FlashedBanner,
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import {

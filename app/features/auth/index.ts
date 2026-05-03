@@ -5,9 +5,9 @@ import { isGithubLoginApproved } from '../../lib/approved-users.ts'
 import { getClientId, getClientSecret } from '../../lib/auth.ts'
 import { findOrCreateGist } from '../../lib/gist.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
-import { routes } from '../../routes.ts'
 import { DEFAULT_UI_LOCALE } from '../../lib/ui-locale.ts'
 import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
+import { routes } from '../../routes.ts'
 import {
 	fetchSharedCatalogSnapshot,
 	isSharedCatalogAdmin,
