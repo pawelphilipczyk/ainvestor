@@ -23,42 +23,33 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 						<AppBranding />
 					</div>
 					<div class="ml-auto flex items-center gap-3">
-						<div
-							class="flex items-center gap-1 rounded-md border border-border bg-background p-0.5"
-							role="group"
-							aria-label={t('chrome.aria.language')}
+						<form
+							method="post"
+							action={routes.locale.set.href()}
+							class="flex shrink-0 items-center"
 						>
-							<form method="post" action={routes.locale.set.href()}>
-								<input type="hidden" name="locale" value="en" />
-								<input
-									type="hidden"
-									name="shellReturnPath"
-									value={shellReturnPath}
-								/>
-								<button
-									type="submit"
-									aria-pressed={activeUiLocale === 'en'}
-									class={`rounded px-2 py-1 text-xs font-medium transition-colors ${activeUiLocale === 'en' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-								>
+							<label class="sr-only" for="ui-locale-select">
+								{t('chrome.aria.language')}
+							</label>
+							<input
+								type="hidden"
+								name="shellReturnPath"
+								value={shellReturnPath}
+							/>
+							<select
+								id="ui-locale-select"
+								name="locale"
+								class="h-9 max-w-[11rem] cursor-pointer rounded-md border border-border bg-background px-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								onInput="this.form.requestSubmit()"
+							>
+								<option value="en" selected={activeUiLocale === 'en'}>
 									{t('chrome.language.en')}
-								</button>
-							</form>
-							<form method="post" action={routes.locale.set.href()}>
-								<input type="hidden" name="locale" value="pl" />
-								<input
-									type="hidden"
-									name="shellReturnPath"
-									value={shellReturnPath}
-								/>
-								<button
-									type="submit"
-									aria-pressed={activeUiLocale === 'pl'}
-									class={`rounded px-2 py-1 text-xs font-medium transition-colors ${activeUiLocale === 'pl' ? 'bg-accent text-accent-foreground' : 'text-muted-foreground hover:text-foreground'}`}
-								>
+								</option>
+								<option value="pl" selected={activeUiLocale === 'pl'}>
 									{t('chrome.language.pl')}
-								</button>
-							</form>
-						</div>
+								</option>
+							</select>
+						</form>
 						{session ? (
 							<span class="hidden text-xs font-medium text-muted-foreground sm:inline">
 								@{session.login}
