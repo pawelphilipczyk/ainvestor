@@ -19,6 +19,9 @@ export const routes = route({
 		callback: get('/auth/github/callback'),
 		logout: post('/auth/logout'),
 	},
+	locale: {
+		set: post('/locale'),
+	},
 	advice: {
 		...adviceForm,
 		fragmentResult: get('/fragments/advice-result'),

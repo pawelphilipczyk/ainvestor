@@ -17,6 +17,7 @@ import {
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import { getOrCreateAdviceClient } from '../advice/advice-client.ts'
 import {
@@ -301,6 +302,7 @@ export const catalogController = {
 			if (pendingApproval) {
 				return render({
 					title: format(t('meta.title.catalogEtf'), { name: fundName }),
+					htmlLang: htmlLangForCurrentUiLocale(),
 					session: layoutSession,
 					currentPage: 'catalog',
 					body: jsx(CatalogEtfPage, {
@@ -317,6 +319,7 @@ export const catalogController = {
 
 			return render({
 				title: format(t('meta.title.catalogEtf'), { name: fundName }),
+				htmlLang: htmlLangForCurrentUiLocale(),
 				session: layoutSession,
 				currentPage: 'catalog',
 				body: jsx(CatalogEtfPage, {
@@ -660,6 +663,7 @@ async function renderCatalogPage(params: {
 	})
 	return render({
 		title: t('meta.title.catalog'),
+		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'catalog',
 		body,

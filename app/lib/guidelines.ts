@@ -1,29 +1,19 @@
 import { ETF_TYPE_LABELS } from '../locales/en.ts'
+import { ETF_TYPE_LABELS_PL } from '../locales/pl.ts'
+import type { EtfType } from './etf-type.ts'
+import { ETF_TYPES } from './etf-type.ts'
 import { t } from './i18n.ts'
 import { takePrivateGistFetchTestGuidelines } from './private-gist-fetch-test-overlay.ts'
+import { getUiLocale } from './ui-locale.ts'
 
 export const GUIDELINES_FILENAME = 'guidelines.json'
 
-export type EtfType =
-	| 'equity'
-	| 'bond'
-	| 'real_estate'
-	| 'commodity'
-	| 'mixed'
-	| 'money_market'
-
-export const ETF_TYPES = [
-	'equity',
-	'bond',
-	'real_estate',
-	'commodity',
-	'mixed',
-	'money_market',
-] as const satisfies readonly EtfType[]
-
-/** Human-readable ETF category label (locale-backed; default English). */
+export type { EtfType } from './etf-type.ts'
+export { ETF_TYPES } from './etf-type.ts'
+/** Human-readable ETF category label for persisted `EtfType` keys (UI locale, not broker data). */
 export function formatEtfTypeLabel(etfType: EtfType): string {
-	const label = ETF_TYPE_LABELS[etfType]
+	const labels = getUiLocale() === 'pl' ? ETF_TYPE_LABELS_PL : ETF_TYPE_LABELS
+	const label = labels[etfType]
 	if (typeof label === 'string' && label.length > 0) {
 		return label
 	}

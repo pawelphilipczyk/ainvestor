@@ -5,6 +5,8 @@ import { isGithubLoginApproved } from '../../lib/approved-users.ts'
 import { getClientId, getClientSecret } from '../../lib/auth.ts'
 import { findOrCreateGist } from '../../lib/gist.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
+import { DEFAULT_UI_LOCALE } from '../../lib/ui-locale.ts'
+import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
 import { routes } from '../../routes.ts'
 import {
 	fetchSharedCatalogSnapshot,
@@ -151,9 +153,14 @@ export const authController = {
 			return createRedirectResponse(routes.home.index.href())
 		},
 
-		logout(context: AppRequestContext) {
+		async logout(context: AppRequestContext) {
 			context.get(Session).destroy()
-			return createRedirectResponse(routes.home.index.href())
+			const headers = new Headers()
+			headers.append(
+				'Set-Cookie',
+				await uiLocaleCookie.serialize(DEFAULT_UI_LOCALE),
+			)
+			return createRedirectResponse(routes.home.index.href(), { headers })
 		},
 	},
 }

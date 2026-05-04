@@ -111,6 +111,8 @@ Avoid feature-specific JavaScript conventions when a simple shared attribute con
 
 User-visible text should continue to originate from locale keys or server-side helpers, not ad-hoc strings inside client behavior.
 
+New copy must be added under the same key in **`app/locales/en.ts`** and **`app/locales/pl.ts`** (see **UI translations (i18n)** in `AGENTS.md`).
+
 This includes:
 
 - button labels and busy text

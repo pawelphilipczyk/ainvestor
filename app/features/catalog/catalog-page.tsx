@@ -11,7 +11,7 @@ import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-p
 import { SessionProvider } from '../../components/layout/session-provider.tsx'
 import { ETF_TYPES, formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
-import { SECTION_INTROS } from '../../lib/section-intros.ts'
+import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogRiskBand } from './lib.ts'
@@ -28,13 +28,14 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 	return (props: CatalogPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
 
+		const catalogIntro = getSectionIntro('catalog')
 		return (
 			<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
 				<SectionIntroCard
 					page="catalog"
 					variant="page"
-					title={SECTION_INTROS.catalog.title}
-					description={SECTION_INTROS.catalog.description}
+					title={catalogIntro.title}
+					description={catalogIntro.description}
 				>
 					<p class="mt-0.5 text-xs text-muted-foreground">
 						{t('catalog.sharedSource')}

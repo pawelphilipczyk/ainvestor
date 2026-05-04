@@ -17,6 +17,7 @@ import {
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import {
@@ -243,6 +244,7 @@ async function renderPage(params: RenderPortfolioPageParams) {
 	const body = jsx(PortfolioPage, { instrumentOptions })
 	return render({
 		title: t('meta.title.portfolio'),
+		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'portfolio',
 		body,

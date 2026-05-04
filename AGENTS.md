@@ -35,15 +35,17 @@ When the **first message in a thread** asks for a **code change** (feature, fix,
 
 ## UI translations (i18n)
 
-User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed by dot-separated paths (for example `nav.portfolio`, `portfolio.title`). This keeps all English strings in one module for now; when the map grows unwieldy, split into feature files and merge into `en` (or add `app/locales/pl.ts`, etc.) without changing call sites.
+User-visible copy lives in **`app/locales/en.ts`** and **`app/locales/pl.ts`** as flat objects keyed by dot-separated paths (for example `nav.portfolio`, `portfolio.title`), sharing the same **`MessageKey`** type. When the map grows unwieldy, split into feature files and merge into `en` / `pl` without changing call sites.
+
+**English and Polish together:** Any new user-visible string (labels, placeholders, `aria-label` / `title` text, flash messages, page titles, option text, empty states, errors shown in the shell, and new fields in **`#ui-client-messages`**) must add a matching entry in **both** `en.ts` and `pl.ts` before the change is considered complete. Keep `{placeholder}` names identical across locales so `format()` works. Do not ship UI copy that only exists in English.
 
 **Server rendering:** Import **`t`** from `app/lib/i18n.ts` for static strings. Use **`format(template, { name, count })`** from the same module when a string needs `{placeholder}` substitution. Page titles and flash/API error messages should use `t()` / `format()` at the controller or handler boundary so they stay translatable.
 
 **Remix v3:** The framework does not ship a dedicated i18n package. Server-first apps typically resolve a locale in middleware or the session, load the right message map, and pass strings into JSX (or a small `t` scoped to the request). Community stacks often pair **i18next** with **remix-i18next** when they need React-heavy client translation; this project’s UI is mostly server-rendered JSX, so a typed message map plus `t`/`format` is enough until multi-locale routing or client-only copy demands a heavier library.
 
-**ETF type labels** shown in the catalog and guidelines come from **`ETF_TYPE_LABELS`** in `app/locales/en.ts` (typed as `Record<EtfType, string>` for exhaustiveness) via `formatEtfTypeLabel()` in `app/lib/guidelines.ts`, which falls back to **`catalog.etfTypeUnknown`** if a label is missing. Keep data keys like `real_estate` stable; translate display labels only.
+**ETF type labels** shown in the catalog and guidelines use **`ETF_TYPE_LABELS`** in `app/locales/en.ts` and **`ETF_TYPE_LABELS_PL`** in `app/locales/pl.ts` (each typed as `Record<EtfType, string>` for exhaustiveness) via `formatEtfTypeLabel()` in `app/lib/guidelines.ts`, which falls back to **`catalog.etfTypeUnknown`** if a label is missing. Keep persisted keys like `real_estate` stable; translate display labels only.
 
-**Section intros** (`SECTION_INTROS` in `app/lib/section-intros.ts`) are built from locale keys so home cards and page headers stay aligned with `t()`.
+**Section intros** — call **`getSectionIntro(page)`** from `app/lib/section-intros.ts` when rendering so home cards and page headers resolve `t()` at request time (not at module load). Copy still comes from the `section.*` / `admin.*` keys in `en.ts` / `pl.ts`.
 
 **Sidebar nav:** Use **`getNavLinks()`** from `app/components/layout/sidebar-nav.ts` (not a module-level array) so link labels are resolved when the shell or intro page renders, not at import time.
 

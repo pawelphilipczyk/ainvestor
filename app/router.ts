@@ -16,6 +16,7 @@ import {
 } from './features/catalog/index.ts'
 import { guidelinesController } from './features/guidelines/index.ts'
 import { homeController } from './features/intro/index.ts'
+import { localeController } from './features/locale/index.ts'
 import {
 	portfolioController,
 	resetEtfEntries,
@@ -28,6 +29,7 @@ import {
 } from './lib/multipart-upload-limits.ts'
 import type { AppRequestContext } from './lib/request-context.ts'
 import { sessionCookie, sessionStorage } from './lib/session.ts'
+import { uiLocaleMiddleware } from './lib/ui-locale-middleware.ts'
 import { routes } from './routes.ts'
 
 export { resetEtfEntries, resetGuestCatalog, setAdviceClient }
@@ -63,6 +65,7 @@ export const router = createRouter({
 					appStatic,
 					remixRuntime,
 					logger(),
+					uiLocaleMiddleware(),
 					session(sessionCookie, sessionStorage),
 					multipartLimitFlashOnError(),
 					formData({
@@ -76,6 +79,7 @@ export const router = createRouter({
 					appStatic,
 					remixRuntime,
 					compression(),
+					uiLocaleMiddleware(),
 					session(sessionCookie, sessionStorage),
 					multipartLimitFlashOnError(),
 					formData({
@@ -95,6 +99,7 @@ router.get(routes.health, () => {
 
 router.map(routes.home, homeController)
 router.map(routes.portfolio, portfolioController)
+router.map(routes.locale, localeController)
 router.map(routes.auth, authController)
 router.map(routes.guidelines, guidelinesController)
 router.map(routes.catalog, catalogController)

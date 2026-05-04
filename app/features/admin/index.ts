@@ -5,6 +5,7 @@ import { t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { readFlashedBanner } from '../../lib/session-flash.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { fetchSharedCatalogSnapshot } from '../catalog/lib.ts'
 import { AdminETFImportPage } from './admin-etf-import-page.tsx'
 
@@ -27,6 +28,7 @@ export const adminController = {
 
 			return render({
 				title: t('meta.title.adminEtfImport'),
+				htmlLang: htmlLangForCurrentUiLocale(),
 				session: layoutSession,
 				currentPage: 'admin',
 				body: jsx(AdminETFImportPage, {

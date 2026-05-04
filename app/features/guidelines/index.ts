@@ -38,6 +38,7 @@ import {
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import {
@@ -690,6 +691,7 @@ async function renderGuidelinesPage(params: {
 	})
 	return render({
 		title: t('meta.title.guidelines'),
+		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'guidelines',
 		body,

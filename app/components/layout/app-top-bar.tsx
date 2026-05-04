@@ -1,10 +1,12 @@
 import type { Handle } from 'remix/component'
 import { t } from '../../lib/i18n.ts'
+import { getShellReturnPath, getUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import { Link } from '../navigation/link.tsx'
 import { ThemeToggleInteractions } from '../navigation/theme-toggle.component.js'
 import { ThemeToggleButton } from '../navigation/theme-toggle.tsx'
 import { AppBranding } from './app-branding.tsx'
+import { LocaleSelectSubmit } from './locale-select.component.js'
 import { SessionProvider } from './session-provider.tsx'
 
 /**
@@ -13,6 +15,8 @@ import { SessionProvider } from './session-provider.tsx'
 export function AppTopBar(handle: Handle, _setup?: unknown) {
 	return () => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
+		const activeUiLocale = getUiLocale()
+		const shellReturnPath = getShellReturnPath()
 		return (
 			<>
 				<div class="sticky top-0 z-30 flex min-h-14 items-center border-b border-border bg-background px-4 py-2.5 md:ml-64">
@@ -20,6 +24,33 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 						<AppBranding />
 					</div>
 					<div class="ml-auto flex items-center gap-3">
+						<form
+							method="post"
+							action={routes.locale.set.href()}
+							class="flex shrink-0 items-center"
+						>
+							<label class="sr-only" for="ui-locale-select">
+								{t('chrome.aria.language')}
+							</label>
+							<input
+								type="hidden"
+								name="shellReturnPath"
+								value={shellReturnPath}
+							/>
+							<select
+								id="ui-locale-select"
+								name="locale"
+								data-ui-locale-select
+								class="h-9 max-w-[11rem] cursor-pointer rounded-md border border-border bg-background px-2 text-sm text-foreground shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							>
+								<option value="en" selected={activeUiLocale === 'en'}>
+									{t('chrome.language.en')}
+								</option>
+								<option value="pl" selected={activeUiLocale === 'pl'}>
+									{t('chrome.language.pl')}
+								</option>
+							</select>
+						</form>
 						{session ? (
 							<span class="hidden text-xs font-medium text-muted-foreground sm:inline">
 								@{session.login}
@@ -66,6 +97,7 @@ export function AppTopBar(handle: Handle, _setup?: unknown) {
 					</div>
 				</div>
 				<ThemeToggleInteractions />
+				<LocaleSelectSubmit />
 			</>
 		)
 	}

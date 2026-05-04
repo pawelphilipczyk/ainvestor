@@ -4,7 +4,7 @@ import { Card } from '../../components/index.ts'
 import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
 import { SessionProvider } from '../../components/layout/session-provider.tsx'
 import { t } from '../../lib/i18n.ts'
-import { SECTION_INTROS } from '../../lib/section-intros.ts'
+import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { ImportEtfForm } from './import-etf-form/import-etf-form.tsx'
@@ -20,13 +20,14 @@ type PortfolioPageProps = {
 export function PortfolioPage(handle: Handle, _setup?: unknown) {
 	return (props: PortfolioPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
+		const portfolioIntro = getSectionIntro('portfolio')
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-lg gap-6">
 				<SectionIntroCard
 					page="portfolio"
 					variant="page"
-					title={SECTION_INTROS.portfolio.title}
-					description={SECTION_INTROS.portfolio.description}
+					title={portfolioIntro.title}
+					description={portfolioIntro.description}
 				>
 					{sessionUsesGithubGist(session) ? (
 						<p class="mt-1 text-xs text-muted-foreground">

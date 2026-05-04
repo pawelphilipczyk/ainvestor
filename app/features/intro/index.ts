@@ -4,6 +4,7 @@ import { render } from '../../components/render.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import { getLayoutSession } from '../../lib/session.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { IntroPage } from './intro-page.tsx'
 
 export const homeController = {
@@ -12,6 +13,7 @@ export const homeController = {
 			const layoutSession = getLayoutSession(context.get(Session))
 			return render({
 				title: t('meta.title.home'),
+				htmlLang: htmlLangForCurrentUiLocale(),
 				session: layoutSession,
 				currentPage: 'home',
 				body: jsx(IntroPage, {}),

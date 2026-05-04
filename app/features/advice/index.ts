@@ -18,6 +18,7 @@ import {
 	type SessionWithGithubGist,
 	sessionUsesGithubGist,
 } from '../../lib/session.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
@@ -160,6 +161,7 @@ function renderAdvicePageResponse(options: {
 
 	return render({
 		title: t('meta.title.advice'),
+		htmlLang: htmlLangForCurrentUiLocale(),
 		session: options.session,
 		currentPage: 'advice',
 		body: jsx(AdvicePage, {
