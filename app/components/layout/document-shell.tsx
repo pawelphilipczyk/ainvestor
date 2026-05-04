@@ -28,6 +28,8 @@ type DocumentShellProps = {
 	session: SessionData | null
 	currentPage: AppPage
 	flashBanner?: { text: string; tone: FlashBannerTone }
+	/** Global ETF detail modal (`?etf=`); rendered by `render()` when `requestUrl` is passed. */
+	etfOverlay?: RemixNode | null
 	children: RemixNode
 }
 
@@ -143,6 +145,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 							</section>
 						) : null}
 						{props.children}
+						{props.etfOverlay}
 					</div>
 				</SessionProvider>
 				<FrameSubmitEnhancement />

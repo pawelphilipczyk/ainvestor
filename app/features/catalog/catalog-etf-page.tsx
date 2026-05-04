@@ -1,12 +1,12 @@
-import { Frame, type Handle } from 'remix/component'
-import { Card } from '../../components/data-display/card.tsx'
-import { SubmitButton } from '../../components/forms/submit-button.tsx'
-import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
-import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
+import { type Handle } from 'remix/component'
 import { t } from '../../lib/i18n.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
 // @ts-expect-error Runtime-only remix clientEntry (scoped to this page)
 import { CatalogEtfBackEnhancement } from './catalog-etf-back.component.js'
+import {
+	CatalogEtfDetailAnalysisSection,
+	CatalogEtfDetailCatalogCard,
+} from './catalog-etf-detail-sections.tsx'
 import type { CatalogEntry } from './lib.ts'
 
 export type CatalogEtfPageProps = {
@@ -20,91 +20,30 @@ export type CatalogEtfPageProps = {
 	/** GET fragment URL for Remix `<Frame>` (empty analysis until POST succeeds). */
 	analysisFrameSrc?: string
 	selectedModel?: AdviceModelId
-}
-
-function formatOptionalPercent(value: number): string {
-	return `${new Intl.NumberFormat('en-US', {
-		minimumFractionDigits: 0,
-		maximumFractionDigits: 2,
-	}).format(value)}%`
+	/** Full-page layout with sticky header; omit for embedded overlay content. */
+	fullPage?: boolean
 }
 
 export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 	return (props: CatalogEtfPageProps) => {
 		const { entry } = props
-		const typeLabel =
-			formatEtfTypeLabel(entry.type) || t('catalog.etfTypeUnknown')
-		const esgLabel =
-			entry.esg === true
-				? t('catalog.etfDetail.esgYes')
-				: entry.esg === false
-					? t('catalog.etfDetail.esgNo')
-					: null
+		const fullPage = props.fullPage !== false
 
-		const catalogRows: { label: string; value: string; valueClass?: string }[] =
-			[
-				{ label: t('catalog.table.ticker'), value: entry.ticker },
-				{ label: t('catalog.table.name'), value: entry.name },
-				{ label: t('catalog.table.type'), value: typeLabel },
-				{
-					label: t('catalog.table.description'),
-					value:
-						entry.description.trim().length > 0
-							? entry.description
-							: t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.table.isin'),
-					value: entry.isin ?? t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.etfDetail.field.expenseRatio'),
-					value: entry.expense_ratio ?? t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.etfDetail.field.riskKid'),
-					value:
-						typeof entry.risk_kid === 'number'
-							? String(entry.risk_kid)
-							: t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.etfDetail.field.region'),
-					value: entry.region ?? t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.etfDetail.field.sector'),
-					value: entry.sector ?? t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.etfDetail.field.rateOfReturn'),
-					value:
-						typeof entry.rate_of_return === 'number'
-							? formatOptionalPercent(entry.rate_of_return)
-							: t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.etfDetail.field.volatility'),
-					value: entry.volatility ?? t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.etfDetail.field.returnRisk'),
-					value: entry.return_risk ?? t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.etfDetail.field.fundSize'),
-					value: entry.fund_size ?? t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.etfDetail.field.esg'),
-					value: esgLabel ?? t('catalog.emptyCell'),
-				},
-				{
-					label: t('catalog.etfDetail.field.id'),
-					value: entry.id,
-					valueClass: 'break-all font-mono text-xs',
-				},
-			]
+		const body = (
+			<>
+				<CatalogEtfDetailCatalogCard entry={entry} />
+				<CatalogEtfDetailAnalysisSection
+					analysisPostHref={props.analysisPostHref}
+					analysisFrameSrc={props.analysisFrameSrc}
+					descriptionText={props.descriptionText}
+					selectedModel={props.selectedModel}
+				/>
+			</>
+		)
+
+		if (!fullPage) {
+			return <div class="space-y-6">{body}</div>
+		}
 
 		return (
 			<div class="flex min-h-[calc(100dvh-7rem)] w-full min-w-0 max-w-full flex-col overflow-x-hidden">
@@ -129,70 +68,7 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 					</div>
 				</header>
 				<main class="mx-auto w-full min-w-0 max-w-3xl flex-1 space-y-6 overflow-x-hidden px-4 py-6">
-					<Card class="min-w-0 max-w-full overflow-x-hidden p-5">
-						<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-							{t('catalog.etfDetail.catalogCardTitle')}
-						</h2>
-						<dl class="mt-4">
-							{catalogRows.map((row) => (
-								<div
-									key={row.label}
-									class="grid gap-1 border-b border-border/60 py-3 last:border-0 sm:grid-cols-[minmax(0,11rem)_1fr] sm:gap-4"
-								>
-									<dt class="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-										{row.label}
-									</dt>
-									<dd
-										class={`min-w-0 text-sm text-card-foreground ${row.valueClass ?? ''}`.trim()}
-									>
-										{row.value}
-									</dd>
-								</div>
-							))}
-						</dl>
-					</Card>
-
-					<section
-						class="min-w-0 max-w-full overflow-x-hidden"
-						aria-labelledby="catalog-etf-analysis-heading"
-					>
-						<h2
-							id="catalog-etf-analysis-heading"
-							class="mb-3 text-base font-semibold tracking-tight text-card-foreground"
-						>
-							{t('catalog.etfDetail.analysisTitle')}
-						</h2>
-						{props.analysisPostHref && props.analysisFrameSrc ? (
-							<>
-								<form
-									method="post"
-									action={props.analysisPostHref}
-									data-frame-submit="catalog-etf-analysis"
-									data-frame-replace-from-response="1"
-									data-frame-hide-form-on-success="1"
-									class="min-w-0"
-								>
-									<input
-										type="hidden"
-										name="model"
-										value={props.selectedModel ?? ''}
-									/>
-									<SubmitButton>
-										{t('catalog.etfDetail.loadAnalysisButton')}
-									</SubmitButton>
-								</form>
-								<Frame
-									name="catalog-etf-analysis"
-									src={props.analysisFrameSrc}
-									fallback={frameLoadingPlaceholder()}
-								/>
-							</>
-						) : (
-							<div class="min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
-								{props.descriptionText ?? ''}
-							</div>
-						)}
-					</section>
+					{body}
 				</main>
 				<CatalogEtfBackEnhancement />
 			</div>

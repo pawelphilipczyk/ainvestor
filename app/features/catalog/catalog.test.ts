@@ -75,7 +75,7 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /href="\/catalog\/etf\/row-ticker-link-test/)
+		assert.match(body, /href="\/catalog\?[^"]*etf=row-ticker-link-test/)
 		assert.doesNotMatch(body, />ETF details</)
 	})
 

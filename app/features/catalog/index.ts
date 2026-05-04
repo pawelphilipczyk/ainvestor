@@ -26,11 +26,17 @@ import {
 	DEFAULT_ADVICE_MODEL,
 } from '../advice/advice-openai.ts'
 import {
+	catalogEtfAnalysisFrameSrc,
+	parseOptionalAdviceModelFromUrl,
+	samePathAndSearch,
+} from './catalog-etf-overlay-build.ts'
+import {
 	CatalogEtfAnalysisFragment,
 	type CatalogEtfAnalysisFragmentProps,
 } from './catalog-etf-analysis-fragment.tsx'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
+import { catalogIndexHrefWithFilters } from './catalog-index-url.ts'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
 	isAdmin,
@@ -196,26 +202,6 @@ function decodeCatalogEntryIdFromPath(raw: string | undefined): string | null {
 	}
 }
 
-function parseOptionalAdviceModelFromUrl(url: string): AdviceModelId {
-	const raw = new URL(url).searchParams.get('model')
-	if (raw && (ADVICE_MODEL_IDS as readonly string[]).includes(raw)) {
-		return raw as AdviceModelId
-	}
-	return DEFAULT_ADVICE_MODEL
-}
-
-function catalogEtfAnalysisFrameSrc(
-	entryId: string,
-	model: AdviceModelId,
-): string {
-	const base = routes.catalog.fragmentEtfAnalysis.href({
-		catalogEntryId: entryId,
-	})
-	if (model === DEFAULT_ADVICE_MODEL) return base
-	const searchParams = new URLSearchParams({ model })
-	return `${base}?${searchParams.toString()}`
-}
-
 function renderCatalogEtfAnalysisFragmentHtml(
 	props: CatalogEtfAnalysisFragmentProps,
 	init?: ResponseInit,
@@ -229,16 +215,6 @@ function renderCatalogEtfAnalysisFragmentHtml(
 			headers,
 		},
 	)
-}
-
-function samePathAndSearch(a: string, b: string): boolean {
-	try {
-		const urlA = new URL(a, 'https://frame-resolve.local')
-		const urlB = new URL(b, 'https://frame-resolve.local')
-		return urlA.pathname === urlB.pathname && urlA.search === urlB.search
-	} catch {
-		return a === b
-	}
 }
 
 // ---------------------------------------------------------------------------
@@ -258,6 +234,7 @@ export const catalogController = {
 			const { catalogSnapshot, entries, session, layoutSession } = load
 
 			return renderCatalogPage({
+				requestUrl: context.request.url,
 				catalog: catalogSnapshot.entries,
 				entries,
 				session: layoutSession,
@@ -632,6 +609,7 @@ function catalogListFrameSrc(params: {
 }
 
 async function renderCatalogPage(params: {
+	requestUrl: string
 	catalog: CatalogEntry[]
 	entries: EtfEntry[]
 	session: SessionData | null
@@ -643,6 +621,7 @@ async function renderCatalogPage(params: {
 	flashBanner?: FlashedBanner
 }) {
 	const {
+		requestUrl,
 		catalog,
 		entries,
 		session,
@@ -668,6 +647,7 @@ async function renderCatalogPage(params: {
 		currentPage: 'catalog',
 		body,
 		flashBanner,
+		requestUrl,
 		resolveFrame(source) {
 			if (source === frameSrc) {
 				return renderToStream(

@@ -154,6 +154,7 @@ export const pl = {
 	'catalog.table.isin': 'ISIN',
 	'catalog.table.value': 'Wartość',
 	'catalog.etfDetail.back': 'Wstecz',
+	'catalog.etfDetail.closeOverlay': 'Zamknij',
 	'catalog.etfDetail.pendingBody':
 		'Szczegóły ETF są dostępne po akceptacji konta.',
 	'catalog.etfDetail.catalogCardTitle': 'Z Twojego katalogu',

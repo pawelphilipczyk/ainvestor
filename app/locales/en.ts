@@ -158,6 +158,7 @@ export const en = {
 	'catalog.table.isin': 'ISIN',
 	'catalog.table.value': 'Value',
 	'catalog.etfDetail.back': 'Back',
+	'catalog.etfDetail.closeOverlay': 'Close',
 	'catalog.etfDetail.pendingBody':
 		'ETF details are available after your account is approved.',
 	'catalog.etfDetail.catalogCardTitle': 'From your catalog',

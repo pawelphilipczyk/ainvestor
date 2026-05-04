@@ -19,6 +19,7 @@ import { getSectionIntro } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import { findCatalogEntryByTicker } from '../catalog/lib.ts'
+import { adviceIndexHrefWithOptionalEtf } from './advice-etf-url.ts'
 import type {
 	AdviceBlock,
 	AdviceDocument,
@@ -86,10 +87,13 @@ type AdvicePageProps = {
 	adviceGistPersistFailed?: boolean
 	formError?: FormError
 	pendingApproval?: boolean
-	/** Guest or signed-in user without a private gist — forms disabled; explain sign-in / Portfolio. */
 	adviceGistGate?: 'sign_in' | 'connect_gist'
 	/** When set, analysis results load inside a Remix `<Frame>` at this URL. */
 	adviceResultFrameSrc?: string
+	/**
+	 * Stable catalog row id from `?etf=` on this request; keeps tab switches and form posts on advice opening the shell ETF modal.
+	 */
+	preservedEtfCatalogEntryId?: string | null
 }
 
 type AdviceAccessBanner =
@@ -393,10 +397,16 @@ function renderEtfProposals(
 		selectedModel: AdviceModelId
 		pendingApproval: boolean
 		catalog: CatalogEntry[] | undefined
+		activeTab: AdviceAnalysisMode
 	},
 ) {
-	const { defaultCashCurrency, selectedModel, pendingApproval, catalog } =
-		options
+	const {
+		defaultCashCurrency,
+		selectedModel,
+		pendingApproval,
+		catalog,
+		activeTab,
+	} = options
 	const tableColSpan = pendingApproval ? 5 : 6
 	return (
 		<section>
@@ -457,10 +467,11 @@ function renderEtfProposals(
 							)
 							const etfDetailsHref =
 								catalogEntryId !== null
-									? routes.catalog.etf.href(
-											{ catalogEntryId },
-											{ model: selectedModel },
-										)
+									? adviceIndexHrefWithOptionalEtf({
+											tab: activeTab,
+											model: selectedModel,
+											catalogEntryId,
+										})
 									: null
 							return (
 								<tr
@@ -523,6 +534,7 @@ function renderAdviceBlock(
 		selectedModel: AdviceModelId
 		pendingApproval: boolean
 		catalog: CatalogEntry[] | undefined
+		activeTab: AdviceAnalysisMode
 	},
 ) {
 	if (block.type === 'paragraph') {
@@ -549,6 +561,7 @@ function renderAdviceBlock(
 		selectedModel: etfOptions.selectedModel,
 		pendingApproval: etfOptions.pendingApproval,
 		catalog: etfOptions.catalog,
+		activeTab: etfOptions.activeTab,
 	})
 }
 
@@ -560,6 +573,7 @@ function adviceResultCardView(props: {
 	cashCurrency?: string
 	selectedModel?: AdviceModelId
 	catalog?: CatalogEntry[]
+	activeTab?: AdviceAnalysisMode
 	adviceFromGist?: boolean
 	adviceGistSavedAt?: string
 	adviceGistPersistFailed?: boolean
@@ -642,12 +656,28 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 		const pendingApproval = props.pendingApproval === true
 		const adviceGistGate = props.adviceGistGate
 		const adviceFormDisabled = pendingApproval || adviceGistGate !== undefined
-		const buyNextHref = routes.advice.index.href({}, { tab: 'buy_next' })
-		const reviewHref = routes.advice.index.href({}, { tab: 'portfolio_review' })
-		const buyNextAction = routes.advice.action.href({}, { tab: 'buy_next' })
+		const etfToPreserve = props.preservedEtfCatalogEntryId ?? null
+		const buyNextHref = adviceIndexHrefWithOptionalEtf({
+			tab: 'buy_next',
+			model: selectedModel,
+			catalogEntryId: etfToPreserve ?? undefined,
+		})
+		const reviewHref = adviceIndexHrefWithOptionalEtf({
+			tab: 'portfolio_review',
+			model: selectedModel,
+			catalogEntryId: etfToPreserve ?? undefined,
+		})
+		const buyNextAction = routes.advice.action.href(
+			{},
+			etfToPreserve !== null
+				? { tab: 'buy_next', etf: etfToPreserve }
+				: { tab: 'buy_next' },
+		)
 		const reviewAction = routes.advice.action.href(
 			{},
-			{ tab: 'portfolio_review' },
+			etfToPreserve !== null
+				? { tab: 'portfolio_review', etf: etfToPreserve }
+				: { tab: 'portfolio_review' },
 		)
 		const frameSrc = props.adviceResultFrameSrc
 		const accessBanner = adviceAccessBannerFromProps(props)

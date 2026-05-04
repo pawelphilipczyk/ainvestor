@@ -17,6 +17,7 @@ export const homeController = {
 				session: layoutSession,
 				currentPage: 'home',
 				body: jsx(IntroPage, {}),
+				requestUrl: context.request.url,
 			})
 		},
 	},

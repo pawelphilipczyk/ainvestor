@@ -20,6 +20,8 @@ import {
 } from '../../lib/session.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
+import { parseOptionalAdviceModelFromUrl } from '../catalog/catalog-etf-overlay-build.ts'
+import { parseEtfDetailSearchParam } from '../catalog/catalog-etf-search-param.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
@@ -92,29 +94,53 @@ type AdvicePageRenderProps = {
 	formError?: { summary: string; detail?: string }
 	pendingApproval?: boolean
 	adviceGistGate?: 'sign_in' | 'connect_gist'
+	/** Catalog row id from `?etf=` on this request (passed to AdvicePage for tab/action URLs). */
+	preservedEtfCatalogEntryId?: string | null
 }
 
 const ADVICE_GIST_STALE_HEADER = 'X-Advice-Gist-Stale'
 
-function adviceResultFragmentSrc(activeTab: AdviceAnalysisMode): string {
+function adviceResultFragmentSrc(url: string): string {
+	const incoming = new URL(url)
 	const tabQuery =
-		activeTab === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
+		incoming.searchParams.get('tab') === 'portfolio_review'
+			? 'portfolio_review'
+			: 'buy_next'
 	const base = routes.advice.fragmentResult.href()
-	return `${base}?tab=${tabQuery}`
+	const out = new URL(base, 'https://advice-fragment.local')
+	out.searchParams.set('tab', tabQuery)
+	const etfId = parseEtfDetailSearchParam(incoming.href)
+	if (etfId) {
+		out.searchParams.set('etf', etfId)
+	}
+	const model = parseOptionalAdviceModelFromUrl(incoming.href)
+	if (model !== DEFAULT_ADVICE_MODEL) {
+		out.searchParams.set('model', model)
+	}
+	return `${out.pathname}${out.search}`
 }
 
-function shouldStreamAdviceResult(props: AdvicePageRenderProps): boolean {
+function shouldStreamAdviceResult(
+	props: AdvicePageRenderProps,
+	requestUrl: string,
+): boolean {
 	if (props.adviceGistGate !== undefined) return false
 	if (props.advice === undefined) return false
 	const resultMode =
 		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
-	return props.cashAmount !== undefined || resultMode === 'portfolio_review'
+	if (resultMode === 'portfolio_review') return true
+	// `buy_next` + empty cash: allow fragment when `?etf=` is open (result card is still shown).
+	if (parseEtfDetailSearchParam(requestUrl) !== null) {
+		return true
+	}
+	return props.cashAmount !== undefined
 }
 
 function adviceResultCardPropsFromPage(
 	props: AdvicePageRenderProps,
+	requestUrl: string,
 ): AdviceResultCardProps | null {
-	if (!shouldStreamAdviceResult(props) || props.advice === undefined) {
+	if (!shouldStreamAdviceResult(props, requestUrl) || props.advice === undefined) {
 		return null
 	}
 	return {
@@ -125,6 +151,7 @@ function adviceResultCardPropsFromPage(
 		cashCurrency: props.cashCurrency,
 		selectedModel: props.selectedModel,
 		catalog: props.catalog,
+		activeTab: props.activeTab,
 		adviceFromGist: props.adviceFromGist,
 		adviceGistSavedAt: props.adviceGistSavedAt,
 		adviceGistPersistFailed: props.adviceGistPersistFailed,
@@ -137,27 +164,42 @@ function resolveAdviceResultFrame(
 	source: string,
 	frameSrc: string | undefined,
 	props: AdvicePageRenderProps,
+	requestUrl: string,
 ) {
 	if (frameSrc === undefined || source !== frameSrc) return ''
-	const cardProps = adviceResultCardPropsFromPage(props)
+	const cardProps = adviceResultCardPropsFromPage(props, requestUrl)
 	if (cardProps === null) return ''
 	return renderToStream(jsx(AdviceResultCard, cardProps))
 }
 
-function renderAdvicePageResponse(options: {
+async function renderAdvicePageResponse(options: {
 	session: SessionData | null
 	props: AdvicePageRenderProps
+	requestUrl: string
 	init?: ResponseInit
 }) {
-	const activeTab = normalizeAdviceAnalysisTab(options.props.activeTab)
-	const frameSrc = shouldStreamAdviceResult(options.props)
-		? adviceResultFragmentSrc(activeTab)
+	const propsWithCatalog =
+		parseEtfDetailSearchParam(options.requestUrl) !== null &&
+		options.props.catalog === undefined
+			? {
+					...options.props,
+					catalog: await fetchCatalog(),
+				}
+			: options.props
+
+	const activeTab = normalizeAdviceAnalysisTab(propsWithCatalog.activeTab)
+	const frameSrc = shouldStreamAdviceResult(propsWithCatalog, options.requestUrl)
+		? adviceResultFragmentSrc(options.requestUrl)
 		: undefined
 
 	const responseHeaders =
-		options.props.adviceGistPersistFailed === true
+		propsWithCatalog.adviceGistPersistFailed === true
 			? { [ADVICE_GIST_STALE_HEADER]: '1' }
 			: undefined
+
+	const preservedEtfCatalogEntryId = parseEtfDetailSearchParam(
+		options.requestUrl,
+	)
 
 	return render({
 		title: t('meta.title.advice'),
@@ -165,13 +207,21 @@ function renderAdvicePageResponse(options: {
 		session: options.session,
 		currentPage: 'advice',
 		body: jsx(AdvicePage, {
-			...options.props,
+			...propsWithCatalog,
 			adviceResultFrameSrc: frameSrc,
+			activeTab,
+			preservedEtfCatalogEntryId,
 		}),
 		init: options.init,
 		responseHeaders,
+		requestUrl: options.requestUrl,
 		resolveFrame(source) {
-			return resolveAdviceResultFrame(source, frameSrc, options.props)
+			return resolveAdviceResultFrame(
+				source,
+				frameSrc,
+				propsWithCatalog,
+				options.requestUrl,
+			)
 		},
 	})
 }
@@ -289,6 +339,7 @@ export const adviceController = {
 			})
 			return renderAdvicePageResponse({
 				session: layoutSession,
+				requestUrl: context.request.url,
 				props: withAdviceGate(
 					baseProps,
 					layoutSession,
@@ -314,7 +365,10 @@ export const adviceController = {
 				session,
 				pendingApproval,
 			)
-			const cardProps = adviceResultCardPropsFromPage(props)
+			const cardProps = adviceResultCardPropsFromPage(
+				props,
+				context.request.url,
+			)
 			if (cardProps === null) {
 				return new Response(null, {
 					status: 204,
@@ -336,6 +390,7 @@ export const adviceController = {
 			if (!form) {
 				return renderAdvicePageResponse({
 					session: layoutSession,
+					requestUrl: context.request.url,
 					props: withAdviceGate(
 						{
 							pendingApproval,
@@ -406,6 +461,7 @@ export const adviceController = {
 						: DEFAULT_ADVICE_ANALYSIS_MODE
 				return renderAdvicePageResponse({
 					session: layoutSession,
+					requestUrl: context.request.url,
 					props: withAdviceGate(
 						{
 							pendingApproval,
@@ -437,6 +493,7 @@ export const adviceController = {
 			if (analysisMode === 'buy_next' && trimmedCash === '') {
 				return renderAdvicePageResponse({
 					session: layoutSession,
+					requestUrl: context.request.url,
 					props: withAdviceGate(
 						{
 							pendingApproval,
@@ -461,6 +518,7 @@ export const adviceController = {
 			if (pendingApproval) {
 				return renderAdvicePageResponse({
 					session: layoutSession,
+					requestUrl: context.request.url,
 					props: withAdviceGate(
 						{
 							pendingApproval: true,
@@ -525,6 +583,7 @@ export const adviceController = {
 						: undefined
 				return renderAdvicePageResponse({
 					session: layoutSession,
+					requestUrl: context.request.url,
 					props: withAdviceGate(
 						{
 							pendingApproval,
@@ -543,6 +602,7 @@ export const adviceController = {
 			if (!sessionUsesGithubGist(session)) {
 				return renderAdvicePageResponse({
 					session: layoutSession,
+					requestUrl: context.request.url,
 					props: withAdviceGate(
 						{
 							pendingApproval,
@@ -606,6 +666,7 @@ export const adviceController = {
 				}
 				return renderAdvicePageResponse({
 					session: layoutSession,
+					requestUrl: context.request.url,
 					props: withAdviceGate(
 						{
 							pendingApproval,
@@ -638,6 +699,7 @@ export const adviceController = {
 						: String(err)
 				return renderAdvicePageResponse({
 					session: layoutSession,
+					requestUrl: context.request.url,
 					props: withAdviceGate(
 						{
 							pendingApproval,

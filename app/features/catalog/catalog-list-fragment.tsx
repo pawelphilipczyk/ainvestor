@@ -6,6 +6,7 @@ import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
 import { DEFAULT_ADVICE_MODEL } from '../advice/advice-openai.ts'
+import { catalogIndexHrefWithFilters } from './catalog-index-url.ts'
 import {
 	type CatalogEntry,
 	type CatalogRiskBand,
@@ -55,13 +56,21 @@ function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
 function renderCatalogRow(
 	entry: CatalogEntry,
 	holding: EtfEntry | undefined,
-	options: { tickerLinksToDetail: boolean },
+	options: {
+		tickerLinksToDetail: boolean
+		typeFilter: string
+		riskFilter: '' | CatalogRiskBand
+		query: string
+	},
 ) {
-	const { tickerLinksToDetail } = options
-	const etfDetailHref = routes.catalog.etf.href(
-		{ catalogEntryId: entry.id },
-		{ model: DEFAULT_ADVICE_MODEL },
-	)
+	const { tickerLinksToDetail, typeFilter, riskFilter, query } = options
+	const etfDetailHref = catalogIndexHrefWithFilters({
+		typeFilter,
+		riskFilter,
+		query,
+		catalogEntryId: entry.id,
+		model: DEFAULT_ADVICE_MODEL,
+	})
 	const riskBand = riskBandFromRiskKid(entry.risk_kid)
 	const riskCell =
 		riskBand === undefined ? (
@@ -217,7 +226,12 @@ export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
 										renderCatalogRow(
 											e,
 											holdingsByTicker.get(holdingKey(e.ticker)),
-											{ tickerLinksToDetail },
+											{
+												tickerLinksToDetail,
+												typeFilter: props.typeFilter,
+												riskFilter: props.riskFilter,
+												query: props.query,
+											},
 										),
 									)}
 								</tbody>
@@ -271,7 +285,12 @@ export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
 								</thead>
 								<tbody>
 									{restOfCatalog.map((e) =>
-										renderCatalogRow(e, undefined, { tickerLinksToDetail }),
+										renderCatalogRow(e, undefined, {
+											tickerLinksToDetail,
+											typeFilter: props.typeFilter,
+											riskFilter: props.riskFilter,
+											query: props.query,
+										}),
 									)}
 								</tbody>
 							</ScrollableTable>
