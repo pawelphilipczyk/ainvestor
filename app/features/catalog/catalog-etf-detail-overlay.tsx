@@ -1,20 +1,23 @@
-import { type Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/component'
 import { t } from '../../lib/i18n.ts'
-import type { AdviceModelId } from '../advice/advice-openai.ts'
+import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
+import type { CatalogEntry } from './lib.ts'
 // @ts-expect-error Runtime-only remix clientEntry
 import { CatalogEtfOverlayEnhancement } from './catalog-etf-overlay.component.js'
-import { CatalogEtfPage, type CatalogEtfPageProps } from './catalog-etf-page.tsx'
 
 const CATALOG_ETF_DIALOG_ID = 'catalog-etf-dialog'
+const CATALOG_ETF_MODAL_BODY_FRAME = 'catalog-etf-modal-body'
 
-export type CatalogEtfDetailOverlayProps = Omit<CatalogEtfPageProps, 'fullPage'> & {
-	/** URL without the `etf` search param; used for close control and Escape handling. */
+export type CatalogEtfDetailOverlayProps = {
+	entry: CatalogEntry
 	closeHref: string
+	/** GET URL for `<Frame>` loading ETF detail UI + nested analysis frame. */
+	modalBodyFrameSrc: string
 }
 
 export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 	return (props: CatalogEtfDetailOverlayProps) => {
-		const { entry, closeHref } = props
+		const { entry, closeHref, modalBodyFrameSrc } = props
 		return (
 			<dialog
 				id={CATALOG_ETF_DIALOG_ID}
@@ -48,18 +51,15 @@ export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 						</div>
 					</header>
 					<div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
-						<CatalogEtfPage
-							entry={entry}
-							catalogFallbackHref={props.catalogFallbackHref}
-							descriptionText={props.descriptionText}
-							analysisPostHref={props.analysisPostHref}
-							analysisFrameSrc={props.analysisFrameSrc}
-							selectedModel={props.selectedModel}
-							fullPage={false}
+						<Frame
+							name={CATALOG_ETF_MODAL_BODY_FRAME}
+							src={modalBodyFrameSrc}
+							fallback={frameLoadingPlaceholder()}
+							class="min-h-0"
 						/>
-						<CatalogEtfOverlayEnhancement />
 					</div>
 				</div>
+				<CatalogEtfOverlayEnhancement />
 			</dialog>
 		)
 	}

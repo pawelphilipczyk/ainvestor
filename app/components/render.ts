@@ -8,6 +8,10 @@ import {
 	buildCatalogEtfDetailOverlayForSearchParam,
 	samePathAndSearch,
 } from '../features/catalog/catalog-etf-overlay-build.ts'
+import {
+	CatalogEtfModalBodyFragment,
+	type CatalogEtfModalBodyFragmentProps,
+} from '../features/catalog/catalog-etf-modal-body-fragment.tsx'
 import { parseEtfDetailSearchParam } from '../features/catalog/catalog-etf-search-param.ts'
 import { fetchSharedCatalogSnapshot } from '../features/catalog/lib.ts'
 import type { AppPage } from '../lib/app-page.ts'
@@ -41,6 +45,10 @@ export type RenderOptions = {
 export async function render(options: RenderOptions): Promise<Response> {
 	let etfOverlay: ReturnType<typeof jsx> | null = null
 	let etfOverlayAnalysisFrameSrc: string | null = null
+	let etfModalBodyFrameResolve: {
+		frameSrc: string
+		props: CatalogEtfModalBodyFragmentProps
+	} | null = null
 	let etfModalTitle: string | null = null
 
 	if (options.requestUrl !== undefined) {
@@ -57,18 +65,29 @@ export async function render(options: RenderOptions): Promise<Response> {
 			})
 			etfOverlay = built.overlay
 			etfOverlayAnalysisFrameSrc = built.analysisFrameSrc
+			etfModalBodyFrameResolve = built.modalBodyFrameResolve
 			etfModalTitle = built.titleWhenOpen
 		}
 	}
 
 	const mergedResolveFrame: RenderToStreamOptions['resolveFrame'] | undefined =
-		options.resolveFrame !== undefined || etfOverlayAnalysisFrameSrc !== null
+		options.resolveFrame !== undefined ||
+		etfOverlayAnalysisFrameSrc !== null ||
+		etfModalBodyFrameResolve !== null
 			? (source) => {
 					const fromRoute =
 						options.resolveFrame !== undefined
 							? options.resolveFrame(source)
 							: ''
 					if (fromRoute !== '') return fromRoute
+					if (
+						etfModalBodyFrameResolve !== null &&
+						samePathAndSearch(source, etfModalBodyFrameResolve.frameSrc)
+					) {
+						return renderToStream(
+							jsx(CatalogEtfModalBodyFragment, etfModalBodyFrameResolve.props),
+						)
+					}
 					if (
 						etfOverlayAnalysisFrameSrc !== null &&
 						samePathAndSearch(source, etfOverlayAnalysisFrameSrc)

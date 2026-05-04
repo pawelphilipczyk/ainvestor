@@ -36,6 +36,10 @@ import {
 } from './catalog-etf-analysis-fragment.tsx'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
+import {
+	CatalogEtfModalBodyFragment,
+	type CatalogEtfModalBodyFragmentProps,
+} from './catalog-etf-modal-body-fragment.tsx'
 import { catalogIndexHrefWithFilters } from './catalog-index-url.ts'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
@@ -217,6 +221,21 @@ function renderCatalogEtfAnalysisFragmentHtml(
 	)
 }
 
+function renderCatalogEtfModalBodyFragmentHtml(
+	props: CatalogEtfModalBodyFragmentProps,
+	init?: ResponseInit,
+): Response {
+	const headers = new Headers(init?.headers)
+	headers.set('Cache-Control', 'no-store')
+	return createHtmlResponse(
+		renderToStream(jsx(CatalogEtfModalBodyFragment, props)),
+		{
+			...init,
+			headers,
+		},
+	)
+}
+
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
@@ -315,6 +334,68 @@ export const catalogController = {
 					}
 					return ''
 				},
+			})
+		},
+
+		async fragmentEtfModalBody(context: AppRequestContext) {
+			const entryId = decodeCatalogEntryIdFromPath(
+				(context.params as Record<string, string>).catalogEntryId,
+			)
+			if (entryId === null) {
+				return new Response('Not found', {
+					status: 404,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				})
+			}
+
+			const url = new URL(context.request.url)
+			const rawClose = url.searchParams.get('close')
+			if (rawClose === null || rawClose.trim().length === 0) {
+				return new Response('Bad request', {
+					status: 400,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				})
+			}
+			let catalogFallbackHref: string
+			try {
+				catalogFallbackHref = decodeURIComponent(rawClose.trim())
+			} catch {
+				return new Response('Bad request', {
+					status: 400,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				})
+			}
+
+			const layoutSession = getLayoutSession(context.get(Session))
+			const pendingApproval = layoutSession?.approvalStatus === 'pending'
+			const model = parseOptionalAdviceModelFromUrl(context.request.url)
+
+			const catalogSnapshot = await fetchSharedCatalogSnapshot()
+			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
+			if (entry === undefined) {
+				return new Response('Not found', {
+					status: 404,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				})
+			}
+
+			if (pendingApproval) {
+				return renderCatalogEtfModalBodyFragmentHtml({
+					entry,
+					catalogFallbackHref,
+					descriptionText: t('catalog.etfDetail.pendingBody'),
+				})
+			}
+
+			const analysisFrameSrc = catalogEtfAnalysisFrameSrc(entry.id, model)
+			return renderCatalogEtfModalBodyFragmentHtml({
+				entry,
+				catalogFallbackHref,
+				analysisPostHref: routes.catalog.etfAnalysis.href({
+					catalogEntryId: entry.id,
+				}),
+				analysisFrameSrc,
+				selectedModel: model,
 			})
 		},
 
