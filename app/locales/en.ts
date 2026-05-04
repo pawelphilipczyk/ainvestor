@@ -272,6 +272,7 @@ export const en = {
 	'advice.guideline.ariaSummary':
 		'Current {current}, target {target}{postBuyClause}.',
 	'advice.guideline.afterProposedBuys': ', after proposed buys {post}',
+	'advice.model.gpt-5.5': 'GPT-5.5',
 	'advice.model.gpt-5.4-mini': 'GPT-5.4 Mini',
 	'advice.model.gpt-5.4-nano': 'GPT-5.4 Nano',
 	'advice.model.gpt-5.4': 'GPT-5.4',
