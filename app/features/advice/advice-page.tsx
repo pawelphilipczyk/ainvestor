@@ -131,6 +131,7 @@ function resolveProposalEtfDetailsCatalogEntryId(
 const currencyOptions = CURRENCIES.map((c) => ({ value: c, label: c }))
 
 const MODEL_LABEL_KEYS = {
+	'gpt-5.5': 'advice.model.gpt-5.5',
 	'gpt-5.4-mini': 'advice.model.gpt-5.4-mini',
 	'gpt-5.4-nano': 'advice.model.gpt-5.4-nano',
 	'gpt-5.4': 'advice.model.gpt-5.4',

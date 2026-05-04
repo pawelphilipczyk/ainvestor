@@ -208,6 +208,7 @@ export function normalizeAdviceAnalysisTab(
 
 /** OpenAI chat models offered for ETF advice (user-selectable; default is mini). */
 export const ADVICE_MODEL_IDS = [
+	'gpt-5.5',
 	'gpt-5.4-mini',
 	'gpt-5.4-nano',
 	'gpt-5.4',
