@@ -50,12 +50,11 @@ export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 							</p>
 						</div>
 					</header>
-					<div class="min-h-0 flex-1 overflow-y-auto overflow-x-hidden px-4 py-4">
+					<div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 py-4">
 						<Frame
 							name={CATALOG_ETF_MODAL_BODY_FRAME}
 							src={modalBodyFrameSrc}
 							fallback={frameLoadingPlaceholder()}
-							class="min-h-0"
 						/>
 					</div>
 				</div>
