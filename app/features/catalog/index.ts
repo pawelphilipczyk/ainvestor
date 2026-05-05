@@ -26,21 +26,20 @@ import {
 	DEFAULT_ADVICE_MODEL,
 } from '../advice/advice-openai.ts'
 import {
-	catalogEtfAnalysisFrameSrc,
-	parseOptionalAdviceModelFromUrl,
-	samePathAndSearch,
-} from './catalog-etf-overlay-build.ts'
-import {
 	CatalogEtfAnalysisFragment,
 	type CatalogEtfAnalysisFragmentProps,
 } from './catalog-etf-analysis-fragment.tsx'
-import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
-import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import {
 	CatalogEtfModalBodyFragment,
 	type CatalogEtfModalBodyFragmentProps,
 } from './catalog-etf-modal-body-fragment.tsx'
-import { catalogIndexHrefWithFilters } from './catalog-index-url.ts'
+import {
+	catalogEtfAnalysisFrameSrc,
+	parseOptionalAdviceModelFromUrl,
+	samePathAndSearch,
+} from './catalog-etf-overlay-build.ts'
+import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
+import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
 	isAdmin,

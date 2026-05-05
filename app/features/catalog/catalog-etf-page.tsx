@@ -1,4 +1,4 @@
-import { type Handle } from 'remix/component'
+import type { Handle } from 'remix/component'
 import { t } from '../../lib/i18n.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
 // @ts-expect-error Runtime-only remix clientEntry (scoped to this page)

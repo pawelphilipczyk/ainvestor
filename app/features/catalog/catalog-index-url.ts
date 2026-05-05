@@ -1,6 +1,6 @@
 import { routes } from '../../routes.ts'
-import type { CatalogRiskBand } from './lib.ts'
 import { ETF_DETAIL_SEARCH_PARAM } from './catalog-etf-search-param.ts'
+import type { CatalogRiskBand } from './lib.ts'
 
 export function catalogIndexHrefWithFilters(options: {
 	typeFilter: string

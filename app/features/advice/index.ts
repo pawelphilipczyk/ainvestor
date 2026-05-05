@@ -140,7 +140,10 @@ function adviceResultCardPropsFromPage(
 	props: AdvicePageRenderProps,
 	requestUrl: string,
 ): AdviceResultCardProps | null {
-	if (!shouldStreamAdviceResult(props, requestUrl) || props.advice === undefined) {
+	if (
+		!shouldStreamAdviceResult(props, requestUrl) ||
+		props.advice === undefined
+	) {
 		return null
 	}
 	return {
@@ -188,7 +191,10 @@ async function renderAdvicePageResponse(options: {
 			: options.props
 
 	const activeTab = normalizeAdviceAnalysisTab(propsWithCatalog.activeTab)
-	const frameSrc = shouldStreamAdviceResult(propsWithCatalog, options.requestUrl)
+	const frameSrc = shouldStreamAdviceResult(
+		propsWithCatalog,
+		options.requestUrl,
+	)
 		? adviceResultFragmentSrc(options.requestUrl)
 		: undefined
 

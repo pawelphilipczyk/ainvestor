@@ -1,4 +1,4 @@
-import { type Handle } from 'remix/component'
+import type { Handle } from 'remix/component'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import type { CatalogEntry } from './lib.ts'

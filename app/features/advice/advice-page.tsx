@@ -19,12 +19,12 @@ import { getSectionIntro } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import { findCatalogEntryByTicker } from '../catalog/lib.ts'
-import { adviceIndexHrefWithOptionalEtf } from './advice-etf-url.ts'
 import type {
 	AdviceBlock,
 	AdviceDocument,
 	AdviceEtfProposalRow,
 } from './advice-document.ts'
+import { adviceIndexHrefWithOptionalEtf } from './advice-etf-url.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,

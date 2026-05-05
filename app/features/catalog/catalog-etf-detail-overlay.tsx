@@ -1,6 +1,6 @@
 import { Frame, type Handle } from 'remix/component'
-import { t } from '../../lib/i18n.ts'
 import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
+import { t } from '../../lib/i18n.ts'
 import type { CatalogEntry } from './lib.ts'
 // @ts-expect-error Runtime-only remix clientEntry
 import { CatalogEtfOverlayEnhancement } from './catalog-etf-overlay.component.js'

@@ -5,13 +5,13 @@ import { renderToStream } from 'remix/component/server'
 import { createHtmlResponse } from 'remix/response/html'
 import { CatalogEtfAnalysisFragment } from '../features/catalog/catalog-etf-analysis-fragment.tsx'
 import {
-	buildCatalogEtfDetailOverlayForSearchParam,
-	samePathAndSearch,
-} from '../features/catalog/catalog-etf-overlay-build.ts'
-import {
 	CatalogEtfModalBodyFragment,
 	type CatalogEtfModalBodyFragmentProps,
 } from '../features/catalog/catalog-etf-modal-body-fragment.tsx'
+import {
+	buildCatalogEtfDetailOverlayForSearchParam,
+	samePathAndSearch,
+} from '../features/catalog/catalog-etf-overlay-build.ts'
 import { parseEtfDetailSearchParam } from '../features/catalog/catalog-etf-search-param.ts'
 import { fetchSharedCatalogSnapshot } from '../features/catalog/lib.ts'
 import type { AppPage } from '../lib/app-page.ts'
