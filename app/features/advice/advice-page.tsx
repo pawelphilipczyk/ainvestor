@@ -586,6 +586,7 @@ function adviceResultCardView(props: {
 		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
 	const pendingApproval = props.pendingApproval === true
 	const adviceGistGate = props.adviceGistGate
+	const adviceTabForEtfLinks = normalizeAdviceAnalysisTab(props.activeTab)
 	return (
 		<Card class="min-w-0 p-4" aria-live="polite">
 			{props.adviceGistPersistFailed === true ? (
@@ -628,6 +629,7 @@ function adviceResultCardView(props: {
 							selectedModel,
 							pendingApproval: pendingApproval || adviceGistGate !== undefined,
 							catalog: props.catalog,
+							activeTab: adviceTabForEtfLinks,
 						})}
 					</div>
 				))}

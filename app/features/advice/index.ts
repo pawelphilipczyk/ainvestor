@@ -549,6 +549,7 @@ export const adviceController = {
 				if (!sessionUsesGithubGist(session)) {
 					return renderAdvicePageResponse({
 						session: layoutSession,
+						requestUrl: context.request.url,
 						props: withAdviceGate(
 							{
 								pendingApproval,
