@@ -33,12 +33,12 @@ import {
 	CatalogEtfModalBodyFragment,
 	type CatalogEtfModalBodyFragmentProps,
 } from './catalog-etf-modal-body-fragment.tsx'
+import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import {
 	catalogEtfAnalysisFrameSrc,
 	parseOptionalAdviceModelFromUrl,
 	samePathAndSearch,
 } from './catalog-etf-overlay-build.ts'
-import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {

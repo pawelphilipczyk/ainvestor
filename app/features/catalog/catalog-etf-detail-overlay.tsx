@@ -1,9 +1,9 @@
 import { Frame, type Handle } from 'remix/component'
 import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
 import { t } from '../../lib/i18n.ts'
-import type { CatalogEntry } from './lib.ts'
 // @ts-expect-error Runtime-only remix clientEntry
 import { CatalogEtfOverlayEnhancement } from './catalog-etf-overlay.component.js'
+import type { CatalogEntry } from './lib.ts'
 
 const CATALOG_ETF_DIALOG_ID = 'catalog-etf-dialog'
 const CATALOG_ETF_MODAL_BODY_FRAME = 'catalog-etf-modal-body'
