@@ -961,7 +961,10 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /\/catalog\/etf\/advice-learn-row/)
+		assert.match(
+			body,
+			/href="\/advice\?[^"]*etf=advice-learn-row/,
+		)
 		assert.match(body, /ETF details/)
 	})
 
@@ -1014,7 +1017,7 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /\/catalog\/etf\/ticker-only-row/)
+		assert.match(body, /href="\/advice\?[^"]*etf=ticker-only-row/)
 		assert.match(body, /ETF details/)
 	})
 })
