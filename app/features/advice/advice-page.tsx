@@ -24,7 +24,10 @@ import type {
 	AdviceDocument,
 	AdviceEtfProposalRow,
 } from './advice-document.ts'
-import { adviceIndexHrefWithOptionalEtf, overlayCatalogEntryIdFromRequestUrl } from './advice-etf-url.ts'
+import {
+	adviceIndexHrefWithOptionalEtf,
+	overlayCatalogEntryIdFromRequestUrl,
+} from './advice-etf-url.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,

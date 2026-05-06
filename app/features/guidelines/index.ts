@@ -683,8 +683,14 @@ async function renderGuidelinesPage(params: {
 	flashBanner?: FlashedBanner
 	activeAddTab: GuidelinesAddTabId
 }) {
-	const { requestUrl, guidelines, session, catalog, flashBanner, activeAddTab } =
-		params
+	const {
+		requestUrl,
+		guidelines,
+		session,
+		catalog,
+		flashBanner,
+		activeAddTab,
+	} = params
 	const assetClassOptions = assetClassSelectOptionsFromCatalog(catalog)
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(GuidelinesPage, {

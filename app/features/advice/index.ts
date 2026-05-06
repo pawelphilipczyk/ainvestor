@@ -22,9 +22,9 @@ import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import { parseOptionalAdviceModelFromUrl } from '../catalog/catalog-etf-overlay-build.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
-import { overlayCatalogEntryIdFromRequestUrl } from './advice-etf-url.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
+import { overlayCatalogEntryIdFromRequestUrl } from './advice-etf-url.ts'
 import {
 	clearLegacyUnifiedAdviceAnalysis,
 	clearStoredAdviceAnalysisForTab,

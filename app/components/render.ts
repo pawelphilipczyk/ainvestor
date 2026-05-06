@@ -15,8 +15,8 @@ import { appShellEtfCloseHref } from '../lib/app-shell-etf-modal.ts'
 import { composeResolveFrame } from '../lib/compose-resolve-frame.ts'
 import type { SessionData } from '../lib/session.ts'
 import type { FlashedBanner } from '../lib/session-flash.ts'
-import { OverlayNode } from './overlay-node.tsx'
 import { DocumentShell } from './layout/document-shell.tsx'
+import { OverlayNode } from './overlay-node.tsx'
 
 export type RenderOptions = {
 	title: string
