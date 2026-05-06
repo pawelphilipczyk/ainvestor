@@ -14,14 +14,54 @@ function isModifiedClick(event) {
 	)
 }
 
-/** Full navigation — required because `window.navigation.navigate` is stubbed (no-op) when the Navigation API is missing, and soft-nav can skip query-only updates. */
-function assignHref(href) {
-	window.location.assign(href)
+/**
+ * Drop `?etf=` from the URL without reloading, then close the dialog (instant UX).
+ * Falls back to full navigation only if `closeHref` is off-origin or invalid.
+ */
+function replaceCloseUrlAndHide(dialog, closeDialog) {
+	const closeHref = dialog.dataset.catalogEtfCloseHref
+	if (!closeHref) {
+		closeDialog()
+		return
+	}
+	try {
+		const resolved = new URL(closeHref, window.location.href)
+		if (resolved.origin === window.location.origin) {
+			const next = `${resolved.pathname}${resolved.search}${resolved.hash}`
+			window.history.replaceState(window.history.state, '', next)
+			closeDialog()
+			return
+		}
+	} catch {
+		// fall through
+	}
+	window.location.assign(closeHref)
+}
+
+/**
+ * URL still has `etf` but the dialog was dismissed (e.g. Escape) — sync the address bar only.
+ */
+function replaceCloseUrlIfEtfParam(dialog) {
+	const url = new URL(window.location.href)
+	if (!url.searchParams.get('etf')) return
+	const closeHref = dialog.dataset.catalogEtfCloseHref
+	if (!closeHref) return
+	try {
+		const resolved = new URL(closeHref, window.location.href)
+		if (resolved.origin === window.location.origin) {
+			const next = `${resolved.pathname}${resolved.search}${resolved.hash}`
+			window.history.replaceState(window.history.state, '', next)
+			return
+		}
+	} catch {
+		// fall through
+	}
+	window.location.assign(closeHref)
 }
 
 /**
  * Shows `<dialog id="catalog-etf-dialog">` on load when present, closes on backdrop click
- * and syncs with the close link (removes `etf` from the URL).
+ * and syncs with the close control (removes `etf` from the URL without full reload).
  */
 export const CatalogEtfOverlayEnhancement = clientEntry(
 	'/features/catalog/catalog-etf-overlay.component.js#CatalogEtfOverlayEnhancement',
@@ -79,7 +119,7 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 		}
 
 		if (new URL(window.location.href).searchParams.get('etf')) {
-			queueMicrotask(openDialog)
+			openDialog()
 		}
 
 		addEventListeners(dialog, handle.signal, {
@@ -89,21 +129,10 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 				const panel = dialog.querySelector('[role="document"]')
 				if (panel instanceof HTMLElement && panel.contains(target)) return
 				event.preventDefault()
-				const closeHref = dialog.dataset.catalogEtfCloseHref
-				if (closeHref) {
-					assignHref(closeHref)
-				} else {
-					closeDialog()
-				}
+				replaceCloseUrlAndHide(dialog, closeDialog)
 			},
 			close() {
-				const url = new URL(window.location.href)
-				if (url.searchParams.get('etf')) {
-					const closeHref = dialog.dataset.catalogEtfCloseHref
-					if (closeHref) {
-						assignHref(closeHref)
-					}
-				}
+				replaceCloseUrlIfEtfParam(dialog)
 			},
 		})
 
@@ -115,16 +144,11 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 			click(event) {
 				const target = event.target
 				if (!(target instanceof Element)) return
-				const anchor = target.closest(`a[${ATTR_CLOSE}]`)
-				if (!(anchor instanceof HTMLAnchorElement)) return
+				const control = target.closest(`[${ATTR_CLOSE}]`)
+				if (!(control instanceof HTMLElement)) return
 				if (isModifiedClick(event)) return
 				event.preventDefault()
-				const href = anchor.getAttribute('href')
-				if (href && !href.startsWith('#')) {
-					assignHref(anchor.href)
-				} else {
-					closeDialog()
-				}
+				replaceCloseUrlAndHide(dialog, closeDialog)
 			},
 		})
 

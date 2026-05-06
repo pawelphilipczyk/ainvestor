@@ -27,15 +27,8 @@ export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 					class="box-border flex max-h-[min(90dvh,calc(100dvh-1rem))] w-full min-w-0 max-w-screen flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-lg md:max-h-[min(90dvh,calc(100dvh-2rem))] md:rounded-xl"
 					role="document"
 				>
-					<header class="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
-						<a
-							href={closeHref}
-							class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							data-catalog-etf-overlay-close=""
-						>
-							{t('catalog.etfDetail.closeOverlay')}
-						</a>
-						<div class="min-w-0">
+					<header class="flex shrink-0 items-start gap-3 border-b border-border px-4 py-3">
+						<div class="min-w-0 flex-1 pr-2">
 							<h1
 								id={`${CATALOG_ETF_DIALOG_ID}-title`}
 								class="truncate text-lg font-semibold tracking-tight text-foreground"
@@ -46,6 +39,14 @@ export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 								{entry.ticker}
 							</p>
 						</div>
+						<button
+							type="button"
+							class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-xl leading-none text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							data-catalog-etf-overlay-close=""
+							aria-label={t('catalog.etfDetail.closeOverlay')}
+						>
+							<span aria-hidden="true">×</span>
+						</button>
 					</header>
 					<div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 py-4">
 						{modalBody}
