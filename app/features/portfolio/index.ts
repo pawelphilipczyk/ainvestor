@@ -48,6 +48,7 @@ export const portfolioController = {
 						session.gistId,
 					)
 					return renderPage({
+						requestUrl: context.request.url,
 						entries,
 						session: layoutSession,
 						flashBanner: flashedBanner,
@@ -56,6 +57,7 @@ export const portfolioController = {
 				} catch {
 					const catalog = await fetchCatalog()
 					return renderPage({
+						requestUrl: context.request.url,
 						entries: [],
 						session: layoutSession,
 						flashBanner: {
@@ -67,6 +69,7 @@ export const portfolioController = {
 				}
 			}
 			return renderPage({
+				requestUrl: context.request.url,
 				entries: getGuestEtfs(context.get(Session)),
 				session: layoutSession,
 				flashBanner: flashedBanner,
@@ -232,6 +235,7 @@ export const portfolioController = {
 // Page renderer
 // ---------------------------------------------------------------------------
 type RenderPortfolioPageParams = {
+	requestUrl: string
 	entries: EtfEntry[]
 	session: SessionData | null
 	flashBanner?: FlashedBanner
@@ -239,10 +243,10 @@ type RenderPortfolioPageParams = {
 }
 
 async function renderPage(params: RenderPortfolioPageParams) {
-	const { entries, session, flashBanner, catalog } = params
+	const { requestUrl, entries, session, flashBanner, catalog } = params
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(PortfolioPage, { instrumentOptions })
-	return render({
+	return await render({
 		title: t('meta.title.portfolio'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
@@ -250,6 +254,7 @@ async function renderPage(params: RenderPortfolioPageParams) {
 		body,
 		flashBanner,
 		init: { headers: { 'Cache-Control': 'no-store' } },
+		requestUrl,
 		resolveFrame(source) {
 			if (source === routes.portfolio.fragmentList.href()) {
 				return renderToStream(

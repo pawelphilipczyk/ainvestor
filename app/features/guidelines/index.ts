@@ -430,6 +430,7 @@ export const guidelinesController = {
 				fetchCatalog(),
 			])
 			return renderGuidelinesPage({
+				requestUrl: context.request.url,
 				guidelines,
 				session: layoutSession,
 				catalog,
@@ -675,13 +676,15 @@ export const guidelinesController = {
 // Page renderer
 // ---------------------------------------------------------------------------
 async function renderGuidelinesPage(params: {
+	requestUrl: string
 	guidelines: EtfGuideline[]
 	session: SessionData | null
 	catalog: CatalogEntry[]
 	flashBanner?: FlashedBanner
 	activeAddTab: GuidelinesAddTabId
 }) {
-	const { guidelines, session, catalog, flashBanner, activeAddTab } = params
+	const { requestUrl, guidelines, session, catalog, flashBanner, activeAddTab } =
+		params
 	const assetClassOptions = assetClassSelectOptionsFromCatalog(catalog)
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(GuidelinesPage, {
@@ -689,13 +692,14 @@ async function renderGuidelinesPage(params: {
 		instrumentOptions,
 		activeAddTab,
 	})
-	return render({
+	return await render({
 		title: t('meta.title.guidelines'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'guidelines',
 		body,
 		flashBanner,
+		requestUrl,
 		resolveFrame(source) {
 			if (source === routes.guidelines.fragmentList.href()) {
 				return renderToStream(jsx(GuidelinesListFragment, { guidelines }))

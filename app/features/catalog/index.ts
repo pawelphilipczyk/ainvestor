@@ -1,13 +1,9 @@
-import { Fragment } from 'remix/component'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToStream } from 'remix/component/server'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
-import { OverlayNode } from '../../components/overlay-node.tsx'
 import { render } from '../../components/render.ts'
-import { appShellEtfCloseHref } from '../../lib/app-shell-etf-modal.ts'
-import { composeResolveFrame } from '../../lib/compose-resolve-frame.ts'
 import { requestAcceptsApplicationJson } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { format, t } from '../../lib/i18n.ts'
@@ -39,10 +35,8 @@ import {
 } from './catalog-etf-modal-body-fragment.tsx'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import {
-	buildCatalogDetailOverlayForSearchParam,
 	catalogEtfAnalysisFrameSrc,
 	parseOptionalAdviceModelFromUrl,
-	resolveCatalogDetailModalFrameLayer,
 	samePathAndSearch,
 } from './catalog-etf-overlay-build.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
@@ -257,7 +251,7 @@ export const catalogController = {
 			const load = await loadCatalogPageContext(context)
 			const { catalogSnapshot, entries, session, layoutSession } = load
 
-			return renderCatalogPage({
+			return await renderCatalogPage({
 				requestUrl: context.request.url,
 				catalog: catalogSnapshot.entries,
 				entries,
@@ -301,7 +295,7 @@ export const catalogController = {
 			const fundName = entry.name
 
 			if (pendingApproval) {
-				return render({
+				return await render({
 					title: format(t('meta.title.catalogEtf'), { name: fundName }),
 					htmlLang: htmlLangForCurrentUiLocale(),
 					session: layoutSession,
@@ -312,13 +306,14 @@ export const catalogController = {
 						catalogFallbackHref,
 					}),
 					init: { headers: { 'Cache-Control': 'no-store' } },
+					requestUrl: context.request.url,
 				})
 			}
 
 			const model = parseOptionalAdviceModelFromUrl(context.request.url)
 			const analysisFrameSrc = catalogEtfAnalysisFrameSrc(entry.id, model)
 
-			return render({
+			return await render({
 				title: format(t('meta.title.catalogEtf'), { name: fundName }),
 				htmlLang: htmlLangForCurrentUiLocale(),
 				session: layoutSession,
@@ -333,6 +328,7 @@ export const catalogController = {
 					selectedModel: model,
 				}),
 				init: { headers: { 'Cache-Control': 'no-store' } },
+				requestUrl: context.request.url,
 				resolveFrame(source) {
 					if (samePathAndSearch(source, analysisFrameSrc)) {
 						return renderToStream(jsx(CatalogEtfAnalysisFragment, {}))
@@ -719,33 +715,22 @@ async function renderCatalogPage(params: {
 		flashBanner,
 	} = params
 	const frameSrc = catalogListFrameSrc({ typeFilter, riskFilter, query })
-	const closeHref = appShellEtfCloseHref(requestUrl)
-	const catalogDetailOverlay = buildCatalogDetailOverlayForSearchParam({
+	const body = jsx(CatalogPage, {
+		catalogCount: catalog.length,
+		typeFilter,
+		riskFilter,
+		query,
+		catalogListFrameSrc: frameSrc,
+	})
+	return await render({
 		requestUrl,
-		catalog,
-		pendingApproval: pendingApproval ?? false,
-		closeHref,
-	})
-	const body = jsx(Fragment, {
-		children: [
-			jsx(CatalogPage, {
-				catalogCount: catalog.length,
-				typeFilter,
-				riskFilter,
-				query,
-				catalogListFrameSrc: frameSrc,
-			}),
-			jsx(OverlayNode, { node: catalogDetailOverlay.overlay }),
-		],
-	})
-	return render({
-		title: catalogDetailOverlay.titleWhenOpen ?? t('meta.title.catalog'),
+		title: t('meta.title.catalog'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'catalog',
 		body,
 		flashBanner,
-		resolveFrame: composeResolveFrame((source) => {
+		resolveFrame(source) {
 			if (source === frameSrc) {
 				return renderToStream(
 					jsx(CatalogListFragment, {
@@ -761,6 +746,6 @@ async function renderCatalogPage(params: {
 				)
 			}
 			return ''
-		}, resolveCatalogDetailModalFrameLayer(catalogDetailOverlay)),
+		},
 	})
 }

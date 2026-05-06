@@ -24,7 +24,7 @@ import type {
 	AdviceDocument,
 	AdviceEtfProposalRow,
 } from './advice-document.ts'
-import { adviceIndexHrefWithOptionalEtf } from './advice-etf-url.ts'
+import { adviceIndexHrefWithOptionalEtf, overlayCatalogEntryIdFromRequestUrl } from './advice-etf-url.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -90,10 +90,8 @@ type AdvicePageProps = {
 	adviceGistGate?: 'sign_in' | 'connect_gist'
 	/** When set, analysis results load inside a Remix `<Frame>` at this URL. */
 	adviceResultFrameSrc?: string
-	/**
-	 * Stable catalog row id from `?etf=` on this request; keeps tab switches and form posts on advice opening the shell ETF modal.
-	 */
-	preservedEtfCatalogEntryId?: string | null
+	/** Full request URL so tab/form targets preserve navigation while the fund overlay is open. */
+	requestUrl: string
 }
 
 type AdviceAccessBanner =
@@ -658,7 +656,8 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 		const pendingApproval = props.pendingApproval === true
 		const adviceGistGate = props.adviceGistGate
 		const adviceFormDisabled = pendingApproval || adviceGistGate !== undefined
-		const etfToPreserve = props.preservedEtfCatalogEntryId ?? null
+		const etfToPreserve =
+			overlayCatalogEntryIdFromRequestUrl(props.requestUrl) ?? null
 		const buyNextHref = adviceIndexHrefWithOptionalEtf({
 			tab: 'buy_next',
 			model: selectedModel,

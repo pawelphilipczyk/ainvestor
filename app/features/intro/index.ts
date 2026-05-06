@@ -11,12 +11,13 @@ export const homeController = {
 	actions: {
 		async index(context: AppRequestContext) {
 			const layoutSession = getLayoutSession(context.get(Session))
-			return render({
+			return await render({
 				title: t('meta.title.home'),
 				htmlLang: htmlLangForCurrentUiLocale(),
 				session: layoutSession,
 				currentPage: 'home',
 				body: jsx(IntroPage, {}),
+				requestUrl: context.request.url,
 			})
 		},
 	},

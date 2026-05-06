@@ -26,7 +26,7 @@ export const adminController = {
 				})
 			}
 
-			return render({
+			return await render({
 				title: t('meta.title.adminEtfImport'),
 				htmlLang: htmlLangForCurrentUiLocale(),
 				session: layoutSession,
@@ -36,6 +36,7 @@ export const adminController = {
 				}),
 				flashBanner: readFlashedBanner(context.get(Session)),
 				init: { headers: { 'Cache-Control': 'no-store' } },
+				requestUrl: context.request.url,
 			})
 		},
 	},

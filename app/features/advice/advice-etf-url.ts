@@ -1,5 +1,8 @@
 import { routes } from '../../routes.ts'
-import { ETF_DETAIL_SEARCH_PARAM } from '../catalog/catalog-etf-search-param.ts'
+import {
+	ETF_DETAIL_SEARCH_PARAM,
+	parseEtfDetailSearchParam,
+} from '../catalog/catalog-etf-search-param.ts'
 import {
 	type AdviceAnalysisMode,
 	type AdviceModelId,
@@ -25,4 +28,11 @@ export function adviceIndexHrefWithOptionalEtf(options: {
 		query[ETF_DETAIL_SEARCH_PARAM] = options.catalogEntryId
 	}
 	return routes.advice.index.href({}, query)
+}
+
+/** Catalog row id when the URL opens the shared fund overlay (centralizes modal query handling outside page bodies). */
+export function overlayCatalogEntryIdFromRequestUrl(
+	requestUrl: string,
+): string | null {
+	return parseEtfDetailSearchParam(requestUrl)
 }

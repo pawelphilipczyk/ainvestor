@@ -1,14 +1,10 @@
-import { Fragment } from 'remix/component'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToStream } from 'remix/component/server'
 import type { Issue } from 'remix/data-schema'
 import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
 import { createHtmlResponse } from 'remix/response/html'
 import { Session } from 'remix/session'
-import { OverlayNode } from '../../components/overlay-node.tsx'
 import { render } from '../../components/render.ts'
-import { appShellEtfCloseHref } from '../../lib/app-shell-etf-modal.ts'
-import { composeResolveFrame } from '../../lib/compose-resolve-frame.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
@@ -24,13 +20,9 @@ import {
 } from '../../lib/session.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
-import {
-	buildCatalogDetailOverlayForSearchParam,
-	parseOptionalAdviceModelFromUrl,
-	resolveCatalogDetailModalFrameLayer,
-} from '../catalog/catalog-etf-overlay-build.ts'
-import { parseEtfDetailSearchParam } from '../catalog/catalog-etf-search-param.ts'
+import { parseOptionalAdviceModelFromUrl } from '../catalog/catalog-etf-overlay-build.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
+import { overlayCatalogEntryIdFromRequestUrl } from './advice-etf-url.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
 import {
@@ -102,8 +94,6 @@ type AdvicePageRenderProps = {
 	formError?: { summary: string; detail?: string }
 	pendingApproval?: boolean
 	adviceGistGate?: 'sign_in' | 'connect_gist'
-	/** Catalog row id from `?etf=` on this request (passed to AdvicePage for tab/action URLs). */
-	preservedEtfCatalogEntryId?: string | null
 }
 
 const ADVICE_GIST_STALE_HEADER = 'X-Advice-Gist-Stale'
@@ -117,9 +107,11 @@ function adviceResultFragmentSrc(url: string): string {
 	const base = routes.advice.fragmentResult.href()
 	const out = new URL(base, 'https://advice-fragment.local')
 	out.searchParams.set('tab', tabQuery)
-	const etfId = parseEtfDetailSearchParam(incoming.href)
-	if (etfId) {
-		out.searchParams.set('etf', etfId)
+	const catalogEntryIdForOverlay = overlayCatalogEntryIdFromRequestUrl(
+		incoming.href,
+	)
+	if (catalogEntryIdForOverlay !== null) {
+		out.searchParams.set('etf', catalogEntryIdForOverlay)
 	}
 	const model = parseOptionalAdviceModelFromUrl(incoming.href)
 	if (model !== DEFAULT_ADVICE_MODEL) {
@@ -138,7 +130,7 @@ function shouldStreamAdviceResult(
 		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
 	if (resultMode === 'portfolio_review') return true
 	// `buy_next` + empty cash: allow fragment when `?etf=` is open (result card is still shown).
-	if (parseEtfDetailSearchParam(requestUrl) !== null) {
+	if (overlayCatalogEntryIdFromRequestUrl(requestUrl) !== null) {
 		return true
 	}
 	return props.cashAmount !== undefined
@@ -190,7 +182,7 @@ async function renderAdvicePageResponse(options: {
 	init?: ResponseInit
 }) {
 	const propsWithCatalog =
-		parseEtfDetailSearchParam(options.requestUrl) !== null &&
+		overlayCatalogEntryIdFromRequestUrl(options.requestUrl) !== null &&
 		options.props.catalog === undefined
 			? {
 					...options.props,
@@ -211,45 +203,28 @@ async function renderAdvicePageResponse(options: {
 			? { [ADVICE_GIST_STALE_HEADER]: '1' }
 			: undefined
 
-	const preservedEtfCatalogEntryId = parseEtfDetailSearchParam(
-		options.requestUrl,
-	)
-
-	const catalogDetailOverlay = buildCatalogDetailOverlayForSearchParam({
+	return await render({
 		requestUrl: options.requestUrl,
-		catalog: propsWithCatalog.catalog ?? [],
-		pendingApproval: propsWithCatalog.pendingApproval === true,
-		closeHref: appShellEtfCloseHref(options.requestUrl),
-	})
-
-	return render({
-		title: catalogDetailOverlay.titleWhenOpen ?? t('meta.title.advice'),
+		title: t('meta.title.advice'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session: options.session,
 		currentPage: 'advice',
-		body: jsx(Fragment, {
-			children: [
-				jsx(AdvicePage, {
-					...propsWithCatalog,
-					adviceResultFrameSrc: frameSrc,
-					activeTab,
-					preservedEtfCatalogEntryId,
-				}),
-				jsx(OverlayNode, { node: catalogDetailOverlay.overlay }),
-			],
+		body: jsx(AdvicePage, {
+			...propsWithCatalog,
+			adviceResultFrameSrc: frameSrc,
+			activeTab,
+			requestUrl: options.requestUrl,
 		}),
 		init: options.init,
 		responseHeaders,
-		resolveFrame: composeResolveFrame(
-			(source) =>
-				resolveAdviceResultFrame(
-					source,
-					frameSrc,
-					propsWithCatalog,
-					options.requestUrl,
-				),
-			resolveCatalogDetailModalFrameLayer(catalogDetailOverlay),
-		),
+		resolveFrame(source) {
+			return resolveAdviceResultFrame(
+				source,
+				frameSrc,
+				propsWithCatalog,
+				options.requestUrl,
+			)
+		},
 	})
 }
 
@@ -364,7 +339,7 @@ export const adviceController = {
 				pendingApproval,
 				activeTab,
 			})
-			return renderAdvicePageResponse({
+			return await renderAdvicePageResponse({
 				session: layoutSession,
 				requestUrl: context.request.url,
 				props: withAdviceGate(
@@ -415,7 +390,7 @@ export const adviceController = {
 			const activeTabFromUrl = parseAdviceTabParam(context.request.url)
 			const form = context.get(FormData)
 			if (!form) {
-				return renderAdvicePageResponse({
+				return await renderAdvicePageResponse({
 					session: layoutSession,
 					requestUrl: context.request.url,
 					props: withAdviceGate(
@@ -486,7 +461,7 @@ export const adviceController = {
 					(ADVICE_ANALYSIS_MODES as readonly string[]).includes(rawMode)
 						? (rawMode as AdviceAnalysisMode)
 						: DEFAULT_ADVICE_ANALYSIS_MODE
-				return renderAdvicePageResponse({
+				return await renderAdvicePageResponse({
 					session: layoutSession,
 					requestUrl: context.request.url,
 					props: withAdviceGate(
@@ -518,7 +493,7 @@ export const adviceController = {
 			} = result.value
 			const trimmedCash = rawCashAmount.trim()
 			if (analysisMode === 'buy_next' && trimmedCash === '') {
-				return renderAdvicePageResponse({
+				return await renderAdvicePageResponse({
 					session: layoutSession,
 					requestUrl: context.request.url,
 					props: withAdviceGate(
@@ -543,7 +518,7 @@ export const adviceController = {
 			const cashAmount = trimmedCash
 
 			if (pendingApproval) {
-				return renderAdvicePageResponse({
+				return await renderAdvicePageResponse({
 					session: layoutSession,
 					requestUrl: context.request.url,
 					props: withAdviceGate(
@@ -568,7 +543,7 @@ export const adviceController = {
 
 			if (analysisMode === 'portfolio_review' && adviceIntent === 'clear') {
 				if (!sessionUsesGithubGist(session)) {
-					return renderAdvicePageResponse({
+					return await renderAdvicePageResponse({
 						session: layoutSession,
 						requestUrl: context.request.url,
 						props: withAdviceGate(
@@ -609,7 +584,7 @@ export const adviceController = {
 					activeTabFromUrl === 'portfolio_review'
 						? await fetchCatalog()
 						: undefined
-				return renderAdvicePageResponse({
+				return await renderAdvicePageResponse({
 					session: layoutSession,
 					requestUrl: context.request.url,
 					props: withAdviceGate(
@@ -628,7 +603,7 @@ export const adviceController = {
 			}
 
 			if (!sessionUsesGithubGist(session)) {
-				return renderAdvicePageResponse({
+				return await renderAdvicePageResponse({
 					session: layoutSession,
 					requestUrl: context.request.url,
 					props: withAdviceGate(
@@ -692,7 +667,7 @@ export const adviceController = {
 					adviceGistPersistFailed = true
 					console.warn('[advice] could not save gist snapshot', gistErr)
 				}
-				return renderAdvicePageResponse({
+				return await renderAdvicePageResponse({
 					session: layoutSession,
 					requestUrl: context.request.url,
 					props: withAdviceGate(
@@ -725,7 +700,7 @@ export const adviceController = {
 							? `${err.message}\n${err.stack ?? ''}`.trim()
 							: err.message
 						: String(err)
-				return renderAdvicePageResponse({
+				return await renderAdvicePageResponse({
 					session: layoutSession,
 					requestUrl: context.request.url,
 					props: withAdviceGate(
