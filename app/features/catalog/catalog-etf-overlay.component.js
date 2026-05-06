@@ -246,8 +246,10 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 			popstate: onPopState,
 		})
 
-		addEventListeners(doc, handle.signal, {
-			click(event) {
+		/** Capture phase so Remix `rmx-document` / other listeners cannot start a full-document navigation first. */
+		doc.addEventListener(
+			'click',
+			function onDocumentClickCapture(event) {
 				const target = event.target
 				if (!(target instanceof Element)) return
 
@@ -260,7 +262,7 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 						!isModifiedClick(event)
 					) {
 						event.preventDefault()
-						event.stopPropagation()
+						event.stopImmediatePropagation()
 						void openOverlayFromInstantLink(instantLink, fetchUrl)
 						return
 					}
@@ -270,11 +272,13 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 				if (!(control instanceof HTMLElement)) return
 				if (isModifiedClick(event)) return
 				event.preventDefault()
+				event.stopImmediatePropagation()
 				const dialog = getDialog(doc)
 				if (dialog === null) return
 				replaceCloseUrlAndHide(dialog, () => closeDialog(dialog))
 			},
-		})
+			{ capture: true, signal: handle.signal },
+		)
 
 		return () =>
 			createElement('span', {

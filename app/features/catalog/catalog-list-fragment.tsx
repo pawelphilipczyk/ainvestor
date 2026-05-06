@@ -104,19 +104,24 @@ function renderCatalogRow(
 		>
 			<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold">
 				{tickerLinksToDetail ? (
-					<a
-						href={etfDetailHref}
-						class="text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-						rmx-document
-						{...(etfOverlayFetchHref !== null
-							? {
-									'data-catalog-etf-instant': '',
-									'data-catalog-etf-overlay-fetch': etfOverlayFetchHref,
-								}
-							: {})}
-					>
-						{entry.ticker}
-					</a>
+					etfOverlayFetchHref !== null ? (
+						<a
+							href={etfDetailHref}
+							class="text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							data-catalog-etf-instant=""
+							data-catalog-etf-overlay-fetch={etfOverlayFetchHref}
+						>
+							{entry.ticker}
+						</a>
+					) : (
+						<a
+							href={etfDetailHref}
+							class="text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+							rmx-document
+						>
+							{entry.ticker}
+						</a>
+					)
 				) : (
 					entry.ticker
 				)}

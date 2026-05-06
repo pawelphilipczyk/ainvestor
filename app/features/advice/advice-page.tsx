@@ -508,20 +508,26 @@ function renderEtfProposals(
 									{pendingApproval ? null : (
 										<td class="py-2 pl-4 pr-4 align-top">
 											{etfDetailsHref !== null ? (
-												<a
-													href={etfDetailsHref}
-													class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-													rmx-document
-													{...(etfOverlayFetchHref !== null
-														? {
-																'data-catalog-etf-instant': '',
-																'data-catalog-etf-overlay-fetch':
-																	etfOverlayFetchHref,
-															}
-														: {})}
-												>
-													{t('advice.table.etfDetailsLink')}
-												</a>
+												etfOverlayFetchHref !== null ? (
+													<a
+														href={etfDetailsHref}
+														class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+														data-catalog-etf-instant=""
+														data-catalog-etf-overlay-fetch={
+															etfOverlayFetchHref
+														}
+													>
+														{t('advice.table.etfDetailsLink')}
+													</a>
+												) : (
+													<a
+														href={etfDetailsHref}
+														class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+														rmx-document
+													>
+														{t('advice.table.etfDetailsLink')}
+													</a>
+												)
 											) : (
 												<span class="text-xs text-muted-foreground">
 													{t('catalog.emptyCell')}
