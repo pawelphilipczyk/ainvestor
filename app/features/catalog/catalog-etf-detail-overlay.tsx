@@ -1,23 +1,21 @@
-import { Frame, type Handle } from 'remix/component'
-import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
+import type { Handle, RemixNode } from 'remix/component'
 import { t } from '../../lib/i18n.ts'
 // @ts-expect-error Runtime-only remix clientEntry
 import { CatalogEtfOverlayEnhancement } from './catalog-etf-overlay.component.js'
 import type { CatalogEntry } from './lib.ts'
 
 const CATALOG_ETF_DIALOG_ID = 'catalog-etf-dialog'
-const CATALOG_ETF_MODAL_BODY_FRAME = 'catalog-etf-modal-body'
 
 export type CatalogEtfDetailOverlayProps = {
 	entry: CatalogEntry
 	closeHref: string
-	/** GET URL for `<Frame>` loading ETF detail UI + nested analysis frame. */
-	modalBodyFrameSrc: string
+	/** Server-rendered ETF detail card + analysis section (no outer `<Frame>` fetch). */
+	modalBody: RemixNode
 }
 
 export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 	return (props: CatalogEtfDetailOverlayProps) => {
-		const { entry, closeHref, modalBodyFrameSrc } = props
+		const { entry, closeHref, modalBody } = props
 		return (
 			<dialog
 				id={CATALOG_ETF_DIALOG_ID}
@@ -50,12 +48,8 @@ export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 							</p>
 						</div>
 					</header>
-					<div class="flex min-h-0 min-w-0 flex-1 flex-col px-4 py-4">
-						<Frame
-							name={CATALOG_ETF_MODAL_BODY_FRAME}
-							src={modalBodyFrameSrc}
-							fallback={frameLoadingPlaceholder()}
-						/>
+					<div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 py-4">
+						{modalBody}
 					</div>
 				</div>
 				<CatalogEtfOverlayEnhancement />

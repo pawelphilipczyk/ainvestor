@@ -69,23 +69,6 @@ export function catalogEtfAnalysisFrameSrc(
 	return `${base}?${searchParams.toString()}`
 }
 
-/** GET fragment URL for the ETF modal body (`<Frame src=…>` in the shell overlay). */
-export function catalogEtfModalBodyFrameSrc(options: {
-	entryId: string
-	model: AdviceModelId
-	closeHref: string
-}): string {
-	const base = routes.catalog.fragmentEtfModalBody.href({
-		catalogEntryId: options.entryId,
-	})
-	const params = new URLSearchParams()
-	params.set('close', options.closeHref)
-	if (options.model !== DEFAULT_ADVICE_MODEL) {
-		params.set('model', options.model)
-	}
-	return `${base}?${params.toString()}`
-}
-
 /**
  * Server-side helper: catalog fund detail dialog when `?etf=` is present on a page
  * that supplies `closeHref` (catalog index or advice).
@@ -101,7 +84,6 @@ export function buildCatalogDetailOverlayForSearchParam(options: {
 		return {
 			overlay: null,
 			analysisFrameSrc: null,
-			modalBodyFrameResolve: null,
 			titleWhenOpen: null,
 		}
 	}
@@ -110,17 +92,11 @@ export function buildCatalogDetailOverlayForSearchParam(options: {
 		return {
 			overlay: null,
 			analysisFrameSrc: null,
-			modalBodyFrameResolve: null,
 			titleWhenOpen: null,
 		}
 	}
 	const model = parseOptionalAdviceModelFromUrl(options.requestUrl)
 	const catalogFallbackHref = options.closeHref
-	const modalBodyFrameSrc = catalogEtfModalBodyFrameSrc({
-		entryId: entry.id,
-		model,
-		closeHref: options.closeHref,
-	})
 	if (options.pendingApproval) {
 		const modalBodyProps: CatalogEtfModalBodyFragmentProps = {
 			entry,
@@ -131,13 +107,9 @@ export function buildCatalogDetailOverlayForSearchParam(options: {
 			overlay: jsx(CatalogEtfDetailOverlay, {
 				entry,
 				closeHref: options.closeHref,
-				modalBodyFrameSrc,
+				modalBody: jsx(CatalogEtfModalBodyFragment, modalBodyProps),
 			}),
 			analysisFrameSrc: null,
-			modalBodyFrameResolve: {
-				frameSrc: modalBodyFrameSrc,
-				props: modalBodyProps,
-			},
 			titleWhenOpen: format(t('meta.title.catalogEtf'), { name: entry.name }),
 		}
 	}
@@ -155,13 +127,9 @@ export function buildCatalogDetailOverlayForSearchParam(options: {
 		overlay: jsx(CatalogEtfDetailOverlay, {
 			entry,
 			closeHref: options.closeHref,
-			modalBodyFrameSrc,
+			modalBody: jsx(CatalogEtfModalBodyFragment, modalBodyProps),
 		}),
 		analysisFrameSrc,
-		modalBodyFrameResolve: {
-			frameSrc: modalBodyFrameSrc,
-			props: modalBodyProps,
-		},
 		titleWhenOpen: format(t('meta.title.catalogEtf'), { name: entry.name }),
 	}
 }
@@ -171,29 +139,18 @@ export type CatalogDetailOverlaySearchParamBuild = ReturnType<
 >
 
 /**
- * `resolveFrame` layer for the catalog detail overlay (modal body + optional analysis).
+ * `resolveFrame` layer for the nested AI analysis `<Frame>` inside the inlined modal body.
  * Compose with `composeResolveFrame` from `app/lib/compose-resolve-frame.ts` and the route resolver.
  */
 export function resolveCatalogDetailModalFrameLayer(
 	built: CatalogDetailOverlaySearchParamBuild,
 ): RenderToStreamOptions['resolveFrame'] | undefined {
-	const { analysisFrameSrc, modalBodyFrameResolve } = built
-	if (analysisFrameSrc === null && modalBodyFrameResolve === null) {
+	const { analysisFrameSrc } = built
+	if (analysisFrameSrc === null) {
 		return undefined
 	}
 	return (source) => {
-		if (
-			modalBodyFrameResolve !== null &&
-			samePathAndSearch(source, modalBodyFrameResolve.frameSrc)
-		) {
-			return renderToStream(
-				jsx(CatalogEtfModalBodyFragment, modalBodyFrameResolve.props),
-			)
-		}
-		if (
-			analysisFrameSrc !== null &&
-			samePathAndSearch(source, analysisFrameSrc)
-		) {
+		if (samePathAndSearch(source, analysisFrameSrc)) {
 			return renderToStream(jsx(CatalogEtfAnalysisFragment, {}))
 		}
 		return ''
