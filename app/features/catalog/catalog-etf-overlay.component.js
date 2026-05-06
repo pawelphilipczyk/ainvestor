@@ -14,6 +14,11 @@ function isModifiedClick(event) {
 	)
 }
 
+/** Full navigation — required because `window.navigation.navigate` is stubbed (no-op) when the Navigation API is missing, and soft-nav can skip query-only updates. */
+function assignHref(href) {
+	window.location.assign(href)
+}
+
 /**
  * Shows `<dialog id="catalog-etf-dialog">` on load when present, closes on backdrop click
  * and syncs with the close link (removes `etf` from the URL).
@@ -86,11 +91,7 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 				event.preventDefault()
 				const closeHref = dialog.dataset.catalogEtfCloseHref
 				if (closeHref) {
-					if (typeof globalThis.navigation?.navigate === 'function') {
-						globalThis.navigation.navigate(closeHref)
-					} else {
-						window.location.assign(closeHref)
-					}
+					assignHref(closeHref)
 				} else {
 					closeDialog()
 				}
@@ -100,11 +101,7 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 				if (url.searchParams.get('etf')) {
 					const closeHref = dialog.dataset.catalogEtfCloseHref
 					if (closeHref) {
-						if (typeof globalThis.navigation?.navigate === 'function') {
-							globalThis.navigation.navigate(closeHref)
-						} else {
-							window.location.assign(closeHref)
-						}
+						assignHref(closeHref)
 					}
 				}
 			},
@@ -124,11 +121,7 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 				event.preventDefault()
 				const href = anchor.getAttribute('href')
 				if (href && !href.startsWith('#')) {
-					if (typeof globalThis.navigation?.navigate === 'function') {
-						globalThis.navigation.navigate(anchor.href)
-					} else {
-						window.location.assign(anchor.href)
-					}
+					assignHref(anchor.href)
 				} else {
 					closeDialog()
 				}

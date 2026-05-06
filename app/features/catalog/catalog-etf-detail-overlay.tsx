@@ -19,18 +19,17 @@ export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 		return (
 			<dialog
 				id={CATALOG_ETF_DIALOG_ID}
-				class="fixed inset-0 z-50 max-h-none max-w-none border-0 bg-transparent p-0 backdrop:bg-black/50 open:flex open:flex-col open:items-stretch open:justify-end md:open:items-center md:open:justify-center md:open:p-4 [&::backdrop]:bg-black/50"
+				class="fixed inset-0 z-50 max-h-none max-w-none border-0 bg-transparent p-0 backdrop:bg-black/50 open:flex open:flex-col open:items-stretch open:justify-end md:open:items-center md:open:justify-center md:open:px-0 md:open:py-4 [&::backdrop]:bg-black/50"
 				aria-labelledby={`${CATALOG_ETF_DIALOG_ID}-title`}
 				data-catalog-etf-close-href={closeHref}
 			>
 				<div
-					class="flex max-h-[min(90dvh,calc(100dvh-1rem))] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-lg md:max-h-[min(90dvh,calc(100dvh-2rem))] md:max-w-2xl md:rounded-xl"
+					class="box-border flex max-h-[min(90dvh,calc(100dvh-1rem))] w-full min-w-0 max-w-screen flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-lg md:max-h-[min(90dvh,calc(100dvh-2rem))] md:rounded-xl"
 					role="document"
 				>
 					<header class="flex shrink-0 items-center gap-3 border-b border-border px-4 py-3">
 						<a
 							href={closeHref}
-							rmx-document
 							class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 							data-catalog-etf-overlay-close=""
 						>
