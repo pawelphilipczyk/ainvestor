@@ -1,11 +1,14 @@
+import { Fragment } from 'remix/component'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToStream } from 'remix/component/server'
 import type { Issue } from 'remix/data-schema'
 import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
 import { createHtmlResponse } from 'remix/response/html'
 import { Session } from 'remix/session'
+import { OverlayNode } from '../../components/overlay-node.tsx'
 import { render } from '../../components/render.ts'
 import { appShellEtfCloseHref } from '../../lib/app-shell-etf-modal.ts'
+import { composeResolveFrame } from '../../lib/compose-resolve-frame.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
@@ -22,11 +25,10 @@ import {
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import {
-	buildCatalogEtfDetailOverlayForSearchParam,
-	mergeEtfOverlayResolveFrame,
+	buildCatalogDetailOverlayForSearchParam,
 	parseOptionalAdviceModelFromUrl,
+	resolveCatalogDetailModalFrameLayer,
 } from '../catalog/catalog-etf-overlay-build.ts'
-import { CatalogEtfSearchParamModal } from '../catalog/catalog-etf-search-param-modal.tsx'
 import { parseEtfDetailSearchParam } from '../catalog/catalog-etf-search-param.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
@@ -213,7 +215,7 @@ async function renderAdvicePageResponse(options: {
 		options.requestUrl,
 	)
 
-	const etfModal = buildCatalogEtfDetailOverlayForSearchParam({
+	const catalogDetailOverlay = buildCatalogDetailOverlayForSearchParam({
 		requestUrl: options.requestUrl,
 		catalog: propsWithCatalog.catalog ?? [],
 		pendingApproval: propsWithCatalog.pendingApproval === true,
@@ -221,12 +223,11 @@ async function renderAdvicePageResponse(options: {
 	})
 
 	return render({
-		title: etfModal.titleWhenOpen ?? t('meta.title.advice'),
+		title: catalogDetailOverlay.titleWhenOpen ?? t('meta.title.advice'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session: options.session,
 		currentPage: 'advice',
-		body: jsx('div', {
-			class: 'contents',
+		body: jsx(Fragment, {
 			children: [
 				jsx(AdvicePage, {
 					...propsWithCatalog,
@@ -234,12 +235,12 @@ async function renderAdvicePageResponse(options: {
 					activeTab,
 					preservedEtfCatalogEntryId,
 				}),
-				jsx(CatalogEtfSearchParamModal, { built: etfModal }),
+				jsx(OverlayNode, { node: catalogDetailOverlay.overlay }),
 			],
 		}),
 		init: options.init,
 		responseHeaders,
-		resolveFrame: mergeEtfOverlayResolveFrame(
+		resolveFrame: composeResolveFrame(
 			(source) =>
 				resolveAdviceResultFrame(
 					source,
@@ -247,7 +248,7 @@ async function renderAdvicePageResponse(options: {
 					propsWithCatalog,
 					options.requestUrl,
 				),
-			etfModal,
+			resolveCatalogDetailModalFrameLayer(catalogDetailOverlay),
 		),
 	})
 }

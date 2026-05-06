@@ -65,10 +65,10 @@ export function catalogEtfModalBodyFrameSrc(options: {
 }
 
 /**
- * Server-side helper: ETF detail dialog content when `?etf=` is present on a page
+ * Server-side helper: catalog fund detail dialog when `?etf=` is present on a page
  * that supplies `closeHref` (catalog index or advice).
  */
-export function buildCatalogEtfDetailOverlayForSearchParam(options: {
+export function buildCatalogDetailOverlayForSearchParam(options: {
 	requestUrl: string
 	catalog: CatalogEntry[]
 	pendingApproval: boolean
@@ -144,27 +144,22 @@ export function buildCatalogEtfDetailOverlayForSearchParam(options: {
 	}
 }
 
-export type CatalogEtfDetailOverlayForSearchParamResult = ReturnType<
-	typeof buildCatalogEtfDetailOverlayForSearchParam
+export type CatalogDetailOverlaySearchParamBuild = ReturnType<
+	typeof buildCatalogDetailOverlayForSearchParam
 >
 
-/** Merge route-specific `resolveFrame` with ETF modal Frame streams (modal body + analysis). */
-export function mergeEtfOverlayResolveFrame(
-	routeResolveFrame: RenderToStreamOptions['resolveFrame'] | undefined,
-	built: CatalogEtfDetailOverlayForSearchParamResult,
+/**
+ * `resolveFrame` layer for the catalog detail overlay (modal body + optional analysis).
+ * Compose with `composeResolveFrame` from `app/lib/compose-resolve-frame.ts` and the route resolver.
+ */
+export function resolveCatalogDetailModalFrameLayer(
+	built: CatalogDetailOverlaySearchParamBuild,
 ): RenderToStreamOptions['resolveFrame'] | undefined {
 	const { analysisFrameSrc, modalBodyFrameResolve } = built
-	if (
-		routeResolveFrame === undefined &&
-		analysisFrameSrc === null &&
-		modalBodyFrameResolve === null
-	) {
+	if (analysisFrameSrc === null && modalBodyFrameResolve === null) {
 		return undefined
 	}
 	return (source) => {
-		const fromRoute =
-			routeResolveFrame !== undefined ? routeResolveFrame(source) : ''
-		if (fromRoute !== '') return fromRoute
 		if (
 			modalBodyFrameResolve !== null &&
 			samePathAndSearch(source, modalBodyFrameResolve.frameSrc)

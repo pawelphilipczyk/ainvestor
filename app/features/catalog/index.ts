@@ -1,10 +1,13 @@
+import { Fragment } from 'remix/component'
 import { jsx } from 'remix/component/jsx-runtime'
 import { renderToStream } from 'remix/component/server'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
+import { OverlayNode } from '../../components/overlay-node.tsx'
 import { render } from '../../components/render.ts'
 import { appShellEtfCloseHref } from '../../lib/app-shell-etf-modal.ts'
+import { composeResolveFrame } from '../../lib/compose-resolve-frame.ts'
 import { requestAcceptsApplicationJson } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { format, t } from '../../lib/i18n.ts'
@@ -36,13 +39,12 @@ import {
 } from './catalog-etf-modal-body-fragment.tsx'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import {
-	buildCatalogEtfDetailOverlayForSearchParam,
+	buildCatalogDetailOverlayForSearchParam,
 	catalogEtfAnalysisFrameSrc,
-	mergeEtfOverlayResolveFrame,
 	parseOptionalAdviceModelFromUrl,
+	resolveCatalogDetailModalFrameLayer,
 	samePathAndSearch,
 } from './catalog-etf-overlay-build.ts'
-import { CatalogEtfSearchParamModal } from './catalog-etf-search-param-modal.tsx'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
@@ -718,14 +720,13 @@ async function renderCatalogPage(params: {
 	} = params
 	const frameSrc = catalogListFrameSrc({ typeFilter, riskFilter, query })
 	const closeHref = appShellEtfCloseHref(requestUrl)
-	const etfModal = buildCatalogEtfDetailOverlayForSearchParam({
+	const catalogDetailOverlay = buildCatalogDetailOverlayForSearchParam({
 		requestUrl,
 		catalog,
 		pendingApproval: pendingApproval ?? false,
 		closeHref,
 	})
-	const body = jsx('div', {
-		class: 'contents',
+	const body = jsx(Fragment, {
 		children: [
 			jsx(CatalogPage, {
 				catalogCount: catalog.length,
@@ -734,17 +735,17 @@ async function renderCatalogPage(params: {
 				query,
 				catalogListFrameSrc: frameSrc,
 			}),
-			jsx(CatalogEtfSearchParamModal, { built: etfModal }),
+			jsx(OverlayNode, { node: catalogDetailOverlay.overlay }),
 		],
 	})
 	return render({
-		title: etfModal.titleWhenOpen ?? t('meta.title.catalog'),
+		title: catalogDetailOverlay.titleWhenOpen ?? t('meta.title.catalog'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'catalog',
 		body,
 		flashBanner,
-		resolveFrame: mergeEtfOverlayResolveFrame(
+		resolveFrame: composeResolveFrame(
 			(source) => {
 				if (source === frameSrc) {
 					return renderToStream(
@@ -762,7 +763,7 @@ async function renderCatalogPage(params: {
 				}
 				return ''
 			},
-			etfModal,
+			resolveCatalogDetailModalFrameLayer(catalogDetailOverlay),
 		),
 	})
 }
