@@ -36,7 +36,6 @@ export const adminController = {
 				}),
 				flashBanner: readFlashedBanner(context.get(Session)),
 				init: { headers: { 'Cache-Control': 'no-store' } },
-				requestUrl: context.request.url,
 			})
 		},
 	},

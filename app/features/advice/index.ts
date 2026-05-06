@@ -5,6 +5,7 @@ import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
 import { createHtmlResponse } from 'remix/response/html'
 import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
+import { appShellEtfCloseHref } from '../../lib/app-shell-etf-modal.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
@@ -20,7 +21,12 @@ import {
 } from '../../lib/session.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
-import { parseOptionalAdviceModelFromUrl } from '../catalog/catalog-etf-overlay-build.ts'
+import {
+	buildCatalogEtfDetailOverlayForSearchParam,
+	mergeEtfOverlayResolveFrame,
+	parseOptionalAdviceModelFromUrl,
+} from '../catalog/catalog-etf-overlay-build.ts'
+import { CatalogEtfSearchParamModal } from '../catalog/catalog-etf-search-param-modal.tsx'
 import { parseEtfDetailSearchParam } from '../catalog/catalog-etf-search-param.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
@@ -207,28 +213,42 @@ async function renderAdvicePageResponse(options: {
 		options.requestUrl,
 	)
 
+	const etfModal = buildCatalogEtfDetailOverlayForSearchParam({
+		requestUrl: options.requestUrl,
+		catalog: propsWithCatalog.catalog ?? [],
+		pendingApproval: propsWithCatalog.pendingApproval === true,
+		closeHref: appShellEtfCloseHref(options.requestUrl),
+	})
+
 	return render({
-		title: t('meta.title.advice'),
+		title: etfModal.titleWhenOpen ?? t('meta.title.advice'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session: options.session,
 		currentPage: 'advice',
-		body: jsx(AdvicePage, {
-			...propsWithCatalog,
-			adviceResultFrameSrc: frameSrc,
-			activeTab,
-			preservedEtfCatalogEntryId,
+		body: jsx('div', {
+			class: 'contents',
+			children: [
+				jsx(AdvicePage, {
+					...propsWithCatalog,
+					adviceResultFrameSrc: frameSrc,
+					activeTab,
+					preservedEtfCatalogEntryId,
+				}),
+				jsx(CatalogEtfSearchParamModal, { built: etfModal }),
+			],
 		}),
 		init: options.init,
 		responseHeaders,
-		requestUrl: options.requestUrl,
-		resolveFrame(source) {
-			return resolveAdviceResultFrame(
-				source,
-				frameSrc,
-				propsWithCatalog,
-				options.requestUrl,
-			)
-		},
+		resolveFrame: mergeEtfOverlayResolveFrame(
+			(source) =>
+				resolveAdviceResultFrame(
+					source,
+					frameSrc,
+					propsWithCatalog,
+					options.requestUrl,
+				),
+			etfModal,
+		),
 	})
 }
 

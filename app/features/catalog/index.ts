@@ -4,6 +4,7 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
+import { appShellEtfCloseHref } from '../../lib/app-shell-etf-modal.ts'
 import { requestAcceptsApplicationJson } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { format, t } from '../../lib/i18n.ts'
@@ -35,10 +36,13 @@ import {
 } from './catalog-etf-modal-body-fragment.tsx'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import {
+	buildCatalogEtfDetailOverlayForSearchParam,
 	catalogEtfAnalysisFrameSrc,
+	mergeEtfOverlayResolveFrame,
 	parseOptionalAdviceModelFromUrl,
 	samePathAndSearch,
 } from './catalog-etf-overlay-build.ts'
+import { CatalogEtfSearchParamModal } from './catalog-etf-search-param-modal.tsx'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
@@ -713,37 +717,52 @@ async function renderCatalogPage(params: {
 		flashBanner,
 	} = params
 	const frameSrc = catalogListFrameSrc({ typeFilter, riskFilter, query })
-	const body = jsx(CatalogPage, {
-		catalogCount: catalog.length,
-		typeFilter,
-		riskFilter,
-		query,
-		catalogListFrameSrc: frameSrc,
+	const closeHref = appShellEtfCloseHref(requestUrl)
+	const etfModal = buildCatalogEtfDetailOverlayForSearchParam({
+		requestUrl,
+		catalog,
+		pendingApproval: pendingApproval ?? false,
+		closeHref,
+	})
+	const body = jsx('div', {
+		class: 'contents',
+		children: [
+			jsx(CatalogPage, {
+				catalogCount: catalog.length,
+				typeFilter,
+				riskFilter,
+				query,
+				catalogListFrameSrc: frameSrc,
+			}),
+			jsx(CatalogEtfSearchParamModal, { built: etfModal }),
+		],
 	})
 	return render({
-		title: t('meta.title.catalog'),
+		title: etfModal.titleWhenOpen ?? t('meta.title.catalog'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'catalog',
 		body,
 		flashBanner,
-		requestUrl,
-		resolveFrame(source) {
-			if (source === frameSrc) {
-				return renderToStream(
-					jsx(CatalogListFragment, {
-						catalog,
-						holdings: entries,
-						typeFilter,
-						riskFilter,
-						query,
-						totalCatalogCount: catalog.length,
-						isAdmin,
-						pendingApproval,
-					}),
-				)
-			}
-			return ''
-		},
+		resolveFrame: mergeEtfOverlayResolveFrame(
+			(source) => {
+				if (source === frameSrc) {
+					return renderToStream(
+						jsx(CatalogListFragment, {
+							catalog,
+							holdings: entries,
+							typeFilter,
+							riskFilter,
+							query,
+							totalCatalogCount: catalog.length,
+							isAdmin,
+							pendingApproval,
+						}),
+					)
+				}
+				return ''
+			},
+			etfModal,
+		),
 	})
 }

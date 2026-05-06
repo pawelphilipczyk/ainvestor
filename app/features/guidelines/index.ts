@@ -430,7 +430,6 @@ export const guidelinesController = {
 				fetchCatalog(),
 			])
 			return renderGuidelinesPage({
-				requestUrl: context.request.url,
 				guidelines,
 				session: layoutSession,
 				catalog,
@@ -676,7 +675,6 @@ export const guidelinesController = {
 // Page renderer
 // ---------------------------------------------------------------------------
 async function renderGuidelinesPage(params: {
-	requestUrl: string
 	guidelines: EtfGuideline[]
 	session: SessionData | null
 	catalog: CatalogEntry[]
@@ -684,7 +682,6 @@ async function renderGuidelinesPage(params: {
 	activeAddTab: GuidelinesAddTabId
 }) {
 	const {
-		requestUrl,
 		guidelines,
 		session,
 		catalog,
@@ -705,7 +702,6 @@ async function renderGuidelinesPage(params: {
 		currentPage: 'guidelines',
 		body,
 		flashBanner,
-		requestUrl,
 		resolveFrame(source) {
 			if (source === routes.guidelines.fragmentList.href()) {
 				return renderToStream(jsx(GuidelinesListFragment, { guidelines }))

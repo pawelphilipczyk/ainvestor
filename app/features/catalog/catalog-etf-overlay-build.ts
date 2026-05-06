@@ -1,4 +1,6 @@
+import type { RenderToStreamOptions } from 'remix/component/server'
 import { jsx } from 'remix/component/jsx-runtime'
+import { renderToStream } from 'remix/component/server'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
 import {
@@ -6,8 +8,12 @@ import {
 	type AdviceModelId,
 	DEFAULT_ADVICE_MODEL,
 } from '../advice/advice-openai.ts'
+import { CatalogEtfAnalysisFragment } from './catalog-etf-analysis-fragment.tsx'
 import { CatalogEtfDetailOverlay } from './catalog-etf-detail-overlay.tsx'
-import type { CatalogEtfModalBodyFragmentProps } from './catalog-etf-modal-body-fragment.tsx'
+import {
+	CatalogEtfModalBodyFragment,
+	type CatalogEtfModalBodyFragmentProps,
+} from './catalog-etf-modal-body-fragment.tsx'
 import { parseEtfDetailSearchParam } from './catalog-etf-search-param.ts'
 import type { CatalogEntry } from './lib.ts'
 
@@ -67,15 +73,7 @@ export function buildCatalogEtfDetailOverlayForSearchParam(options: {
 	catalog: CatalogEntry[]
 	pendingApproval: boolean
 	closeHref: string
-}): {
-	overlay: ReturnType<typeof jsx> | null
-	analysisFrameSrc: string | null
-	modalBodyFrameResolve: {
-		frameSrc: string
-		props: CatalogEtfModalBodyFragmentProps
-	} | null
-	titleWhenOpen: string | null
-} {
+}) {
 	const etfId = parseEtfDetailSearchParam(options.requestUrl)
 	if (etfId === null) {
 		return {
@@ -143,5 +141,44 @@ export function buildCatalogEtfDetailOverlayForSearchParam(options: {
 			props: modalBodyProps,
 		},
 		titleWhenOpen: format(t('meta.title.catalogEtf'), { name: entry.name }),
+	}
+}
+
+export type CatalogEtfDetailOverlayForSearchParamResult = ReturnType<
+	typeof buildCatalogEtfDetailOverlayForSearchParam
+>
+
+/** Merge route-specific `resolveFrame` with ETF modal Frame streams (modal body + analysis). */
+export function mergeEtfOverlayResolveFrame(
+	routeResolveFrame: RenderToStreamOptions['resolveFrame'] | undefined,
+	built: CatalogEtfDetailOverlayForSearchParamResult,
+): RenderToStreamOptions['resolveFrame'] | undefined {
+	const { analysisFrameSrc, modalBodyFrameResolve } = built
+	if (
+		routeResolveFrame === undefined &&
+		analysisFrameSrc === null &&
+		modalBodyFrameResolve === null
+	) {
+		return undefined
+	}
+	return (source) => {
+		const fromRoute =
+			routeResolveFrame !== undefined ? routeResolveFrame(source) : ''
+		if (fromRoute !== '') return fromRoute
+		if (
+			modalBodyFrameResolve !== null &&
+			samePathAndSearch(source, modalBodyFrameResolve.frameSrc)
+		) {
+			return renderToStream(
+				jsx(CatalogEtfModalBodyFragment, modalBodyFrameResolve.props),
+			)
+		}
+		if (
+			analysisFrameSrc !== null &&
+			samePathAndSearch(source, analysisFrameSrc)
+		) {
+			return renderToStream(jsx(CatalogEtfAnalysisFragment, {}))
+		}
+		return ''
 	}
 }
