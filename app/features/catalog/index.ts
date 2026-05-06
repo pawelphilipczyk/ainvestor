@@ -6,6 +6,7 @@ import { Session } from 'remix/session'
 import { render } from '../../components/render.ts'
 import { requestAcceptsApplicationJson } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
+import { decodeValidatedOverlayCloseQueryParam } from '../../lib/app-shell-etf-modal.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { MULTIPART_MAX_FILE_BYTES } from '../../lib/multipart-upload-limits.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
@@ -35,10 +36,13 @@ import {
 } from './catalog-etf-modal-body-fragment.tsx'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import {
+	buildCatalogDetailOverlayForSearchParam,
 	catalogEtfAnalysisFrameSrc,
 	parseOptionalAdviceModelFromUrl,
+	resolveCatalogDetailModalFrameLayer,
 	samePathAndSearch,
 } from './catalog-etf-overlay-build.ts'
+import { ETF_DETAIL_SEARCH_PARAM } from './catalog-etf-search-param.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
@@ -350,17 +354,8 @@ export const catalogController = {
 			}
 
 			const url = new URL(context.request.url)
-			const rawClose = url.searchParams.get('close')
-			if (rawClose === null || rawClose.trim().length === 0) {
-				return new Response('Bad request', {
-					status: 400,
-					headers: { 'content-type': 'text/plain; charset=utf-8' },
-				})
-			}
-			let catalogFallbackHref: string
-			try {
-				catalogFallbackHref = decodeURIComponent(rawClose.trim())
-			} catch {
+			const catalogFallbackHref = decodeValidatedOverlayCloseQueryParam(url)
+			if (catalogFallbackHref === null) {
 				return new Response('Bad request', {
 					status: 400,
 					headers: { 'content-type': 'text/plain; charset=utf-8' },
@@ -398,6 +393,68 @@ export const catalogController = {
 				analysisFrameSrc,
 				selectedModel: model,
 			})
+		},
+
+		async fragmentEtfOverlayShell(context: AppRequestContext) {
+			const entryId = decodeCatalogEntryIdFromPath(
+				(context.params as Record<string, string>).catalogEntryId,
+			)
+			if (entryId === null) {
+				return new Response('Not found', {
+					status: 404,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				})
+			}
+
+			const url = new URL(context.request.url)
+			const catalogFallbackHref = decodeValidatedOverlayCloseQueryParam(url)
+			if (catalogFallbackHref === null) {
+				return new Response('Bad request', {
+					status: 400,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				})
+			}
+
+			const layoutSession = getLayoutSession(context.get(Session))
+			const pendingApproval = layoutSession?.approvalStatus === 'pending'
+
+			const catalogSnapshot = await fetchSharedCatalogSnapshot()
+
+			const syntheticRequestUrl = new URL('http://etf-overlay-shell.invalid/catalog')
+			syntheticRequestUrl.searchParams.set(ETF_DETAIL_SEARCH_PARAM, entryId)
+			const rawModel = url.searchParams.get('model')
+			if (
+				rawModel !== null &&
+				rawModel.length > 0 &&
+				(ADVICE_MODEL_IDS as readonly string[]).includes(rawModel)
+			) {
+				syntheticRequestUrl.searchParams.set('model', rawModel)
+			}
+
+			const overlayBuild = buildCatalogDetailOverlayForSearchParam({
+				requestUrl: syntheticRequestUrl.href,
+				catalog: catalogSnapshot.entries,
+				pendingApproval,
+				closeHref: catalogFallbackHref,
+			})
+
+			if (overlayBuild.overlay === null) {
+				return new Response('Not found', {
+					status: 404,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				})
+			}
+
+			const resolveFrame = resolveCatalogDetailModalFrameLayer(overlayBuild)
+
+			const headers = new Headers({ 'Cache-Control': 'no-store' })
+			return createHtmlResponse(
+				renderToStream(
+					overlayBuild.overlay,
+					resolveFrame !== undefined ? { resolveFrame } : undefined,
+				),
+				{ headers },
+			)
 		},
 
 		async etfAnalysis(context: AppRequestContext) {

@@ -6,6 +6,7 @@ import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
 import { DEFAULT_ADVICE_MODEL } from '../advice/advice-openai.ts'
+import { catalogEtfOverlayShellFragmentHref } from './catalog-etf-overlay-fragment-url.ts'
 import { catalogIndexHrefWithFilters } from './catalog-index-url.ts'
 import {
 	type CatalogEntry,
@@ -71,6 +72,7 @@ function renderCatalogRow(
 		catalogEntryId: entry.id,
 		model: DEFAULT_ADVICE_MODEL,
 	})
+	const etfOverlayFetchHref = catalogEtfOverlayShellFragmentHref(etfDetailHref)
 	const riskBand = riskBandFromRiskKid(entry.risk_kid)
 	const riskCell =
 		riskBand === undefined ? (
@@ -102,12 +104,19 @@ function renderCatalogRow(
 		>
 			<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold">
 				{tickerLinksToDetail ? (
-					<Link
+					<a
 						href={etfDetailHref}
 						class="text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+						rmx-document
+						{...(etfOverlayFetchHref !== null
+							? {
+									'data-catalog-etf-instant': '',
+									'data-catalog-etf-overlay-fetch': etfOverlayFetchHref,
+								}
+							: {})}
 					>
 						{entry.ticker}
-					</Link>
+					</a>
 				) : (
 					entry.ticker
 				)}

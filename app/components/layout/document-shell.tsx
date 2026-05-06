@@ -7,6 +7,8 @@ import type { SessionData } from '../../lib/session.ts'
 import type { FlashBannerTone } from '../../lib/session-flash.ts'
 import { tailwindConfig } from '../../lib/tailwind-config.ts'
 import { FrameSubmitEnhancement } from '../client/frame-submit.component.js'
+// @ts-expect-error Runtime-only remix clientEntry
+import { CatalogEtfOverlayEnhancement } from '../../features/catalog/catalog-etf-overlay.component.js'
 import { NavigationLinkLoadingEnhancement } from '../navigation/navigation-link-loading.component.js'
 import { TabsNavScrollRestoration } from '../navigation/tabs-nav-scroll.component.js'
 import { AppTopBar } from './app-top-bar.tsx'
@@ -146,6 +148,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 					</div>
 				</SessionProvider>
 				<FrameSubmitEnhancement />
+				<CatalogEtfOverlayEnhancement />
 				{props.currentPage === 'portfolio' ? <PortfolioTradeFocus /> : null}
 				<NavigationLinkLoadingEnhancement />
 				<TabsNavScrollRestoration />

@@ -1,7 +1,5 @@
 import type { Handle, RemixNode } from 'remix/component'
 import { t } from '../../lib/i18n.ts'
-// @ts-expect-error Runtime-only remix clientEntry
-import { CatalogEtfOverlayEnhancement } from './catalog-etf-overlay.component.js'
 import type { CatalogEntry } from './lib.ts'
 
 const CATALOG_ETF_DIALOG_ID = 'catalog-etf-dialog'
@@ -52,7 +50,6 @@ export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 						{modalBody}
 					</div>
 				</div>
-				<CatalogEtfOverlayEnhancement />
 			</dialog>
 		)
 	}

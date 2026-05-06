@@ -41,6 +41,7 @@ export const routes = route({
 		import: post('/import'),
 		fragmentList: get('/fragments/list'),
 		fragmentEtfModalBody: get('/fragments/etf-modal-body/:catalogEntryId'),
+		fragmentEtfOverlayShell: get('/fragments/etf-overlay-shell/:catalogEntryId'),
 		fragmentEtfAnalysis: get('/fragments/etf-analysis/:catalogEntryId'),
 	}),
 	admin: route('/admin', {

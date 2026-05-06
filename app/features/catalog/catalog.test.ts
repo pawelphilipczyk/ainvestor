@@ -57,6 +57,31 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /ETF Catalog/)
 	})
 
+	it('GET /catalog/fragments/etf-overlay-shell/:id returns overlay HTML when close is valid', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'row-overlay-shell-test',
+						fund_name: 'Overlay Shell Fund',
+						ticker: 'OSF',
+						assets: 'akcje',
+					},
+				],
+				count: 1,
+			}),
+		)
+		const close = encodeURIComponent('/catalog')
+		const response = await testSessionFetch(
+			`http://localhost/catalog/fragments/etf-overlay-shell/row-overlay-shell-test?close=${close}`,
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /id="catalog-etf-dialog"/)
+		assert.match(body, /Overlay Shell Fund/)
+	})
+
 	it('GET /catalog links ticker column to ETF detail when catalog has entries', async () => {
 		seedSharedCatalog(
 			JSON.stringify({

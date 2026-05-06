@@ -17,6 +17,7 @@ import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { getSectionIntro } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
+import { catalogEtfOverlayShellFragmentHref } from '../catalog/catalog-etf-overlay-fragment-url.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import { findCatalogEntryByTicker } from '../catalog/lib.ts'
 import type {
@@ -474,6 +475,10 @@ function renderEtfProposals(
 											catalogEntryId,
 										})
 									: null
+							const etfOverlayFetchHref =
+								etfDetailsHref !== null
+									? catalogEtfOverlayShellFragmentHref(etfDetailsHref)
+									: null
 							return (
 								<tr
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
@@ -503,12 +508,20 @@ function renderEtfProposals(
 									{pendingApproval ? null : (
 										<td class="py-2 pl-4 pr-4 align-top">
 											{etfDetailsHref !== null ? (
-												<Link
+												<a
 													href={etfDetailsHref}
 													class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+													rmx-document
+													{...(etfOverlayFetchHref !== null
+														? {
+																'data-catalog-etf-instant': '',
+																'data-catalog-etf-overlay-fetch':
+																	etfOverlayFetchHref,
+															}
+														: {})}
 												>
 													{t('advice.table.etfDetailsLink')}
-												</Link>
+												</a>
 											) : (
 												<span class="text-xs text-muted-foreground">
 													{t('catalog.emptyCell')}
