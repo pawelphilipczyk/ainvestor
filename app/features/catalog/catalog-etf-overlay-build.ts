@@ -1,5 +1,5 @@
-import type { RenderToStreamOptions } from 'remix/component/server'
 import { jsx } from 'remix/component/jsx-runtime'
+import type { RenderToStreamOptions } from 'remix/component/server'
 import { renderToStream } from 'remix/component/server'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'

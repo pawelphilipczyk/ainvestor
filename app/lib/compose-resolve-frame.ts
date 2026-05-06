@@ -10,7 +10,9 @@ type ResolveFrame = NonNullable<RenderToStreamOptions['resolveFrame']>
 export function composeResolveFrame(
 	...layers: Array<ResolveFrame | undefined>
 ): ResolveFrame | undefined {
-	const defined = layers.filter((layer): layer is ResolveFrame => layer !== undefined)
+	const defined = layers.filter(
+		(layer): layer is ResolveFrame => layer !== undefined,
+	)
 	if (defined.length === 0) return undefined
 	return (source) => {
 		for (const layer of defined) {

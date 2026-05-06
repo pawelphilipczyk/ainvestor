@@ -961,10 +961,7 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(
-			body,
-			/href="\/advice\?[^"]*etf=advice-learn-row/,
-		)
+		assert.match(body, /href="\/advice\?[^"]*etf=advice-learn-row/)
 		assert.match(body, /ETF details/)
 	})
 

@@ -249,6 +249,7 @@ async function renderPage(params: RenderPortfolioPageParams) {
 		currentPage: 'portfolio',
 		body,
 		flashBanner,
+		init: { headers: { 'Cache-Control': 'no-store' } },
 		resolveFrame(source) {
 			if (source === routes.portfolio.fragmentList.href()) {
 				return renderToStream(

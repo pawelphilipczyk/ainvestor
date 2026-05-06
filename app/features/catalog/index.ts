@@ -745,25 +745,22 @@ async function renderCatalogPage(params: {
 		currentPage: 'catalog',
 		body,
 		flashBanner,
-		resolveFrame: composeResolveFrame(
-			(source) => {
-				if (source === frameSrc) {
-					return renderToStream(
-						jsx(CatalogListFragment, {
-							catalog,
-							holdings: entries,
-							typeFilter,
-							riskFilter,
-							query,
-							totalCatalogCount: catalog.length,
-							isAdmin,
-							pendingApproval,
-						}),
-					)
-				}
-				return ''
-			},
-			resolveCatalogDetailModalFrameLayer(catalogDetailOverlay),
-		),
+		resolveFrame: composeResolveFrame((source) => {
+			if (source === frameSrc) {
+				return renderToStream(
+					jsx(CatalogListFragment, {
+						catalog,
+						holdings: entries,
+						typeFilter,
+						riskFilter,
+						query,
+						totalCatalogCount: catalog.length,
+						isAdmin,
+						pendingApproval,
+					}),
+				)
+			}
+			return ''
+		}, resolveCatalogDetailModalFrameLayer(catalogDetailOverlay)),
 	})
 }
