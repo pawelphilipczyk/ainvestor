@@ -19,15 +19,15 @@ export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 		return (
 			<dialog
 				id={CATALOG_ETF_DIALOG_ID}
-				class="fixed inset-0 z-50 max-h-none max-w-none border-0 bg-transparent p-0 backdrop:bg-black/50 open:flex open:flex-col open:items-stretch open:justify-end md:open:items-center md:open:justify-center md:open:px-0 md:open:py-4 [&::backdrop]:bg-black/50"
+				class="fixed inset-0 z-50 max-h-none max-w-none overflow-x-hidden border-0 bg-transparent p-0 backdrop:bg-black/50 open:flex open:flex-col open:items-stretch open:justify-end open:overflow-x-hidden md:open:items-center md:open:justify-center md:open:px-0 md:open:py-4 [&::backdrop]:bg-black/50"
 				aria-labelledby={`${CATALOG_ETF_DIALOG_ID}-title`}
 				data-catalog-etf-close-href={closeHref}
 			>
 				<div
-					class="box-border flex max-h-[min(90dvh,calc(100dvh-1rem))] w-full min-w-0 max-w-screen flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-lg md:max-h-[min(90dvh,calc(100dvh-2rem))] md:rounded-xl"
+					class="box-border flex max-h-[min(90dvh,calc(100dvh-1rem))] w-full min-w-0 max-w-[100dvw] flex-col overflow-hidden rounded-t-2xl border border-border bg-background shadow-lg md:max-h-[min(90dvh,calc(100dvh-2rem))] md:rounded-xl"
 					role="document"
 				>
-					<header class="flex shrink-0 items-start gap-3 border-b border-border px-4 py-3">
+					<header class="flex w-full min-w-0 shrink-0 items-start gap-3 overflow-hidden border-b border-border px-4 py-3">
 						<div class="min-w-0 flex-1 pr-2">
 							<h1
 								id={`${CATALOG_ETF_DIALOG_ID}-title`}
@@ -48,7 +48,7 @@ export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 							<span aria-hidden="true">×</span>
 						</button>
 					</header>
-					<div class="flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto px-4 py-4">
+					<div class="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 py-4">
 						{modalBody}
 					</div>
 				</div>

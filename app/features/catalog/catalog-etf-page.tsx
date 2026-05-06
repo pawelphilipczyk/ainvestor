@@ -42,7 +42,9 @@ export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
 		)
 
 		if (!fullPage) {
-			return <div class="space-y-6">{body}</div>
+			return (
+				<div class="min-w-0 max-w-full space-y-6 overflow-x-hidden">{body}</div>
+			)
 		}
 
 		return (

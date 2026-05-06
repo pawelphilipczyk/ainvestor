@@ -159,11 +159,13 @@ export function CatalogEtfDetailAnalysisSection(
 							{t('catalog.etfDetail.loadAnalysisButton')}
 						</SubmitButton>
 					</form>
-					<Frame
-						name="catalog-etf-analysis"
-						src={props.analysisFrameSrc}
-						fallback={frameLoadingPlaceholder()}
-					/>
+					<div class="min-w-0 max-w-full overflow-hidden">
+						<Frame
+							name="catalog-etf-analysis"
+							src={props.analysisFrameSrc}
+							fallback={frameLoadingPlaceholder()}
+						/>
+					</div>
 				</>
 			) : (
 				<div class="min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
