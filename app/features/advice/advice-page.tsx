@@ -505,7 +505,6 @@ function renderEtfProposals(
 											{etfDetailsHref !== null ? (
 												<Link
 													href={etfDetailsHref}
-													navigationLoading={true}
 													class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 												>
 													{t('advice.table.etfDetailsLink')}

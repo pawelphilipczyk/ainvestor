@@ -33,6 +33,7 @@ run({
 		const response = await fetch(src, {
 			headers: { Accept: 'text/html' },
 			signal,
+			credentials: 'same-origin',
 		})
 		return response.body ?? (await response.text())
 	},

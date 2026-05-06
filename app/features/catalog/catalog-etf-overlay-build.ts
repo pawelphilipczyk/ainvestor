@@ -25,11 +25,33 @@ export function parseOptionalAdviceModelFromUrl(url: string): AdviceModelId {
 	return DEFAULT_ADVICE_MODEL
 }
 
+function equivalentSearchStrings(searchA: string, searchB: string): boolean {
+	if (searchA === searchB) return true
+	const normalize = (raw: string) =>
+		raw.startsWith('?') ? raw.slice(1) : raw
+	const paramsA = new URLSearchParams(normalize(searchA))
+	const paramsB = new URLSearchParams(normalize(searchB))
+	const keys = new Set([...paramsA.keys(), ...paramsB.keys()])
+	for (const key of keys) {
+		const valuesA = paramsA.getAll(key).sort()
+		const valuesB = paramsB.getAll(key).sort()
+		if (valuesA.length !== valuesB.length) return false
+		for (let index = 0; index < valuesA.length; index++) {
+			if (valuesA[index] !== valuesB[index]) return false
+		}
+	}
+	return true
+}
+
+/** Same document path and equivalent query (order-insensitive) for Frame `resolveFrame` matching. */
 export function samePathAndSearch(a: string, b: string): boolean {
 	try {
 		const urlA = new URL(a, 'https://frame-resolve.local')
 		const urlB = new URL(b, 'https://frame-resolve.local')
-		return urlA.pathname === urlB.pathname && urlA.search === urlB.search
+		return (
+			urlA.pathname === urlB.pathname &&
+			equivalentSearchStrings(urlA.search, urlB.search)
+		)
 	} catch {
 		return a === b
 	}

@@ -31,6 +31,15 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 		}
 
 		const doc = document
+		const win = doc.defaultView
+		if (win == null) {
+			return () =>
+				createElement('span', {
+					hidden: true,
+					'aria-hidden': 'true',
+					'data-component': 'catalog-etf-overlay-enhancement',
+				})
+		}
 		const dialog = doc.getElementById(DIALOG_ID)
 		if (!(dialog instanceof HTMLDialogElement)) {
 			return () =>
@@ -43,7 +52,11 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 
 		const openDialog = () => {
 			if (dialog.open) return
+			const scrollBeforeOpen = win.scrollY
 			dialog.showModal()
+			requestAnimationFrame(() => {
+				win.scrollTo({ top: scrollBeforeOpen, left: 0, behavior: 'instant' })
+			})
 		}
 
 		const closeDialog = () => {

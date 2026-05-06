@@ -104,7 +104,6 @@ function renderCatalogRow(
 				{tickerLinksToDetail ? (
 					<Link
 						href={etfDetailHref}
-						navigationLoading={true}
 						class="text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 					>
 						{entry.ticker}
