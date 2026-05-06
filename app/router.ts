@@ -38,6 +38,7 @@ const appStatic = staticFiles('app', {
 	filter: (path) =>
 		path.endsWith('.component.js') ||
 		path === 'entry.js' ||
+		path === 'features/catalog/catalog-etf-overlay-runtime.js' ||
 		path === 'lib/dialog-trigger.js',
 })
 
