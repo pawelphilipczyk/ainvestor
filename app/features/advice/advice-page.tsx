@@ -1,4 +1,4 @@
-import { Frame, type Handle } from 'remix/component'
+import { Fragment, Frame, type Handle } from 'remix/component'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import {
 	Card,
@@ -509,16 +509,31 @@ function renderEtfProposals(
 										<td class="py-2 pl-4 pr-4 align-top">
 											{etfDetailsHref !== null ? (
 												etfOverlayFetchHref !== null ? (
-													<a
-														href={etfDetailsHref}
-														class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-														data-catalog-etf-instant=""
-														data-catalog-etf-overlay-fetch={
-															etfOverlayFetchHref
-														}
-													>
-														{t('advice.table.etfDetailsLink')}
-													</a>
+													<Fragment>
+														<button
+															type="button"
+															class="inline-flex cursor-pointer whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+															data-catalog-etf-instant=""
+															data-catalog-etf-nav-href={etfDetailsHref}
+															data-catalog-etf-overlay-fetch={
+																etfOverlayFetchHref
+															}
+															aria-label={t(
+																'advice.table.openEtfOverlayAria',
+															)}
+														>
+															{t('advice.table.etfDetailsLink')}
+														</button>
+														<noscript>
+															<a
+																href={etfDetailsHref}
+																class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+																rmx-document
+															>
+																{t('advice.table.etfDetailsLink')}
+															</a>
+														</noscript>
+													</Fragment>
 												) : (
 													<a
 														href={etfDetailsHref}

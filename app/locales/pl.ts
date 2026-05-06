@@ -155,6 +155,7 @@ export const pl = {
 	'catalog.table.value': 'Wartość',
 	'catalog.etfDetail.back': 'Wstecz',
 	'catalog.etfDetail.closeOverlay': 'Zamknij',
+	'catalog.etfDetail.openOverlayAria': 'Otwórz szczegóły funduszu ({ticker})',
 	'catalog.etfDetail.pendingBody':
 		'Szczegóły ETF są dostępne po akceptacji konta.',
 	'catalog.etfDetail.catalogCardTitle': 'Z Twojego katalogu',
@@ -252,6 +253,7 @@ export const pl = {
 	'advice.table.currency': 'Waluta',
 	'advice.table.note': 'Uwaga',
 	'advice.table.etfDetailsLink': 'Szczegóły ETF',
+	'advice.table.openEtfOverlayAria': 'Otwórz szczegóły ETF w oknie',
 	'advice.capital.title': 'Miks portfela',
 	'advice.capital.snapshotError':
 		'Nie można pokazać migawki portfela, bo dane z modelu były niespójne (np. pomieszane waluty lub nieprawidłowe kwoty).',

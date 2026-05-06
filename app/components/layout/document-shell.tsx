@@ -150,7 +150,11 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				<NavigationLinkLoadingEnhancement />
 				<TabsNavScrollRestoration />
 				<script
-					innerHTML={`(function(){document.addEventListener('click',function(e){if(globalThis.__catalogEtfOverlayInstalled)return;var t=e.target;if(!t||!t.closest)return;var a=t.closest('a[data-catalog-etf-instant]');if(!a)return;var u=a.getAttribute('data-catalog-etf-overlay-fetch');if(!u)return;if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;e.preventDefault();e.stopImmediatePropagation();globalThis.__catalogEtfInstantPending={anchor:a,fetchUrl:u};},true);})();`}
+					innerHTML={`(function(){document.addEventListener('click',function(e){if(globalThis.__catalogEtfOverlayInstalled)return;var t=e.target;if(!t||!t.closest)return;var el=t.closest('[data-catalog-etf-instant]');if(!el)return;var u=el.getAttribute('data-catalog-etf-overlay-fetch');if(!u)return;var h=el.getAttribute('data-catalog-etf-nav-href')||(el.tagName==='A'?el.getAttribute('href'):null);if(!h)return;if(e.button!==0||e.metaKey||e.ctrlKey||e.shiftKey||e.altKey)return;e.preventDefault();e.stopImmediatePropagation();globalThis.__catalogEtfInstantPending={navHref:h,fetchUrl:u};},true);})();`}
+				/>
+				<script
+					type="module"
+					src="/features/catalog/catalog-etf-overlay-runtime.js"
 				/>
 				<script type="module" src="/entry.js" />
 			</body>

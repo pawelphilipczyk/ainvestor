@@ -1,13 +1,11 @@
 /**
  * Client bootstrap for Remix component runtime.
- * Loaded via <script type="module" src="/entry.js" /> — hydrates all clientEntry components.
+ * Loaded via `<script type="module" src="/entry.js" />` — hydrates all clientEntry components.
+ * ETF overlay installs via `<script type="module" src="/features/catalog/catalog-etf-overlay-runtime.js" />`
+ * **before** this file in `document-shell.tsx`.
  * @see https://github.com/remix-run/remix/tree/main/packages/component
  */
-import { installCatalogEtfOverlay } from './features/catalog/catalog-etf-overlay-runtime.js'
 import { run } from 'remix/component'
-
-/** Before Remix `run()` so ETF modal links never perform a full document navigation first. */
-installCatalogEtfOverlay()
 
 // startNavigationListener() assumes window.navigation (Chromium). Without it, run() throws
 // before hydration on Firefox/Safari; stub is inert for real navigations when links use rmx-document.

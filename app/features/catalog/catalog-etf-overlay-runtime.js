@@ -10,6 +10,7 @@ const DIALOG_ID = 'catalog-etf-dialog'
 const ATTR_CLOSE = 'data-catalog-etf-overlay-close'
 const ATTR_INSTANT = 'data-catalog-etf-instant'
 const ATTR_OVERLAY_FETCH = 'data-catalog-etf-overlay-fetch'
+const ATTR_NAV_HREF = 'data-catalog-etf-nav-href'
 
 function isModifiedClick(event) {
 	return (
@@ -150,16 +151,16 @@ export function installCatalogEtfOverlay() {
 		if (existing !== null) existing.remove()
 	}
 
-	async function openOverlayFromInstantLink(link, fetchUrl) {
+	async function openOverlayFromInstantLink(navHref, fetchUrl) {
 		if (overlayFetchInFlight) return
 		let destination
 		try {
-			destination = new URL(link.href)
+			destination = new URL(navHref, win.location.href)
 		} catch {
 			return
 		}
 		if (destination.origin !== win.location.origin) {
-			win.location.assign(link.href)
+			win.location.assign(navHref)
 			return
 		}
 
@@ -179,7 +180,7 @@ export function installCatalogEtfOverlay() {
 			})
 
 			if (!response.ok) {
-				win.location.assign(link.href)
+				win.location.assign(navHref)
 				return
 			}
 
@@ -188,14 +189,14 @@ export function installCatalogEtfOverlay() {
 
 			const dialogEl = getDialog(doc)
 			if (dialogEl === null) {
-				win.location.assign(link.href)
+				win.location.assign(navHref)
 				return
 			}
 
 			wireDialog(dialogEl)
 			openDialog(dialogEl)
 		} catch {
-			win.location.assign(link.href)
+			win.location.assign(navHref)
 		} finally {
 			overlayFetchInFlight = false
 		}
@@ -205,17 +206,25 @@ export function installCatalogEtfOverlay() {
 		const target = event.target
 		if (!(target instanceof Element)) return
 
-		const instantLink = target.closest(`a[${ATTR_INSTANT}]`)
-		if (instantLink instanceof HTMLAnchorElement) {
-			const fetchUrl = instantLink.getAttribute(ATTR_OVERLAY_FETCH)
+		const instantEl = target.closest(`[${ATTR_INSTANT}]`)
+		if (instantEl instanceof HTMLElement) {
+			const fetchUrl = instantEl.getAttribute(ATTR_OVERLAY_FETCH)
+			let navHref = instantEl.getAttribute(ATTR_NAV_HREF)
+			if (navHref === null || navHref === '') {
+				if (instantEl instanceof HTMLAnchorElement) {
+					navHref = instantEl.getAttribute('href')
+				}
+			}
 			if (
 				fetchUrl !== null &&
 				fetchUrl.length > 0 &&
+				navHref !== null &&
+				navHref.length > 0 &&
 				!isModifiedClick(event)
 			) {
 				event.preventDefault()
 				event.stopImmediatePropagation()
-				void openOverlayFromInstantLink(instantLink, fetchUrl)
+				void openOverlayFromInstantLink(navHref, fetchUrl)
 				return
 			}
 		}
@@ -259,11 +268,14 @@ export function installCatalogEtfOverlay() {
 	if (
 		pending &&
 		typeof pending === 'object' &&
-		pending.anchor instanceof HTMLAnchorElement &&
 		typeof pending.fetchUrl === 'string' &&
-		pending.fetchUrl.length > 0
+		pending.fetchUrl.length > 0 &&
+		typeof pending.navHref === 'string' &&
+		pending.navHref.length > 0
 	) {
 		delete globalThis.__catalogEtfInstantPending
-		void openOverlayFromInstantLink(pending.anchor, pending.fetchUrl)
+		void openOverlayFromInstantLink(pending.navHref, pending.fetchUrl)
 	}
 }
+
+installCatalogEtfOverlay()

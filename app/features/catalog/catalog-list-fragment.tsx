@@ -1,4 +1,5 @@
 import type { Handle } from 'remix/component'
+import { Fragment } from 'remix/component'
 import { Card, Link, ScrollableTable } from '../../components/index.ts'
 import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
@@ -105,14 +106,29 @@ function renderCatalogRow(
 			<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold">
 				{tickerLinksToDetail ? (
 					etfOverlayFetchHref !== null ? (
-						<a
-							href={etfDetailHref}
-							class="text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-							data-catalog-etf-instant=""
-							data-catalog-etf-overlay-fetch={etfOverlayFetchHref}
-						>
-							{entry.ticker}
-						</a>
+						<Fragment>
+							<button
+								type="button"
+								class="cursor-pointer bg-transparent p-0 font-mono text-sm font-semibold text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+								data-catalog-etf-instant=""
+								data-catalog-etf-nav-href={etfDetailHref}
+								data-catalog-etf-overlay-fetch={etfOverlayFetchHref}
+								aria-label={format(t('catalog.etfDetail.openOverlayAria'), {
+									ticker: entry.ticker,
+								})}
+							>
+								{entry.ticker}
+							</button>
+							<noscript>
+								<a
+									href={etfDetailHref}
+									class="text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+									rmx-document
+								>
+									{entry.ticker}
+								</a>
+							</noscript>
+						</Fragment>
 					) : (
 						<a
 							href={etfDetailHref}

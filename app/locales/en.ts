@@ -159,6 +159,7 @@ export const en = {
 	'catalog.table.value': 'Value',
 	'catalog.etfDetail.back': 'Back',
 	'catalog.etfDetail.closeOverlay': 'Close',
+	'catalog.etfDetail.openOverlayAria': 'Open fund details ({ticker})',
 	'catalog.etfDetail.pendingBody':
 		'ETF details are available after your account is approved.',
 	'catalog.etfDetail.catalogCardTitle': 'From your catalog',
@@ -257,6 +258,7 @@ export const en = {
 	'advice.table.currency': 'Currency',
 	'advice.table.note': 'Note',
 	'advice.table.etfDetailsLink': 'ETF details',
+	'advice.table.openEtfOverlayAria': 'Open ETF details in overlay',
 	'advice.capital.title': 'Portfolio mix',
 	'advice.capital.snapshotError':
 		'Portfolio snapshot could not be shown because the data from the model was inconsistent (for example mixed currencies or invalid amounts).',
