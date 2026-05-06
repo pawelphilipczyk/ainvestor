@@ -48,7 +48,7 @@ export function CatalogEtfDetailOverlay(_handle: Handle, _setup?: unknown) {
 							<span aria-hidden="true">×</span>
 						</button>
 					</header>
-					<div class="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overflow-y-auto px-4 py-4">
+					<div class="flex min-h-0 min-w-0 max-w-full flex-1 flex-col overflow-x-hidden overscroll-contain overflow-y-auto px-4 py-4 touch-pan-y">
 						{modalBody}
 					</div>
 				</div>

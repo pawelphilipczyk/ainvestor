@@ -95,13 +95,39 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 				})
 		}
 
+		let bodyScrollLocked = false
+		let lockedScrollY = 0
+
+		function lockBodyScroll() {
+			if (bodyScrollLocked) return
+			bodyScrollLocked = true
+			lockedScrollY = win.scrollY || doc.documentElement.scrollTop
+			doc.documentElement.style.overflow = 'hidden'
+			doc.body.style.overflow = 'hidden'
+			doc.body.style.position = 'fixed'
+			doc.body.style.top = `-${lockedScrollY}px`
+			doc.body.style.left = '0'
+			doc.body.style.right = '0'
+			doc.body.style.width = '100%'
+		}
+
+		function unlockBodyScroll() {
+			if (!bodyScrollLocked) return
+			bodyScrollLocked = false
+			doc.documentElement.style.overflow = ''
+			doc.body.style.overflow = ''
+			doc.body.style.position = ''
+			doc.body.style.top = ''
+			doc.body.style.left = ''
+			doc.body.style.right = ''
+			doc.body.style.width = ''
+			win.scrollTo(0, lockedScrollY)
+		}
+
 		const openDialog = () => {
 			if (dialog.open) return
-			const scrollBeforeOpen = win.scrollY
+			lockBodyScroll()
 			dialog.showModal()
-			requestAnimationFrame(() => {
-				win.scrollTo({ top: scrollBeforeOpen, left: 0, behavior: 'instant' })
-			})
 		}
 
 		const closeDialog = () => {
@@ -132,6 +158,7 @@ export const CatalogEtfOverlayEnhancement = clientEntry(
 				replaceCloseUrlAndHide(dialog, closeDialog)
 			},
 			close() {
+				unlockBodyScroll()
 				replaceCloseUrlIfEtfParam(dialog)
 			},
 		})
