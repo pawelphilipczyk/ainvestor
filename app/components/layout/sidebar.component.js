@@ -1,4 +1,5 @@
 import { addEventListeners, clientEntry, createElement } from 'remix/ui'
+import { lockScroll } from 'remix/ui/scroll-lock'
 
 /** Matches Tailwind `md:` (tablet / iPad portrait and up). */
 const DESKTOP_MEDIA = '(min-width: 768px)'
@@ -9,29 +10,32 @@ function isDesktop(doc) {
 	return defaultView.matchMedia(DESKTOP_MEDIA).matches
 }
 
-function openSidebar(sidebar, backdrop, sidebarToggle, doc) {
+function openSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef) {
 	if (isDesktop(doc)) return
+	scrollLockRef.release()
+	scrollLockRef.release = lockScroll(doc)
 	sidebar.classList.remove('-translate-x-full')
 	backdrop.classList.remove('opacity-0', 'pointer-events-none')
 	backdrop.classList.add('opacity-100')
 	sidebarToggle.setAttribute('aria-expanded', 'true')
-	doc.body.style.overflow = 'hidden'
 }
 
-function closeSidebar(sidebar, backdrop, sidebarToggle, doc) {
+function closeSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef) {
 	if (isDesktop(doc)) {
-		doc.body.style.overflow = ''
+		scrollLockRef.release()
+		scrollLockRef.release = () => {}
 		return
 	}
-	resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc)
+	resetMobileOverlay(sidebar, backdrop, sidebarToggle, scrollLockRef)
 }
 
-function resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc) {
+function resetMobileOverlay(sidebar, backdrop, sidebarToggle, scrollLockRef) {
+	scrollLockRef.release()
+	scrollLockRef.release = () => {}
 	sidebar.classList.add('-translate-x-full')
 	backdrop.classList.add('opacity-0', 'pointer-events-none')
 	backdrop.classList.remove('opacity-100')
 	sidebarToggle.setAttribute('aria-expanded', 'false')
-	doc.body.style.overflow = ''
 }
 
 export const SidebarInteractions = clientEntry(
@@ -47,10 +51,11 @@ export const SidebarInteractions = clientEntry(
 				backdrop instanceof HTMLElement &&
 				sidebarToggle instanceof HTMLElement
 			) {
+				const scrollLockRef = { release: () => {} }
 				const desktopMediaQuery = doc.defaultView?.matchMedia(DESKTOP_MEDIA)
 				const onBreakpoint = () => {
 					if (desktopMediaQuery?.matches) {
-						resetMobileOverlay(sidebar, backdrop, sidebarToggle, doc)
+						resetMobileOverlay(sidebar, backdrop, sidebarToggle, scrollLockRef)
 					}
 				}
 				desktopMediaQuery?.addEventListener('change', onBreakpoint)
@@ -62,7 +67,7 @@ export const SidebarInteractions = clientEntry(
 						if (!(target instanceof Element)) return
 
 						if (target.closest('[data-sidebar-toggle]')) {
-							openSidebar(sidebar, backdrop, sidebarToggle, doc)
+							openSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef)
 							return
 						}
 
@@ -70,12 +75,12 @@ export const SidebarInteractions = clientEntry(
 							target.closest('[data-sidebar-close]') ||
 							target.closest('#sidebar-backdrop')
 						) {
-							closeSidebar(sidebar, backdrop, sidebarToggle, doc)
+							closeSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef)
 						}
 					},
 					keydown(event) {
 						if (event.key === 'Escape' && !isDesktop(doc)) {
-							closeSidebar(sidebar, backdrop, sidebarToggle, doc)
+							closeSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef)
 						}
 					},
 				})
@@ -83,6 +88,8 @@ export const SidebarInteractions = clientEntry(
 				handle.signal.addEventListener(
 					'abort',
 					() => {
+						scrollLockRef.release()
+						scrollLockRef.release = () => {}
 						desktopMediaQuery?.removeEventListener('change', onBreakpoint)
 					},
 					{ once: true },

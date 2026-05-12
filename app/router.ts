@@ -43,7 +43,9 @@ const appStatic = staticFiles('app', {
 
 const remixRuntime = staticFiles('node_modules', {
 	filter: (path) =>
-		path === 'remix/dist/ui.js' || path.startsWith('@remix-run/ui/dist/'),
+		path === 'remix/dist/ui.js' ||
+		path.startsWith('remix/dist/ui/') ||
+		path.startsWith('@remix-run/ui/dist/'),
 })
 
 function enforceGithubApproval(): Middleware {

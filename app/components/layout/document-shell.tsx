@@ -17,7 +17,9 @@ import { getNavLinks } from './sidebar-nav.ts'
 const IMPORT_MAP = JSON.stringify({
 	imports: {
 		'remix/ui': '/remix/dist/ui.js',
+		'remix/ui/scroll-lock': '/remix/dist/ui/scroll-lock.js',
 		'@remix-run/ui': '/@remix-run/ui/dist/index.js',
+		'@remix-run/ui/scroll-lock': '/@remix-run/ui/dist/utils/scroll-lock.js',
 	},
 })
 

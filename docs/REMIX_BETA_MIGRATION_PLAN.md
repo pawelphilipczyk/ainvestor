@@ -1,8 +1,8 @@
 # Remix beta migration plan
 
 This is the working checklist for moving this app from
-`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–5 are
-complete in the repo; remaining items start at Prompt 6.
+`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–6 are
+complete in the repo; remaining items start at Prompt 7.
 
 Sources to check before each implementation step:
 
@@ -270,7 +270,7 @@ Revisit `remix/ui/button` after any decision to align shell chrome with Remix
 theme tokens globally (or if a future Remix release adds a minimal/unstyled
 variant).
 
-- [ ] **Prompt 6 — Replace navigation/menu/popover pieces**
+- [x] **Prompt 6 — Replace navigation/menu/popover pieces**
 
   ```text
   Continue the Remix UI component adoption.
@@ -287,6 +287,25 @@ variant).
 
   Deliverable: one or more small PRs split by interaction area.
   ```
+
+### Prompt 6 notes — anchor, menu, popover, scroll-lock
+
+- **`remix/ui/anchor`** — Re-exports a **floating placement** helper
+  (`anchor(floatingEl, anchorEl, options)`), not a document navigation link. Our
+  full-page links stay on native `<a href>` with `rmx-document` and optional
+  `data-navigation-loading` via `Link` and `NavigationLinkLoadingEnhancement`.
+
+- **`remix/ui/menu`** and **`remix/ui/popover`** — Rich overlay primitives for
+  dropdown menus and anchored surfaces. The shell uses a **slide-out sidebar**
+  (backdrop + translate), not a menu/popover component tree. **Guidelines**
+  delete confirmations use **native `<dialog>`** + `dialog-trigger.js`; no
+  custom outside-click popover to replace.
+
+- **`remix/ui/scroll-lock`** — **`lockScroll(document)`** replaces ad hoc
+  `document.body.style.overflow` toggles when the mobile sidebar opens. The
+  document import map and static allowlist serve `remix/dist/ui/scroll-lock.js`
+  and resolve `@remix-run/ui/scroll-lock` for nested imports. Unlock runs on
+  close, breakpoint switch to desktop, and client entry abort.
 
 - [ ] **Prompt 7 — Replace select/listbox/combobox pieces**
 
