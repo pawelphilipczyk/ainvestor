@@ -41,7 +41,7 @@ type FormError = {
 	detail?: string
 }
 
-function FormErrorAlert(_handle: Handle, _setup?: unknown) {
+function FormErrorAlert(_handle: Handle) {
 	return (props: { error: FormError }) => {
 		const { error } = props
 		return (
@@ -624,11 +624,11 @@ function adviceResultCardView(props: {
 
 export type AdviceResultCardProps = Parameters<typeof adviceResultCardView>[0]
 
-export function AdviceResultCard(_handle: Handle, _setup?: unknown) {
+export function AdviceResultCard(_handle: Handle) {
 	return adviceResultCardView
 }
 
-export function AdvicePage(_handle: Handle, _setup?: unknown) {
+export function AdvicePage(_handle: Handle) {
 	return (props: AdvicePageProps) => {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL

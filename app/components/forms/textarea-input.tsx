@@ -21,7 +21,7 @@ type TextareaInputProps = {
 /**
  * Server-rendered textarea (label is composed separately).
  */
-export function TextareaInput(_handle: Handle, _setup?: unknown) {
+export function TextareaInput(_handle: Handle) {
 	return (props: TextareaInputProps) => {
 		const {
 			class: classProp,

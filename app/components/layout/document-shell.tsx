@@ -76,13 +76,13 @@ function flashToneBadgeClass(tone: FlashBannerTone): string {
 	}
 }
 
-export function DocumentShell(_handle: Handle, _setup?: unknown) {
-	return (props: DocumentShellProps) => (
-		<html lang={props.htmlLang} class="dark">
+export function DocumentShell(handle: Handle<DocumentShellProps>) {
+	return () => (
+		<html lang={handle.props.htmlLang} class="dark">
 			<head>
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width,initial-scale=1" />
-				<title>{props.title}</title>
+				<title>{handle.props.title}</title>
 				<script innerHTML="if(localStorage.getItem('theme')==='light')document.documentElement.classList.remove('dark')" />
 				<script src="https://cdn.tailwindcss.com" />
 				<script
@@ -100,7 +100,7 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 				/>
 			</head>
 			<body class="min-h-screen overflow-x-hidden bg-background font-sans text-foreground antialiased">
-				<SessionProvider session={props.session}>
+				<SessionProvider session={handle.props.session}>
 					<div id="form-spinner" class="sr-only" aria-hidden="true">
 						<span
 							class="inline-flex items-center gap-2"
@@ -121,32 +121,38 @@ export function DocumentShell(_handle: Handle, _setup?: unknown) {
 						/>
 					</div>
 					<Sidebar
-						navLinks={getNavLinks({ isAdmin: props.session?.isAdmin })}
-						currentPage={props.currentPage}
+						navLinks={getNavLinks({ isAdmin: handle.props.session?.isAdmin })}
+						currentPage={handle.props.currentPage}
 					/>
 					<AppTopBar />
 					<div id="page-content" class="min-w-0 p-4 md:ml-64">
-						{props.flashBanner ? (
+						{handle.props.flashBanner ? (
 							<section
-								class={`mx-auto mb-4 max-w-5xl min-w-0 rounded-md border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm border-l-4 ${flashToneAccentClass(props.flashBanner.tone)}`}
-								aria-label={flashToneLabel(props.flashBanner.tone)}
+								class={`mx-auto mb-4 max-w-5xl min-w-0 rounded-md border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm border-l-4 ${flashToneAccentClass(handle.props.flashBanner.tone)}`}
+								aria-label={flashToneLabel(handle.props.flashBanner.tone)}
 							>
-								<p class="sr-only">{flashToneLabel(props.flashBanner.tone)}</p>
+								<p class="sr-only">
+									{flashToneLabel(handle.props.flashBanner.tone)}
+								</p>
 								<div class="mb-2 flex flex-wrap items-center gap-2">
 									<span
-										class={`inline-flex rounded border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${flashToneBadgeClass(props.flashBanner.tone)}`}
+										class={`inline-flex rounded border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${flashToneBadgeClass(handle.props.flashBanner.tone)}`}
 									>
-										{flashToneLabel(props.flashBanner.tone)}
+										{flashToneLabel(handle.props.flashBanner.tone)}
 									</span>
 								</div>
-								<div class="whitespace-pre-wrap">{props.flashBanner.text}</div>
+								<div class="whitespace-pre-wrap">
+									{handle.props.flashBanner.text}
+								</div>
 							</section>
 						) : null}
-						{props.children}
+						{handle.props.children}
 					</div>
 				</SessionProvider>
 				<FrameSubmitEnhancement />
-				{props.currentPage === 'portfolio' ? <PortfolioTradeFocus /> : null}
+				{handle.props.currentPage === 'portfolio' ? (
+					<PortfolioTradeFocus />
+				) : null}
 				<NavigationLinkLoadingEnhancement />
 				<TabsNavScrollRestoration />
 				<script type="module" src="/entry.js" />

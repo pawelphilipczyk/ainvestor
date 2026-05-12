@@ -28,7 +28,7 @@ type GuidelinesPageProps = {
 	activeAddTab: GuidelinesAddTabId
 }
 
-export function GuidelinesPage(handle: Handle, _setup?: unknown) {
+export function GuidelinesPage(handle: Handle) {
 	return (props: GuidelinesPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
 

@@ -17,7 +17,7 @@ type PortfolioOperationFormProps = {
 /**
  * Portfolio buy/sell as a single form: operation, fund, value, currency, then Apply.
  */
-export function PortfolioOperationForm(_handle: Handle, _setup?: unknown) {
+export function PortfolioOperationForm(_handle: Handle) {
 	return (props: PortfolioOperationFormProps) => {
 		const instrumentPlaceholder =
 			props.instrumentOptions.length === 0

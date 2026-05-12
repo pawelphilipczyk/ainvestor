@@ -7,7 +7,7 @@ import { routes } from '../../routes.ts'
 /**
  * App name (links home) and optional Preview chip for chrome (sidebar, top bar on small screens).
  */
-export function AppBranding(_handle: Handle, _setup?: unknown) {
+export function AppBranding(_handle: Handle) {
 	return () => {
 		const previewBuild = isPreview() ? getPreviewBuildChrome() : null
 		return (

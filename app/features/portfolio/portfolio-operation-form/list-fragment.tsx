@@ -29,7 +29,7 @@ function instrumentTickerForPortfolioTradeForm(
  * Renders the ETF list as HTML fragment for progressive enhancement.
  * Used by GET /fragments/portfolio-list for fetch-based form updates.
  */
-export function ListFragment(_handle: Handle, _setup?: unknown) {
+export function ListFragment(_handle: Handle) {
 	return (props: {
 		entries?: EtfEntry[]
 		inlineError?: string

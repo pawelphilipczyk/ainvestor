@@ -22,7 +22,7 @@ function tableClassNames(extra?: string) {
  * on this component; they are forwarded to the inner `<table>` after merging scroll
  * layout classes. Use **`wrapperClass`** for the outer clip (e.g. `mt-3`).
  */
-export function ScrollableTable(_handle: Handle, _setup?: unknown) {
+export function ScrollableTable(_handle: Handle) {
 	return (props: {
 		wrapperClass?: string
 		children?: RemixNode

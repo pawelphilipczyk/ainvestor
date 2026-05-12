@@ -34,7 +34,7 @@ function catalogRiskBandChipClassName(band: CatalogRiskBand): string {
 	return `${shell} bg-red-500/25 text-red-700 dark:bg-red-500/15 dark:text-red-300`
 }
 
-function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
+function CatalogTableHeader(_handle: Handle) {
 	return () => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
 			<th class="pb-2 pl-4 pr-4 align-top">{t('catalog.table.ticker')}</th>
@@ -145,7 +145,7 @@ type CatalogListFragmentProps = {
  * Renders the filtered catalog tables (holdings section + available section).
  * Used as Frame content and during SSR resolveFrame.
  */
-export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
+export function CatalogListFragment(_handle: Handle) {
 	return (props: CatalogListFragmentProps) => {
 		const tickerLinksToDetail = !props.pendingApproval
 		const tableColSpan = 7

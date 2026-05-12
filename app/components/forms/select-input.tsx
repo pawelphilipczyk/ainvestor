@@ -25,7 +25,7 @@ type SelectInputProps = {
 /**
  * Server-rendered select (label is composed separately).
  */
-export function SelectInput(_handle: Handle, _setup?: unknown) {
+export function SelectInput(_handle: Handle) {
 	return (props: SelectInputProps) => {
 		const {
 			class: classProp,

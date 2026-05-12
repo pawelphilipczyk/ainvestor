@@ -28,7 +28,7 @@ type EtfCardProps = {
  * Server-rendered read-only ETF row for the portfolio list.
  * Buy and sell use the shared form above the list.
  */
-export function EtfCard(_handle: Handle, _setup?: unknown) {
+export function EtfCard(_handle: Handle) {
 	return (props: EtfCardProps) => {
 		const valueSharePercent =
 			props.valueSharePercent === undefined

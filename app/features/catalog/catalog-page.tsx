@@ -24,7 +24,7 @@ type CatalogPageProps = {
 	catalogListFrameSrc: string
 }
 
-export function CatalogPage(handle: Handle, _setup?: unknown) {
+export function CatalogPage(handle: Handle) {
 	return (props: CatalogPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
 

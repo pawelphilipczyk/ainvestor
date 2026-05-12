@@ -29,7 +29,7 @@ function formatOptionalPercent(value: number): string {
 	}).format(value)}%`
 }
 
-export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
+export function CatalogEtfPage(_handle: Handle) {
 	return (props: CatalogEtfPageProps) => {
 		const { entry } = props
 		const typeLabel =

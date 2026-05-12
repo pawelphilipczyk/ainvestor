@@ -21,7 +21,7 @@ function defaultPatternForInputMode(mode: string): string {
  *
  * Spreads use a cast: Remix `Props<'input'>` is a discriminated union (e.g. `list` with combobox), so a generic rest bag does not narrow for TS.
  */
-export function NumberInput(_handle: Handle, _setup?: unknown) {
+export function NumberInput(_handle: Handle) {
 	return (
 		props: Omit<Props<'input'>, 'class'> & {
 			class?: string

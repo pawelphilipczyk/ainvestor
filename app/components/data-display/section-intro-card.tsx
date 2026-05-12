@@ -25,7 +25,7 @@ type SectionIntroCardProps =
  * Shared intro surface for home grid links and each section's top card.
  * `view-transition-name` pairs with cross-document View Transitions (see baseCss).
  */
-export function SectionIntroCard(_handle: Handle, _setup?: unknown) {
+export function SectionIntroCard(_handle: Handle) {
 	return (props: SectionIntroCardProps) => {
 		const viewTransitionStyle = {
 			viewTransitionName: transitionName(props.page),

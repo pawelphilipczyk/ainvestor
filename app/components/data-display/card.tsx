@@ -20,7 +20,7 @@ export function getCardClassNames(props?: {
  * Shared surface wrapper for page intro, form, and content sections.
  * Layout and semantics stay with the parent; only the surface styling is shared.
  */
-export function Card(_handle: Handle, _setup?: unknown) {
+export function Card(_handle: Handle) {
 	return (props: {
 		as?: CardElement
 		children?: RemixNode

@@ -26,7 +26,7 @@ type SubmitButtonProps = {
  * set `data-loading` + `aria-busy` and show a centered spinner (label hidden),
  * matching {@link Link} navigation loading.
  */
-export function SubmitButton(_handle: Handle, _setup?: unknown) {
+export function SubmitButton(_handle: Handle) {
 	return (props: SubmitButtonProps) => {
 		const {
 			children,

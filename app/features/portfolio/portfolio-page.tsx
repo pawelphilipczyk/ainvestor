@@ -17,7 +17,7 @@ type PortfolioPageProps = {
 /**
  * Portfolio page: CSV import, operation form (buy/sell), holdings list in a Frame.
  */
-export function PortfolioPage(handle: Handle, _setup?: unknown) {
+export function PortfolioPage(handle: Handle) {
 	return (props: PortfolioPageProps) => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
 		const portfolioIntro = getSectionIntro('portfolio')

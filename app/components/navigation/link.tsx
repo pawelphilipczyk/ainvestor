@@ -25,7 +25,7 @@ type LinkProps = {
  * Anchor with optional full-page navigation loading UX (`data-navigation-loading`).
  * Remix `@remix-run/ui` exposes DOM `link` props for `<link>`, not a router `Link`.
  */
-export function Link(_handle: Handle, _setup?: unknown) {
+export function Link(_handle: Handle) {
 	return (props: LinkProps) => {
 		const {
 			href,

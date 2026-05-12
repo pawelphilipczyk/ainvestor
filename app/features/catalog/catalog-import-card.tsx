@@ -12,7 +12,7 @@ type CatalogImportCardProps = {
 	sharedCatalogOwnerLogin: string | null
 }
 
-export function CatalogImportCard(_handle: Handle, _setup?: unknown) {
+export function CatalogImportCard(_handle: Handle) {
 	return (props: CatalogImportCardProps) => (
 		<Card variant="muted" class="p-4">
 			<section aria-labelledby="catalog-import-heading">

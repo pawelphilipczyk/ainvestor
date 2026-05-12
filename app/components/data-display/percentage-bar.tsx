@@ -8,7 +8,7 @@ const fillClass = 'absolute inset-y-0 left-0 bg-primary/75'
  * Decorative horizontal bar for 0–100% values (guideline targets, holdings share).
  * Callers supply the accessible name and an already-clamped width percent.
  */
-export function PercentageBar(_handle: Handle, _setup?: unknown) {
+export function PercentageBar(_handle: Handle) {
 	return (props: { ariaLabel: string; widthPercent: number }) => {
 		return (
 			<div class={trackClass} role="img" aria-label={props.ariaLabel}>

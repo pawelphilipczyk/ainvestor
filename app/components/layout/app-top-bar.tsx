@@ -7,12 +7,15 @@ import { ThemeToggleInteractions } from '../navigation/theme-toggle.component.js
 import { ThemeToggleButton } from '../navigation/theme-toggle.tsx'
 import { AppBranding } from './app-branding.tsx'
 import { LocaleSelectSubmit } from './locale-select.component.js'
+import type { SessionContext } from './session-provider.tsx'
 import { SessionProvider } from './session-provider.tsx'
 
 /**
  * Server-rendered top bar: branding on small screens; sign-in, username, theme toggle, then sidebar toggle on the right.
  */
-export function AppTopBar(handle: Handle, _setup?: unknown) {
+export function AppTopBar(
+	handle: Handle<Record<string, never>, SessionContext>,
+) {
 	return () => {
 		const session = handle.context.get(SessionProvider)?.session ?? null
 		const activeUiLocale = getUiLocale()

@@ -7,7 +7,7 @@ export type CatalogEtfAnalysisFragmentProps = {
 	error?: string
 }
 
-export function CatalogEtfAnalysisFragment(_handle: Handle, _setup?: unknown) {
+export function CatalogEtfAnalysisFragment(_handle: Handle) {
 	return (props: CatalogEtfAnalysisFragmentProps) => {
 		if (props.error !== undefined && props.error.length > 0) {
 			return (

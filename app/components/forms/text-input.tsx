@@ -25,7 +25,7 @@ type TextInputProps = {
 /**
  * Server-rendered text or search input (label is composed separately).
  */
-export function TextInput(_handle: Handle, _setup?: unknown) {
+export function TextInput(_handle: Handle) {
 	return (props: TextInputProps) => {
 		const {
 			type: typeProp,

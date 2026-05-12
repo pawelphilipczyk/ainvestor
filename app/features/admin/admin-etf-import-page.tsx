@@ -8,7 +8,7 @@ type AdminEtfImportPageProps = {
 	sharedCatalogOwnerLogin: string | null
 }
 
-export function AdminETFImportPage(_handle: Handle, _setup?: unknown) {
+export function AdminETFImportPage(_handle: Handle) {
 	return (props: AdminEtfImportPageProps) => {
 		const adminIntro = getSectionIntro('admin')
 		return (

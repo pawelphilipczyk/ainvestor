@@ -15,7 +15,7 @@ export type FieldLabelVariant = keyof typeof variantClasses
  * Server-rendered `<label>` for use next to {@link TextInput}, {@link NumberInput}, etc.
  * Layout (grid, gap, columns) stays in the parent.
  */
-export function FieldLabel(_handle: Handle, _setup?: unknown) {
+export function FieldLabel(_handle: Handle) {
 	return (props: {
 		fieldId: string
 		variant?: FieldLabelVariant
