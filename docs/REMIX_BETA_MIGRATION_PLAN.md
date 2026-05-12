@@ -1,8 +1,8 @@
 # Remix beta migration plan
 
 This is the working checklist for moving this app from
-`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–6 are
-complete in the repo; remaining items start at Prompt 7.
+`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–7 are
+complete in the repo; remaining items start at Prompt 8.
 
 Sources to check before each implementation step:
 
@@ -307,7 +307,7 @@ variant).
   and resolve `@remix-run/ui/scroll-lock` for nested imports. Unlock runs on
   close, breakpoint switch to desktop, and client entry abort.
 
-- [ ] **Prompt 7 — Replace select/listbox/combobox pieces**
+- [x] **Prompt 7 — Replace select/listbox/combobox pieces**
 
   ```text
   Continue the Remix UI component adoption after buttons and navigation.
@@ -323,6 +323,32 @@ variant).
 
   Deliverable: one small form-control PR.
   ```
+
+### Prompt 7 notes — select, listbox, combobox
+
+- **`SelectInput`** (`app/components/forms/select-input.tsx`) — Thin wrapper
+  around a **native `<select>`** with shared Tailwind shell classes, optional
+  `compact` height parity with `TextInput`, and a decorative chevron SVG. Form
+  posts use real select values with **no JavaScript requirement**, matching
+  **HTML-first / progressive enhancement** in `docs/UI_ARCHITECTURE_GUIDELINES.md`.
+
+- **`remix/ui/select`** — Composes a **button trigger**, popover surface,
+  listbox options, and a **hidden `<input type="hidden">`** for the submitted
+  value (`Select`, `Context`, mixins in `@remix-run/ui`). Replacing
+  `SelectInput` would trade native `<select>` semantics for a custom control,
+  require client runtime behavior for the intended UX, and apply Remix theme
+  surfaces. **Left unchanged** for catalog, portfolio, guidelines, and advice
+  selects.
+
+- **`remix/ui/listbox`** and **`remix/ui/combobox`** — Low-level and combobox
+  patterns for searchable or fully custom option lists. The app has **no**
+  standalone listbox or combobox widgets beyond native `<select>` and normal
+  text inputs (HTML `list` / combobox comments only in `text-input.tsx` /
+  `number-input.tsx`). **Nothing to adopt** without a new product requirement.
+
+- **Tests** — `app/components/forms/select-input.test.ts` SSR-locks the native
+  markup contract (`name` / `id`, controlled vs uncontrolled `selected`,
+  `compact`, `disabled` / `required`).
 
 - [ ] **Prompt 8 — Audit non-UI beta changes**
 
