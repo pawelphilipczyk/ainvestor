@@ -1,8 +1,8 @@
 # Remix beta migration plan
 
 This is the working checklist for moving this app from
-`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–4 are
-complete in the repo; remaining items start at Prompt 5.
+`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–5 are
+complete in the repo; remaining items start at Prompt 6.
 
 Sources to check before each implementation step:
 
@@ -220,7 +220,7 @@ Recorded when closing Prompt 4 in the repo:
 
 **Manual browser exercise** (catalog filter, portfolio/guidelines frames, advice result frame, catalog ETF analysis) was not run in the agent environment; run a quick smoke pass locally if desired.
 
-- [ ] **Prompt 5 — Replace custom buttons first**
+- [x] **Prompt 5 — Replace custom buttons first**
 
   ```text
   Start replacing app-owned UI wrappers with first-party Remix UI components.
@@ -237,6 +237,38 @@ Recorded when closing Prompt 4 in the repo:
 
   Deliverable: one small button-focused PR.
   ```
+
+### Prompt 5 notes — `remix/ui/button` evaluation
+
+First-party `Button` from `remix/ui/button` always composes Remix theme mixins
+(`baseStyle` plus a fixed `tone` surface). It does not expose an unstyled or
+Tailwind-only mode, and it wraps text children in an extra label `span`, which
+breaks the DOM contract our loading helpers rely on.
+
+- **`SubmitButton`** — Keeps a native `<button type="submit">` with Tailwind
+  classes from `form-control-classes.ts`, `busy-control-root`, an inner
+  `.busy-control-label` span, and a `.submit-button-busy-overlay` sibling for
+  `setSubmitButtonLoading` in `submit-button-loading.component.js` and CSS in
+  `document-styles.ts`. Swapping in Remix `Button` would change primary styling
+  to Remix theme tokens and would not preserve the overlay + label structure
+  without reimplementing `Button` internals. **Left unchanged**; covered by
+  `app/components/forms/submit-button.test.ts` SSR assertions on that markup.
+
+- **Chrome controls** (`ThemeToggleButton`, sidebar close, top bar menu toggle,
+  locale chrome, and similar) — Rely on app Tailwind tokens (`border-border`,
+  `bg-background`, `rounded-md`, icon layout including absolutely positioned
+  SVGs). Remix `Button` default shapes use theme `radius.full`, different
+  heights, and `startIcon`/`children` layout that does not match these controls
+  without a visible redesign. **Left unchanged.**
+
+- **Secondary / outline submits** (for example frame forms using plain
+  `<button type="submit" class="…border-border…">` without the busy overlay) —
+  Still intentionally Tailwind-aligned with the rest of the shell; Remix `Button`
+  tones do not map 1:1 to those utility combinations. **Left unchanged.**
+
+Revisit `remix/ui/button` after any decision to align shell chrome with Remix
+theme tokens globally (or if a future Remix release adds a minimal/unstyled
+variant).
 
 - [ ] **Prompt 6 — Replace navigation/menu/popover pieces**
 
