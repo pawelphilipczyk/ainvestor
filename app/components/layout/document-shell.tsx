@@ -1,4 +1,4 @@
-import type { Handle, RemixNode } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/ui'
 import { PortfolioTradeFocus } from '../../features/portfolio/portfolio-trade-focus.component.js'
 import type { AppPage } from '../../lib/app-page.ts'
 import { baseCss } from '../../lib/document-styles.ts'
@@ -16,8 +16,8 @@ import { getNavLinks } from './sidebar-nav.ts'
 
 const IMPORT_MAP = JSON.stringify({
 	imports: {
-		'remix/component': '/remix/dist/component.js',
-		'@remix-run/component': '/@remix-run/component/dist/index.js',
+		'remix/ui': '/remix/dist/ui.js',
+		'@remix-run/ui': '/@remix-run/ui/dist/index.js',
 	},
 })
 

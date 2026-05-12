@@ -1,4 +1,4 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import { addEventListeners, clientEntry, createElement } from 'remix/ui'
 
 /** Matches Tailwind `md:` (tablet / iPad portrait and up). */
 const DESKTOP_MEDIA = '(min-width: 768px)'

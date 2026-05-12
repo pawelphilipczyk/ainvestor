@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import { Card, PercentageBar } from '../../components/index.ts'
 import { clampGuidelineBarWidthPercent } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'

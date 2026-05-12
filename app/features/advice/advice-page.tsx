@@ -1,4 +1,4 @@
-import { Frame, type Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/ui'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import {
 	Card,

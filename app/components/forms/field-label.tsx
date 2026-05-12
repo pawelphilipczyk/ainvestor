@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 
 const variantClasses = {
 	field: 'mb-1 block text-sm font-semibold text-foreground',

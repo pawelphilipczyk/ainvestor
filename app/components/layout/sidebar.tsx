@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import type { AppPage } from '../../lib/app-page.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'

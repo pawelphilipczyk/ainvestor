@@ -1,4 +1,4 @@
-import type { Handle, RemixNode } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/ui'
 import type { SectionIntroPage } from '../../lib/section-intros.ts'
 import { Card } from './card.tsx'
 

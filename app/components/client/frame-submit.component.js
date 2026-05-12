@@ -3,7 +3,7 @@ import {
 	clientEntry,
 	createElement,
 	navigate,
-} from 'remix/component'
+} from 'remix/ui'
 import { setSubmitButtonLoading } from './submit-button-loading.component.js'
 
 const CLIENT_MESSAGES_ID = 'ui-client-messages'

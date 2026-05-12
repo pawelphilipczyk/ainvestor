@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 
 const trackClass =
 	'relative h-3 w-full min-w-0 max-w-full overflow-hidden rounded-md bg-muted/80'

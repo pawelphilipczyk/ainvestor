@@ -1,5 +1,5 @@
-import { jsx } from 'remix/component/jsx-runtime'
 import { Session } from 'remix/session'
+import { jsx } from 'remix/ui/jsx-runtime'
 import { render } from '../../components/render.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'

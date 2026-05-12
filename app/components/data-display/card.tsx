@@ -1,4 +1,4 @@
-import type { Handle, RemixNode } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/ui'
 
 const variantClasses = {
 	default: 'bg-card',

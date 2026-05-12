@@ -1,4 +1,4 @@
-import type { Handle, RemixNode } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/ui'
 
 function clipClassNames(extra?: string) {
 	return `min-w-0 max-w-full overflow-hidden rounded-lg border border-border ${extra ?? ''}`.trim()

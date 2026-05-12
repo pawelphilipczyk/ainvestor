@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import { t } from '../../lib/i18n.ts'
 import { getShellReturnPath, getUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'

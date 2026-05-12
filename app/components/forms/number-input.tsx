@@ -1,4 +1,4 @@
-import type { Handle, Props } from 'remix/component'
+import type { Handle, Props } from 'remix/ui'
 import {
 	textNumberControlCompactClasses,
 	textNumberControlDefaultClasses,

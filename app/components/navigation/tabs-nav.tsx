@@ -1,4 +1,4 @@
-import type { Handle, RemixNode } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/ui'
 
 /** Provided to descendants via `handle.context` (see `TabsNav`). */
 export type TabsNavContext = {

@@ -3,8 +3,8 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
+import { jsx } from 'remix/ui/jsx-runtime'
+import { renderToString } from 'remix/ui/server'
 import type { AppPage } from '../../lib/app-page.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { router } from '../../router.ts'
@@ -138,24 +138,24 @@ describe('sidebar component', () => {
 	})
 })
 
-describe('remix component runtime in document', () => {
+describe('remix ui runtime in document', () => {
 	it('body no longer uses legacy data-island activation attributes', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 		assert.doesNotMatch(body, /data-island=/)
 	})
 
-	it('document includes import map for remix component runtime', async () => {
+	it('document includes import map for remix ui runtime', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /"remix\/component":\s*"\/remix\/dist\/component\.js"/)
+		assert.match(body, /"remix\/ui":\s*"\/remix\/dist\/ui\.js"/)
 		assert.match(
 			body,
-			/"@remix-run\/component":\s*"\/@remix-run\/component\/dist\/index\.js"/,
+			/"@remix-run\/ui":\s*"\/@remix-run\/ui\/dist\/index\.js"/,
 		)
 	})
 
-	it('document loads entry.js to boot remix component runtime', async () => {
+	it('document loads entry.js to boot remix ui runtime', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 		assert.match(body, /<script[^>]*type="module"[^>]*src="\/entry\.js"/)
@@ -170,7 +170,7 @@ describe('remix component runtime in document', () => {
 		const response = await router.fetch('http://localhost/entry.js')
 		assert.equal(response.status, 200)
 		const body = await response.text()
-		assert.match(body, /import \{ run \} from 'remix\/component'/)
+		assert.match(body, /import \{ run \} from 'remix\/ui'/)
 		assert.match(body, /run\(\{/)
 		assert.match(body, /resolveFrame/)
 		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
@@ -199,7 +199,7 @@ describe('sidebar component entry static file', () => {
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
-		assert.match(body, /from 'remix\/component'/)
+		assert.match(body, /from 'remix\/ui'/)
 		assert.match(body, /addEventListeners/)
 		assert.match(body, /handle\.signal/)
 		assert.match(body, /addEventListeners\(doc, handle\.signal/)

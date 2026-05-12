@@ -1,4 +1,4 @@
-import { Frame, type Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/ui'
 import { Card } from '../../components/data-display/card.tsx'
 import { SubmitButton } from '../../components/forms/submit-button.tsx'
 import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'

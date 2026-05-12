@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import { Card, Link, ScrollableTable } from '../../components/index.ts'
 import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
