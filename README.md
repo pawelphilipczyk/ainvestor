@@ -3,6 +3,10 @@
 Minimal app scaffold built with the Remix 3 direction from the official `remix-run/remix`
 repository using the `remix` package (`remix@next`).
 
+## Prerequisites
+
+- **Node.js** `24.3.0` or later (matches the `remix` package `engines` field used by this app).
+
 ## What is included
 
 - Home page with app name
