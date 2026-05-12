@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
+import { jsx } from 'remix/ui/jsx-runtime'
+import { renderToString } from 'remix/ui/server'
 import { router } from '../../router.ts'
 import { TabLink, TabsNav } from './tabs-nav.tsx'
 
@@ -68,7 +68,7 @@ describe('tabs-nav scroll restoration component entry', () => {
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
-		assert.match(body, /from 'remix\/component'/)
+		assert.match(body, /from 'remix\/ui'/)
 		assert.match(body, /addEventListeners/)
 		assert.match(body, /handle\.signal/)
 		assert.match(body, /sessionStorage/)

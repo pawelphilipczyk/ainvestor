@@ -1,10 +1,10 @@
-import type { Handle, RemixNode } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/ui'
 import type { SectionIntroPage } from '../../lib/section-intros.ts'
 import { Card } from './card.tsx'
 
 const transitionName = (page: SectionIntroPage) => `section-${page}`
 
-type SectionIntroCardProps =
+export type SectionIntroCardProps =
 	| {
 			page: SectionIntroPage
 			title: string
@@ -25,39 +25,39 @@ type SectionIntroCardProps =
  * Shared intro surface for home grid links and each section's top card.
  * `view-transition-name` pairs with cross-document View Transitions (see baseCss).
  */
-export function SectionIntroCard(_handle: Handle, _setup?: unknown) {
-	return (props: SectionIntroCardProps) => {
+export function SectionIntroCard(handle: Handle<SectionIntroCardProps>) {
+	return () => {
 		const viewTransitionStyle = {
-			viewTransitionName: transitionName(props.page),
+			viewTransitionName: transitionName(handle.props.page),
 		}
 		const header = (
 			<header>
-				{props.variant === 'page' ? (
+				{handle.props.variant === 'page' ? (
 					<h1 class="text-2xl font-bold tracking-tight text-card-foreground">
-						{props.title}
+						{handle.props.title}
 					</h1>
 				) : (
 					<h2 class="text-lg font-semibold tracking-tight text-card-foreground">
-						{props.title}
+						{handle.props.title}
 					</h2>
 				)}
 				<p
 					class={
-						props.variant === 'page'
+						handle.props.variant === 'page'
 							? 'mt-1 text-sm text-muted-foreground'
 							: 'mt-2 text-sm leading-relaxed text-muted-foreground'
 					}
 				>
-					{props.description}
+					{handle.props.description}
 				</p>
-				{props.children}
+				{handle.props.children}
 			</header>
 		)
 
-		if (props.variant === 'home-link') {
+		if (handle.props.variant === 'home-link') {
 			return (
 				<a
-					href={props.href}
+					href={handle.props.href}
 					rmx-document
 					class="group block rounded-xl no-underline outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 				>

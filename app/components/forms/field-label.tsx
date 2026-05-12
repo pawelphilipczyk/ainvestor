@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 
 const variantClasses = {
 	field: 'mb-1 block text-sm font-semibold text-foreground',
@@ -11,20 +11,22 @@ const variantClasses = {
 
 export type FieldLabelVariant = keyof typeof variantClasses
 
+export type FieldLabelProps = {
+	fieldId: string
+	variant?: FieldLabelVariant
+	children: string
+}
+
 /**
  * Server-rendered `<label>` for use next to {@link TextInput}, {@link NumberInput}, etc.
  * Layout (grid, gap, columns) stays in the parent.
  */
-export function FieldLabel(_handle: Handle, _setup?: unknown) {
-	return (props: {
-		fieldId: string
-		variant?: FieldLabelVariant
-		children: string
-	}) => {
-		const key = props.variant ?? 'field'
+export function FieldLabel(handle: Handle<FieldLabelProps>) {
+	return () => {
+		const key = handle.props.variant ?? 'field'
 		return (
-			<label for={props.fieldId} class={variantClasses[key]}>
-				{props.children}
+			<label for={handle.props.fieldId} class={variantClasses[key]}>
+				{handle.props.children}
 			</label>
 		)
 	}

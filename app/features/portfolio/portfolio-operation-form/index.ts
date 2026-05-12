@@ -1,11 +1,11 @@
-import { jsx } from 'remix/component/jsx-runtime'
-import { renderToStream } from 'remix/component/server'
 import { literal, object, parseSafe, string, variant } from 'remix/data-schema'
 import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
+import { jsx } from 'remix/ui/jsx-runtime'
+import { renderToStream } from 'remix/ui/server'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
 import {
 	requestAcceptsApplicationJson,

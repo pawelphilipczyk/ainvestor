@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import { t } from '../../lib/i18n.ts'
 import { getSectionIntro } from '../../lib/section-intros.ts'
@@ -8,8 +8,8 @@ type AdminEtfImportPageProps = {
 	sharedCatalogOwnerLogin: string | null
 }
 
-export function AdminETFImportPage(_handle: Handle, _setup?: unknown) {
-	return (props: AdminEtfImportPageProps) => {
+export function AdminETFImportPage(handle: Handle<AdminEtfImportPageProps>) {
+	return () => {
 		const adminIntro = getSectionIntro('admin')
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-lg gap-6">
@@ -25,7 +25,7 @@ export function AdminETFImportPage(_handle: Handle, _setup?: unknown) {
 					</p>
 				</div>
 				<CatalogImportCard
-					sharedCatalogOwnerLogin={props.sharedCatalogOwnerLogin}
+					sharedCatalogOwnerLogin={handle.props.sharedCatalogOwnerLogin}
 				/>
 			</main>
 		)

@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import { getNavLinks } from '../../components/layout/sidebar-nav.ts'
 import { t } from '../../lib/i18n.ts'
@@ -7,7 +7,7 @@ import { getSectionIntro } from '../../lib/section-intros.ts'
 /**
  * Landing page: large card links to each main section of the app.
  */
-export function IntroPage(_handle: Handle, _setup?: unknown) {
+export function IntroPage(_handle: Handle<Record<string, never>>) {
 	return () => (
 		<main class="mx-auto w-full min-w-0 max-w-4xl">
 			<header class="mb-8">

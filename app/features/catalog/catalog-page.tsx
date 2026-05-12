@@ -1,4 +1,4 @@
-import { Frame, type Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/ui'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import {
 	Card,
@@ -8,7 +8,10 @@ import {
 	TextInput,
 } from '../../components/index.ts'
 import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
-import { SessionProvider } from '../../components/layout/session-provider.tsx'
+import {
+	type SessionContext,
+	SessionProvider,
+} from '../../components/layout/session-provider.tsx'
 import { ETF_TYPES, formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import { getSectionIntro } from '../../lib/section-intros.ts'
@@ -24,8 +27,9 @@ type CatalogPageProps = {
 	catalogListFrameSrc: string
 }
 
-export function CatalogPage(handle: Handle, _setup?: unknown) {
-	return (props: CatalogPageProps) => {
+export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
+	return () => {
+		const props = handle.props
 		const session = handle.context.get(SessionProvider)?.session ?? null
 
 		const catalogIntro = getSectionIntro('catalog')

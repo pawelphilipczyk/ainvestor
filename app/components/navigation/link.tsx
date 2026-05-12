@@ -1,4 +1,4 @@
-import type { Handle, RemixNode } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/ui'
 import {
 	busyControlLabelClass,
 	busyControlOverlayClass,
@@ -23,17 +23,17 @@ type LinkProps = {
 
 /**
  * Anchor with optional full-page navigation loading UX (`data-navigation-loading`).
- * Remix `@remix-run/component` exposes DOM `link` props for `<link>`, not a router `Link`.
+ * Remix `@remix-run/ui` exposes DOM `link` props for `<link>`, not a router `Link`.
  */
-export function Link(_handle: Handle, _setup?: unknown) {
-	return (props: LinkProps) => {
+export function Link(handle: Handle<LinkProps>) {
+	return () => {
 		const {
 			href,
 			children,
 			class: rootClass,
 			labelClass,
 			navigationLoading,
-		} = props
+		} = handle.props
 		if (navigationLoading === true) {
 			const root = `${busyControlRootStateClasses} ${rootClass ?? ''}`.trim()
 			const label = `${busyControlLabelClass} ${labelClass ?? ''}`.trim()

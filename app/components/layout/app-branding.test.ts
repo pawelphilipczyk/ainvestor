@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
+import { jsx } from 'remix/ui/jsx-runtime'
+import { renderToString } from 'remix/ui/server'
 import { AppBranding } from './app-branding.tsx'
 
 describe('AppBranding', () => {

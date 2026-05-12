@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import { t } from '../../lib/i18n.ts'
 
 /**
@@ -6,7 +6,7 @@ import { t } from '../../lib/i18n.ts'
  * Interactivity is provided by ThemeToggleInteractions (clientEntry) in theme-toggle.component.js.
  * Remix components must return a render function; setup runs once, the returned function runs on each render.
  */
-export function ThemeToggleButton(_handle: Handle, _setup?: unknown) {
+export function ThemeToggleButton(_handle: Handle<Record<string, never>>) {
 	return () => (
 		<button
 			data-theme-toggle

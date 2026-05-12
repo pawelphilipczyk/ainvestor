@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import { isPreview } from '../../lib/gist.ts'
 import { t } from '../../lib/i18n.ts'
 import { getPreviewBuildChrome } from '../../lib/preview-build-meta.ts'
@@ -7,7 +7,7 @@ import { routes } from '../../routes.ts'
 /**
  * App name (links home) and optional Preview chip for chrome (sidebar, top bar on small screens).
  */
-export function AppBranding(_handle: Handle, _setup?: unknown) {
+export function AppBranding(_handle: Handle<Record<string, never>>) {
 	return () => {
 		const previewBuild = isPreview() ? getPreviewBuildChrome() : null
 		return (

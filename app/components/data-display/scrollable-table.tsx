@@ -1,4 +1,4 @@
-import type { Handle, RemixNode } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/ui'
 
 function clipClassNames(extra?: string) {
 	return `min-w-0 max-w-full overflow-hidden rounded-lg border border-border ${extra ?? ''}`.trim()
@@ -22,19 +22,21 @@ function tableClassNames(extra?: string) {
  * on this component; they are forwarded to the inner `<table>` after merging scroll
  * layout classes. Use **`wrapperClass`** for the outer clip (e.g. `mt-3`).
  */
-export function ScrollableTable(_handle: Handle, _setup?: unknown) {
-	return (props: {
-		wrapperClass?: string
-		children?: RemixNode
-		class?: string
-		[key: string]: unknown
-	}) => {
+export type ScrollableTableProps = {
+	wrapperClass?: string
+	children?: RemixNode
+	class?: string
+	[key: string]: unknown
+}
+
+export function ScrollableTable(handle: Handle<ScrollableTableProps>) {
+	return () => {
 		const {
 			wrapperClass,
 			children,
 			class: tableClassFromProps,
 			...tableRest
-		} = props
+		} = handle.props
 		const tableClass = tableClassNames(
 			typeof tableClassFromProps === 'string' ? tableClassFromProps : undefined,
 		)

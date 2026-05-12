@@ -1,9 +1,10 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import type { AppPage } from '../../lib/app-page.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
 import { Link } from '../navigation/link.tsx'
 import { AppBranding } from './app-branding.tsx'
+import type { SessionContext } from './session-provider.tsx'
 import { SessionProvider } from './session-provider.tsx'
 import { SidebarInteractions } from './sidebar.component.js'
 import type { NavLink } from './sidebar-nav.ts'
@@ -32,8 +33,9 @@ function renderSidebarNavLink(params: { link: NavLink; currentPage: AppPage }) {
  * Server-rendered sidebar navigation.
  * Session from DocumentShell context. Interactivity: SidebarInteractions (toggle/close).
  */
-export function Sidebar(handle: Handle, _setup?: unknown) {
-	return (props: SidebarProps) => {
+export function Sidebar(handle: Handle<SidebarProps, SessionContext>) {
+	return () => {
+		const props = handle.props
 		const session = handle.context.get(SessionProvider)?.session ?? null
 		const primaryNavLinks = props.navLinks.filter(
 			(link) => link.placement === 'primary',

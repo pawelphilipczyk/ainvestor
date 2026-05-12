@@ -1,4 +1,4 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import { addEventListeners, clientEntry, createElement } from 'remix/ui'
 
 export const LocaleSelectSubmit = clientEntry(
 	'/components/layout/locale-select.component.js#LocaleSelectSubmit',
