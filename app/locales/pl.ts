@@ -19,6 +19,7 @@ export const ETF_TYPE_LABELS_PL: Record<EtfType, string> = {
 export const pl = {
 	'app.name': 'AI Investor',
 	'app.previewChip': 'Podgląd',
+	'app.previewDeployTitle': 'Wersja {commit}',
 	'chrome.flash.error': 'Błąd',
 	'chrome.flash.info': 'Informacja',
 	'chrome.flash.success': 'Sukces',
