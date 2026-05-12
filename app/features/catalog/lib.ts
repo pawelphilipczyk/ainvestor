@@ -7,6 +7,8 @@ import {
 export const CATALOG_FILENAME = 'catalog.json'
 const GITHUB_API = 'https://api.github.com'
 const GITHUB_REQUEST_TIMEOUT_MS = 5_000
+/** In-process TTL for {@link fetchSharedCatalogSnapshot} (ms). Override with `SHARED_CATALOG_CACHE_TTL_MS`; use `0` to disable. */
+const DEFAULT_SHARED_CATALOG_CACHE_TTL_MS = 60_000
 
 type SharedCatalogSnapshot = {
 	entries: CatalogEntry[]
@@ -581,6 +583,22 @@ export function buildCatalogGistPatch(entries: CatalogEntry[]): {
 
 let sharedCatalogTestSnapshot: SharedCatalogSnapshot | null = null
 
+let sharedCatalogTtlCache: {
+	gistId: string
+	snapshot: SharedCatalogSnapshot
+	expiresAt: number
+} | null = null
+
+function getSharedCatalogCacheTtlMs(): number {
+	const raw = (process.env.SHARED_CATALOG_CACHE_TTL_MS ?? '').trim()
+	if (raw.length === 0) return DEFAULT_SHARED_CATALOG_CACHE_TTL_MS
+	const parsed = Number.parseInt(raw, 10)
+	if (!Number.isFinite(parsed) || parsed < 0) {
+		return DEFAULT_SHARED_CATALOG_CACHE_TTL_MS
+	}
+	return parsed
+}
+
 function cloneCatalogEntries(entries: CatalogEntry[]): CatalogEntry[] {
 	return entries.map((entry) => ({ ...entry }))
 }
@@ -602,11 +620,13 @@ function getSharedCatalogGistId(): string | null {
 export function setSharedCatalogForTests(
 	snapshot: SharedCatalogSnapshot,
 ): void {
+	sharedCatalogTtlCache = null
 	sharedCatalogTestSnapshot = cloneSharedCatalogSnapshot(snapshot)
 }
 
 export function resetSharedCatalogForTests(): void {
 	sharedCatalogTestSnapshot = null
+	sharedCatalogTtlCache = null
 }
 
 function githubHeaders(token: string): HeadersInit {
@@ -637,6 +657,17 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 		return { entries: [], ownerLogin: null }
 	}
 
+	const ttlMs = getSharedCatalogCacheTtlMs()
+	const cached = sharedCatalogTtlCache
+	if (
+		ttlMs > 0 &&
+		cached !== null &&
+		cached.gistId === gistId &&
+		Date.now() < cached.expiresAt
+	) {
+		return cloneSharedCatalogSnapshot(cached.snapshot)
+	}
+
 	try {
 		const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 			signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
@@ -651,10 +682,18 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 			typeof gist.owner?.login === 'string' && gist.owner.login.length > 0
 				? gist.owner.login
 				: null
-		return {
+		const snapshot: SharedCatalogSnapshot = {
 			entries: parseCatalogFromGist(gist),
 			ownerLogin,
 		}
+		if (ttlMs > 0) {
+			sharedCatalogTtlCache = {
+				gistId,
+				snapshot: cloneSharedCatalogSnapshot(snapshot),
+				expiresAt: Date.now() + ttlMs,
+			}
+		}
+		return cloneSharedCatalogSnapshot(snapshot)
 	} catch (error) {
 		console.error('[catalog] Shared catalog fetch failed', error)
 		return { entries: [], ownerLogin: null }
