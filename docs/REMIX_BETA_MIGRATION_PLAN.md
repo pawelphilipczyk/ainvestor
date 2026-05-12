@@ -1,8 +1,8 @@
 # Remix beta migration plan
 
 This is the working checklist for moving this app from
-`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–8 are
-complete in the repo; remaining items start at Prompt 9.
+`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–9 are
+complete; the repo baseline is Remix beta (see `package.json`).
 
 Sources to check before each implementation step:
 
@@ -399,7 +399,7 @@ variant).
   **`Dockerfile`** are aligned to Node 24 so local dev, CI, and production builds
   match that contract.
 
-- [ ] **Prompt 9 — Final docs cleanup**
+- [x] **Prompt 9 — Final docs cleanup**
 
   ```text
   After all Remix beta migration PRs are merged, do a final documentation cleanup.
@@ -417,6 +417,21 @@ variant).
 
   Deliverable: one docs cleanup PR.
   ```
+
+### Prompt 9 notes — final docs cleanup
+
+- **Checklist** — Prompts 1–9 marked complete; intro progress line points at
+  `package.json` for the locked beta.
+- **Architecture docs** — `docs/UI_ARCHITECTURE_GUIDELINES.md` and
+  `docs/FRAME_COMPONENT_MIGRATION_PLAN.md` describe **`remix/ui`** /
+  **`remix/ui/server`** and **`handle.props`** as the live baseline, not alpha
+  imports.
+- **`docs/REMIX_V3_PACKAGES.md`** — Version line and beta note aligned with the
+  installed **`remix@3.0.0-beta.0`**; package index still lists removed
+  **`remix/component`** rows for historical comparison only.
+- **`docs/REMIX_REPO_ANALYSIS.md`** — “Our app” bullets no longer instruct an
+  alpha → beta import migration; **`AGENTS.md`** Form controls note references
+  **`remix/ui`** only.
 
 ## Decisions to make while migrating
 
