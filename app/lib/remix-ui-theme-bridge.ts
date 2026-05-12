@@ -1,8 +1,8 @@
 /**
- * Maps `@remix-run/ui` theme CSS variables (used by `remix/ui/button`, etc.) to the
- * same HSL semantic tokens as Tailwind (`document-styles.ts` `:root` / `.dark`).
- * Keeps shell Remix components visually aligned with the rest of the app without
- * loading the full Remix `Theme` style reset (which would fight Tailwind body rules).
+ * Re-maps `--rmx-*` after `RMX_01.Style` so Remix UI primitives track the same HSL
+ * semantic tokens as Tailwind utilities (`:root` / `.dark` in `document-styles.ts`).
+ * Required because the RMX preset uses fixed light hex values while this app switches
+ * palettes via `html.dark` + CSS variables.
  */
 export const remixUiThemeBridgeCss = `
   :root {

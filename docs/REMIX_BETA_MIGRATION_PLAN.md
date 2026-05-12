@@ -111,31 +111,34 @@ same result simpler and more accessible.
 
 ## Remix UI theme bridge (shell chrome)
 
-`remix/ui/button` reads colors, surfaces, and spacing through `--rmx-*` CSS
-variables (see `@remix-run/ui` theme contract). The app shell still uses Tailwind
-semantic tokens (`--background`, `--foreground`, `--primary`, …) in
-`app/lib/document-styles.ts`.
+**Baseline:** `DocumentShell` renders **`RMX_01.Style`** from `remix/ui/theme` first in
+`<head>`, so Remix injects the **`RMX_01`** CSS variable sheet plus the small global
+reset (box model, `body` font/color/background via `var(--rmx-…)`, zeroed heading
+margins, etc.). Tailwind’s **Preflight is disabled** (`corePlugins.preflight: false`
+in `tailwind-config.ts`) so we do not stack two competing global resets.
 
-**`app/lib/remix-ui-theme-bridge.ts`** is concatenated into the shell’s
-`@layer base` style block so `:root` maps `--rmx-*` values to those Tailwind-backed
-variables. That keeps first-party Remix controls aligned with light/dark mode
-without mounting Remix’s full `Theme` style (which would reset body typography
-and fight the CDN Tailwind setup).
+**Semantic bridge:** `app/lib/remix-ui-theme-bridge.ts` is still merged into the
+Tailwind `@layer base` stylesheet **after** the RMX preset, so `:root` **`--rmx-*`**
+values are overridden to reference the same **`--background` / `--foreground` /
+`--primary`** HSL channels Tailwind utilities use. That keeps **light/dark** and
+**`remix/ui/button`** surfaces aligned without maintaining two separate palettes.
 
-**Shell usage today:** `ThemeToggleButton`, the mobile sidebar open/close
-controls, and the sidebar **Sign out** action use `Button` from `remix/ui/button`
-with `tone="ghost"` and small `css()` mixes in
-`app/components/chrome/shell-remix-toolbar-mix.ts` (square toolbar targets,
-full-width nav row). **`SubmitButton`** and primary form actions stay on native
-`<button>` + Tailwind so the busy overlay and `setSubmitButtonLoading` contract
-stay intact.
+**Layout CSS:** `#page-content` uses a single **`shell-main`** class (padding + `md`
+sidebar offset) defined in `document-styles.ts` instead of ad-hoc Tailwind layout
+utilities—more shell layout can migrate the same way over time.
 
-**Trade-offs to expect:** Remix `Button` always applies its pill-shaped
-`border-radius` token (`--rmx-radius-full`) in the base mixin; the bridge does not
-override shape so you see Remix’s control silhouette. Icon-only rows rely on
-zeroing `--rmx-button-label-padding-inline` in a local `mix` so the inner label
-`span` does not add unwanted horizontal padding. Deeper alignment (typography,
-shadows) still comes from Remix defaults where not bridged.
+**Shell `Button` usage:** `ThemeToggleButton`, mobile sidebar open/close, and sidebar
+**Sign out** use `remix/ui/button` (`tone="ghost"`) with mixes in
+`app/components/chrome/shell-remix-toolbar-mix.ts`. **`SubmitButton`** stays native
+for the busy-overlay contract.
+
+**Trade-offs:** Remix `Button` keeps its pill `border-radius` token; icon-only rows
+zero `--rmx-button-label-padding-inline` via `mix`. **Migration note:** Prompt 8
+should record that **Tailwind Preflight is off**—any new raw HTML that relied on
+Preflight normalization may need explicit classes or small `@layer base` rules.
+
+**Prior note superseded:** We previously avoided `RMX_01.Style` to prevent fighting
+Tailwind; with Preflight disabled and the bridge in place, both stacks cooperate.
 
 ## Separate-chat implementation prompts
 
@@ -309,6 +312,7 @@ Recorded when closing Prompt 4 in the repo:
   Goal: check beta changelog items outside the UI runtime.
 
   Check:
+  - Tailwind CDN runs with **Preflight disabled** (`tailwind-config.ts`); raw markup that assumed Preflight may need explicit utility or a small `@layer base` rule when touched.
   - remix/multipart-parser and MultipartPart.headers usage
   - remix-test usage
   - whether remix/assert, remix/test, remix/node-fetch-server/test, remix/auth, remix/auth-middleware, remix/cop-middleware, or remix/csrf-middleware should replace local helpers
