@@ -109,6 +109,37 @@ ones should become first-party Remix UI components:
 Keep Tailwind utility styling unless a first-party Remix UI component makes the
 same result simpler and more accessible.
 
+## Remix UI theme bridge (shell chrome)
+
+**Baseline:** `DocumentShell` renders **`RMX_01.Style`** from `remix/ui/theme` first in
+`<head>`, so Remix injects the **`RMX_01`** CSS variable sheet plus the small global
+reset (box model, `body` font/color/background via `var(--rmx-…)`, zeroed heading
+margins, etc.). Tailwind’s **Preflight is disabled** (`corePlugins.preflight: false`
+in `tailwind-config.ts`) so we do not stack two competing global resets.
+
+**Semantic bridge:** `app/lib/remix-ui-theme-bridge.ts` is still merged into the
+Tailwind `@layer base` stylesheet **after** the RMX preset, so `:root` **`--rmx-*`**
+values are overridden to reference the same **`--background` / `--foreground` /
+`--primary`** HSL channels Tailwind utilities use. That keeps **light/dark** and
+**`remix/ui/button`** surfaces aligned without maintaining two separate palettes.
+
+**Layout CSS:** `#page-content` uses a single **`shell-main`** class (padding + `md`
+sidebar offset) defined in `document-styles.ts` instead of ad-hoc Tailwind layout
+utilities—more shell layout can migrate the same way over time.
+
+**Shell `Button` usage:** `ThemeToggleButton`, mobile sidebar open/close, and sidebar
+**Sign out** use `remix/ui/button` (`tone="ghost"`) with mixes in
+`app/components/chrome/shell-remix-toolbar-mix.ts`. **`SubmitButton`** stays native
+for the busy-overlay contract.
+
+**Trade-offs:** Remix `Button` keeps its pill `border-radius` token; icon-only rows
+zero `--rmx-button-label-padding-inline` via `mix`. **Migration note:** Prompt 8
+should record that **Tailwind Preflight is off**—any new raw HTML that relied on
+Preflight normalization may need explicit classes or small `@layer base` rules.
+
+**Prior note superseded:** We previously avoided `RMX_01.Style` to prevent fighting
+Tailwind; with Preflight disabled and the bridge in place, both stacks cooperate.
+
 ## Separate-chat implementation prompts
 
 Run these prompts one by one in separate chats. Each checkbox should produce a
@@ -313,6 +344,7 @@ variant).
   Goal: check beta changelog items outside the UI runtime.
 
   Check:
+  - Tailwind CDN runs with **Preflight disabled** (`tailwind-config.ts`); raw markup that assumed Preflight may need explicit utility or a small `@layer base` rule when touched.
   - remix/multipart-parser and MultipartPart.headers usage
   - remix-test usage
   - whether remix/assert, remix/test, remix/node-fetch-server/test, remix/auth, remix/auth-middleware, remix/cop-middleware, or remix/csrf-middleware should replace local helpers

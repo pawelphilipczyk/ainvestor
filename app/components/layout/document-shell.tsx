@@ -1,4 +1,5 @@
 import type { Handle, RemixNode } from 'remix/ui'
+import { RMX_01 } from 'remix/ui/theme'
 import { PortfolioTradeFocus } from '../../features/portfolio/portfolio-trade-focus.component.js'
 import type { AppPage } from '../../lib/app-page.ts'
 import { baseCss } from '../../lib/document-styles.ts'
@@ -84,6 +85,7 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 				<meta name="viewport" content="width=device-width,initial-scale=1" />
 				<title>{handle.props.title}</title>
 				<script innerHTML="if(localStorage.getItem('theme')==='light')document.documentElement.classList.remove('dark')" />
+				<RMX_01.Style />
 				<script src="https://cdn.tailwindcss.com" />
 				<script
 					innerHTML={`tailwind.config = ${JSON.stringify(tailwindConfig)}`}
@@ -99,7 +101,7 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 					})}
 				/>
 			</head>
-			<body class="min-h-screen overflow-x-hidden bg-background font-sans text-foreground antialiased">
+			<body class="min-h-screen overflow-x-hidden antialiased">
 				<SessionProvider session={handle.props.session}>
 					<div id="form-spinner" class="sr-only" aria-hidden="true">
 						<span
@@ -125,7 +127,7 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 						currentPage={handle.props.currentPage}
 					/>
 					<AppTopBar />
-					<div id="page-content" class="min-w-0 p-4 md:ml-64">
+					<div id="page-content" class="shell-main">
 						{handle.props.flashBanner ? (
 							<section
 								class={`mx-auto mb-4 max-w-5xl min-w-0 rounded-md border border-border bg-card px-4 py-3 text-sm text-foreground shadow-sm border-l-4 ${flashToneAccentClass(handle.props.flashBanner.tone)}`}
