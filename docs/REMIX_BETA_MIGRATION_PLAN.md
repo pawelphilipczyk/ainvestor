@@ -109,6 +109,34 @@ ones should become first-party Remix UI components:
 Keep Tailwind utility styling unless a first-party Remix UI component makes the
 same result simpler and more accessible.
 
+## Remix UI theme bridge (shell chrome)
+
+`remix/ui/button` reads colors, surfaces, and spacing through `--rmx-*` CSS
+variables (see `@remix-run/ui` theme contract). The app shell still uses Tailwind
+semantic tokens (`--background`, `--foreground`, `--primary`, …) in
+`app/lib/document-styles.ts`.
+
+**`app/lib/remix-ui-theme-bridge.ts`** is concatenated into the shell’s
+`@layer base` style block so `:root` maps `--rmx-*` values to those Tailwind-backed
+variables. That keeps first-party Remix controls aligned with light/dark mode
+without mounting Remix’s full `Theme` style (which would reset body typography
+and fight the CDN Tailwind setup).
+
+**Shell usage today:** `ThemeToggleButton`, the mobile sidebar open/close
+controls, and the sidebar **Sign out** action use `Button` from `remix/ui/button`
+with `tone="ghost"` and small `css()` mixes in
+`app/components/chrome/shell-remix-toolbar-mix.ts` (square toolbar targets,
+full-width nav row). **`SubmitButton`** and primary form actions stay on native
+`<button>` + Tailwind so the busy overlay and `setSubmitButtonLoading` contract
+stay intact.
+
+**Trade-offs to expect:** Remix `Button` always applies its pill-shaped
+`border-radius` token (`--rmx-radius-full`) in the base mixin; the bridge does not
+override shape so you see Remix’s control silhouette. Icon-only rows rely on
+zeroing `--rmx-button-label-padding-inline` in a local `mix` so the inner label
+`span` does not add unwanted horizontal padding. Deeper alignment (typography,
+shadows) still comes from Remix defaults where not bridged.
+
 ## Separate-chat implementation prompts
 
 Run these prompts one by one in separate chats. Each checkbox should produce a

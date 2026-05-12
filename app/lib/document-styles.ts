@@ -1,3 +1,5 @@
+import { remixUiThemeBridgeCss } from './remix-ui-theme-bridge.ts'
+
 /**
  * Base CSS variables for light/dark themes. Inlined in document shell style tag.
  */
@@ -82,6 +84,9 @@ export const baseCss = `@layer base {
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
   }
+
+${remixUiThemeBridgeCss}
+
   /* Default textarea min width follows cols (~20ch); cap to container on narrow viewports. */
   textarea {
     min-width: 0;
