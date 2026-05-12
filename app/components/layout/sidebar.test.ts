@@ -151,8 +151,34 @@ describe('remix ui runtime in document', () => {
 		assert.match(body, /"remix\/ui":\s*"\/remix\/dist\/ui\.js"/)
 		assert.match(
 			body,
+			/"remix\/ui\/scroll-lock":\s*"\/remix\/dist\/ui\/scroll-lock\.js"/,
+		)
+		assert.match(
+			body,
 			/"@remix-run\/ui":\s*"\/@remix-run\/ui\/dist\/index\.js"/,
 		)
+		assert.match(
+			body,
+			/"@remix-run\/ui\/scroll-lock":\s*"\/@remix-run\/ui\/dist\/utils\/scroll-lock\.js"/,
+		)
+	})
+
+	it('GET /remix/dist/ui/scroll-lock.js is served for client sidebar imports', async () => {
+		const response = await router.fetch(
+			'http://localhost/remix/dist/ui/scroll-lock.js',
+		)
+		assert.equal(response.status, 200)
+		const body = await response.text()
+		assert.match(body, /@remix-run\/ui\/scroll-lock/)
+	})
+
+	it('GET /@remix-run/ui/dist/utils/scroll-lock.js is served for nested imports', async () => {
+		const response = await router.fetch(
+			'http://localhost/@remix-run/ui/dist/utils/scroll-lock.js',
+		)
+		assert.equal(response.status, 200)
+		const body = await response.text()
+		assert.match(body, /lockScroll/)
 	})
 
 	it('document loads entry.js to boot remix ui runtime', async () => {
@@ -203,5 +229,14 @@ describe('sidebar component entry static file', () => {
 		assert.match(body, /addEventListeners/)
 		assert.match(body, /handle\.signal/)
 		assert.match(body, /addEventListeners\(doc, handle\.signal/)
+	})
+
+	it('sidebar component entry uses remix scroll lock for mobile overlay', async () => {
+		const response = await router.fetch(
+			'http://localhost/components/layout/sidebar.component.js',
+		)
+		const body = await response.text()
+		assert.match(body, /from 'remix\/ui\/scroll-lock'/)
+		assert.match(body, /lockScroll/)
 	})
 })
