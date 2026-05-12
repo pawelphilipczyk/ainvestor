@@ -38,4 +38,17 @@ jobs:
         run: flyctl apps create ainvestor-preview || true
 
       - name: Deploy to preview app
-        run: flyctl deploy --remote-only --config fly.preview.toml
+        run: |
+          set -euo pipefail
+          short_sha=$(git rev-parse --short HEAD)
+          build_iso=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            branch="${{ github.event.pull_request.head.ref }}"
+          else
+            branch="${{ github.event.inputs.ref }}"
+          fi
+          branch="${branch#refs/heads/}"
+          flyctl deploy --remote-only --config fly.preview.toml \
+            --build-arg "PREVIEW_GIT_BRANCH=$branch" \
+            --build-arg "PREVIEW_BUILD_ISO=$build_iso" \
+            --build-arg "PREVIEW_GIT_SHA_SHORT=$short_sha"
