@@ -5,14 +5,14 @@
 > [Remix GitHub repository](https://github.com/remix-run/remix).
 > Cross-check beta migration work against both sources, especially the package
 > changelog at `packages/remix/CHANGELOG.md`.
-> Version in use: `remix@3.0.0-alpha.4`
+> Version in use: `remix@3.0.0-beta.0` (locked in `package-lock.json`)
 > Beta migration notes: `docs/REMIX_BETA_MIGRATION_PLAN.md`
 
 > **Beta note:** Remix beta removes the deprecated `remix/component` exports.
-> New framework work should target `remix/ui`, `remix/ui/server`, and the
-> stable `handle.props` component signature described in
-> `docs/REMIX_BETA_MIGRATION_PLAN.md`. Some examples below still describe the
-> alpha.4 API because the app has not been upgraded yet.
+> This app imports **`remix/ui`**, **`remix/ui/server`**, and
+> **`remix/ui/jsx-runtime`**, with the **`handle.props`** component shape.
+> Older snippets in this doc may still mention alpha paths for comparison; the
+> live code follows the beta paths above.
 
 ---
 
@@ -583,12 +583,11 @@ await storage.remove('user-123-avatar')
 
 ---
 
-## Island Component System — `remix/ui` beta target, `remix/component` alpha.4 baseline
+## Island Component System — `remix/ui` (current app)
 
 A full-featured component system that renders on the server and hydrates
-interactive "islands" on the client. In beta this runtime is consolidated under
-`remix/ui`; this repo still imports `remix/component` until the beta migration is
-implemented.
+interactive "islands" on the client. The beta line exposes this under **`remix/ui`**
+(replacing removed **`remix/component`** imports from alpha).
 
 ### Beta target API
 
@@ -642,13 +641,11 @@ let app = run({
 })
 ```
 
-### Alpha.4 baseline still used by the app
+### Current app imports
 
-The current app imports `Frame`, `clientEntry`, `Handle`, `Props`, `run`, and
-event helpers from `remix/component`; server rendering comes from
-`remix/component/server`; JSX helpers come from `remix/component/jsx-runtime`.
-Those imports must move to the matching `remix/ui` paths during the beta
-migration.
+The app imports `Frame`, `clientEntry`, `Handle`, `Props`, `run`, and event
+helpers from **`remix/ui`**; server rendering from **`remix/ui/server`**; JSX
+from **`remix/ui/jsx-runtime`**.
 
 **`<Frame>`** streams partial server UI into a page region and supports reload without full navigation.
 
@@ -668,20 +665,17 @@ const body = jsx(PortfolioPage, { entries, session })
 return render({ title: 'AI Investor', session, currentPage: 'portfolio', body })
 ```
 
-**Component signature:** Current alpha.4 components use
-`(handle, setup) => (props) => JSX`. Beta components use
-`(handle: Handle<Props>) => () => JSX` and read current props from the stable
-`handle.props` object. Sub-components used only within a page (e.g. table header
-rows) are plain functions or constants — not Remix components — to avoid the
-"must return a render function" requirement.
+**Component signature:** Components use **`(handle: Handle<Props>) => () => JSX`**
+and read props from **`handle.props`**. Sub-components used only within a page
+(e.g. table header rows) are plain functions or constants — not Remix
+components — to avoid the "must return a render function" requirement.
 
 ---
 
 ## DOM Event Handling via `remix/ui`
 
-The beta API places component event helpers on `remix/ui`, not on a separate
-`remix/interaction` package. The current alpha.4 code imports the same helpers
-from `remix/component` until the migration is implemented.
+The beta API places component event helpers on **`remix/ui`**, not on a separate
+`remix/interaction` package.
 
 Use `on()` mixins on elements rendered by Remix components:
 
@@ -891,10 +885,10 @@ Parse `FormData` once globally rather than in each handler.
 | `remix/compression-middleware` | ✅ | `compression()` in production middleware stack |
 | `form()` shorthand | ✅ | guidelines routes use `form('guidelines')` |
 | `remix/headers` | ❌ | Not used yet |
-| `remix/component` | ✅ | Current alpha.4 JSX page components, `clientEntry` islands, and `on()` event mixins; migrate to `remix/ui` for beta |
-| `remix/component/server` | ✅ | Current alpha.4 `renderToStream()` / `renderToString()`; migrate to `remix/ui/server` for beta |
-| `remix/ui` | ⏳ | Beta target for UI runtime imports |
-| `remix/ui/server` | ⏳ | Beta target for server UI rendering imports |
+| `remix/component` | ❌ | Removed in beta; app uses `remix/ui` instead |
+| `remix/component/server` | ❌ | Removed in beta; app uses `remix/ui/server` instead |
+| `remix/ui` | ✅ | JSX pages, `clientEntry` islands, `Frame`, `on()`, `navigate`, `run()` |
+| `remix/ui/server` | ✅ | `renderToStream()` / `renderToString()` for documents and fragments |
 | `resources()` shorthand | ❌ | No RESTful resource collections yet |
 
 ### What still could be added (future opportunities)

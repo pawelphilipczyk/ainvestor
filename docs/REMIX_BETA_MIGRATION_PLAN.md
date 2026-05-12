@@ -1,7 +1,8 @@
 # Remix beta migration plan
 
 This is the working checklist for moving this app from
-`remix@3.0.0-alpha.4` to the Remix beta line.
+`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–4 are
+complete in the repo; remaining items start at Prompt 5.
 
 Sources to check before each implementation step:
 
@@ -15,13 +16,13 @@ Sources to check before each implementation step:
 
 ## Current app baseline
 
-- App dependency: `remix@^3.0.0-alpha.4`
-- Locked version: `remix@3.0.0-alpha.4`
-- Locked UI runtime package: `@remix-run/component@0.6.0`
-- JSX import source: `remix/component`
-- Server rendering imports: `remix/component/server`
-- JSX runtime imports: `remix/component/jsx-runtime`
-- Static runtime allowlist includes `@remix-run/component/dist/`
+- App dependency: `remix@^3.0.0-beta.0`
+- Locked version: `remix@3.0.0-beta.0` (see `package-lock.json`)
+- Locked UI runtime package: `@remix-run/ui@0.1.1` (peer of `remix`; served from `node_modules/@remix-run/ui/dist/`)
+- JSX import source: `remix/ui` (`tsconfig.json`)
+- Server rendering imports: `remix/ui/server`
+- JSX runtime imports: `remix/ui/jsx-runtime`
+- Static runtime allowlist: `remix/dist/ui.js` and paths under `@remix-run/ui/dist/` (`app/router.ts`)
 
 The app already uses Remix for routing, sessions, form data, method override,
 compression, static files, data schema, redirects, HTML responses, and
@@ -113,7 +114,7 @@ same result simpler and more accessible.
 Run these prompts one by one in separate chats. Each checkbox should produce a
 small PR or a clear follow-up note before moving to the next item.
 
-- [ ] **Prompt 1 — Upgrade package metadata**
+- [x] **Prompt 1 — Upgrade package metadata**
 
   ```text
   Start the Remix beta migration. Read AGENTS.md, docs/REMIX_V3_PACKAGES.md, docs/UI_ARCHITECTURE_GUIDELINES.md, docs/BIOME_RULES.md, and docs/REMIX_BETA_MIGRATION_PLAN.md.
@@ -132,7 +133,7 @@ small PR or a clear follow-up note before moving to the next item.
   Deliverable: one package-only PR.
   ```
 
-- [ ] **Prompt 2 — Rename removed UI runtime imports**
+- [x] **Prompt 2 — Rename removed UI runtime imports**
 
   ```text
   Continue after the Remix beta package upgrade.
@@ -156,7 +157,7 @@ small PR or a clear follow-up note before moving to the next item.
   Deliverable: one import-path PR.
   ```
 
-- [ ] **Prompt 3 — Convert components to `handle.props`**
+- [x] **Prompt 3 — Convert components to `handle.props`**
 
   ```text
   Continue after imports point at remix/ui.
@@ -178,7 +179,7 @@ small PR or a clear follow-up note before moving to the next item.
   Deliverable: one or more small PRs, split by directory if needed.
   ```
 
-- [ ] **Prompt 4 — Verify Frame and clientEntry runtime behavior**
+- [x] **Prompt 4 — Verify Frame and clientEntry runtime behavior**
 
   ```text
   Continue after the app typechecks with remix/ui and handle.props.
@@ -203,6 +204,21 @@ small PR or a clear follow-up note before moving to the next item.
 
   Deliverable: one runtime-fix PR plus any manual verification notes.
   ```
+
+### Prompt 4 verification notes (automated)
+
+Recorded when closing Prompt 4 in the repo:
+
+- **`npm run typecheck`**, **`npm run test`**, and **`npm run check`** all pass.
+- **`app/entry.js`** — Client `run()` from `remix/ui` with dynamic `loadModule` and `resolveFrame` (`fetch` + `Accept: text/html`); inert `globalThis.navigation` stub when the Navigation API is missing (Firefox/Safari) so `run()` does not throw before hydration.
+- **`document-shell.tsx`** — Import map exposes `remix/ui` and `@remix-run/ui` to the served bundle URLs; shell mounts shared `clientEntry` islands including **`FrameSubmitEnhancement`**.
+- **`app/components/render.ts`** — Forwards controller-provided **`resolveFrame`** into **`renderToStream`** when present (same contract as client `resolveFrame`).
+- **`frame-submit.component.js`** — Imports **`navigate`** from **`remix/ui`**; catalog GET filter path uses named frame **`src` + `reload()` + `history.replaceState`** with **`navigate` / `location.assign` fallbacks** as documented.
+- **`app/router.ts`** — **`staticFiles`** for `node_modules` allows **`remix/dist/ui.js`** and **`@remix-run/ui/dist/**`** so the browser import map resolves.
+- **Frame SSR / fallback** — **`frameLoadingPlaceholder`** documents non-blocking `<Frame fallback={…}>` streaming behavior where used.
+- **Multipart beta note** — No direct **`remix/multipart-parser`** / **`MultipartPart.headers`** usage in app code; nothing to migrate for plain-object headers in this codebase.
+
+**Manual browser exercise** (catalog filter, portfolio/guidelines frames, advice result frame, catalog ETF analysis) was not run in the agent environment; run a quick smoke pass locally if desired.
 
 - [ ] **Prompt 5 — Replace custom buttons first**
 
