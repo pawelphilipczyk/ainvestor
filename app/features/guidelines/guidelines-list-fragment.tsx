@@ -23,11 +23,19 @@ const guidelineSaveGhostClass = `${guidelineGhostBase} hover:bg-accent hover:tex
 
 const guidelineRemoveGhostClass = `${guidelineGhostBase} hover:bg-destructive/10 hover:text-destructive`
 
+export type GuidelinesListFragmentProps = {
+	guidelines?: EtfGuideline[]
+	inlineError?: string
+}
+
 /**
  * Renders the guidelines list and summary as HTML fragment for fetch-based form updates.
  */
-export function GuidelinesListFragment(_handle: Handle) {
-	return (props: { guidelines?: EtfGuideline[]; inlineError?: string }) => {
+export function GuidelinesListFragment(
+	handle: Handle<GuidelinesListFragmentProps>,
+) {
+	return () => {
+		const props = handle.props
 		const guidelines = props.guidelines ?? []
 		const totalPercent = sumGuidelineTargetPercent(guidelines)
 		const remaining = Math.max(0, 100 - totalPercent)

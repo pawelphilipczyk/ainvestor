@@ -8,6 +8,14 @@ const variantClasses = {
 export type CardVariant = keyof typeof variantClasses
 type CardElement = 'article' | 'details' | 'div' | 'li' | 'section'
 
+export type CardProps = {
+	as?: CardElement
+	children?: RemixNode
+	variant?: CardVariant
+	class?: string
+	[key: string]: unknown
+}
+
 export function getCardClassNames(props?: {
 	variant?: CardVariant
 	className?: string
@@ -20,15 +28,9 @@ export function getCardClassNames(props?: {
  * Shared surface wrapper for page intro, form, and content sections.
  * Layout and semantics stay with the parent; only the surface styling is shared.
  */
-export function Card(_handle: Handle) {
-	return (props: {
-		as?: CardElement
-		children?: RemixNode
-		variant?: CardVariant
-		class?: string
-		[key: string]: unknown
-	}) => {
-		const { as, children, variant, class: className, ...rest } = props
+export function Card(handle: Handle<CardProps>) {
+	return () => {
+		const { as, children, variant, class: className, ...rest } = handle.props
 		const Tag = as ?? 'section'
 		return (
 			<Tag

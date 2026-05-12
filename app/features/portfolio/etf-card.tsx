@@ -9,7 +9,7 @@ const rowTradeButtonBaseClass =
 const rowTradeBuyClass = `${rowTradeButtonBaseClass} text-muted-foreground hover:bg-accent hover:text-accent-foreground`
 const rowTradeSellClass = `${rowTradeButtonBaseClass} text-muted-foreground hover:bg-destructive/10 hover:text-destructive`
 
-type EtfCardProps = {
+export type EtfCardProps = {
 	/** Stable row id (for tests and diagnostics). */
 	entryId: string
 	name: string
@@ -28,8 +28,9 @@ type EtfCardProps = {
  * Server-rendered read-only ETF row for the portfolio list.
  * Buy and sell use the shared form above the list.
  */
-export function EtfCard(_handle: Handle) {
-	return (props: EtfCardProps) => {
+export function EtfCard(handle: Handle<EtfCardProps>) {
+	return () => {
+		const props = handle.props
 		const valueSharePercent =
 			props.valueSharePercent === undefined
 				? undefined

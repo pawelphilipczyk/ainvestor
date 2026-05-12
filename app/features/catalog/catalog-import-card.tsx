@@ -12,8 +12,8 @@ type CatalogImportCardProps = {
 	sharedCatalogOwnerLogin: string | null
 }
 
-export function CatalogImportCard(_handle: Handle) {
-	return (props: CatalogImportCardProps) => (
+export function CatalogImportCard(handle: Handle<CatalogImportCardProps>) {
+	return () => (
 		<Card variant="muted" class="p-4">
 			<section aria-labelledby="catalog-import-heading">
 				<h2
@@ -25,7 +25,7 @@ export function CatalogImportCard(_handle: Handle) {
 				<p class="mt-0.5 text-xs text-muted-foreground">
 					{t('catalog.import.subtitle')}
 				</p>
-				{props.sharedCatalogOwnerLogin ? (
+				{handle.props.sharedCatalogOwnerLogin ? (
 					<p class="mt-2 text-xs text-muted-foreground">
 						{t('catalog.import.ownerActive')}
 					</p>

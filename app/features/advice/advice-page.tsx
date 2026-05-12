@@ -41,9 +41,9 @@ type FormError = {
 	detail?: string
 }
 
-function FormErrorAlert(_handle: Handle) {
-	return (props: { error: FormError }) => {
-		const { error } = props
+function FormErrorAlert(handle: Handle<{ error: FormError }>) {
+	return () => {
+		const { error } = handle.props
 		return (
 			<div
 				role="alert"
@@ -552,7 +552,7 @@ function renderAdviceBlock(
 	})
 }
 
-function adviceResultCardView(props: {
+export type AdviceResultCardProps = {
 	advice: AdviceDocument
 	lastAnalysisMode?: AdviceAnalysisMode
 	analysisMode?: AdviceAnalysisMode
@@ -565,7 +565,9 @@ function adviceResultCardView(props: {
 	adviceGistPersistFailed?: boolean
 	pendingApproval?: boolean
 	adviceGistGate?: 'sign_in' | 'connect_gist'
-}) {
+}
+
+function adviceResultCardView(props: AdviceResultCardProps) {
 	const cashCurrency = props.cashCurrency ?? 'PLN'
 	const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 	const resultMode =
@@ -622,14 +624,13 @@ function adviceResultCardView(props: {
 	)
 }
 
-export type AdviceResultCardProps = Parameters<typeof adviceResultCardView>[0]
-
-export function AdviceResultCard(_handle: Handle) {
-	return adviceResultCardView
+export function AdviceResultCard(handle: Handle<AdviceResultCardProps>) {
+	return () => adviceResultCardView(handle.props)
 }
 
-export function AdvicePage(_handle: Handle) {
-	return (props: AdvicePageProps) => {
+export function AdvicePage(handle: Handle<AdvicePageProps>) {
+	return () => {
+		const props = handle.props
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 		const activeTab = normalizeAdviceAnalysisTab(props.activeTab)

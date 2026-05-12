@@ -8,8 +8,8 @@ type AdminEtfImportPageProps = {
 	sharedCatalogOwnerLogin: string | null
 }
 
-export function AdminETFImportPage(_handle: Handle) {
-	return (props: AdminEtfImportPageProps) => {
+export function AdminETFImportPage(handle: Handle<AdminEtfImportPageProps>) {
+	return () => {
 		const adminIntro = getSectionIntro('admin')
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-lg gap-6">
@@ -25,7 +25,7 @@ export function AdminETFImportPage(_handle: Handle) {
 					</p>
 				</div>
 				<CatalogImportCard
-					sharedCatalogOwnerLogin={props.sharedCatalogOwnerLogin}
+					sharedCatalogOwnerLogin={handle.props.sharedCatalogOwnerLogin}
 				/>
 			</main>
 		)

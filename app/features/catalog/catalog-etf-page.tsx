@@ -29,8 +29,9 @@ function formatOptionalPercent(value: number): string {
 	}).format(value)}%`
 }
 
-export function CatalogEtfPage(_handle: Handle) {
-	return (props: CatalogEtfPageProps) => {
+export function CatalogEtfPage(handle: Handle<CatalogEtfPageProps>) {
+	return () => {
+		const props = handle.props
 		const { entry } = props
 		const typeLabel =
 			formatEtfTypeLabel(entry.type) || t('catalog.etfTypeUnknown')

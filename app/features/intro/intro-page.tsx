@@ -7,7 +7,7 @@ import { getSectionIntro } from '../../lib/section-intros.ts'
 /**
  * Landing page: large card links to each main section of the app.
  */
-export function IntroPage(_handle: Handle) {
+export function IntroPage(_handle: Handle<Record<string, never>>) {
 	return () => (
 		<main class="mx-auto w-full min-w-0 max-w-4xl">
 			<header class="mb-8">
