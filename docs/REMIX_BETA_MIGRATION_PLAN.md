@@ -1,8 +1,8 @@
 # Remix beta migration plan
 
 This is the working checklist for moving this app from
-`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–7 are
-complete in the repo; remaining items start at Prompt 8.
+`remix@3.0.0-alpha.4` to the Remix beta line. **Progress:** prompts 1–8 are
+complete in the repo; remaining items start at Prompt 9.
 
 Sources to check before each implementation step:
 
@@ -350,7 +350,7 @@ variant).
   markup contract (`name` / `id`, controlled vs uncontrolled `selected`,
   `compact`, `disabled` / `required`).
 
-- [ ] **Prompt 8 — Audit non-UI beta changes**
+- [x] **Prompt 8 — Audit non-UI beta changes**
 
   ```text
   Finish the non-UI beta migration audit.
@@ -370,6 +370,34 @@ variant).
 
   Deliverable: one audit PR, or a docs-only note if no code changes are needed.
   ```
+
+### Prompt 8 notes — non-UI beta audit
+
+- **`remix/multipart-parser` / `MultipartPart.headers`** — No direct imports in
+  app code. Multipart handling goes through **`remix/form-data-middleware`** and
+  **`app/lib/multipart-upload-limits.ts`** (aggregate caps aligned with Remix
+  defaults). Nothing to change for plain-object part headers.
+
+- **`remix-test` / `remix/test/cli`** — Tests use **`tsx --test`** via
+  **`npm run test`**. No scripts or docs reference the removed **`remix-test`**
+  binary.
+
+- **`remix/assert`, `remix/test`, `remix/node-fetch-server/test`, `remix/auth`,
+  `remix/auth-middleware`, `remix/cop-middleware`, `remix/csrf-middleware`** —
+  Not imported in application or test source. GitHub OAuth and session flow stay
+  on **`remix/session`**, **`remix/cookie`**, and app-owned **`app/features/auth`**
+  handlers. No local helpers duplicate those packages closely enough to warrant
+  a swap in this pass.
+
+- **`remix/data-table*`** — Present only as transitive **`remix`** dependencies in
+  **`package-lock.json`**. No **`remix/data-table`** imports; the app uses Gist
+  storage and in-memory guest state, not Remix data tables.
+
+- **Node.js `>=24.3.0`** — The installed **`remix@3.0.0-beta.0`** package declares
+  **`engines.node": ">=24.3.0"`** in **`package-lock.json`**. **README**, root
+  **`package.json` `engines`**, **GitHub Actions** (`lint.yml`), and the Fly
+  **`Dockerfile`** are aligned to Node 24 so local dev, CI, and production builds
+  match that contract.
 
 - [ ] **Prompt 9 — Final docs cleanup**
 
