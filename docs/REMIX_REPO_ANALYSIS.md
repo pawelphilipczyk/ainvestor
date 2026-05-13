@@ -13,10 +13,10 @@
 
 | Demo | Purpose | Stack |
 |------|---------|-------|
-| **bookstore** | Full fetch-router app with CRUD, auth, cart, checkout | fetch-router, remix/component (JSX), data-table-sqlite, form-data-middleware |
-| **sse** | Server-Sent Events demo | fetch-router, remix/component |
-| **frames** | Frame/streaming UI demo | remix/component |
-| **frame-navigation** | Frame navigation patterns | remix/component |
+| **bookstore** | Full fetch-router app with CRUD, auth, cart, checkout | fetch-router, remix/ui island JSX, data-table-sqlite, form-data-middleware |
+| **sse** | Server-Sent Events demo | fetch-router, remix/ui |
+| **frames** | Frame/streaming UI demo | remix/ui |
+| **frame-navigation** | Frame navigation patterns | remix/ui |
 | **unpkg** | npm package browser (UNPKG-style) | fetch-router, html-template, no form/session |
 
 ### Package-Level Demos
@@ -157,17 +157,16 @@ export async function uploadHandler(file: FileUpload): Promise<string> {
 `remix/component` exports. New work should import the consolidated UI runtime
 from `remix/ui`, server rendering from `remix/ui/server`, and JSX runtime
 helpers from `remix/ui/jsx-runtime`. Historical notes below that mention
-`remix/component` describe the alpha-era examples this app was originally built
-against.
+`remix/component` refer to the alpha-era import path removed in beta.
 
-**Bookstore** uses full Remix UI/component runtime (JSX):
+**Bookstore** uses full Remix UI runtime (JSX):
 
 - `clientEntry`, `renderToStream`, and component-local `mix` helpers such as `on()` and `css()`
 - router-driven server rendering plus client hydration via `run({ loadModule, resolveFrame })`
 - `RestfulForm` component for PUT/DELETE with `_method` override
 
 **Our app** uses:
-- Alpha-era `remix/component`: JSX page components, `clientEntry`, `renderToStream`, and `renderToString`; migrate these imports to `remix/ui` for beta
+- **`remix/ui`** / **`remix/ui/server`**: JSX page components with **`handle.props`**, `clientEntry`, `renderToStream`, and `renderToString` where needed
 - server-rendered documents with clientEntry hydration
 - shared and feature-local `.component.js` files for browser behavior
 - a mostly server-first composition style instead of frame-heavy examples

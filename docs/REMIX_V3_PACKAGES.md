@@ -6,7 +6,8 @@
 > Cross-check beta migration work against both sources, especially the package
 > changelog at `packages/remix/CHANGELOG.md`.
 > Version in use: `remix@3.0.0-beta.0` (locked in `package-lock.json`)
-> Beta migration notes: `docs/REMIX_BETA_MIGRATION_PLAN.md`
+> Beta migration notes: `docs/REMIX_BETA_MIGRATION_PLAN.md` (checklist complete;
+> this file describes the beta baseline the app ships on.)
 
 > **Beta note:** Remix beta removes the deprecated `remix/component` exports.
 > This app imports **`remix/ui`**, **`remix/ui/server`**, and

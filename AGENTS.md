@@ -105,4 +105,4 @@ User-visible copy lives in **`app/locales/en.ts`** and **`app/locales/pl.ts`** a
 
 - **When to annotate explicitly:** Public boundaries, `remix` discriminated props (e.g. inputs where `type` narrows other attributes), or places where inference produces `any` or overly wide types.
 
-- **Form controls:** Prefer **MDN / HTML attribute names** on props (`name`, `type`, `autocomplete`, `class`, …). Do not rename to `fieldName` or similar. Listing a small `type` shape for each wrapper is OK; avoid `...rest as Props<'input'>` — `Props<'input'>` from the Remix UI runtime (`remix/component` on the current alpha, `remix/ui` on beta) is a discriminated union, and spreading `rest` breaks narrowing (e.g. `role`, `list` on `<input>`).
+- **Form controls:** Prefer **MDN / HTML attribute names** on props (`name`, `type`, `autocomplete`, `class`, …). Do not rename to `fieldName` or similar. Listing a small `type` shape for each wrapper is OK; avoid `...rest as Props<'input'>` — `Props<'input'>` from the Remix UI runtime (`remix/ui`) is a discriminated union, and spreading `rest` breaks narrowing (e.g. `role`, `list` on `<input>`).
