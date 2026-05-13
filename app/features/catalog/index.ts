@@ -31,6 +31,7 @@ import {
 } from './catalog-etf-analysis-fragment.tsx'
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
+import { normalizedCatalogFilterPrefs } from './catalog-filter-prefs.ts'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
 	isAdmin,
@@ -47,7 +48,6 @@ import {
 	isSharedCatalogAdmin,
 	mergeBankIntoCatalog,
 	parseBankJsonForImport,
-	parseCatalogRiskFilterParam,
 	saveCatalog,
 } from './lib.ts'
 
@@ -248,11 +248,15 @@ export const catalogController = {
 	actions: {
 		async index(context: AppRequestContext) {
 			const url = new URL(context.request.url)
-			const typeFilter = url.searchParams.get('type') ?? ''
-			const riskFilter = parseCatalogRiskFilterParam(
-				url.searchParams.get('risk'),
-			)
-			const query = url.searchParams.get('q') ?? ''
+			const {
+				type: typeFilter,
+				risk: riskFilter,
+				query,
+			} = normalizedCatalogFilterPrefs({
+				type: url.searchParams.get('type') ?? '',
+				risk: url.searchParams.get('risk') ?? '',
+				query: url.searchParams.get('q') ?? '',
+			})
 
 			const load = await loadCatalogPageContext(context)
 			const { catalogSnapshot, entries, session, layoutSession } = load
@@ -581,11 +585,15 @@ export const catalogController = {
 
 		async fragmentList(context: AppRequestContext) {
 			const url = new URL(context.request.url)
-			const typeFilter = url.searchParams.get('type') ?? ''
-			const riskFilter = parseCatalogRiskFilterParam(
-				url.searchParams.get('risk'),
-			)
-			const query = url.searchParams.get('q') ?? ''
+			const {
+				type: typeFilter,
+				risk: riskFilter,
+				query,
+			} = normalizedCatalogFilterPrefs({
+				type: url.searchParams.get('type') ?? '',
+				risk: url.searchParams.get('risk') ?? '',
+				query: url.searchParams.get('q') ?? '',
+			})
 
 			const load = await loadCatalogPageContext(context)
 			const { catalogSnapshot, entries, session, layoutSession } = load
