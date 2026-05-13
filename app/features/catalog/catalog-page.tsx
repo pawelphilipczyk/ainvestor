@@ -130,7 +130,6 @@ export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
 							{props.typeFilter || props.riskFilter || props.query ? (
 								<a
 									href={routes.catalog.index.href()}
-									data-navigation-loading
 									rmx-document
 									class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
 								>
