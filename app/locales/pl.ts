@@ -272,6 +272,26 @@ export const pl = {
 	'advice.model.gpt-5.4-mini': 'GPT-5.4 Mini',
 	'advice.model.gpt-5.4-nano': 'GPT-5.4 Nano',
 	'advice.model.gpt-5.4': 'GPT-5.4',
+
+	'advice.export.toggle': 'Eksport do zewnętrznej analizy',
+	'advice.export.hint':
+		'Użyj „Kopiuj” albo zaznacz poniższy tekst (Ctrl+A / ⌘A), a następnie skopiuj (Ctrl+C / ⌘C), aby wkleić go w innym narzędziu.',
+	'advice.export.documentTitle': 'Porada AI — eksport do walidacji',
+	'advice.export.meta.model': 'Model: {model}',
+	'advice.export.meta.mode': 'Analiza: {mode}',
+	'advice.export.meta.cash': 'Gotówka do ulokowania: {amount} {currency}',
+	'advice.export.section.guidelines': 'Wytyczne (zapisane cele)',
+	'advice.export.section.portfolio': 'Portfel (zapisane pozycje)',
+	'advice.export.section.advice': 'Wynik porady (ustrukturyzowany)',
+	'advice.export.guidelinesEmpty':
+		'(Brak skonfigurowanych wytycznych alokacji.)',
+	'advice.export.portfolioEmpty': '(Brak pozycji ETF w zapisanym portfelu.)',
+	'advice.export.blockKind.capital_snapshot': 'Migawka miks portfela',
+	'advice.export.blockKind.guideline_bars': 'Paski zgodności z wytycznymi',
+	'advice.export.blockKind.etf_proposals': 'Propozycje ETF',
+	'advice.export.copy': 'Kopiuj',
+	'advice.export.copied': 'Skopiowano',
+
 	'errors.portfolio.addInvalid':
 		'Wybierz operację (kupno lub sprzedaż), fundusz z katalogu i podaj prawidłową wartość (przy sprzedaży musi być większa od 0).',
 	'errors.portfolio.catalogEntryMissing':

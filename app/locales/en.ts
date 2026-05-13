@@ -278,6 +278,25 @@ export const en = {
 	'advice.model.gpt-5.4-nano': 'GPT-5.4 Nano',
 	'advice.model.gpt-5.4': 'GPT-5.4',
 
+	'advice.export.toggle': 'Export for external review',
+	'advice.export.hint':
+		'Use Copy, or select the export text below (Ctrl+A / ⌘A), then copy (Ctrl+C / ⌘C) to paste into another tool.',
+	'advice.export.documentTitle': 'AI advice — validation export',
+	'advice.export.meta.model': 'Model: {model}',
+	'advice.export.meta.mode': 'Analysis: {mode}',
+	'advice.export.meta.cash': 'Deployable cash: {amount} {currency}',
+	'advice.export.section.guidelines': 'Guidelines (saved targets)',
+	'advice.export.section.portfolio': 'Portfolio (saved holdings)',
+	'advice.export.section.advice': 'Advice output (structured)',
+	'advice.export.guidelinesEmpty': '(No allocation guidelines configured.)',
+	'advice.export.portfolioEmpty': '(No ETF holdings in the saved portfolio.)',
+	'advice.export.blockKind.capital_snapshot': 'Portfolio mix snapshot',
+	'advice.export.blockKind.guideline_bars': 'Guideline alignment bars',
+	'advice.export.blockKind.etf_proposals': 'ETF proposals',
+
+	'advice.export.copy': 'Copy',
+	'advice.export.copied': 'Copied',
+
 	'errors.portfolio.addInvalid':
 		'Please choose an operation (Buy or Sell), select a fund from your catalog, and enter a valid value (for sell, value must be greater than 0).',
 	'errors.portfolio.catalogEntryMissing':

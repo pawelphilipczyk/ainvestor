@@ -24,6 +24,8 @@ import type {
 	AdviceDocument,
 	AdviceEtfProposalRow,
 } from './advice-document.ts'
+// @ts-expect-error Runtime-only remix clientEntry (advice export copy)
+import { AdviceExportCopyInteractions } from './advice-export-copy.component.js'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -84,6 +86,8 @@ type AdvicePageProps = {
 	adviceGistSavedAt?: string
 	/** Saving to gist failed; this run is visible until reload only. */
 	adviceGistPersistFailed?: boolean
+	/** Plain-text guidelines + portfolio + advice for external tools. */
+	adviceValidationExportText?: string
 	formError?: FormError
 	pendingApproval?: boolean
 	/** Guest or signed-in user without a private gist — forms disabled; explain sign-in / Portfolio. */
@@ -556,6 +560,8 @@ export type AdviceResultCardProps = {
 	adviceFromGist?: boolean
 	adviceGistSavedAt?: string
 	adviceGistPersistFailed?: boolean
+	/** Plain-text guidelines + portfolio + advice for external tools. */
+	adviceValidationExportText?: string
 	pendingApproval?: boolean
 	adviceGistGate?: 'sign_in' | 'connect_gist'
 }
@@ -588,6 +594,34 @@ function adviceResultCardView(props: AdviceResultCardProps) {
 						savedAt: props.adviceGistSavedAt,
 					})}
 				</p>
+			) : null}
+			{props.adviceValidationExportText !== undefined &&
+			props.adviceValidationExportText.length > 0 ? (
+				<details class="mb-4 rounded-md border border-border bg-muted/20 px-3 py-2">
+					<summary class="cursor-pointer text-sm font-medium text-card-foreground outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+						{t('advice.export.toggle')}
+					</summary>
+					<p class="mt-2 text-xs text-muted-foreground">
+						{t('advice.export.hint')}
+					</p>
+					<div class="mt-2 flex flex-wrap items-center justify-end gap-2">
+						<button
+							type="button"
+							data-advice-export-copy
+							data-label-default={t('advice.export.copy')}
+							data-label-done={t('advice.export.copied')}
+							class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+						>
+							{t('advice.export.copy')}
+						</button>
+					</div>
+					<pre
+						class="mt-2 max-h-[min(70vh,28rem)] min-h-[14rem] w-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 font-mono text-xs leading-relaxed text-card-foreground"
+						data-advice-export-text
+					>
+						{props.adviceValidationExportText}
+					</pre>
+				</details>
 			) : null}
 			<h2 class="text-base font-semibold tracking-tight text-card-foreground">
 				{resultMode === 'portfolio_review'
@@ -881,8 +915,10 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 						adviceGistPersistFailed={props.adviceGistPersistFailed}
 						pendingApproval={pendingApproval}
 						adviceGistGate={adviceGistGate}
+						adviceValidationExportText={props.adviceValidationExportText}
 					/>
 				) : null}
+				<AdviceExportCopyInteractions />
 			</main>
 		)
 	}
