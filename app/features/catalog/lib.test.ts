@@ -1,16 +1,18 @@
 import * as assert from 'node:assert/strict'
-import { describe, it } from 'node:test'
+import { afterEach, describe, it } from 'node:test'
 
 import {
 	buildCatalogGistPatch,
 	CATALOG_FILENAME,
 	catalogMergeKey,
+	fetchSharedCatalogSnapshot,
 	mergeBankIntoCatalog,
 	normalizeCatalogTickerLookupKey,
 	parseBankJsonForImport,
 	parseBankJsonToCatalog,
 	parseCatalogFromGist,
 	parseCatalogRiskFilterParam,
+	resetSharedCatalogForTests,
 	riskBandFromRiskKid,
 } from './lib.ts'
 
@@ -45,6 +47,87 @@ describe('parseCatalogRiskFilterParam', () => {
 		assert.equal(parseCatalogRiskFilterParam(''), '')
 		assert.equal(parseCatalogRiskFilterParam('  '), '')
 		assert.equal(parseCatalogRiskFilterParam('extreme'), '')
+	})
+})
+
+describe('fetchSharedCatalogSnapshot ttl cache', () => {
+	const originalFetch = globalThis.fetch
+	const originalGistId = process.env.SHARED_CATALOG_GIST_ID
+	const originalTtl = process.env.SHARED_CATALOG_CACHE_TTL_MS
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch
+		resetSharedCatalogForTests()
+		if (originalGistId === undefined) {
+			delete process.env.SHARED_CATALOG_GIST_ID
+		} else {
+			process.env.SHARED_CATALOG_GIST_ID = originalGistId
+		}
+		if (originalTtl === undefined) {
+			delete process.env.SHARED_CATALOG_CACHE_TTL_MS
+		} else {
+			process.env.SHARED_CATALOG_CACHE_TTL_MS = originalTtl
+		}
+	})
+
+	it('hits GitHub once and returns independent clones while the cache entry is valid', async () => {
+		let fetchCount = 0
+		globalThis.fetch = async (input: string | URL | Request) => {
+			fetchCount += 1
+			assert.match(String(input), /\/gists\/ttl-gist-test$/)
+			return new Response(
+				JSON.stringify({
+					files: {
+						[CATALOG_FILENAME]: {
+							content: JSON.stringify([
+								{
+									id: '1',
+									ticker: 'ABC',
+									name: 'Alpha',
+									type: 'equity',
+									description: '',
+								},
+							]),
+						},
+					},
+					owner: { login: 'owner' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'ttl-gist-test'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+
+		const first = await fetchSharedCatalogSnapshot()
+		const second = await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 1)
+		assert.equal(first.entries.length, 1)
+		assert.equal(second.entries.length, 1)
+		assert.equal(first.entries[0]?.ticker, 'ABC')
+		if (first.entries[0]) {
+			first.entries[0] = { ...first.entries[0], ticker: 'MUT' }
+		}
+		assert.equal(second.entries[0]?.ticker, 'ABC')
+	})
+
+	it('does not cache when ttl is 0', async () => {
+		let fetchCount = 0
+		globalThis.fetch = async () => {
+			fetchCount += 1
+			return new Response(
+				JSON.stringify({
+					files: { [CATALOG_FILENAME]: { content: '[]' } },
+					owner: { login: 'o' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-no-ttl'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+
+		await fetchSharedCatalogSnapshot()
+		await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 2)
 	})
 })
 
