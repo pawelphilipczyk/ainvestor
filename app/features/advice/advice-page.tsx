@@ -602,11 +602,9 @@ function adviceResultCardView(props: AdviceResultCardProps) {
 					<p class="mt-2 text-xs text-muted-foreground">
 						{t('advice.export.hint')}
 					</p>
-					<textarea
-						readOnly={true}
-						class="mt-2 max-h-[min(70vh,28rem)] min-h-[14rem] w-full resize-y rounded-md border border-border bg-background p-3 font-mono text-xs leading-relaxed text-card-foreground"
-						defaultValue={props.adviceValidationExportText}
-					/>
+					<pre class="mt-2 max-h-[min(70vh,28rem)] min-h-[14rem] w-full overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-background p-3 font-mono text-xs leading-relaxed text-card-foreground">
+						{props.adviceValidationExportText}
+					</pre>
 				</details>
 			) : null}
 			<h2 class="text-base font-semibold tracking-tight text-card-foreground">

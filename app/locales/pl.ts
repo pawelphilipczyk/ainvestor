@@ -275,7 +275,7 @@ export const pl = {
 
 	'advice.export.toggle': 'Eksport do zewnętrznej analizy',
 	'advice.export.hint':
-		'Zaznacz cały tekst w polu (Ctrl+A / ⌘A), a następnie skopiuj (Ctrl+C / ⌘C), aby wkleić go w innym narzędziu.',
+		'Zaznacz poniższy tekst eksportu (Ctrl+A / ⌘A), a następnie skopiuj (Ctrl+C / ⌘C), aby wkleić go w innym narzędziu.',
 	'advice.export.documentTitle': 'Porada AI — eksport do walidacji',
 	'advice.export.meta.model': 'Model: {model}',
 	'advice.export.meta.mode': 'Analiza: {mode}',

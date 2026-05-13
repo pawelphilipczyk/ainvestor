@@ -280,7 +280,7 @@ export const en = {
 
 	'advice.export.toggle': 'Export for external review',
 	'advice.export.hint':
-		'Select all text in the box (Ctrl+A / ⌘A), then copy (Ctrl+C / ⌘C) to paste into another tool.',
+		'Select the export text below (Ctrl+A / ⌘A), then copy (Ctrl+C / ⌘C) to paste into another tool.',
 	'advice.export.documentTitle': 'AI advice — validation export',
 	'advice.export.meta.model': 'Model: {model}',
 	'advice.export.meta.mode': 'Analysis: {mode}',
