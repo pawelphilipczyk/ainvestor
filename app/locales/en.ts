@@ -280,7 +280,7 @@ export const en = {
 
 	'advice.export.toggle': 'Export for external review',
 	'advice.export.hint':
-		'Select the export text below (Ctrl+A / ⌘A), then copy (Ctrl+C / ⌘C) to paste into another tool.',
+		'Use Copy, or select the export text below (Ctrl+A / ⌘A), then copy (Ctrl+C / ⌘C) to paste into another tool.',
 	'advice.export.documentTitle': 'AI advice — validation export',
 	'advice.export.meta.model': 'Model: {model}',
 	'advice.export.meta.mode': 'Analysis: {mode}',
@@ -293,6 +293,9 @@ export const en = {
 	'advice.export.blockKind.capital_snapshot': 'Portfolio mix snapshot',
 	'advice.export.blockKind.guideline_bars': 'Guideline alignment bars',
 	'advice.export.blockKind.etf_proposals': 'ETF proposals',
+
+	'advice.export.copy': 'Copy',
+	'advice.export.copied': 'Copied',
 
 	'errors.portfolio.addInvalid':
 		'Please choose an operation (Buy or Sell), select a fund from your catalog, and enter a valid value (for sell, value must be greater than 0).',
