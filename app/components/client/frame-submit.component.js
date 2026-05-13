@@ -104,10 +104,10 @@ async function navigateDocumentUrl(href, history = 'push') {
  * before applying response HTML so list deletes (and similar) do not leave a
  * stuck top-layer modal.
  *
- * @param {Document} doc
+ * @param {Document} document
  */
-function closeAllOpenHtmlDialogs(doc) {
-	for (const element of doc.querySelectorAll('dialog')) {
+function closeAllOpenHtmlDialogs(document) {
+	for (const element of document.querySelectorAll('dialog')) {
 		if (element instanceof HTMLDialogElement && element.open) {
 			element.close()
 		}
