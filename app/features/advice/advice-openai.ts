@@ -5,6 +5,7 @@ import {
 	LOCALE_DECIMAL_HTML_PATTERN,
 	parseLocaleDecimalString,
 } from '../../lib/locale-decimal-input.ts'
+import { getUiLocale } from '../../lib/ui-locale.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import type { AdviceClient } from './advice-client.ts'
 import { type AdviceDocument, parseAdviceDocument } from './advice-document.ts'
@@ -74,7 +75,7 @@ You MUST respond with a single JSON object only (no markdown code fences, no ext
       { "role": "cash", "label": "Deployable cash", "amount": 2000, "currency": "USD" }
     ], "postTotal": { "label": "Total portfolio (holdings + cash)", "amount": 12000, "currency": "USD" } },
     { "type": "guideline_bars", "caption": "optional short heading", "rows": [
-      { "label": "Equities (bucket)", "targetPct": 60, "currentPct": 45, "postBuyPct": 58 }
+      { "label": "Equities (bucket)", "etfType": "equity", "targetPct": 60, "currentPct": 45, "postBuyPct": 58 }
     ]},
     { "type": "paragraph", "text": "..." },
     { "type": "etf_proposals", "caption": "optional short heading", "rows": [
@@ -95,7 +96,10 @@ are short human labels (you may adjust wording). Do not repeat these numeric tot
 shown visually in this block.
 
 **guideline_bars:** Include when the user has allocation guidelines. **rows** cover each relevant bucket
-(asset class and/or named-fund lines aggregated as in the buy-only rules). **targetPct**, **currentPct**,
+(asset class and/or named-fund lines aggregated as in the buy-only rules). Each row must include **etfType**:
+one of \`"equity" | "bond" | "real_estate" | "commodity" | "mixed" | "money_market"\` (stable key from the
+app). **label** is a short human-readable name in the **same language** as the UI preamble in the user
+message (must describe the same bucket as **etfType**). **targetPct**, **currentPct**,
 and **postBuyPct** are **whole-portfolio percentages** (0–100), aligned with the same aggregation you use
 in analysis. **postBuyPct** is optional but strongly preferred when you propose buys — it is the estimated
 weight **after** your **etf_proposals** are applied. Omit **guideline_bars** entirely when there are no
@@ -271,6 +275,12 @@ export function formatAggregatedGuidelineBucketsBlock(
 
 export const ADVICE_CASH_AMOUNT_HTML_PATTERN = LOCALE_DECIMAL_HTML_PATTERN
 export const parseAdviceCashAmount = parseLocaleDecimalString
+
+function adviceUiLanguagePreamble(): string {
+	return getUiLocale() === 'pl'
+		? 'User interface language: **Polish**. Use Polish for all human-readable bucket names in your JSON response (`guideline_bars` labels, paragraph prose and bullets, `etf_proposals` notes) so they match the rest of the app.\n\n'
+		: 'User interface language: **English**. Use English for all human-readable bucket names in your JSON response (`guideline_bars` labels, paragraph prose and bullets, `etf_proposals` notes) so they match the rest of the app.\n\n'
+}
 
 function sumHoldingsValues(holdings: EtfEntry[]): {
 	total: number
@@ -685,6 +695,7 @@ function buildPortfolioReviewUserMessage(params: {
 	const catalogBlock = formatCatalogForAdvice(catalog)
 
 	return (
+		`${adviceUiLanguagePreamble()}` +
 		`${guidelinesSection}` +
 		`---\nAllocation context (current ETF weights by asset type; do not invent percentages beyond this summary):\n${allocationBlock}\n\n` +
 		`---\nETF catalog (cite only tickers and stats from this list):\n${catalogBlock}\n\n` +
@@ -769,6 +780,7 @@ export async function getInvestmentAdvice(params: {
 	})
 
 	const userMessage =
+		`${adviceUiLanguagePreamble()}` +
 		`${guidelinesSection}` +
 		`---\nAllocation context (use for "Current state analysis" bullets; do not invent percentages beyond this summary):\n${allocationBlock}\n\n` +
 		`---\nETF catalog (recommend only tickers from this list; cite performance/cost from these lines):\n${catalogBlock}\n\n` +

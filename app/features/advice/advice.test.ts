@@ -658,8 +658,84 @@ describe('Advice', () => {
 		assert.match(body, /8,?000\.00/)
 		assert.match(body, /2,?000\.00/)
 		assert.match(body, /Target mix/)
-		assert.match(body, /Equities/)
+		assert.match(body, />equity</)
 		assert.match(body, /Narrative only/)
+	})
+
+	it('relocalizes Polish ETF bucket labels in cached advice when UI is English', async () => {
+		const cookie = await signInWithGist()
+		setAdviceClient(
+			makeMockClient(
+				JSON.stringify({
+					blocks: [
+						{
+							type: 'capital_snapshot',
+							segments: [
+								{
+									role: 'holdings',
+									label: 'Current ETF holdings',
+									amount: 8000,
+									currency: 'PLN',
+								},
+								{
+									role: 'cash',
+									label: 'Deployable cash',
+									amount: 2000,
+									currency: 'PLN',
+								},
+							],
+							postTotal: {
+								label: 'Total after investing cash',
+								amount: 10000,
+								currency: 'PLN',
+							},
+						},
+						{
+							type: 'guideline_bars',
+							caption: 'Target mix',
+							rows: [
+								{
+									label: 'Akcje',
+									targetPct: 45,
+									currentPct: 81.6,
+									postBuyPct: 67.1,
+								},
+								{
+									label: 'Nieruchomości',
+									targetPct: 10,
+									currentPct: 2,
+									postBuyPct: 8,
+								},
+							],
+						},
+						{
+							type: 'paragraph',
+							text: '- **Akcje** and **Obligacje** before buys.\n',
+						},
+					],
+				}),
+			),
+		)
+
+		const form = new FormData()
+		form.set('cashAmount', '2000')
+		form.set('analysisMode', 'buy_next')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Portfolio mix/)
+		assert.match(body, />equity</)
+		assert.match(body, />real estate</)
+		assert.doesNotMatch(body, /Akcje/)
+		assert.match(body, /\*\*equity\*\* and \*\*bond\*\*/)
 	})
 
 	it('renders guideline_bars with default heading when caption is omitted', async () => {
@@ -718,7 +794,7 @@ describe('Advice', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /Portfolio mix/)
 		assert.match(body, /Guideline alignment/)
-		assert.match(body, /Bonds/)
+		assert.match(body, />bond</)
 		assert.match(body, /Note/)
 	})
 

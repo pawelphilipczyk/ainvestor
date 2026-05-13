@@ -10,6 +10,7 @@ import {
 	GUIDELINES_FILENAME,
 	normalizeGuideline,
 	parseGuidelinesFromGist,
+	resolveEtfTypeFromAdviceBucketLabel,
 	sumGuidelineTargetPercent,
 	wouldGuidelineTotalExceedCap,
 } from './guidelines.ts'
@@ -27,6 +28,21 @@ describe('guidelines', () => {
 			assert.equal(formatEtfTypeLabel('bond'), 'Obligacje')
 			assert.equal(formatEtfTypeLabel('real_estate'), 'Nieruchomości')
 		})
+	})
+
+	it('resolveEtfTypeFromAdviceBucketLabel maps localized and model labels', () => {
+		assert.equal(resolveEtfTypeFromAdviceBucketLabel('Akcje'), 'equity')
+		assert.equal(
+			resolveEtfTypeFromAdviceBucketLabel('Nieruchomości'),
+			'real_estate',
+		)
+		assert.equal(resolveEtfTypeFromAdviceBucketLabel('Bonds'), 'bond')
+		assert.equal(
+			resolveEtfTypeFromAdviceBucketLabel('Equities (bucket)'),
+			'equity',
+		)
+		assert.equal(resolveEtfTypeFromAdviceBucketLabel(''), undefined)
+		assert.equal(resolveEtfTypeFromAdviceBucketLabel('VTI'), undefined)
 	})
 
 	it('GUIDELINES_FILENAME is a non-empty string', () => {
