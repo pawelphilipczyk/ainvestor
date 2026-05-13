@@ -478,7 +478,7 @@ function renderEtfProposals(
 									class="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
 								>
 									<td
-										class={`py-2 pr-4 align-top text-sm break-words text-card-foreground ${adviceTableTextColMax}`}
+										class={`py-2 pl-4 pr-4 align-top text-sm break-words text-card-foreground ${adviceTableTextColMax}`}
 									>
 										{fundCell}
 									</td>
