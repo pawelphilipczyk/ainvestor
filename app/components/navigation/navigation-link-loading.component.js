@@ -7,6 +7,9 @@ import {
 
 const ATTR = 'data-navigation-loading'
 
+/** Prevents double activation while a navigation is in flight. */
+let isNavigating = false
+
 function isModifiedClick(event) {
 	return (
 		event.defaultPrevented ||
@@ -36,6 +39,10 @@ function clearNavigationLoadingBusyStateFromDocument(documentObject) {
 /**
  * True when `window.navigation` is the platform Navigation API, not the inert
  * stub from `app/entry.js` (Firefox / older Safari without the API).
+ *
+ * We cannot use `window.navigation != null` alone: the stub is a non-null plain
+ * object, and Remix `navigate()` would call `navigation.navigate()` and resolve
+ * without performing a real transition.
  */
 function usesNativeNavigationApi() {
 	return (
@@ -76,23 +83,38 @@ export const NavigationLinkLoadingEnhancement = clientEntry(
 					const anchorTarget = anchor.getAttribute('target')
 					if (anchorTarget && anchorTarget !== '_self') return
 
+					if (isNavigating) {
+						event.preventDefault()
+						return
+					}
+
 					event.preventDefault()
 					anchor.setAttribute('data-loading', '')
 					anchor.setAttribute('aria-busy', 'true')
 
+					isNavigating = true
 					if (usesNativeNavigationApi()) {
 						void (async () => {
 							try {
 								await navigate(anchor.href, { history: 'push' })
-							} catch {
+							} catch (err) {
+								console.error(
+									'[NavigationLinkLoadingEnhancement] navigate() failed; falling back to location.assign',
+									{ href: anchor.href, cause: err },
+								)
 								clearAnchorNavigationBusy(anchor)
 								window.location.assign(anchor.href)
+							} finally {
+								clearAnchorNavigationBusy(anchor)
+								isNavigating = false
 							}
 						})()
 					} else {
-						requestAnimationFrame(() => {
+						try {
 							window.location.assign(anchor.href)
-						})
+						} finally {
+							isNavigating = false
+						}
 					}
 				},
 			})
