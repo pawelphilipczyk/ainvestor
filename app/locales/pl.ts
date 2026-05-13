@@ -251,7 +251,7 @@ export const pl = {
 	'advice.table.amount': 'Kwota',
 	'advice.table.currency': 'Waluta',
 	'advice.table.note': 'Uwaga',
-	'advice.table.etfDetailsLink': 'Szczegóły ETF',
+	'advice.table.fundLinkAria': 'Otwórz szczegóły ETF: {name}',
 	'advice.capital.title': 'Miks portfela',
 	'advice.capital.snapshotError':
 		'Nie można pokazać migawki portfela, bo dane z modelu były niespójne (np. pomieszane waluty lub nieprawidłowe kwoty).',

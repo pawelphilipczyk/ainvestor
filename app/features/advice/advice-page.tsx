@@ -397,7 +397,9 @@ function renderEtfProposals(
 ) {
 	const { defaultCashCurrency, selectedModel, pendingApproval, catalog } =
 		options
-	const tableColSpan = pendingApproval ? 5 : 6
+	const tableColSpan = 5
+	const fundNameLinkClass =
+		'text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 	return (
 		<section>
 			{block.caption ? (
@@ -436,13 +438,6 @@ function renderEtfProposals(
 							>
 								{t('advice.table.note')}
 							</th>
-							{pendingApproval ? null : (
-								<th scope="col" class="pb-2 pl-4 pr-4 align-top">
-									<span class="sr-only">
-										{t('advice.table.etfDetailsLink')}
-									</span>
-								</th>
-							)}
 						</tr>
 					</thead>
 					<tbody>
@@ -462,6 +457,21 @@ function renderEtfProposals(
 											{ model: selectedModel },
 										)
 									: null
+							const fundCell =
+								!pendingApproval && etfDetailsHref !== null ? (
+									<Link
+										href={etfDetailsHref}
+										navigationLoading={true}
+										class={fundNameLinkClass}
+										aria-label={format(t('advice.table.fundLinkAria'), {
+											name: row.name,
+										})}
+									>
+										{row.name}
+									</Link>
+								) : (
+									row.name
+								)
 							return (
 								<tr
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
@@ -470,7 +480,7 @@ function renderEtfProposals(
 									<td
 										class={`py-2 pr-4 align-top text-sm break-words text-card-foreground ${adviceTableTextColMax}`}
 									>
-										{row.name}
+										{fundCell}
 									</td>
 									<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold text-muted-foreground">
 										{row.ticker ?? t('catalog.emptyCell')}
@@ -488,23 +498,6 @@ function renderEtfProposals(
 									>
 										{row.note ?? t('catalog.emptyCell')}
 									</td>
-									{pendingApproval ? null : (
-										<td class="py-2 pl-4 pr-4 align-top">
-											{etfDetailsHref !== null ? (
-												<Link
-													href={etfDetailsHref}
-													navigationLoading={true}
-													class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-												>
-													{t('advice.table.etfDetailsLink')}
-												</Link>
-											) : (
-												<span class="text-xs text-muted-foreground">
-													{t('catalog.emptyCell')}
-												</span>
-											)}
-										</td>
-									)}
 								</tr>
 							)
 						})}

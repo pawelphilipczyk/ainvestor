@@ -911,7 +911,7 @@ describe('Advice', () => {
 		assert.match(body, /value="gpt-5.4-nano"/)
 	})
 
-	it('renders ETF details link with catalogEntryId when etf_proposals include it', async () => {
+	it('renders catalog ETF href on fund name when etf_proposals include catalogEntryId', async () => {
 		const cookie = await signInWithGist()
 		seedSharedCatalog(
 			JSON.stringify({
@@ -962,10 +962,14 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /\/catalog\/etf\/advice-learn-row/)
-		assert.match(body, /ETF details/)
+		assert.match(
+			body,
+			/<a[^>]*href="[^"]*\/catalog\/etf\/advice-learn-row[^"]*"[^>]*>[\s\S]*?Sample ETF/,
+			'fund name links to catalog ETF detail when catalogEntryId is set',
+		)
 	})
 
-	it('renders ETF details link from ticker match when catalogEntryId is absent', async () => {
+	it('renders catalog ETF href on fund name from ticker match when catalogEntryId is absent', async () => {
 		const cookie = await signInWithGist()
 		seedSharedCatalog(
 			JSON.stringify({
@@ -1015,6 +1019,10 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /\/catalog\/etf\/ticker-only-row/)
-		assert.match(body, /ETF details/)
+		assert.match(
+			body,
+			/<a[^>]*href="[^"]*\/catalog\/etf\/ticker-only-row[^"]*"[^>]*>[\s\S]*?Sample ETF/,
+			'fund name links to catalog ETF resolved by ticker',
+		)
 	})
 })

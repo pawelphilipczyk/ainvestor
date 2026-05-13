@@ -9,6 +9,8 @@ import {
 type LinkProps = {
 	href: string
 	children: RemixNode
+	/** Passed through to `<a>` for screen readers when link text is not self-explanatory. */
+	'aria-label'?: string
 	/** Root classes on `<a>` (layout, colors, focus). */
 	class?: string
 	/** Optional classes on the label wrapper (e.g. flex + gap for icon + text). */
@@ -30,6 +32,7 @@ export function Link(handle: Handle<LinkProps>) {
 		const {
 			href,
 			children,
+			'aria-label': ariaLabel,
 			class: rootClass,
 			labelClass,
 			navigationLoading,
@@ -38,7 +41,13 @@ export function Link(handle: Handle<LinkProps>) {
 			const root = `${busyControlRootStateClasses} ${rootClass ?? ''}`.trim()
 			const label = `${busyControlLabelClass} ${labelClass ?? ''}`.trim()
 			return (
-				<a href={href} data-navigation-loading rmx-document class={root}>
+				<a
+					href={href}
+					data-navigation-loading
+					rmx-document
+					class={root}
+					aria-label={ariaLabel}
+				>
 					<span class={label}>{children}</span>
 					<span class={busyControlOverlayClass} aria-hidden="true">
 						<span class={busyControlSpinnerClass} />
@@ -47,7 +56,7 @@ export function Link(handle: Handle<LinkProps>) {
 			)
 		}
 		return (
-			<a href={href} rmx-document class={rootClass}>
+			<a href={href} rmx-document class={rootClass} aria-label={ariaLabel}>
 				{children}
 			</a>
 		)

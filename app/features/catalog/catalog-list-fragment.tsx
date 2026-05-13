@@ -130,6 +130,35 @@ function renderCatalogRow(
 	)
 }
 
+const catalogTableColSpan = 7
+
+function renderCatalogEtfScrollableTable(
+	entries: CatalogEntry[],
+	holdingsByTicker: Map<string, EtfEntry>,
+	tickerLinksToDetail: boolean,
+) {
+	const holdingKey = (s: string) => s.toUpperCase()
+	return (
+		<ScrollableTable wrapperClass="mt-3">
+			<thead class="bg-muted/40 px-4">
+				<tr>
+					<td colspan={catalogTableColSpan} class="h-1" />
+				</tr>
+				<CatalogTableHeader />
+			</thead>
+			<tbody>
+				{entries.map((entry) =>
+					renderCatalogRow(
+						entry,
+						holdingsByTicker.get(holdingKey(entry.ticker)),
+						{ tickerLinksToDetail },
+					),
+				)}
+			</tbody>
+		</ScrollableTable>
+	)
+}
+
 type CatalogListFragmentProps = {
 	catalog: CatalogEntry[]
 	holdings: EtfEntry[]
@@ -149,7 +178,6 @@ export function CatalogListFragment(handle: Handle<CatalogListFragmentProps>) {
 	return () => {
 		const props = handle.props
 		const tickerLinksToDetail = !props.pendingApproval
-		const tableColSpan = 7
 		const holdingKey = (s: string) => s.toUpperCase()
 		const holdingsByTicker = new Map(
 			props.holdings.flatMap((e) => {
@@ -206,23 +234,11 @@ export function CatalogListFragment(handle: Handle<CatalogListFragmentProps>) {
 							<p class="mt-0.5 text-xs text-muted-foreground">
 								{t('catalog.holdings.subtitle')}
 							</p>
-							<ScrollableTable wrapperClass="mt-3">
-								<thead class="bg-muted/40 px-4">
-									<tr>
-										<td colspan={tableColSpan} class="h-1" />
-									</tr>
-									<CatalogTableHeader />
-								</thead>
-								<tbody>
-									{ownedInCatalog.map((e) =>
-										renderCatalogRow(
-											e,
-											holdingsByTicker.get(holdingKey(e.ticker)),
-											{ tickerLinksToDetail },
-										),
-									)}
-								</tbody>
-							</ScrollableTable>
+							{renderCatalogEtfScrollableTable(
+								ownedInCatalog,
+								holdingsByTicker,
+								tickerLinksToDetail,
+							)}
 						</section>
 					</Card>
 				) : null}
@@ -263,19 +279,11 @@ export function CatalogListFragment(handle: Handle<CatalogListFragmentProps>) {
 									? t('catalog.section.otherAvailable')
 									: t('catalog.section.available')}
 							</h2>
-							<ScrollableTable wrapperClass="mt-3">
-								<thead class="bg-muted/40">
-									<tr>
-										<td colspan={tableColSpan} class="h-1" />
-									</tr>
-									<CatalogTableHeader />
-								</thead>
-								<tbody>
-									{restOfCatalog.map((e) =>
-										renderCatalogRow(e, undefined, { tickerLinksToDetail }),
-									)}
-								</tbody>
-							</ScrollableTable>
+							{renderCatalogEtfScrollableTable(
+								restOfCatalog,
+								holdingsByTicker,
+								tickerLinksToDetail,
+							)}
 						</section>
 					</Card>
 				) : null}
