@@ -16,6 +16,7 @@ describe('buildAdviceValidationExportText', () => {
 						{
 							name: 'Bond ETF',
 							ticker: 'BND',
+							catalogEntryId: undefined,
 							amount: 100,
 							currency: 'PLN',
 							note: 'rebalance',
@@ -35,7 +36,7 @@ describe('buildAdviceValidationExportText', () => {
 							kind: 'asset_class',
 							etfName: '',
 							targetPct: 60,
-							etfType: 'stocks',
+							etfType: 'equity',
 						},
 					],
 					holdings: [
