@@ -1,4 +1,9 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/ui'
+import {
+	addEventListeners,
+	clientEntry,
+	createElement,
+	navigate,
+} from 'remix/ui'
 
 const ATTR = 'data-navigation-loading'
 
@@ -13,11 +18,46 @@ function isModifiedClick(event) {
 	)
 }
 
+function clearAnchorNavigationBusy(anchor) {
+	anchor.removeAttribute('data-loading')
+	anchor.removeAttribute('aria-busy')
+}
+
+function clearNavigationLoadingBusyStateFromDocument(documentObject) {
+	for (const element of documentObject.querySelectorAll(
+		`a[${ATTR}][data-loading]`,
+	)) {
+		if (element instanceof HTMLAnchorElement) {
+			clearAnchorNavigationBusy(element)
+		}
+	}
+}
+
+/**
+ * True when `window.navigation` is the platform Navigation API, not the inert
+ * stub from `app/entry.js` (Firefox / older Safari without the API).
+ */
+function usesNativeNavigationApi() {
+	return (
+		typeof window !== 'undefined' &&
+		typeof Navigation !== 'undefined' &&
+		window.navigation != null &&
+		window.navigation instanceof Navigation
+	)
+}
+
 export const NavigationLinkLoadingEnhancement = clientEntry(
 	'/components/navigation/navigation-link-loading.component.js#NavigationLinkLoadingEnhancement',
 	function NavigationLinkLoadingEnhancement(handle) {
 		if (typeof document !== 'undefined') {
 			const doc = document
+			addEventListeners(window, handle.signal, {
+				pageshow(event) {
+					if (event.persisted) {
+						clearNavigationLoadingBusyStateFromDocument(document)
+					}
+				},
+			})
 			addEventListeners(doc, handle.signal, {
 				click(event) {
 					const target = event.target
@@ -39,9 +79,21 @@ export const NavigationLinkLoadingEnhancement = clientEntry(
 					event.preventDefault()
 					anchor.setAttribute('data-loading', '')
 					anchor.setAttribute('aria-busy', 'true')
-					requestAnimationFrame(() => {
-						window.location.assign(anchor.href)
-					})
+
+					if (usesNativeNavigationApi()) {
+						void (async () => {
+							try {
+								await navigate(anchor.href, { history: 'push' })
+							} catch {
+								clearAnchorNavigationBusy(anchor)
+								window.location.assign(anchor.href)
+							}
+						})()
+					} else {
+						requestAnimationFrame(() => {
+							window.location.assign(anchor.href)
+						})
+					}
 				},
 			})
 		}
