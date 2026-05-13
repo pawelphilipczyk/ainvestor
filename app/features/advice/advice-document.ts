@@ -12,6 +12,7 @@ import {
 } from 'remix/data-schema'
 import { max, min, minLength } from 'remix/data-schema/checks'
 import { CURRENCIES } from '../../lib/currencies.ts'
+import { ETF_TYPES } from '../../lib/etf-type.ts'
 
 const etfProposalRowSchema = object({
 	name: string().pipe(minLength(1)),
@@ -40,6 +41,8 @@ const capitalSnapshotPostTotalSchema = object({
 
 const guidelineBarRowSchema = object({
 	label: string().pipe(minLength(1)),
+	/** Stable catalog asset class; relocalizes chart labels when UI language changes. */
+	etfType: optional(enum_(ETF_TYPES)),
 	targetPct: number().pipe(min(0), max(100)),
 	currentPct: number().pipe(min(0), max(100)),
 	postBuyPct: optional(number().pipe(min(0), max(100))),

@@ -20,6 +20,36 @@ export function formatEtfTypeLabel(etfType: EtfType): string {
 	return t('catalog.etfTypeUnknown')
 }
 
+/**
+ * Maps a guideline bar `label` from persisted advice (any prior UI language) to `EtfType`
+ * so charts and tables can be re-rendered in the active locale.
+ */
+export function resolveEtfTypeFromAdviceBucketLabel(
+	rawLabel: string,
+): EtfType | undefined {
+	let core = rawLabel.trim().toLowerCase()
+	if (core.length === 0) return undefined
+	core = core.replace(/\s*\(bucket\)\s*$/i, '').trim()
+	core = core.replace(/\s*\(stocks?\)\s*$/i, '').trim()
+	for (const type of ETF_TYPES) {
+		if (core === type) return type
+		if (core === ETF_TYPE_LABELS[type].toLowerCase()) return type
+		if (core === ETF_TYPE_LABELS_PL[type].toLowerCase()) return type
+	}
+	const aliases: Record<string, EtfType> = {
+		equities: 'equity',
+		stocks: 'equity',
+		stock: 'equity',
+		shares: 'equity',
+		bonds: 'bond',
+		bond: 'bond',
+		commodities: 'commodity',
+		reit: 'real_estate',
+		reits: 'real_estate',
+	}
+	return aliases[core]
+}
+
 export type GuidelineKind = 'asset_class' | 'instrument'
 
 export const GUIDELINE_KINDS = [
