@@ -1,16 +1,18 @@
 import * as assert from 'node:assert/strict'
-import { describe, it } from 'node:test'
+import { afterEach, describe, it } from 'node:test'
 
 import {
 	buildCatalogGistPatch,
 	CATALOG_FILENAME,
 	catalogMergeKey,
+	fetchSharedCatalogSnapshot,
 	mergeBankIntoCatalog,
 	normalizeCatalogTickerLookupKey,
 	parseBankJsonForImport,
 	parseBankJsonToCatalog,
 	parseCatalogFromGist,
 	parseCatalogRiskFilterParam,
+	resetSharedCatalogForTests,
 	riskBandFromRiskKid,
 } from './lib.ts'
 
@@ -48,8 +50,244 @@ describe('parseCatalogRiskFilterParam', () => {
 	})
 })
 
+describe('fetchSharedCatalogSnapshot ttl cache', () => {
+	const originalFetch = globalThis.fetch
+	const originalGistId = process.env.SHARED_CATALOG_GIST_ID
+	const originalTtl = process.env.SHARED_CATALOG_CACHE_TTL_MS
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch
+		resetSharedCatalogForTests()
+		if (originalGistId === undefined) {
+			delete process.env.SHARED_CATALOG_GIST_ID
+		} else {
+			process.env.SHARED_CATALOG_GIST_ID = originalGistId
+		}
+		if (originalTtl === undefined) {
+			delete process.env.SHARED_CATALOG_CACHE_TTL_MS
+		} else {
+			process.env.SHARED_CATALOG_CACHE_TTL_MS = originalTtl
+		}
+	})
+
+	it('hits GitHub once and returns independent clones while the cache entry is valid', async () => {
+		let fetchCount = 0
+		globalThis.fetch = async (input: string | URL | Request) => {
+			fetchCount += 1
+			assert.match(String(input), /\/gists\/ttl-gist-test$/)
+			return new Response(
+				JSON.stringify({
+					files: {
+						[CATALOG_FILENAME]: {
+							content: JSON.stringify([
+								{
+									id: '1',
+									ticker: 'ABC',
+									name: 'Alpha',
+									type: 'equity',
+									description: '',
+								},
+							]),
+						},
+					},
+					owner: { login: 'owner' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'ttl-gist-test'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+
+		const first = await fetchSharedCatalogSnapshot()
+		const second = await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 1)
+		assert.equal(first.entries.length, 1)
+		assert.equal(second.entries.length, 1)
+		assert.equal(first.entries[0]?.ticker, 'ABC')
+		if (first.entries[0]) {
+			first.entries[0] = { ...first.entries[0], ticker: 'MUT' }
+		}
+		assert.equal(second.entries[0]?.ticker, 'ABC')
+	})
+
+	it('does not cache when ttl is 0', async () => {
+		let fetchCount = 0
+		globalThis.fetch = async () => {
+			fetchCount += 1
+			return new Response(
+				JSON.stringify({
+					files: { [CATALOG_FILENAME]: { content: '[]' } },
+					owner: { login: 'o' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-no-ttl'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+
+		await fetchSharedCatalogSnapshot()
+		await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 2)
+	})
+
+	it('re-fetches after the cache entry expires', async () => {
+		const originalDateNow = Date.now
+		let fetchCount = 0
+		globalThis.fetch = async () => {
+			fetchCount += 1
+			return new Response(
+				JSON.stringify({
+					files: { [CATALOG_FILENAME]: { content: '[]' } },
+					owner: { login: 'o' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-expiry'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '5000'
+
+		const baseTime = 1_000_000
+		Date.now = () => baseTime
+		await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 1)
+
+		// still within TTL — should use cache
+		Date.now = () => baseTime + 4_999
+		await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 1)
+
+		// one ms past TTL — cache should be stale
+		Date.now = () => baseTime + 5_001
+		await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 2)
+
+		Date.now = originalDateNow
+	})
+
+	it('re-fetches when gistId changes even if cache is otherwise valid', async () => {
+		let fetchCount = 0
+		globalThis.fetch = async () => {
+			fetchCount += 1
+			return new Response(
+				JSON.stringify({
+					files: { [CATALOG_FILENAME]: { content: '[]' } },
+					owner: { login: 'o' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-alpha'
+		await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 1)
+
+		// switch to a different gist — cache should be bypassed
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-beta'
+		await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 2)
+	})
+
+	it('falls back to default TTL when env var is non-numeric and still caches', async () => {
+		let fetchCount = 0
+		globalThis.fetch = async () => {
+			fetchCount += 1
+			return new Response(
+				JSON.stringify({
+					files: { [CATALOG_FILENAME]: { content: '[]' } },
+					owner: { login: 'o' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-nan'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = 'not-a-number'
+
+		await fetchSharedCatalogSnapshot()
+		await fetchSharedCatalogSnapshot()
+		// non-numeric falls back to 60 000 ms default → still caches → single fetch
+		assert.equal(fetchCount, 1)
+	})
+
+	it('falls back to default TTL when env var is a negative number and still caches', async () => {
+		let fetchCount = 0
+		globalThis.fetch = async () => {
+			fetchCount += 1
+			return new Response(
+				JSON.stringify({
+					files: { [CATALOG_FILENAME]: { content: '[]' } },
+					owner: { login: 'o' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-neg'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '-1'
+
+		await fetchSharedCatalogSnapshot()
+		await fetchSharedCatalogSnapshot()
+		// negative falls back to 60 000 ms default → still caches → single fetch
+		assert.equal(fetchCount, 1)
+	})
+
+	it('returns empty entries and ownerLogin null when the HTTP response is not ok', async () => {
+		globalThis.fetch = async () => new Response('Not Found', { status: 404 })
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-404'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+
+		const result = await fetchSharedCatalogSnapshot()
+		assert.equal(result.entries.length, 0)
+		assert.equal(result.ownerLogin, null)
+	})
+
+	it('returns empty entries when fetch throws (e.g. network error)', async () => {
+		globalThis.fetch = async () => {
+			throw new Error('network failure')
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-throw'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+
+		const result = await fetchSharedCatalogSnapshot()
+		assert.equal(result.entries.length, 0)
+		assert.equal(result.ownerLogin, null)
+	})
+
+	it('setSharedCatalogForTests clears the TTL cache so subsequent real fetches are not blocked', async () => {
+		let fetchCount = 0
+		globalThis.fetch = async () => {
+			fetchCount += 1
+			return new Response(
+				JSON.stringify({
+					files: {
+						[CATALOG_FILENAME]: {
+							content: JSON.stringify([
+								{ id: '2', ticker: 'XYZ', name: 'X', type: 'equity', description: '' },
+							]),
+						},
+					},
+					owner: { login: 'o' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-set-test'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+
+		// Warm the TTL cache with one real fetch
+		await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 1)
+
+		// Calling setSharedCatalogForTests must clear the TTL cache
+		// After resetting, the module-level test snapshot is also cleared so a
+		// second real fetch must go to the network again.
+		resetSharedCatalogForTests()
+		await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 2)
+	})
+})
+
 describe('parseCatalogFromGist', () => {
-	it('returns empty array when catalog file is absent', () => {
+
 		const gist = { files: {} }
 		assert.deepEqual(parseCatalogFromGist(gist), [])
 	})
