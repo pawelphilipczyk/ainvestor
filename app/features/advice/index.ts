@@ -43,6 +43,7 @@ import {
 	AdviceResultCard,
 	type AdviceResultCardProps,
 } from './advice-page.tsx'
+import { buildAdviceValidationExportText } from './advice-validation-export.ts'
 
 const ADVICE_INTENTS = ['run', 'clear'] as const
 
@@ -89,6 +90,8 @@ type AdvicePageRenderProps = {
 	adviceGistSavedAt?: string
 	/** Gist persistence failed for this response; analysis is shown from the action only. */
 	adviceGistPersistFailed?: boolean
+	/** Plain-text bundle (guidelines + holdings + advice) for copy-paste review. */
+	adviceValidationExportText?: string
 	formError?: { summary: string; detail?: string }
 	pendingApproval?: boolean
 	adviceGistGate?: 'sign_in' | 'connect_gist'
@@ -130,6 +133,7 @@ function adviceResultCardPropsFromPage(
 		adviceGistPersistFailed: props.adviceGistPersistFailed,
 		pendingApproval: props.pendingApproval === true,
 		adviceGistGate: props.adviceGistGate,
+		adviceValidationExportText: props.adviceValidationExportText,
 	}
 }
 
@@ -221,8 +225,24 @@ async function loadAdvicePageState(options: {
 			activeTab,
 		)
 		if (stored !== null) {
-			const catalog = await fetchCatalog()
+			const [{ catalog, entries }, guidelines] = await Promise.all([
+				fetchPortfolioSnapshot(gistSession.token, gistSession.gistId),
+				fetchGuidelines(gistSession.token, gistSession.gistId),
+			])
 			const adviceGistSavedAt = new Date(stored.savedAt).toISOString()
+			const adviceValidationExportText = buildAdviceValidationExportText({
+				advice: stored.document,
+				guidelines,
+				holdings: entries,
+				model: stored.selectedModel,
+				analysisMode: stored.lastAnalysisMode,
+				...(stored.lastAnalysisMode === 'buy_next'
+					? {
+							cashAmount: stored.cashAmount ?? '',
+							cashCurrency: stored.cashCurrency,
+						}
+					: {}),
+			})
 			return {
 				...baseProps,
 				analysisMode: stored.lastAnalysisMode,
@@ -238,6 +258,7 @@ async function loadAdvicePageState(options: {
 				catalog,
 				adviceFromGist: true,
 				adviceGistSavedAt,
+				adviceValidationExportText,
 			}
 		}
 	} catch (err) {
@@ -582,6 +603,14 @@ export const adviceController = {
 					model: adviceModel,
 					analysisMode,
 				})
+				const adviceValidationExportText = buildAdviceValidationExportText({
+					advice,
+					guidelines,
+					holdings: entries,
+					model: adviceModel,
+					analysisMode,
+					...(analysisMode === 'buy_next' ? { cashAmount, cashCurrency } : {}),
+				})
 				let adviceGistPersistFailed = false
 				try {
 					await saveStoredAdviceAnalysisForTab(
@@ -618,6 +647,7 @@ export const adviceController = {
 							selectedModel: adviceModel,
 							advice,
 							catalog,
+							adviceValidationExportText,
 							...(adviceGistPersistFailed
 								? { adviceGistPersistFailed: true }
 								: {}),
