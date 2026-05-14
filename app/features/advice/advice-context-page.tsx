@@ -94,9 +94,10 @@ export function AdviceContextPage(handle: Handle<AdviceContextPageProps>) {
 								data-llm-export-markdown
 								readOnly
 								rows={26}
-								value={markdown}
 								class="min-h-[12rem] w-full min-w-0 resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed text-foreground"
-							/>
+							>
+								{markdown}
+							</textarea>
 						</div>
 						<div class="flex flex-wrap gap-2">
 							<button
