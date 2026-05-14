@@ -26,6 +26,7 @@ export const pl = {
 	'meta.title.home': 'AI Investor',
 	'meta.title.portfolio': 'AI Investor – Portfel',
 	'meta.title.advice': 'AI Investor – Porady',
+	'meta.title.adviceContext': 'AI Investor – Eksport kontekstu',
 	'meta.title.catalog': 'AI Investor – Katalog ETF',
 	'meta.title.catalogEtf': 'AI Investor – {name}',
 	'meta.title.guidelines': 'AI Investor – Wytyczne',
@@ -369,7 +370,24 @@ export const pl = {
 		'Otwórz stronę Portfel, aby utworzyć lub połączyć prywatny gist danych. Potem możesz uruchomić przegląd portfela i analizę „co kupić” tutaj.',
 	'advice.requiresGist.linkSignIn': 'Zaloguj przez GitHuba',
 	'advice.requiresGist.linkPortfolio': 'Otwórz Portfel',
+
+	'advice.context.pageHeading': 'Eksport kontekstu Markdown',
+	'advice.context.lead':
+		'Angielski zrzut Markdown portfela (z polami katalogu, gdy uda się dopasować wiersz) oraz wytycznych alokacji. Skopiuj go i dopisz własne instrukcje w innym narzędziu.',
+	'advice.context.privacyNote':
+		'Ta strona zawiera dane finansowe. Wklejaj je tylko do usług, którym ufasz.',
+	'advice.context.backToAdvice': 'Wróć do Porad',
+	'advice.context.textareaLabel': 'Markdown dla zewnętrznych narzędzi',
+	'advice.context.copyButton': 'Kopiuj do schowka',
+	'advice.context.snapshotError':
+		'Nie udało się wczytać zapisanego portfela lub wytycznych z GitHuba. Do czasu naprawy persystencji eksport jest pusty.',
+	'advice.context.linkFromAdvice':
+		'Eksport kontekstu Markdown dla innych narzędzi AI',
+
 	'errors.advice.service':
 		'Nie udało się teraz uzyskać porady. Spróbuj ponownie za chwilę.',
 	'client.formSubmit.genericError': 'Sprawdź wprowadzone dane.',
+	'client.adviceContext.copySuccess': 'Skopiowano do schowka.',
+	'client.adviceContext.copyFailed':
+		'Automatyczne kopiowanie nie powiodło się. Tekst jest zaznaczony — naciśnij Ctrl+C (⌘C na Macu).',
 } as const satisfies Record<MessageKey, string>

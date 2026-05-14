@@ -655,6 +655,14 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 						title={adviceIntro.title}
 						description={adviceIntro.description}
 					/>
+					<p class="mt-2 text-sm">
+						<Link
+							href={routes.advice.context.href()}
+							class="font-medium text-primary underline-offset-4 hover:underline"
+						>
+							{t('advice.context.linkFromAdvice')}
+						</Link>
+					</p>
 				</div>
 				{accessBanner === 'pending_approval' ? (
 					<div

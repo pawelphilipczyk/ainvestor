@@ -1,0 +1,75 @@
+import type { Handle } from 'remix/ui'
+import { Card, Link } from '../../components/index.ts'
+import { t } from '../../lib/i18n.ts'
+import { routes } from '../../routes.ts'
+import { AdviceContextCopyEnhancement } from './advice-context-copy.component.js'
+
+export type AdviceContextPageProps = {
+	markdown: string
+	snapshotError?: boolean
+}
+
+export function AdviceContextPage(handle: Handle<AdviceContextPageProps>) {
+	return () => {
+		const { markdown, snapshotError } = handle.props
+		return (
+			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
+				<div class="min-w-0">
+					<h1 class="text-2xl font-semibold tracking-tight text-foreground">
+						{t('advice.context.pageHeading')}
+					</h1>
+					<p class="mt-2 text-sm text-muted-foreground">
+						{t('advice.context.lead')}
+					</p>
+					<p class="mt-2 text-xs text-muted-foreground">
+						{t('advice.context.privacyNote')}
+					</p>
+					<p class="mt-3 text-sm">
+						<Link
+							href={routes.advice.index.href()}
+							class="font-medium text-primary underline-offset-4 hover:underline"
+						>
+							{t('advice.context.backToAdvice')}
+						</Link>
+					</p>
+				</div>
+				{snapshotError === true ? (
+					<div
+						role="alert"
+						class="rounded-md border border-destructive/50 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+					>
+						{t('advice.context.snapshotError')}
+					</div>
+				) : null}
+				<Card class="p-4">
+					<div data-llm-export-root class="grid min-w-0 gap-3">
+						<label
+							class="text-sm font-medium text-card-foreground"
+							for="llm-export-markdown"
+						>
+							{t('advice.context.textareaLabel')}
+						</label>
+						<textarea
+							id="llm-export-markdown"
+							data-llm-export-textarea
+							readOnly
+							rows={28}
+							defaultValue={markdown}
+							class="min-h-[12rem] w-full min-w-0 resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed text-foreground"
+						/>
+						<div class="flex flex-wrap gap-2">
+							<button
+								type="button"
+								data-copy-llm-context
+								class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+							>
+								{t('advice.context.copyButton')}
+							</button>
+						</div>
+					</div>
+				</Card>
+				<AdviceContextCopyEnhancement />
+			</main>
+		)
+	}
+}

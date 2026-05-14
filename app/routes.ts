@@ -24,6 +24,7 @@ export const routes = route({
 	},
 	advice: {
 		...adviceForm,
+		context: get('/advice/context'),
 		fragmentResult: get('/fragments/advice-result'),
 	},
 	guidelines: {

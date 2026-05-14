@@ -98,6 +98,8 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 					innerHTML={JSON.stringify({
 						genericFormError: t('client.formSubmit.genericError'),
 						submitLoadingLabel: t('chrome.loading'),
+						adviceContextCopySuccess: t('client.adviceContext.copySuccess'),
+						adviceContextCopyFailed: t('client.adviceContext.copyFailed'),
 					})}
 				/>
 			</head>
