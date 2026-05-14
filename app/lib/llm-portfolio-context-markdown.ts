@@ -1,8 +1,5 @@
 import type { CatalogEntry } from '../features/catalog/lib.ts'
-import {
-	findCatalogEntryByTicker,
-	riskBandFromRiskKid,
-} from '../features/catalog/lib.ts'
+import { findCatalogEntryByTicker } from '../features/catalog/lib.ts'
 import { ETF_TYPE_LABELS } from '../locales/en.ts'
 import type { EtfEntry } from './gist.ts'
 import type { EtfGuideline, EtfType } from './guidelines.ts'
@@ -11,6 +8,12 @@ import {
 	totalHoldingsValueForShareBars,
 	valueShareOfHoldingsTotalPercent,
 } from './portfolio-holdings-share.ts'
+
+export type LlmAdviceContextExportEnglish = {
+	markdown: string
+	/** Pretty-printed JSON array of {@link CatalogEntry} (sorted by ticker). */
+	catalogJson: string
+}
 
 function englishEtfTypeLabel(etfType: EtfType): string {
 	const label = ETF_TYPE_LABELS[etfType]
@@ -36,68 +39,41 @@ function formatDecimalEn(value: number, fractionDigits: number): string {
 	}).format(value)
 }
 
-function pushOptionalCatalogField(
-	lines: string[],
-	key: string,
-	value: string | number | boolean | undefined,
-): void {
-	if (value === undefined) return
-	if (typeof value === 'string' && value.trim().length === 0) return
-	lines.push(`- ${key}: ${typeof value === 'string' ? value : String(value)}`)
-}
-
-function catalogEntryMarkdownLines(entry: CatalogEntry): string[] {
-	const lines: string[] = []
-	pushOptionalCatalogField(lines, 'id', entry.id)
-	pushOptionalCatalogField(lines, 'ticker', entry.ticker)
-	pushOptionalCatalogField(lines, 'name', entry.name)
-	pushOptionalCatalogField(lines, 'type', englishEtfTypeLabel(entry.type))
-	pushOptionalCatalogField(lines, 'description', entry.description)
-	pushOptionalCatalogField(lines, 'isin', entry.isin)
-	pushOptionalCatalogField(lines, 'expense_ratio', entry.expense_ratio)
-	if (typeof entry.risk_kid === 'number') {
-		lines.push(`- risk_kid: ${entry.risk_kid}`)
-	}
-	const riskBand = riskBandFromRiskKid(entry.risk_kid)
-	if (riskBand !== undefined) {
-		lines.push(`- risk_band (derived from risk_kid): ${riskBand}`)
-	}
-	pushOptionalCatalogField(lines, 'region', entry.region)
-	pushOptionalCatalogField(lines, 'sector', entry.sector)
-	if (typeof entry.rate_of_return === 'number') {
-		lines.push(`- rate_of_return: ${entry.rate_of_return}`)
-	}
-	pushOptionalCatalogField(lines, 'volatility', entry.volatility)
-	pushOptionalCatalogField(lines, 'return_risk', entry.return_risk)
-	pushOptionalCatalogField(lines, 'fund_size', entry.fund_size)
-	if (typeof entry.esg === 'boolean') {
-		lines.push(`- esg: ${entry.esg}`)
-	}
-	return lines
-}
-
 function headingSlugForHolding(entry: EtfEntry, index: number): string {
 	const label =
 		entry.ticker?.trim() || entry.name.trim() || `Holding ${index + 1}`
 	return label
 }
 
+function catalogSortedByTicker(entries: CatalogEntry[]): CatalogEntry[] {
+	return [...entries].sort((left, right) =>
+		left.ticker.localeCompare(right.ticker, 'en'),
+	)
+}
+
 /**
- * Builds an English Markdown snapshot of portfolio holdings (with catalog fields
- * when matched) and allocation guidelines, for copy-paste into external tools.
+ * Builds an English Markdown snapshot of portfolio holdings and allocation
+ * guidelines, plus a separate JSON array of the full ETF catalog (for prompts
+ * that keep narrative in Markdown and fund facts in JSON).
  */
-export function buildLlmPortfolioGuidelinesMarkdownEnglish(params: {
+export function buildLlmAdviceContextExportEnglish(params: {
 	entries: EtfEntry[]
 	guidelines: EtfGuideline[]
 	catalog: CatalogEntry[]
 	generatedAtUtc: Date
-}): string {
+}): LlmAdviceContextExportEnglish {
 	const { entries, guidelines, catalog, generatedAtUtc } = params
+	const sortedCatalog = catalogSortedByTicker(catalog)
+	const catalogJson = `${JSON.stringify(sortedCatalog, null, 2)}\n`
 	const iso = generatedAtUtc.toISOString()
 	const blocks: string[] = []
 	blocks.push('# Portfolio and guidelines')
 	blocks.push('')
 	blocks.push(`As of (UTC): ${iso}`)
+	blocks.push('')
+	blocks.push(
+		'_Full ETF attributes (fees, risk KID, region, etc.) live in the companion **catalog JSON** on the export page. Each holding below references a catalog row by `id` / `ticker` when matched._',
+	)
 	blocks.push('')
 	blocks.push('## Portfolio holdings')
 	blocks.push('')
@@ -145,11 +121,14 @@ export function buildLlmPortfolioGuidelinesMarkdownEnglish(params: {
 			blocks.push('#### Catalog match')
 			blocks.push('')
 			if (catalogRow === undefined) {
+				blocks.push('- matched: no')
 				blocks.push(
-					'_No catalog row matched this holding (by ticker or name)._',
+					'_No catalog row matched this holding (by ticker or name); see the JSON array for available funds._',
 				)
 			} else {
-				blocks.push(...catalogEntryMarkdownLines(catalogRow))
+				blocks.push('- matched: yes')
+				blocks.push(`- catalog_id: ${catalogRow.id}`)
+				blocks.push(`- catalog_ticker: ${catalogRow.ticker}`)
 			}
 			blocks.push('')
 		}
@@ -174,5 +153,8 @@ export function buildLlmPortfolioGuidelinesMarkdownEnglish(params: {
 		}
 	}
 	blocks.push('')
-	return blocks.join('\n')
+	return {
+		markdown: blocks.join('\n'),
+		catalogJson,
+	}
 }

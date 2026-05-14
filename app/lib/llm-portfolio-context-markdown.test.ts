@@ -3,12 +3,12 @@ import { describe, it } from 'node:test'
 import type { CatalogEntry } from '../features/catalog/lib.ts'
 import type { EtfEntry } from './gist.ts'
 import type { EtfGuideline } from './guidelines.ts'
-import { buildLlmPortfolioGuidelinesMarkdownEnglish } from './llm-portfolio-context-markdown.ts'
+import { buildLlmAdviceContextExportEnglish } from './llm-portfolio-context-markdown.ts'
 
 const fixedInstant = new Date('2026-01-15T08:30:00.000Z')
 
-describe('buildLlmPortfolioGuidelinesMarkdownEnglish', () => {
-	it('includes holdings with catalog fields, weights, and guidelines', () => {
+describe('buildLlmAdviceContextExportEnglish', () => {
+	it('includes holdings with catalog refs, guidelines, and catalog JSON array', () => {
 		const entries: EtfEntry[] = [
 			{
 				id: 'e1',
@@ -27,6 +27,15 @@ describe('buildLlmPortfolioGuidelinesMarkdownEnglish', () => {
 		]
 		const catalog: CatalogEntry[] = [
 			{
+				id: 'cat-bnd',
+				ticker: 'BND',
+				name: 'Vanguard Total Bond',
+				type: 'bond',
+				description: 'US bonds',
+				risk_kid: 3,
+				esg: true,
+			},
+			{
 				id: 'cat-vti',
 				ticker: 'VTI',
 				name: 'Vanguard Total Stock',
@@ -41,15 +50,6 @@ describe('buildLlmPortfolioGuidelinesMarkdownEnglish', () => {
 				return_risk: '0.5',
 				fund_size: '300 bn USD',
 				esg: false,
-			},
-			{
-				id: 'cat-bnd',
-				ticker: 'BND',
-				name: 'Vanguard Total Bond',
-				type: 'bond',
-				description: 'US bonds',
-				risk_kid: 3,
-				esg: true,
 			},
 		]
 		const guidelines: EtfGuideline[] = [
@@ -68,7 +68,7 @@ describe('buildLlmPortfolioGuidelinesMarkdownEnglish', () => {
 				etfType: 'bond',
 			},
 		]
-		const markdown = buildLlmPortfolioGuidelinesMarkdownEnglish({
+		const { markdown, catalogJson } = buildLlmAdviceContextExportEnglish({
 			entries,
 			guidelines,
 			catalog,
@@ -80,6 +80,8 @@ describe('buildLlmPortfolioGuidelinesMarkdownEnglish', () => {
 				'# Portfolio and guidelines',
 				'',
 				'As of (UTC): 2026-01-15T08:30:00.000Z',
+				'',
+				'_Full ETF attributes (fees, risk KID, region, etc.) live in the companion **catalog JSON** on the export page. Each holding below references a catalog row by `id` / `ticker` when matched._',
 				'',
 				'## Portfolio holdings',
 				'',
@@ -94,21 +96,9 @@ describe('buildLlmPortfolioGuidelinesMarkdownEnglish', () => {
 				'',
 				'#### Catalog match',
 				'',
-				'- id: cat-vti',
-				'- ticker: VTI',
-				'- name: Vanguard Total Stock',
-				'- type: equity',
-				'- description: US total market',
-				'- expense_ratio: 0.03%',
-				'- risk_kid: 5',
-				'- risk_band (derived from risk_kid): high',
-				'- region: North America',
-				'- sector: broad',
-				'- rate_of_return: 8.1',
-				'- volatility: 16%',
-				'- return_risk: 0.5',
-				'- fund_size: 300 bn USD',
-				'- esg: false',
+				'- matched: yes',
+				'- catalog_id: cat-vti',
+				'- catalog_ticker: VTI',
 				'',
 				'### BND',
 				'',
@@ -121,14 +111,9 @@ describe('buildLlmPortfolioGuidelinesMarkdownEnglish', () => {
 				'',
 				'#### Catalog match',
 				'',
-				'- id: cat-bnd',
-				'- ticker: BND',
-				'- name: Vanguard Total Bond',
-				'- type: bond',
-				'- description: US bonds',
-				'- risk_kid: 3',
-				'- risk_band (derived from risk_kid): medium',
-				'- esg: true',
+				'- matched: yes',
+				'- catalog_id: cat-bnd',
+				'- catalog_ticker: BND',
 				'',
 				'## Allocation guidelines',
 				'',
@@ -139,27 +124,33 @@ describe('buildLlmPortfolioGuidelinesMarkdownEnglish', () => {
 				'',
 			].join('\n'),
 		)
+		const parsed = JSON.parse(catalogJson) as unknown
+		assert.ok(Array.isArray(parsed))
+		assert.equal(parsed.length, 2)
+		assert.deepEqual(
+			parsed.map((row: { ticker?: string }) => row.ticker),
+			['BND', 'VTI'],
+		)
 	})
 
 	it('omits weights when currencies differ', () => {
-		const entries: EtfEntry[] = [
-			{
-				id: 'a',
-				name: 'Fund A',
-				ticker: 'AAA',
-				value: 100,
-				currency: 'PLN',
-			},
-			{
-				id: 'b',
-				name: 'Fund B',
-				ticker: 'BBB',
-				value: 50,
-				currency: 'USD',
-			},
-		]
-		const markdown = buildLlmPortfolioGuidelinesMarkdownEnglish({
-			entries,
+		const { markdown } = buildLlmAdviceContextExportEnglish({
+			entries: [
+				{
+					id: 'a',
+					name: 'Fund A',
+					ticker: 'AAA',
+					value: 100,
+					currency: 'PLN',
+				},
+				{
+					id: 'b',
+					name: 'Fund B',
+					ticker: 'BBB',
+					value: 50,
+					currency: 'USD',
+				},
+			],
 			guidelines: [],
 			catalog: [],
 			generatedAtUtc: fixedInstant,
@@ -172,23 +163,23 @@ describe('buildLlmPortfolioGuidelinesMarkdownEnglish', () => {
 	})
 
 	it('notes missing catalog match', () => {
-		const entries: EtfEntry[] = [
-			{
-				id: 'x',
-				name: 'Unknown Local Name',
-				value: 1,
-				currency: 'PLN',
-			},
-		]
-		const markdown = buildLlmPortfolioGuidelinesMarkdownEnglish({
-			entries,
+		const { markdown } = buildLlmAdviceContextExportEnglish({
+			entries: [
+				{
+					id: 'x',
+					name: 'Unknown Local Name',
+					value: 1,
+					currency: 'PLN',
+				},
+			],
 			guidelines: [],
 			catalog: [],
 			generatedAtUtc: fixedInstant,
 		})
+		assert.match(markdown, /- matched: no/)
 		assert.match(
 			markdown,
-			/No catalog row matched this holding \(by ticker or name\)\./,
+			/No catalog row matched this holding \(by ticker or name\)/,
 		)
 	})
 })

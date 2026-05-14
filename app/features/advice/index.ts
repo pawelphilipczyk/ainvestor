@@ -15,7 +15,7 @@ import {
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
-import { buildLlmPortfolioGuidelinesMarkdownEnglish } from '../../lib/llm-portfolio-context-markdown.ts'
+import { buildLlmAdviceContextExportEnglish } from '../../lib/llm-portfolio-context-markdown.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import {
 	getLayoutSession,
@@ -225,6 +225,7 @@ async function loadPortfolioGuidelinesSnapshotForExport(
 function renderAdviceContextPageResponse(options: {
 	session: SessionData | null
 	markdown: string
+	catalogJson: string
 	snapshotError: boolean
 }) {
 	return render({
@@ -234,6 +235,7 @@ function renderAdviceContextPageResponse(options: {
 		currentPage: 'advice',
 		body: jsx(AdviceContextPage, {
 			markdown: options.markdown,
+			catalogJson: options.catalogJson,
 			...(options.snapshotError ? { snapshotError: true } : {}),
 		}),
 	})
@@ -364,7 +366,7 @@ export const adviceController = {
 		async context(context: AppRequestContext) {
 			const layoutSession = getLayoutSession(context.get(Session))
 			const data = await loadPortfolioGuidelinesSnapshotForExport(context)
-			const markdown = buildLlmPortfolioGuidelinesMarkdownEnglish({
+			const exportBody = buildLlmAdviceContextExportEnglish({
 				entries: data.entries,
 				guidelines: data.guidelines,
 				catalog: data.catalog,
@@ -372,7 +374,8 @@ export const adviceController = {
 			})
 			return renderAdviceContextPageResponse({
 				session: layoutSession,
-				markdown,
+				markdown: exportBody.markdown,
+				catalogJson: exportBody.catalogJson,
 				snapshotError: data.snapshotError,
 			})
 		},

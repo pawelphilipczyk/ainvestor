@@ -6,12 +6,13 @@ import { AdviceContextCopyEnhancement } from './advice-context-copy.component.js
 
 export type AdviceContextPageProps = {
 	markdown: string
+	catalogJson: string
 	snapshotError?: boolean
 }
 
 export function AdviceContextPage(handle: Handle<AdviceContextPageProps>) {
 	return () => {
-		const { markdown, snapshotError } = handle.props
+		const { markdown, catalogJson, snapshotError } = handle.props
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
 				<div class="min-w-0">
@@ -42,28 +43,60 @@ export function AdviceContextPage(handle: Handle<AdviceContextPageProps>) {
 					</div>
 				) : null}
 				<Card class="p-4">
-					<div data-llm-export-root class="grid min-w-0 gap-3">
-						<label
-							class="text-sm font-medium text-card-foreground"
-							for="llm-export-markdown"
-						>
-							{t('advice.context.textareaLabel')}
-						</label>
-						<textarea
-							id="llm-export-markdown"
-							data-llm-export-textarea
-							readOnly
-							rows={28}
-							defaultValue={markdown}
-							class="min-h-[12rem] w-full min-w-0 resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed text-foreground"
-						/>
+					<div data-llm-export-root class="grid min-w-0 gap-6">
+						<div class="grid min-w-0 gap-3">
+							<label
+								class="text-sm font-medium text-card-foreground"
+								for="llm-export-markdown"
+							>
+								{t('advice.context.markdownLabel')}
+							</label>
+							<textarea
+								id="llm-export-markdown"
+								data-llm-export-markdown
+								readOnly
+								rows={22}
+								defaultValue={markdown}
+								class="min-h-[10rem] w-full min-w-0 resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed text-foreground"
+							/>
+						</div>
+						<div class="grid min-w-0 gap-3">
+							<label
+								class="text-sm font-medium text-card-foreground"
+								for="llm-export-catalog-json"
+							>
+								{t('advice.context.catalogJsonLabel')}
+							</label>
+							<textarea
+								id="llm-export-catalog-json"
+								data-llm-export-catalog-json
+								readOnly
+								rows={18}
+								defaultValue={catalogJson}
+								class="min-h-[8rem] w-full min-w-0 resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed text-foreground"
+							/>
+						</div>
 						<div class="flex flex-wrap gap-2">
 							<button
 								type="button"
-								data-copy-llm-context
+								data-copy-llm-markdown
 								class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
 							>
-								{t('advice.context.copyButton')}
+								{t('advice.context.copyMarkdown')}
+							</button>
+							<button
+								type="button"
+								data-copy-llm-catalog-json
+								class="inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+							>
+								{t('advice.context.copyCatalogJson')}
+							</button>
+							<button
+								type="button"
+								data-copy-llm-both
+								class="inline-flex items-center justify-center rounded-md border border-primary bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+							>
+								{t('advice.context.copyBoth')}
 							</button>
 						</div>
 					</div>

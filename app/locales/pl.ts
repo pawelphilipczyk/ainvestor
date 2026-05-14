@@ -371,14 +371,17 @@ export const pl = {
 	'advice.requiresGist.linkSignIn': 'Zaloguj przez GitHuba',
 	'advice.requiresGist.linkPortfolio': 'Otwórz Portfel',
 
-	'advice.context.pageHeading': 'Eksport kontekstu Markdown',
+	'advice.context.pageHeading': 'Eksport kontekstu (Markdown + JSON katalogu)',
 	'advice.context.lead':
-		'Angielski zrzut Markdown portfela (z polami katalogu, gdy uda się dopasować wiersz) oraz wytycznych alokacji. Skopiuj go i dopisz własne instrukcje w innym narzędziu.',
+		'Angielski Markdown portfela i wytycznych oraz osobna tablica JSON z pełnym katalogiem ETF aplikacji (posortowana po tickerze). W Markdownie odwołuj się do obiektów JSON po polach `catalog_id` / `catalog_ticker`. W innym narzędziu dopisz własne instrukcje.',
 	'advice.context.privacyNote':
 		'Ta strona zawiera dane finansowe. Wklejaj je tylko do usług, którym ufasz.',
 	'advice.context.backToAdvice': 'Wróć do Porad',
-	'advice.context.textareaLabel': 'Markdown dla zewnętrznych narzędzi',
-	'advice.context.copyButton': 'Kopiuj do schowka',
+	'advice.context.markdownLabel': 'Markdown (portfel i wytyczne)',
+	'advice.context.catalogJsonLabel': 'Katalog ETF (tablica JSON)',
+	'advice.context.copyMarkdown': 'Kopiuj Markdown',
+	'advice.context.copyCatalogJson': 'Kopiuj JSON katalogu',
+	'advice.context.copyBoth': 'Kopiuj Markdown i JSON',
 	'advice.context.snapshotError':
 		'Nie udało się wczytać zapisanego portfela lub wytycznych z GitHuba. Do czasu naprawy persystencji eksport jest pusty.',
 	'advice.context.linkFromAdvice':

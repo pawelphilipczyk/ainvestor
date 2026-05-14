@@ -378,14 +378,17 @@ export const en = {
 	'advice.requiresGist.linkSignIn': 'Sign in with GitHub',
 	'advice.requiresGist.linkPortfolio': 'Open Portfolio',
 
-	'advice.context.pageHeading': 'Export Markdown context',
+	'advice.context.pageHeading': 'Export context (Markdown + catalog JSON)',
 	'advice.context.lead':
-		'English Markdown snapshot of your portfolio holdings (with catalog fields when matched) and allocation guidelines. Copy it and add your own instructions in another tool.',
+		'English Markdown for your portfolio and guidelines, plus a separate JSON array of the full app ETF catalog (sorted by ticker). Reference `catalog_id` / `catalog_ticker` in the Markdown against objects in the JSON. Add your own instructions in the other tool.',
 	'advice.context.privacyNote':
 		'This page contains financial data. Only paste it into services you trust.',
 	'advice.context.backToAdvice': 'Back to Get Advice',
-	'advice.context.textareaLabel': 'Markdown for external tools',
-	'advice.context.copyButton': 'Copy to clipboard',
+	'advice.context.markdownLabel': 'Markdown (portfolio and guidelines)',
+	'advice.context.catalogJsonLabel': 'ETF catalog (JSON array)',
+	'advice.context.copyMarkdown': 'Copy Markdown',
+	'advice.context.copyCatalogJson': 'Copy catalog JSON',
+	'advice.context.copyBoth': 'Copy Markdown + JSON',
 	'advice.context.snapshotError':
 		'Could not load your saved portfolio or guidelines from GitHub. Showing an empty export until persistence works again.',
 	'advice.context.linkFromAdvice': 'Export Markdown context for other AI tools',
