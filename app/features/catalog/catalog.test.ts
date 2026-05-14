@@ -57,7 +57,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /ETF Catalog/)
 	})
 
-	it('GET /catalog/catalog.json returns sorted JSON with public cache header', async () => {
+	it('GET /catalog.json returns sorted JSON with public cache header', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -77,9 +77,7 @@ describe('ETF Catalog page', () => {
 				count: 2,
 			}),
 		)
-		const response = await testSessionFetch(
-			'http://localhost/catalog/catalog.json',
-		)
+		const response = await testSessionFetch('http://localhost/catalog.json')
 		assert.equal(response.status, 200)
 		assert.equal(
 			(response.headers.get('content-type') ?? '').includes('application/json'),

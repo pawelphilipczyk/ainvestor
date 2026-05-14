@@ -40,10 +40,10 @@ function headingSlugForHolding(entry: EtfEntry, index: number): string {
 }
 
 /**
- * English Markdown: portfolio holdings (with catalog id/ticker refs) and
+ * Markdown export: portfolio holdings (with catalog id/ticker refs) and
  * allocation guidelines. Full fund rows are at `catalogJsonUrl` (shared JSON).
  */
-export function buildAdviceContextMarkdownEnglish(params: {
+export function buildAdviceContextMarkdown(params: {
 	entries: EtfEntry[]
 	guidelines: EtfGuideline[]
 	catalog: CatalogEntry[]

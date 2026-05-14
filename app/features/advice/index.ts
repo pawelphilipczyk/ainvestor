@@ -15,7 +15,7 @@ import {
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
-import { buildAdviceContextMarkdownEnglish } from '../../lib/llm-portfolio-context-markdown.ts'
+import { buildAdviceContextMarkdown } from '../../lib/llm-portfolio-context-markdown.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import {
 	getLayoutSession,
@@ -368,10 +368,10 @@ export const adviceController = {
 			const data = await loadPortfolioGuidelinesSnapshotForExport(context)
 			const generatedAtUtc = new Date()
 			const catalogJsonHref = new URL(
-				routes.catalog.catalogJson.href(),
+				routes.catalogJson.href(),
 				context.request.url,
 			).href
-			const markdown = buildAdviceContextMarkdownEnglish({
+			const markdown = buildAdviceContextMarkdown({
 				entries: data.entries,
 				guidelines: data.guidelines,
 				catalog: data.catalog,

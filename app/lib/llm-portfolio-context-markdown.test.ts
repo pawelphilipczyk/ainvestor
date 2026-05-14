@@ -3,12 +3,12 @@ import { describe, it } from 'node:test'
 import type { CatalogEntry } from '../features/catalog/lib.ts'
 import type { EtfEntry } from './gist.ts'
 import type { EtfGuideline } from './guidelines.ts'
-import { buildAdviceContextMarkdownEnglish } from './llm-portfolio-context-markdown.ts'
+import { buildAdviceContextMarkdown } from './llm-portfolio-context-markdown.ts'
 
 const fixedInstant = new Date('2026-01-15T08:30:00.000Z')
-const catalogJsonUrl = 'https://example.test/catalog/catalog.json'
+const catalogJsonUrl = 'https://example.test/catalog.json'
 
-describe('buildAdviceContextMarkdownEnglish', () => {
+describe('buildAdviceContextMarkdown', () => {
 	it('includes holdings with catalog refs, guidelines, and catalog URL', () => {
 		const entries: EtfEntry[] = [
 			{
@@ -69,7 +69,7 @@ describe('buildAdviceContextMarkdownEnglish', () => {
 				etfType: 'bond',
 			},
 		]
-		const markdown = buildAdviceContextMarkdownEnglish({
+		const markdown = buildAdviceContextMarkdown({
 			entries,
 			guidelines,
 			catalog,
@@ -83,7 +83,7 @@ describe('buildAdviceContextMarkdownEnglish', () => {
 				'',
 				'As of (UTC): 2026-01-15T08:30:00.000Z',
 				'',
-				'_Full ETF attributes (fees, risk KID, region, etc.): fetch the shared catalog JSON at `https://example.test/catalog/catalog.json` (GET; sorted by ticker). Each holding below references a row by `id` / `ticker` when matched._',
+				'_Full ETF attributes (fees, risk KID, region, etc.): fetch the shared catalog JSON at `https://example.test/catalog.json` (GET; sorted by ticker). Each holding below references a row by `id` / `ticker` when matched._',
 				'',
 				'## Portfolio holdings',
 				'',
@@ -129,7 +129,7 @@ describe('buildAdviceContextMarkdownEnglish', () => {
 	})
 
 	it('omits weights when currencies differ', () => {
-		const markdown = buildAdviceContextMarkdownEnglish({
+		const markdown = buildAdviceContextMarkdown({
 			entries: [
 				{
 					id: 'a',
@@ -159,7 +159,7 @@ describe('buildAdviceContextMarkdownEnglish', () => {
 	})
 
 	it('notes missing catalog match', () => {
-		const markdown = buildAdviceContextMarkdownEnglish({
+		const markdown = buildAdviceContextMarkdown({
 			entries: [
 				{
 					id: 'x',
