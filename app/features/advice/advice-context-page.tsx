@@ -64,7 +64,7 @@ export function AdviceContextPage(handle: Handle<AdviceContextPageProps>) {
 								data-llm-export-markdown
 								readOnly
 								rows={22}
-								defaultValue={markdown}
+								value={markdown}
 								class="min-h-[10rem] w-full min-w-0 resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed text-foreground"
 							/>
 						</div>
@@ -80,7 +80,7 @@ export function AdviceContextPage(handle: Handle<AdviceContextPageProps>) {
 								data-llm-export-catalog-json
 								readOnly
 								rows={18}
-								defaultValue={catalogJson}
+								value={catalogJson}
 								class="min-h-[8rem] w-full min-w-0 resize-y rounded-md border border-input bg-background px-3 py-2 font-mono text-xs leading-relaxed text-foreground"
 							/>
 						</div>
