@@ -3,12 +3,15 @@ import { describe, it } from 'node:test'
 import type { CatalogEntry } from '../features/catalog/lib.ts'
 import type { EtfEntry } from './gist.ts'
 import type { EtfGuideline } from './guidelines.ts'
-import { buildLlmAdviceContextExportEnglish } from './llm-portfolio-context-markdown.ts'
+import {
+	buildAdviceContextMarkdownEnglish,
+	serializeAdviceContextCatalogJsonEnglish,
+} from './llm-portfolio-context-markdown.ts'
 
 const fixedInstant = new Date('2026-01-15T08:30:00.000Z')
 
-describe('buildLlmAdviceContextExportEnglish', () => {
-	it('includes holdings with catalog refs, guidelines, and catalog JSON array', () => {
+describe('buildAdviceContextMarkdownEnglish', () => {
+	it('includes holdings with catalog refs and guidelines', () => {
 		const entries: EtfEntry[] = [
 			{
 				id: 'e1',
@@ -68,7 +71,7 @@ describe('buildLlmAdviceContextExportEnglish', () => {
 				etfType: 'bond',
 			},
 		]
-		const { markdown, catalogJson } = buildLlmAdviceContextExportEnglish({
+		const markdown = buildAdviceContextMarkdownEnglish({
 			entries,
 			guidelines,
 			catalog,
@@ -124,6 +127,7 @@ describe('buildLlmAdviceContextExportEnglish', () => {
 				'',
 			].join('\n'),
 		)
+		const catalogJson = serializeAdviceContextCatalogJsonEnglish(catalog)
 		const parsed = JSON.parse(catalogJson) as unknown
 		assert.ok(Array.isArray(parsed))
 		assert.equal(parsed.length, 2)
@@ -134,7 +138,7 @@ describe('buildLlmAdviceContextExportEnglish', () => {
 	})
 
 	it('omits weights when currencies differ', () => {
-		const { markdown } = buildLlmAdviceContextExportEnglish({
+		const markdown = buildAdviceContextMarkdownEnglish({
 			entries: [
 				{
 					id: 'a',
@@ -163,7 +167,7 @@ describe('buildLlmAdviceContextExportEnglish', () => {
 	})
 
 	it('notes missing catalog match', () => {
-		const { markdown } = buildLlmAdviceContextExportEnglish({
+		const markdown = buildAdviceContextMarkdownEnglish({
 			entries: [
 				{
 					id: 'x',
@@ -180,6 +184,21 @@ describe('buildLlmAdviceContextExportEnglish', () => {
 		assert.match(
 			markdown,
 			/No catalog row matched this holding \(by ticker or name\)/,
+		)
+	})
+})
+
+describe('serializeAdviceContextCatalogJsonEnglish', () => {
+	it('returns valid JSON array sorted by ticker', () => {
+		const catalog: CatalogEntry[] = [
+			{ id: '2', ticker: 'ZZZ', name: 'Z', type: 'equity', description: '' },
+			{ id: '1', ticker: 'AAA', name: 'A', type: 'bond', description: '' },
+		]
+		const out = serializeAdviceContextCatalogJsonEnglish(catalog)
+		const parsed = JSON.parse(out) as CatalogEntry[]
+		assert.deepEqual(
+			parsed.map((row) => row.ticker),
+			['AAA', 'ZZZ'],
 		)
 	})
 })

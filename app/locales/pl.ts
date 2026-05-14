@@ -382,6 +382,9 @@ export const pl = {
 	'advice.context.copyMarkdown': 'Kopiuj Markdown',
 	'advice.context.copyCatalogJson': 'Kopiuj JSON katalogu',
 	'advice.context.copyBoth': 'Kopiuj Markdown i JSON',
+	'advice.context.copySuccess': 'Skopiowano do schowka.',
+	'advice.context.copyFailed':
+		'Automatyczne kopiowanie nie powiodło się. Tekst jest zaznaczony — naciśnij Ctrl+C (⌘C na Macu).',
 	'advice.context.snapshotError':
 		'Nie udało się wczytać zapisanego portfela lub wytycznych z GitHuba. Do czasu naprawy persystencji eksport jest pusty.',
 	'advice.context.linkFromAdvice':
@@ -390,7 +393,4 @@ export const pl = {
 	'errors.advice.service':
 		'Nie udało się teraz uzyskać porady. Spróbuj ponownie za chwilę.',
 	'client.formSubmit.genericError': 'Sprawdź wprowadzone dane.',
-	'client.adviceContext.copySuccess': 'Skopiowano do schowka.',
-	'client.adviceContext.copyFailed':
-		'Automatyczne kopiowanie nie powiodło się. Tekst jest zaznaczony — naciśnij Ctrl+C (⌘C na Macu).',
 } as const satisfies Record<MessageKey, string>

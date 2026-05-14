@@ -1,20 +1,16 @@
 import { addEventListeners, clientEntry, createElement } from 'remix/ui'
 
-const CLIENT_MESSAGES_ID = 'ui-client-messages'
+const MESSAGES_ID = 'advice-context-client-messages'
 
-function readClientMessages() {
+function readCopyMessages() {
 	if (typeof document === 'undefined') return null
-	const messagesElement = document.getElementById(CLIENT_MESSAGES_ID)
-	if (!messagesElement?.textContent) return null
+	const element = document.getElementById(MESSAGES_ID)
+	if (!element?.textContent) return null
 	try {
-		return JSON.parse(messagesElement.textContent)
+		return JSON.parse(element.textContent)
 	} catch {
 		return null
 	}
-}
-
-function trimTextareaValue(element) {
-	return typeof element.value === 'string' ? element.value.trimEnd() : ''
 }
 
 export const AdviceContextCopyEnhancement = clientEntry(
@@ -23,65 +19,66 @@ export const AdviceContextCopyEnhancement = clientEntry(
 		if (typeof document !== 'undefined') {
 			addEventListeners(document, handle.signal, {
 				async click(event) {
-					const target = event.target
-					if (!(target instanceof Element)) return
-					const trigger = target.closest(
+					const from = event.target
+					if (!(from instanceof Element)) return
+					const button = from.closest(
 						'[data-copy-llm-markdown], [data-copy-llm-catalog-json], [data-copy-llm-both]',
 					)
-					if (!(trigger instanceof HTMLButtonElement)) return
-					const root = trigger.closest('[data-llm-export-root]')
+					if (!(button instanceof HTMLButtonElement)) return
+					const root = button.closest('[data-llm-export-root]')
 					if (!(root instanceof HTMLElement)) return
-					const markdownTextarea = root.querySelector(
-						'[data-llm-export-markdown]',
-					)
-					const catalogJsonTextarea = root.querySelector(
-						'[data-llm-export-catalog-json]',
-					)
-					const messages = readClientMessages()
-					const successText =
-						typeof messages?.adviceContextCopySuccess === 'string'
-							? messages.adviceContextCopySuccess
+					const markdownArea = root.querySelector('[data-llm-export-markdown]')
+					const jsonArea = root.querySelector('[data-llm-export-catalog-json]')
+					const md =
+						markdownArea instanceof HTMLTextAreaElement
+							? markdownArea.value.trimEnd()
+							: ''
+					const json =
+						jsonArea instanceof HTMLTextAreaElement
+							? jsonArea.value.trimEnd()
+							: ''
+					const messages = readCopyMessages()
+					const success =
+						typeof messages?.copySuccess === 'string'
+							? messages.copySuccess
 							: 'Copied.'
-					const failText =
-						typeof messages?.adviceContextCopyFailed === 'string'
-							? messages.adviceContextCopyFailed
-							: 'Copy failed; text is selected.'
+					const failed =
+						typeof messages?.copyFailed === 'string'
+							? messages.copyFailed
+							: 'Copy failed.'
 
 					let text = ''
 					/** @type {HTMLTextAreaElement | null} */
-					let fallbackSelect = null
+					let fallback = null
 
-					if (trigger.hasAttribute('data-copy-llm-both')) {
+					if (button.hasAttribute('data-copy-llm-both')) {
 						if (
-							markdownTextarea instanceof HTMLTextAreaElement &&
-							catalogJsonTextarea instanceof HTMLTextAreaElement
+							!(markdownArea instanceof HTMLTextAreaElement) ||
+							!(jsonArea instanceof HTMLTextAreaElement)
 						) {
-							const md = trimTextareaValue(markdownTextarea)
-							const json = trimTextareaValue(catalogJsonTextarea)
-							text = `${md}\n\n---\n\n## ETF catalog (JSON)\n\n${json}\n`
-							fallbackSelect = markdownTextarea
+							return
 						}
-					} else if (trigger.hasAttribute('data-copy-llm-markdown')) {
-						if (markdownTextarea instanceof HTMLTextAreaElement) {
-							text = trimTextareaValue(markdownTextarea)
-							fallbackSelect = markdownTextarea
-						}
-					} else if (trigger.hasAttribute('data-copy-llm-catalog-json')) {
-						if (catalogJsonTextarea instanceof HTMLTextAreaElement) {
-							text = trimTextareaValue(catalogJsonTextarea)
-							fallbackSelect = catalogJsonTextarea
-						}
+						text = `${md}\n\n---\n\n## ETF catalog (JSON)\n\n${json}\n`
+						fallback = markdownArea
+					} else if (button.hasAttribute('data-copy-llm-markdown')) {
+						if (!(markdownArea instanceof HTMLTextAreaElement)) return
+						text = md
+						fallback = markdownArea
+					} else if (button.hasAttribute('data-copy-llm-catalog-json')) {
+						if (!(jsonArea instanceof HTMLTextAreaElement)) return
+						text = json
+						fallback = jsonArea
+					} else {
+						return
 					}
-
-					if (text.length === 0 || fallbackSelect === null) return
 
 					try {
 						await navigator.clipboard.writeText(text)
-						trigger.setAttribute('aria-label', successText)
+						button.setAttribute('aria-label', success)
 					} catch {
-						fallbackSelect.focus()
-						fallbackSelect.select()
-						trigger.setAttribute('aria-label', failText)
+						fallback.focus()
+						fallback.select()
+						button.setAttribute('aria-label', failed)
 					}
 				},
 			})

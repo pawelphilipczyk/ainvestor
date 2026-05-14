@@ -15,6 +15,14 @@ export function AdviceContextPage(handle: Handle<AdviceContextPageProps>) {
 		const { markdown, catalogJson, snapshotError } = handle.props
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
+				<script
+					type="application/json"
+					id="advice-context-client-messages"
+					innerHTML={JSON.stringify({
+						copySuccess: t('advice.context.copySuccess'),
+						copyFailed: t('advice.context.copyFailed'),
+					})}
+				/>
 				<div class="min-w-0">
 					<h1 class="text-2xl font-semibold tracking-tight text-foreground">
 						{t('advice.context.pageHeading')}

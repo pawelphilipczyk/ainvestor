@@ -15,7 +15,10 @@ import {
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
-import { buildLlmAdviceContextExportEnglish } from '../../lib/llm-portfolio-context-markdown.ts'
+import {
+	buildAdviceContextMarkdownEnglish,
+	serializeAdviceContextCatalogJsonEnglish,
+} from '../../lib/llm-portfolio-context-markdown.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import {
 	getLayoutSession,
@@ -366,16 +369,18 @@ export const adviceController = {
 		async context(context: AppRequestContext) {
 			const layoutSession = getLayoutSession(context.get(Session))
 			const data = await loadPortfolioGuidelinesSnapshotForExport(context)
-			const exportBody = buildLlmAdviceContextExportEnglish({
+			const generatedAtUtc = new Date()
+			const markdown = buildAdviceContextMarkdownEnglish({
 				entries: data.entries,
 				guidelines: data.guidelines,
 				catalog: data.catalog,
-				generatedAtUtc: new Date(),
+				generatedAtUtc,
 			})
+			const catalogJson = serializeAdviceContextCatalogJsonEnglish(data.catalog)
 			return renderAdviceContextPageResponse({
 				session: layoutSession,
-				markdown: exportBody.markdown,
-				catalogJson: exportBody.catalogJson,
+				markdown,
+				catalogJson,
 				snapshotError: data.snapshotError,
 			})
 		},

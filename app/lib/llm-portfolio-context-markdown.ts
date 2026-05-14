@@ -9,12 +9,6 @@ import {
 	valueShareOfHoldingsTotalPercent,
 } from './portfolio-holdings-share.ts'
 
-export type LlmAdviceContextExportEnglish = {
-	markdown: string
-	/** Pretty-printed JSON array of {@link CatalogEntry} (sorted by ticker). */
-	catalogJson: string
-}
-
 function englishEtfTypeLabel(etfType: EtfType): string {
 	const label = ETF_TYPE_LABELS[etfType]
 	return typeof label === 'string' && label.length > 0 ? label : String(etfType)
@@ -52,19 +46,17 @@ function catalogSortedByTicker(entries: CatalogEntry[]): CatalogEntry[] {
 }
 
 /**
- * Builds an English Markdown snapshot of portfolio holdings and allocation
- * guidelines, plus a separate JSON array of the full ETF catalog (for prompts
- * that keep narrative in Markdown and fund facts in JSON).
+ * English Markdown: portfolio holdings (with catalog id/ticker refs) and
+ * allocation guidelines. Full fund fields live in
+ * {@link serializeAdviceContextCatalogJsonEnglish}.
  */
-export function buildLlmAdviceContextExportEnglish(params: {
+export function buildAdviceContextMarkdownEnglish(params: {
 	entries: EtfEntry[]
 	guidelines: EtfGuideline[]
 	catalog: CatalogEntry[]
 	generatedAtUtc: Date
-}): LlmAdviceContextExportEnglish {
+}): string {
 	const { entries, guidelines, catalog, generatedAtUtc } = params
-	const sortedCatalog = catalogSortedByTicker(catalog)
-	const catalogJson = `${JSON.stringify(sortedCatalog, null, 2)}\n`
 	const iso = generatedAtUtc.toISOString()
 	const blocks: string[] = []
 	blocks.push('# Portfolio and guidelines')
@@ -153,8 +145,15 @@ export function buildLlmAdviceContextExportEnglish(params: {
 		}
 	}
 	blocks.push('')
-	return {
-		markdown: blocks.join('\n'),
-		catalogJson,
-	}
+	return blocks.join('\n')
+}
+
+/**
+ * Pretty-printed JSON array of catalog entries, sorted by ticker for stable output.
+ */
+export function serializeAdviceContextCatalogJsonEnglish(
+	catalog: CatalogEntry[],
+): string {
+	const sortedCatalog = catalogSortedByTicker(catalog)
+	return `${JSON.stringify(sortedCatalog, null, 2)}\n`
 }

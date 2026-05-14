@@ -389,6 +389,9 @@ export const en = {
 	'advice.context.copyMarkdown': 'Copy Markdown',
 	'advice.context.copyCatalogJson': 'Copy catalog JSON',
 	'advice.context.copyBoth': 'Copy Markdown + JSON',
+	'advice.context.copySuccess': 'Copied to clipboard.',
+	'advice.context.copyFailed':
+		'Automatic copy failed. The text is selected — press Ctrl+C (⌘C on Mac).',
 	'advice.context.snapshotError':
 		'Could not load your saved portfolio or guidelines from GitHub. Showing an empty export until persistence works again.',
 	'advice.context.linkFromAdvice': 'Export Markdown context for other AI tools',
@@ -396,9 +399,6 @@ export const en = {
 	'errors.advice.service':
 		"We couldn't get advice right now. Please try again in a moment.",
 	'client.formSubmit.genericError': 'Please check your input.',
-	'client.adviceContext.copySuccess': 'Copied to clipboard.',
-	'client.adviceContext.copyFailed':
-		'Automatic copy failed. The text is selected — press Ctrl+C (⌘C on Mac).',
 } as const
 
 export type MessageKey = keyof typeof en
