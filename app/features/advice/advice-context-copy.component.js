@@ -22,21 +22,11 @@ export const AdviceContextCopyEnhancement = clientEntry(
 					const from = event.target
 					if (!(from instanceof Element)) return
 					const button = from.closest(
-						'[data-copy-llm-markdown], [data-copy-llm-catalog-json], [data-copy-llm-both]',
+						'[data-copy-llm-markdown], [data-copy-catalog-json-url]',
 					)
 					if (!(button instanceof HTMLButtonElement)) return
 					const root = button.closest('[data-llm-export-root]')
 					if (!(root instanceof HTMLElement)) return
-					const markdownArea = root.querySelector('[data-llm-export-markdown]')
-					const jsonArea = root.querySelector('[data-llm-export-catalog-json]')
-					const md =
-						markdownArea instanceof HTMLTextAreaElement
-							? markdownArea.value.trimEnd()
-							: ''
-					const json =
-						jsonArea instanceof HTMLTextAreaElement
-							? jsonArea.value.trimEnd()
-							: ''
 					const messages = readCopyMessages()
 					const success =
 						typeof messages?.copySuccess === 'string'
@@ -47,38 +37,30 @@ export const AdviceContextCopyEnhancement = clientEntry(
 							? messages.copyFailed
 							: 'Copy failed.'
 
-					let text = ''
-					/** @type {HTMLTextAreaElement | null} */
-					let fallback = null
-
-					if (button.hasAttribute('data-copy-llm-both')) {
-						if (
-							!(markdownArea instanceof HTMLTextAreaElement) ||
-							!(jsonArea instanceof HTMLTextAreaElement)
-						) {
-							return
+					if (button.hasAttribute('data-copy-llm-markdown')) {
+						const textarea = root.querySelector('[data-llm-export-markdown]')
+						if (!(textarea instanceof HTMLTextAreaElement)) return
+						const text = textarea.value
+						try {
+							await navigator.clipboard.writeText(text)
+							button.setAttribute('aria-label', success)
+						} catch {
+							textarea.focus()
+							textarea.select()
+							button.setAttribute('aria-label', failed)
 						}
-						text = `${md}\n\n---\n\n## ETF catalog (JSON)\n\n${json}\n`
-						fallback = markdownArea
-					} else if (button.hasAttribute('data-copy-llm-markdown')) {
-						if (!(markdownArea instanceof HTMLTextAreaElement)) return
-						text = md
-						fallback = markdownArea
-					} else if (button.hasAttribute('data-copy-llm-catalog-json')) {
-						if (!(jsonArea instanceof HTMLTextAreaElement)) return
-						text = json
-						fallback = jsonArea
-					} else {
 						return
 					}
 
-					try {
-						await navigator.clipboard.writeText(text)
-						button.setAttribute('aria-label', success)
-					} catch {
-						fallback.focus()
-						fallback.select()
-						button.setAttribute('aria-label', failed)
+					if (button.hasAttribute('data-copy-catalog-json-url')) {
+						const url = root.getAttribute('data-catalog-json-href') ?? ''
+						if (url.length === 0) return
+						try {
+							await navigator.clipboard.writeText(url)
+							button.setAttribute('aria-label', success)
+						} catch {
+							button.setAttribute('aria-label', failed)
+						}
 					}
 				},
 			})

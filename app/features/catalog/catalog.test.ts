@@ -57,6 +57,43 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /ETF Catalog/)
 	})
 
+	it('GET /catalog/catalog.json returns sorted JSON with public cache header', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [
+					{
+						id: 'row-json-b',
+						fund_name: 'B Fund',
+						ticker: 'BBB',
+						assets: 'akcje',
+					},
+					{
+						id: 'row-json-a',
+						fund_name: 'A Fund',
+						ticker: 'AAA',
+						assets: 'akcje',
+					},
+				],
+				count: 2,
+			}),
+		)
+		const response = await testSessionFetch(
+			'http://localhost/catalog/catalog.json',
+		)
+		assert.equal(response.status, 200)
+		assert.equal(
+			(response.headers.get('content-type') ?? '').includes('application/json'),
+			true,
+		)
+		assert.match(response.headers.get('cache-control') ?? '', /public/)
+		const rows = JSON.parse(await response.text()) as { ticker: string }[]
+		assert.ok(Array.isArray(rows))
+		assert.deepEqual(
+			rows.map((row) => row.ticker),
+			['AAA', 'BBB'],
+		)
+	})
+
 	it('GET /catalog links ticker column to ETF detail when catalog has entries', async () => {
 		seedSharedCatalog(
 			JSON.stringify({

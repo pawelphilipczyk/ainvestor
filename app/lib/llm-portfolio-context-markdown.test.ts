@@ -3,15 +3,13 @@ import { describe, it } from 'node:test'
 import type { CatalogEntry } from '../features/catalog/lib.ts'
 import type { EtfEntry } from './gist.ts'
 import type { EtfGuideline } from './guidelines.ts'
-import {
-	buildAdviceContextMarkdownEnglish,
-	serializeAdviceContextCatalogJsonEnglish,
-} from './llm-portfolio-context-markdown.ts'
+import { buildAdviceContextMarkdownEnglish } from './llm-portfolio-context-markdown.ts'
 
 const fixedInstant = new Date('2026-01-15T08:30:00.000Z')
+const catalogJsonUrl = 'https://example.test/catalog/catalog.json'
 
 describe('buildAdviceContextMarkdownEnglish', () => {
-	it('includes holdings with catalog refs and guidelines', () => {
+	it('includes holdings with catalog refs, guidelines, and catalog URL', () => {
 		const entries: EtfEntry[] = [
 			{
 				id: 'e1',
@@ -75,6 +73,7 @@ describe('buildAdviceContextMarkdownEnglish', () => {
 			entries,
 			guidelines,
 			catalog,
+			catalogJsonUrl,
 			generatedAtUtc: fixedInstant,
 		})
 		assert.equal(
@@ -84,7 +83,7 @@ describe('buildAdviceContextMarkdownEnglish', () => {
 				'',
 				'As of (UTC): 2026-01-15T08:30:00.000Z',
 				'',
-				'_Full ETF attributes (fees, risk KID, region, etc.) live in the companion **catalog JSON** on the export page. Each holding below references a catalog row by `id` / `ticker` when matched._',
+				'_Full ETF attributes (fees, risk KID, region, etc.): fetch the shared catalog JSON at `https://example.test/catalog/catalog.json` (GET; sorted by ticker). Each holding below references a row by `id` / `ticker` when matched._',
 				'',
 				'## Portfolio holdings',
 				'',
@@ -127,14 +126,6 @@ describe('buildAdviceContextMarkdownEnglish', () => {
 				'',
 			].join('\n'),
 		)
-		const catalogJson = serializeAdviceContextCatalogJsonEnglish(catalog)
-		const parsed = JSON.parse(catalogJson) as unknown
-		assert.ok(Array.isArray(parsed))
-		assert.equal(parsed.length, 2)
-		assert.deepEqual(
-			parsed.map((row: { ticker?: string }) => row.ticker),
-			['BND', 'VTI'],
-		)
 	})
 
 	it('omits weights when currencies differ', () => {
@@ -157,6 +148,7 @@ describe('buildAdviceContextMarkdownEnglish', () => {
 			],
 			guidelines: [],
 			catalog: [],
+			catalogJsonUrl,
 			generatedAtUtc: fixedInstant,
 		})
 		assert.match(
@@ -178,27 +170,10 @@ describe('buildAdviceContextMarkdownEnglish', () => {
 			],
 			guidelines: [],
 			catalog: [],
+			catalogJsonUrl,
 			generatedAtUtc: fixedInstant,
 		})
 		assert.match(markdown, /- matched: no/)
-		assert.match(
-			markdown,
-			/No catalog row matched this holding \(by ticker or name\)/,
-		)
-	})
-})
-
-describe('serializeAdviceContextCatalogJsonEnglish', () => {
-	it('returns valid JSON array sorted by ticker', () => {
-		const catalog: CatalogEntry[] = [
-			{ id: '2', ticker: 'ZZZ', name: 'Z', type: 'equity', description: '' },
-			{ id: '1', ticker: 'AAA', name: 'A', type: 'bond', description: '' },
-		]
-		const out = serializeAdviceContextCatalogJsonEnglish(catalog)
-		const parsed = JSON.parse(out) as CatalogEntry[]
-		assert.deepEqual(
-			parsed.map((row) => row.ticker),
-			['AAA', 'ZZZ'],
-		)
+		assert.match(markdown, /use the catalog JSON URL for available funds/)
 	})
 })

@@ -37,6 +37,7 @@ export const routes = route({
 	},
 	catalog: route('/catalog', {
 		index: get('/'),
+		catalogJson: get('/catalog.json'),
 		etf: get('/etf/:catalogEntryId'),
 		etfAnalysis: post('/etf/:catalogEntryId/analysis'),
 		import: post('/import'),

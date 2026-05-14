@@ -15,10 +15,7 @@ import {
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
-import {
-	buildAdviceContextMarkdownEnglish,
-	serializeAdviceContextCatalogJsonEnglish,
-} from '../../lib/llm-portfolio-context-markdown.ts'
+import { buildAdviceContextMarkdownEnglish } from '../../lib/llm-portfolio-context-markdown.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import {
 	getLayoutSession,
@@ -228,7 +225,7 @@ async function loadPortfolioGuidelinesSnapshotForExport(
 function renderAdviceContextPageResponse(options: {
 	session: SessionData | null
 	markdown: string
-	catalogJson: string
+	catalogJsonHref: string
 	snapshotError: boolean
 }) {
 	return render({
@@ -238,7 +235,7 @@ function renderAdviceContextPageResponse(options: {
 		currentPage: 'advice',
 		body: jsx(AdviceContextPage, {
 			markdown: options.markdown,
-			catalogJson: options.catalogJson,
+			catalogJsonHref: options.catalogJsonHref,
 			...(options.snapshotError ? { snapshotError: true } : {}),
 		}),
 	})
@@ -370,17 +367,21 @@ export const adviceController = {
 			const layoutSession = getLayoutSession(context.get(Session))
 			const data = await loadPortfolioGuidelinesSnapshotForExport(context)
 			const generatedAtUtc = new Date()
+			const catalogJsonHref = new URL(
+				routes.catalog.catalogJson.href(),
+				context.request.url,
+			).href
 			const markdown = buildAdviceContextMarkdownEnglish({
 				entries: data.entries,
 				guidelines: data.guidelines,
 				catalog: data.catalog,
+				catalogJsonUrl: catalogJsonHref,
 				generatedAtUtc,
 			})
-			const catalogJson = serializeAdviceContextCatalogJsonEnglish(data.catalog)
 			return renderAdviceContextPageResponse({
 				session: layoutSession,
 				markdown,
-				catalogJson,
+				catalogJsonHref,
 				snapshotError: data.snapshotError,
 			})
 		},

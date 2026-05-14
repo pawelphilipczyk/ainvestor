@@ -39,24 +39,20 @@ function headingSlugForHolding(entry: EtfEntry, index: number): string {
 	return label
 }
 
-function catalogSortedByTicker(entries: CatalogEntry[]): CatalogEntry[] {
-	return [...entries].sort((left, right) =>
-		left.ticker.localeCompare(right.ticker, 'en'),
-	)
-}
-
 /**
  * English Markdown: portfolio holdings (with catalog id/ticker refs) and
- * allocation guidelines. Full fund fields live in
- * {@link serializeAdviceContextCatalogJsonEnglish}.
+ * allocation guidelines. Full fund rows are at `catalogJsonUrl` (shared JSON).
  */
 export function buildAdviceContextMarkdownEnglish(params: {
 	entries: EtfEntry[]
 	guidelines: EtfGuideline[]
 	catalog: CatalogEntry[]
+	/** Absolute URL to `GET` the shared catalog JSON (sorted by ticker). */
+	catalogJsonUrl: string
 	generatedAtUtc: Date
 }): string {
-	const { entries, guidelines, catalog, generatedAtUtc } = params
+	const { entries, guidelines, catalog, catalogJsonUrl, generatedAtUtc } =
+		params
 	const iso = generatedAtUtc.toISOString()
 	const blocks: string[] = []
 	blocks.push('# Portfolio and guidelines')
@@ -64,7 +60,7 @@ export function buildAdviceContextMarkdownEnglish(params: {
 	blocks.push(`As of (UTC): ${iso}`)
 	blocks.push('')
 	blocks.push(
-		'_Full ETF attributes (fees, risk KID, region, etc.) live in the companion **catalog JSON** on the export page. Each holding below references a catalog row by `id` / `ticker` when matched._',
+		`_Full ETF attributes (fees, risk KID, region, etc.): fetch the shared catalog JSON at \`${catalogJsonUrl}\` (GET; sorted by ticker). Each holding below references a row by \`id\` / \`ticker\` when matched._`,
 	)
 	blocks.push('')
 	blocks.push('## Portfolio holdings')
@@ -115,7 +111,7 @@ export function buildAdviceContextMarkdownEnglish(params: {
 			if (catalogRow === undefined) {
 				blocks.push('- matched: no')
 				blocks.push(
-					'_No catalog row matched this holding (by ticker or name); see the JSON array for available funds._',
+					'_No catalog row matched this holding (by ticker or name); use the catalog JSON URL for available funds._',
 				)
 			} else {
 				blocks.push('- matched: yes')
@@ -146,14 +142,4 @@ export function buildAdviceContextMarkdownEnglish(params: {
 	}
 	blocks.push('')
 	return blocks.join('\n')
-}
-
-/**
- * Pretty-printed JSON array of catalog entries, sorted by ticker for stable output.
- */
-export function serializeAdviceContextCatalogJsonEnglish(
-	catalog: CatalogEntry[],
-): string {
-	const sortedCatalog = catalogSortedByTicker(catalog)
-	return `${JSON.stringify(sortedCatalog, null, 2)}\n`
 }

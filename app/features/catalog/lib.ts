@@ -599,6 +599,26 @@ function getSharedCatalogCacheTtlMs(): number {
 	return parsed
 }
 
+/** Stable order for JSON exports and public catalog snapshots. */
+export function sortCatalogEntriesByTicker(
+	catalog: CatalogEntry[],
+): CatalogEntry[] {
+	return [...catalog].sort((left, right) =>
+		left.ticker.localeCompare(right.ticker, 'en'),
+	)
+}
+
+/**
+ * `Cache-Control` for anonymous catalog JSON aligned with
+ * {@link getSharedCatalogCacheTtlMs} (GitHub fetch is already TTL-cached in-process).
+ */
+export function sharedCatalogJsonHttpCacheControl(): string {
+	const ttlMs = getSharedCatalogCacheTtlMs()
+	const maxAgeSeconds =
+		ttlMs <= 0 ? 60 : Math.min(300, Math.max(30, Math.floor(ttlMs / 1000)))
+	return `public, max-age=${maxAgeSeconds}, stale-while-revalidate=300`
+}
+
 function cloneCatalogEntries(entries: CatalogEntry[]): CatalogEntry[] {
 	return entries.map((entry) => ({ ...entry }))
 }

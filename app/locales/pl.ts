@@ -371,17 +371,17 @@ export const pl = {
 	'advice.requiresGist.linkSignIn': 'Zaloguj przez GitHuba',
 	'advice.requiresGist.linkPortfolio': 'Otwórz Portfel',
 
-	'advice.context.pageHeading': 'Eksport kontekstu (Markdown + JSON katalogu)',
+	'advice.context.pageHeading': 'Eksport kontekstu dla zewnętrznych narzędzi',
 	'advice.context.lead':
-		'Angielski Markdown portfela i wytycznych oraz osobna tablica JSON z pełnym katalogiem ETF aplikacji (posortowana po tickerze). W Markdownie odwołuj się do obiektów JSON po polach `catalog_id` / `catalog_ticker`. W innym narzędziu dopisz własne instrukcje.',
+		'Angielski Markdown portfela i wytycznych. Wspólny katalog ETF jest pod osobnym, cache’owanym adresem JSON (posortowany po tickerze) — pobierz go w drugim narzędziu i dopasuj `catalog_id` / `catalog_ticker` z Markdowna. Tam dopisz własne instrukcje.',
 	'advice.context.privacyNote':
 		'Ta strona zawiera dane finansowe. Wklejaj je tylko do usług, którym ufasz.',
 	'advice.context.backToAdvice': 'Wróć do Porad',
+	'advice.context.catalogJsonHeading': 'Wspólny katalog ETF (JSON)',
+	'advice.context.catalogJsonOpen': 'Otwórz JSON w nowej karcie',
+	'advice.context.copyCatalogUrl': 'Kopiuj adres URL katalogu',
 	'advice.context.markdownLabel': 'Markdown (portfel i wytyczne)',
-	'advice.context.catalogJsonLabel': 'Katalog ETF (tablica JSON)',
 	'advice.context.copyMarkdown': 'Kopiuj Markdown',
-	'advice.context.copyCatalogJson': 'Kopiuj JSON katalogu',
-	'advice.context.copyBoth': 'Kopiuj Markdown i JSON',
 	'advice.context.copySuccess': 'Skopiowano do schowka.',
 	'advice.context.copyFailed':
 		'Automatyczne kopiowanie nie powiodło się. Tekst jest zaznaczony — naciśnij Ctrl+C (⌘C na Macu).',

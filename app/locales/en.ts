@@ -378,17 +378,17 @@ export const en = {
 	'advice.requiresGist.linkSignIn': 'Sign in with GitHub',
 	'advice.requiresGist.linkPortfolio': 'Open Portfolio',
 
-	'advice.context.pageHeading': 'Export context (Markdown + catalog JSON)',
+	'advice.context.pageHeading': 'Export context for external tools',
 	'advice.context.lead':
-		'English Markdown for your portfolio and guidelines, plus a separate JSON array of the full app ETF catalog (sorted by ticker). Reference `catalog_id` / `catalog_ticker` in the Markdown against objects in the JSON. Add your own instructions in the other tool.',
+		'English Markdown for your portfolio and guidelines. The shared ETF catalog is a separate JSON URL (sorted by ticker, cacheable) — fetch it in your other tool and match `catalog_id` / `catalog_ticker` from the Markdown. Add your own instructions there.',
 	'advice.context.privacyNote':
 		'This page contains financial data. Only paste it into services you trust.',
 	'advice.context.backToAdvice': 'Back to Get Advice',
+	'advice.context.catalogJsonHeading': 'Shared ETF catalog (JSON)',
+	'advice.context.catalogJsonOpen': 'Open JSON in new tab',
+	'advice.context.copyCatalogUrl': 'Copy catalog URL',
 	'advice.context.markdownLabel': 'Markdown (portfolio and guidelines)',
-	'advice.context.catalogJsonLabel': 'ETF catalog (JSON array)',
 	'advice.context.copyMarkdown': 'Copy Markdown',
-	'advice.context.copyCatalogJson': 'Copy catalog JSON',
-	'advice.context.copyBoth': 'Copy Markdown + JSON',
 	'advice.context.copySuccess': 'Copied to clipboard.',
 	'advice.context.copyFailed':
 		'Automatic copy failed. The text is selected — press Ctrl+C (⌘C on Mac).',
