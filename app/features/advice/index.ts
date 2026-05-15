@@ -194,13 +194,14 @@ async function loadPortfolioGuidelinesSnapshotForExport(
 	const session = getSessionData(context.get(Session))
 	if (session?.gistId && session.token) {
 		try {
-			const [snapshot, guidelines] = await Promise.all([
+			const [snapshot, guidelines, catalog] = await Promise.all([
 				fetchPortfolioSnapshot(session.token, session.gistId),
 				fetchGuidelines(session.token, session.gistId),
+				fetchCatalog(),
 			])
 			return {
 				entries: snapshot.entries,
-				catalog: snapshot.catalog,
+				catalog,
 				guidelines,
 				snapshotError: false,
 			}

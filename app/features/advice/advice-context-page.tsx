@@ -16,14 +16,6 @@ export function AdviceContextPage(handle: Handle<AdviceContextPageProps>) {
 		const { markdown, catalogJsonHref, snapshotError } = handle.props
 		return (
 			<main class="mx-auto grid w-full min-w-0 max-w-3xl gap-6">
-				<script
-					type="application/json"
-					id="advice-context-client-messages"
-					innerHTML={JSON.stringify({
-						copySuccess: t('advice.context.copySuccess'),
-						copyFailed: t('advice.context.copyFailed'),
-					})}
-				/>
 				<div class="min-w-0">
 					<h1 class="text-2xl font-semibold tracking-tight text-foreground">
 						{t('advice.context.pageHeading')}
@@ -55,6 +47,8 @@ export function AdviceContextPage(handle: Handle<AdviceContextPageProps>) {
 					<div
 						data-llm-export-root
 						data-catalog-json-href={catalogJsonHref}
+						data-copy-success={t('advice.context.copySuccess')}
+						data-copy-failed={t('advice.context.copyFailed')}
 						class="grid min-w-0 gap-6"
 					>
 						<div class="grid min-w-0 gap-2 rounded-md border border-border bg-muted/30 px-3 py-3 text-sm">
