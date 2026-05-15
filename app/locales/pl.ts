@@ -26,6 +26,7 @@ export const pl = {
 	'meta.title.home': 'AI Investor',
 	'meta.title.portfolio': 'AI Investor – Portfel',
 	'meta.title.advice': 'AI Investor – Porady',
+	'meta.title.adviceContext': 'AI Investor – Eksport kontekstu',
 	'meta.title.catalog': 'AI Investor – Katalog ETF',
 	'meta.title.catalogEtf': 'AI Investor – {name}',
 	'meta.title.guidelines': 'AI Investor – Wytyczne',
@@ -369,6 +370,26 @@ export const pl = {
 		'Otwórz stronę Portfel, aby utworzyć lub połączyć prywatny gist danych. Potem możesz uruchomić przegląd portfela i analizę „co kupić” tutaj.',
 	'advice.requiresGist.linkSignIn': 'Zaloguj przez GitHuba',
 	'advice.requiresGist.linkPortfolio': 'Otwórz Portfel',
+
+	'advice.context.pageHeading': 'Eksport kontekstu dla zewnętrznych narzędzi',
+	'advice.context.lead':
+		'Angielski Markdown portfela i wytycznych. Wspólny katalog ETF jest pod osobnym, cache’owanym adresem JSON (posortowany po tickerze) — pobierz go w drugim narzędziu i dopasuj `catalog_id` / `catalog_ticker` z Markdowna. Tam dopisz własne instrukcje.',
+	'advice.context.privacyNote':
+		'Ta strona zawiera dane finansowe. Wklejaj je tylko do usług, którym ufasz.',
+	'advice.context.backToAdvice': 'Wróć do Porad',
+	'advice.context.catalogJsonHeading': 'Wspólny katalog ETF (JSON)',
+	'advice.context.catalogJsonOpen': 'Otwórz JSON w nowej karcie',
+	'advice.context.copyCatalogUrl': 'Kopiuj adres URL katalogu',
+	'advice.context.markdownLabel': 'Markdown (portfel i wytyczne)',
+	'advice.context.copyMarkdown': 'Kopiuj Markdown',
+	'advice.context.copySuccess': 'Skopiowano do schowka.',
+	'advice.context.copyFailed':
+		'Automatyczne kopiowanie nie powiodło się. Tekst jest zaznaczony — naciśnij Ctrl+C (⌘C na Macu).',
+	'advice.context.snapshotError':
+		'Nie udało się wczytać zapisanego portfela lub wytycznych z GitHuba. Do czasu naprawy persystencji eksport jest pusty.',
+	'advice.context.linkFromAdvice':
+		'Eksport kontekstu Markdown dla innych narzędzi AI',
+
 	'errors.advice.service':
 		'Nie udało się teraz uzyskać porady. Spróbuj ponownie za chwilę.',
 	'client.formSubmit.genericError': 'Sprawdź wprowadzone dane.',

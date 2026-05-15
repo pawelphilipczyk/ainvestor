@@ -14,6 +14,8 @@ import {
 	parseCatalogRiskFilterParam,
 	resetSharedCatalogForTests,
 	riskBandFromRiskKid,
+	sharedCatalogJsonHttpCacheControl,
+	sortCatalogEntriesByTicker,
 } from './lib.ts'
 
 describe('riskBandFromRiskKid', () => {
@@ -611,5 +613,37 @@ describe('mergeBankIntoCatalog', () => {
 		]
 		const merged = mergeBankIntoCatalog(existing, incoming)
 		assert.equal(merged.length, 2)
+	})
+})
+
+describe('sortCatalogEntriesByTicker', () => {
+	it('orders by ticker ascending', () => {
+		const sorted = sortCatalogEntriesByTicker([
+			{
+				id: '2',
+				ticker: 'ZZ',
+				name: 'z',
+				type: 'equity',
+				description: '',
+			},
+			{
+				id: '1',
+				ticker: 'AA',
+				name: 'a',
+				type: 'bond',
+				description: '',
+			},
+		])
+		assert.deepEqual(
+			sorted.map((row) => row.ticker),
+			['AA', 'ZZ'],
+		)
+	})
+})
+
+describe('sharedCatalogJsonHttpCacheControl', () => {
+	it('returns a public cache directive with max-age', () => {
+		assert.match(sharedCatalogJsonHttpCacheControl(), /^public, max-age=\d+/)
+		assert.match(sharedCatalogJsonHttpCacheControl(), /stale-while-revalidate/)
 	})
 })

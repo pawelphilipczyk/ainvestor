@@ -24,6 +24,7 @@ export const routes = route({
 	},
 	advice: {
 		...adviceForm,
+		context: get('/advice/context'),
 		fragmentResult: get('/fragments/advice-result'),
 	},
 	guidelines: {
@@ -42,6 +43,7 @@ export const routes = route({
 		fragmentList: get('/fragments/list'),
 		fragmentEtfAnalysis: get('/fragments/etf-analysis/:catalogEntryId'),
 	}),
+	catalogJson: get('/catalog.json'),
 	admin: route('/admin', {
 		etfImport: get('/etf-import'),
 	}),

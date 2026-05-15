@@ -49,6 +49,8 @@ import {
 	parseBankJsonForImport,
 	parseCatalogRiskFilterParam,
 	saveCatalog,
+	sharedCatalogJsonHttpCacheControl,
+	sortCatalogEntriesByTicker,
 } from './lib.ts'
 
 export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-session-fetch.ts'
@@ -246,6 +248,18 @@ function samePathAndSearch(a: string, b: string): boolean {
 // ---------------------------------------------------------------------------
 export const catalogController = {
 	actions: {
+		async catalogJson(_context: AppRequestContext) {
+			const snapshot = await fetchSharedCatalogSnapshot()
+			const sorted = sortCatalogEntriesByTicker(snapshot.entries)
+			const body = `${JSON.stringify(sorted, null, 2)}\n`
+			return new Response(body, {
+				headers: {
+					'Content-Type': 'application/json; charset=utf-8',
+					'Cache-Control': sharedCatalogJsonHttpCacheControl(),
+				},
+			})
+		},
+
 		async index(context: AppRequestContext) {
 			const url = new URL(context.request.url)
 			const typeFilter = url.searchParams.get('type') ?? ''

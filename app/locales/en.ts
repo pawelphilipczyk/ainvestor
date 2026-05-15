@@ -26,6 +26,7 @@ export const en = {
 	'meta.title.home': 'AI Investor',
 	'meta.title.portfolio': 'AI Investor – Portfolio',
 	'meta.title.advice': 'AI Investor – Get Advice',
+	'meta.title.adviceContext': 'AI Investor – Export context',
 	'meta.title.catalog': 'AI Investor – ETF Catalog',
 	'meta.title.catalogEtf': 'AI Investor – {name}',
 	'meta.title.guidelines': 'AI Investor – Guidelines',
@@ -376,6 +377,25 @@ export const en = {
 		'Open the Portfolio page to create or connect your private data gist. After that, you can run portfolio review and buy-next analysis here.',
 	'advice.requiresGist.linkSignIn': 'Sign in with GitHub',
 	'advice.requiresGist.linkPortfolio': 'Open Portfolio',
+
+	'advice.context.pageHeading': 'Export context for external tools',
+	'advice.context.lead':
+		'English Markdown for your portfolio and guidelines. The shared ETF catalog is a separate JSON URL (sorted by ticker, cacheable) — fetch it in your other tool and match `catalog_id` / `catalog_ticker` from the Markdown. Add your own instructions there.',
+	'advice.context.privacyNote':
+		'This page contains financial data. Only paste it into services you trust.',
+	'advice.context.backToAdvice': 'Back to Get Advice',
+	'advice.context.catalogJsonHeading': 'Shared ETF catalog (JSON)',
+	'advice.context.catalogJsonOpen': 'Open JSON in new tab',
+	'advice.context.copyCatalogUrl': 'Copy catalog URL',
+	'advice.context.markdownLabel': 'Markdown (portfolio and guidelines)',
+	'advice.context.copyMarkdown': 'Copy Markdown',
+	'advice.context.copySuccess': 'Copied to clipboard.',
+	'advice.context.copyFailed':
+		'Automatic copy failed. The text is selected — press Ctrl+C (⌘C on Mac).',
+	'advice.context.snapshotError':
+		'Could not load your saved portfolio or guidelines from GitHub. Showing an empty export until persistence works again.',
+	'advice.context.linkFromAdvice': 'Export Markdown context for other AI tools',
+
 	'errors.advice.service':
 		"We couldn't get advice right now. Please try again in a moment.",
 	'client.formSubmit.genericError': 'Please check your input.',

@@ -7,9 +7,15 @@ import { renderToStream } from 'remix/ui/server'
 import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
-import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
+import { type EtfEntry, fetchPortfolioSnapshot } from '../../lib/gist.ts'
+import {
+	getGuestEtfs,
+	getGuestGuidelines,
+} from '../../lib/guest-session-state.ts'
+import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
+import { buildAdviceContextMarkdown } from '../../lib/llm-portfolio-context-markdown.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import {
 	getLayoutSession,
@@ -22,6 +28,7 @@ import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
+import { AdviceContextPage } from './advice-context-page.tsx'
 import type { AdviceDocument } from './advice-document.ts'
 import {
 	clearLegacyUnifiedAdviceAnalysis,
@@ -176,6 +183,65 @@ function renderAdvicePageResponse(options: {
 	})
 }
 
+async function loadPortfolioGuidelinesSnapshotForExport(
+	context: AppRequestContext,
+): Promise<{
+	entries: EtfEntry[]
+	guidelines: EtfGuideline[]
+	catalog: CatalogEntry[]
+	snapshotError: boolean
+}> {
+	const session = getSessionData(context.get(Session))
+	if (session?.gistId && session.token) {
+		try {
+			const [snapshot, guidelines, catalog] = await Promise.all([
+				fetchPortfolioSnapshot(session.token, session.gistId),
+				fetchGuidelines(session.token, session.gistId),
+				fetchCatalog(),
+			])
+			return {
+				entries: snapshot.entries,
+				catalog,
+				guidelines,
+				snapshotError: false,
+			}
+		} catch (err) {
+			console.warn('[advice] export context: could not read gist', err)
+			return {
+				entries: [],
+				guidelines: [],
+				catalog: await fetchCatalog(),
+				snapshotError: true,
+			}
+		}
+	}
+	return {
+		entries: getGuestEtfs(context.get(Session)),
+		guidelines: getGuestGuidelines(context.get(Session)),
+		catalog: await fetchCatalog(),
+		snapshotError: false,
+	}
+}
+
+function renderAdviceContextPageResponse(options: {
+	session: SessionData | null
+	markdown: string
+	catalogJsonHref: string
+	snapshotError: boolean
+}) {
+	return render({
+		title: t('meta.title.adviceContext'),
+		htmlLang: htmlLangForCurrentUiLocale(),
+		session: options.session,
+		currentPage: 'advice',
+		body: jsx(AdviceContextPage, {
+			markdown: options.markdown,
+			catalogJsonHref: options.catalogJsonHref,
+			...(options.snapshotError ? { snapshotError: true } : {}),
+		}),
+	})
+}
+
 /**
  * True when we cannot load `advice-analysis.json` from the user's gist for this request
  * (layout pending approval, missing session, account pending, or no linked gist).
@@ -295,6 +361,29 @@ export const adviceController = {
 					session,
 					pendingApproval,
 				),
+			})
+		},
+
+		async context(context: AppRequestContext) {
+			const layoutSession = getLayoutSession(context.get(Session))
+			const data = await loadPortfolioGuidelinesSnapshotForExport(context)
+			const generatedAtUtc = new Date()
+			const catalogJsonHref = new URL(
+				routes.catalogJson.href(),
+				context.request.url,
+			).href
+			const markdown = buildAdviceContextMarkdown({
+				entries: data.entries,
+				guidelines: data.guidelines,
+				catalog: data.catalog,
+				catalogJsonUrl: catalogJsonHref,
+				generatedAtUtc,
+			})
+			return renderAdviceContextPageResponse({
+				session: layoutSession,
+				markdown,
+				catalogJsonHref,
+				snapshotError: data.snapshotError,
 			})
 		},
 

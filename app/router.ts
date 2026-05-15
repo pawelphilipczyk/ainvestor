@@ -104,5 +104,8 @@ router.map(routes.locale, localeController)
 router.map(routes.auth, authController)
 router.map(routes.guidelines, guidelinesController)
 router.map(routes.catalog, catalogController)
+router.get(routes.catalogJson, (context: AppRequestContext) =>
+	catalogController.actions.catalogJson(context),
+)
 router.map(routes.advice, adviceController)
 router.map(routes.admin, adminController)
