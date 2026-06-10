@@ -1,7 +1,12 @@
 import type { Handle } from 'remix/ui'
+import { Button } from 'remix/ui/button'
 import type { AppPage } from '../../lib/app-page.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
+import {
+	shellRemixSidebarNavRowMix,
+	shellRemixToolbarSquareMix,
+} from '../chrome/shell-remix-toolbar-mix.ts'
 import { Link } from '../navigation/link.tsx'
 import { AppBranding } from './app-branding.tsx'
 import type { SessionContext } from './session-provider.tsx'
@@ -59,11 +64,13 @@ export function Sidebar(handle: Handle<SidebarProps, SessionContext>) {
 						<div class="flex min-w-0 flex-1 items-center gap-2">
 							<AppBranding />
 						</div>
-						<button
-							data-sidebar-close
+						<Button
 							type="button"
+							tone="ghost"
+							mix={[shellRemixToolbarSquareMix]}
+							data-sidebar-close
 							aria-label={t('chrome.aria.closeNav')}
-							class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+							class="shrink-0 md:hidden"
 						>
 							<svg
 								class="h-4 w-4"
@@ -79,7 +86,7 @@ export function Sidebar(handle: Handle<SidebarProps, SessionContext>) {
 								<line x1="18" y1="6" x2="6" y2="18" />
 								<line x1="6" y1="6" x2="18" y2="18" />
 							</svg>
-						</button>
+						</Button>
 					</div>
 					<nav class="flex flex-1 flex-col overflow-y-auto p-4">
 						<div class="grid gap-1">
@@ -115,12 +122,14 @@ export function Sidebar(handle: Handle<SidebarProps, SessionContext>) {
 										) : null}
 									</p>
 									<form method="post" action={routes.auth.logout.href()}>
-										<button
+										<Button
 											type="submit"
-											class="flex w-full items-center rounded-md px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-accent"
+											tone="ghost"
+											mix={[shellRemixSidebarNavRowMix]}
+											class="text-sm font-medium"
 										>
 											{t('chrome.signOut')}
-										</button>
+										</Button>
 									</form>
 								</div>
 							) : (

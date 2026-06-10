@@ -1,7 +1,9 @@
 import type { Handle } from 'remix/ui'
+import { Button } from 'remix/ui/button'
 import { t } from '../../lib/i18n.ts'
 import { getShellReturnPath, getUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
+import { shellRemixToolbarSquareMix } from '../chrome/shell-remix-toolbar-mix.ts'
 import { Link } from '../navigation/link.tsx'
 import { ThemeToggleInteractions } from '../navigation/theme-toggle.component.js'
 import { ThemeToggleButton } from '../navigation/theme-toggle.tsx'
@@ -73,13 +75,15 @@ export function AppTopBar(
 							</Link>
 						)}
 						<ThemeToggleButton />
-						<button
-							data-sidebar-toggle
+						<Button
 							type="button"
+							tone="ghost"
+							mix={[shellRemixToolbarSquareMix]}
+							data-sidebar-toggle
 							aria-label={t('chrome.aria.openNav')}
 							aria-expanded="false"
 							aria-controls="app-sidebar"
-							class="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-background text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring md:hidden"
+							class="shrink-0 md:hidden"
 						>
 							<svg
 								class="h-4 w-4"
@@ -96,7 +100,7 @@ export function AppTopBar(
 								<line x1="4" y1="12" x2="20" y2="12" />
 								<line x1="4" y1="18" x2="20" y2="18" />
 							</svg>
-						</button>
+						</Button>
 					</div>
 				</div>
 				<ThemeToggleInteractions />

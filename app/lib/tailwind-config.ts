@@ -3,6 +3,10 @@
  */
 export const tailwindConfig = {
 	darkMode: 'class',
+	corePlugins: {
+		/** Let `RMX_01.Style` (Remix UI theme reset) own global box model / typography defaults. */
+		preflight: false,
+	},
 	theme: {
 		extend: {
 			colors: {

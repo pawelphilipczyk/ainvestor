@@ -1,7 +1,23 @@
+import { remixUiThemeBridgeCss } from './remix-ui-theme-bridge.ts'
+
 /**
  * Base CSS variables for light/dark themes. Inlined in document shell style tag.
  */
 export const baseCss = `@layer base {
+  /*
+   * Main column offset for fixed sidebar (replaces Tailwind p-4 / md:ml-64 / min-w-0 on #page-content).
+   */
+  .shell-main {
+    box-sizing: border-box;
+    min-width: 0;
+    padding: 1rem;
+  }
+  @media (min-width: 768px) {
+    .shell-main {
+      margin-left: 16rem;
+    }
+  }
+
   /* Prevent rare wide descendants (tables, pre) from growing the viewport width. */
   html {
     max-width: 100%;
@@ -82,6 +98,9 @@ export const baseCss = `@layer base {
     --input: 240 3.7% 15.9%;
     --ring: 240 4.9% 83.9%;
   }
+
+${remixUiThemeBridgeCss}
+
   /* Default textarea min width follows cols (~20ch); cap to container on narrow viewports. */
   textarea {
     min-width: 0;
