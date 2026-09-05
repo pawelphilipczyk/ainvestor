@@ -1,0 +1,96 @@
+import type { EtfEntry } from '../../app/lib/gist.ts'
+import { fetchEtfs } from '../../app/lib/gist.ts'
+import {
+	totalHoldingsValueForShareBars,
+	valueShareOfHoldingsTotalPercent,
+} from '../../app/lib/portfolio-holdings-share.ts'
+import type { McpConfig } from '../config.ts'
+import { resolveDataGistId } from '../data-gist.ts'
+import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
+
+const DESCRIPTION = `Read the user's current ETF portfolio: every holding with its value and currency, plus the portfolio total and each holding's share of it.
+
+Values are monetary amounts, not unit counts — the portfolio stores no quantities, prices, or dates, so this cannot answer questions about returns, performance over time, or when something was bought. When holdings span several currencies no total is reported, because the app performs no FX conversion.`
+
+function roundToTwoDecimals(value: number): number {
+	return Math.round(value * 100) / 100
+}
+
+/** Shares are only meaningful against a single-currency total. */
+function holdingRow(entry: EtfEntry, total: number | null) {
+	return {
+		id: entry.id,
+		name: entry.name,
+		...(entry.ticker === undefined ? {} : { ticker: entry.ticker }),
+		...(entry.exchange === undefined ? {} : { exchange: entry.exchange }),
+		value: entry.value,
+		currency: entry.currency,
+		...(total === null
+			? {}
+			: {
+					sharePct: roundToTwoDecimals(
+						valueShareOfHoldingsTotalPercent({ value: entry.value, total }),
+					),
+				}),
+	}
+}
+
+/**
+ * `totalHoldingsValueForShareBars` returns null for an empty portfolio *and* for
+ * mixed currencies. Separate them so the tool reports the real reason.
+ */
+export function summarizePortfolio(entries: EtfEntry[]) {
+	if (entries.length === 0) {
+		return {
+			holdingCount: 0,
+			totalValue: null,
+			currency: null,
+			mixedCurrencies: false,
+			note: 'The portfolio is empty.',
+			holdings: [],
+		}
+	}
+
+	const total = totalHoldingsValueForShareBars(entries)
+	if (total === null) {
+		return {
+			holdingCount: entries.length,
+			totalValue: null,
+			currency: null,
+			mixedCurrencies: true,
+			note: 'Holdings span multiple currencies; the app applies no FX conversion, so no combined total or share is available.',
+			holdings: entries.map((entry) => holdingRow(entry, null)),
+		}
+	}
+
+	return {
+		holdingCount: entries.length,
+		totalValue: roundToTwoDecimals(total),
+		currency: entries[0].currency,
+		mixedCurrencies: false,
+		holdings: entries.map((entry) => holdingRow(entry, total)),
+	}
+}
+
+export function createGetPortfolioTool(config: McpConfig): McpToolDefinition {
+	async function handler(): Promise<McpToolResult> {
+		const gistId = await resolveDataGistId(config)
+		const entries = await fetchEtfs(config.githubToken, gistId)
+		return {
+			content: [
+				{
+					type: 'text',
+					text: JSON.stringify(summarizePortfolio(entries), null, 2),
+				},
+			],
+		}
+	}
+
+	return {
+		name: 'get_portfolio',
+		title: 'Get portfolio',
+		description: DESCRIPTION,
+		inputSchema: { type: 'object', properties: {} },
+		handler,
+	}
+}

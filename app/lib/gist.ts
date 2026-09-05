@@ -121,7 +121,7 @@ type GistListItem = {
  * a duplicate empty one created on the next login. When duplicates already
  * exist, the most recently updated one wins (GitHub's default list order).
  */
-async function findGistIdByDescription(
+export async function findGistIdByDescription(
 	token: string,
 	description: string,
 ): Promise<string | null> {

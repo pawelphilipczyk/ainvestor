@@ -79,6 +79,85 @@ npm run typecheck
 
 `npm run check` also auto-installs dependencies with `npm ci` when needed.
 
+## MCP server (read your data from an AI client)
+
+`mcp/server.ts` exposes your AI Investor data to MCP clients over stdio. It reads
+the same private GitHub Gist the web app uses, so it needs no running server.
+
+It is **read-only** today and exposes one tool:
+
+- **`get_portfolio`** — every holding with its value and currency, the portfolio
+  total, and each holding's share of it.
+
+### Environment variables
+
+| Variable | Required | Description |
+|---|---|---|
+| `GH_TOKEN` | Yes | GitHub personal access token with the **`gist`** scope |
+| `SHARED_CATALOG_GIST_ID` | Yes | Public gist holding `catalog.json` (same value the app uses) |
+| `AINVESTOR_GIST_ID` | No | Pins the private data gist. When unset it is found by description |
+| `AINVESTOR_MCP_ALLOW_WRITES` | No | Reserved for future write tools; the server is read-only regardless today |
+
+Create the token at [GitHub → Settings → Developer settings → Personal access
+tokens](https://github.com/settings/tokens) and grant it the **`gist`** scope
+only. The server never creates a gist: if none is found it tells you to sign in
+to the web app once, or to set `AINVESTOR_GIST_ID`.
+
+To find your data gist id, list your gists (secret gists are matched by
+**description**, not filename — `ai-investor-data`, or `ai-investor-preview-data`
+for the preview app):
+
+```bash
+curl -s -H "Authorization: Bearer $GH_TOKEN" \
+     -H "Accept: application/vnd.github+json" \
+     "https://api.github.com/gists?per_page=100" \
+| jq -r '.[] | select(.description | test("ai-investor")) | "\(.id)  \(.description)"'
+```
+
+### Claude Desktop
+
+Edit `claude_desktop_config.json` — on macOS at
+`~/Library/Application Support/Claude/`, on Windows at `%APPDATA%\Claude\` —
+and add the server. Use absolute paths; Claude Desktop does not run inside the
+project directory:
+
+```json
+{
+  "mcpServers": {
+    "ainvestor": {
+      "command": "/absolute/path/to/ainvestor/node_modules/.bin/tsx",
+      "args": ["/absolute/path/to/ainvestor/mcp/server.ts"],
+      "env": {
+        "GH_TOKEN": "ghp_your_token_here",
+        "SHARED_CATALOG_GIST_ID": "your_public_catalog_gist_id",
+        "AINVESTOR_GIST_ID": "your_private_data_gist_id"
+      }
+    }
+  }
+}
+```
+
+Run `npm install` first so `node_modules/.bin/tsx` exists, then restart Claude
+Desktop. The token sits in that config file in plain text, so keep the `gist`
+scope and nothing more.
+
+### Running it directly
+
+```bash
+GH_TOKEN=... SHARED_CATALOG_GIST_ID=... npm run mcp
+```
+
+The process speaks JSON-RPC on stdin/stdout and logs to stderr. It is not
+interactive; use it through an MCP client.
+
+### What the data cannot answer
+
+Holdings store a **monetary value only** — no quantity, price, or date, and
+there is no transaction history. Questions about returns, performance over time,
+or when something was bought cannot be answered from this data. When holdings
+span several currencies no total is reported, because the app applies no FX
+conversion.
+
 ## Deploy to Fly.io
 
 This repo now includes `fly.toml` and a health endpoint at `/health`.

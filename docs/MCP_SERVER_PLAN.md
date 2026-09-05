@@ -4,8 +4,9 @@ Plan for exposing this app's data to LLM clients over the **Model Context
 Protocol**. Work proceeds in **small, separately-chatted stages**; each stage
 ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
-**Progress:** not started. Flip a checkbox to `[x]` when its stage ships (same
-PR as the code, or a tiny follow-up).
+**Progress:** Stage 1 is complete and `get_portfolio` from Stage 2 has shipped.
+Flip a checkbox to `[x]` when its stage ships (same PR as the code, or a tiny
+follow-up).
 
 Read before any implementation stage:
 
@@ -33,6 +34,13 @@ These are settled so every thread starts from the same baseline. Change them
 | D4 | Location | **`mcp/` in this repo**, importing `app/lib/*` and `app/features/*` directly | Reuses `fetchEtfs`, `fetchGuidelines`, `fetchCatalog`, and the allocation maths with no package boundary. CI catches drift. |
 | D5 | AI advice | **Read stored analyses only** in v1; generating new ones is optional Stage 9 | Generation needs `OPENAI_API_KEY` in the MCP client's environment and costs money per call. |
 | D6 | Gist discovery | `AINVESTOR_GIST_ID` when set, otherwise discovery by description | Discovery works (pagination fixed in `app/lib/gist.ts`), but an explicit id avoids listing every gist on every start. |
+| D7 | Protocol implementation | **Hand-rolled JSON-RPC over stdio, zero new dependencies** | `@modelcontextprotocol/sdk` pulls in ~90 packages (express, hono, zod, ajv) for what is newline-delimited JSON on stdin/stdout. This repo deliberately runs on three runtime dependencies. Cost: we own protocol correctness — see the note below. |
+
+**Consequence of D7:** `mcp/protocol.ts` pins the revisions we answer
+`initialize` with. The current MCP revision is **2025-11-25**. When a newer one
+appears, add it to `SUPPORTED_PROTOCOL_VERSIONS` only after checking that our
+`tools/list` and `tools/call` shapes are unchanged. Schema of record:
+`https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/schema/<version>/schema.ts`.
 
 ### Environment variables
 
@@ -113,11 +121,18 @@ the MCP layer; if one of these matters, fix the model in the app first.
 
 ```
 mcp/
-  server.ts        # stdio entry point; wires transport and registers tools
-  config.ts        # env resolution and validation
-  tools/           # one module per tool group, each exporting its schema + handler
-  *.test.ts        # co-located, run by `tsx --test`
+  server.ts            # stdio entry point: stdin lines in, JSON-RPC out
+  protocol.ts          # MCP dispatch (initialize, ping, tools/list, tools/call)
+  jsonrpc.ts           # JSON-RPC 2.0 types, error codes, single-line framing
+  config.ts            # env resolution and validation
+  data-gist.ts         # resolves the private data gist id (never creates one)
+  tools/portfolio.ts   # get_portfolio
+  **/*.test.ts         # co-located, run by `tsx --test`
 ```
+
+`createMcpServer()` in `protocol.ts` does no I/O — it maps a parsed message to a
+response — so tests drive the protocol directly without spawning a process.
+`server.ts` is the only module that touches stdin/stdout.
 
 Rules specific to this subtree:
 
@@ -155,6 +170,11 @@ Write (Stage 7, behind `AINVESTOR_MCP_ALLOW_WRITES`): `record_operation`,
 
 Never exposed: catalog writes, bank-JSON import, OAuth, session state.
 
+Tools currently return a JSON document inside a single text content block. MCP
+also allows `structuredContent` with an `outputSchema` (revision 2025-06-18 and
+later). Worth adopting once more than one tool exists, but it duplicates the
+payload, so it is not free.
+
 ---
 
 ## Separate-chat implementation prompts
@@ -162,7 +182,7 @@ Never exposed: catalog writes, bank-JSON import, OAuth, session state.
 Run these one at a time in separate chats. Each prompt is self-contained and
 the plan is already agreed, so implement directly rather than re-planning.
 
-- [ ] **Stage 1 — Scaffold, config, and a smoke tool**
+- [x] **Stage 1 — Scaffold, config, and a smoke tool** — shipped. Hand-rolled per D7 instead of adding the SDK; `get_server_info` was dropped in favour of shipping the real `get_portfolio` tool alongside.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. The plan is agreed — implement directly, no separate planning message.
@@ -170,7 +190,7 @@ the plan is already agreed, so implement directly rather than re-planning.
   Goal: a runnable stdio MCP server skeleton with no domain tools yet.
 
   Do:
-  - Add @modelcontextprotocol/sdk to dependencies.
+  - Implement JSON-RPC over stdio directly, with no new dependencies (see decision D7).
   - Add "mcp/**/*.ts" to the tsconfig.json include array. Without this npm run typecheck silently skips the whole new subtree.
   - Create mcp/config.ts: resolve and validate GH_TOKEN, SHARED_CATALOG_GIST_ID, optional AINVESTOR_GIST_ID and AINVESTOR_MCP_ALLOW_WRITES. Throw a clear, actionable error naming the missing variable.
   - Create mcp/server.ts: an stdio MCP server exposing one trivial tool (for example get_server_info returning the resolved config with the token redacted) so a client can verify the connection.
@@ -189,26 +209,26 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one scaffolding PR, plus a README section showing the MCP client config (command, args, env).
   ```
 
-- [ ] **Stage 2 — Portfolio and guidelines read tools**
+- [ ] **Stage 2 — Guidelines read tool** (`get_portfolio` already shipped in Stage 1)
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Continue after Stage 1. The plan is agreed — implement directly.
 
-  Goal: get_portfolio and get_guidelines.
+  Goal: get_guidelines, matching the shape of the existing get_portfolio tool in mcp/tools/portfolio.ts.
 
   Do:
-  - Resolve the private gist id: AINVESTOR_GIST_ID when set, otherwise findOrCreateGist from app/lib/gist.ts. Resolve it once per process and cache it.
-  - get_portfolio: fetchEtfs, plus totalHoldingsValueForShareBars and valueShareOfHoldingsTotalPercent from app/lib/portfolio-holdings-share.ts for per-row share. When currencies are mixed the total is null — say so explicitly in the output instead of summing anyway.
-  - get_guidelines: fetchGuidelines, plus sumGuidelineTargetPercent and aggregateGuidelineTargetsByEtfType so the model sees both raw rows and the effective bucket per asset type.
+  - Read rows with fetchGuidelines from app/lib/guidelines.ts, using resolveDataGistId from mcp/data-gist.ts for the gist id.
+  - Add sumGuidelineTargetPercent so the model sees whether targets add up to 100.
+  - Add aggregateGuidelineTargetsByEtfType from app/features/advice/advice-openai.ts so it sees the effective bucket per asset type, not just raw rows. Instrument rows count toward their asset class — that is the single most misread part of this model.
+  - Register it in mcp/server.ts next to get_portfolio.
 
   Constraints:
   - Import the existing helpers; do not reimplement the maths.
-  - Return structured JSON content, not prose.
-  - No changes under app/ beyond exporting a helper that is currently module-private.
+  - Follow the summarize/create split used by mcp/tools/portfolio.ts so the pure summary function stays testable without network.
 
-  Test: mock globalThis.fetch as app/lib/gist.test.ts does. Cover the empty portfolio, the single-currency case, and the mixed-currency case.
+  Test: mock globalThis.fetch as mcp/tools/portfolio.test.ts does. Cover no guidelines, instrument plus asset-class rows of the same type folding into one bucket, and targets summing over 100.
 
-  Verify: npm run check, npm run typecheck, npm test.
+  Verify: npm run check, npm run typecheck, npm test, plus a real stdio handshake (see the Stage 1 probe in the git history).
 
   Deliverable: one PR.
   ```

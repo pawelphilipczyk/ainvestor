@@ -1,5 +1,5 @@
 {
-	"include": ["server.ts", "app/**/*.ts", "app/**/*.tsx"],
+	"include": ["server.ts", "app/**/*.ts", "app/**/*.tsx", "mcp/**/*.ts"],
 	"compilerOptions": {
 		"lib": ["DOM", "ES2022"],
 		"types": ["node"],
