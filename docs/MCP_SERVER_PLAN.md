@@ -28,7 +28,7 @@ These are settled so every thread starts from the same baseline. Change them
 
 | # | Decision | Choice | Why |
 |---|---|---|---|
-| D1 | Transport | **stdio**, run locally by the MCP client | All data lives in the user's own gists, so no app server or session is needed. Remote HTTP is deferred to Stage 10. |
+| D1 | Transport | **stdio**, run locally by the MCP client — **does not serve a phone-only user**, see Stage 10 | All data lives in the user's own gists, so no app server or session is needed. But stdio requires the client to launch the server as a local subprocess: with no local machine there is no way to use it at all. |
 | D2 | Auth | **GitHub PAT with `gist` scope**, from env | The app's OAuth flow is a *login* flow with cookie sessions, not an authorization server for third-party clients. |
 | D3 | Write access | **Read-only through Stage 6**; writes land in Stage 7 behind an env flag | Reads are safe and cover most of the value. Writes need read-modify-write care because the gist API replaces whole files. |
 | D4 | Location | **`mcp/` in this repo**, importing `app/lib/*` and `app/features/*` directly | Reuses `fetchEtfs`, `fetchGuidelines`, `fetchCatalog`, and the allocation maths with no package boundary. CI catches drift. |
@@ -394,31 +394,104 @@ the plan is already agreed, so implement directly rather than re-planning.
 
   Deliverable: one PR.
   ```
+- [ ] **Stage 10 — Remote HTTP transport via an OAuth bridge (designed, NOT decided)**
 
-- [ ] **Stage 10 — Remote HTTP transport (optional, deferred)**
+  **Status: awaiting a decision.** Nothing here is agreed. It is written down so
+  the design work is not lost, and so whoever picks it up starts from findings
+  rather than from scratch.
 
-  ```text
-  Read AGENTS.md, docs/REMIX_V3_PACKAGES.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Optional stage — only do this if remote access from claude.ai or a phone is actually wanted.
+  ### Why this exists
 
-  Goal: reach the same tools over HTTP instead of stdio.
+  D1 chose stdio, which requires the MCP client to launch the server as a local
+  subprocess. A user with only the Claude mobile app has no local machine, so
+  **stdio cannot be used at all** — the tools are unreachable, not merely
+  inconvenient. Remote HTTP is the only path to a phone.
 
-  Before writing code, report back on the auth question and stop for a decision:
-  - A static bearer token is roughly a day of work but is not what MCP clients that require OAuth expect.
-  - Full OAuth 2.1 (protected-resource metadata, dynamic client registration, PKCE) is a week or more and is disproportionate for a single-user app. The existing GitHub OAuth is a login flow, not an authorization server, and cannot be reused directly.
+  ### The obstacle, stated precisely
 
-  If a bearer token is chosen:
-  - Mount POST /mcp in app/router.ts and app/routes.ts using the Remix fetch-router, following docs/REMIX_V3_PACKAGES.md.
-  - Keep the tool implementations shared with the stdio server; only the transport differs.
-  - Read the token from an env secret and compare it with timingSafeEqual, as the OAuth state check in app/features/auth/index.ts does.
-  - Add the secret to fly.toml deployment notes and the GitHub Actions secret list in README.md.
+  The app is already an OAuth **client** of GitHub: browser → `/auth/github` →
+  GitHub → callback → the app exchanges the code for a GitHub token and stores it
+  in a signed cookie (`app/features/auth/index.ts`). The credential is a cookie
+  bound to a browser.
 
-  Deliverable: a written recommendation first, then one PR if approved.
-  ```
+  Claude runs in Anthropic's cloud and carries no such cookie. To connect, Claude
+  must be an OAuth client **of this app**, which means the app has to act as an
+  authorization **server**: resource metadata, `/authorize`, `/token`, PKCE, and
+  client registration. That is the opposite end of the same protocol from what
+  exists today, so the GitHub login cannot simply be pointed at it.
 
----
+  `@remix-run/auth` (installed, exported as `remix/auth`) does **not** close this
+  gap: it ships `startExternalAuth` / `finishExternalAuth` and providers including
+  GitHub — all client-side. There is no authorization-server half in Remix.
+
+  ### The design: bridge, don't replace
+
+  GitHub stays the identity provider; the app becomes a thin authorization server
+  in front of it.
+
+  1. Claude calls `POST /mcp` with no token → `401` + `WWW-Authenticate` naming
+     `/.well-known/oauth-protected-resource`.
+  2. Claude reads the metadata, discovers `/authorize` and `/token`, and registers
+     (DCR) or uses a pre-agreed client.
+  3. Claude opens `/authorize` in the user's browser — **on the phone**. That
+     endpoint redirects into the **existing** GitHub OAuth flow; the user signs in
+     exactly as they do on the website today.
+  4. The callback already holds the GitHub token and can resolve the gist id. It
+     mints our own short-lived code and redirects back to Claude.
+  5. Claude exchanges the code at `/token` for our access token.
+  6. Every `POST /mcp` presents that token; the server unwraps it to reach the
+     right gist.
+
+  ### Storage: there is none, and that is fine
+
+  The app has no database and Fly stops machines when idle
+  (`min_machines_running = 0`), so an in-memory token map would evaporate between
+  requests. Instead make the access token **self-contained and encrypted**
+  (AES-GCM via `node:crypto`, keyed off `SESSION_SECRET`), carrying the GitHub
+  token and gist id. Stateless, matching how the cookie session already works,
+  and it adds no dependency. The GitHub token is then opaque to Claude.
+
+  ### Effort — a correction
+
+  An earlier version of this plan estimated "a week or more" for OAuth. That is
+  **too high for this case**: GitHub does the identity work, the token needs no
+  storage, and `createMcpServer()` in `mcp/protocol.ts` does no I/O, so HTTP is a
+  new wrapper rather than a new engine. Realistic scope is **2–3 days**:
+  metadata endpoints · `/authorize` wrapping the existing flow · `/token` with
+  PKCE · client registration · token sealing · `POST /mcp` (a single JSON
+  response is spec-legal; SSE is not required for request/response tools) ·
+  removing `mcp` from `.dockerignore`.
+
+  ### What the decision costs
+
+  The portfolio endpoint becomes reachable from the public internet, and the
+  GitHub token — scope `gist`, which reads and writes **every** gist on the
+  account — rides encrypted inside the access token. Read-only tools limit the
+  blast radius but do not remove it. Weigh this against the alternative of
+  waiting for a laptop, where stdio works with no new exposure.
+
+  ### Unverified, check before building
+
+  Anthropic's own docs were unreachable from the build sandbox (`claude.com` and
+  `support.claude.com` are blocked by the egress proxy), so the following comes
+  from search results and issue reports, not first-party documentation:
+
+  - Custom connectors reportedly work on claude.ai, Desktop, Cowork and **mobile**.
+  - Supported auth reportedly includes `oauth_dcr`, `oauth_cimd`,
+    `oauth_anthropic_creds`, `custom_connection`, `static_headers` (beta), `none`.
+  - Static headers and authless modes are reported as inconsistently exposed in
+    the connector UI (`anthropics/claude-ai-mcp` issues #112, #644, #685).
+
+  **Confirm what the connector dialog actually offers before writing code** — if
+  it exposes a request-headers field, a static bearer token is far cheaper than
+  this whole bridge, and authless is never acceptable for this data.
 
 ## Open questions
 
+- **Undecided, and it gates everything remote:** is the OAuth bridge in Stage 10
+  worth building, or does the stdio server wait until a laptop is available?
+  Stage 10 has the full design, the corrected 2-3 day estimate, and the exposure
+  it buys. Nothing in Stages 1-9 depends on the answer.
 - Should the MCP server ever see the preview gist (`ai-investor-preview-data`),
   or is production data the only target? Currently the description depends on
   `FLY_APP_NAME`, which is unset locally, so it resolves to production.
