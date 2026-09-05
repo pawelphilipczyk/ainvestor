@@ -103,39 +103,69 @@ function githubHeaders(token: string): HeadersInit {
 	}
 }
 
+/** GitHub caps `per_page` at 100; the default of 30 would hide older gists. */
+const GISTS_PER_PAGE = 100
+
+/** Safety cap on paging through `GET /gists` (100 × 50 = 5000 gists). */
+const MAX_GIST_LIST_PAGES = 50
+
+type GistListItem = {
+	id: string
+	description: string | null
+}
+
+/**
+ * Find the ai-investor gist by description, paging through every gist the token
+ * can see. Without pagination GitHub returns only the 30 most recently updated
+ * gists, so an account with more than that could hide an existing gist and get
+ * a duplicate empty one created on the next login. When duplicates already
+ * exist, the most recently updated one wins (GitHub's default list order).
+ */
+async function findGistIdByDescription(
+	token: string,
+	description: string,
+): Promise<string | null> {
+	for (let page = 1; page <= MAX_GIST_LIST_PAGES; page++) {
+		const response = await fetch(
+			`${GITHUB_API}/gists?per_page=${GISTS_PER_PAGE}&page=${page}`,
+			{ headers: githubHeaders(token) },
+		)
+
+		if (!response.ok) {
+			throw new Error(`GitHub API error listing gists: ${response.status}`)
+		}
+
+		const gists = (await response.json()) as GistListItem[]
+		if (!Array.isArray(gists) || gists.length === 0) return null
+
+		const existing = gists.find((gist) => gist.description === description)
+		if (existing) return existing.id
+
+		if (gists.length < GISTS_PER_PAGE) return null
+	}
+	return null
+}
+
 /**
  * Find an existing ai-investor gist or create a new one.
  * Returns the gist ID.
  */
 export async function findOrCreateGist(token: string): Promise<string> {
-	const listRes = await fetch(`${GITHUB_API}/gists`, {
-		headers: githubHeaders(token),
-	})
-
-	if (!listRes.ok) {
-		throw new Error(`GitHub API error listing gists: ${listRes.status}`)
-	}
-
-	const gists = (await listRes.json()) as Array<{
-		id: string
-		description: string
-	}>
-	const description = getGistDescription()
-	const existing = gists.find((g) => g.description === description)
-	if (existing) return existing.id
+	const existingId = await findGistIdByDescription(token, getGistDescription())
+	if (existingId !== null) return existingId
 
 	// Create a new private gist with an empty ETF list
-	const createRes = await fetch(`${GITHUB_API}/gists`, {
+	const createResponse = await fetch(`${GITHUB_API}/gists`, {
 		method: 'POST',
 		headers: githubHeaders(token),
 		body: JSON.stringify(buildGistBody([])),
 	})
 
-	if (!createRes.ok) {
-		throw new Error(`GitHub API error creating gist: ${createRes.status}`)
+	if (!createResponse.ok) {
+		throw new Error(`GitHub API error creating gist: ${createResponse.status}`)
 	}
 
-	const created = (await createRes.json()) as { id: string }
+	const created = (await createResponse.json()) as { id: string }
 	return created.id
 }
 
