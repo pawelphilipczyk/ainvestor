@@ -24,11 +24,10 @@ describe('mcp config', () => {
 		)
 	})
 
-	it('throws when SHARED_CATALOG_GIST_ID is missing', () => {
-		assert.throws(
-			() => resolveMcpConfig({ GH_TOKEN: 'token-value' }),
-			/SHARED_CATALOG_GIST_ID is not set/,
-		)
+	it('starts without SHARED_CATALOG_GIST_ID, which no tool reads yet', () => {
+		const config = resolveMcpConfig({ GH_TOKEN: 'token-value' })
+		assert.equal(config.sharedCatalogGistId, null)
+		assert.equal(config.githubToken, 'token-value')
 	})
 
 	it('treats whitespace-only values as missing', () => {

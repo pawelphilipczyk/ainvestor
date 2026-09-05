@@ -6,19 +6,24 @@
 export type McpConfig = {
 	/** GitHub PAT with the `gist` scope. */
 	githubToken: string
-	/** Public gist holding `catalog.json`; same value the web app uses. */
-	sharedCatalogGistId: string
+	/**
+	 * Public gist holding `catalog.json`; same value the web app uses. Optional
+	 * until a catalog tool exists — refusing to start over a variable nothing
+	 * reads would be a dead server for no reason.
+	 */
+	sharedCatalogGistId: string | null
 	/** Private data gist id, when pinned explicitly. Discovered by description when null. */
 	dataGistId: string | null
 	/** Write tools stay unregistered unless this is explicitly enabled. */
 	allowWrites: boolean
 }
 
-function readRequired(
-	env: NodeJS.ProcessEnv,
-	name: string,
-	hint: string,
-): string {
+function readRequired(params: {
+	env: NodeJS.ProcessEnv
+	name: string
+	hint: string
+}): string {
+	const { env, name, hint } = params
 	const value = (env[name] ?? '').trim()
 	if (value.length === 0) {
 		throw new Error(`[mcp] ${name} is not set. ${hint}`)
@@ -41,16 +46,12 @@ export function resolveMcpConfig(
 	env: NodeJS.ProcessEnv = process.env,
 ): McpConfig {
 	return {
-		githubToken: readRequired(
+		githubToken: readRequired({
 			env,
-			'GH_TOKEN',
-			'Create a GitHub personal access token with the `gist` scope.',
-		),
-		sharedCatalogGistId: readRequired(
-			env,
-			'SHARED_CATALOG_GIST_ID',
-			'Use the same public catalog gist id the web app is configured with.',
-		),
+			name: 'GH_TOKEN',
+			hint: 'Create a GitHub personal access token with the `gist` scope.',
+		}),
+		sharedCatalogGistId: readOptional(env, 'SHARED_CATALOG_GIST_ID'),
 		dataGistId: readOptional(env, 'AINVESTOR_GIST_ID'),
 		allowWrites: readBooleanFlag(env, 'AINVESTOR_MCP_ALLOW_WRITES'),
 	}
@@ -61,6 +62,7 @@ export function describeMcpConfig(config: McpConfig) {
 	return {
 		githubTokenPresent: config.githubToken.length > 0,
 		sharedCatalogGistId: config.sharedCatalogGistId,
+		toolsAvailable: ['get_portfolio'],
 		dataGistId: config.dataGistId,
 		dataGistSource:
 			config.dataGistId === null ? 'discovered' : 'AINVESTOR_GIST_ID',

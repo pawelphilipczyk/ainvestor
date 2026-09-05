@@ -7,6 +7,7 @@ import {
 	createMcpServer,
 	LATEST_PROTOCOL_VERSION,
 	negotiateProtocolVersion,
+	SUPPORTED_PROTOCOL_VERSIONS,
 } from './protocol.ts'
 
 function testTool(
@@ -58,6 +59,24 @@ describe('mcp protocol', () => {
 			request(1, 'initialize', { protocolVersion: '2025-06-18' }),
 		)
 		assert.equal(resultOf(response).protocolVersion, '2025-06-18')
+	})
+
+	it('does not claim revisions that require JSON-RPC batching', () => {
+		// 2025-03-26 mandates that servers accept batches; 2025-06-18 removed
+		// batching entirely. This server implements none, so advertising
+		// 2025-03-26 would promise behaviour it does not have.
+		assert.equal(
+			(SUPPORTED_PROTOCOL_VERSIONS as readonly string[]).includes('2025-03-26'),
+			false,
+		)
+		assert.equal(
+			negotiateProtocolVersion('2025-03-26'),
+			LATEST_PROTOCOL_VERSION,
+		)
+		assert.equal(
+			negotiateProtocolVersion('2024-11-05'),
+			LATEST_PROTOCOL_VERSION,
+		)
 	})
 
 	it('answers with its own latest version when the client asks for an unknown one', () => {

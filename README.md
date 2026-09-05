@@ -94,7 +94,7 @@ It is **read-only** today and exposes one tool:
 | Variable | Required | Description |
 |---|---|---|
 | `GH_TOKEN` | Yes | GitHub personal access token with the **`gist`** scope |
-| `SHARED_CATALOG_GIST_ID` | Yes | Public gist holding `catalog.json` (same value the app uses) |
+| `SHARED_CATALOG_GIST_ID` | No | Public gist holding `catalog.json`. Nothing reads it until a catalog tool exists, so the server starts without it |
 | `AINVESTOR_GIST_ID` | No | Pins the private data gist. When unset it is found by description |
 | `AINVESTOR_MCP_ALLOW_WRITES` | No | Reserved for future write tools; the server is read-only regardless today |
 
@@ -129,7 +129,6 @@ project directory:
       "args": ["/absolute/path/to/ainvestor/mcp/server.ts"],
       "env": {
         "GH_TOKEN": "ghp_your_token_here",
-        "SHARED_CATALOG_GIST_ID": "your_public_catalog_gist_id",
         "AINVESTOR_GIST_ID": "your_private_data_gist_id"
       }
     }
@@ -144,11 +143,16 @@ scope and nothing more.
 ### Running it directly
 
 ```bash
-GH_TOKEN=... SHARED_CATALOG_GIST_ID=... npm run mcp
+GH_TOKEN=... npm run mcp
 ```
 
-The process speaks JSON-RPC on stdin/stdout and logs to stderr. It is not
-interactive; use it through an MCP client.
+The process speaks JSON-RPC on stdin/stdout and logs to stderr, starting with a
+line naming the resolved configuration (never the token). It is not interactive;
+use it through an MCP client.
+
+It implements MCP revisions **2025-11-25** and **2025-06-18**. Older revisions
+are declined during negotiation because 2025-03-26 requires servers to accept
+JSON-RPC batches, which this server does not implement.
 
 ### What the data cannot answer
 

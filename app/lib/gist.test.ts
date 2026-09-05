@@ -254,6 +254,31 @@ describe('gist', () => {
 		}
 	})
 
+	it('findOrCreateGist throws rather than creating a duplicate when the page cap is hit', async () => {
+		const previousFetch = globalThis.fetch
+		const previousFlyAppName = process.env.FLY_APP_NAME
+		let listCallCount = 0
+		globalThis.fetch = async (_input: FetchInput, init?: FetchInit) => {
+			if (init?.method === 'POST') {
+				throw new Error('must not create a gist after an inconclusive sweep')
+			}
+			listCallCount++
+			return Response.json(unrelatedGists(100, `page-${listCallCount}`))
+		}
+		try {
+			delete process.env.FLY_APP_NAME
+			await assert.rejects(
+				async () => findOrCreateGist('token'),
+				/returned more than 5000 gists without matching "ai-investor-data"/,
+			)
+			assert.equal(listCallCount, 50, 'expected the 50-page cap to be spent')
+		} finally {
+			globalThis.fetch = previousFetch
+			if (previousFlyAppName === undefined) delete process.env.FLY_APP_NAME
+			else process.env.FLY_APP_NAME = previousFlyAppName
+		}
+	})
+
 	it('findOrCreateGist throws when listing gists fails', async () => {
 		const previousFetch = globalThis.fetch
 		globalThis.fetch = async () => new Response(null, { status: 401 })

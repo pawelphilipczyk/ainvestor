@@ -136,14 +136,19 @@ export async function findGistIdByDescription(
 		}
 
 		const gists = (await response.json()) as GistListItem[]
-		if (!Array.isArray(gists) || gists.length === 0) return null
+		if (!Array.isArray(gists)) return null
 
 		const existing = gists.find((gist) => gist.description === description)
 		if (existing) return existing.id
 
+		// A short page is the last page, so the gist genuinely does not exist.
 		if (gists.length < GISTS_PER_PAGE) return null
 	}
-	return null
+	// Distinct from `null`: we ran out of pages without proving anything, and a
+	// caller must not read that as "no such gist" and create a duplicate.
+	throw new Error(
+		`GitHub API returned more than ${MAX_GIST_LIST_PAGES * GISTS_PER_PAGE} gists without matching "${description}"`,
+	)
 }
 
 /**

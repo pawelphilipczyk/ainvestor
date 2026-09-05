@@ -10,16 +10,16 @@ import {
 export const LATEST_PROTOCOL_VERSION = '2025-11-25'
 
 /**
- * Revisions we answer `initialize` with unchanged. Our surface is plain
- * `tools/list` + `tools/call` with text content, which is identical across
- * these; newer features (structured content, tasks) are additive and unused.
+ * Revisions we answer `initialize` with unchanged.
+ *
+ * Deliberately stops at 2025-06-18, the revision that **removed** JSON-RPC
+ * batching: 2025-03-26 requires servers to accept batches, and this server does
+ * not implement them. Claiming that revision would promise something we do not
+ * do, so an older client is answered with our latest instead and decides for
+ * itself whether to continue. Newer features across these two (structured
+ * content, tasks) are additive and unused.
  */
-export const SUPPORTED_PROTOCOL_VERSIONS = [
-	'2025-11-25',
-	'2025-06-18',
-	'2025-03-26',
-	'2024-11-05',
-] as const
+export const SUPPORTED_PROTOCOL_VERSIONS = ['2025-11-25', '2025-06-18'] as const
 
 /** JSON Schema for a tool's arguments. Root must be an object per the MCP schema. */
 export type McpInputSchema = {
@@ -69,6 +69,13 @@ function toolDescriptor(tool: McpToolDefinition) {
 	}
 }
 
+/** The request id when the message carries a usable one, else null (notification). */
+function readRequestId(raw: unknown): string | number | null {
+	if (raw === null || typeof raw !== 'object') return null
+	const id = (raw as { id?: unknown }).id
+	return typeof id === 'string' || typeof id === 'number' ? id : null
+}
+
 function errorText(error: unknown): string {
 	return error instanceof Error ? error.message : String(error)
 }
@@ -95,20 +102,20 @@ export function createMcpServer(params: {
 				: {}
 		const name = params.name
 		if (typeof name !== 'string') {
-			return errorResponse(
+			return errorResponse({
 				id,
-				JSON_RPC_ERROR_CODES.invalidParams,
-				'tools/call requires a string "name" parameter',
-			)
+				code: JSON_RPC_ERROR_CODES.invalidParams,
+				message: 'tools/call requires a string "name" parameter',
+			})
 		}
 		const tool = toolsByName.get(name)
 		if (tool === undefined) {
 			// Failing to *find* a tool is a protocol error, unlike a failure inside one.
-			return errorResponse(
+			return errorResponse({
 				id,
-				JSON_RPC_ERROR_CODES.invalidParams,
-				`Unknown tool: ${name}`,
-			)
+				code: JSON_RPC_ERROR_CODES.invalidParams,
+				message: `Unknown tool: ${name}`,
+			})
 		}
 		const rawArguments = params.arguments
 		const toolArguments =
@@ -129,23 +136,22 @@ export function createMcpServer(params: {
 
 	/** Returns the response to write, or null for notifications and ignored messages. */
 	async function handleMessage(raw: unknown): Promise<JsonRpcResponse | null> {
+		const id = readRequestId(raw)
+
+		// A message with no usable id is a notification, and JSON-RPC forbids
+		// answering one. This has to be decided before the envelope is judged,
+		// or a malformed notification draws an unsolicited error frame.
+		if (id === null) return null
+
 		if (!isJsonRpcIncoming(raw)) {
-			const id =
-				raw !== null && typeof raw === 'object' && 'id' in raw
-					? ((raw as { id?: unknown }).id ?? null)
-					: null
-			return errorResponse(
-				typeof id === 'string' || typeof id === 'number' ? id : null,
-				JSON_RPC_ERROR_CODES.invalidRequest,
-				'Not a valid JSON-RPC 2.0 request',
-			)
+			return errorResponse({
+				id,
+				code: JSON_RPC_ERROR_CODES.invalidRequest,
+				message: 'Not a valid JSON-RPC 2.0 request',
+			})
 		}
 
 		const message = raw
-		const id = message.id
-
-		// Notifications never get a response, whether or not we know the method.
-		if (id === undefined) return null
 
 		switch (message.method) {
 			case 'initialize': {
@@ -167,11 +173,11 @@ export function createMcpServer(params: {
 			case 'tools/call':
 				return callTool(message, id)
 			default:
-				return errorResponse(
+				return errorResponse({
 					id,
-					JSON_RPC_ERROR_CODES.methodNotFound,
-					`Unknown method: ${message.method}`,
-				)
+					code: JSON_RPC_ERROR_CODES.methodNotFound,
+					message: `Unknown method: ${message.method}`,
+				})
 		}
 	}
 

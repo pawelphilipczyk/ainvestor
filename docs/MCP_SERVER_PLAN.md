@@ -37,10 +37,18 @@ These are settled so every thread starts from the same baseline. Change them
 | D7 | Protocol implementation | **Hand-rolled JSON-RPC over stdio, zero new dependencies** | `@modelcontextprotocol/sdk` pulls in ~90 packages (express, hono, zod, ajv) for what is newline-delimited JSON on stdin/stdout. This repo deliberately runs on three runtime dependencies. Cost: we own protocol correctness — see the note below. |
 
 **Consequence of D7:** `mcp/protocol.ts` pins the revisions we answer
-`initialize` with. The current MCP revision is **2025-11-25**. When a newer one
-appears, add it to `SUPPORTED_PROTOCOL_VERSIONS` only after checking that our
-`tools/list` and `tools/call` shapes are unchanged. Schema of record:
-`https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/schema/<version>/schema.ts`.
+`initialize` with — currently **2025-11-25** and **2025-06-18**. The list stops
+there deliberately: **2025-03-26 requires servers to accept JSON-RPC batches**,
+and 2025-06-18 removed batching. Since this server implements no batching,
+claiming the older revision would promise behaviour it does not have, so older
+clients are answered with our latest and decide for themselves.
+
+When a newer revision appears, add it only after checking that the `tools/list`
+and `tools/call` shapes are unchanged **and** that it imposes no new mandatory
+behaviour. Sources of record:
+
+- `https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/schema/<version>/schema.ts`
+- `https://raw.githubusercontent.com/modelcontextprotocol/modelcontextprotocol/main/docs/specification/<version>/changelog.mdx`
 
 ### Environment variables
 
@@ -49,7 +57,7 @@ Named to match the existing `GH_` / `SHARED_CATALOG_GIST_ID` convention.
 | Variable | Required | Description |
 |---|---|---|
 | `GH_TOKEN` | Yes | GitHub PAT with the **`gist`** scope. Reads and writes the private data gist. |
-| `SHARED_CATALOG_GIST_ID` | Yes | Public gist holding `catalog.json`. Same value the app uses. |
+| `SHARED_CATALOG_GIST_ID` | Not yet | Public gist holding `catalog.json`. Optional until Stage 3 adds a catalog tool — the server must not refuse to start over a variable nothing reads. |
 | `AINVESTOR_GIST_ID` | No | Private data gist id. When unset, it is discovered by description. |
 | `AINVESTOR_MCP_ALLOW_WRITES` | No | Set to `1` to enable the Stage 7 write tools. Default is read-only. |
 | `OPENAI_API_KEY` | No | Only needed if Stage 9 (advice generation) ships. |
@@ -241,6 +249,7 @@ the plan is already agreed, so implement directly rather than re-planning.
   Goal: list_catalog and get_catalog_entry.
 
   Do:
+  - Make SHARED_CATALOG_GIST_ID required in mcp/config.ts as part of this stage — it becomes load-bearing here, and until now the server deliberately started without it.
   - list_catalog: fetchCatalog from app/features/catalog/lib.ts, with optional filters for etf type, region, sector, risk band (reuse riskBandFromRiskKid), esg, and a free-text query over ticker and name. Support a limit with a sane default.
   - get_catalog_entry: look up by ticker (reuse findCatalogEntryByTicker, which normalises case and spacing) or by id, returning every field.
 

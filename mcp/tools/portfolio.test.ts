@@ -4,7 +4,7 @@ import { afterEach, describe, it } from 'node:test'
 import type { EtfEntry } from '../../app/lib/gist.ts'
 import { GIST_FILENAME } from '../../app/lib/gist.ts'
 import type { McpConfig } from '../config.ts'
-import { resetDataGistIdCache } from '../data-gist.ts'
+import { resetDataGistIdCache, resolveDataGistId } from '../data-gist.ts'
 import { createGetPortfolioTool, summarizePortfolio } from './portfolio.ts'
 
 const config: McpConfig = {
@@ -83,6 +83,31 @@ describe('summarizePortfolio', () => {
 		assert.equal(summary.holdings[1].sharePct, 66.67)
 	})
 
+	it('reports a negative holding at its real share, not clamped to zero', () => {
+		const summary = summarizePortfolio([
+			entry({ id: 'a', value: 4500 }),
+			entry({ id: 'b', value: -500 }),
+		])
+		assert.equal(summary.totalValue, 4000)
+		assert.equal(summary.holdings[1].sharePct, -12.5)
+	})
+
+	it('omits the share and flags the row when a value is not finite', () => {
+		const summary = summarizePortfolio([
+			entry({ id: 'a', value: 1000 }),
+			entry({ id: 'b', value: Number.POSITIVE_INFINITY }),
+		])
+		assert.equal(summary.holdings[0].sharePct, 100)
+		assert.equal('sharePct' in summary.holdings[1], false)
+		assert.match(String(summary.note), /non-numeric value/)
+	})
+
+	it('omits shares when every holding is zero', () => {
+		const summary = summarizePortfolio([entry({ value: 0 })])
+		assert.equal(summary.totalValue, 0)
+		assert.equal('sharePct' in summary.holdings[0], false)
+	})
+
 	it('carries ticker and exchange through only when present', () => {
 		const summary = summarizePortfolio([
 			entry({ ticker: 'VWCE', exchange: 'XETRA' }),
@@ -92,6 +117,58 @@ describe('summarizePortfolio', () => {
 		const bare = summarizePortfolio([entry()])
 		assert.equal('ticker' in bare.holdings[0], false)
 		assert.equal('exchange' in bare.holdings[0], false)
+	})
+})
+
+describe('data gist resolution', () => {
+	const discovering: McpConfig = { ...config, dataGistId: null }
+
+	/** One page of gists, optionally containing the app's own. */
+	function stubGistList(descriptions: string[]): { calls: number } {
+		const counter = { calls: 0 }
+		globalThis.fetch = async () => {
+			counter.calls++
+			return Response.json(
+				descriptions.map((description, index) => ({
+					id: `gist-${index}`,
+					description,
+				})),
+			)
+		}
+		return counter
+	}
+
+	it('discovers the gist by description when no id is pinned', async () => {
+		stubGistList(['unrelated', 'ai-investor-data'])
+		assert.equal(await resolveDataGistId(discovering), 'gist-1')
+	})
+
+	it('sweeps only once for concurrent callers', async () => {
+		const counter = stubGistList(['ai-investor-data'])
+		const [first, second] = await Promise.all([
+			resolveDataGistId(discovering),
+			resolveDataGistId(discovering),
+		])
+		assert.equal(first, 'gist-0')
+		assert.equal(second, 'gist-0')
+		assert.equal(counter.calls, 1)
+	})
+
+	it('explains what to do when no matching gist exists, and never creates one', async () => {
+		const counter = stubGistList(['unrelated'])
+		await assert.rejects(
+			async () => resolveDataGistId(discovering),
+			/No gist described "ai-investor-data" is visible to this token/,
+		)
+		// A POST would mean a gist was created; only the listing GET is allowed.
+		assert.equal(counter.calls, 1)
+	})
+
+	it('does not cache a failure, so a retry after signing in succeeds', async () => {
+		stubGistList(['unrelated'])
+		await assert.rejects(async () => resolveDataGistId(discovering))
+		stubGistList(['ai-investor-data'])
+		assert.equal(await resolveDataGistId(discovering), 'gist-0')
 	})
 })
 

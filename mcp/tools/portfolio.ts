@@ -1,9 +1,6 @@
 import type { EtfEntry } from '../../app/lib/gist.ts'
 import { fetchEtfs } from '../../app/lib/gist.ts'
-import {
-	totalHoldingsValueForShareBars,
-	valueShareOfHoldingsTotalPercent,
-} from '../../app/lib/portfolio-holdings-share.ts'
+import { totalHoldingsValueForShareBars } from '../../app/lib/portfolio-holdings-share.ts'
 import type { McpConfig } from '../config.ts'
 import { resolveDataGistId } from '../data-gist.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
@@ -16,8 +13,25 @@ function roundToTwoDecimals(value: number): number {
 	return Math.round(value * 100) / 100
 }
 
+/**
+ * Share of the portfolio total.
+ *
+ * Deliberately not `valueShareOfHoldingsTotalPercent`: that helper ends in a
+ * 0–100 clamp meant for bar widths, which would report a negative holding as 0%
+ * and silently contradict the total the same response reports.
+ */
+function sharePercent(params: { value: number; total: number }): number | null {
+	const { value, total } = params
+	if (!Number.isFinite(value) || !Number.isFinite(total) || total === 0) {
+		return null
+	}
+	return roundToTwoDecimals((100 * value) / total)
+}
+
 /** Shares are only meaningful against a single-currency total. */
 function holdingRow(entry: EtfEntry, total: number | null) {
+	const share =
+		total === null ? null : sharePercent({ value: entry.value, total })
 	return {
 		id: entry.id,
 		name: entry.name,
@@ -25,13 +39,7 @@ function holdingRow(entry: EtfEntry, total: number | null) {
 		...(entry.exchange === undefined ? {} : { exchange: entry.exchange }),
 		value: entry.value,
 		currency: entry.currency,
-		...(total === null
-			? {}
-			: {
-					sharePct: roundToTwoDecimals(
-						valueShareOfHoldingsTotalPercent({ value: entry.value, total }),
-					),
-				}),
+		...(share === null ? {} : { sharePct: share }),
 	}
 }
 
@@ -63,11 +71,22 @@ export function summarizePortfolio(entries: EtfEntry[]) {
 		}
 	}
 
+	// The total helper counts a non-finite value as zero. Say so rather than
+	// letting a row sit in the list while contributing nothing to the total.
+	const nonFiniteCount = entries.filter(
+		(entry) => !Number.isFinite(entry.value),
+	).length
+
 	return {
 		holdingCount: entries.length,
 		totalValue: roundToTwoDecimals(total),
 		currency: entries[0].currency,
 		mixedCurrencies: false,
+		...(nonFiniteCount === 0
+			? {}
+			: {
+					note: `${nonFiniteCount} holding(s) have a non-numeric value; they are excluded from the total and have no share.`,
+				}),
 		holdings: entries.map((entry) => holdingRow(entry, total)),
 	}
 }

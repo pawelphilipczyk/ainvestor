@@ -45,11 +45,12 @@ export function successResponse(
 	return { jsonrpc: JSONRPC_VERSION, id, result }
 }
 
-export function errorResponse(
-	id: JsonRpcId | null,
-	code: number,
-	message: string,
-): JsonRpcResponse {
+export function errorResponse(params: {
+	id: JsonRpcId | null
+	code: number
+	message: string
+}): JsonRpcResponse {
+	const { id, code, message } = params
 	return { jsonrpc: JSONRPC_VERSION, id, error: { code, message } }
 }
 
