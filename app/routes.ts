@@ -4,6 +4,10 @@ const adviceForm = form('advice')
 
 export const routes = route({
 	health: get('/health'),
+	mcp: {
+		call: post('/mcp'),
+		stream: get('/mcp'),
+	},
 	home: {
 		index: get('/'),
 	},

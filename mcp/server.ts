@@ -8,6 +8,7 @@ import './stdout-guard.ts'
 
 import { createInterface } from 'node:readline'
 
+import { createAinvestorMcpServer } from './ainvestor-server.ts'
 import { describeMcpConfig, resolveMcpConfig } from './config.ts'
 import type { JsonRpcResponse } from './jsonrpc.ts'
 import {
@@ -15,14 +16,6 @@ import {
 	JSON_RPC_ERROR_CODES,
 	serializeJsonRpcMessage,
 } from './jsonrpc.ts'
-import { createMcpServer } from './protocol.ts'
-import { createGetPortfolioTool } from './tools/portfolio.ts'
-
-const SERVER_VERSION = '0.1.0'
-
-const INSTRUCTIONS = `Read-only access to the user's AI Investor data, stored in their own private GitHub gist.
-
-The data model has no time dimension: holdings carry a monetary value but no quantity, price, or date, and there is no transaction history. Do not infer returns, performance, or purchase timing from it.`
 
 function writeResponse(response: JsonRpcResponse): void {
 	process.stdout.write(serializeJsonRpcMessage(response))
@@ -30,10 +23,9 @@ function writeResponse(response: JsonRpcResponse): void {
 
 async function main(): Promise<void> {
 	const config = resolveMcpConfig()
-	const server = createMcpServer({
-		serverInfo: { name: 'ainvestor', version: SERVER_VERSION },
-		instructions: INSTRUCTIONS,
-		tools: [createGetPortfolioTool(config)],
+	const server = createAinvestorMcpServer({
+		githubToken: config.githubToken,
+		dataGistId: config.dataGistId,
 	})
 
 	console.error('[mcp] ready', JSON.stringify(describeMcpConfig(config)))

@@ -28,8 +28,8 @@ These are settled so every thread starts from the same baseline. Change them
 
 | # | Decision | Choice | Why |
 |---|---|---|---|
-| D1 | Transport | **stdio**, run locally by the MCP client — **does not serve a phone-only user**, see Stage 10 | All data lives in the user's own gists, so no app server or session is needed. But stdio requires the client to launch the server as a local subprocess: with no local machine there is no way to use it at all. |
-| D2 | Auth | **GitHub PAT with `gist` scope**, from env | The app's OAuth flow is a *login* flow with cookie sessions, not an authorization server for third-party clients. |
+| D1 | Transport | **Both**: stdio for a local client, `POST /mcp` on the deployed app for everything else | stdio needs the client to launch a local subprocess, so it cannot serve a phone at all. The HTTP endpoint (Stage 10) covers that without replacing stdio, and both share one tool definition in `mcp/ainvestor-server.ts`. |
+| D2 | Auth | **The caller's own GitHub token with `gist` scope** — from env over stdio, from the `Authorization` header over HTTP | The app's OAuth flow is a *login* flow with cookie sessions, not an authorization server. Rather than building one, the caller presents the same credential the stdio config already holds, so the server stores no secret and is multi-user by construction. |
 | D3 | Write access | **Read-only through Stage 6**; writes land in Stage 7 behind an env flag | Reads are safe and cover most of the value. Writes need read-modify-write care because the gist API replaces whole files. |
 | D4 | Location | **`mcp/` in this repo**, importing `app/lib/*` and `app/features/*` directly | Reuses `fetchEtfs`, `fetchGuidelines`, `fetchCatalog`, and the allocation maths with no package boundary. CI catches drift. |
 | D5 | AI advice | **Read stored analyses only** in v1; generating new ones is optional Stage 9 | Generation needs `OPENAI_API_KEY` in the MCP client's environment and costs money per call. |
@@ -56,7 +56,7 @@ Named to match the existing `GH_` / `SHARED_CATALOG_GIST_ID` convention.
 
 | Variable | Required | Description |
 |---|---|---|
-| `GH_TOKEN` | Yes | GitHub PAT with the **`gist`** scope. Reads and writes the private data gist. |
+| `GH_TOKEN` | stdio only | GitHub PAT with the **`gist`** scope. Over HTTP the token arrives per request in the `Authorization` header instead, so the deployment never holds one. |
 | `SHARED_CATALOG_GIST_ID` | Not yet | Public gist holding `catalog.json`. Optional until Stage 3 adds a catalog tool — the server must not refuse to start over a variable nothing reads. |
 | `AINVESTOR_GIST_ID` | No | Private data gist id. When unset, it is discovered by description. |
 | `AINVESTOR_MCP_ALLOW_WRITES` | No | Set to `1` to enable the Stage 7 write tools. Default is read-only. |
@@ -393,105 +393,57 @@ the plan is already agreed, so implement directly rather than re-planning.
   Verify: npm run check, npm run typecheck, npm test.
 
   Deliverable: one PR.
-  ```
-- [ ] **Stage 10 — Remote HTTP transport via an OAuth bridge (designed, NOT decided)**
+  ```- [x] **Stage 10 — Remote HTTP transport** — shipped.
 
-  **Status: awaiting a decision.** Nothing here is agreed. It is written down so
-  the design work is not lost, and so whoever picks it up starts from findings
-  rather than from scratch.
+  `POST /mcp` on the app itself, so the tools are reachable from any MCP client
+  including the mobile app. `mcp/http.ts` holds the transport; `app/router.ts`
+  mounts it.
 
-  ### Why this exists
+  **Credentials travel per request.** `Authorization: Bearer <GitHub token with
+  the gist scope>` — the same credential the stdio configuration holds in a local
+  file, moved into a request header. Consequences worth keeping in mind:
 
-  D1 chose stdio, which requires the MCP client to launch the server as a local
-  subprocess. A user with only the Claude mobile app has no local machine, so
-  **stdio cannot be used at all** — the tools are unreachable, not merely
-  inconvenient. Remote HTTP is the only path to a phone.
+  - The server stores **no secret**. Nothing is readable without a token that
+    already grants that access directly against GitHub.
+  - It is **multi-user for free**: each caller reads their own gist. The gist-id
+    caches in `mcp/data-gist.ts` are therefore keyed **by token** — a
+    process-wide cache would hand one caller another's holdings.
+  - No authorization server, no `/authorize`, no `/token`, no PKCE, no client
+    registration, no token storage. An earlier draft of this stage proposed an
+    OAuth bridge for all of that; passing the user's own token removes the need.
 
-  ### The obstacle, stated precisely
+  Optional `X-Ainvestor-Gist-Id` pins the gist per request, falling back to
+  `AINVESTOR_GIST_ID` on the deployment.
 
-  The app is already an OAuth **client** of GitHub: browser → `/auth/github` →
-  GitHub → callback → the app exchanges the code for a GitHub token and stores it
-  in a signed cookie (`app/features/auth/index.ts`). The credential is a cookie
-  bound to a browser.
+  Transport details, all verified against a running server: `GET` returns **405**
+  (no SSE stream is offered, which the spec allows), a notification returns
+  **202** with an empty body, a request returns **200** with a single
+  `application/json` object, a mismatched `Origin` returns **403** (the spec
+  requires this against DNS rebinding), and an `MCP-Protocol-Version` this server
+  does not implement returns **400**.
 
-  Claude runs in Anthropic's cloud and carries no such cookie. To connect, Claude
-  must be an OAuth client **of this app**, which means the app has to act as an
-  authorization **server**: resource metadata, `/authorize`, `/token`, PKCE, and
-  client registration. That is the opposite end of the same protocol from what
-  exists today, so the GitHub login cannot simply be pointed at it.
+  ### Still unverified
 
-  `@remix-run/auth` (installed, exported as `remix/auth`) does **not** close this
-  gap: it ships `startExternalAuth` / `finishExternalAuth` and providers including
-  GitHub — all client-side. There is no authorization-server half in Remix.
+  Whether the connector dialog in a given Claude client exposes a request-headers
+  field. `static_headers` is reported as beta and inconsistently surfaced
+  (`anthropics/claude-ai-mcp` issues #112, #644, #685), and Anthropic's docs were
+  unreachable from the build sandbox. If a client only offers OAuth, this
+  endpoint still stands and an OAuth layer can be added in front of it later —
+  the transport is not wasted either way.
 
-  ### The design: bridge, don't replace
+  ### Security note
 
-  GitHub stays the identity provider; the app becomes a thin authorization server
-  in front of it.
-
-  1. Claude calls `POST /mcp` with no token → `401` + `WWW-Authenticate` naming
-     `/.well-known/oauth-protected-resource`.
-  2. Claude reads the metadata, discovers `/authorize` and `/token`, and registers
-     (DCR) or uses a pre-agreed client.
-  3. Claude opens `/authorize` in the user's browser — **on the phone**. That
-     endpoint redirects into the **existing** GitHub OAuth flow; the user signs in
-     exactly as they do on the website today.
-  4. The callback already holds the GitHub token and can resolve the gist id. It
-     mints our own short-lived code and redirects back to Claude.
-  5. Claude exchanges the code at `/token` for our access token.
-  6. Every `POST /mcp` presents that token; the server unwraps it to reach the
-     right gist.
-
-  ### Storage: there is none, and that is fine
-
-  The app has no database and Fly stops machines when idle
-  (`min_machines_running = 0`), so an in-memory token map would evaporate between
-  requests. Instead make the access token **self-contained and encrypted**
-  (AES-GCM via `node:crypto`, keyed off `SESSION_SECRET`), carrying the GitHub
-  token and gist id. Stateless, matching how the cookie session already works,
-  and it adds no dependency. The GitHub token is then opaque to Claude.
-
-  ### Effort — a correction
-
-  An earlier version of this plan estimated "a week or more" for OAuth. That is
-  **too high for this case**: GitHub does the identity work, the token needs no
-  storage, and `createMcpServer()` in `mcp/protocol.ts` does no I/O, so HTTP is a
-  new wrapper rather than a new engine. Realistic scope is **2–3 days**:
-  metadata endpoints · `/authorize` wrapping the existing flow · `/token` with
-  PKCE · client registration · token sealing · `POST /mcp` (a single JSON
-  response is spec-legal; SSE is not required for request/response tools) ·
-  removing `mcp` from `.dockerignore`.
-
-  ### What the decision costs
-
-  The portfolio endpoint becomes reachable from the public internet, and the
-  GitHub token — scope `gist`, which reads and writes **every** gist on the
-  account — rides encrypted inside the access token. Read-only tools limit the
-  blast radius but do not remove it. Weigh this against the alternative of
-  waiting for a laptop, where stdio works with no new exposure.
-
-  ### Unverified, check before building
-
-  Anthropic's own docs were unreachable from the build sandbox (`claude.com` and
-  `support.claude.com` are blocked by the egress proxy), so the following comes
-  from search results and issue reports, not first-party documentation:
-
-  - Custom connectors reportedly work on claude.ai, Desktop, Cowork and **mobile**.
-  - Supported auth reportedly includes `oauth_dcr`, `oauth_cimd`,
-    `oauth_anthropic_creds`, `custom_connection`, `static_headers` (beta), `none`.
-  - Static headers and authless modes are reported as inconsistently exposed in
-    the connector UI (`anthropics/claude-ai-mcp` issues #112, #644, #685).
-
-  **Confirm what the connector dialog actually offers before writing code** — if
-  it exposes a request-headers field, a static bearer token is far cheaper than
-  this whole bridge, and authless is never acceptable for this data.
+  A classic PAT is required: fine-grained tokens do not support gists, so the
+  `gist` scope is all-or-nothing across every gist on the account. The token also
+  transits the client vendor's infrastructure to reach this endpoint, unlike the
+  stdio setup where it never leaves the machine.
 
 ## Open questions
 
-- **Undecided, and it gates everything remote:** is the OAuth bridge in Stage 10
-  worth building, or does the stdio server wait until a laptop is available?
-  Stage 10 has the full design, the corrected 2-3 day estimate, and the exposure
-  it buys. Nothing in Stages 1-9 depends on the answer.
+- **Waiting on one observation, not a decision:** does the connector dialog in
+  the Claude client actually let you set a request header? If it does, the
+  Stage 10 endpoint is usable as-is. If it only offers OAuth, an authorization
+  layer has to go in front of the same endpoint — nothing already built is lost.
 - Should the MCP server ever see the preview gist (`ai-investor-preview-data`),
   or is production data the only target? Currently the description depends on
   `FLY_APP_NAME`, which is unset locally, so it resolves to production.

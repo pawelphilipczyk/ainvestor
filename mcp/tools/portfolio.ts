@@ -1,7 +1,7 @@
 import type { EtfEntry } from '../../app/lib/gist.ts'
 import { fetchEtfs } from '../../app/lib/gist.ts'
 import { totalHoldingsValueForShareBars } from '../../app/lib/portfolio-holdings-share.ts'
-import type { McpConfig } from '../config.ts'
+import type { GistCredentials } from '../data-gist.ts'
 import { resolveDataGistId } from '../data-gist.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 
@@ -91,10 +91,12 @@ export function summarizePortfolio(entries: EtfEntry[]) {
 	}
 }
 
-export function createGetPortfolioTool(config: McpConfig): McpToolDefinition {
+export function createGetPortfolioTool(
+	credentials: GistCredentials,
+): McpToolDefinition {
 	async function handler(): Promise<McpToolResult> {
-		const gistId = await resolveDataGistId(config)
-		const entries = await fetchEtfs(config.githubToken, gistId)
+		const gistId = await resolveDataGistId(credentials)
+		const entries = await fetchEtfs(credentials.githubToken, gistId)
 		return {
 			content: [
 				{

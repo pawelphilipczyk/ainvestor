@@ -78,48 +78,54 @@ npm run typecheck
 ```
 
 `npm run check` also auto-installs dependencies with `npm ci` when needed.
-
 ## MCP server (read your data from an AI client)
 
-`mcp/server.ts` exposes your AI Investor data to MCP clients over stdio. It reads
-the same private GitHub Gist the web app uses, so it needs no running server.
-
-It is **read-only** today and exposes one tool:
+Exposes your AI Investor data to MCP clients. It reads the same private GitHub
+Gist the web app uses, and it is **read-only**, with one tool:
 
 - **`get_portfolio`** — every holding with its value and currency, the portfolio
   total, and each holding's share of it.
 
-### Environment variables
+There are two ways to reach it. Both need a **classic** GitHub personal access
+token with the **`gist`** scope and nothing else — fine-grained tokens cannot
+access gists. Create one at
+[Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens).
 
-| Variable | Required | Description |
-|---|---|---|
-| `GH_TOKEN` | Yes | GitHub personal access token with the **`gist`** scope |
-| `SHARED_CATALOG_GIST_ID` | No | Public gist holding `catalog.json`. Nothing reads it until a catalog tool exists, so the server starts without it |
-| `AINVESTOR_GIST_ID` | No | Pins the private data gist. When unset it is found by description |
-| `AINVESTOR_MCP_ALLOW_WRITES` | No | Reserved for future write tools; the server is read-only regardless today |
+### Remote — works from any client, including mobile
 
-Create the token at [GitHub → Settings → Developer settings → Personal access
-tokens](https://github.com/settings/tokens) and grant it the **`gist`** scope
-only. The server never creates a gist: if none is found it tells you to sign in
-to the web app once, or to set `AINVESTOR_GIST_ID`.
+The deployed app answers MCP at `POST /mcp` (for example
+`https://ainvestor.fly.dev/mcp`). Add it as a custom connector and send your
+token as a request header:
 
-To find your data gist id, list your gists (secret gists are matched by
-**description**, not filename — `ai-investor-data`, or `ai-investor-preview-data`
-for the preview app):
-
-```bash
-curl -s -H "Authorization: Bearer $GH_TOKEN" \
-     -H "Accept: application/vnd.github+json" \
-     "https://api.github.com/gists?per_page=100" \
-| jq -r '.[] | select(.description | test("ai-investor")) | "\(.id)  \(.description)"'
+```
+Authorization: Bearer ghp_your_token_here
 ```
 
-### Claude Desktop
+The server stores no credential of its own: whoever presents a token reads that
+token's gist, and a request without one reads nothing. Optionally pin a specific
+gist with `X-Ainvestor-Gist-Id`; otherwise the deployment's `AINVESTOR_GIST_ID`
+is used, and failing that the gist is found by description.
 
-Edit `claude_desktop_config.json` — on macOS at
-`~/Library/Application Support/Claude/`, on Windows at `%APPDATA%\Claude\` —
-and add the server. Use absolute paths; Claude Desktop does not run inside the
-project directory:
+Two caveats before relying on this:
+
+- Your connector client must let you set a request header. Some only offer OAuth
+  fields, in which case this path is not available to you yet.
+- The `gist` scope is all-or-nothing — it reads and writes **every** gist on your
+  account — and the token travels through the client vendor's infrastructure to
+  reach the endpoint. Over stdio it never leaves your machine.
+
+### Local — stdio, via Claude Desktop
+
+Claude Desktop launches the server itself as a subprocess. There is **no
+localhost and no port**: you do not start anything, you tell the app what to run.
+
+```bash
+git clone https://github.com/pawelphilipczyk/ainvestor && cd ainvestor && npm install
+```
+
+Then edit `claude_desktop_config.json` — macOS
+`~/Library/Application Support/Claude/`, Windows `%APPDATA%\Claude\` — using
+**absolute** paths, since Claude Desktop does not run inside the project:
 
 ```json
 {
@@ -136,30 +142,40 @@ project directory:
 }
 ```
 
-Run `npm install` first so `node_modules/.bin/tsx` exists, then restart Claude
-Desktop. The token sits in that config file in plain text, so keep the `gist`
-scope and nothing more.
+Restart Claude Desktop and ask what is in your portfolio. The token sits in that
+file in plain text, so keep its scope to `gist`.
 
-### Running it directly
+Running `npm run mcp` yourself is not useful: the process waits for JSON-RPC on
+stdin and prints only a `[mcp] ready` line on stderr. That is correct, not broken.
+
+### Finding your data gist id
+
+Secret gists are matched by **description** (`ai-investor-data`, or
+`ai-investor-preview-data` on the preview app), not by filename, which is why
+they can be hard to spot in the GitHub UI:
 
 ```bash
-GH_TOKEN=... npm run mcp
+curl -s -H "Authorization: Bearer $GH_TOKEN" \
+     -H "Accept: application/vnd.github+json" \
+     "https://api.github.com/gists?per_page=100" \
+| jq -r '.[] | select(.description | test("ai-investor")) | "\(.id)  \(.description)"'
 ```
 
-The process speaks JSON-RPC on stdin/stdout and logs to stderr, starting with a
-line naming the resolved configuration (never the token). It is not interactive;
-use it through an MCP client.
+The server never creates a gist. If none is found it says so and points you at
+signing in to the web app once, or pinning an id.
 
-It implements MCP revisions **2025-11-25** and **2025-06-18**. Older revisions
-are declined during negotiation because 2025-03-26 requires servers to accept
-JSON-RPC batches, which this server does not implement.
+### Protocol
+
+MCP revisions **2025-11-25** and **2025-06-18**. Older revisions are declined
+during negotiation, because 2025-03-26 requires servers to accept JSON-RPC
+batches and this one does not implement them.
 
 ### What the data cannot answer
 
-Holdings store a **monetary value only** — no quantity, price, or date, and
-there is no transaction history. Questions about returns, performance over time,
-or when something was bought cannot be answered from this data. When holdings
-span several currencies no total is reported, because the app applies no FX
+Holdings store a **monetary value only** — no quantity, price, or date, and there
+is no transaction history. Questions about returns, performance over time, or
+when something was bought cannot be answered from this data. When holdings span
+several currencies no total is reported, because the app applies no FX
 conversion.
 
 ## Deploy to Fly.io
