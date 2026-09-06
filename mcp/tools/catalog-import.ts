@@ -22,6 +22,7 @@ import { MULTIPART_MAX_FILE_BYTES } from '../../app/lib/multipart-upload-limits.
 import type { GistCredentials } from '../data-gist.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { loadCatalogForWrite } from './catalog.ts'
+import { jsonResult } from './tool-result.ts'
 
 /** A long import must not push its own rows out of the model's context. */
 const MAX_REPORTED_DIAGNOSTICS = 20
@@ -158,11 +159,5 @@ export function createImportCatalogFromBankFileTool(
 			required: ['filePath'],
 		},
 		handler,
-	}
-}
-
-function jsonResult(payload: unknown): McpToolResult {
-	return {
-		content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
 	}
 }

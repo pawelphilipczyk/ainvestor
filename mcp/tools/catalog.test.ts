@@ -237,6 +237,39 @@ describe('catalog writes', () => {
 		assert.equal(saved?.description, 'Obligacje światowe')
 	})
 
+	it('updates a fund that has an ISIN without re-passing it, and without duplicating the row', async () => {
+		// Regression test: mergeBankIntoCatalog matches rows by an ISIN-qualified
+		// key, so building the changed row without carrying the existing isin
+		// forward used to fail to match the existing row and append a second one
+		// under the same id instead of updating it.
+		stubCatalog({
+			entries: [
+				entry({
+					id: 'IE00B5BMR087:SXR8',
+					ticker: 'SXR8',
+					name: 'iShares Core S&P 500',
+					isin: 'IE00B5BMR087',
+				}),
+			],
+		})
+		const payload = payloadOf(
+			await createUpsertCatalogEntryTool(credentials).handler({
+				ticker: 'sxr8',
+				expense_ratio: '0,07%',
+			}),
+		)
+
+		assert.equal(payload.action, 'updated')
+		assert.equal(payload.catalogSize, 1)
+
+		const catalog = await fetchCatalog()
+		assert.equal(catalog.length, 1)
+		assert.equal(catalog[0].id, 'IE00B5BMR087:SXR8')
+		assert.equal(catalog[0].isin, 'IE00B5BMR087')
+		assert.equal(catalog[0].expense_ratio, '0,07%')
+		assert.equal(catalog[0].name, 'iShares Core S&P 500')
+	})
+
 	it('needs a name and a type to add a fund the catalog does not have', async () => {
 		stubCatalog()
 		const tool = createUpsertCatalogEntryTool(credentials)

@@ -109,8 +109,8 @@ tickers — a fund it does not list is one you may not be able to buy:
   `truncated`, so a limited list is never mistaken for the whole catalog.
 - **`get_catalog_entry`** — one fund in full, by ticker or id.
 - **`upsert_catalog_entry`** — add a fund or update fields of one already there.
-  Rows are matched by ISIN plus ticker, exactly as the bank import matches them,
-  and a partial update keeps every field it does not mention.
+  The row is found by ticker, and a partial update keeps every field it does
+  not mention — isin included, so it never needs repeating.
 - **`delete_catalog_entry`** — remove one fund.
 - **`import_catalog_from_bank_file`** — refresh the catalog from a bank API
   response or a DevTools HAR **saved on the machine running the server**. Take

@@ -6,7 +6,6 @@ import {
 	fetchSharedCatalogSnapshot,
 	findCatalogEntryByTicker,
 	isSharedCatalogAdmin,
-	mergeBankIntoCatalog,
 	saveCatalog,
 } from '../../app/features/catalog/lib.ts'
 import type { EtfType } from '../../app/lib/guidelines.ts'
@@ -14,6 +13,8 @@ import { ETF_TYPES, isEtfType } from '../../app/lib/guidelines.ts'
 import { resolveCallerLogin } from '../approved-caller.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
+import { readStringArgument } from './tool-arguments.ts'
+import { jsonResult } from './tool-result.ts'
 
 /** Enough rows to choose from without flooding the context. */
 const DEFAULT_LIMIT = 25
@@ -42,7 +43,7 @@ const WRITE_CAVEAT =
 
 const UPSERT_DESCRIPTION = `Add a fund to the shared catalog, or update the fields of one already in it.
 
-The row is matched the same way the bank import matches: by ISIN plus ticker when an ISIN is known, otherwise by ticker alone. An existing row keeps its id and every field this call does not mention, so a partial update is safe. A new row needs at least a ticker, a name and a type.
+The row is found by ticker. An existing row keeps its id and every field this call does not mention — including isin, so it never needs repeating on a later update that only touches something else. A new row needs at least a ticker, a name and a type.
 
 ${WRITE_CAVEAT}`
 
@@ -96,16 +97,6 @@ export function summarizeCatalogSearch(params: {
 	}
 }
 
-function readStringArgument(
-	toolArguments: Record<string, unknown>,
-	name: string,
-): string | null {
-	const value = toolArguments[name]
-	if (typeof value !== 'string') return null
-	const trimmed = value.trim()
-	return trimmed.length > 0 ? trimmed : null
-}
-
 function readLimit(toolArguments: Record<string, unknown>): number {
 	const raw = toolArguments.limit
 	if (raw === undefined || raw === null) return DEFAULT_LIMIT
@@ -114,12 +105,6 @@ function readLimit(toolArguments: Record<string, unknown>): number {
 		throw new Error(`"limit" must be a positive number, up to ${MAX_LIMIT}.`)
 	}
 	return Math.min(Math.floor(value), MAX_LIMIT)
-}
-
-function jsonResult(payload: unknown): McpToolResult {
-	return {
-		content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
-	}
 }
 
 /** Locates one entry the way a caller names it: by ticker, or by exact id. */
@@ -314,8 +299,14 @@ export function createUpsertCatalogEntryTool(
 			)
 		}
 
-		// Only the fields this call names are sent, so the merge keeps the rest.
-		const incoming: CatalogEntry = {
+		// Only the fields this call names are sent, so spreading them onto
+		// `existing` last keeps every field the call did not mention — including
+		// `isin`, which must NOT be dropped here. `mergeBankIntoCatalog` matches
+		// rows by an ISIN-qualified key, so an update that omits `isin` (the
+		// normal case) would not match its own existing row and would append a
+		// second one under the same id instead of updating it. Merging directly
+		// by id, as done below, sidesteps that key entirely.
+		const changes: CatalogEntry = {
 			id:
 				existing?.id ??
 				deriveCatalogEntryId({
@@ -331,14 +322,18 @@ export function createUpsertCatalogEntryTool(
 				'',
 			...optionalFields,
 		}
+		const merged: CatalogEntry =
+			existing === undefined ? changes : { ...existing, ...changes }
 
-		const next = mergeBankIntoCatalog(entries, [incoming])
+		const next =
+			existing === undefined
+				? [merged, ...entries]
+				: entries.map((entry) => (entry.id === existing.id ? merged : entry))
 		await saveCatalog({ token: credentials.githubToken, entries: next })
 
-		const saved = next.find((entry) => entry.id === incoming.id) ?? incoming
 		return jsonResult({
 			action: existing === undefined ? 'created' : 'updated',
-			entry: saved,
+			entry: merged,
 			catalogSize: next.length,
 		})
 	}
@@ -364,7 +359,7 @@ export function createUpsertCatalogEntryTool(
 				isin: {
 					type: 'string',
 					description:
-						'ISIN. Used with the ticker to match an existing row, so pass it whenever it is known.',
+						'ISIN, stored on the row. Used together with the ticker when a brand-new row needs an id; has no effect on an existing row, which keeps its own id.',
 				},
 				expense_ratio: {
 					type: 'string',
