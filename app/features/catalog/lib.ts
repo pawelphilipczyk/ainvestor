@@ -46,15 +46,18 @@ export type CatalogEntry = {
 export const CATALOG_RISK_BAND_VALUES = ['low', 'medium', 'high'] as const
 export type CatalogRiskBand = (typeof CATALOG_RISK_BAND_VALUES)[number]
 
+/** PRIIPs KID risk is an integer scale from 1 (lowest) to 7 (highest). */
+export function isValidRiskKid(value: number): boolean {
+	return Number.isInteger(value) && value >= 1 && value <= 7
+}
+
 /**
  * Maps numeric `risk_kid` to low / medium / high. Non-integer or out-of-range values yield `undefined`.
  */
 export function riskBandFromRiskKid(
 	riskKid: number | undefined,
 ): CatalogRiskBand | undefined {
-	if (typeof riskKid !== 'number' || !Number.isInteger(riskKid))
-		return undefined
-	if (riskKid < 1 || riskKid > 7) return undefined
+	if (typeof riskKid !== 'number' || !isValidRiskKid(riskKid)) return undefined
 	if (riskKid <= 2) return 'low'
 	if (riskKid <= 4) return 'medium'
 	return 'high'
@@ -238,6 +241,41 @@ export function deriveCatalogEntryId(params: {
 	return `${isinNormalised}:${marketToken}`
 }
 
+export type CatalogEntryValidationIssue =
+	| 'missingTicker'
+	| 'missingName'
+	| 'isinInvalid'
+	| 'riskKidOutOfRange'
+
+/**
+ * The one check every write path runs a fully-built row through, whatever put
+ * it together — a bank export or one explicit field from an MCP call. Bank
+ * data is external input too; it does not get to skip a check a hand-typed row
+ * would have to pass.
+ *
+ * Takes the finished `CatalogEntry`, not the raw source fields, so a caller
+ * that only changes one field and carries the rest forward from the existing
+ * row (an upsert) is validated the same way as a caller that builds the whole
+ * row from scratch (an import) — both end up checking the same, complete shape.
+ */
+export function validateCatalogEntry(
+	entry: CatalogEntry,
+): CatalogEntryValidationIssue[] {
+	const issues: CatalogEntryValidationIssue[] = []
+	if (entry.ticker.trim().length === 0) issues.push('missingTicker')
+	if (entry.name.trim().length === 0) issues.push('missingName')
+	if (
+		entry.isin !== undefined &&
+		normalizeIsinForCatalogId(entry.isin) === null
+	) {
+		issues.push('isinInvalid')
+	}
+	if (entry.risk_kid !== undefined && !isValidRiskKid(entry.risk_kid)) {
+		issues.push('riskKidOutOfRange')
+	}
+	return issues
+}
+
 function normaliseTypeFromBank(assets: string, sector: string): EtfType {
 	const assetsLower = (assets ?? '').toLowerCase()
 	const sectorLower = (sector ?? '').toLowerCase()
@@ -257,6 +295,7 @@ export type BankJsonImportRowIssue =
 	| { kind: 'missingTicker' }
 	| { kind: 'missingFundName' }
 	| { kind: 'isinInvalid' }
+	| { kind: 'riskKidOutOfRange' }
 	| { kind: 'duplicateIdInPaste'; id: string; otherIndex: number }
 	| { kind: 'duplicateMergeKeyInPaste'; otherIndex: number }
 	| { kind: 'alreadyInCatalog' }
@@ -297,6 +336,22 @@ function rowLabelFromItem(item: BankEtfItem): string {
 	if (ticker) return ticker
 	if (name) return name.slice(0, 80)
 	return '(no ticker or name)'
+}
+
+/** validateCatalogEntry's generic issues, worded for the bank-import diagnostics UI. */
+function bankJsonImportIssueFor(
+	issue: CatalogEntryValidationIssue,
+): BankJsonImportRowIssue {
+	switch (issue) {
+		case 'missingTicker':
+			return { kind: 'missingTicker' }
+		case 'missingName':
+			return { kind: 'missingFundName' }
+		case 'isinInvalid':
+			return { kind: 'isinInvalid' }
+		case 'riskKidOutOfRange':
+			return { kind: 'riskKidOutOfRange' }
+	}
 }
 
 function isCatalogMergeNoteIssue(issue: BankJsonImportRowIssue): boolean {
@@ -359,28 +414,8 @@ export function parseBankJsonForImport(
 		}
 
 		const item = element as BankEtfItem
-		const issues: BankJsonImportRowIssue[] = []
-		const ticker = (item.ticker ?? '').trim()
+		const tickerUpper = (item.ticker ?? '').trim().toUpperCase()
 		const name = (item.fund_name ?? '').trim()
-		if (!ticker) issues.push({ kind: 'missingTicker' })
-		if (!name) issues.push({ kind: 'missingFundName' })
-
-		const rawIsin = item.isin
-		const isinTrimmed = rawIsin === undefined ? '' : String(rawIsin).trim()
-		if (isinTrimmed.length > 0 && normalizeIsinForCatalogId(rawIsin) === null) {
-			issues.push({ kind: 'isinInvalid' })
-		}
-
-		if (issues.length > 0) {
-			skippedRowDiagnostics.push({
-				index: dataIndex,
-				label: rowLabelFromItem(item),
-				issues,
-			})
-			continue
-		}
-
-		const tickerUpper = ticker.toUpperCase()
 		const type = normaliseTypeFromBank(item.assets ?? '', item.sector ?? '')
 		const description = (item.description ?? '').trim()
 
@@ -414,6 +449,18 @@ export function parseBankJsonForImport(
 				: item.esg === 'nie'
 					? { esg: false }
 					: {}),
+		}
+
+		// Validate the row this import would actually write, the same way any
+		// other write path has to — see validateCatalogEntry.
+		const validationIssues = validateCatalogEntry(entry)
+		if (validationIssues.length > 0) {
+			skippedRowDiagnostics.push({
+				index: dataIndex,
+				label: rowLabelFromItem(item),
+				issues: validationIssues.map(bankJsonImportIssueFor),
+			})
+			continue
 		}
 
 		candidates.push({ item, dataIndex, entry })

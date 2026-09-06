@@ -306,6 +306,39 @@ describe('catalog writes', () => {
 		)
 	})
 
+	it('refuses to save an invalid ISIN, checking the built row the same way a bank import would', async () => {
+		stubCatalog()
+		await assert.rejects(
+			async () =>
+				createUpsertCatalogEntryTool(credentials).handler({
+					ticker: 'SXR8',
+					name: 'iShares Core S&P 500',
+					type: 'equity',
+					isin: 'not-an-isin',
+				}),
+			/Invalid catalog entry: "isin" is not a valid ISIN/,
+		)
+		assert.equal(
+			(await fetchCatalog()).some((row) => row.ticker === 'SXR8'),
+			false,
+		)
+	})
+
+	it('refuses a risk_kid outside 1-7', async () => {
+		stubCatalog()
+		await assert.rejects(
+			async () =>
+				createUpsertCatalogEntryTool(credentials).handler({
+					ticker: 'AGGH',
+					risk_kid: 9,
+				}),
+			/Invalid catalog entry: "risk_kid" must be a whole number from 1 to 7/,
+		)
+		const saved = (await fetchCatalog()).find((row) => row.ticker === 'AGGH')
+		// The bad value never overwrote the existing, valid one.
+		assert.equal(saved?.risk_kid, 2)
+	})
+
 	it('removes a fund by ticker and reports what is left', async () => {
 		stubCatalog()
 		const payload = payloadOf(

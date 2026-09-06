@@ -1,4 +1,7 @@
-import type { CatalogEntry } from '../../app/features/catalog/lib.ts'
+import type {
+	CatalogEntry,
+	CatalogEntryValidationIssue,
+} from '../../app/features/catalog/lib.ts'
 import {
 	catalogEntryMatchesQuery,
 	deriveCatalogEntryId,
@@ -7,6 +10,7 @@ import {
 	findCatalogEntryByTicker,
 	isSharedCatalogAdmin,
 	saveCatalog,
+	validateCatalogEntry,
 } from '../../app/features/catalog/lib.ts'
 import type { EtfType } from '../../app/lib/guidelines.ts'
 import { ETF_TYPES, isEtfType } from '../../app/lib/guidelines.ts'
@@ -44,6 +48,8 @@ const WRITE_CAVEAT =
 const UPSERT_DESCRIPTION = `Add a fund to the shared catalog, or update the fields of one already in it.
 
 The row is found by ticker. An existing row keeps its id and every field this call does not mention — including isin, so it never needs repeating on a later update that only touches something else. A new row needs at least a ticker, a name and a type.
+
+The resulting row is checked the same way a bank import checks one: isin, if set, must be a valid 12-character ISIN, and risk_kid, if set, must be a whole number from 1 to 7. A row that fails either check is refused rather than saved.
 
 ${WRITE_CAVEAT}`
 
@@ -278,6 +284,22 @@ function readEtfTypeArgument(
 	return raw
 }
 
+/** English wording for MCP tool errors — validateCatalogEntry's issues are generic strings. */
+function describeCatalogEntryValidationIssue(
+	issue: CatalogEntryValidationIssue,
+): string {
+	switch (issue) {
+		case 'missingTicker':
+			return '"ticker" is required'
+		case 'missingName':
+			return '"name" is required'
+		case 'isinInvalid':
+			return '"isin" is not a valid ISIN (expected 12-character format)'
+		case 'riskKidOutOfRange':
+			return '"risk_kid" must be a whole number from 1 to 7'
+	}
+}
+
 export function createUpsertCatalogEntryTool(
 	credentials: GistCredentials,
 ): McpToolDefinition {
@@ -324,6 +346,16 @@ export function createUpsertCatalogEntryTool(
 		}
 		const merged: CatalogEntry =
 			existing === undefined ? changes : { ...existing, ...changes }
+
+		// Same gate a bank import row has to pass — see validateCatalogEntry.
+		// A caller-supplied value goes in exactly like a bank one would: neither
+		// gets to write something the other could not.
+		const issues = validateCatalogEntry(merged)
+		if (issues.length > 0) {
+			throw new Error(
+				`Invalid catalog entry: ${issues.map(describeCatalogEntryValidationIssue).join('; ')}.`,
+			)
+		}
 
 		const next =
 			existing === undefined
