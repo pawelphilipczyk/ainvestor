@@ -76,6 +76,8 @@ function formatBankImportRowIssue(issue: BankJsonImportRowIssue): string {
 			return t('errors.catalog.import.issue.missingFundName')
 		case 'isinInvalid':
 			return t('errors.catalog.import.issue.isinInvalid')
+		case 'riskKidOutOfRange':
+			return t('errors.catalog.import.issue.riskKidOutOfRange')
 		case 'duplicateIdInPaste':
 			return format(t('errors.catalog.import.issue.duplicateIdInPaste'), {
 				id: issue.id,
