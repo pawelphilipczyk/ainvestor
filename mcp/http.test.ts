@@ -241,13 +241,21 @@ describe('mcp over http', () => {
 		assert.equal(body.result.serverInfo.name, 'ainvestor')
 	})
 
-	it('lists the same tools the stdio transport exposes', async () => {
-		assert.deepEqual(await listToolNames(), [
+	it('lists every tool except the one that reads a local file', async () => {
+		const names = await listToolNames()
+		assert.deepEqual(names, [
 			'get_portfolio',
 			'get_guidelines',
 			'set_guideline',
 			'delete_guideline',
+			'list_catalog',
+			'get_catalog_entry',
+			'upsert_catalog_entry',
+			'delete_catalog_entry',
 		])
+		// The deployment cannot see the caller's disk, so importing from a path
+		// there would always fail.
+		assert.equal(names.includes('import_catalog_from_bank_file'), false)
 	})
 
 	it('reads the portfolio of the gist pinned by header', async () => {

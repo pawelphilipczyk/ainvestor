@@ -8,6 +8,8 @@ export type McpConfig = {
 	githubToken: string
 	/** Private data gist id, when pinned explicitly. Discovered by description when null. */
 	dataGistId: string | null
+	/** Public gist holding `catalog.json`. */
+	sharedCatalogGistId: string
 }
 
 function readRequired(params: {
@@ -38,6 +40,14 @@ export function resolveMcpConfig(
 			hint: 'Create a GitHub personal access token with the `gist` scope.',
 		}),
 		dataGistId: readOptional(env, 'AINVESTOR_GIST_ID'),
+		// Required rather than optional: without it fetchCatalog() quietly returns
+		// an empty list, so the catalog tools would answer "no such fund" instead
+		// of "no catalog configured".
+		sharedCatalogGistId: readRequired({
+			env,
+			name: 'SHARED_CATALOG_GIST_ID',
+			hint: 'Set it to the public gist holding catalog.json (the same value the web app uses).',
+		}),
 	}
 }
 
@@ -48,5 +58,6 @@ export function describeMcpConfig(config: McpConfig) {
 		dataGistId: config.dataGistId,
 		dataGistSource:
 			config.dataGistId === null ? 'discovered' : 'AINVESTOR_GIST_ID',
+		sharedCatalogGistId: config.sharedCatalogGistId,
 	}
 }

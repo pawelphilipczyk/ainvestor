@@ -282,7 +282,10 @@ export async function handleMcpHttpRequest(
 		})
 	}
 
-	const server = createAinvestorMcpServer(credentials.credentials)
+	const server = createAinvestorMcpServer({
+		credentials: credentials.credentials,
+		allowLocalFileTools: false,
+	})
 	const response = await server.handleMessage(parsed)
 
 	// A notification draws no JSON-RPC response, and the transport says to

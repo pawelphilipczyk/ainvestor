@@ -3,7 +3,10 @@ import { describe, it } from 'node:test'
 
 import { describeMcpConfig, resolveMcpConfig } from './config.ts'
 
-const validEnv = { GH_TOKEN: 'token-value' } satisfies NodeJS.ProcessEnv
+const validEnv = {
+	GH_TOKEN: 'token-value',
+	SHARED_CATALOG_GIST_ID: 'catalog-gist',
+} satisfies NodeJS.ProcessEnv
 
 describe('mcp config', () => {
 	it('resolves the required variables', () => {
@@ -19,9 +22,12 @@ describe('mcp config', () => {
 		)
 	})
 
-	it('needs nothing but the token', () => {
-		const config = resolveMcpConfig({ GH_TOKEN: 'token-value' })
-		assert.equal(config.githubToken, 'token-value')
+	it('needs the catalog gist too, so an unconfigured catalog is not read as empty', () => {
+		assert.throws(
+			() => resolveMcpConfig({ GH_TOKEN: 'token-value' }),
+			/SHARED_CATALOG_GIST_ID is not set.*catalog\.json/s,
+		)
+		assert.equal(resolveMcpConfig(validEnv).sharedCatalogGistId, 'catalog-gist')
 	})
 
 	it('treats whitespace-only values as missing', () => {

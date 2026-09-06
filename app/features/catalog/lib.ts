@@ -102,6 +102,24 @@ export function normalizeCatalogTickerLookupKey(raw: string): string {
 }
 
 /** Lookup by ticker (case-insensitive). */
+/**
+ * Free-text match over ticker, name and description — the catalog list's own
+ * search rule, shared so the UI and any other caller cannot disagree about what
+ * a query matches. An empty query matches everything.
+ */
+export function catalogEntryMatchesQuery(
+	entry: CatalogEntry,
+	query: string,
+): boolean {
+	const needle = query.trim().toLowerCase()
+	if (needle.length === 0) return true
+	return (
+		entry.ticker.toLowerCase().includes(needle) ||
+		entry.name.toLowerCase().includes(needle) ||
+		entry.description.toLowerCase().includes(needle)
+	)
+}
+
 export function findCatalogEntryByTicker(
 	catalog: CatalogEntry[],
 	ticker: string,
@@ -186,6 +204,38 @@ function normalizeMarketTokenFromFields(
 	const cleaned = raw.replace(/[^A-Z0-9._-]+/g, '_').replace(/^_+|_+$/g, '')
 	if (cleaned.length === 0) return null
 	return cleaned.length > 16 ? cleaned.slice(0, 16) : cleaned
+}
+
+/**
+ * The catalog's id rule, in one place: an explicit id wins, otherwise a valid
+ * ISIN plus the trading venue (so one fund listed on two exchanges keeps two
+ * rows), otherwise the ticker alone.
+ *
+ * Shared by the bank import and by any other writer, so a row added by hand
+ * lands on the same id the next import would compute for it — and updates that
+ * row instead of doubling it.
+ */
+export function deriveCatalogEntryId(params: {
+	ticker: string
+	explicitId?: string | undefined
+	isin?: string | undefined
+	market?: string | undefined
+	exchange?: string | undefined
+}): string {
+	const { ticker, explicitId, isin, market, exchange } = params
+	const trimmedExplicitId = (explicitId ?? '').trim()
+	if (trimmedExplicitId.length > 0) return trimmedExplicitId
+
+	const tickerUpper = ticker.trim().toUpperCase()
+	const tickerKey = normalizeCatalogTickerLookupKey(tickerUpper)
+	const isinNormalised = normalizeIsinForCatalogId(isin)
+	if (isinNormalised === null) return `t:${tickerKey}`
+
+	const marketToken =
+		normalizeMarketTokenFromFields(market, exchange) ??
+		exchangeSuffixFromTicker(tickerUpper) ??
+		tickerKey
+	return `${isinNormalised}:${marketToken}`
 }
 
 function normaliseTypeFromBank(assets: string, sector: string): EtfType {
@@ -331,27 +381,16 @@ export function parseBankJsonForImport(
 		}
 
 		const tickerUpper = ticker.toUpperCase()
-		const tickerKey = normalizeCatalogTickerLookupKey(tickerUpper)
-		const isinNorm = normalizeIsinForCatalogId(item.isin)
-		const marketFromFields = normalizeMarketTokenFromFields(
-			item.market,
-			item.exchange,
-		)
-		const marketToken =
-			marketFromFields ?? exchangeSuffixFromTicker(tickerUpper) ?? null
 		const type = normaliseTypeFromBank(item.assets ?? '', item.sector ?? '')
 		const description = (item.description ?? '').trim()
 
-		let id: string
-		const explicitId = (item.id ?? '').trim()
-		if (explicitId.length > 0) {
-			id = explicitId
-		} else if (isinNorm !== null) {
-			const qualifier = marketToken ?? tickerKey
-			id = `${isinNorm}:${qualifier}`
-		} else {
-			id = `t:${tickerKey}`
-		}
+		const id = deriveCatalogEntryId({
+			ticker: tickerUpper,
+			explicitId: item.id,
+			isin: item.isin,
+			market: item.market,
+			exchange: item.exchange,
+		})
 
 		const entry: CatalogEntry = {
 			id,
