@@ -179,6 +179,20 @@ describe('mcp protocol', () => {
 		)
 	})
 
+	it('answers a present-but-unusable id instead of staying silent', async () => {
+		// `id: null` is a malformed request, not a notification. Treating it as one
+		// leaves an HTTP client waiting on a reply that will never come.
+		const server = newServer()
+		const response = (await server.handleMessage({
+			jsonrpc: '2.0',
+			id: null,
+			method: 'ping',
+		})) as { error: { code: number } } | null
+
+		assert.notEqual(response, null)
+		assert.equal(response?.error.code, JSON_RPC_ERROR_CODES.invalidRequest)
+	})
+
 	it('answers ping with an empty result', async () => {
 		const server = newServer()
 		assert.deepEqual(

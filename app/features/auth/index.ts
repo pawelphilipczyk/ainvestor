@@ -4,7 +4,9 @@ import { Session } from 'remix/session'
 import { isGithubLoginApproved } from '../../lib/approved-users.ts'
 import { getClientId, getClientSecret } from '../../lib/auth.ts'
 import { findOrCreateGist } from '../../lib/gist.ts'
+import { t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
+import { flashBanner } from '../../lib/session-flash.ts'
 import { DEFAULT_UI_LOCALE } from '../../lib/ui-locale.ts'
 import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
 import { routes } from '../../routes.ts'
@@ -145,10 +147,27 @@ export const authController = {
 
 			context.get(Session).set('isAdmin', isAdmin)
 
-			const gistId = await findOrCreateGist(token)
+			// Resolving the gist now sweeps every page of the user's gists and can
+			// fail on a huge account or a GitHub hiccup. An unhandled rejection
+			// here would end a successful sign-in on a bare 500, so sign the user
+			// in regardless and let the page report the storage problem.
+			let gistId: string | null = null
+			try {
+				gistId = await findOrCreateGist(token)
+			} catch (error) {
+				console.error('[auth] Could not resolve the data gist', error)
+			}
+
 			context.get(Session).set('token', token)
-			context.get(Session).set('gistId', gistId)
+			if (gistId !== null) context.get(Session).set('gistId', gistId)
 			context.get(Session).unset('approvalStatus')
+
+			if (gistId === null) {
+				flashBanner(context.get(Session), {
+					text: t('errors.portfolio.persistence'),
+					tone: 'error',
+				})
+			}
 
 			return createRedirectResponse(routes.home.index.href())
 		},

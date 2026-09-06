@@ -30,29 +30,49 @@ function firstHeaderValue(raw: string | null): string | null {
 	return first.length > 0 ? first : null
 }
 
+/** Hosts a local run may legitimately be reached on. */
+function isLoopbackHost(host: string): boolean {
+	const hostname = host.split(':')[0] ?? ''
+	return (
+		hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+	)
+}
+
 /**
  * The origin clients reach this app on.
  *
- * Behind Fly's proxy the request arrives over plain HTTP with the original
- * scheme in `X-Forwarded-Proto`, so trusting `request.url` alone would advertise
- * `http://` URLs and break the flow. `AINVESTOR_PUBLIC_ORIGIN` overrides
- * everything when a deployment needs certainty.
+ * **This value is security-critical**: it becomes the OAuth issuer, the
+ * `authorization_servers` entry and the `resource_metadata` challenge, so a
+ * caller who could choose it could send clients to an authorization server of
+ * their choosing and harvest GitHub tokens. Request headers are therefore never
+ * trusted on their own — the host must be one this deployment knows it owns:
+ *
+ * 1. `AINVESTOR_PUBLIC_ORIGIN`, when set, wins outright.
+ * 2. Otherwise `FLY_APP_NAME`, which Fly sets in the machine's environment and
+ *    no request can forge, gives `https://<app>.fly.dev`.
+ * 3. Otherwise a loopback host, so local development works.
+ *
+ * Returns null when none applies, which callers must treat as "cannot serve
+ * discovery" rather than falling back to the request.
  */
-export function resolvePublicOrigin(request: Request): string {
+export function resolvePublicOrigin(request: Request): string | null {
 	const configured = (process.env.AINVESTOR_PUBLIC_ORIGIN ?? '').trim()
 	if (configured.length > 0) return configured.replace(/\/+$/, '')
 
-	const requestUrl = new URL(request.url)
-	const forwardedProtocol = firstHeaderValue(
-		request.headers.get('X-Forwarded-Proto'),
-	)
-	const forwardedHost = firstHeaderValue(
-		request.headers.get('X-Forwarded-Host'),
-	)
+	const flyAppName = (process.env.FLY_APP_NAME ?? '').trim()
+	if (flyAppName.length > 0) return `https://${flyAppName}.fly.dev`
 
-	const protocol = forwardedProtocol ?? requestUrl.protocol.replace(':', '')
-	const host = forwardedHost ?? request.headers.get('Host') ?? requestUrl.host
-	return `${protocol}://${host}`
+	const requestUrl = new URL(request.url)
+	const host = request.headers.get('Host') ?? requestUrl.host
+	if (isLoopbackHost(host)) {
+		const forwardedProtocol = firstHeaderValue(
+			request.headers.get('X-Forwarded-Proto'),
+		)
+		const protocol = forwardedProtocol ?? requestUrl.protocol.replace(':', '')
+		return `${protocol}://${host}`
+	}
+
+	return null
 }
 
 /** Canonical URI of the protected resource, as used in the metadata document. */
@@ -92,22 +112,43 @@ export function buildAuthorizationServerMetadata(origin: string) {
 		// advertised may never refresh — leaving the connector dead after 8 hours.
 		grant_types_supported: ['authorization_code', 'refresh_token'],
 		code_challenge_methods_supported: ['S256'],
-		token_endpoint_auth_methods_supported: [
-			'client_secret_post',
-			'client_secret_basic',
-		],
+		// GitHub documents client credentials in the request body only.
+		// Advertising `client_secret_basic` would invite a client to send them as
+		// a Basic header, which GitHub answers with incorrect_client_credentials.
+		token_endpoint_auth_methods_supported: ['client_secret_post'],
 		scopes_supported: [REQUIRED_GITHUB_SCOPE],
 	}
 }
 
-/** JSON response for a metadata document, cacheable and readable cross-origin. */
+/** JSON response for a metadata document, readable cross-origin. */
 export function metadataResponse(document: object): Response {
 	return new Response(JSON.stringify(document, null, 2), {
 		headers: {
 			'Content-Type': 'application/json',
-			'Cache-Control': 'public, max-age=3600',
+			// Deliberately private: the document names this deployment's own
+			// origin, and a shared cache replaying one deployment's answer to
+			// another's clients would redirect their sign-in.
+			'Cache-Control': 'no-store',
 			// Discovery may be performed by a browser-based client.
 			'Access-Control-Allow-Origin': '*',
 		},
 	})
+}
+
+/** Discovery cannot be served when the deployment does not know its own origin. */
+export function unknownOriginResponse(): Response {
+	return new Response(
+		JSON.stringify({
+			error: 'server_error',
+			error_description:
+				'This deployment cannot determine its own public origin. Set AINVESTOR_PUBLIC_ORIGIN.',
+		}),
+		{
+			status: 500,
+			headers: {
+				'Content-Type': 'application/json',
+				'Cache-Control': 'no-store',
+			},
+		},
+	)
 }

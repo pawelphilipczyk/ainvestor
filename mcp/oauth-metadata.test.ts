@@ -10,6 +10,7 @@ import {
 } from './oauth-metadata.ts'
 
 const originalPublicOrigin = process.env.AINVESTOR_PUBLIC_ORIGIN
+const originalFlyAppName = process.env.FLY_APP_NAME
 
 afterEach(() => {
 	if (originalPublicOrigin === undefined) {
@@ -17,6 +18,8 @@ afterEach(() => {
 	} else {
 		process.env.AINVESTOR_PUBLIC_ORIGIN = originalPublicOrigin
 	}
+	if (originalFlyAppName === undefined) delete process.env.FLY_APP_NAME
+	else process.env.FLY_APP_NAME = originalFlyAppName
 })
 
 function requestWith(headers: Record<string, string>): Request {
@@ -29,46 +32,53 @@ function requestWith(headers: Record<string, string>): Request {
 }
 
 describe('public origin resolution', () => {
-	it('honours the forwarded scheme, not the internal one', () => {
-		// Fly terminates TLS and forwards plain HTTP. Trusting request.url would
-		// advertise http:// metadata URLs and break the whole flow.
+	it('refuses a host it cannot prove it owns', () => {
+		// The origin becomes the OAuth issuer and the resource_metadata target.
+		// Trusting a request header here would let a caller send clients to an
+		// authorization server of their choosing and harvest GitHub tokens.
 		delete process.env.AINVESTOR_PUBLIC_ORIGIN
-		const origin = resolvePublicOrigin(
-			requestWith({
-				'X-Forwarded-Proto': 'https',
-				Host: 'ainvestor.fly.dev',
-			}),
-		)
-		assert.equal(origin, 'https://ainvestor.fly.dev')
-	})
-
-	it('takes only the first value of a forwarded header chain', () => {
-		delete process.env.AINVESTOR_PUBLIC_ORIGIN
-		const origin = resolvePublicOrigin(
-			requestWith({
-				'X-Forwarded-Proto': 'https, http',
-				'X-Forwarded-Host': 'ainvestor.fly.dev, internal.local',
-			}),
-		)
-		assert.equal(origin, 'https://ainvestor.fly.dev')
-	})
-
-	it('falls back to the request itself when nothing is forwarded', () => {
-		delete process.env.AINVESTOR_PUBLIC_ORIGIN
-		const origin = resolvePublicOrigin(
-			new Request(
-				'http://127.0.0.1:44100/.well-known/oauth-protected-resource',
+		delete process.env.FLY_APP_NAME
+		assert.equal(
+			resolvePublicOrigin(
+				requestWith({
+					Host: 'evil.test',
+					'X-Forwarded-Host': 'evil.test',
+					'X-Forwarded-Proto': 'https',
+				}),
 			),
+			null,
 		)
-		assert.equal(origin, 'http://127.0.0.1:44100')
 	})
 
-	it('lets an explicit setting override the headers, trailing slash trimmed', () => {
-		process.env.AINVESTOR_PUBLIC_ORIGIN = 'https://ainvestor.example/'
-		const origin = resolvePublicOrigin(
-			requestWith({ 'X-Forwarded-Proto': 'http', Host: 'wrong.local' }),
+	it('derives the origin from the Fly app name, which no request can forge', () => {
+		delete process.env.AINVESTOR_PUBLIC_ORIGIN
+		process.env.FLY_APP_NAME = 'ainvestor-preview'
+		assert.equal(
+			resolvePublicOrigin(requestWith({ Host: 'evil.test' })),
+			'https://ainvestor-preview.fly.dev',
 		)
-		assert.equal(origin, 'https://ainvestor.example')
+	})
+
+	it('lets an explicit setting override everything, trailing slash trimmed', () => {
+		process.env.AINVESTOR_PUBLIC_ORIGIN = 'https://ainvestor.example/'
+		process.env.FLY_APP_NAME = 'ainvestor'
+		assert.equal(
+			resolvePublicOrigin(requestWith({ Host: 'wrong.local' })),
+			'https://ainvestor.example',
+		)
+	})
+
+	it('still works on loopback so local development is possible', () => {
+		delete process.env.AINVESTOR_PUBLIC_ORIGIN
+		delete process.env.FLY_APP_NAME
+		assert.equal(
+			resolvePublicOrigin(
+				new Request(
+					'http://127.0.0.1:44100/.well-known/oauth-protected-resource',
+				),
+			),
+			'http://127.0.0.1:44100',
+		)
 	})
 })
 
@@ -131,6 +141,14 @@ describe('authorization server metadata', () => {
 
 	it('advertises S256, the only challenge method GitHub accepts', () => {
 		assert.deepEqual(metadata.code_challenge_methods_supported, ['S256'])
+	})
+
+	it('advertises only the body-credential auth GitHub documents', () => {
+		// Offering client_secret_basic invites a client to send credentials as a
+		// Basic header, which GitHub answers with incorrect_client_credentials.
+		assert.deepEqual(metadata.token_endpoint_auth_methods_supported, [
+			'client_secret_post',
+		])
 	})
 
 	it('advertises the refresh grant, so expiring tokens can be renewed', () => {

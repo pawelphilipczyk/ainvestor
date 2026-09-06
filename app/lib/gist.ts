@@ -136,7 +136,11 @@ export async function findGistIdByDescription(
 		}
 
 		const gists = (await response.json()) as GistListItem[]
-		if (!Array.isArray(gists)) return null
+		// Not a miss — an answer we cannot read. Returning null here would let
+		// `findOrCreateGist` create a duplicate, the very thing this pages to avoid.
+		if (!Array.isArray(gists)) {
+			throw new Error('GitHub API returned a non-array gist listing')
+		}
 
 		const existing = gists.find((gist) => gist.description === description)
 		if (existing) return existing.id

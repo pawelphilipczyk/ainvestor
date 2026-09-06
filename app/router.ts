@@ -12,6 +12,7 @@ import {
 	buildProtectedResourceMetadata,
 	metadataResponse,
 	resolvePublicOrigin,
+	unknownOriginResponse,
 } from '../mcp/oauth-metadata.ts'
 import { adminController } from './features/admin/index.ts'
 import { setAdviceClient } from './features/advice/advice-client.ts'
@@ -112,17 +113,26 @@ router.get(routes.mcp.stream, (context) =>
 	handleMcpHttpRequest(context.request),
 )
 
-function protectedResourceMetadata(context: AppRequestContext) {
-	const origin = resolvePublicOrigin(context.request)
-	return metadataResponse(buildProtectedResourceMetadata(origin))
+/** Serves one discovery document, refusing when the origin cannot be trusted. */
+function discoveryMetadata(
+	build: (origin: string) => object,
+): (context: AppRequestContext) => Response {
+	return (context) => {
+		const origin = resolvePublicOrigin(context.request)
+		if (origin === null) return unknownOriginResponse()
+		return metadataResponse(build(origin))
+	}
 }
+
+const protectedResourceMetadata = discoveryMetadata(
+	buildProtectedResourceMetadata,
+)
 
 router.get(routes.mcp.protectedResource, protectedResourceMetadata)
 router.get(routes.mcp.protectedResourceForEndpoint, protectedResourceMetadata)
-router.get(routes.mcp.authorizationServer, (context) =>
-	metadataResponse(
-		buildAuthorizationServerMetadata(resolvePublicOrigin(context.request)),
-	),
+router.get(
+	routes.mcp.authorizationServer,
+	discoveryMetadata(buildAuthorizationServerMetadata),
 )
 
 router.map(routes.home, homeController)

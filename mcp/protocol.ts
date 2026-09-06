@@ -69,11 +69,22 @@ function toolDescriptor(tool: McpToolDefinition) {
 	}
 }
 
-/** The request id when the message carries a usable one, else null (notification). */
-function readRequestId(raw: unknown): string | number | null {
-	if (raw === null || typeof raw !== 'object') return null
+/**
+ * A notification omits `id` entirely. An `id` that is present but unusable —
+ * `null`, an object — is a malformed *request*: answering it with silence would
+ * leave an HTTP client waiting on a reply that never comes, so it earns an
+ * error frame instead.
+ */
+function readRequestId(
+	raw: unknown,
+): { kind: 'notification' } | { kind: 'request'; id: string | number | null } {
+	if (raw === null || typeof raw !== 'object') return { kind: 'notification' }
+	if (!('id' in raw)) return { kind: 'notification' }
 	const id = (raw as { id?: unknown }).id
-	return typeof id === 'string' || typeof id === 'number' ? id : null
+	if (typeof id === 'string' || typeof id === 'number') {
+		return { kind: 'request', id }
+	}
+	return { kind: 'request', id: null }
 }
 
 function errorText(error: unknown): string {
@@ -136,14 +147,15 @@ export function createMcpServer(params: {
 
 	/** Returns the response to write, or null for notifications and ignored messages. */
 	async function handleMessage(raw: unknown): Promise<JsonRpcResponse | null> {
-		const id = readRequestId(raw)
+		const addressing = readRequestId(raw)
 
-		// A message with no usable id is a notification, and JSON-RPC forbids
-		// answering one. This has to be decided before the envelope is judged,
-		// or a malformed notification draws an unsolicited error frame.
-		if (id === null) return null
+		// A notification carries no id, and JSON-RPC forbids answering one. This
+		// has to be decided before the envelope is judged, or a malformed
+		// notification draws an unsolicited error frame.
+		if (addressing.kind === 'notification') return null
+		const id = addressing.id
 
-		if (!isJsonRpcIncoming(raw)) {
+		if (id === null || !isJsonRpcIncoming(raw)) {
 			return errorResponse({
 				id,
 				code: JSON_RPC_ERROR_CODES.invalidRequest,
