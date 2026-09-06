@@ -28,6 +28,17 @@ afterEach(() => {
 	}
 })
 
+/** Tool names from a `tools/list` answer, in the order the server listed them. */
+async function listToolNames(): Promise<string[]> {
+	const response = await handleMcpHttpRequest(
+		post({ body: request(1, 'tools/list') }),
+	)
+	const body = (await response.json()) as {
+		result: { tools: { name: string }[] }
+	}
+	return body.result.tools.map((tool) => tool.name)
+}
+
 function post(params: {
 	body?: unknown
 	headers?: Record<string, string>
@@ -231,16 +242,12 @@ describe('mcp over http', () => {
 	})
 
 	it('lists the same tools the stdio transport exposes', async () => {
-		const response = await handleMcpHttpRequest(
-			post({ body: request(1, 'tools/list') }),
-		)
-		const body = (await response.json()) as {
-			result: { tools: { name: string }[] }
-		}
-		assert.deepEqual(
-			body.result.tools.map((tool) => tool.name),
-			['get_portfolio'],
-		)
+		assert.deepEqual(await listToolNames(), [
+			'get_portfolio',
+			'get_guidelines',
+			'set_guideline',
+			'delete_guideline',
+		])
 	})
 
 	it('reads the portfolio of the gist pinned by header', async () => {
