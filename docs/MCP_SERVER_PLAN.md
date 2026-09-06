@@ -454,16 +454,27 @@ the plan is already agreed, so implement directly rather than re-planning.
   terminates TLS and forwards plain HTTP; trusting `request.url` would advertise
   `http://` metadata and break the flow. `AINVESTOR_PUBLIC_ORIGIN` overrides it.
 
-  ### Still unverified
+  ### Verified end to end
 
-  Whether a Claude client completes this flow end to end. Two plausible failure
-  points, neither observable from the build sandbox:
+  Confirmed working from the **Claude mobile app** against the preview
+  deployment: discovery, GitHub sign-in with PKCE, token exchange, `initialize`
+  and `tools/list` all succeed, and `get_portfolio` appears in the client.
 
-  1. **Redirect URI** — the user's OAuth App must list the client's callback URL.
-     The first attempt names it in GitHub's error.
-  2. **Token response format** — GitHub's token endpoint returns
-     form-encoded data unless the caller sends `Accept: application/json`. A
-     client that omits it will fail to parse the token.
+  Two things this settled that could not be checked from CI:
+
+  1. **Redirect URI** — `https://claude.ai/api/mcp/auth_callback`, registered
+     under the OAuth App's **Authorization callback URL**. Homepage URL is
+     cosmetic and is a common wrong turn. When another client differs, the
+     failed authorization's own page URL carries the `redirect_uri` it sent.
+  2. **Token response format** — no problem in practice. The worry was that
+     GitHub's token endpoint returns form-encoded data unless the caller sends
+     `Accept: application/json`; the client evidently sends it.
+
+  Registration settings that matter: **Allow wildcard matching** off (strict
+  redirect matching is the defence against code interception), **Enable Device
+  Flow** off (unused). **Expire user access tokens** may be left on now that
+  `refresh_token` is advertised — it was worth turning off only to isolate
+  variables during the first attempt.
 
   ### Security note
 

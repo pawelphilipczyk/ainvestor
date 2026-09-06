@@ -110,10 +110,21 @@ preregistered credentials — dynamic client registration is not offered.
 3. The client will send you to GitHub to authorize the `gist` scope, then start
    using the connector.
 
-**The redirect URI is the usual stumbling block.** Your OAuth App must list the
-callback URL your Claude client uses; the authorization attempt fails with a
-GitHub error naming the mismatch, and that error text tells you the exact URL to
-register. Add it under **Authorization callback URL** and retry.
+**The redirect URI is the usual stumbling block.** Set **Authorization callback
+URL** — not Homepage URL, which is cosmetic — to the address your client returns
+to. For the Claude apps that is:
+
+```
+https://claude.ai/api/mcp/auth_callback
+```
+
+Verified working from the Claude mobile app. If another client rejects it, the
+failed authorization lands on a GitHub error page whose own URL carries the
+`redirect_uri` parameter the client actually sent; copy that value in.
+
+Leave **Allow wildcard matching** off — strict redirect matching is the main
+defence against authorization-code interception — and **Enable Device Flow** off,
+since this flow does not use it.
 
 Discovery endpoints, should you want to inspect them:
 
