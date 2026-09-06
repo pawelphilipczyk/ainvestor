@@ -4,9 +4,10 @@ Plan for exposing this app's data to LLM clients over the **Model Context
 Protocol**. Work proceeds in **small, separately-chatted stages**; each stage
 ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
-**Progress:** Stage 1 is complete and `get_portfolio` from Stage 2 has shipped.
-Flip a checkbox to `[x]` when its stage ships (same PR as the code, or a tiny
-follow-up).
+**Progress:** Stages 1 and 10 have shipped, along with `get_portfolio` from
+Stage 2 — all merged in #166, so both transports and the OAuth discovery are
+live. Stage 2 keeps its box open for the guidelines tool. Flip a checkbox to
+`[x]` when its stage ships (same PR as the code, or a tiny follow-up).
 
 Read before any implementation stage:
 
@@ -233,7 +234,7 @@ the plan is already agreed, so implement directly rather than re-planning.
   - Read rows with fetchGuidelines from app/lib/guidelines.ts, using resolveDataGistId from mcp/data-gist.ts for the gist id.
   - Add sumGuidelineTargetPercent so the model sees whether targets add up to 100.
   - Add aggregateGuidelineTargetsByEtfType from app/features/advice/advice-openai.ts so it sees the effective bucket per asset type, not just raw rows. Instrument rows count toward their asset class — that is the single most misread part of this model.
-  - Register it in mcp/server.ts next to get_portfolio.
+  - Register it in mcp/ainvestor-server.ts next to get_portfolio, which is where both transports get their tool list. Registering it in mcp/server.ts would expose it over stdio only.
 
   Constraints:
   - Import the existing helpers; do not reimplement the maths.
@@ -241,7 +242,7 @@ the plan is already agreed, so implement directly rather than re-planning.
 
   Test: mock globalThis.fetch as mcp/tools/portfolio.test.ts does. Cover no guidelines, instrument plus asset-class rows of the same type folding into one bucket, and targets summing over 100.
 
-  Verify: npm run check, npm run typecheck, npm test, plus a real stdio handshake (see the Stage 1 probe in the git history).
+  Verify: npm run check, npm run typecheck, npm test, plus a real handshake over both transports — an stdio probe (see the Stage 1 probe in the git history) and a tools/list against a running server on POST /mcp.
 
   Deliverable: one PR.
   ```
@@ -398,7 +399,9 @@ the plan is already agreed, so implement directly rather than re-planning.
   Verify: npm run check, npm run typecheck, npm test.
 
   Deliverable: one PR.
-  ```- [x] **Stage 10 — Remote HTTP transport** — shipped.
+  ```
+
+- [x] **Stage 10 — Remote HTTP transport** — shipped.
 
   `POST /mcp` on the app itself, so the tools are reachable from any MCP client
   including the mobile app. `mcp/http.ts` holds the transport; `app/router.ts`
@@ -412,7 +415,9 @@ the plan is already agreed, so implement directly rather than re-planning.
     already grants that access directly against GitHub.
   - It is **multi-user for free**: each caller reads their own gist. The gist-id
     caches in `mcp/data-gist.ts` are therefore keyed **by token** — a
-    process-wide cache would hand one caller another's holdings.
+    process-wide cache would hand one caller another's holdings. The keying
+    itself lives in `mcp/token-cache.ts`: SHA-256 keys so a heap dump yields
+    no usable credential, and LRU eviction so a hot entry survives.
   - No authorization server, no `/authorize`, no `/token`, no PKCE, no client
     registration, no token storage. An earlier draft of this stage proposed an
     OAuth bridge for all of that; passing the user's own token removes the need.
