@@ -14,6 +14,11 @@ import { createAinvestorMcpServer } from './ainvestor-server.ts'
 import type { GistCredentials } from './data-gist.ts'
 import type { JsonRpcResponse } from './jsonrpc.ts'
 import { errorResponse, JSON_RPC_ERROR_CODES } from './jsonrpc.ts'
+import {
+	REQUIRED_GITHUB_SCOPE,
+	resolvePublicOrigin,
+	resourceMetadataUrl,
+} from './oauth-metadata.ts'
 import { SUPPORTED_PROTOCOL_VERSIONS } from './protocol.ts'
 
 /** Optional per-request override; falls back to the deployment's own setting. */
@@ -130,12 +135,17 @@ export async function handleMcpHttpRequest(
 
 	const credentials = readCredentials(request)
 	if (credentials === null) {
+		// RFC 9728: point the client at the metadata that names GitHub as the
+		// authorization server, and state the scope so it asks for no more.
+		const metadataUrl = resourceMetadataUrl(resolvePublicOrigin(request))
 		return protocolError({
 			code: JSON_RPC_ERROR_CODES.invalidRequest,
 			message:
 				'Missing credentials. Send `Authorization: Bearer <GitHub token with the gist scope>`.',
 			status: 401,
-			headers: { 'WWW-Authenticate': 'Bearer' },
+			headers: {
+				'WWW-Authenticate': `Bearer resource_metadata="${metadataUrl}", scope="${REQUIRED_GITHUB_SCOPE}"`,
+			},
 		})
 	}
 

@@ -7,6 +7,13 @@ export const routes = route({
 	mcp: {
 		call: post('/mcp'),
 		stream: get('/mcp'),
+		// OAuth discovery. Clients read the WWW-Authenticate header first, but the
+		// spec requires them to fall back to these well-known URIs.
+		protectedResource: get('/.well-known/oauth-protected-resource'),
+		protectedResourceForEndpoint: get(
+			'/.well-known/oauth-protected-resource/mcp',
+		),
+		authorizationServer: get('/.well-known/oauth-authorization-server'),
 	},
 	home: {
 		index: get('/'),

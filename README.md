@@ -90,29 +90,51 @@ There are two ways to reach it. Both need a **classic** GitHub personal access
 token with the **`gist`** scope and nothing else — fine-grained tokens cannot
 access gists. Create one at
 [Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens).
-
 ### Remote — works from any client, including mobile
 
 The deployed app answers MCP at `POST /mcp` (for example
-`https://ainvestor.fly.dev/mcp`). Add it as a custom connector and send your
-token as a request header:
+`https://ainvestor.fly.dev/mcp`), and signs you in **through GitHub**. The app
+never becomes an authorization server of its own and stores no credential: it
+publishes OAuth discovery metadata that names GitHub as the authorization
+server, the client runs the standard authorization-code + PKCE flow against
+GitHub, and the GitHub token it receives is the credential `/mcp` expects.
 
+You need a GitHub **OAuth App** of your own, because the client must present
+preregistered credentials — dynamic client registration is not offered.
+
+1. Create one at
+   [Settings → Developer settings → OAuth Apps](https://github.com/settings/developers).
+2. Add the connector in your Claude client: give it the URL
+   `https://ainvestor.fly.dev/mcp`, turn **Requires sign-in** on, and paste the
+   OAuth App's **Client ID** and **Client secret**.
+3. The client will send you to GitHub to authorize the `gist` scope, then start
+   using the connector.
+
+**The redirect URI is the usual stumbling block.** Your OAuth App must list the
+callback URL your Claude client uses; the authorization attempt fails with a
+GitHub error naming the mismatch, and that error text tells you the exact URL to
+register. Add it under **Authorization callback URL** and retry.
+
+Discovery endpoints, should you want to inspect them:
+
+```bash
+curl -s https://ainvestor.fly.dev/.well-known/oauth-protected-resource | jq
+curl -s https://ainvestor.fly.dev/.well-known/oauth-authorization-server | jq
 ```
-Authorization: Bearer ghp_your_token_here
-```
 
-The server stores no credential of its own: whoever presents a token reads that
-token's gist, and a request without one reads nothing. Optionally pin a specific
-gist with `X-Ainvestor-Gist-Id`; otherwise the deployment's `AINVESTOR_GIST_ID`
-is used, and failing that the gist is found by description.
+Set `AINVESTOR_PUBLIC_ORIGIN` if the deployment sits behind a proxy that does not
+send `X-Forwarded-Proto` and `Host` faithfully; otherwise the origin is derived
+from those headers.
 
-Two caveats before relying on this:
+Two things to weigh before relying on this:
 
-- Your connector client must let you set a request header. Some only offer OAuth
-  fields, in which case this path is not available to you yet.
 - The `gist` scope is all-or-nothing — it reads and writes **every** gist on your
-  account — and the token travels through the client vendor's infrastructure to
-  reach the endpoint. Over stdio it never leaves your machine.
+  account. Fine-grained tokens cannot access gists at all, so this is the only
+  option GitHub offers.
+- A GitHub token is not bound to this server as its audience, which the MCP
+  security guidance would otherwise prefer. In practice the server is your own
+  and the tools are read-only, but the token it receives is valid at GitHub
+  generally, not just here.
 
 ### Local — stdio, via Claude Desktop
 

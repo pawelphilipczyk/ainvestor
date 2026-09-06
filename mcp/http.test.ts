@@ -80,9 +80,28 @@ describe('mcp over http', () => {
 			}),
 		)
 		assert.equal(response.status, 401)
-		assert.equal(response.headers.get('WWW-Authenticate'), 'Bearer')
 		const body = (await response.json()) as { error: { message: string } }
 		assert.match(body.error.message, /gist scope/)
+	})
+
+	it('points an unauthenticated client at its OAuth metadata and scope', async () => {
+		// RFC 9728 discovery: without this header a client cannot find out that
+		// GitHub is the authorization server, and the sign-in flow never starts.
+		const response = await handleMcpHttpRequest(
+			new Request(ENDPOINT, {
+				method: 'POST',
+				headers: { 'X-Forwarded-Proto': 'https' },
+				body: JSON.stringify(request(1, 'initialize')),
+			}),
+		)
+		assert.equal(response.status, 401)
+		const challenge = response.headers.get('WWW-Authenticate') ?? ''
+		assert.match(challenge, /^Bearer /)
+		assert.match(
+			challenge,
+			/resource_metadata="https:\/\/ainvestor\.fly\.dev\/\.well-known\/oauth-protected-resource"/,
+		)
+		assert.match(challenge, /scope="gist"/)
 	})
 
 	it('rejects an Authorization header that is not a bearer token', async () => {

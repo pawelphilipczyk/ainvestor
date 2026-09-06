@@ -29,7 +29,7 @@ These are settled so every thread starts from the same baseline. Change them
 | # | Decision | Choice | Why |
 |---|---|---|---|
 | D1 | Transport | **Both**: stdio for a local client, `POST /mcp` on the deployed app for everything else | stdio needs the client to launch a local subprocess, so it cannot serve a phone at all. The HTTP endpoint (Stage 10) covers that without replacing stdio, and both share one tool definition in `mcp/ainvestor-server.ts`. |
-| D2 | Auth | **The caller's own GitHub token with `gist` scope** — from env over stdio, from the `Authorization` header over HTTP | The app's OAuth flow is a *login* flow with cookie sessions, not an authorization server. Rather than building one, the caller presents the same credential the stdio config already holds, so the server stores no secret and is multi-user by construction. |
+| D2 | Auth | **The caller's own GitHub token with `gist` scope** — from env over stdio, from the `Authorization` header over HTTP. Remote clients obtain that token by signing in to **GitHub**, which the app names as its authorization server in published discovery metadata | The app never becomes an authorization server and stores no secret. Building one was designed and rejected once GitHub turned out to serve the same purpose: it supports PKCE `S256`, and the connector dialog's Client ID/secret fields take a GitHub OAuth App the user registers. |
 | D3 | Write access | **Read-only through Stage 6**; writes land in Stage 7 behind an env flag | Reads are safe and cover most of the value. Writes need read-modify-write care because the gist API replaces whole files. |
 | D4 | Location | **`mcp/` in this repo**, importing `app/lib/*` and `app/features/*` directly | Reuses `fetchEtfs`, `fetchGuidelines`, `fetchCatalog`, and the allocation maths with no package boundary. CI catches drift. |
 | D5 | AI advice | **Read stored analyses only** in v1; generating new ones is optional Stage 9 | Generation needs `OPENAI_API_KEY` in the MCP client's environment and costs money per call. |
@@ -60,6 +60,7 @@ Named to match the existing `GH_` / `SHARED_CATALOG_GIST_ID` convention.
 | `SHARED_CATALOG_GIST_ID` | Not yet | Public gist holding `catalog.json`. Optional until Stage 3 adds a catalog tool — the server must not refuse to start over a variable nothing reads. |
 | `AINVESTOR_GIST_ID` | No | Private data gist id. When unset, it is discovered by description. |
 | `AINVESTOR_MCP_ALLOW_WRITES` | No | Set to `1` to enable the Stage 7 write tools. Default is read-only. |
+| `AINVESTOR_PUBLIC_ORIGIN` | No | Overrides the origin advertised in OAuth discovery metadata. Only needed when a proxy does not forward `X-Forwarded-Proto` / `Host` faithfully. |
 | `OPENAI_API_KEY` | No | Only needed if Stage 9 (advice generation) ships. |
 
 ---
@@ -129,11 +130,15 @@ the MCP layer; if one of these matters, fix the model in the app first.
 
 ```
 mcp/
+  ainvestor-server.ts  # the tool surface, shared by both transports
   server.ts            # stdio entry point: stdin lines in, JSON-RPC out
+  http.ts              # Streamable HTTP transport, mounted at POST /mcp
+  oauth-metadata.ts    # RFC 9728 / RFC 8414 discovery pointing at GitHub
   protocol.ts          # MCP dispatch (initialize, ping, tools/list, tools/call)
   jsonrpc.ts           # JSON-RPC 2.0 types, error codes, single-line framing
   config.ts            # env resolution and validation
-  data-gist.ts         # resolves the private data gist id (never creates one)
+  data-gist.ts         # resolves the data gist id (never creates one)
+  stdout-guard.ts      # keeps console output off the stdio protocol channel
   tools/portfolio.ts   # get_portfolio
   **/*.test.ts         # co-located, run by `tsx --test`
 ```
@@ -422,21 +427,50 @@ the plan is already agreed, so implement directly rather than re-planning.
   requires this against DNS rebinding), and an `MCP-Protocol-Version` this server
   does not implement returns **400**.
 
+  ### Sign-in: GitHub is the authorization server
+
+  The Claude mobile connector dialog offers only a URL and OAuth Client
+  ID/secret — **no request-header field** — so a pasted Bearer token cannot be
+  configured there. Rather than becoming an authorization server, the app
+  publishes discovery metadata (`mcp/oauth-metadata.ts`) that points at GitHub:
+
+  - `/.well-known/oauth-protected-resource` (RFC 9728) names the app's own origin
+    in `authorization_servers` and `gist` in `scopes_supported`.
+  - `/.well-known/oauth-authorization-server` (RFC 8414) carries `issuer` = the
+    app, and `authorization_endpoint` / `token_endpoint` = GitHub's.
+  - A `401` from `/mcp` carries
+    `WWW-Authenticate: Bearer resource_metadata="…", scope="gist"`.
+
+  **Why the app is the issuer:** clients discover authorization-server metadata
+  at `<issuer>/.well-known/oauth-authorization-server`, and GitHub publishes no
+  such document, so naming `github.com` there would simply fail discovery.
+
+  No `registration_endpoint` is advertised, so the client uses a GitHub OAuth App
+  the user registers themselves — which is exactly what the dialog's Client ID
+  and secret fields are for. GitHub has supported PKCE `S256` since July 2025,
+  which is what made this possible.
+
+  The origin is derived from `X-Forwarded-Proto` / `X-Forwarded-Host`, since Fly
+  terminates TLS and forwards plain HTTP; trusting `request.url` would advertise
+  `http://` metadata and break the flow. `AINVESTOR_PUBLIC_ORIGIN` overrides it.
+
   ### Still unverified
 
-  Whether the connector dialog in a given Claude client exposes a request-headers
-  field. `static_headers` is reported as beta and inconsistently surfaced
-  (`anthropics/claude-ai-mcp` issues #112, #644, #685), and Anthropic's docs were
-  unreachable from the build sandbox. If a client only offers OAuth, this
-  endpoint still stands and an OAuth layer can be added in front of it later —
-  the transport is not wasted either way.
+  Whether a Claude client completes this flow end to end. Two plausible failure
+  points, neither observable from the build sandbox:
+
+  1. **Redirect URI** — the user's OAuth App must list the client's callback URL.
+     The first attempt names it in GitHub's error.
+  2. **Token response format** — GitHub's token endpoint returns
+     form-encoded data unless the caller sends `Accept: application/json`. A
+     client that omits it will fail to parse the token.
 
   ### Security note
 
-  A classic PAT is required: fine-grained tokens do not support gists, so the
-  `gist` scope is all-or-nothing across every gist on the account. The token also
-  transits the client vendor's infrastructure to reach this endpoint, unlike the
-  stdio setup where it never leaves the machine.
+  A classic PAT or OAuth token with the `gist` scope is all-or-nothing across
+  every gist on the account; fine-grained tokens do not support gists. The token
+  is also not audience-bound to this server, a deviation from the MCP security
+  guidance that the read-only tool surface mitigates but does not remove.
 
 ## Open questions
 

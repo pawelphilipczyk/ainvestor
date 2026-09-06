@@ -7,6 +7,12 @@ import { Session } from 'remix/session'
 import { session } from 'remix/session-middleware'
 import { staticFiles } from 'remix/static-middleware'
 import { handleMcpHttpRequest } from '../mcp/http.ts'
+import {
+	buildAuthorizationServerMetadata,
+	buildProtectedResourceMetadata,
+	metadataResponse,
+	resolvePublicOrigin,
+} from '../mcp/oauth-metadata.ts'
 import { adminController } from './features/admin/index.ts'
 import { setAdviceClient } from './features/advice/advice-client.ts'
 import { adviceController } from './features/advice/index.ts'
@@ -104,6 +110,19 @@ router.get(routes.health, () => {
 router.post(routes.mcp.call, (context) => handleMcpHttpRequest(context.request))
 router.get(routes.mcp.stream, (context) =>
 	handleMcpHttpRequest(context.request),
+)
+
+function protectedResourceMetadata(context: AppRequestContext) {
+	const origin = resolvePublicOrigin(context.request)
+	return metadataResponse(buildProtectedResourceMetadata(origin))
+}
+
+router.get(routes.mcp.protectedResource, protectedResourceMetadata)
+router.get(routes.mcp.protectedResourceForEndpoint, protectedResourceMetadata)
+router.get(routes.mcp.authorizationServer, (context) =>
+	metadataResponse(
+		buildAuthorizationServerMetadata(resolvePublicOrigin(context.request)),
+	),
 )
 
 router.map(routes.home, homeController)
