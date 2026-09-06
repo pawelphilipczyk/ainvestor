@@ -3,11 +3,11 @@ import { afterEach, describe, it } from 'node:test'
 
 import type { EtfEntry } from '../../app/lib/gist.ts'
 import { GIST_FILENAME } from '../../app/lib/gist.ts'
-import type { McpConfig } from '../config.ts'
+import type { GistCredentials } from '../data-gist.ts'
 import { resetDataGistIdCache, resolveDataGistId } from '../data-gist.ts'
 import { createGetPortfolioTool, summarizePortfolio } from './portfolio.ts'
 
-const config: McpConfig = {
+const config: GistCredentials = {
 	githubToken: 'token-value',
 	dataGistId: 'pinned-gist',
 }
@@ -119,7 +119,7 @@ describe('summarizePortfolio', () => {
 })
 
 describe('data gist resolution', () => {
-	const discovering: McpConfig = { ...config, dataGistId: null }
+	const discovering: GistCredentials = { ...config, dataGistId: null }
 
 	/** One page of gists, optionally containing the app's own. */
 	function stubGistList(descriptions: string[]): { calls: number } {

@@ -12,6 +12,7 @@
  */
 import { createAinvestorMcpServer } from './ainvestor-server.ts'
 import { callerIsApproved } from './approved-caller.ts'
+import { writesAreEnabled } from './config.ts'
 import type { GistCredentials } from './data-gist.ts'
 import type { JsonRpcResponse } from './jsonrpc.ts'
 import { errorResponse, JSON_RPC_ERROR_CODES } from './jsonrpc.ts'
@@ -282,7 +283,10 @@ export async function handleMcpHttpRequest(
 		})
 	}
 
-	const server = createAinvestorMcpServer(credentials.credentials)
+	const server = createAinvestorMcpServer({
+		credentials: credentials.credentials,
+		allowWrites: writesAreEnabled(),
+	})
 	const response = await server.handleMessage(parsed)
 
 	// A notification draws no JSON-RPC response, and the transport says to

@@ -28,7 +28,8 @@ repository using the `remix` package (`remix@next`).
 | `SESSION_SECRET` | Recommended | Random string used to sign session cookies (defaults to a weak dev value) |
 | `APPROVED_GITHUB_LOGINS` | No | Extra GitHub logins allowed in, on top of `app/lib/approved-github-logins.ts` |
 | `AINVESTOR_PUBLIC_ORIGIN` | For MCP off Fly | Origin the deployment is reached on; becomes the OAuth issuer in MCP discovery |
-| `AINVESTOR_GIST_ID` | No | Pins the data gist the MCP server reads, for approved logins only (see [MCP server](#mcp-server-read-your-data-from-an-ai-client)) |
+| `AINVESTOR_GIST_ID` | No | Pins the data gist the MCP server reads, for approved logins only (see [MCP server](#mcp-server-use-your-data-from-an-ai-client)) |
+| `AINVESTOR_MCP_ALLOW_WRITES` | No | Set to `1` to let MCP clients edit your guidelines; anything else keeps the server read-only |
 
 ### Shared catalog gist
 
@@ -81,13 +82,35 @@ npm run typecheck
 ```
 
 `npm run check` also auto-installs dependencies with `npm ci` when needed.
-## MCP server (read your data from an AI client)
+## MCP server (use your data from an AI client)
 
-Exposes your AI Investor data to MCP clients. It reads the same private GitHub
-Gist the web app uses, and it is **read-only**, with one tool:
+Exposes your AI Investor data to MCP clients, from the same private GitHub Gist
+the web app uses. Reading needs no configuration:
 
 - **`get_portfolio`** — every holding with its value and currency, the portfolio
   total, and each holding's share of it.
+- **`get_guidelines`** — your target allocation: every guideline row, the sum of
+  the targets, and the effective target per asset class (a named-fund row counts
+  toward its own asset class, so the aggregated buckets are the numbers to
+  reason with).
+
+Two more tools appear **only** when the server runs with
+`AINVESTOR_MCP_ALLOW_WRITES=1` — without it they are absent from `tools/list`
+entirely, so a client cannot offer an edit the server would refuse:
+
+- **`set_guideline`** — create or update one target: an asset class
+  (`kind: "asset_class"` with `etfType`) or a named fund (`kind: "instrument"`
+  with `ticker`). There is one row per asset class and one per ticker, so
+  setting an existing one updates it. A target that would push the sum of all
+  rows above 100% is refused.
+- **`delete_guideline`** — remove one row by the `id` that `get_guidelines`
+  reports.
+
+Holdings stay read-only: buying and selling remains a web-app job.
+
+A guideline write is a read-modify-write of the whole `guidelines.json` file,
+and a gist carries no version to check, so an edit made in an open browser tab
+between the read and the save can be overwritten. Edit in one place at a time.
 
 There are two ways to reach it. Both need a **classic** GitHub personal access
 token with the **`gist`** scope and nothing else — fine-grained tokens cannot
@@ -165,9 +188,10 @@ Two things to weigh before relying on this:
   account. Fine-grained tokens cannot access gists at all, so this is the only
   option GitHub offers.
 - A GitHub token is not bound to this server as its audience, which the MCP
-  security guidance would otherwise prefer. In practice the server is your own
-  and the tools are read-only, but the token it receives is valid at GitHub
-  generally, not just here.
+  security guidance would otherwise prefer. In practice the server is your own,
+  but the token it receives is valid at GitHub generally, not just here.
+- `AINVESTOR_MCP_ALLOW_WRITES` on the deployment enables guideline writes for
+  **every** caller — each one writing only the gist their own token reaches.
 
 ### Local — stdio, via Claude Desktop
 
@@ -190,7 +214,9 @@ Then edit `claude_desktop_config.json` — macOS
       "args": ["/absolute/path/to/ainvestor/mcp/server.ts"],
       "env": {
         "GH_TOKEN": "ghp_your_token_here",
-        "AINVESTOR_GIST_ID": "your_private_data_gist_id"
+        "AINVESTOR_GIST_ID": "your_private_data_gist_id",
+        "SHARED_CATALOG_GIST_ID": "shared_catalog_gist_id",
+        "AINVESTOR_MCP_ALLOW_WRITES": "1"
       }
     }
   }
@@ -199,6 +225,12 @@ Then edit `claude_desktop_config.json` — macOS
 
 Restart Claude Desktop and ask what is in your portfolio. The token sits in that
 file in plain text, so keep its scope to `gist`.
+
+`SHARED_CATALOG_GIST_ID` is optional: with it, `set_guideline` resolves a fund's
+ticker and asset class from the shared catalog exactly as the web app's form
+does. Without it, an instrument guideline still works but you must pass
+`etfType` yourself, and the tool says the class was not verified.
+`AINVESTOR_MCP_ALLOW_WRITES` is what turns the two guideline write tools on.
 
 Running `npm run mcp` yourself is not useful: the process waits for JSON-RPC on
 stdin and prints only a `[mcp] ready` line on stderr. That is correct, not broken.

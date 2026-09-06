@@ -14,6 +14,7 @@ const TOKEN = 'ghp_test_token'
 const originalFetch = globalThis.fetch
 const originalGistId = process.env.AINVESTOR_GIST_ID
 const originalPublicOrigin = process.env.AINVESTOR_PUBLIC_ORIGIN
+const originalAllowWrites = process.env.AINVESTOR_MCP_ALLOW_WRITES
 
 afterEach(() => {
 	globalThis.fetch = originalFetch
@@ -26,7 +27,23 @@ afterEach(() => {
 	} else {
 		process.env.AINVESTOR_PUBLIC_ORIGIN = originalPublicOrigin
 	}
+	if (originalAllowWrites === undefined) {
+		delete process.env.AINVESTOR_MCP_ALLOW_WRITES
+	} else {
+		process.env.AINVESTOR_MCP_ALLOW_WRITES = originalAllowWrites
+	}
 })
+
+/** Tool names from a `tools/list` answer, in the order the server listed them. */
+async function listToolNames(): Promise<string[]> {
+	const response = await handleMcpHttpRequest(
+		post({ body: request(1, 'tools/list') }),
+	)
+	const body = (await response.json()) as {
+		result: { tools: { name: string }[] }
+	}
+	return body.result.tools.map((tool) => tool.name)
+}
 
 function post(params: {
 	body?: unknown
@@ -230,17 +247,22 @@ describe('mcp over http', () => {
 		assert.equal(body.result.serverInfo.name, 'ainvestor')
 	})
 
-	it('lists the same tools the stdio transport exposes', async () => {
-		const response = await handleMcpHttpRequest(
-			post({ body: request(1, 'tools/list') }),
-		)
-		const body = (await response.json()) as {
-			result: { tools: { name: string }[] }
-		}
-		assert.deepEqual(
-			body.result.tools.map((tool) => tool.name),
-			['get_portfolio'],
-		)
+	it('lists the same read tools the stdio transport exposes', async () => {
+		delete process.env.AINVESTOR_MCP_ALLOW_WRITES
+		assert.deepEqual(await listToolNames(), ['get_portfolio', 'get_guidelines'])
+	})
+
+	it('offers the write tools only where the deployment asked for them', async () => {
+		process.env.AINVESTOR_MCP_ALLOW_WRITES = 'no'
+		assert.deepEqual(await listToolNames(), ['get_portfolio', 'get_guidelines'])
+
+		process.env.AINVESTOR_MCP_ALLOW_WRITES = '1'
+		assert.deepEqual(await listToolNames(), [
+			'get_portfolio',
+			'get_guidelines',
+			'set_guideline',
+			'delete_guideline',
+		])
 	})
 
 	it('reads the portfolio of the gist pinned by header', async () => {

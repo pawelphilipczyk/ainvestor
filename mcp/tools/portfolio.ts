@@ -4,14 +4,11 @@ import { totalHoldingsValueForShareBars } from '../../app/lib/portfolio-holdings
 import type { GistCredentials } from '../data-gist.ts'
 import { resolveDataGistId } from '../data-gist.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
+import { roundToTwoDecimals } from './rounding.ts'
 
 const DESCRIPTION = `Read the user's current ETF portfolio: every holding with its value and currency, plus the portfolio total and each holding's share of it.
 
 Values are monetary amounts, not unit counts — the portfolio stores no quantities, prices, or dates, so this cannot answer questions about returns, performance over time, or when something was bought. When holdings span several currencies no total is reported, because the app performs no FX conversion.`
-
-function roundToTwoDecimals(value: number): number {
-	return Math.round(value * 100) / 100
-}
 
 /**
  * Share of the portfolio total.
