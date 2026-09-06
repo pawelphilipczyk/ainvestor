@@ -26,6 +26,9 @@ repository using the `remix` package (`remix@next`).
 | `GH_CLIENT_SECRET` | Yes (for auth) | Client secret of your GitHub OAuth App |
 | `SHARED_CATALOG_GIST_ID` | Yes | Public GitHub Gist ID that stores the shared `catalog.json` file |
 | `SESSION_SECRET` | Recommended | Random string used to sign session cookies (defaults to a weak dev value) |
+| `APPROVED_GITHUB_LOGINS` | No | Extra GitHub logins allowed in, on top of `app/lib/approved-github-logins.ts` |
+| `AINVESTOR_PUBLIC_ORIGIN` | For MCP off Fly | Origin the deployment is reached on; becomes the OAuth issuer in MCP discovery |
+| `AINVESTOR_GIST_ID` | No | Pins the data gist the MCP server reads, for approved logins only (see [MCP server](#mcp-server-read-your-data-from-an-ai-client)) |
 
 ### Shared catalog gist
 
@@ -78,6 +81,157 @@ npm run typecheck
 ```
 
 `npm run check` also auto-installs dependencies with `npm ci` when needed.
+## MCP server (read your data from an AI client)
+
+Exposes your AI Investor data to MCP clients. It reads the same private GitHub
+Gist the web app uses, and it is **read-only**, with one tool:
+
+- **`get_portfolio`** — every holding with its value and currency, the portfolio
+  total, and each holding's share of it.
+
+There are two ways to reach it. Both need a **classic** GitHub personal access
+token with the **`gist`** scope and nothing else — fine-grained tokens cannot
+access gists. Create one at
+[Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens).
+### Remote — works from any client, including mobile
+
+The deployed app answers MCP at `POST /mcp` (for example
+`https://ainvestor.fly.dev/mcp`), and signs you in **through GitHub**. The app
+never becomes an authorization server of its own and stores no credential: it
+publishes OAuth discovery metadata that names GitHub as the authorization
+server, the client runs the standard authorization-code + PKCE flow against
+GitHub, and the GitHub token it receives is the credential `/mcp` expects.
+
+You need a GitHub **OAuth App** of your own, because the client must present
+preregistered credentials — dynamic client registration is not offered.
+
+1. Create one at
+   [Settings → Developer settings → OAuth Apps](https://github.com/settings/developers).
+2. Add the connector in your Claude client: give it the URL
+   `https://ainvestor.fly.dev/mcp`, turn **Requires sign-in** on, and paste the
+   OAuth App's **Client ID** and **Client secret**.
+3. The client will send you to GitHub to authorize the `gist` scope, then start
+   using the connector.
+
+**The redirect URI is the usual stumbling block.** Set **Authorization callback
+URL** — not Homepage URL, which is cosmetic — to the address your client returns
+to. For the Claude apps that is:
+
+```
+https://claude.ai/api/mcp/auth_callback
+```
+
+Verified working from the Claude mobile app. If another client rejects it, the
+failed authorization lands on a GitHub error page whose own URL carries the
+`redirect_uri` parameter the client actually sent; copy that value in.
+
+Leave **Allow wildcard matching** off — strict redirect matching is the main
+defence against authorization-code interception — and **Enable Device Flow** off,
+since this flow does not use it.
+
+Discovery endpoints, should you want to inspect them:
+
+```bash
+curl -s https://ainvestor.fly.dev/.well-known/oauth-protected-resource | jq
+curl -s https://ainvestor.fly.dev/.well-known/oauth-authorization-server | jq
+```
+
+#### What the deployment has to be told
+
+The discovery documents publish this deployment's own origin, and that origin
+becomes the OAuth issuer a client signs in against — so it is never taken from a
+request header, which any caller can set. It is `AINVESTOR_PUBLIC_ORIGIN` when
+set, otherwise `https://$FLY_APP_NAME.fly.dev` (Fly puts the app name in the
+machine's environment), otherwise a loopback host so local runs work. Anywhere
+else, set `AINVESTOR_PUBLIC_ORIGIN`; until you do, the discovery endpoints answer
+`500` rather than guess.
+
+By default every caller reads **their own** data gist, found from the token they
+present, so the server can serve anyone. Setting `AINVESTOR_GIST_ID` on the
+deployment pins one specific gist instead — and since a secret gist is unlisted
+rather than access-controlled, holding its id is enough to read it. A pinned gist
+is therefore served only to a caller whose GitHub login is on the same allowlist
+the web app uses (`APPROVED_GITHUB_LOGINS`, in
+`app/lib/approved-github-logins.ts` or the environment); anyone else gets `403`
+and the gist is never fetched on their behalf.
+
+A caller can still name a gist per request with the `x-ainvestor-gist-id` header.
+That needs no allowlist: it reads only what the caller's own token can already
+reach.
+
+Two things to weigh before relying on this:
+
+- The `gist` scope is all-or-nothing — it reads and writes **every** gist on your
+  account. Fine-grained tokens cannot access gists at all, so this is the only
+  option GitHub offers.
+- A GitHub token is not bound to this server as its audience, which the MCP
+  security guidance would otherwise prefer. In practice the server is your own
+  and the tools are read-only, but the token it receives is valid at GitHub
+  generally, not just here.
+
+### Local — stdio, via Claude Desktop
+
+Claude Desktop launches the server itself as a subprocess. There is **no
+localhost and no port**: you do not start anything, you tell the app what to run.
+
+```bash
+git clone https://github.com/pawelphilipczyk/ainvestor && cd ainvestor && npm install
+```
+
+Then edit `claude_desktop_config.json` — macOS
+`~/Library/Application Support/Claude/`, Windows `%APPDATA%\Claude\` — using
+**absolute** paths, since Claude Desktop does not run inside the project:
+
+```json
+{
+  "mcpServers": {
+    "ainvestor": {
+      "command": "/absolute/path/to/ainvestor/node_modules/.bin/tsx",
+      "args": ["/absolute/path/to/ainvestor/mcp/server.ts"],
+      "env": {
+        "GH_TOKEN": "ghp_your_token_here",
+        "AINVESTOR_GIST_ID": "your_private_data_gist_id"
+      }
+    }
+  }
+}
+```
+
+Restart Claude Desktop and ask what is in your portfolio. The token sits in that
+file in plain text, so keep its scope to `gist`.
+
+Running `npm run mcp` yourself is not useful: the process waits for JSON-RPC on
+stdin and prints only a `[mcp] ready` line on stderr. That is correct, not broken.
+
+### Finding your data gist id
+
+Secret gists are matched by **description** (`ai-investor-data`, or
+`ai-investor-preview-data` on the preview app), not by filename, which is why
+they can be hard to spot in the GitHub UI:
+
+```bash
+curl -s -H "Authorization: Bearer $GH_TOKEN" \
+     -H "Accept: application/vnd.github+json" \
+     "https://api.github.com/gists?per_page=100" \
+| jq -r '.[] | select(.description | test("ai-investor")) | "\(.id)  \(.description)"'
+```
+
+The server never creates a gist. If none is found it says so and points you at
+signing in to the web app once, or pinning an id.
+
+### Protocol
+
+MCP revisions **2025-11-25** and **2025-06-18**. Older revisions are declined
+during negotiation, because 2025-03-26 requires servers to accept JSON-RPC
+batches and this one does not implement them.
+
+### What the data cannot answer
+
+Holdings store a **monetary value only** — no quantity, price, or date, and there
+is no transaction history. Questions about returns, performance over time, or
+when something was bought cannot be answered from this data. When holdings span
+several currencies no total is reported, because the app applies no FX
+conversion.
 
 ## Deploy to Fly.io
 

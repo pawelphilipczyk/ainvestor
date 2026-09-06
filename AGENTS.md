@@ -9,6 +9,10 @@ Before making Remix framework changes, read:
 - `docs/REMIX_V3_PACKAGES.md`
 - `docs/REMIX_BETA_MIGRATION_PLAN.md` when planning or performing Remix beta upgrades
 
+Before working on the MCP server, read:
+
+- `docs/MCP_SERVER_PLAN.md`
+
 Before writing any JS/TS/CSS code, read:
 
 - `docs/BIOME_RULES.md`

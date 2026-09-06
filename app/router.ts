@@ -6,6 +6,14 @@ import { methodOverride } from 'remix/method-override-middleware'
 import { Session } from 'remix/session'
 import { session } from 'remix/session-middleware'
 import { staticFiles } from 'remix/static-middleware'
+import { handleMcpHttpRequest } from '../mcp/http.ts'
+import {
+	buildAuthorizationServerMetadata,
+	buildProtectedResourceMetadata,
+	metadataResponse,
+	resolvePublicOrigin,
+	unknownOriginResponse,
+} from '../mcp/oauth-metadata.ts'
 import { adminController } from './features/admin/index.ts'
 import { setAdviceClient } from './features/advice/advice-client.ts'
 import { adviceController } from './features/advice/index.ts'
@@ -97,6 +105,35 @@ router.get(routes.health, () => {
 		headers: { 'content-type': 'text/plain; charset=utf-8' },
 	})
 })
+
+// MCP endpoint. Credentials arrive per request, so this route deliberately
+// ignores the session: it is reached by Claude's servers, not by a browser.
+router.post(routes.mcp.call, (context) => handleMcpHttpRequest(context.request))
+router.get(routes.mcp.stream, (context) =>
+	handleMcpHttpRequest(context.request),
+)
+
+/** Serves one discovery document, refusing when the origin cannot be trusted. */
+function discoveryMetadata(
+	build: (origin: string) => object,
+): (context: AppRequestContext) => Response {
+	return (context) => {
+		const origin = resolvePublicOrigin(context.request)
+		if (origin === null) return unknownOriginResponse()
+		return metadataResponse(build(origin))
+	}
+}
+
+const protectedResourceMetadata = discoveryMetadata(
+	buildProtectedResourceMetadata,
+)
+
+router.get(routes.mcp.protectedResource, protectedResourceMetadata)
+router.get(routes.mcp.protectedResourceForEndpoint, protectedResourceMetadata)
+router.get(
+	routes.mcp.authorizationServer,
+	discoveryMetadata(buildAuthorizationServerMetadata),
+)
 
 router.map(routes.home, homeController)
 router.map(routes.portfolio, portfolioController)
