@@ -9,9 +9,7 @@ import { createGetPortfolioTool, summarizePortfolio } from './portfolio.ts'
 
 const config: McpConfig = {
 	githubToken: 'token-value',
-	sharedCatalogGistId: 'catalog-gist',
 	dataGistId: 'pinned-gist',
-	allowWrites: false,
 }
 
 function entry(overrides: Partial<EtfEntry> = {}): EtfEntry {

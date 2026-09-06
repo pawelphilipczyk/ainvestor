@@ -3,18 +3,13 @@ import { describe, it } from 'node:test'
 
 import { describeMcpConfig, resolveMcpConfig } from './config.ts'
 
-const validEnv = {
-	GH_TOKEN: 'token-value',
-	SHARED_CATALOG_GIST_ID: 'catalog-gist',
-} satisfies NodeJS.ProcessEnv
+const validEnv = { GH_TOKEN: 'token-value' } satisfies NodeJS.ProcessEnv
 
 describe('mcp config', () => {
 	it('resolves the required variables', () => {
 		const config = resolveMcpConfig(validEnv)
 		assert.equal(config.githubToken, 'token-value')
-		assert.equal(config.sharedCatalogGistId, 'catalog-gist')
 		assert.equal(config.dataGistId, null)
-		assert.equal(config.allowWrites, false)
 	})
 
 	it('throws an actionable error when GH_TOKEN is missing', () => {
@@ -24,9 +19,8 @@ describe('mcp config', () => {
 		)
 	})
 
-	it('starts without SHARED_CATALOG_GIST_ID, which no tool reads yet', () => {
+	it('needs nothing but the token', () => {
 		const config = resolveMcpConfig({ GH_TOKEN: 'token-value' })
-		assert.equal(config.sharedCatalogGistId, null)
 		assert.equal(config.githubToken, 'token-value')
 	})
 
@@ -43,31 +37,6 @@ describe('mcp config', () => {
 			AINVESTOR_GIST_ID: 'pinned',
 		})
 		assert.equal(config.dataGistId, 'pinned')
-	})
-
-	it('enables writes only for an explicit opt-in', () => {
-		for (const value of ['1', 'true', 'TRUE']) {
-			const config = resolveMcpConfig({
-				...validEnv,
-				AINVESTOR_MCP_ALLOW_WRITES: value,
-			})
-			assert.equal(
-				config.allowWrites,
-				true,
-				`expected ${value} to enable writes`,
-			)
-		}
-		for (const value of ['', '0', 'false', 'yes', 'on']) {
-			const config = resolveMcpConfig({
-				...validEnv,
-				AINVESTOR_MCP_ALLOW_WRITES: value,
-			})
-			assert.equal(
-				config.allowWrites,
-				false,
-				`expected ${value} to keep the server read-only`,
-			)
-		}
 	})
 
 	it('never exposes the token in the config summary', () => {
