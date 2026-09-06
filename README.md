@@ -26,6 +26,9 @@ repository using the `remix` package (`remix@next`).
 | `GH_CLIENT_SECRET` | Yes (for auth) | Client secret of your GitHub OAuth App |
 | `SHARED_CATALOG_GIST_ID` | Yes | Public GitHub Gist ID that stores the shared `catalog.json` file |
 | `SESSION_SECRET` | Recommended | Random string used to sign session cookies (defaults to a weak dev value) |
+| `APPROVED_GITHUB_LOGINS` | No | Extra GitHub logins allowed in, on top of `app/lib/approved-github-logins.ts` |
+| `AINVESTOR_PUBLIC_ORIGIN` | For MCP off Fly | Origin the deployment is reached on; becomes the OAuth issuer in MCP discovery |
+| `AINVESTOR_GIST_ID` | No | Pins the data gist the MCP server reads, for approved logins only (see [MCP server](#mcp-server-read-your-data-from-an-ai-client)) |
 
 ### Shared catalog gist
 
@@ -133,9 +136,28 @@ curl -s https://ainvestor.fly.dev/.well-known/oauth-protected-resource | jq
 curl -s https://ainvestor.fly.dev/.well-known/oauth-authorization-server | jq
 ```
 
-Set `AINVESTOR_PUBLIC_ORIGIN` if the deployment sits behind a proxy that does not
-send `X-Forwarded-Proto` and `Host` faithfully; otherwise the origin is derived
-from those headers.
+#### What the deployment has to be told
+
+The discovery documents publish this deployment's own origin, and that origin
+becomes the OAuth issuer a client signs in against — so it is never taken from a
+request header, which any caller can set. It is `AINVESTOR_PUBLIC_ORIGIN` when
+set, otherwise `https://$FLY_APP_NAME.fly.dev` (Fly puts the app name in the
+machine's environment), otherwise a loopback host so local runs work. Anywhere
+else, set `AINVESTOR_PUBLIC_ORIGIN`; until you do, the discovery endpoints answer
+`500` rather than guess.
+
+By default every caller reads **their own** data gist, found from the token they
+present, so the server can serve anyone. Setting `AINVESTOR_GIST_ID` on the
+deployment pins one specific gist instead — and since a secret gist is unlisted
+rather than access-controlled, holding its id is enough to read it. A pinned gist
+is therefore served only to a caller whose GitHub login is on the same allowlist
+the web app uses (`APPROVED_GITHUB_LOGINS`, in
+`app/lib/approved-github-logins.ts` or the environment); anyone else gets `403`
+and the gist is never fetched on their behalf.
+
+A caller can still name a gist per request with the `x-ainvestor-gist-id` header.
+That needs no allowlist: it reads only what the caller's own token can already
+reach.
 
 Two things to weigh before relying on this:
 

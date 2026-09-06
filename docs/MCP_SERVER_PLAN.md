@@ -58,9 +58,9 @@ Named to match the existing `GH_` / `SHARED_CATALOG_GIST_ID` convention.
 |---|---|---|
 | `GH_TOKEN` | stdio only | GitHub PAT with the **`gist`** scope. Over HTTP the token arrives per request in the `Authorization` header instead, so the deployment never holds one. |
 | `SHARED_CATALOG_GIST_ID` | Not yet | Public gist holding `catalog.json`. Optional until Stage 3 adds a catalog tool — the server must not refuse to start over a variable nothing reads. |
-| `AINVESTOR_GIST_ID` | No | Private data gist id. When unset, it is discovered by description. |
-| `AINVESTOR_MCP_ALLOW_WRITES` | No | Set to `1` to enable the Stage 7 write tools. Default is read-only. |
-| `AINVESTOR_PUBLIC_ORIGIN` | No | Overrides the origin advertised in OAuth discovery metadata. Only needed when a proxy does not forward `X-Forwarded-Proto` / `Host` faithfully. |
+| `AINVESTOR_GIST_ID` | No | Private data gist id. When unset, it is discovered by description from the caller's own token. Over HTTP a pinned id is served **only to an approved GitHub login** — see the note under Stage 10. |
+| `AINVESTOR_MCP_ALLOW_WRITES` | Stage 7 | Reserved for the Stage 7 write tools. Nothing reads it yet, and `mcp/config.ts` deliberately does not parse it until something does. |
+| `AINVESTOR_PUBLIC_ORIGIN` | Off Fly | The origin advertised in OAuth discovery metadata. Required wherever `FLY_APP_NAME` is absent and the host is not loopback; request headers are never trusted for this. |
 | `OPENAI_API_KEY` | No | Only needed if Stage 9 (advice generation) ships. |
 
 ---
@@ -417,8 +417,19 @@ the plan is already agreed, so implement directly rather than re-planning.
     registration, no token storage. An earlier draft of this stage proposed an
     OAuth bridge for all of that; passing the user's own token removes the need.
 
-  Optional `X-Ainvestor-Gist-Id` pins the gist per request, falling back to
-  `AINVESTOR_GIST_ID` on the deployment.
+  Optional `X-Ainvestor-Gist-Id` pins the gist per request. It needs no
+  allowlist, because it can only reach what the caller's own token already
+  reaches; the id is validated as `[A-Za-z0-9]{1,64}` so it cannot steer the
+  server's authenticated call at a different GitHub path.
+
+  `AINVESTOR_GIST_ID` on the deployment is different in kind: it names one
+  specific gist, and a secret gist is unlisted rather than access-controlled,
+  so holding its id is enough to read it. It is therefore served only to a
+  caller whose GitHub login is on the app's own allowlist
+  (`mcp/approved-caller.ts`, resolving the login from the presented token);
+  anyone else gets **403** and the gist is never fetched on their behalf. That
+  also restores on `/mcp` the invariant `stripGithubTokenIfUnapproved` enforces
+  on every session-backed route.
 
   Transport details, all verified against a running server: `GET` returns **405**
   (no SSE stream is offered, which the spec allows), a notification returns
@@ -450,9 +461,18 @@ the plan is already agreed, so implement directly rather than re-planning.
   and secret fields are for. GitHub has supported PKCE `S256` since July 2025,
   which is what made this possible.
 
-  The origin is derived from `X-Forwarded-Proto` / `X-Forwarded-Host`, since Fly
-  terminates TLS and forwards plain HTTP; trusting `request.url` would advertise
-  `http://` metadata and break the flow. `AINVESTOR_PUBLIC_ORIGIN` overrides it.
+  **The origin is not taken from request headers.** It becomes the issuer and
+  the `resource_metadata` target, so a caller who could choose it could send
+  clients to an authorization server of their own and harvest GitHub tokens.
+  Resolution is `AINVESTOR_PUBLIC_ORIGIN`, then `https://$FLY_APP_NAME.fly.dev`
+  (Fly sets that in the machine's environment, and no request can forge it),
+  then a loopback host for local runs — and otherwise nothing, in which case
+  discovery answers **500** rather than guess. Trusting `request.url` instead
+  would advertise `http://` behind Fly's TLS termination and break the flow.
+
+  The metadata is `Cache-Control: no-store`: it names this deployment's origin,
+  and a shared cache replaying one deployment's answer to another's clients
+  would redirect their sign-in.
 
   ### Verified end to end
 
@@ -483,12 +503,31 @@ the plan is already agreed, so implement directly rather than re-planning.
   is also not audience-bound to this server, a deviation from the MCP security
   guidance that the read-only tool surface mitigates but does not remove.
 
+  A review pass after the endpoint worked end to end closed these, each with a
+  test that fails without the fix:
+
+  - `AINVESTOR_GIST_ID` served the deployment owner's gist to any caller holding
+    any GitHub token — now gated on the allowlist, as described above.
+  - The advertised origin came from forgeable headers — now environment-derived.
+  - The metadata was publicly cacheable although it is host-dependent — now
+    `no-store`.
+  - `X-Ainvestor-Gist-Id: ../user/repos` collapsed during URL parsing and pointed
+    the server's authenticated GitHub call at another endpoint — now validated.
+  - An expired token surfaced as a tool error rather than a transport `401`, so a
+    client never learned to refresh and the connector stayed dead.
+  - A non-array gist listing was read as "no match", which let sign-in create a
+    duplicate data gist — now an error.
+  - `id: null` was treated as a notification, so a client that sent one waited
+    forever for a response that would never come.
+  - The JSON body was unbounded, and the token caches held plaintext tokens and
+    evicted arbitrarily — now capped, hashed, and LRU.
+
 ## Open questions
 
-- **Waiting on one observation, not a decision:** does the connector dialog in
-  the Claude client actually let you set a request header? If it does, the
-  Stage 10 endpoint is usable as-is. If it only offers OAuth, an authorization
-  layer has to go in front of the same endpoint — nothing already built is lost.
+- ~~Does the connector dialog let you set a request header?~~ **Answered: no.**
+  It offers a URL and OAuth Client ID/secret only, which is why the discovery
+  metadata above exists. The `Authorization` header path still serves stdio and
+  anything scriptable.
 - Should the MCP server ever see the preview gist (`ai-investor-preview-data`),
   or is production data the only target? Currently the description depends on
   `FLY_APP_NAME`, which is unset locally, so it resolves to production.
