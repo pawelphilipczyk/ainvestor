@@ -1,4 +1,5 @@
 import { findGistIdByDescription, getGistDescription } from '../app/lib/gist.ts'
+import { createTokenCache } from './token-cache.ts'
 
 /**
  * What a tool needs to reach one user's data gist.
@@ -17,21 +18,13 @@ export type GistCredentials = {
 /** Bounds the per-token caches; the HTTP endpoint is multi-user. */
 const MAX_CACHED_TOKENS = 50
 
-const gistIdByToken = new Map<string, string>()
-const lookupByToken = new Map<string, Promise<string>>()
+const gistIdByToken = createTokenCache<string>(MAX_CACHED_TOKENS)
+const lookupByToken = createTokenCache<Promise<string>>(MAX_CACHED_TOKENS)
 
 /** Test seam: forget every resolved gist id between cases. */
 export function resetDataGistIdCache(): void {
 	gistIdByToken.clear()
 	lookupByToken.clear()
-}
-
-function rememberGistId(token: string, gistId: string): void {
-	if (gistIdByToken.size >= MAX_CACHED_TOKENS) {
-		const oldest = gistIdByToken.keys().next()
-		if (!oldest.done) gistIdByToken.delete(oldest.value)
-	}
-	gistIdByToken.set(token, gistId)
 }
 
 async function discoverDataGistId(
@@ -79,7 +72,7 @@ export async function resolveDataGistId(
 
 	const lookup = discoverDataGistId(credentials).then(
 		(gistId) => {
-			rememberGistId(token, gistId)
+			gistIdByToken.set(token, gistId)
 			lookupByToken.delete(token)
 			return gistId
 		},
