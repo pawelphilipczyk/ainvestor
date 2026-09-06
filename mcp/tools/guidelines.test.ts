@@ -340,14 +340,28 @@ describe('set_guideline tool', () => {
 		)
 	})
 
-	it('accepts a numeric string, as models routinely send', async () => {
+	it('reads a numeric string the way the web form does', async () => {
 		const exchange = stubGist([])
-		await createSetGuidelineTool(credentials).handler({
+		const tool = createSetGuidelineTool(credentials)
+
+		await tool.handler({
 			kind: 'asset_class',
 			etfType: 'bond',
 			targetPct: '12,5',
 		})
 		assert.equal(exchange.saved[0][0].targetPct, 12.5)
+
+		// Spaces as thousand separators parse rather than turning into NaN, so the
+		// caller is told the real problem: the number is out of range.
+		await assert.rejects(
+			async () =>
+				tool.handler({
+					kind: 'asset_class',
+					etfType: 'bond',
+					targetPct: '1 000,5',
+				}),
+			/must be between 0.001 and 100; got 1000.5/,
+		)
 	})
 
 	it('names the valid asset classes when one is missing or wrong', async () => {

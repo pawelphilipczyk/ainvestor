@@ -13,19 +13,18 @@ import {
 	fetchGuidelinesOrThrow,
 	findGuidelineDuplicateOf,
 	GUIDELINE_KINDS,
+	GUIDELINE_TARGET_PERCENT_MAX,
+	GUIDELINE_TARGET_PERCENT_MIN,
 	isEtfType,
 	saveGuidelinesOrThrow,
 	sumGuidelineTargetPercent,
 	wouldGuidelineTotalExceedCap,
 } from '../../app/lib/guidelines.ts'
+import { parseLocaleDecimalString } from '../../app/lib/locale-decimal-input.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resolveDataGistId } from '../data-gist.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
-
-/** The UI's own bounds for a target percentage (`InstrumentGuidelineSchema`). */
-const MIN_TARGET_PERCENT = 0.001
-const MAX_TARGET_PERCENT = 100
 
 const BUCKET_EXPLANATION =
 	'Instrument rows count toward their own asset class: `byAssetClass` folds every row of a type — bucket rows and named funds alike — into one effective target for that class. Do not add a fund target on top of its class target.'
@@ -105,17 +104,24 @@ function readGuidelineKind(
 	throw new Error(`"kind" must be one of: ${GUIDELINE_KINDS.join(', ')}.`)
 }
 
-/** Models routinely send a number as a string; accept both, reject anything else. */
+/**
+ * Models routinely send a number as a string; accept both, reject anything else.
+ *
+ * A string goes through the same parser the web form uses, so "12,5" and
+ * "1 000,5" mean here exactly what they mean when typed into the app.
+ */
 function readTargetPercent(toolArguments: Record<string, unknown>): number {
 	const raw = toolArguments.targetPct
-	const value =
-		typeof raw === 'string' ? Number(raw.trim().replace(',', '.')) : raw
+	const value = typeof raw === 'string' ? parseLocaleDecimalString(raw) : raw
 	if (typeof value !== 'number' || !Number.isFinite(value)) {
 		throw new Error('"targetPct" must be a number of percent, for example 40.')
 	}
-	if (value < MIN_TARGET_PERCENT || value > MAX_TARGET_PERCENT) {
+	if (
+		value < GUIDELINE_TARGET_PERCENT_MIN ||
+		value > GUIDELINE_TARGET_PERCENT_MAX
+	) {
 		throw new Error(
-			`"targetPct" must be between ${MIN_TARGET_PERCENT} and ${MAX_TARGET_PERCENT}; got ${value}.`,
+			`"targetPct" must be between ${GUIDELINE_TARGET_PERCENT_MIN} and ${GUIDELINE_TARGET_PERCENT_MAX}; got ${value}.`,
 		)
 	}
 	return value
@@ -343,7 +349,7 @@ export function createSetGuidelineTool(
 				},
 				targetPct: {
 					type: 'number',
-					description: `Target share of the whole portfolio, ${MIN_TARGET_PERCENT}–${MAX_TARGET_PERCENT}.`,
+					description: `Target share of the whole portfolio, ${GUIDELINE_TARGET_PERCENT_MIN}–${GUIDELINE_TARGET_PERCENT_MAX}.`,
 				},
 			},
 			required: ['kind', 'targetPct'],

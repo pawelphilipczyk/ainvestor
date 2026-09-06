@@ -36,6 +36,14 @@ export type EtfGuideline = {
 	etfType: EtfType
 }
 
+/**
+ * Bounds for one guideline's `targetPct`, shared by every entry point that
+ * accepts a target — the web form's schema and the MCP write tool — so the two
+ * cannot drift into accepting different numbers.
+ */
+export const GUIDELINE_TARGET_PERCENT_MIN = 0.001
+export const GUIDELINE_TARGET_PERCENT_MAX = 100
+
 const GUIDELINE_TOTAL_EPS = 1e-9
 
 function finiteGuidelineTargetPercent(value: number): number {
