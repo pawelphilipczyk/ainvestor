@@ -133,6 +133,14 @@ describe('authorization server metadata', () => {
 		assert.deepEqual(metadata.code_challenge_methods_supported, ['S256'])
 	})
 
+	it('advertises the refresh grant, so expiring tokens can be renewed', () => {
+		// A GitHub OAuth App with "Expire user access tokens" on issues tokens
+		// good for 8 hours plus a refresh token. Omitting this grant would let a
+		// client conclude no refresh is possible and stop working after 8 hours.
+		assert.ok(metadata.grant_types_supported.includes('refresh_token'))
+		assert.ok(metadata.grant_types_supported.includes('authorization_code'))
+	})
+
 	it('advertises no registration endpoint, so clients use preregistered credentials', () => {
 		// Dynamic client registration is not supported: the user registers a
 		// GitHub OAuth App and pastes its id and secret into the connector.

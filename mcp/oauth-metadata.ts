@@ -86,7 +86,11 @@ export function buildAuthorizationServerMetadata(origin: string) {
 		authorization_endpoint: GITHUB_AUTHORIZATION_ENDPOINT,
 		token_endpoint: GITHUB_TOKEN_ENDPOINT,
 		response_types_supported: ['code'],
-		grant_types_supported: ['authorization_code'],
+		// `refresh_token` matters when the user's OAuth App has "Expire user
+		// access tokens" enabled: GitHub then issues tokens valid for 8 hours
+		// alongside a refresh token, and a client that does not see this grant
+		// advertised may never refresh — leaving the connector dead after 8 hours.
+		grant_types_supported: ['authorization_code', 'refresh_token'],
 		code_challenge_methods_supported: ['S256'],
 		token_endpoint_auth_methods_supported: [
 			'client_secret_post',
