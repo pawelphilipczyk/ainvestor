@@ -24,11 +24,8 @@ function writeResponse(response: JsonRpcResponse): void {
 async function main(): Promise<void> {
 	const config = resolveMcpConfig()
 	const server = createAinvestorMcpServer({
-		credentials: {
-			githubToken: config.githubToken,
-			dataGistId: config.dataGistId,
-		},
-		allowWrites: config.allowWrites,
+		githubToken: config.githubToken,
+		dataGistId: config.dataGistId,
 	})
 
 	console.error('[mcp] ready', JSON.stringify(describeMcpConfig(config)))

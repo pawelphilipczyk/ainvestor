@@ -1,11 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import {
-	describeMcpConfig,
-	resolveMcpConfig,
-	writesAreEnabled,
-} from './config.ts'
+import { describeMcpConfig, resolveMcpConfig } from './config.ts'
 
 const validEnv = { GH_TOKEN: 'token-value' } satisfies NodeJS.ProcessEnv
 
@@ -41,26 +37,6 @@ describe('mcp config', () => {
 			AINVESTOR_GIST_ID: 'pinned',
 		})
 		assert.equal(config.dataGistId, 'pinned')
-	})
-
-	it('keeps writes off unless the environment asks for them', () => {
-		assert.equal(resolveMcpConfig(validEnv).allowWrites, false)
-		for (const value of ['1', 'true', 'YES', ' on ']) {
-			assert.equal(
-				resolveMcpConfig({ ...validEnv, AINVESTOR_MCP_ALLOW_WRITES: value })
-					.allowWrites,
-				true,
-				value,
-			)
-		}
-		// Anything that is not an explicit yes leaves the data read-only.
-		for (const value of ['', '0', 'false', 'off', 'maybe']) {
-			assert.equal(
-				writesAreEnabled({ AINVESTOR_MCP_ALLOW_WRITES: value }),
-				false,
-				value,
-			)
-		}
 	})
 
 	it('never exposes the token in the config summary', () => {

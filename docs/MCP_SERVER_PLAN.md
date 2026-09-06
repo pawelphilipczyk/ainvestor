@@ -6,11 +6,10 @@ ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
 **Progress:** Stages 1, 2 and 10 have shipped: both transports, the OAuth
 discovery, `get_portfolio` and `get_guidelines`. Stage 7's **guideline** writes
-(`set_guideline`, `delete_guideline`) shipped early, behind
-`AINVESTOR_MCP_ALLOW_WRITES`, because guidelines are the input the advice tools
-need to be worth anything; Stage 7 keeps its box open for the holdings writes.
-Flip a checkbox to `[x]` when its stage ships (same PR as the code, or a tiny
-follow-up).
+(`set_guideline`, `delete_guideline`) shipped early and unconditionally, because
+guidelines are the input the advice tools need to be worth anything; Stage 7
+keeps its box open for the holdings writes. Flip a checkbox to `[x]` when its
+stage ships (same PR as the code, or a tiny follow-up).
 
 Read before any implementation stage:
 
@@ -34,7 +33,7 @@ These are settled so every thread starts from the same baseline. Change them
 |---|---|---|---|
 | D1 | Transport | **Both**: stdio for a local client, `POST /mcp` on the deployed app for everything else | stdio needs the client to launch a local subprocess, so it cannot serve a phone at all. The HTTP endpoint (Stage 10) covers that without replacing stdio, and both share one tool definition in `mcp/ainvestor-server.ts`. |
 | D2 | Auth | **The caller's own GitHub token with `gist` scope** — from env over stdio, from the `Authorization` header over HTTP. Remote clients obtain that token by signing in to **GitHub**, which the app names as its authorization server in published discovery metadata | The app never becomes an authorization server and stores no secret. Building one was designed and rejected once GitHub turned out to serve the same purpose: it supports PKCE `S256`, and the connector dialog's Client ID/secret fields take a GitHub OAuth App the user registers. |
-| D3 | Write access | **Off unless `AINVESTOR_MCP_ALLOW_WRITES` is set.** Guideline writes shipped ahead of Stage 7; holdings writes still wait for it | Reads are safe and cover most of the value. Writes need read-modify-write care because the gist API replaces whole files, so they stay opt-in and, for now, limited to the small guidelines file. |
+| D3 | Write access | **Guideline writes are always exposed**, no env flag. Holdings writes still wait for Stage 7 | Superseded the original read-only-until-Stage-7 stance: setting targets from a client is the point of the guidelines tools, and an env flag only made them fail to appear. The blast radius stays small — a caller writes only the gist their own token reaches, the file is one small array, and every write is a gist **revision**, so an overwritten edit is restorable from the gist's history. Holdings are a separate matter: `record_operation` mutates money-carrying rows, so it keeps its Stage 7 review. |
 | D4 | Location | **`mcp/` in this repo**, importing `app/lib/*` and `app/features/*` directly | Reuses `fetchEtfs`, `fetchGuidelines`, `fetchCatalog`, and the allocation maths with no package boundary. CI catches drift. |
 | D5 | AI advice | **Read stored analyses only** in v1; generating new ones is optional Stage 9 | Generation needs `OPENAI_API_KEY` in the MCP client's environment and costs money per call. |
 | D6 | Gist discovery | `AINVESTOR_GIST_ID` when set, otherwise discovery by description | Discovery works (pagination fixed in `app/lib/gist.ts`), but an explicit id avoids listing every gist on every start. |
@@ -63,7 +62,6 @@ Named to match the existing `GH_` / `SHARED_CATALOG_GIST_ID` convention.
 | `GH_TOKEN` | stdio only | GitHub PAT with the **`gist`** scope. Over HTTP the token arrives per request in the `Authorization` header instead, so the deployment never holds one. |
 | `SHARED_CATALOG_GIST_ID` | Not yet | Public gist holding `catalog.json`. Optional until Stage 3 adds a catalog tool — the server must not refuse to start over a variable nothing reads. |
 | `AINVESTOR_GIST_ID` | No | Private data gist id. When unset, it is discovered by description from the caller's own token. Over HTTP a pinned id is served **only to an approved GitHub login** — see the note under Stage 10. |
-| `AINVESTOR_MCP_ALLOW_WRITES` | For writes | `1`/`true`/`yes`/`on` exposes the guideline write tools; anything else keeps them out of `tools/list`. Read by both transports through `writesAreEnabled()` in `mcp/config.ts`. |
 | `AINVESTOR_PUBLIC_ORIGIN` | Off Fly | The origin advertised in OAuth discovery metadata. Required wherever `FLY_APP_NAME` is absent and the host is not loopback; request headers are never trusted for this. |
 | `OPENAI_API_KEY` | No | Only needed if Stage 9 (advice generation) ships. |
 
@@ -184,9 +182,8 @@ Read-only (Stages 2–5):
 Resources (Stage 5): `ainvestor://portfolio`, `ainvestor://guidelines`,
 `ainvestor://catalog`.
 
-Write, behind `AINVESTOR_MCP_ALLOW_WRITES`: `set_guideline` and
-`delete_guideline` (shipped); `record_operation` and `remove_holding` still to
-come in Stage 7.
+Write: `set_guideline` and `delete_guideline` (shipped, always exposed);
+`record_operation` and `remove_holding` still to come in Stage 7.
 
 `set_guideline` is an upsert, not an append: there is one row per asset class
 and one per ticker, so setting an existing one updates its target. The 100% cap
@@ -221,7 +218,7 @@ the plan is already agreed, so implement directly rather than re-planning.
   Do:
   - Implement JSON-RPC over stdio directly, with no new dependencies (see decision D7).
   - Add "mcp/**/*.ts" to the tsconfig.json include array. Without this npm run typecheck silently skips the whole new subtree.
-  - Create mcp/config.ts: resolve and validate GH_TOKEN, SHARED_CATALOG_GIST_ID, optional AINVESTOR_GIST_ID and AINVESTOR_MCP_ALLOW_WRITES. Throw a clear, actionable error naming the missing variable.
+  - Create mcp/config.ts: resolve and validate GH_TOKEN, SHARED_CATALOG_GIST_ID, optional AINVESTOR_GIST_ID. Throw a clear, actionable error naming the missing variable.
   - Create mcp/server.ts: an stdio MCP server exposing one trivial tool (for example get_server_info returning the resolved config with the token redacted) so a client can verify the connection.
   - Add an "mcp" npm script that runs it with tsx.
   - Add mcp to .dockerignore — the Fly image does not need it.
@@ -359,7 +356,7 @@ the plan is already agreed, so implement directly rather than re-planning.
   Goal: record_operation, remove_holding, set_guideline, delete_guideline.
 
   Do:
-  - Register these tools only when AINVESTOR_MCP_ALLOW_WRITES is enabled (writesAreEnabled in mcp/config.ts, already wired into both transports). When it is off they must not appear in the tool list at all.
+  - Decide per tool whether it ships unconditionally, as the guideline writes did. record_operation and remove_holding move money-carrying rows, so weigh that before exposing them the same way.
   - Reuse the existing validation: normalizePortfolioOperationInput from app/features/portfolio/portfolio-operation-form/index.ts for buy and sell, and findGuidelineDuplicateOf plus wouldGuidelineTotalExceedCap from app/lib/guidelines.ts for guideline rows.
   - Every write is read-modify-write inside a single tool call: fetch current rows, apply the change, save the full array back. Read with a helper that throws on a rejected GitHub read (as fetchGuidelinesOrThrow does), never one that reports an outage as an empty list — otherwise a save wipes the file.
   - Return the resulting state so the model can confirm what landed.

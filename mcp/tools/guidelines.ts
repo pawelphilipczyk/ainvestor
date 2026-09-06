@@ -40,11 +40,11 @@ const SET_DESCRIPTION = `Create or update one guideline row: the target percenta
 
 Setting an asset class that already has a row, or a ticker that already has one, updates that row's target rather than adding a second — there is one row per asset class and one per ticker. The tool refuses a target that would push the sum of all rows above 100%; lower or delete another row first.
 
-Read, change, and save happen inside this one call, and the gist stores no version, so a change made in an open browser tab between them can be overwritten. ${BUCKET_EXPLANATION}`
+Read, change, and save happen inside this one call. The gist API offers no conditional write, so an edit made elsewhere in between is overwritten rather than merged — the gist keeps it in its revision history, so tell the user to restore it there if that happens. ${BUCKET_EXPLANATION}`
 
 const DELETE_DESCRIPTION = `Delete one guideline row by its id, as reported by get_guidelines. Deleting frees its share of the 100% cap.
 
-Read and save happen inside this one call, so a change made in an open browser tab between them can be overwritten.`
+Read and save happen inside this one call. The gist API offers no conditional write, so an edit made elsewhere in between is overwritten rather than merged — the gist keeps it in its revision history, so tell the user to restore it there if that happens.`
 
 function guidelineRow(guideline: EtfGuideline) {
 	return {

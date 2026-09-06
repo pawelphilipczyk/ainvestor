@@ -14,7 +14,6 @@ const TOKEN = 'ghp_test_token'
 const originalFetch = globalThis.fetch
 const originalGistId = process.env.AINVESTOR_GIST_ID
 const originalPublicOrigin = process.env.AINVESTOR_PUBLIC_ORIGIN
-const originalAllowWrites = process.env.AINVESTOR_MCP_ALLOW_WRITES
 
 afterEach(() => {
 	globalThis.fetch = originalFetch
@@ -26,11 +25,6 @@ afterEach(() => {
 		delete process.env.AINVESTOR_PUBLIC_ORIGIN
 	} else {
 		process.env.AINVESTOR_PUBLIC_ORIGIN = originalPublicOrigin
-	}
-	if (originalAllowWrites === undefined) {
-		delete process.env.AINVESTOR_MCP_ALLOW_WRITES
-	} else {
-		process.env.AINVESTOR_MCP_ALLOW_WRITES = originalAllowWrites
 	}
 })
 
@@ -247,16 +241,7 @@ describe('mcp over http', () => {
 		assert.equal(body.result.serverInfo.name, 'ainvestor')
 	})
 
-	it('lists the same read tools the stdio transport exposes', async () => {
-		delete process.env.AINVESTOR_MCP_ALLOW_WRITES
-		assert.deepEqual(await listToolNames(), ['get_portfolio', 'get_guidelines'])
-	})
-
-	it('offers the write tools only where the deployment asked for them', async () => {
-		process.env.AINVESTOR_MCP_ALLOW_WRITES = 'no'
-		assert.deepEqual(await listToolNames(), ['get_portfolio', 'get_guidelines'])
-
-		process.env.AINVESTOR_MCP_ALLOW_WRITES = '1'
+	it('lists the same tools the stdio transport exposes', async () => {
 		assert.deepEqual(await listToolNames(), [
 			'get_portfolio',
 			'get_guidelines',
