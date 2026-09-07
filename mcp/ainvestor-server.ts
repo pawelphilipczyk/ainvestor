@@ -1,6 +1,7 @@
 import type { GistCredentials } from './data-gist.ts'
 import type { McpServerInfo } from './protocol.ts'
 import { createMcpServer } from './protocol.ts'
+import { createGetBuyPlanTool } from './tools/buy-plan.ts'
 import {
 	createDeleteCatalogEntryTool,
 	createGetCatalogEntryTool,
@@ -17,7 +18,7 @@ import { createGetPortfolioTool } from './tools/portfolio.ts'
 
 export const SERVER_INFO: McpServerInfo = {
 	name: 'ainvestor',
-	version: '0.3.0',
+	version: '0.4.0',
 }
 
 export const INSTRUCTIONS = `Access to the user's AI Investor data, stored in their own private GitHub gist.
@@ -27,6 +28,8 @@ The data model has no time dimension: holdings carry a monetary value but no qua
 Guidelines are the user's target allocation, in percent of the whole portfolio. Read them with get_guidelines before advising on what to buy, and never fold a named-fund target on top of its own asset-class target — get_guidelines reports the aggregated buckets to use instead.
 
 Guidelines can be edited: set_guideline creates or updates one row, delete_guideline removes one. Holdings stay read-only — buying and selling belongs in the web app.
+
+When asked where to put a sum of money, call get_buy_plan with that amount rather than working the gaps out from get_portfolio and get_guidelines by hand — it is the app's own arithmetic, the same figures the web app treats as authoritative. It answers with numbers, not fund picks: choose the funds yourself from list_catalog. It is buy-only: it assumes nothing is sold, so never turn its output into a recommendation to sell. It needs one currency throughout, and says so plainly when it cannot compute — report that reason instead of estimating the numbers yourself.
 
 The catalog is the shared list of funds this app knows about, and the only source of valid tickers: never propose a fund that list_catalog does not return, because the user may not be able to buy it. Unlike the portfolio and the guidelines, the catalog is one public gist shared by every user, and only its owner can change it.`
 
@@ -52,6 +55,7 @@ export function createAinvestorMcpServer(params: {
 			createGetGuidelinesTool(credentials),
 			createSetGuidelineTool(credentials),
 			createDeleteGuidelineTool(credentials),
+			createGetBuyPlanTool(credentials),
 			createListCatalogTool(),
 			createGetCatalogEntryTool(),
 			createUpsertCatalogEntryTool(credentials),

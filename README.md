@@ -85,7 +85,7 @@ npm run typecheck
 ## MCP server (use your data from an AI client)
 
 Exposes your AI Investor data to MCP clients, from the same private GitHub Gist
-the web app uses. Four tools, no extra configuration:
+the web app uses. Five tools, no extra configuration:
 
 - **`get_portfolio`** — every holding with its value and currency, the portfolio
   total, and each holding's share of it.
@@ -100,6 +100,21 @@ the web app uses. Four tools, no extra configuration:
   rows above 100% is refused.
 - **`delete_guideline`** — remove one row by the `id` that `get_guidelines`
   reports.
+- **`get_buy_plan`** — what to buy with a given amount of cash. For
+  each asset class with a target: what it holds now, what the target comes to
+  once the cash is invested, the smallest purchase that closes the gap, and the
+  slice of the cash to put there. It is **buy-only** — nothing is ever sold, so a
+  class already above target simply keeps what it has.
+
+  It returns **numbers only** — no tickers and no written analysis. It is the
+  same arithmetic the web app's advice page already treats as authoritative,
+  exposed on its own so a client can have the figures without paying for an
+  OpenAI call. Picking the actual funds is the client's job, from the catalog.
+
+  The maths needs one currency throughout, since the app does no FX conversion.
+  Holdings in several currencies, cash in a currency the holdings are not in, no
+  guidelines at all, or a holding whose asset class has no target each yield **no
+  numbers and a plain statement of which of those it was** — never an estimate.
 
 The shared ETF catalog is reachable too, and it is the only source of valid
 tickers — a fund it does not list is one you may not be able to buy:

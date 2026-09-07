@@ -4,7 +4,7 @@ Plan for exposing this app's data to LLM clients over the **Model Context
 Protocol**. Work proceeds in **small, separately-chatted stages**; each stage
 ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
-**Progress:** Stages 1, 2, 3 and 10 have shipped, plus the **guideline** and
+**Progress:** Stages 1, 2, 3, 4 and 10 have shipped, plus the **guideline** and
 **catalog** writes originally scheduled for Stage 7 — those came early because
 setting targets and correcting the fund list from a client is what makes the
 read tools worth having. Stage 7 keeps its box open for the holdings writes,
@@ -137,6 +137,16 @@ the MCP layer; if one of these matters, fix the model in the app first.
   `computeAdviceAllocationDiagnostics()` both return `null`. Tools must say so
   plainly rather than guessing a rate.
 - **The catalog is a snapshot**, imported from a bank API — not live quotes.
+- **`mixed` is both an asset class and a sentinel.** It is one of the six
+  persisted `EtfType` values, and it is also what
+  `resolveHoldingEtfTypeForAdviceDiagnostics` falls back to when neither the
+  catalog nor an instrument guideline matches a holding. The allocation maths
+  then refuses *any* holding resolving to `mixed`, so a fund the catalog
+  genuinely classifies as mixed cannot be allocated against even with a `mixed`
+  guideline set — and from outside the resolver the two cases are
+  indistinguishable, which is why `get_buy_plan` names both
+  possibilities rather than asserting either. Separating the sentinel from the
+  class is an app-model fix, not an MCP one.
 
 ---
 
@@ -155,6 +165,7 @@ mcp/
   stdout-guard.ts      # keeps console output off the stdio protocol channel
   tools/portfolio.ts   # get_portfolio
   tools/guidelines.ts  # get_guidelines, set_guideline, delete_guideline
+  tools/buy-plan.ts    # get_buy_plan
   tools/catalog.ts     # list_catalog, get_catalog_entry, and the owner-only row writes
   tools/catalog-import.ts # import_catalog_from_bank_file (stdio only, reads a local path)
   tools/rounding.ts    # the two-decimal rounding both tool modules report in
@@ -192,7 +203,7 @@ Read-only (Stages 2–5):
 | `get_guidelines` | Target rows, their sum, aggregated buckets per asset type |
 | `list_catalog` | Catalog rows matching a free-text query, compact projection, with `matched`/`truncated` so a limited list never reads as the whole catalog |
 | `get_catalog_entry` | One entry by ticker or id, all fields |
-| `get_allocation_diagnostics` | Buy-only gaps per bucket for a given cash amount |
+| `get_buy_plan` | Buy-only gaps per bucket for a given cash amount, the cash split across them, or a named reason there are no numbers |
 | `get_saved_advice` | The stored analysis for `buy_next` or `portfolio_review` |
 
 Resources (Stage 5): `ainvestor://portfolio`, `ainvestor://guidelines`,
@@ -222,6 +233,47 @@ a duplicate under the same id instead of updating it. `import_catalog_from_bank_
 still uses `mergeBankIntoCatalog` correctly, because every row it submits
 carries the bank's own `isin` field fresh, so its key always agrees with what
 is already stored.
+
+### Keeping the three "what should I buy" tools apart
+
+`get_buy_plan` (Stage 4) has shipped; `get_saved_advice` (Stage 5) and
+`generate_advice` (Stage 9) are still to come. All three answer some version of
+"what should I do with my money", so a client asking one plain question could
+reach for any of them. That is a naming and description problem, and it is
+cheaper to settle here than to debug later:
+
+| Tool | Gives | Costs | Picks funds? |
+|---|---|---|---|
+| `get_buy_plan` | Numbers: gap to target per class, minimum buy, cash split | Two gist reads | No |
+| `get_saved_advice` | The last written analysis, as stored | One gist read | Already picked, possibly stale |
+| `generate_advice` | A fresh written analysis from OpenAI | **Money, per call** | Yes |
+
+Rules for whoever implements Stages 5 and 9:
+
+- **`get_buy_plan` is the default** for "where do I put this cash". Its name
+  says what it returns, and its description says outright that it gives numbers
+  and no fund picks, so a model that needs tickers knows to go to
+  `list_catalog` rather than reach for a paid tool.
+- **`generate_advice` must announce its cost in its own description** and say it
+  is for when the user explicitly asks for a written analysis — not for a
+  routine "what should I buy". D5 already requires the cost note; this is the
+  same requirement seen from the tool-selection side.
+- **Do not put "advice" in the name of anything that is not the LLM's prose.**
+  This is why Stage 4 shipped as `get_buy_plan` rather than the
+  `get_investment_advice` that was briefly considered: the app already binds
+  "investment advice" to `getInvestmentAdvice()`, its OpenAI path, and the UI
+  string `advice.result.title`. Three tools with "advice" in the name is exactly
+  how a client picks the wrong one.
+- `generate_advice` recomputes the same figures internally, so a client that
+  calls `get_buy_plan` first and then `generate_advice` is doing redundant but
+  harmless work. Not worth guarding against; worth knowing.
+
+`get_buy_plan` answers with a **discriminated union**, not a
+partially-filled object: when it cannot compute, there is no `buckets` array at
+all, so a caller cannot read zeroes out of one and present them as real gaps. It
+carries a machine-readable `blocker` alongside the prose `reason` for the same
+purpose. Its `deployCash` per bucket is the actionable number — the minimum buys
+alone do not add up to the cash whenever a bucket is overweight.
 
 Both catalog write paths run their finished row through `validateCatalogEntry`
 (`app/features/catalog/lib.ts`) before saving: ticker and name non-empty,
@@ -321,7 +373,52 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one PR.
   ```
 
-- [ ] **Stage 4 — Allocation diagnostics tool**
+- [x] **Stage 4 — Allocation diagnostics tool** — shipped as **`get_buy_plan`**,
+  not under the stage's own working title.
+
+  The rename came from using it: "diagnostics" is jargon that says nothing about
+  what the caller gets back, and the first instinct on reading it was to call it
+  `get_investment_advice` instead. That is worse — see the disambiguation table
+  above. `get_buy_plan` says what it returns, carries the buy-only constraint in
+  the name itself, and leaves "advice" free for the tool that will actually
+  produce it. The app-side functions keep their `AllocationDiagnostics` names:
+  there they describe the prompt block that really is labelled "Server
+  allocation diagnostics", so the two vocabularies are correct in their own
+  places.
+
+  The stage's "map each null to a distinct message" requirement drove the shape
+  of the change. `computeAdviceAllocationDiagnostics` collapsed six different
+  causes into one `null`, and re-deriving them in `mcp/` would have duplicated
+  app logic the plan forbids duplicating. So the guards were lifted into
+  `computeAdviceAllocationDiagnosticsOutcome`, which returns the diagnostics
+  **or** a named `blocker` — `unparseable_cash`, `mixed_holding_currencies`,
+  `cash_currency_mismatch`, `no_guidelines`, `no_positive_targets`,
+  `unclassified_holding`, the last two of which the stage prompt had not
+  anticipated. The old function now delegates to it and still returns `null`, so
+  the advice path is untouched.
+
+  The per-bucket cash split had the same problem: it existed only as prose
+  inside `formatAdviceAllocationDiagnosticsBlock`. It is now
+  `planAdviceCashDeployment`, which both the prompt block and the tool call.
+  Extracting it made an invariant visible: because targets scale to the
+  post-investment total, the minimum buys sum to **exactly** the cash unless a
+  bucket is overweight — and an overweight bucket is clamped to a zero minimum,
+  which pushes the sum above the cash instead. The "remaining cash" branch is
+  therefore unreachable (a 20k-case fuzz found a maximum remainder of 2e-12), so
+  the tool reports that field only when it is non-zero rather than always
+  emitting a 0.
+
+  Two deviations from the prompt, both deliberate:
+
+  - **An unparseable `cashAmount` throws** rather than returning a blocked
+    payload. It is a fault in the call, not in the data, and the caller can fix
+    it immediately; state-shaped problems (mixed currencies, no guidelines) get
+    the structured `available: false` answer instead.
+  - **`cashCurrency` is optional**, defaulting to the currency the holdings
+    already share and falling back to the app's own default only for an empty
+    portfolio. Requiring it would have made `cash_currency_mismatch` the routine
+    answer for anyone not holding PLN. The response reports which source was
+    used in `cash.currencySource`.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Continue after Stage 3. The plan is agreed — implement directly.
@@ -371,6 +468,8 @@ the plan is already agreed, so implement directly rather than re-planning.
   Goal: stop a single model turn from hammering the GitHub API.
 
   Context: the shared catalog already has a 60s in-process TTL cache, invalidated on every write (#171). Private gist reads (portfolio, guidelines) have no cache at all. A model can call five tools in one turn, each triggering its own gist GET.
+
+  Worth knowing before starting: holdings and guidelines live in the *same* gist, but `fetchEtfs` and `readGuidelinesGist` each GET it separately and parse their own file out of the response. So any caller wanting both makes two identical authenticated requests for one payload. `get_buy_plan` does (in parallel), and so does the web advice page in `app/features/advice/index.ts` (sequentially). A TTL cache keyed by gist id collapses both to one read, which is the cheapest fix and is why neither call site was rewritten to hand-parse the shared payload.
 
   Do:
   - Add a short in-process TTL cache for private gist reads, following the shape of the shared catalog cache in app/features/catalog/lib.ts (TTL constant, env override, test reset helper).

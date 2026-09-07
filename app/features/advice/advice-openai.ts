@@ -455,42 +455,85 @@ export type AdviceBucketDiagnostic = {
 	idealBuyMin: number
 }
 
-/**
- * Dollar diagnostics by **aggregated asset-class bucket** (every guideline line counts toward its
- * `etfType`; same-type lines are summed). Returns null if no guidelines, mixed currency, bad cash,
- * or non-computable.
- */
-export function computeAdviceAllocationDiagnostics(params: {
-	holdings: EtfEntry[]
-	guidelines: EtfGuideline[]
-	cashAmount: string
-	cashCurrency: string
-	catalog: CatalogEntry[]
-}): {
+export type AdviceAllocationDiagnostics = {
 	postTotal: number
 	currency: string
 	rows: AdviceBucketDiagnostic[]
 	sumIdealBuyMin: number
 	targetPctSum: number
-} | null {
+}
+
+/**
+ * Why diagnostics could not be computed. Each value is a distinct, reportable
+ * cause — the advice prompt only needs "not available", but a caller that shows
+ * the reason to a user (the MCP tool) must not collapse them into one message.
+ */
+export type AllocationDiagnosticsBlocker =
+	| 'unparseable_cash'
+	| 'mixed_holding_currencies'
+	| 'cash_currency_mismatch'
+	| 'no_guidelines'
+	| 'no_positive_targets'
+	| 'unclassified_holding'
+
+export type BlockedAllocationDiagnostics = {
+	blocker: AllocationDiagnosticsBlocker
+	diagnostics: null
+	/** Currency the holdings share, when it is the mismatch that blocks. */
+	holdingsCurrency?: string
+	/** The holding that falls outside every targeted bucket. */
+	unclassifiedHolding?: { name: string; etfType: EtfType }
+}
+
+export type AdviceAllocationDiagnosticsOutcome =
+	| { blocker: null; diagnostics: AdviceAllocationDiagnostics }
+	| BlockedAllocationDiagnostics
+
+/**
+ * Dollar diagnostics by **aggregated asset-class bucket** (every guideline line counts toward its
+ * `etfType`; same-type lines are summed), or the reason there are none.
+ *
+ * The guard order matters and is the reported order: cash is parsed first
+ * because nothing else is worth checking against an amount that is not a
+ * number, and a holding's bucket is resolved last because it needs the targets.
+ */
+export function computeAdviceAllocationDiagnosticsOutcome(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+	cashAmount: string
+	cashCurrency: string
+	catalog: CatalogEntry[]
+}): AdviceAllocationDiagnosticsOutcome {
 	const cashNum = parseAdviceCashAmount(params.cashAmount)
-	if (cashNum === null) return null
+	if (cashNum === null) {
+		return { blocker: 'unparseable_cash', diagnostics: null }
+	}
 
 	const {
 		total: holdingsTotal,
 		currency: holdingsCurrency,
 		mixed,
 	} = sumHoldingsValues(params.holdings)
-	if (mixed) return null
+	if (mixed) {
+		return { blocker: 'mixed_holding_currencies', diagnostics: null }
+	}
 	if (params.holdings.length > 0 && holdingsCurrency !== params.cashCurrency) {
-		return null
+		return {
+			blocker: 'cash_currency_mismatch',
+			diagnostics: null,
+			...(holdingsCurrency === null ? {} : { holdingsCurrency }),
+		}
 	}
 
-	if (params.guidelines.length === 0) return null
+	if (params.guidelines.length === 0) {
+		return { blocker: 'no_guidelines', diagnostics: null }
+	}
 
 	const { byType: targetPctByType, sumAll: targetPctSum } =
 		aggregateGuidelineTargetsByEtfType(params.guidelines)
-	if (targetPctSum <= 0) return null
+	if (targetPctSum <= 0) {
+		return { blocker: 'no_positive_targets', diagnostics: null }
+	}
 
 	const currentByType = new Map<EtfType, number>()
 	for (const holding of params.holdings) {
@@ -503,7 +546,14 @@ export function computeAdviceAllocationDiagnostics(params: {
 			holding.value > 0 &&
 			(holdingEtfType === 'mixed' || !targetPctByType.has(holdingEtfType))
 		) {
-			return null
+			return {
+				blocker: 'unclassified_holding',
+				diagnostics: null,
+				unclassifiedHolding: {
+					name: holding.name,
+					etfType: holdingEtfType,
+				},
+			}
 		}
 		currentByType.set(
 			holdingEtfType,
@@ -532,11 +582,114 @@ export function computeAdviceAllocationDiagnostics(params: {
 
 	const sumIdealBuyMin = rows.reduce((sum, row) => sum + row.idealBuyMin, 0)
 	return {
-		postTotal,
-		currency: params.cashCurrency,
-		rows,
-		sumIdealBuyMin,
-		targetPctSum,
+		blocker: null,
+		diagnostics: {
+			postTotal,
+			currency: params.cashCurrency,
+			rows,
+			sumIdealBuyMin,
+			targetPctSum,
+		},
+	}
+}
+
+/**
+ * The same diagnostics without the reason, for callers that only branch on
+ * whether there are numbers to show.
+ */
+export function computeAdviceAllocationDiagnostics(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+	cashAmount: string
+	cashCurrency: string
+	catalog: CatalogEntry[]
+}): AdviceAllocationDiagnostics | null {
+	return computeAdviceAllocationDiagnosticsOutcome(params).diagnostics
+}
+
+/** Currency amounts below this are rounding noise, not a real shortfall or remainder. */
+const CASH_DEPLOYMENT_EPSILON = 0.01
+
+export type AdviceCashDeploymentRow = {
+	etfType: EtfType
+	label: string
+	/**
+	 * Cash going to this bucket's minimum buy — the full minimum when the cash
+	 * covers every bucket, otherwise this bucket's proportional share of it.
+	 */
+	minimumBuyShare: number
+	/** Target-weighted share of whatever is left once every minimum buy is met; 0 when short. */
+	remainderShare: number
+	/** What to actually put into this bucket: the two shares above. */
+	amount: number
+}
+
+export type AdviceCashDeployment = {
+	/** Whether the cash reaches every bucket's minimum buy. */
+	coversAllMinimumBuys: boolean
+	/** Cash left after the minimum buys; 0 when the cash does not cover them. */
+	remainder: number
+	rows: AdviceCashDeploymentRow[]
+}
+
+/**
+ * Split the deployable cash across the buckets, buy-only.
+ *
+ * Short of the minimum buys, every bucket gets a share proportional to its own
+ * minimum, so the shortfall is felt evenly. With cash to spare, each minimum is
+ * met in full and the remainder is spread by target weight, which preserves the
+ * intended mix instead of piling the extra into one bucket.
+ *
+ * That remainder is all but unreachable and the branch is kept as a safety net:
+ * the targets scale to the post-investment total, so the gaps sum to exactly the
+ * cash unless a bucket is overweight — and an overweight bucket is clamped to a
+ * zero minimum, which pushes the sum *above* the cash into the other branch. In
+ * practice `remainder` is therefore 0 or float noise, which the epsilon absorbs.
+ */
+export function planAdviceCashDeployment(params: {
+	diagnostics: AdviceAllocationDiagnostics
+	cashAmount: number
+}): AdviceCashDeployment {
+	const { diagnostics, cashAmount } = params
+	const { rows, sumIdealBuyMin, targetPctSum } = diagnostics
+
+	if (sumIdealBuyMin > cashAmount + CASH_DEPLOYMENT_EPSILON) {
+		return {
+			coversAllMinimumBuys: false,
+			remainder: 0,
+			rows: rows.map((row) => {
+				const share =
+					sumIdealBuyMin > CASH_DEPLOYMENT_EPSILON
+						? (row.idealBuyMin / sumIdealBuyMin) * cashAmount
+						: 0
+				return {
+					etfType: row.etfType,
+					label: row.label,
+					minimumBuyShare: share,
+					remainderShare: 0,
+					amount: share,
+				}
+			}),
+		}
+	}
+
+	const remainder = Math.max(0, cashAmount - sumIdealBuyMin)
+	return {
+		coversAllMinimumBuys: true,
+		remainder,
+		rows: rows.map((row) => {
+			const remainderShare =
+				remainder > CASH_DEPLOYMENT_EPSILON
+					? remainder * (row.targetPct / targetPctSum)
+					: 0
+			return {
+				etfType: row.etfType,
+				label: row.label,
+				minimumBuyShare: row.idealBuyMin,
+				remainderShare,
+				amount: row.idealBuyMin + remainderShare,
+			}
+		}),
 	}
 }
 
@@ -573,37 +726,32 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 	}
 
 	const cashNum = parseAdviceCashAmount(params.cashAmount) ?? 0
-	const eps = 0.01
+	const deployment = planAdviceCashDeployment({
+		diagnostics,
+		cashAmount: cashNum,
+	})
 
-	if (sumIdealBuyMin > cashNum + eps) {
-		const sumIdealBuyMinimums = rows.reduce(
-			(sum, row) => sum + row.idealBuyMin,
-			0,
-		)
+	if (!deployment.coversAllMinimumBuys) {
 		lines.push(
 			`- Not enough cash to fully reach all targets with buys only: minimum buys sum to ${sumIdealBuyMin.toFixed(2)} ${currency} but deployable cash is ${cashNum.toFixed(2)} ${currency}.`,
 			`- **Recommended deployment of this cash** (proportional to those minimum buys among underweight buckets; 0 where minimum buy is 0):`,
 		)
-		for (const row of rows) {
-			const share =
-				sumIdealBuyMinimums > eps
-					? (row.idealBuyMin / sumIdealBuyMinimums) * cashNum
-					: 0
-			lines.push(`  - ${row.label}: deploy ~${share.toFixed(2)} ${currency}`)
+		for (const row of deployment.rows) {
+			lines.push(
+				`  - ${row.label}: deploy ~${row.amount.toFixed(2)} ${currency}`,
+			)
 		}
 	} else {
 		lines.push(
 			`- Minimum buys to hit targets sum to ${sumIdealBuyMin.toFixed(2)} ${currency} (≤ deployable ${cashNum.toFixed(2)} ${currency}).`,
 		)
-		const remainder = cashNum - sumIdealBuyMin
-		if (remainder > eps) {
+		if (deployment.remainder > CASH_DEPLOYMENT_EPSILON) {
 			lines.push(
-				`- After those minimum buys, remaining cash ${remainder.toFixed(2)} ${currency}: add across buckets in proportion to target % to preserve the mix.`,
+				`- After those minimum buys, remaining cash ${deployment.remainder.toFixed(2)} ${currency}: add across buckets in proportion to target % to preserve the mix.`,
 			)
-			for (const row of rows) {
-				const extra = remainder * (row.targetPct / targetPctSum)
+			for (const row of deployment.rows) {
 				lines.push(
-					`  - ${row.label}: +~${extra.toFixed(2)} ${currency} from remainder`,
+					`  - ${row.label}: +~${row.remainderShare.toFixed(2)} ${currency} from remainder`,
 				)
 			}
 		}

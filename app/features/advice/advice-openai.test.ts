@@ -7,6 +7,7 @@ import type { AdviceClient } from './advice-client.ts'
 import {
 	aggregateGuidelineTargetsByEtfType,
 	computeAdviceAllocationDiagnostics,
+	computeAdviceAllocationDiagnosticsOutcome,
 	formatAdviceAllocationDiagnosticsBlock,
 	formatAggregatedGuidelineBucketsBlock,
 	formatAllocationContext,
@@ -15,6 +16,7 @@ import {
 	getInvestmentAdvice,
 	normalizeAdviceAnalysisTab,
 	parseAdviceCashAmount,
+	planAdviceCashDeployment,
 } from './advice-openai.ts'
 
 function adviceJsonParagraph(text: string): string {
@@ -897,6 +899,195 @@ describe('computeAdviceAllocationDiagnostics', () => {
 				catalog: [],
 			}),
 			null,
+		)
+	})
+
+	it('names which of the several causes made the diagnostics unavailable', () => {
+		const equityOnly: EtfGuideline[] = [
+			{
+				id: 'g1',
+				kind: 'asset_class',
+				etfName: '',
+				targetPct: 100,
+				etfType: 'equity',
+			},
+		]
+		const base = {
+			holdings: [] as EtfEntry[],
+			guidelines: equityOnly,
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [] as CatalogEntry[],
+		}
+
+		assert.equal(
+			computeAdviceAllocationDiagnosticsOutcome({ ...base, cashAmount: 'x' })
+				.blocker,
+			'unparseable_cash',
+		)
+		assert.equal(
+			computeAdviceAllocationDiagnosticsOutcome({
+				...base,
+				holdings: [
+					{ id: 'h1', name: 'A', value: 1, currency: 'PLN' },
+					{ id: 'h2', name: 'B', value: 1, currency: 'EUR' },
+				],
+			}).blocker,
+			'mixed_holding_currencies',
+		)
+
+		const mismatch = computeAdviceAllocationDiagnosticsOutcome({
+			...base,
+			holdings: [{ id: 'h1', name: 'A', value: 1, currency: 'EUR' }],
+		})
+		assert.equal(mismatch.blocker, 'cash_currency_mismatch')
+		assert.equal(mismatch.holdingsCurrency, 'EUR')
+
+		assert.equal(
+			computeAdviceAllocationDiagnosticsOutcome({ ...base, guidelines: [] })
+				.blocker,
+			'no_guidelines',
+		)
+		assert.equal(
+			computeAdviceAllocationDiagnosticsOutcome({
+				...base,
+				guidelines: [{ ...equityOnly[0], targetPct: 0 }],
+			}).blocker,
+			'no_positive_targets',
+		)
+
+		const unclassified = computeAdviceAllocationDiagnosticsOutcome({
+			...base,
+			holdings: [
+				{ id: 'h1', name: 'Mystery', ticker: 'ZZZ', value: 1, currency: 'PLN' },
+			],
+		})
+		assert.equal(unclassified.blocker, 'unclassified_holding')
+		assert.deepEqual(unclassified.unclassifiedHolding, {
+			name: 'Mystery',
+			etfType: 'mixed',
+		})
+	})
+
+	it('reports no blocker and the diagnostics together on the success path', () => {
+		const outcome = computeAdviceAllocationDiagnosticsOutcome({
+			holdings: [],
+			guidelines: [
+				{
+					id: 'g1',
+					kind: 'asset_class',
+					etfName: '',
+					targetPct: 100,
+					etfType: 'equity',
+				},
+			],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+		})
+		assert.equal(outcome.blocker, null)
+		assert.equal(outcome.diagnostics?.postTotal, 100)
+	})
+
+	it('splits cash proportionally to the minimum buys when it falls short of them', () => {
+		const diagnostics = computeAdviceAllocationDiagnostics({
+			holdings: [
+				{ id: 'h1', name: 'A', ticker: 'A', value: 2000, currency: 'PLN' },
+				{ id: 'h2', name: 'B', ticker: 'B', value: 3000, currency: 'PLN' },
+				{ id: 'h3', name: 'C', ticker: 'C', value: 5000, currency: 'PLN' },
+			],
+			guidelines: [
+				{
+					id: 'g1',
+					kind: 'asset_class',
+					etfName: '',
+					targetPct: 30,
+					etfType: 'equity',
+				},
+				{
+					id: 'g2',
+					kind: 'asset_class',
+					etfName: '',
+					targetPct: 40,
+					etfType: 'bond',
+				},
+				{
+					id: 'g3',
+					kind: 'asset_class',
+					etfName: '',
+					targetPct: 30,
+					etfType: 'commodity',
+				},
+			],
+			cashAmount: '5000',
+			cashCurrency: 'PLN',
+			catalog: [
+				{ id: '1', ticker: 'A', name: 'A', type: 'equity', description: '' },
+				{ id: '2', ticker: 'B', name: 'B', type: 'bond', description: '' },
+				{ id: '3', ticker: 'C', name: 'C', type: 'commodity', description: '' },
+			],
+		})
+		assert.ok(diagnostics)
+
+		const deployment = planAdviceCashDeployment({
+			diagnostics,
+			cashAmount: 5000,
+		})
+		assert.equal(deployment.coversAllMinimumBuys, false)
+		assert.equal(deployment.remainder, 0)
+		// The whole 5000 is deployed even though it does not reach 5500 of minimums.
+		const deployed = deployment.rows.reduce((sum, row) => sum + row.amount, 0)
+		assert.ok(Math.abs(deployed - 5000) < 0.000_001)
+		const byType = new Map(deployment.rows.map((row) => [row.etfType, row]))
+		assert.equal(byType.get('commodity')?.amount, 0)
+		assert.ok(
+			Math.abs((byType.get('equity')?.amount ?? 0) - 2272.727_272_7) < 0.001,
+		)
+	})
+
+	it('meets every minimum buy in full when the cash reaches them', () => {
+		const diagnostics = computeAdviceAllocationDiagnostics({
+			holdings: [
+				{ id: 'h1', name: 'A', ticker: 'A', value: 4000, currency: 'PLN' },
+				{ id: 'h2', name: 'B', ticker: 'B', value: 4000, currency: 'PLN' },
+			],
+			guidelines: [
+				{
+					id: 'g1',
+					kind: 'asset_class',
+					etfName: '',
+					targetPct: 50,
+					etfType: 'equity',
+				},
+				{
+					id: 'g2',
+					kind: 'asset_class',
+					etfName: '',
+					targetPct: 50,
+					etfType: 'bond',
+				},
+			],
+			cashAmount: '2000',
+			cashCurrency: 'PLN',
+			catalog: [
+				{ id: '1', ticker: 'A', name: 'A', type: 'equity', description: '' },
+				{ id: '2', ticker: 'B', name: 'B', type: 'bond', description: '' },
+			],
+		})
+		assert.ok(diagnostics)
+
+		const deployment = planAdviceCashDeployment({
+			diagnostics,
+			cashAmount: 2000,
+		})
+		assert.equal(deployment.coversAllMinimumBuys, true)
+		assert.deepEqual(
+			deployment.rows.map((row) => row.minimumBuyShare),
+			[1000, 1000],
+		)
+		assert.deepEqual(
+			deployment.rows.map((row) => row.amount),
+			[1000, 1000],
 		)
 	})
 
