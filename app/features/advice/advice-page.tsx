@@ -131,10 +131,9 @@ function resolveProposalEtfDetailsCatalogEntryId(
 const currencyOptions = CURRENCIES.map((c) => ({ value: c, label: c }))
 
 const MODEL_LABEL_KEYS = {
-	'gpt-5.5': 'advice.model.gpt-5.5',
-	'gpt-5.4-mini': 'advice.model.gpt-5.4-mini',
-	'gpt-5.4-nano': 'advice.model.gpt-5.4-nano',
-	'gpt-5.4': 'advice.model.gpt-5.4',
+	'gpt-5.6-sol': 'advice.model.gpt-5.6-sol',
+	'gpt-5.6-terra': 'advice.model.gpt-5.6-terra',
+	'gpt-5.6-luna': 'advice.model.gpt-5.6-luna',
 } as const satisfies Record<AdviceModelId, MessageKey>
 
 const modelOptions = ADVICE_MODEL_IDS.map((id) => ({

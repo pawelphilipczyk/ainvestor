@@ -58,7 +58,7 @@ describe('getInvestmentAdvice', () => {
 		}
 	})
 
-	it('uses gpt-5.4-mini by default and forwards the chosen model to the client', async () => {
+	it('uses gpt-5.6-sol by default and forwards the chosen model to the client', async () => {
 		let defaultModel = ''
 		const defaultClient: AdviceClient = {
 			chat: {
@@ -80,7 +80,7 @@ describe('getInvestmentAdvice', () => {
 			catalog: [],
 			client: defaultClient,
 		})
-		assert.equal(defaultModel, 'gpt-5.4-mini')
+		assert.equal(defaultModel, 'gpt-5.6-sol')
 
 		let chosenModel = ''
 		const trackingClient: AdviceClient = {
@@ -102,9 +102,9 @@ describe('getInvestmentAdvice', () => {
 			cashCurrency: 'PLN',
 			catalog: [],
 			client: trackingClient,
-			model: 'gpt-5.4',
+			model: 'gpt-5.6-luna',
 		})
-		assert.equal(chosenModel, 'gpt-5.4')
+		assert.equal(chosenModel, 'gpt-5.6-luna')
 	})
 
 	it('falls back to a single paragraph when the model returns plain text', async () => {

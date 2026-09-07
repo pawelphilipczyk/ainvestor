@@ -273,10 +273,9 @@ export const en = {
 	'advice.guideline.ariaSummary':
 		'Current {current}, target {target}{postBuyClause}.',
 	'advice.guideline.afterProposedBuys': ', after proposed buys {post}',
-	'advice.model.gpt-5.5': 'GPT-5.5',
-	'advice.model.gpt-5.4-mini': 'GPT-5.4 Mini',
-	'advice.model.gpt-5.4-nano': 'GPT-5.4 Nano',
-	'advice.model.gpt-5.4': 'GPT-5.4',
+	'advice.model.gpt-5.6-sol': 'GPT-5.6 Sol (smartest)',
+	'advice.model.gpt-5.6-terra': 'GPT-5.6 Terra (balanced)',
+	'advice.model.gpt-5.6-luna': 'GPT-5.6 Luna (cheapest)',
 
 	'errors.portfolio.addInvalid':
 		'Please choose an operation (Buy or Sell), select a fund from your catalog, and enter a valid value (for sell, value must be greater than 0).',

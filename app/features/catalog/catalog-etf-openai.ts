@@ -1,7 +1,7 @@
 import type { AdviceClient } from '../advice/advice-client.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
 import {
-	DEFAULT_ADVICE_MODEL,
+	DEFAULT_CATALOG_ETF_MODEL,
 	formatCatalogForAdvice,
 } from '../advice/advice-openai.ts'
 import { sanitizeCatalogLineFragmentForEtfDetailPrompt } from './catalog-etf-openai-sanitize.ts'
@@ -27,7 +27,7 @@ export async function getCatalogEtfDeepDiveText(params: {
 	client: AdviceClient
 	model?: AdviceModelId
 }): Promise<string> {
-	const { entry, client, model = DEFAULT_ADVICE_MODEL } = params
+	const { entry, client, model = DEFAULT_CATALOG_ETF_MODEL } = params
 	const catalogLine = sanitizeCatalogLineFragmentForEtfDetailPrompt(
 		formatCatalogForAdvice([entry]),
 	)

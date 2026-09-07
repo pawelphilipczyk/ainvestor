@@ -13,6 +13,7 @@ import {
 	type AdviceAnalysisMode,
 	type AdviceModelId,
 	DEFAULT_ADVICE_ANALYSIS_MODE,
+	DEFAULT_ADVICE_MODEL,
 } from './advice-openai.ts'
 
 /** Legacy single-file snapshot (both modes); still read for migration. */
@@ -121,10 +122,11 @@ function normalizeAnalysisMode(raw: string): AdviceAnalysisMode | null {
 		: null
 }
 
-function normalizeModelId(raw: string): AdviceModelId | null {
+/** Analyses saved under a retired model id (e.g. the GPT-5.4 line) still render, on the default. */
+function normalizeModelId(raw: string): AdviceModelId {
 	return (ADVICE_MODEL_IDS as readonly string[]).includes(raw)
 		? (raw as AdviceModelId)
-		: null
+		: DEFAULT_ADVICE_MODEL
 }
 
 export function parseStoredAdviceAnalysisFromGistFile(
@@ -142,7 +144,7 @@ export function parseStoredAdviceAnalysisFromGistFile(
 	const value = result.value
 	const lastAnalysisMode = normalizeAnalysisMode(value.lastAnalysisMode)
 	const selectedModel = normalizeModelId(value.selectedModel)
-	if (lastAnalysisMode === null || selectedModel === null) return null
+	if (lastAnalysisMode === null) return null
 	const activeTabRaw = value.activeTab
 	const activeTab =
 		activeTabRaw !== undefined && activeTabRaw !== null

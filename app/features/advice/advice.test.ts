@@ -493,7 +493,7 @@ describe('Advice', () => {
 			lastAnalysisMode: 'buy_next',
 			cashCurrency: 'PLN',
 			cashAmount: '500',
-			selectedModel: 'gpt-5.4-mini',
+			selectedModel: 'gpt-5.6-sol',
 			activeTab: 'buy_next',
 			document: {
 				blocks: [{ type: 'paragraph', text: 'Cached gist paragraph.' }],
@@ -535,7 +535,7 @@ describe('Advice', () => {
 			lastAnalysisMode: 'buy_next',
 			cashCurrency: 'PLN',
 			cashAmount: '500',
-			selectedModel: 'gpt-5.4-mini',
+			selectedModel: 'gpt-5.6-sol',
 			activeTab: 'buy_next',
 			document: {
 				blocks: [{ type: 'paragraph', text: 'Fragment-only paragraph.' }],
@@ -577,7 +577,7 @@ describe('Advice', () => {
 			lastAnalysisMode: 'buy_next',
 			cashCurrency: 'PLN',
 			cashAmount: '100',
-			selectedModel: 'gpt-5.4-mini',
+			selectedModel: 'gpt-5.6-sol',
 			activeTab: 'buy_next',
 			document: {
 				blocks: [{ type: 'paragraph', text: 'Wrong tab should not show.' }],
@@ -894,7 +894,7 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '100')
-		form.set('adviceModel', 'gpt-5.4-nano')
+		form.set('adviceModel', 'gpt-5.6-luna')
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
@@ -907,8 +907,8 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.equal(capturedModel, 'gpt-5.4-nano')
-		assert.match(body, /value="gpt-5.4-nano"/)
+		assert.equal(capturedModel, 'gpt-5.6-luna')
+		assert.match(body, /value="gpt-5.6-luna"/)
 	})
 
 	it('renders catalog ETF href on fund name when etf_proposals include catalogEntryId', async () => {

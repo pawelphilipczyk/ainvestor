@@ -206,17 +206,38 @@ export function normalizeAdviceAnalysisTab(
 	return DEFAULT_ADVICE_ANALYSIS_MODE
 }
 
-/** OpenAI chat models offered for ETF advice (user-selectable; default is mini). */
+/**
+ * OpenAI chat models offered for ETF advice, best first (user-selectable).
+ *
+ * The GPT-5.6 family replaces the GPT-5.4/5.5 models this app used before: Sol scores higher
+ * than GPT-5.5 at the same list price ($5 / $30 per 1M input / output tokens), so GPT-5.5 and the
+ * whole 5.4 line are strictly worse deals and were dropped. GPT-6 Astra is deliberately not here:
+ * it costs $10 / $50 per 1M tokens and is still behind limited access, which buys little on a
+ * prompt this small.
+ *
+ * - `gpt-5.6-sol` — flagship reasoning ($5 / $30 per 1M). Used for the advice itself.
+ * - `gpt-5.6-terra` — balanced ($2 / $12 per 1M).
+ * - `gpt-5.6-luna` — cheap and fast ($0.20 / $1.20 per 1M). Used for catalog fund write-ups.
+ */
 export const ADVICE_MODEL_IDS = [
-	'gpt-5.5',
-	'gpt-5.4-mini',
-	'gpt-5.4-nano',
-	'gpt-5.4',
+	'gpt-5.6-sol',
+	'gpt-5.6-terra',
+	'gpt-5.6-luna',
 ] as const
 
 export type AdviceModelId = (typeof ADVICE_MODEL_IDS)[number]
 
-export const DEFAULT_ADVICE_MODEL: AdviceModelId = 'gpt-5.4-mini'
+/**
+ * Advice is the reasoning-heavy call (holdings + guidelines + catalog + buy-only arithmetic) and
+ * runs once per click, so it gets the smartest non-gated model rather than the cheapest one.
+ */
+export const DEFAULT_ADVICE_MODEL: AdviceModelId = 'gpt-5.6-sol'
+
+/**
+ * Explaining one catalog fund is a summarize-one-line task, so it defaults to the cheap tier
+ * (~25x cheaper than the advice default) instead of paying flagship rates for every ETF page.
+ */
+export const DEFAULT_CATALOG_ETF_MODEL: AdviceModelId = 'gpt-5.6-luna'
 
 export function formatGuidelineLine(guideline: EtfGuideline): string {
 	if (guideline.kind === 'asset_class') {
