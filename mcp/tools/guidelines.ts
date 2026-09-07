@@ -10,6 +10,7 @@ import type {
 } from '../../app/lib/guidelines.ts'
 import {
 	ETF_TYPES,
+	fetchGuidelinesOrThrow,
 	findGuidelineDuplicateOf,
 	GUIDELINE_KINDS,
 	GUIDELINE_TARGET_PERCENT_MAX,
@@ -264,7 +265,11 @@ export function createSetGuidelineTool(
 	): Promise<McpToolResult> {
 		const { entry, catalogVerified } = await buildGuidelineEntry(toolArguments)
 		const gistId = await resolveDataGistId(credentials)
-		const current = await fetchGuidelinesOrThrowCached(
+		// Uncached: this read feeds a same-call overwrite of the whole file, so a
+		// cached copy up to the TTL old would let a concurrent edit (the web app's
+		// own saveGuidelines does not invalidate this cache) be silently discarded
+		// rather than merely raced against, the way an uncached read already is.
+		const current = await fetchGuidelinesOrThrow(
 			credentials.githubToken,
 			gistId,
 		)
@@ -352,7 +357,8 @@ export function createDeleteGuidelineTool(
 		}
 
 		const gistId = await resolveDataGistId(credentials)
-		const current = await fetchGuidelinesOrThrowCached(
+		// Uncached — see the same note in set_guideline.
+		const current = await fetchGuidelinesOrThrow(
 			credentials.githubToken,
 			gistId,
 		)
