@@ -91,10 +91,7 @@ type CashSummary = {
 	currencySource: 'argument' | 'holdings' | 'default'
 }
 
-/**
- * Deliberately a discriminated union: a blocked answer carries no buckets at
- * all, so a caller cannot read zeroes out of one and present them as gaps.
- */
+/** A blocked answer deliberately carries no `buckets` — see docs/MCP_SERVER_PLAN.md. */
 export type BuyPlanSummary =
 	| {
 			available: false

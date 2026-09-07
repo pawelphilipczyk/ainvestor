@@ -354,8 +354,6 @@ export function createUpsertCatalogEntryTool(
 			existing === undefined ? changes : { ...existing, ...changes }
 
 		// Same gate a bank import row has to pass — see validateCatalogEntry.
-		// A caller-supplied value goes in exactly like a bank one would: neither
-		// gets to write something the other could not.
 		const issues = validateCatalogEntry(merged)
 		if (issues.length > 0) {
 			throw new Error(
