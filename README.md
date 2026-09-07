@@ -29,6 +29,7 @@ repository using the `remix` package (`remix@next`).
 | `APPROVED_GITHUB_LOGINS` | No | Extra GitHub logins allowed in, on top of `app/lib/approved-github-logins.ts` |
 | `AINVESTOR_PUBLIC_ORIGIN` | For MCP off Fly | Origin the deployment is reached on; becomes the OAuth issuer in MCP discovery |
 | `AINVESTOR_GIST_ID` | No | Pins the data gist the MCP server reads, for approved logins only (see [MCP server](#mcp-server-use-your-data-from-an-ai-client)) |
+| `SHARED_CATALOG_GIST_ID` | Yes (MCP too) | Also required by the stdio MCP server, which refuses to start without it |
 
 ### Shared catalog gist
 
@@ -99,6 +100,28 @@ the web app uses. Four tools, no extra configuration:
   rows above 100% is refused.
 - **`delete_guideline`** — remove one row by the `id` that `get_guidelines`
   reports.
+
+The shared ETF catalog is reachable too, and it is the only source of valid
+tickers — a fund it does not list is one you may not be able to buy:
+
+- **`list_catalog`** — funds matching a free-text query over ticker, name and
+  description, as compact rows. The answer always carries `matched` and
+  `truncated`, so a limited list is never mistaken for the whole catalog.
+- **`get_catalog_entry`** — one fund in full, by ticker or id.
+- **`upsert_catalog_entry`** — add a fund or update fields of one already there.
+  The row is found by ticker, and a partial update keeps every field it does
+  not mention — isin included, so it never needs repeating.
+- **`delete_catalog_entry`** — remove one fund.
+- **`import_catalog_from_bank_file`** — refresh the catalog from a bank API
+  response or a DevTools HAR **saved on the machine running the server**. Take
+  `dryRun: true` first to see what would change. Available **only over stdio**:
+  the deployed server cannot read your disk, and a HAR is far larger than the
+  256 KB an MCP request body may carry.
+
+The three catalog writes are **owner-only**. The catalog is one public gist
+shared by everyone using the app, and GitHub lets only its owner write to it;
+the tools check that first, so a wrong token is told which account owns the
+catalog instead of getting a bare `404`.
 
 Holdings stay read-only: buying and selling remains a web-app job.
 
@@ -221,10 +244,10 @@ Then edit `claude_desktop_config.json` — macOS
 Restart Claude Desktop and ask what is in your portfolio. The token sits in that
 file in plain text, so keep its scope to `gist`.
 
-`SHARED_CATALOG_GIST_ID` is optional: with it, `set_guideline` resolves a fund's
-ticker and asset class from the shared catalog exactly as the web app's form
-does. Without it, an instrument guideline still works but you must pass
-`etfType` yourself, and the tool says the class was not verified.
+`SHARED_CATALOG_GIST_ID` is **required**: the catalog tools read it, and
+`set_guideline` uses it to resolve a fund's ticker and asset class exactly as the
+web app's form does. The server refuses to start without it rather than let an
+unconfigured catalog look like an empty one.
 
 Running `npm run mcp` yourself is not useful: the process waits for JSON-RPC on
 stdin and prints only a `[mcp] ready` line on stderr. That is correct, not broken.

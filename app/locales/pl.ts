@@ -318,6 +318,8 @@ export const pl = {
 	'errors.catalog.import.issue.missingFundName': 'Brak fund_name.',
 	'errors.catalog.import.issue.isinInvalid':
 		'ISIN jest obecny, ale nieprawidłowy (oczekiwany format 12 znaków).',
+	'errors.catalog.import.issue.riskKidOutOfRange':
+		'risk_kid jest obecny, ale nie jest liczbą całkowitą od 1 do 7.',
 	'errors.catalog.import.issue.duplicateIdInPaste':
 		'Zduplikowane id „{id}” w tej wklejce (konflikt z wierszem {otherIndex}).',
 	'errors.catalog.import.issue.duplicateMergeKeyInPaste':

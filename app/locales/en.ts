@@ -324,6 +324,8 @@ export const en = {
 	'errors.catalog.import.issue.missingFundName': 'Missing fund_name.',
 	'errors.catalog.import.issue.isinInvalid':
 		'ISIN is present but not valid (expected 12-character format).',
+	'errors.catalog.import.issue.riskKidOutOfRange':
+		'risk_kid is present but not a whole number from 1 to 7.',
 	'errors.catalog.import.issue.duplicateIdInPaste':
 		'Duplicate id "{id}" in this paste (clashes with row {otherIndex}).',
 	'errors.catalog.import.issue.duplicateMergeKeyInPaste':

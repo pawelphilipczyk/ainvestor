@@ -25,6 +25,8 @@ import type { GistCredentials } from '../data-gist.ts'
 import { resolveDataGistId } from '../data-gist.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
+import { readStringArgument } from './tool-arguments.ts'
+import { jsonResult } from './tool-result.ts'
 
 const BUCKET_EXPLANATION =
 	'Instrument rows count toward their own asset class: `byAssetClass` folds every row of a type — bucket rows and named funds alike — into one effective target for that class. Do not add a fund target on top of its class target.'
@@ -84,16 +86,6 @@ export function summarizeGuidelines(guidelines: EtfGuideline[]) {
 				? 'No guidelines are set, so the portfolio has no target allocation to compare against.'
 				: BUCKET_EXPLANATION,
 	}
-}
-
-function readStringArgument(
-	toolArguments: Record<string, unknown>,
-	name: string,
-): string | null {
-	const value = toolArguments[name]
-	if (typeof value !== 'string') return null
-	const trimmed = value.trim()
-	return trimmed.length > 0 ? trimmed : null
 }
 
 function readGuidelineKind(
@@ -246,12 +238,6 @@ function assertWithinCap(params: {
 	throw new Error(
 		`Target ${targetPct}% would take the total to ${roundToTwoDecimals(othersTotal + targetPct)}%, above the 100% cap. The other guidelines already claim ${othersTotal}%.`,
 	)
-}
-
-function jsonResult(payload: unknown): McpToolResult {
-	return {
-		content: [{ type: 'text', text: JSON.stringify(payload, null, 2) }],
-	}
 }
 
 export function createGetGuidelinesTool(

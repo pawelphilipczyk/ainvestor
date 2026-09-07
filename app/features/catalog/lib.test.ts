@@ -408,6 +408,38 @@ describe('parseBankJsonToCatalog', () => {
 		assert.equal(result.skippedRowDiagnostics.length, 2)
 	})
 
+	it('parseBankJsonForImport rejects an invalid ISIN even though ticker and name are fine', () => {
+		const result = parseBankJsonForImport(
+			{
+				data: [{ fund_name: 'Bad ISIN', ticker: 'BAD', isin: 'not-an-isin' }],
+			},
+			[],
+		)
+		assert.equal(result.entries.length, 0)
+		assert.equal(result.skippedRowDiagnostics.length, 1)
+		assert.deepEqual(result.skippedRowDiagnostics[0].issues, [
+			{ kind: 'isinInvalid' },
+		])
+	})
+
+	it('parseBankJsonForImport rejects a risk_kid outside 1-7', () => {
+		const result = parseBankJsonForImport(
+			{
+				data: [
+					{ fund_name: 'Bad Risk', ticker: 'RISK', risk_kid: 9 },
+					{ fund_name: 'Good Risk', ticker: 'OK', risk_kid: 4 },
+				],
+			},
+			[],
+		)
+		assert.equal(result.entries.length, 1)
+		assert.equal(result.entries[0].ticker, 'OK')
+		assert.equal(result.skippedRowDiagnostics.length, 1)
+		assert.deepEqual(result.skippedRowDiagnostics[0].issues, [
+			{ kind: 'riskKidOutOfRange' },
+		])
+	})
+
 	it('parseBankJsonForImport merges first duplicate in paste and skips later duplicate', () => {
 		const row = {
 			isin: 'IE00BGV5VR99',

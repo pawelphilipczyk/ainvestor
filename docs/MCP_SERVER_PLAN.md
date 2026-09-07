@@ -4,12 +4,12 @@ Plan for exposing this app's data to LLM clients over the **Model Context
 Protocol**. Work proceeds in **small, separately-chatted stages**; each stage
 ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
-**Progress:** Stages 1, 2 and 10 have shipped: both transports, the OAuth
-discovery, `get_portfolio` and `get_guidelines`. Stage 7's **guideline** writes
-(`set_guideline`, `delete_guideline`) shipped early and unconditionally, because
-guidelines are the input the advice tools need to be worth anything; Stage 7
-keeps its box open for the holdings writes. Flip a checkbox to `[x]` when its
-stage ships (same PR as the code, or a tiny follow-up).
+**Progress:** Stages 1, 2, 3 and 10 have shipped, plus the **guideline** and
+**catalog** writes originally scheduled for Stage 7 — those came early because
+setting targets and correcting the fund list from a client is what makes the
+read tools worth having. Stage 7 keeps its box open for the holdings writes,
+which move money-carrying rows and deserve their own review. Flip a checkbox to
+`[x]` when its stage ships (same PR as the code, or a tiny follow-up).
 
 Read before any implementation stage:
 
@@ -33,7 +33,8 @@ These are settled so every thread starts from the same baseline. Change them
 |---|---|---|---|
 | D1 | Transport | **Both**: stdio for a local client, `POST /mcp` on the deployed app for everything else | stdio needs the client to launch a local subprocess, so it cannot serve a phone at all. The HTTP endpoint (Stage 10) covers that without replacing stdio, and both share one tool definition in `mcp/ainvestor-server.ts`. |
 | D2 | Auth | **The caller's own GitHub token with `gist` scope** — from env over stdio, from the `Authorization` header over HTTP. Remote clients obtain that token by signing in to **GitHub**, which the app names as its authorization server in published discovery metadata | The app never becomes an authorization server and stores no secret. Building one was designed and rejected once GitHub turned out to serve the same purpose: it supports PKCE `S256`, and the connector dialog's Client ID/secret fields take a GitHub OAuth App the user registers. |
-| D3 | Write access | **Guideline writes are always exposed**, no env flag. Holdings writes still wait for Stage 7 | Superseded the original read-only-until-Stage-7 stance: setting targets from a client is the point of the guidelines tools, and an env flag only made them fail to appear. The blast radius stays small — a caller writes only the gist their own token reaches, the file is one small array, and every write is a gist **revision**, so an overwritten edit is restorable from the gist's history. Holdings are a separate matter: `record_operation` mutates money-carrying rows, so it keeps its Stage 7 review. |
+| D3 | Write access | **Guideline and catalog writes are always exposed**, no env flag. Holdings writes still wait for Stage 7 | Superseded the original read-only-until-Stage-7 stance: setting targets and fixing the fund list from a client is the point of those tools, and an env flag only made them fail to appear. Guideline writes reach only the gist the caller's own token owns. Catalog writes reach shared, public data, so they carry their own guard instead: the catalog gist's **owner** is the only account GitHub lets write it, and the tools check that first so the refusal names both logins rather than surfacing a bare 404. Every write is a gist **revision**, so an overwritten edit is restorable. Holdings are a separate matter: `record_operation` mutates money-carrying rows, so it keeps its Stage 7 review. |
+| D8 | Local-file tools | **stdio only**, the single sanctioned difference between the transports | `import_catalog_from_bank_file` reads a path on the caller's machine, which the deployed server cannot see, and a DevTools HAR runs to megabytes against the HTTP transport's 256 KB body cap. `createAinvestorMcpServer` takes `allowLocalFileTools` for exactly this; nothing else may vary between stdio and HTTP. |
 | D4 | Location | **`mcp/` in this repo**, importing `app/lib/*` and `app/features/*` directly | Reuses `fetchEtfs`, `fetchGuidelines`, `fetchCatalog`, and the allocation maths with no package boundary. CI catches drift. |
 | D5 | AI advice | **Read stored analyses only** in v1; generating new ones is optional Stage 9 | Generation needs `OPENAI_API_KEY` in the MCP client's environment and costs money per call. |
 | D6 | Gist discovery | `AINVESTOR_GIST_ID` when set, otherwise discovery by description | Discovery works (pagination fixed in `app/lib/gist.ts`), but an explicit id avoids listing every gist on every start. |
@@ -60,7 +61,7 @@ Named to match the existing `GH_` / `SHARED_CATALOG_GIST_ID` convention.
 | Variable | Required | Description |
 |---|---|---|
 | `GH_TOKEN` | stdio only | GitHub PAT with the **`gist`** scope. Over HTTP the token arrives per request in the `Authorization` header instead, so the deployment never holds one. |
-| `SHARED_CATALOG_GIST_ID` | Not yet | Public gist holding `catalog.json`. Optional until Stage 3 adds a catalog tool — the server must not refuse to start over a variable nothing reads. |
+| `SHARED_CATALOG_GIST_ID` | stdio | Public gist holding `catalog.json`. Required since the catalog tools shipped: without it `fetchCatalog()` quietly returns an empty list, so a search would answer "no such fund" instead of "no catalog configured". |
 | `AINVESTOR_GIST_ID` | No | Private data gist id. When unset, it is discovered by description from the caller's own token. Over HTTP a pinned id is served **only to an approved GitHub login** — see the note under Stage 10. |
 | `AINVESTOR_PUBLIC_ORIGIN` | Off Fly | The origin advertised in OAuth discovery metadata. Required wherever `FLY_APP_NAME` is absent and the host is not loopback; request headers are never trusted for this. |
 | `OPENAI_API_KEY` | No | Only needed if Stage 9 (advice generation) ships. |
@@ -93,8 +94,9 @@ no token required, cached in-process for 60s. `CatalogEntry` carries `ticker`,
 `risk_kid` (1–7), `region`, `sector`, `rate_of_return`, `volatility`,
 `return_risk`, `fund_size`, `esg`.
 
-Only the gist **owner** may write it (`isSharedCatalogAdmin()`). The MCP server
-**does not** expose catalog writes or bank-JSON import — those stay in the UI.
+Only the gist **owner** may write it (`isSharedCatalogAdmin()`), which is what
+makes the MCP catalog writes safe to expose: a non-owner is refused before the
+call reaches GitHub, and GitHub would refuse it anyway.
 
 ### Derived logic worth exposing as tools
 
@@ -143,6 +145,8 @@ mcp/
   stdout-guard.ts      # keeps console output off the stdio protocol channel
   tools/portfolio.ts   # get_portfolio
   tools/guidelines.ts  # get_guidelines, set_guideline, delete_guideline
+  tools/catalog.ts     # list_catalog, get_catalog_entry, and the owner-only row writes
+  tools/catalog-import.ts # import_catalog_from_bank_file (stdio only, reads a local path)
   tools/rounding.ts    # the two-decimal rounding both tool modules report in
   **/*.test.ts         # co-located, run by `tsx --test`
 ```
@@ -174,7 +178,7 @@ Read-only (Stages 2–5):
 |---|---|
 | `get_portfolio` | Holdings, total value, per-holding share %, currency warnings |
 | `get_guidelines` | Target rows, their sum, aggregated buckets per asset type |
-| `list_catalog` | Filtered catalog rows (type, region, sector, risk band, ESG, limit) |
+| `list_catalog` | Catalog rows matching a free-text query, compact projection, with `matched`/`truncated` so a limited list never reads as the whole catalog |
 | `get_catalog_entry` | One entry by ticker or id, all fields |
 | `get_allocation_diagnostics` | Buy-only gaps per bucket for a given cash amount |
 | `get_saved_advice` | The stored analysis for `buy_next` or `portfolio_review` |
@@ -182,7 +186,9 @@ Read-only (Stages 2–5):
 Resources (Stage 5): `ainvestor://portfolio`, `ainvestor://guidelines`,
 `ainvestor://catalog`.
 
-Write: `set_guideline` and `delete_guideline` (shipped, always exposed);
+Write: `set_guideline`, `delete_guideline`, `upsert_catalog_entry`,
+`delete_catalog_entry` and `import_catalog_from_bank_file` (shipped, always
+exposed; the catalog three owner-only, the import stdio-only per D8);
 `record_operation` and `remove_holding` still to come in Stage 7.
 
 `set_guideline` is an upsert, not an append: there is one row per asset class
@@ -194,7 +200,8 @@ unlisted ticker the caller must name `etfType` and the response says the class
 was not verified — the web app's form simply refuses that case, but over MCP the
 catalog may not be configured at all.
 
-Never exposed: catalog writes, bank-JSON import, OAuth, session state.
+Never exposed: OAuth, session state, and any tool that rewrites the whole
+portfolio or catalog at once.
 
 Tools currently return a JSON document inside a single text content block. MCP
 also allows `structuredContent` with an `outputSchema` (revision 2025-06-18 and
@@ -259,7 +266,7 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one PR.
   ```
 
-- [ ] **Stage 3 — Catalog read tools**
+- [x] **Stage 3 — Catalog read tools** — shipped, reshaped: the filters below were cut to a single free-text query (the tool exists to ground tickers, not to browse), and the owner-only writes were added in the same PR. The prompt is kept as written for the record.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Continue after Stage 2. The plan is agreed — implement directly.
@@ -348,7 +355,7 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one PR.
   ```
 
-- [ ] **Stage 7 — Write tools (opt-in)** — the guideline half has shipped; what remains is `record_operation` and `remove_holding`.
+- [ ] **Stage 7 — Write tools (opt-in)** — the guideline and catalog halves have shipped; what remains is `record_operation` and `remove_holding`.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Continue after Stage 6. The plan is agreed — implement directly.

@@ -9,6 +9,7 @@ import { DEFAULT_ADVICE_MODEL } from '../advice/advice-openai.ts'
 import {
 	type CatalogEntry,
 	type CatalogRiskBand,
+	catalogEntryMatchesQuery,
 	riskBandFromRiskKid,
 } from './lib.ts'
 
@@ -196,13 +197,11 @@ export function CatalogListFragment(handle: Handle<CatalogListFragmentProps>) {
 			const band = riskBandFromRiskKid(entry.risk_kid)
 			const matchesRisk =
 				!props.riskFilter || (band !== undefined && band === props.riskFilter)
-			const queryLower = props.query.toLowerCase()
-			const matchesQuery =
-				!props.query ||
-				entry.ticker.toLowerCase().includes(queryLower) ||
-				entry.name.toLowerCase().includes(queryLower) ||
-				entry.description.toLowerCase().includes(queryLower)
-			return matchesType && matchesRisk && matchesQuery
+			return (
+				matchesType &&
+				matchesRisk &&
+				catalogEntryMatchesQuery(entry, props.query)
+			)
 		})
 
 		const ownedInCatalog = filtered.filter((catalogEntry) =>
