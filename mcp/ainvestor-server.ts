@@ -1,6 +1,7 @@
 import type { GistCredentials } from './data-gist.ts'
 import type { McpServerInfo } from './protocol.ts'
 import { createMcpServer } from './protocol.ts'
+import { createAinvestorResources } from './resources.ts'
 import { createGetBuyPlanTool } from './tools/buy-plan.ts'
 import {
 	createDeleteCatalogEntryTool,
@@ -15,10 +16,11 @@ import {
 	createSetGuidelineTool,
 } from './tools/guidelines.ts'
 import { createGetPortfolioTool } from './tools/portfolio.ts'
+import { createGetSavedAdviceTool } from './tools/saved-advice.ts'
 
 export const SERVER_INFO: McpServerInfo = {
 	name: 'ainvestor',
-	version: '0.4.0',
+	version: '0.5.0',
 }
 
 export const INSTRUCTIONS = `Access to the user's AI Investor data, stored in their own private GitHub gist.
@@ -31,7 +33,11 @@ Guidelines can be edited: set_guideline creates or updates one row, delete_guide
 
 When asked where to put a sum of money, call get_buy_plan with that amount rather than working the gaps out from get_portfolio and get_guidelines by hand — it is the app's own arithmetic, the same figures the web app treats as authoritative. It answers with numbers, not fund picks: choose the funds yourself from list_catalog. It is buy-only: it assumes nothing is sold, so never turn its output into a recommendation to sell. It needs one currency throughout, and says so plainly when it cannot compute — report that reason instead of estimating the numbers yourself.
 
-The catalog is the shared list of funds this app knows about, and the only source of valid tickers: never propose a fund that list_catalog does not return, because the user may not be able to buy it. Unlike the portfolio and the guidelines, the catalog is one public gist shared by every user, and only its owner can change it.`
+The catalog is the shared list of funds this app knows about, and the only source of valid tickers: never propose a fund that list_catalog does not return, because the user may not be able to buy it. Unlike the portfolio and the guidelines, the catalog is one public gist shared by every user, and only its owner can change it.
+
+get_saved_advice returns the written analysis the web app's advice page last saved, in either of its two modes. It is a stored snapshot against the data of the moment it was written, and nothing here recomputes it: read its savedAt before repeating any figure from it, and take current numbers from the tools above. This server cannot generate advice; only the web app can.
+
+The portfolio, the guidelines and the catalog are also readable as the resources ainvestor://portfolio, ainvestor://guidelines and ainvestor://catalog. The first two carry exactly what get_portfolio and get_guidelines return; ainvestor://catalog carries every fund rather than one page of search results, so read it when you want the whole list and use list_catalog to search.`
 
 /**
  * The tool surface, bound to one user's credentials. Shared by both transports
@@ -56,6 +62,7 @@ export function createAinvestorMcpServer(params: {
 			createSetGuidelineTool(credentials),
 			createDeleteGuidelineTool(credentials),
 			createGetBuyPlanTool(credentials),
+			createGetSavedAdviceTool(credentials),
 			createListCatalogTool(),
 			createGetCatalogEntryTool(),
 			createUpsertCatalogEntryTool(credentials),
@@ -64,5 +71,6 @@ export function createAinvestorMcpServer(params: {
 				? [createImportCatalogFromBankFileTool(credentials)]
 				: []),
 		],
+		resources: createAinvestorResources(credentials),
 	})
 }

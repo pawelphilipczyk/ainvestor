@@ -41,6 +41,20 @@ export type McpToolDefinition = {
 	handler: (args: Record<string, unknown>) => Promise<McpToolResult>
 }
 
+/**
+ * A dataset a client can read without choosing arguments — the same JSON the
+ * matching tool returns, addressed by URI so a client can attach it to a
+ * conversation on its own initiative rather than deciding to call a tool.
+ */
+export type McpResourceDefinition = {
+	uri: string
+	name: string
+	title?: string
+	description: string
+	mimeType: string
+	read: () => Promise<string>
+}
+
 export type McpServerInfo = {
 	name: string
 	version: string
@@ -87,6 +101,16 @@ function readRequestId(
 	return { kind: 'request', id: null }
 }
 
+function resourceDescriptor(resource: McpResourceDefinition) {
+	return {
+		uri: resource.uri,
+		name: resource.name,
+		...(resource.title === undefined ? {} : { title: resource.title }),
+		description: resource.description,
+		mimeType: resource.mimeType,
+	}
+}
+
 function errorText(error: unknown): string {
 	return error instanceof Error ? error.message : String(error)
 }
@@ -98,10 +122,15 @@ function errorText(error: unknown): string {
 export function createMcpServer(params: {
 	serverInfo: McpServerInfo
 	tools: McpToolDefinition[]
+	resources?: McpResourceDefinition[]
 	instructions?: string
 }) {
 	const { serverInfo, tools, instructions } = params
+	const resources = params.resources ?? []
 	const toolsByName = new Map(tools.map((tool) => [tool.name, tool]))
+	const resourcesByUri = new Map(
+		resources.map((resource) => [resource.uri, resource]),
+	)
 
 	async function callTool(
 		message: JsonRpcIncoming,
@@ -145,6 +174,49 @@ export function createMcpServer(params: {
 		}
 	}
 
+	/**
+	 * Unlike a tool call, a failed resource read is a protocol error: `contents`
+	 * has no error flag, so the alternative would be handing the client an
+	 * explanation dressed as the data it asked for.
+	 */
+	async function readResource(
+		message: JsonRpcIncoming,
+		id: string | number,
+	): Promise<JsonRpcResponse> {
+		const params =
+			message.params !== null && typeof message.params === 'object'
+				? (message.params as Record<string, unknown>)
+				: {}
+		const uri = params.uri
+		if (typeof uri !== 'string') {
+			return errorResponse({
+				id,
+				code: JSON_RPC_ERROR_CODES.invalidParams,
+				message: 'resources/read requires a string "uri" parameter',
+			})
+		}
+		const resource = resourcesByUri.get(uri)
+		if (resource === undefined) {
+			return errorResponse({
+				id,
+				code: JSON_RPC_ERROR_CODES.invalidParams,
+				message: `Unknown resource: ${uri}`,
+			})
+		}
+		try {
+			const text = await resource.read()
+			return successResponse(id, {
+				contents: [{ uri: resource.uri, mimeType: resource.mimeType, text }],
+			})
+		} catch (error) {
+			return errorResponse({
+				id,
+				code: JSON_RPC_ERROR_CODES.internalError,
+				message: errorText(error),
+			})
+		}
+	}
+
 	/** Returns the response to write, or null for notifications and ignored messages. */
 	async function handleMessage(raw: unknown): Promise<JsonRpcResponse | null> {
 		const addressing = readRequestId(raw)
@@ -173,7 +245,13 @@ export function createMcpServer(params: {
 						: undefined
 				return successResponse(id, {
 					protocolVersion: negotiateProtocolVersion(requested),
-					capabilities: { tools: {} },
+					// Only capabilities we actually serve: a client that sees
+					// `resources` will call `resources/list`, so a server with none
+					// must not claim it.
+					capabilities: {
+						tools: {},
+						...(resources.length === 0 ? {} : { resources: {} }),
+					},
 					serverInfo,
 					...(instructions === undefined ? {} : { instructions }),
 				})
@@ -184,13 +262,32 @@ export function createMcpServer(params: {
 				return successResponse(id, { tools: tools.map(toolDescriptor) })
 			case 'tools/call':
 				return callTool(message, id)
-			default:
-				return errorResponse({
-					id,
-					code: JSON_RPC_ERROR_CODES.methodNotFound,
-					message: `Unknown method: ${message.method}`,
+			case 'resources/list':
+				if (resources.length === 0) break
+				return successResponse(id, {
+					resources: resources.map(resourceDescriptor),
 				})
+			case 'resources/templates/list':
+				if (resources.length === 0) break
+				// This server has no parameterised resources, but a client that saw
+				// the capability asks anyway; an empty list is a cheaper answer than
+				// an error frame it has to interpret.
+				return successResponse(id, { resourceTemplates: [] })
+			case 'resources/read':
+				if (resources.length === 0) break
+				return readResource(message, id)
+			default:
+				break
 		}
+
+		// Reached by an unknown method, and by a resource method on a server that
+		// exposes no resources — which, having never advertised the capability,
+		// does not implement them.
+		return errorResponse({
+			id,
+			code: JSON_RPC_ERROR_CODES.methodNotFound,
+			message: `Unknown method: ${message.method}`,
+		})
 	}
 
 	return { handleMessage }

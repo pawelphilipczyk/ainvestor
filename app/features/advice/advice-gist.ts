@@ -171,36 +171,92 @@ function storedMatchesTab(
 }
 
 /**
- * Read saved analysis for one tab from the gist. Uses a per-mode file; falls back to
- * legacy `advice-analysis.json` when the mode-specific file is missing.
+ * Why there is no analysis to show, when there is none.
+ *
+ * The page only ever needed "a snapshot or nothing", but a client asking for one
+ * over MCP has to be told which of the three happened: an analysis that was
+ * never generated, one stored in a shape this version cannot read, and a gist
+ * GitHub refused to hand over are three different problems with three different
+ * fixes, and reporting them all as "nothing saved" invites regenerating an
+ * analysis that is in fact sitting right there.
+ */
+export type StoredAdviceAnalysisOutcome =
+	| { status: 'found'; stored: StoredAdviceAnalysis }
+	| { status: 'not_found' }
+	/**
+	 * `file` says which one could not be parsed. The legacy file is shared by
+	 * both modes, so a corrupt one may or may not hold the mode that was asked
+	 * for — a caller that reports it must not claim it does.
+	 */
+	| { status: 'malformed'; file: 'mode' | 'legacy' }
+	| { status: 'unreadable'; httpStatus: number }
+
+function hasStoredContent(content: string | null | undefined): boolean {
+	return content != null && content.trim() !== ''
+}
+
+/**
+ * Read saved analysis for one tab from the gist, naming the reason when there is
+ * none. Uses a per-mode file; falls back to legacy `advice-analysis.json` when
+ * the mode-specific file is missing.
+ */
+export async function fetchStoredAdviceAnalysisOutcomeForTab(
+	token: string,
+	gistId: string,
+	tab: AdviceAnalysisMode,
+): Promise<StoredAdviceAnalysisOutcome> {
+	if (gistTestState.enabled) {
+		const stored = gistTestState.byTab[tab] ?? null
+		return stored === null
+			? { status: 'not_found' }
+			: { status: 'found', stored }
+	}
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+		headers: githubHeaders(token),
+	})
+	if (!response.ok) {
+		return { status: 'unreadable', httpStatus: response.status }
+	}
+	const gist = (await response.json()) as GistPayload
+	const primaryContent =
+		gist.files[ADVICE_GIST_FILENAME_BY_MODE[tab]]?.content ?? null
+	const primary = parseStoredAdviceAnalysisFromGistFile(primaryContent)
+	if (primary !== null && storedMatchesTab(primary, tab)) {
+		return { status: 'found', stored: primary }
+	}
+	const legacyContent = gist.files[ADVICE_STORAGE_FILENAME]?.content ?? null
+	const legacy = parseStoredAdviceAnalysisFromGistFile(legacyContent)
+	if (legacy !== null && storedMatchesTab(legacy, tab)) {
+		return { status: 'found', stored: legacy }
+	}
+	// A file that is present but unparseable is a different failure from one that
+	// was never written. A file that parses but belongs to the *other* tab is
+	// neither: for this tab there is simply nothing saved.
+	if (hasStoredContent(primaryContent) && primary === null) {
+		return { status: 'malformed', file: 'mode' }
+	}
+	if (hasStoredContent(legacyContent) && legacy === null) {
+		return { status: 'malformed', file: 'legacy' }
+	}
+	return { status: 'not_found' }
+}
+
+/**
+ * Read saved analysis for one tab, or null when there is none to show. The
+ * rendering path wants exactly that; {@link fetchStoredAdviceAnalysisOutcomeForTab}
+ * is for callers that must report *why* there is none.
  */
 export async function fetchStoredAdviceAnalysisForTab(
 	token: string,
 	gistId: string,
 	tab: AdviceAnalysisMode,
 ): Promise<StoredAdviceAnalysis | null> {
-	if (gistTestState.enabled) {
-		return gistTestState.byTab[tab] ?? null
-	}
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		headers: githubHeaders(token),
-	})
-	if (!response.ok) return null
-	const gist = (await response.json()) as GistPayload
-	const primaryName = ADVICE_GIST_FILENAME_BY_MODE[tab]
-	const primary = parseStoredAdviceAnalysisFromGistFile(
-		gist.files[primaryName]?.content ?? null,
+	const outcome = await fetchStoredAdviceAnalysisOutcomeForTab(
+		token,
+		gistId,
+		tab,
 	)
-	if (primary !== null && storedMatchesTab(primary, tab)) {
-		return primary
-	}
-	const legacy = parseStoredAdviceAnalysisFromGistFile(
-		gist.files[ADVICE_STORAGE_FILENAME]?.content ?? null,
-	)
-	if (legacy !== null && storedMatchesTab(legacy, tab)) {
-		return legacy
-	}
-	return null
+	return outcome.status === 'found' ? outcome.stored : null
 }
 
 /** @deprecated Use {@link fetchStoredAdviceAnalysisForTab} with an explicit tab. */

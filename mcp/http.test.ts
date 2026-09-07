@@ -249,6 +249,7 @@ describe('mcp over http', () => {
 			'set_guideline',
 			'delete_guideline',
 			'get_buy_plan',
+			'get_saved_advice',
 			'list_catalog',
 			'get_catalog_entry',
 			'upsert_catalog_entry',
@@ -398,6 +399,50 @@ describe('mcp over http', () => {
 		)
 		assert.equal(response.status, 401)
 		assert.match(response.headers.get('WWW-Authenticate') ?? '', /^Bearer/)
+	})
+
+	it('reads a resource over the same transport', async () => {
+		stubGist({
+			gista: [{ id: 'a', name: 'VWCE', value: 100, currency: 'PLN' }],
+		})
+		const response = await handleMcpHttpRequest(
+			post({
+				body: request(1, 'resources/read', { uri: 'ainvestor://portfolio' }),
+				headers: { 'X-Ainvestor-Gist-Id': 'gista' },
+			}),
+		)
+		assert.equal(response.status, 200)
+		const body = (await response.json()) as {
+			result: { contents: { uri: string; text: string }[] }
+		}
+		assert.equal(body.result.contents[0].uri, 'ainvestor://portfolio')
+		const payload = JSON.parse(body.result.contents[0].text) as {
+			totalValue: number
+		}
+		assert.equal(payload.totalValue, 100)
+	})
+
+	it('surfaces a rejected credential during a resource read as HTTP 401 too', async () => {
+		// A resource read fails as an error frame, not as a flagged tool result, so
+		// the same expired token must be recognised on that shape as well.
+		globalThis.fetch = async () => new Response(null, { status: 401 })
+		const response = await handleMcpHttpRequest(
+			post({
+				body: request(1, 'resources/read', { uri: 'ainvestor://guidelines' }),
+				headers: { 'X-Ainvestor-Gist-Id': 'gista' },
+			}),
+		)
+		assert.equal(response.status, 401)
+		assert.match(response.headers.get('WWW-Authenticate') ?? '', /^Bearer/)
+	})
+
+	it('keeps an unknown method at HTTP 200, however it is spelled', async () => {
+		const response = await handleMcpHttpRequest(
+			post({ body: request(1, 'prompts/list') }),
+		)
+		assert.equal(response.status, 200)
+		const body = (await response.json()) as { error: { code: number } }
+		assert.equal(body.error.code, -32601)
 	})
 
 	it('keeps a non-credential tool failure as a tool error at HTTP 200', async () => {

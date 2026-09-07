@@ -100,7 +100,32 @@ export function summarizeCatalogSearch(params: {
 					note: `Showing ${returned.length} of ${matches.length} matches; narrow the query or raise "limit" (max ${MAX_LIMIT}) to see the rest.`,
 				}
 			: {}),
+		// `fetchCatalog` reports an unconfigured gist id, a rejected read and a
+		// timeout all as no rows, so an empty catalog is not evidence that the app
+		// knows no funds — and concluding that is how a client ends up telling the
+		// user there is nothing to buy during a GitHub outage.
+		...(catalog.length === 0
+			? {
+					note: 'The shared catalog came back with no entries at all: it is either not configured or temporarily unreachable. Do not report this as "the app knows no funds" — retry before drawing any conclusion from it.',
+				}
+			: {}),
 	}
+}
+
+/**
+ * Every row, in the same shape a search returns.
+ *
+ * The tool's row limit exists because a model asking a question does not know
+ * how much it is about to pull in; a client reading `ainvestor://catalog` has
+ * asked for the dataset itself, so truncating it there would be answering a
+ * different question. The projection still keeps it compact.
+ */
+export function summarizeWholeCatalog(catalog: CatalogEntry[]) {
+	return summarizeCatalogSearch({
+		catalog,
+		query: '',
+		limit: catalog.length,
+	})
 }
 
 function readLimit(toolArguments: Record<string, unknown>): number {

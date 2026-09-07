@@ -1,7 +1,10 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import {
+	ADVICE_BUY_NEXT_STORAGE_FILENAME,
+	ADVICE_STORAGE_FILENAME,
 	fetchStoredAdviceAnalysisForTab,
+	fetchStoredAdviceAnalysisOutcomeForTab,
 	parseStoredAdviceAnalysisFromGistFile,
 	resetAdviceGistTestOverlay,
 	setAdviceGistTestOverlay,
@@ -78,5 +81,53 @@ describe('advice gist storage', () => {
 			assert.equal(firstBlock.text, 'Buy')
 		}
 		assert.equal(forReview, null)
+	})
+
+	it('fetchStoredAdviceAnalysisOutcomeForTab separates missing, malformed and unreadable', async () => {
+		const originalFetch = globalThis.fetch
+		try {
+			globalThis.fetch = async () =>
+				Response.json({
+					files: {
+						[ADVICE_BUY_NEXT_STORAGE_FILENAME]: { content: '{"version": 1,' },
+					},
+				})
+			const malformed = await fetchStoredAdviceAnalysisOutcomeForTab(
+				't',
+				'g',
+				'buy_next',
+			)
+			assert.deepEqual(malformed, { status: 'malformed', file: 'mode' })
+
+			// The same gist holds nothing at all for the other tab, which is a
+			// different answer from "there is something here I cannot read".
+			const missing = await fetchStoredAdviceAnalysisOutcomeForTab(
+				't',
+				'g',
+				'portfolio_review',
+			)
+			assert.equal(missing.status, 'not_found')
+
+			// The legacy file is shared by both modes, so a corrupt one is named as
+			// such: it may hold either mode's analysis, or neither.
+			globalThis.fetch = async () =>
+				Response.json({
+					files: { [ADVICE_STORAGE_FILENAME]: { content: '{"version": 1,' } },
+				})
+			assert.deepEqual(
+				await fetchStoredAdviceAnalysisOutcomeForTab('t', 'g', 'buy_next'),
+				{ status: 'malformed', file: 'legacy' },
+			)
+
+			globalThis.fetch = async () => new Response(null, { status: 401 })
+			const unreadable = await fetchStoredAdviceAnalysisOutcomeForTab(
+				't',
+				'g',
+				'buy_next',
+			)
+			assert.deepEqual(unreadable, { status: 'unreadable', httpStatus: 401 })
+		} finally {
+			globalThis.fetch = originalFetch
+		}
 	})
 })
