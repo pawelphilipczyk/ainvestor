@@ -97,7 +97,9 @@ filename. It is a secret gist, so it does not appear on a public profile.
 ### One shared public gist
 
 `catalog.json`, id from `SHARED_CATALOG_GIST_ID`. Read with `fetchCatalog()` —
-no token required, cached in-process for 60s. `CatalogEntry` carries `ticker`,
+no token required, cached in-process for 60s, cleared on every successful
+`saveCatalog()` so a write is never served stale for the rest of the TTL.
+`CatalogEntry` carries `ticker`,
 `name`, `type`, `description`, and optionally `isin`, `expense_ratio`,
 `risk_kid` (1–7), `region`, `sector`, `rate_of_return`, `volatility`,
 `return_risk`, `fund_size`, `esg`.
@@ -361,19 +363,19 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one PR.
   ```
 
-- [ ] **Stage 6 — Caching and rate-limit hardening**
+- [ ] **Stage 6 — Caching and rate-limit hardening** — the write-invalidation half of its third `Do` bullet has already shipped (#171, ahead of the stage): `saveCatalog()` clears the shared catalog's TTL cache on every successful write, so `upsert_catalog_entry`/`delete_catalog_entry`/the bank importer and the web UI's own catalog reads cannot serve a stale snapshot for up to 60s after a save. What is left is the rest of the stage: a TTL cache for private gist reads.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Continue after Stage 5. The plan is agreed — implement directly.
 
   Goal: stop a single model turn from hammering the GitHub API.
 
-  Context: the shared catalog already has a 60s in-process TTL cache, but private gist reads have none. A model can call five tools in one turn, each triggering its own gist GET.
+  Context: the shared catalog already has a 60s in-process TTL cache, invalidated on every write (#171). Private gist reads (portfolio, guidelines) have no cache at all. A model can call five tools in one turn, each triggering its own gist GET.
 
   Do:
   - Add a short in-process TTL cache for private gist reads, following the shape of the shared catalog cache in app/features/catalog/lib.ts (TTL constant, env override, test reset helper).
   - Expose a reset helper for tests.
-  - If Stage 7 has already shipped, invalidate the cache on every successful write.
+  - Invalidate the cache on every successful write (set_guideline, delete_guideline already exist; follow #171's pattern).
 
   Constraints:
   - Cache inside mcp/ only. Do not change caching behaviour for the web app.
