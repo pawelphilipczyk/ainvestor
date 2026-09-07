@@ -344,6 +344,9 @@ Keep, always:
 - **Input validation** (argument types, ranges, enums) stays exhaustive; it is
   the boundary where a model's mistake must turn into a clear error rather
   than a wrong answer.
+- **Coverage of a distinct code path stays, wherever it lives.** What is
+  protected is the coverage, not the file it happens to be in — `tools/*.test.ts`
+  is not exempt from the next rule just by being the tool's own test file.
 
 Relax, from here on:
 
@@ -352,9 +355,13 @@ Relax, from here on:
   assert transport/wiring only — status codes, auth, that the right tool or
   resource ran — against one or two representative payloads. They do not
   re-derive every blocker case the tool test already covers.
-- **One test per code path, not one per cosmetic variant.** If a single input
-  already exercises several branches together (a document with all four block
-  types, say), that is one test, not four.
+- **One test per code path, not one per cosmetic variant — including inside
+  `tools/*.test.ts` itself.** If a single input already exercises several
+  branches together (a document with all four block types, say), that is one
+  test, not four. If two tests in the tool's own file end up exercising the
+  same branch with cosmetically different numbers, that is the same
+  redundancy this bar exists to cut, not something the file's status as
+  "source of truth" excuses.
 - **A code comment states a non-obvious invariant that has no doc home.** It
   does not restate a design decision this file already records for that
   stage. When both exist, delete the comment, not the doc paragraph — this
