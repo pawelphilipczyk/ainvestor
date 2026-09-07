@@ -14,6 +14,7 @@ import {
 	parseCatalogRiskFilterParam,
 	resetSharedCatalogForTests,
 	riskBandFromRiskKid,
+	saveCatalog,
 } from './lib.ts'
 
 describe('riskBandFromRiskKid', () => {
@@ -128,6 +129,70 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 		await fetchSharedCatalogSnapshot()
 		await fetchSharedCatalogSnapshot()
 		assert.equal(fetchCount, 2)
+	})
+
+	it('saveCatalog invalidates the cached snapshot so the next read is fresh', async () => {
+		let getCount = 0
+		let served = 'ABC'
+		globalThis.fetch = async (
+			input: string | URL | Request,
+			init?: RequestInit,
+		) => {
+			if (init?.method === 'PATCH') {
+				const body = JSON.parse(String(init.body)) as {
+					files: Record<string, { content: string }>
+				}
+				const patched = JSON.parse(
+					body.files[CATALOG_FILENAME]?.content ?? '[]',
+				) as { ticker: string }[]
+				served = patched[0]?.ticker ?? served
+				return new Response('{}', { status: 200 })
+			}
+			getCount += 1
+			assert.match(String(input), /\/gists\/ttl-gist-save$/)
+			return new Response(
+				JSON.stringify({
+					files: {
+						[CATALOG_FILENAME]: {
+							content: JSON.stringify([
+								{
+									id: '1',
+									ticker: served,
+									name: 'Alpha',
+									type: 'equity',
+									description: '',
+								},
+							]),
+						},
+					},
+					owner: { login: 'owner' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'ttl-gist-save'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+
+		const before = await fetchSharedCatalogSnapshot()
+		assert.equal(before.entries[0]?.ticker, 'ABC')
+		assert.equal(getCount, 1)
+
+		await saveCatalog({
+			token: 'tkn',
+			entries: [
+				{
+					id: '1',
+					ticker: 'XYZ',
+					name: 'Alpha',
+					type: 'equity',
+					description: '',
+				},
+			],
+		})
+
+		const after = await fetchSharedCatalogSnapshot()
+		assert.equal(getCount, 2)
+		assert.equal(after.entries[0]?.ticker, 'XYZ')
 	})
 })
 
