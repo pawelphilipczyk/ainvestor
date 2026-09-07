@@ -4,7 +4,7 @@ Plan for exposing this app's data to LLM clients over the **Model Context
 Protocol**. Work proceeds in **small, separately-chatted stages**; each stage
 ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
-**Progress:** Stages 1, 2, 3, 4, 5 and 10 have shipped, plus the **guideline** and
+**Progress:** Stages 1, 2, 3, 4, 5, 6 and 10 have shipped, plus the **guideline** and
 **catalog** writes originally scheduled for Stage 7 — those came early because
 setting targets and correcting the fund list from a client is what makes the
 read tools worth having. Stage 7 keeps its box open for the holdings writes,
@@ -578,7 +578,13 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one PR.
   ```
 
-- [ ] **Stage 6 — Caching and rate-limit hardening** — the write-invalidation half of its third `Do` bullet has already shipped (#171, ahead of the stage): `saveCatalog()` clears the shared catalog's TTL cache on every successful write, so `upsert_catalog_entry`/`delete_catalog_entry`/the bank importer and the web UI's own catalog reads cannot serve a stale snapshot for up to 60s after a save. What is left is the rest of the stage: a TTL cache for private gist reads.
+- [x] **Stage 6 — Caching and rate-limit hardening** — shipped. The write-invalidation half of its third `Do` bullet had already shipped (#171, ahead of the stage): `saveCatalog()` clears the shared catalog's TTL cache on every successful write, so `upsert_catalog_entry`/`delete_catalog_entry`/the bank importer and the web UI's own catalog reads cannot serve a stale snapshot for up to 60s after a save. This stage added the rest: a 60s TTL cache for private gist reads.
+
+  `mcp/private-gist-cache.ts` wraps `fetchEtfs` and `fetchGuidelinesOrThrow` individually — one token-keyed cache per function, following the shared catalog cache's shape (TTL constant, `PRIVATE_GIST_CACHE_TTL_MS` env override, test reset helper) — rather than rewriting either to hand-parse one shared payload, per the stage's own note on why that refactor was skipped. The cache key is `gistId` plus the token (hashed via the existing `createTokenCache`, never stored in the clear), because a per-request `X-Ainvestor-Gist-Id` pin means one token can read more than one gist. Every stored and returned array is cloned apart from the others, so a caller mutating its own result can never corrupt what the cache serves next — the same discipline `fetchSharedCatalogSnapshot` already applies.
+
+  Every mcp tool and resource that reads holdings or guidelines now goes through `fetchEtfsCached` / `fetchGuidelinesOrThrowCached` (`tools/portfolio.ts`, `tools/buy-plan.ts`, `tools/guidelines.ts`, `resources.ts`); `get_buy_plan` no longer calls `fetchPortfolioSnapshot`, since that helper's own `fetchEtfs` call would bypass the cache. `set_guideline` and `delete_guideline` call `invalidateGuidelinesCache` right after a successful save, so a write is never followed by a stale read within the TTL. Holdings have no write path yet (that is Stage 7's `record_operation`/`remove_holding`), so there is no `invalidateEtfsCache` — add one alongside those tools rather than ahead of them.
+
+  Every existing mcp test that drives a tool or resource through a real gist read reuses the same token and gist id across `it` blocks, so the new process-wide cache had to be reset in each affected file's `afterEach` (`tools/portfolio.test.ts`, `tools/guidelines.test.ts`, `tools/buy-plan.test.ts`, `http.test.ts`, `resources.test.ts`) — otherwise the second test in a file would silently read the first test's cached data instead of its own stub. `mcp/private-gist-cache.test.ts` covers the cache itself: a hit within the TTL costs no second fetch, `PRIVATE_GIST_CACHE_TTL_MS=0` disables caching, an expired entry (driven by `node:test`'s `mock.timers` rather than a real sleep) refetches, two gist ids for the same token stay apart, and `invalidateGuidelinesCache` forces a fresh read.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Continue after Stage 5. The plan is agreed — implement directly.

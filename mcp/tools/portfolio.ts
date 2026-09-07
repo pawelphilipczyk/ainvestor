@@ -1,8 +1,8 @@
 import type { EtfEntry } from '../../app/lib/gist.ts'
-import { fetchEtfs } from '../../app/lib/gist.ts'
 import { totalHoldingsValueForShareBars } from '../../app/lib/portfolio-holdings-share.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resolveDataGistId } from '../data-gist.ts'
+import { fetchEtfsCached } from '../private-gist-cache.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
 
@@ -93,7 +93,7 @@ export function createGetPortfolioTool(
 ): McpToolDefinition {
 	async function handler(): Promise<McpToolResult> {
 		const gistId = await resolveDataGistId(credentials)
-		const entries = await fetchEtfs(credentials.githubToken, gistId)
+		const entries = await fetchEtfsCached(credentials.githubToken, gistId)
 		return {
 			content: [
 				{

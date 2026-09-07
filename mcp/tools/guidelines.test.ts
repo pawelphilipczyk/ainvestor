@@ -9,6 +9,7 @@ import type { EtfGuideline } from '../../app/lib/guidelines.ts'
 import { GUIDELINES_FILENAME } from '../../app/lib/guidelines.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resetDataGistIdCache } from '../data-gist.ts'
+import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
 import {
 	createDeleteGuidelineTool,
 	createGetGuidelinesTool,
@@ -69,6 +70,7 @@ afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataGistIdCache()
 	resetSharedCatalogForTests()
+	resetPrivateGistCacheForTests()
 })
 
 /** Payload of a tool result, which is always one JSON text block. */

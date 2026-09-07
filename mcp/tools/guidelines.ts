@@ -10,7 +10,6 @@ import type {
 } from '../../app/lib/guidelines.ts'
 import {
 	ETF_TYPES,
-	fetchGuidelinesOrThrow,
 	findGuidelineDuplicateOf,
 	GUIDELINE_KINDS,
 	GUIDELINE_TARGET_PERCENT_MAX,
@@ -23,6 +22,10 @@ import {
 import { parseLocaleDecimalString } from '../../app/lib/locale-decimal-input.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resolveDataGistId } from '../data-gist.ts'
+import {
+	fetchGuidelinesOrThrowCached,
+	invalidateGuidelinesCache,
+} from '../private-gist-cache.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
 import { readStringArgument } from './tool-arguments.ts'
@@ -237,7 +240,7 @@ export function createGetGuidelinesTool(
 ): McpToolDefinition {
 	async function handler(): Promise<McpToolResult> {
 		const gistId = await resolveDataGistId(credentials)
-		const guidelines = await fetchGuidelinesOrThrow(
+		const guidelines = await fetchGuidelinesOrThrowCached(
 			credentials.githubToken,
 			gistId,
 		)
@@ -261,7 +264,7 @@ export function createSetGuidelineTool(
 	): Promise<McpToolResult> {
 		const { entry, catalogVerified } = await buildGuidelineEntry(toolArguments)
 		const gistId = await resolveDataGistId(credentials)
-		const current = await fetchGuidelinesOrThrow(
+		const current = await fetchGuidelinesOrThrowCached(
 			credentials.githubToken,
 			gistId,
 		)
@@ -288,6 +291,7 @@ export function createSetGuidelineTool(
 					)
 
 		await saveGuidelinesOrThrow(credentials.githubToken, gistId, next)
+		invalidateGuidelinesCache(credentials.githubToken, gistId)
 
 		return jsonResult({
 			action: existing === null ? 'created' : 'updated',
@@ -348,7 +352,7 @@ export function createDeleteGuidelineTool(
 		}
 
 		const gistId = await resolveDataGistId(credentials)
-		const current = await fetchGuidelinesOrThrow(
+		const current = await fetchGuidelinesOrThrowCached(
 			credentials.githubToken,
 			gistId,
 		)
@@ -361,6 +365,7 @@ export function createDeleteGuidelineTool(
 
 		const next = current.filter((guideline) => guideline.id !== id)
 		await saveGuidelinesOrThrow(credentials.githubToken, gistId, next)
+		invalidateGuidelinesCache(credentials.githubToken, gistId)
 
 		return jsonResult({
 			action: 'deleted',

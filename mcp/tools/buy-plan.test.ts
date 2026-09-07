@@ -12,6 +12,7 @@ import type { EtfGuideline } from '../../app/lib/guidelines.ts'
 import { GUIDELINES_FILENAME } from '../../app/lib/guidelines.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resetDataGistIdCache } from '../data-gist.ts'
+import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
 import type { BuyPlanSummary } from './buy-plan.ts'
 import { createGetBuyPlanTool, summarizeBuyPlan } from './buy-plan.ts'
 
@@ -120,6 +121,7 @@ afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataGistIdCache()
 	resetSharedCatalogForTests()
+	resetPrivateGistCacheForTests()
 })
 
 describe('summarizeBuyPlan', () => {

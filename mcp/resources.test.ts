@@ -13,6 +13,7 @@ import { GUIDELINES_FILENAME } from '../app/lib/guidelines.ts'
 import { createAinvestorMcpServer } from './ainvestor-server.ts'
 import type { GistCredentials } from './data-gist.ts'
 import { resetDataGistIdCache } from './data-gist.ts'
+import { resetPrivateGistCacheForTests } from './private-gist-cache.ts'
 import { createAinvestorResources } from './resources.ts'
 
 const credentials: GistCredentials = {
@@ -70,6 +71,7 @@ afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataGistIdCache()
 	resetSharedCatalogForTests()
+	resetPrivateGistCacheForTests()
 })
 
 function resourceByUri(uri: string) {

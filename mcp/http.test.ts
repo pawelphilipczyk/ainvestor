@@ -6,6 +6,7 @@ import { GIST_FILENAME } from '../app/lib/gist.ts'
 import { resetApprovedCallerCache } from './approved-caller.ts'
 import { resetDataGistIdCache } from './data-gist.ts'
 import { handleMcpHttpRequest } from './http.ts'
+import { resetPrivateGistCacheForTests } from './private-gist-cache.ts'
 import { LATEST_PROTOCOL_VERSION } from './protocol.ts'
 
 const ENDPOINT = 'https://ainvestor.fly.dev/mcp'
@@ -19,6 +20,7 @@ afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataGistIdCache()
 	resetApprovedCallerCache()
+	resetPrivateGistCacheForTests()
 	if (originalGistId === undefined) delete process.env.AINVESTOR_GIST_ID
 	else process.env.AINVESTOR_GIST_ID = originalGistId
 	if (originalPublicOrigin === undefined) {
