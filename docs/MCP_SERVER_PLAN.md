@@ -137,6 +137,16 @@ the MCP layer; if one of these matters, fix the model in the app first.
   `computeAdviceAllocationDiagnostics()` both return `null`. Tools must say so
   plainly rather than guessing a rate.
 - **The catalog is a snapshot**, imported from a bank API — not live quotes.
+- **`mixed` is both an asset class and a sentinel.** It is one of the six
+  persisted `EtfType` values, and it is also what
+  `resolveHoldingEtfTypeForAdviceDiagnostics` falls back to when neither the
+  catalog nor an instrument guideline matches a holding. The allocation maths
+  then refuses *any* holding resolving to `mixed`, so a fund the catalog
+  genuinely classifies as mixed cannot be allocated against even with a `mixed`
+  guideline set — and from outside the resolver the two cases are
+  indistinguishable, which is why `get_allocation_diagnostics` names both
+  possibilities rather than asserting either. Separating the sentinel from the
+  class is an app-model fix, not an MCP one.
 
 ---
 
@@ -414,6 +424,8 @@ the plan is already agreed, so implement directly rather than re-planning.
   Goal: stop a single model turn from hammering the GitHub API.
 
   Context: the shared catalog already has a 60s in-process TTL cache, invalidated on every write (#171). Private gist reads (portfolio, guidelines) have no cache at all. A model can call five tools in one turn, each triggering its own gist GET.
+
+  Worth knowing before starting: holdings and guidelines live in the *same* gist, but `fetchEtfs` and `readGuidelinesGist` each GET it separately and parse their own file out of the response. So any caller wanting both makes two identical authenticated requests for one payload. `get_allocation_diagnostics` does (in parallel), and so does the web advice page in `app/features/advice/index.ts` (sequentially). A TTL cache keyed by gist id collapses both to one read, which is the cheapest fix and is why neither call site was rewritten to hand-parse the shared payload.
 
   Do:
   - Add a short in-process TTL cache for private gist reads, following the shape of the shared catalog cache in app/features/catalog/lib.ts (TTL constant, env override, test reset helper).

@@ -45,8 +45,9 @@ function explainBlocker(params: {
 	outcome: BlockedAllocationDiagnostics
 	cashCurrency: string
 	cashAmountText: string
+	catalogSize: number
 }): string {
-	const { outcome, cashCurrency, cashAmountText } = params
+	const { outcome, cashCurrency, cashAmountText, catalogSize } = params
 	switch (outcome.blocker) {
 		case 'unparseable_cash':
 			return `"${cashAmountText}" is not a non-negative amount of cash, so there is nothing to allocate.`
@@ -64,7 +65,17 @@ function explainBlocker(params: {
 				return 'A holding falls outside every asset class that has a target, so the buckets would not account for the whole portfolio.'
 			}
 			if (holding.etfType === 'mixed') {
-				return `Holding "${holding.name}" could not be matched to an asset class: the shared catalog does not list it and no instrument guideline names it. Add it with upsert_catalog_entry, or set an instrument guideline for its ticker, so its value counts toward a bucket.`
+				// `mixed` arrives here two ways — the catalog really classifies the
+				// fund as mixed, or nothing matched it at all and this is the
+				// fallback — and from outside the resolver the two are
+				// indistinguishable, so claim neither. An empty catalog is worth
+				// calling out separately: `fetchCatalog` reports an unconfigured id,
+				// a rejected read and a timeout all as no rows, so "not listed" would
+				// be a false statement about shared data during an outage.
+				if (catalogSize === 0) {
+					return `Holding "${holding.name}" could not be placed in an asset class, and the shared catalog came back with no entries at all — it is either not configured or temporarily unreachable, so nothing could be classified from it. Retry before changing any data; list_catalog shows whether the catalog is readable.`
+				}
+				return `Holding "${holding.name}" resolves to the "mixed" class, which this tool cannot allocate against — either the catalog classifies it that way, or nothing in the catalog and no instrument guideline matched it. Give it a concrete asset class: check get_catalog_entry for its ticker, correct the row with upsert_catalog_entry, or set an instrument guideline naming the ticker.`
 			}
 			return `Holding "${holding.name}" is ${holding.etfType}, but no guideline targets that asset class, so the buckets would not account for the whole portfolio. Add a ${holding.etfType} target with set_guideline.`
 		}
@@ -173,8 +184,13 @@ export function summarizeAllocationDiagnostics(params: {
 		cashCurrency,
 	})
 
+	// The diagnostics were computed from the unrounded parse, so the deployment
+	// must be too: planning against the rounded figure leaves the difference
+	// behind as a remainder, and half a grosz would then be reported as real
+	// spare cash by the very field that exists to flag leftovers.
+	const cashAmount = parseAdviceCashAmount(cashAmountText) ?? 0
 	const cash = {
-		amount: roundToTwoDecimals(parseAdviceCashAmount(cashAmountText) ?? 0),
+		amount: roundToTwoDecimals(cashAmount),
 		currency: cashCurrency,
 		currencySource: cashCurrencySource,
 	}
@@ -183,7 +199,12 @@ export function summarizeAllocationDiagnostics(params: {
 		return {
 			available: false,
 			blocker: outcome.blocker,
-			reason: explainBlocker({ outcome, cashCurrency, cashAmountText }),
+			reason: explainBlocker({
+				outcome,
+				cashCurrency,
+				cashAmountText,
+				catalogSize: catalog.length,
+			}),
 			cash,
 			holdingCount: holdings.length,
 			guidelineCount: guidelines.length,
@@ -191,10 +212,7 @@ export function summarizeAllocationDiagnostics(params: {
 	}
 
 	const { diagnostics } = outcome
-	const deployment = planAdviceCashDeployment({
-		diagnostics,
-		cashAmount: cash.amount,
-	})
+	const deployment = planAdviceCashDeployment({ diagnostics, cashAmount })
 	const deploymentByType = new Map(
 		deployment.rows.map((row) => [row.etfType, row]),
 	)
@@ -203,7 +221,7 @@ export function summarizeAllocationDiagnostics(params: {
 		available: true,
 		buyOnly: true,
 		cash,
-		portfolioValue: roundToTwoDecimals(diagnostics.postTotal - cash.amount),
+		portfolioValue: roundToTwoDecimals(diagnostics.postTotal - cashAmount),
 		postInvestmentTotal: roundToTwoDecimals(diagnostics.postTotal),
 		targetPctSum: roundToTwoDecimals(diagnostics.targetPctSum),
 		buckets: diagnostics.rows.map((diagnostic) =>

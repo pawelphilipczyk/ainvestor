@@ -293,6 +293,27 @@ describe('summarizeAllocationDiagnostics blockers', () => {
 	it('tells an unrecognised holding apart from one whose class is simply untargeted', () => {
 		const summary = withoutDiagnostics(
 			summarize({
+				catalog: [
+					catalogEntry({ id: 't:X', ticker: 'X', name: 'X', type: 'equity' }),
+				],
+				holdings: [holding({ name: 'Mystery Fund', ticker: 'ZZZ' })],
+				guidelines: [guideline({ targetPct: 100 })],
+			}),
+		)
+
+		assert.equal(summary.blocker, 'unclassified_holding')
+		assert.match(summary.reason, /"Mystery Fund" resolves to the "mixed" class/)
+		assert.match(summary.reason, /upsert_catalog_entry/)
+	})
+
+	/**
+	 * `fetchCatalog` reports an unconfigured gist id, a rejected read and a
+	 * timeout identically as zero rows, so the tool must not turn that into a
+	 * claim about what the shared catalog contains.
+	 */
+	it('blames an empty catalog on the catalog, not on the holding being unlisted', () => {
+		const summary = withoutDiagnostics(
+			summarize({
 				catalog: [],
 				holdings: [holding({ name: 'Mystery Fund', ticker: 'ZZZ' })],
 				guidelines: [guideline({ targetPct: 100 })],
@@ -300,8 +321,60 @@ describe('summarizeAllocationDiagnostics blockers', () => {
 		)
 
 		assert.equal(summary.blocker, 'unclassified_holding')
-		assert.match(summary.reason, /"Mystery Fund" could not be matched/)
-		assert.match(summary.reason, /upsert_catalog_entry/)
+		assert.match(summary.reason, /no entries at all/)
+		assert.match(summary.reason, /not configured or temporarily unreachable/)
+		// Never tell the caller to write to shared data on the strength of a read
+		// that may simply have failed.
+		assert.equal(/upsert_catalog_entry/.test(summary.reason), false)
+	})
+
+	/**
+	 * "mixed" is a real persisted EtfType as well as the resolver's no-match
+	 * fallback, so a fund the catalog genuinely classifies as mixed lands here
+	 * too. The message must not assert the catalog does not list it.
+	 */
+	it('does not claim a catalogued mixed fund is missing from the catalog', () => {
+		const summary = withoutDiagnostics(
+			summarize({
+				catalog: [
+					catalogEntry({
+						id: 't:MIX',
+						ticker: 'MIX',
+						name: 'Mixed Fund',
+						type: 'mixed',
+					}),
+				],
+				holdings: [holding({ name: 'Mixed Fund', ticker: 'MIX' })],
+				guidelines: [guideline({ targetPct: 100, etfType: 'mixed' })],
+			}),
+		)
+
+		assert.equal(summary.blocker, 'unclassified_holding')
+		assert.equal(/does not list it/.test(summary.reason), false)
+		assert.match(summary.reason, /either the catalog classifies it that way/)
+	})
+})
+
+describe('summarizeAllocationDiagnostics rounding', () => {
+	/**
+	 * The diagnostics come from the unrounded parse, so the deployment must too.
+	 * Planning against the rounded cash strands the difference as a remainder,
+	 * which the leftover field would then report as genuine spare cash.
+	 */
+	it('does not turn sub-grosz rounding into reported spare cash', () => {
+		const summary = withDiagnostics(
+			summarize({
+				holdings: [],
+				guidelines: [guideline({ targetPct: 100 })],
+				cashAmountText: '82818.045',
+			}),
+		)
+
+		assert.equal(summary.cash.amount, 82818.05)
+		assert.equal(summary.cashCoversAllMinimumBuys, true)
+		assert.equal('cashLeftAfterMinimumBuys' in summary, false)
+		// An empty portfolio is worth 0, never a negative rounding artifact.
+		assert.equal(summary.portfolioValue, 0)
 	})
 })
 
