@@ -493,6 +493,9 @@ the plan is already agreed, so implement directly rather than re-planning.
 
   Do:
   - Reuse getInvestmentAdvice from app/features/advice/advice-openai.ts and createAdviceClient from advice-client.ts.
+  - Leave the model argument optional: omitting it uses DEFAULT_ADVICE_MODEL (gpt-5.6-sol, the flagship
+    reasoning tier), which is the same default the web app's advice page uses. Accept only ids from
+    ADVICE_MODEL_IDS so a caller can drop to a cheaper tier but not name an arbitrary model.
   - Require OPENAI_API_KEY; fail with a clear message when it is absent.
   - Make saving the result to the gist an explicit opt-in argument, defaulting to off.
 

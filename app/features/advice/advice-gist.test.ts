@@ -6,6 +6,7 @@ import {
 	resetAdviceGistTestOverlay,
 	setAdviceGistTestOverlay,
 } from './advice-gist.ts'
+import { DEFAULT_ADVICE_MODEL } from './advice-openai.ts'
 
 afterEach(() => {
 	resetAdviceGistTestOverlay()
@@ -24,7 +25,7 @@ describe('advice gist storage', () => {
 			savedAt: 1_700_000_000_000,
 			lastAnalysisMode: 'portfolio_review',
 			cashCurrency: 'PLN',
-			selectedModel: 'gpt-5.4-mini',
+			selectedModel: 'gpt-5.6-sol',
 			document: {
 				blocks: [{ type: 'paragraph', text: 'Hello.' }],
 			},
@@ -35,6 +36,23 @@ describe('advice gist storage', () => {
 		assert.equal(parsed?.document.blocks[0]?.type, 'paragraph')
 	})
 
+	it('parseStoredAdviceAnalysisFromGistFile keeps snapshots saved under a retired model id', () => {
+		const raw = JSON.stringify({
+			version: 1,
+			savedAt: 1_700_000_000_000,
+			lastAnalysisMode: 'buy_next',
+			cashCurrency: 'PLN',
+			cashAmount: '100',
+			selectedModel: 'gpt-5.4-mini',
+			document: {
+				blocks: [{ type: 'paragraph', text: 'Old advice.' }],
+			},
+		})
+		const parsed = parseStoredAdviceAnalysisFromGistFile(raw)
+		assert.ok(parsed)
+		assert.equal(parsed?.selectedModel, DEFAULT_ADVICE_MODEL)
+	})
+
 	it('fetchStoredAdviceAnalysisForTab reads the matching tab from test overlay only', async () => {
 		const buyNextStored = {
 			version: 1 as const,
@@ -42,7 +60,7 @@ describe('advice gist storage', () => {
 			lastAnalysisMode: 'buy_next' as const,
 			cashCurrency: 'PLN',
 			cashAmount: '100',
-			selectedModel: 'gpt-5.4-mini' as const,
+			selectedModel: 'gpt-5.6-sol' as const,
 			activeTab: 'buy_next' as const,
 			document: { blocks: [{ type: 'paragraph' as const, text: 'Buy' }] },
 		}
