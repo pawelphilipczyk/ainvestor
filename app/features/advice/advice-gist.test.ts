@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import {
 	ADVICE_BUY_NEXT_STORAGE_FILENAME,
+	ADVICE_STORAGE_FILENAME,
 	fetchStoredAdviceAnalysisForTab,
 	fetchStoredAdviceAnalysisOutcomeForTab,
 	parseStoredAdviceAnalysisFromGistFile,
@@ -96,7 +97,7 @@ describe('advice gist storage', () => {
 				'g',
 				'buy_next',
 			)
-			assert.equal(malformed.status, 'malformed')
+			assert.deepEqual(malformed, { status: 'malformed', file: 'mode' })
 
 			// The same gist holds nothing at all for the other tab, which is a
 			// different answer from "there is something here I cannot read".
@@ -106,6 +107,17 @@ describe('advice gist storage', () => {
 				'portfolio_review',
 			)
 			assert.equal(missing.status, 'not_found')
+
+			// The legacy file is shared by both modes, so a corrupt one is named as
+			// such: it may hold either mode's analysis, or neither.
+			globalThis.fetch = async () =>
+				Response.json({
+					files: { [ADVICE_STORAGE_FILENAME]: { content: '{"version": 1,' } },
+				})
+			assert.deepEqual(
+				await fetchStoredAdviceAnalysisOutcomeForTab('t', 'g', 'buy_next'),
+				{ status: 'malformed', file: 'legacy' },
+			)
 
 			globalThis.fetch = async () => new Response(null, { status: 401 })
 			const unreadable = await fetchStoredAdviceAnalysisOutcomeForTab(

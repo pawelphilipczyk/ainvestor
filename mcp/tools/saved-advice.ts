@@ -3,7 +3,11 @@ import type {
 	AdviceDocument,
 } from '../../app/features/advice/advice-document.ts'
 import type { StoredAdviceAnalysis } from '../../app/features/advice/advice-gist.ts'
-import { fetchStoredAdviceAnalysisOutcomeForTab } from '../../app/features/advice/advice-gist.ts'
+import {
+	ADVICE_GIST_FILENAME_BY_MODE,
+	ADVICE_STORAGE_FILENAME,
+	fetchStoredAdviceAnalysisOutcomeForTab,
+} from '../../app/features/advice/advice-gist.ts'
 import type { AdviceAnalysisMode } from '../../app/features/advice/advice-openai.ts'
 import {
 	ADVICE_ANALYSIS_MODES,
@@ -163,19 +167,38 @@ function describeMode(mode: AdviceAnalysisMode): string {
 	return mode === 'buy_next' ? 'buy-next' : 'portfolio-review'
 }
 
+const REGENERATE = 'Generating the advice again in the web app overwrites it.'
+
+/**
+ * Why there is nothing to hand back, said precisely.
+ *
+ * The legacy file holds whichever mode was saved last, so a corrupt one is not
+ * evidence that *this* mode's analysis exists — claiming it does would send the
+ * user looking for something that may never have been written.
+ */
 export function blockedSavedAdvice(params: {
 	mode: AdviceAnalysisMode
-	blocker: SavedAdviceBlocker
+	outcome:
+		| { status: 'not_found' }
+		| { status: 'malformed'; file: 'mode' | 'legacy' }
 }): SavedAdviceSummary {
-	const { mode, blocker } = params
+	const { mode, outcome } = params
+	if (outcome.status === 'not_found') {
+		return {
+			available: false,
+			mode,
+			blocker: 'not_found',
+			reason: `No ${describeMode(mode)} analysis has been saved. The web app's advice page writes one when advice is generated there; this server cannot generate one. Answer from get_portfolio, get_guidelines and get_buy_plan instead.`,
+		}
+	}
 	return {
 		available: false,
 		mode,
-		blocker,
+		blocker: 'malformed',
 		reason:
-			blocker === 'not_found'
-				? `No ${describeMode(mode)} analysis has been saved. The web app's advice page writes one when advice is generated there; this server cannot generate one. Answer from get_portfolio, get_guidelines and get_buy_plan instead.`
-				: `A saved ${describeMode(mode)} analysis exists in the gist, but its JSON does not match the format this app stores, so nothing can be read from it. Generating the advice again in the web app overwrites the file.`,
+			outcome.file === 'mode'
+				? `The saved ${describeMode(mode)} analysis (${ADVICE_GIST_FILENAME_BY_MODE[mode]} in the gist) is not in the format this app stores, so nothing can be read from it. ${REGENERATE}`
+				: `No ${ADVICE_GIST_FILENAME_BY_MODE[mode]} is stored, and the legacy ${ADVICE_STORAGE_FILENAME}, which holds whichever mode was saved last, is not in the format this app stores. It may or may not be the ${describeMode(mode)} analysis. ${REGENERATE}`,
 	}
 }
 
@@ -184,16 +207,21 @@ export function blockedSavedAdvice(params: {
  * into the default, a mode the caller actually named and got wrong is refused:
  * quietly answering with the buy-next analysis to a request for the review is
  * worse than saying the argument is wrong.
+ *
+ * "Named" means present, whatever its type — `["portfolio_review"]` is a wrong
+ * argument, not an absent one, and defaulting it would produce exactly the
+ * silently wrong answer this exists to prevent.
  */
 function readMode(toolArguments: Record<string, unknown>): AdviceAnalysisMode {
-	const raw = readStringArgument(toolArguments, 'mode')
-	if (raw === null) return normalizeAdviceAnalysisTab(null)
-	if (raw !== 'buy_next' && raw !== 'portfolio_review') {
+	const raw = toolArguments.mode
+	if (raw === undefined || raw === null) return normalizeAdviceAnalysisTab(null)
+	const named = readStringArgument(toolArguments, 'mode')
+	if (named !== 'buy_next' && named !== 'portfolio_review') {
 		throw new Error(
-			`"mode" must be one of: ${ADVICE_ANALYSIS_MODES.join(', ')}; got "${raw}".`,
+			`"mode" must be one of: ${ADVICE_ANALYSIS_MODES.join(', ')}; got ${JSON.stringify(raw)}.`,
 		)
 	}
-	return raw
+	return named
 }
 
 export function createGetSavedAdviceTool(
@@ -218,7 +246,7 @@ export function createGetSavedAdviceTool(
 			)
 		}
 		if (outcome.status !== 'found') {
-			return jsonResult(blockedSavedAdvice({ mode, blocker: outcome.status }))
+			return jsonResult(blockedSavedAdvice({ mode, outcome }))
 		}
 		return jsonResult(summarizeSavedAdvice({ mode, stored: outcome.stored }))
 	}

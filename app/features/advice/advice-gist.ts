@@ -183,7 +183,12 @@ function storedMatchesTab(
 export type StoredAdviceAnalysisOutcome =
 	| { status: 'found'; stored: StoredAdviceAnalysis }
 	| { status: 'not_found' }
-	| { status: 'malformed' }
+	/**
+	 * `file` says which one could not be parsed. The legacy file is shared by
+	 * both modes, so a corrupt one may or may not hold the mode that was asked
+	 * for — a caller that reports it must not claim it does.
+	 */
+	| { status: 'malformed'; file: 'mode' | 'legacy' }
 	| { status: 'unreadable'; httpStatus: number }
 
 function hasStoredContent(content: string | null | undefined): boolean {
@@ -227,10 +232,13 @@ export async function fetchStoredAdviceAnalysisOutcomeForTab(
 	// A file that is present but unparseable is a different failure from one that
 	// was never written. A file that parses but belongs to the *other* tab is
 	// neither: for this tab there is simply nothing saved.
-	const unparseable =
-		(hasStoredContent(primaryContent) && primary === null) ||
-		(hasStoredContent(legacyContent) && legacy === null)
-	return unparseable ? { status: 'malformed' } : { status: 'not_found' }
+	if (hasStoredContent(primaryContent) && primary === null) {
+		return { status: 'malformed', file: 'mode' }
+	}
+	if (hasStoredContent(legacyContent) && legacy === null) {
+		return { status: 'malformed', file: 'legacy' }
+	}
+	return { status: 'not_found' }
 }
 
 /**

@@ -100,6 +100,15 @@ export function summarizeCatalogSearch(params: {
 					note: `Showing ${returned.length} of ${matches.length} matches; narrow the query or raise "limit" (max ${MAX_LIMIT}) to see the rest.`,
 				}
 			: {}),
+		// `fetchCatalog` reports an unconfigured gist id, a rejected read and a
+		// timeout all as no rows, so an empty catalog is not evidence that the app
+		// knows no funds — and concluding that is how a client ends up telling the
+		// user there is nothing to buy during a GitHub outage.
+		...(catalog.length === 0
+			? {
+					note: 'The shared catalog came back with no entries at all: it is either not configured or temporarily unreachable. Do not report this as "the app knows no funds" — retry before drawing any conclusion from it.',
+				}
+			: {}),
 	}
 }
 

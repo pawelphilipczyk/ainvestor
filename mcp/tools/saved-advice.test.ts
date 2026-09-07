@@ -188,6 +188,21 @@ describe('get_saved_advice', () => {
 		)
 	})
 
+	it('refuses a named mode that is not a string, instead of defaulting it', async () => {
+		// A mode that is present but the wrong type is a wrong argument, not an
+		// absent one; defaulting it answers a review request with the buy plan.
+		stubGist({
+			[ADVICE_BUY_NEXT_STORAGE_FILENAME]: JSON.stringify(storedAnalysis()),
+		})
+		const tool = createGetSavedAdviceTool(credentials)
+		for (const mode of [['portfolio_review'], 0, {}, '']) {
+			await assert.rejects(
+				tool.handler({ mode }),
+				/must be one of: buy_next, portfolio_review/,
+			)
+		}
+	})
+
 	it('falls back to the legacy single-file snapshot', async () => {
 		stubGist({
 			[ADVICE_STORAGE_FILENAME]: JSON.stringify(
@@ -235,7 +250,25 @@ describe('get_saved_advice', () => {
 
 		assert.equal(payload.available, false)
 		assert.equal(payload.blocker, 'malformed')
-		assert.match(String(payload.reason), /does not match the format/i)
+		assert.match(String(payload.reason), /advice-portfolio-review\.json/)
+		assert.match(String(payload.reason), /not in the format/i)
+	})
+
+	it('does not claim a corrupt legacy file holds this mode’s analysis', async () => {
+		// The legacy file holds whichever mode was saved last, so a corrupt one is
+		// no evidence that this mode was ever generated.
+		stubGist({ [ADVICE_STORAGE_FILENAME]: '{"version": 1, "oops"' })
+
+		const payload = await callTool({ mode: 'portfolio_review' })
+
+		assert.equal(payload.blocker, 'malformed')
+		assert.match(String(payload.reason), /may or may not be/i)
+		assert.match(String(payload.reason), /advice-analysis\.json/)
+		assert.equal(
+			/The saved portfolio-review analysis \(/.test(String(payload.reason)),
+			false,
+			'it must not assert that this mode was saved',
+		)
 	})
 
 	it('throws with the status when GitHub refuses the read', async () => {

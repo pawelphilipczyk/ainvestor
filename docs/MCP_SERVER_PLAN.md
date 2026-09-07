@@ -225,6 +225,13 @@ limit: a model running a search does not know how much it is about to pull in,
 but a client reading the dataset by URI has asked for all of it, and truncating
 there answers a different question. The compact projection keeps it bounded.
 
+An **empty** catalog carries a note in both the resource and `list_catalog`,
+because `fetchCatalog()` reports an unconfigured gist id, a rejected read and a
+timeout all as no rows — the same ambiguity `get_buy_plan` already names in its
+`unclassified_holding` reason. Without it, a GitHub outage reads as "this app
+knows no funds", which against the "never propose a fund the catalog does not
+list" instruction means telling the user there is nothing to buy.
+
 Write: `set_guideline`, `delete_guideline`, `upsert_catalog_entry`,
 `delete_catalog_entry` and `import_catalog_from_bank_file` (shipped, always
 exposed; the catalog three owner-only, the import stdio-only per D8);
@@ -473,7 +480,11 @@ the plan is already agreed, so implement directly rather than re-planning.
     `malformed` or `unreadable` with the HTTP status, and the old function now
     delegates to it and still answers snapshot-or-null, so the page is untouched.
     A file that parses but belongs to the *other* tab is `not_found`, not
-    `malformed` — for the tab asked about there is simply nothing.
+    `malformed` — for the tab asked about there is simply nothing. `malformed`
+    also carries **which** file failed to parse: the legacy
+    `advice-analysis.json` holds whichever mode was saved last, so a corrupt one
+    is no evidence that the mode asked about was ever generated, and the answer
+    says so instead of asserting an analysis exists.
   - **`unreadable` throws** rather than returning a blocked payload, matching
     `fetchGuidelinesOrThrow`'s message shape (`…: 401`). That is what makes the
     HTTP transport answer a stale token with a `401` challenge instead of a

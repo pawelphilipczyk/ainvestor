@@ -37,7 +37,7 @@ The catalog is the shared list of funds this app knows about, and the only sourc
 
 get_saved_advice returns the written analysis the web app's advice page last saved, in either of its two modes. It is a stored snapshot against the data of the moment it was written, and nothing here recomputes it: read its savedAt before repeating any figure from it, and take current numbers from the tools above. This server cannot generate advice; only the web app can.
 
-The portfolio, the guidelines and the catalog are also readable as the resources ainvestor://portfolio, ainvestor://guidelines and ainvestor://catalog, each carrying exactly what its tool returns.`
+The portfolio, the guidelines and the catalog are also readable as the resources ainvestor://portfolio, ainvestor://guidelines and ainvestor://catalog. The first two carry exactly what get_portfolio and get_guidelines return; ainvestor://catalog carries every fund rather than one page of search results, so read it when you want the whole list and use list_catalog to search.`
 
 /**
  * The tool surface, bound to one user's credentials. Shared by both transports

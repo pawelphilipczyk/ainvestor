@@ -137,6 +137,12 @@ describe('ainvestor resources', () => {
 		assert.equal(payload.catalogSize, 0)
 		assert.equal(payload.truncated, false)
 		assert.deepEqual(payload.entries, [])
+		// An unconfigured gist, a rejected read and a timeout all arrive as no
+		// rows, so an empty list must not read as "the app knows no funds".
+		assert.match(
+			String(payload.note),
+			/not configured or temporarily unreachable/,
+		)
 	})
 
 	it('lets a rejected gist read fail instead of reporting an empty portfolio', async () => {
