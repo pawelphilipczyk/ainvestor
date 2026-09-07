@@ -248,6 +248,7 @@ describe('mcp over http', () => {
 			'get_guidelines',
 			'set_guideline',
 			'delete_guideline',
+			'get_allocation_diagnostics',
 			'list_catalog',
 			'get_catalog_entry',
 			'upsert_catalog_entry',

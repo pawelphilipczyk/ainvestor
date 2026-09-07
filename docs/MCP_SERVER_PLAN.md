@@ -4,7 +4,7 @@ Plan for exposing this app's data to LLM clients over the **Model Context
 Protocol**. Work proceeds in **small, separately-chatted stages**; each stage
 ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
-**Progress:** Stages 1, 2, 3 and 10 have shipped, plus the **guideline** and
+**Progress:** Stages 1, 2, 3, 4 and 10 have shipped, plus the **guideline** and
 **catalog** writes originally scheduled for Stage 7 — those came early because
 setting targets and correcting the fund list from a client is what makes the
 read tools worth having. Stage 7 keeps its box open for the holdings writes,
@@ -155,6 +155,7 @@ mcp/
   stdout-guard.ts      # keeps console output off the stdio protocol channel
   tools/portfolio.ts   # get_portfolio
   tools/guidelines.ts  # get_guidelines, set_guideline, delete_guideline
+  tools/allocation.ts  # get_allocation_diagnostics
   tools/catalog.ts     # list_catalog, get_catalog_entry, and the owner-only row writes
   tools/catalog-import.ts # import_catalog_from_bank_file (stdio only, reads a local path)
   tools/rounding.ts    # the two-decimal rounding both tool modules report in
@@ -192,7 +193,7 @@ Read-only (Stages 2–5):
 | `get_guidelines` | Target rows, their sum, aggregated buckets per asset type |
 | `list_catalog` | Catalog rows matching a free-text query, compact projection, with `matched`/`truncated` so a limited list never reads as the whole catalog |
 | `get_catalog_entry` | One entry by ticker or id, all fields |
-| `get_allocation_diagnostics` | Buy-only gaps per bucket for a given cash amount |
+| `get_allocation_diagnostics` | Buy-only gaps per bucket for a given cash amount, the cash split across them, or a named reason there are no numbers |
 | `get_saved_advice` | The stored analysis for `buy_next` or `portfolio_review` |
 
 Resources (Stage 5): `ainvestor://portfolio`, `ainvestor://guidelines`,
@@ -222,6 +223,13 @@ a duplicate under the same id instead of updating it. `import_catalog_from_bank_
 still uses `mergeBankIntoCatalog` correctly, because every row it submits
 carries the bank's own `isin` field fresh, so its key always agrees with what
 is already stored.
+
+`get_allocation_diagnostics` answers with a **discriminated union**, not a
+partially-filled object: when it cannot compute, there is no `buckets` array at
+all, so a caller cannot read zeroes out of one and present them as real gaps. It
+carries a machine-readable `blocker` alongside the prose `reason` for the same
+purpose. Its `deployCash` per bucket is the actionable number — the minimum buys
+alone do not add up to the cash whenever a bucket is overweight.
 
 Both catalog write paths run their finished row through `validateCatalogEntry`
 (`app/features/catalog/lib.ts`) before saving: ticker and name non-empty,
@@ -321,7 +329,42 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one PR.
   ```
 
-- [ ] **Stage 4 — Allocation diagnostics tool**
+- [x] **Stage 4 — Allocation diagnostics tool** — shipped as
+  `get_allocation_diagnostics`.
+
+  The stage's "map each null to a distinct message" requirement drove the shape
+  of the change. `computeAdviceAllocationDiagnostics` collapsed six different
+  causes into one `null`, and re-deriving them in `mcp/` would have duplicated
+  app logic the plan forbids duplicating. So the guards were lifted into
+  `computeAdviceAllocationDiagnosticsOutcome`, which returns the diagnostics
+  **or** a named `blocker` — `unparseable_cash`, `mixed_holding_currencies`,
+  `cash_currency_mismatch`, `no_guidelines`, `no_positive_targets`,
+  `unclassified_holding`, the last two of which the stage prompt had not
+  anticipated. The old function now delegates to it and still returns `null`, so
+  the advice path is untouched.
+
+  The per-bucket cash split had the same problem: it existed only as prose
+  inside `formatAdviceAllocationDiagnosticsBlock`. It is now
+  `planAdviceCashDeployment`, which both the prompt block and the tool call.
+  Extracting it made an invariant visible: because targets scale to the
+  post-investment total, the minimum buys sum to **exactly** the cash unless a
+  bucket is overweight — and an overweight bucket is clamped to a zero minimum,
+  which pushes the sum above the cash instead. The "remaining cash" branch is
+  therefore unreachable (a 20k-case fuzz found a maximum remainder of 2e-12), so
+  the tool reports that field only when it is non-zero rather than always
+  emitting a 0.
+
+  Two deviations from the prompt, both deliberate:
+
+  - **An unparseable `cashAmount` throws** rather than returning a blocked
+    payload. It is a fault in the call, not in the data, and the caller can fix
+    it immediately; state-shaped problems (mixed currencies, no guidelines) get
+    the structured `available: false` answer instead.
+  - **`cashCurrency` is optional**, defaulting to the currency the holdings
+    already share and falling back to the app's own default only for an empty
+    portfolio. Requiring it would have made `cash_currency_mismatch` the routine
+    answer for anyone not holding PLN. The response reports which source was
+    used in `cash.currencySource`.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Continue after Stage 3. The plan is agreed — implement directly.
