@@ -123,7 +123,6 @@ function adviceResultCardPropsFromPage(
 		analysisMode: props.analysisMode,
 		cashAmount: props.cashAmount,
 		cashCurrency: props.cashCurrency,
-		selectedModel: props.selectedModel,
 		catalog: props.catalog,
 		adviceFromGist: props.adviceFromGist,
 		adviceGistSavedAt: props.adviceGistSavedAt,

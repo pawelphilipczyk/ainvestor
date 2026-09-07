@@ -7,6 +7,7 @@ import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
+import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
 import { routes } from '../../routes.ts'
 import {
 	parseBankJsonToCatalog,
@@ -909,6 +910,23 @@ describe('Advice', () => {
 		assert.equal(response.status, 200)
 		assert.equal(capturedModel, 'gpt-5.6-luna')
 		assert.match(body, /value="gpt-5.6-luna"/)
+	})
+
+	it('labels the model select in the request locale, not the import-time default', async () => {
+		const cookie = await signInWithGist()
+
+		const localeCookie = (await uiLocaleCookie.serialize('pl')).split(';')[0]
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				headers: { Cookie: `${cookie}; ${localeCookie}` },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /GPT-5\.6 Sol \(najm/)
+		assert.doesNotMatch(body, /\(smartest\)/)
 	})
 
 	it('renders catalog ETF href on fund name when etf_proposals include catalogEntryId', async () => {
