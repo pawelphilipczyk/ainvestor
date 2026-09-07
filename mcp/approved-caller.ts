@@ -2,17 +2,8 @@ import { isGithubLoginApproved } from '../app/lib/approved-users.ts'
 import { createTokenCache } from './token-cache.ts'
 
 /**
- * Whether a caller may be served the deployment's **own** pinned gist.
- *
- * `AINVESTOR_GIST_ID` names one specific gist, so honouring it for anyone with
- * any GitHub token would hand a stranger the deployment owner's holdings —
- * secret gists are unlisted, not access-controlled, so possessing the id is
- * enough to read one. Pinning a gist therefore means "this deployment serves
- * that gist's owner", and the caller must prove they are that person.
- *
- * This also restores the invariant `stripGithubTokenIfUnapproved` enforces on
- * every session-backed route: the app never acts on a token belonging to an
- * account that is not on the allowlist.
+ * Whether a caller may be served the deployment's **own** pinned gist. See
+ * decision D3 and the Stage 10 security note in docs/MCP_SERVER_PLAN.md.
  */
 
 const GITHUB_API = 'https://api.github.com'

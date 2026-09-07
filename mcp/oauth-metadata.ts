@@ -1,18 +1,8 @@
 /**
  * OAuth discovery metadata that lets an MCP client obtain a GitHub token for
  * this server without the app ever becoming an authorization server itself.
- *
- * The trick is in the issuer. A client discovers authorization-server metadata
- * at `<issuer>/.well-known/oauth-authorization-server`, and GitHub publishes no
- * such document — so naming GitHub as the issuer would simply fail discovery.
- * Instead this app is the issuer and its metadata points `authorization_endpoint`
- * and `token_endpoint` straight at GitHub. The client then runs an ordinary
- * authorization-code + PKCE flow against GitHub and receives a GitHub token,
- * which is exactly the credential `POST /mcp` already expects.
- *
- * No `registration_endpoint` is advertised: dynamic client registration is not
- * supported, so the client must use credentials from a GitHub OAuth App that
- * the user registers and pastes into their connector settings.
+ * See "Sign-in: GitHub is the authorization server" in
+ * docs/MCP_SERVER_PLAN.md for why the issuer is this app rather than GitHub.
  */
 
 const GITHUB_AUTHORIZATION_ENDPOINT = 'https://github.com/login/oauth/authorize'
@@ -39,21 +29,11 @@ function isLoopbackHost(host: string): boolean {
 }
 
 /**
- * The origin clients reach this app on.
+ * The origin clients reach this app on. **Security-critical** — see "The
+ * origin is not taken from request headers" in docs/MCP_SERVER_PLAN.md.
  *
- * **This value is security-critical**: it becomes the OAuth issuer, the
- * `authorization_servers` entry and the `resource_metadata` challenge, so a
- * caller who could choose it could send clients to an authorization server of
- * their choosing and harvest GitHub tokens. Request headers are therefore never
- * trusted on their own — the host must be one this deployment knows it owns:
- *
- * 1. `AINVESTOR_PUBLIC_ORIGIN`, when set, wins outright.
- * 2. Otherwise `FLY_APP_NAME`, which Fly sets in the machine's environment and
- *    no request can forge, gives `https://<app>.fly.dev`.
- * 3. Otherwise a loopback host, so local development works.
- *
- * Returns null when none applies, which callers must treat as "cannot serve
- * discovery" rather than falling back to the request.
+ * Returns null when nothing applies, which callers must treat as "cannot
+ * serve discovery" rather than falling back to the request.
  */
 export function resolvePublicOrigin(request: Request): string | null {
 	const configured = (process.env.AINVESTOR_PUBLIC_ORIGIN ?? '').trim()
@@ -125,9 +105,6 @@ export function metadataResponse(document: object): Response {
 	return new Response(JSON.stringify(document, null, 2), {
 		headers: {
 			'Content-Type': 'application/json',
-			// Deliberately private: the document names this deployment's own
-			// origin, and a shared cache replaying one deployment's answer to
-			// another's clients would redirect their sign-in.
 			'Cache-Control': 'no-store',
 			// Discovery may be performed by a browser-based client.
 			'Access-Control-Allow-Origin': '*',

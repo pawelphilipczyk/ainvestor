@@ -134,6 +134,23 @@ describe('summarizeCatalogSearch', () => {
 			'type',
 		])
 	})
+
+	it('blames an empty catalog on the catalog, not on there being no matches', () => {
+		// `fetchCatalog` reports an unconfigured gist id, a rejected read and a
+		// timeout all as no rows, so an empty catalog must not read as "the app
+		// knows no funds" during an outage.
+		const summary = summarizeCatalogSearch({
+			catalog: [],
+			query: '',
+			limit: 10,
+		})
+		assert.equal(summary.catalogSize, 0)
+		assert.equal(summary.truncated, false)
+		assert.match(
+			String(summary.note),
+			/not configured or temporarily unreachable/,
+		)
+	})
 })
 
 describe('list_catalog tool', () => {

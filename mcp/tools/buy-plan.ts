@@ -36,13 +36,7 @@ Targets come from the guidelines, folded per asset class (a named-fund row count
 
 The maths needs one currency: the app performs no FX conversion, so holdings in several currencies, or cash in a currency the holdings are not in, yield no numbers at all rather than a guess. In that case the answer says so and why — report that reason rather than estimating the figures yourself.`
 
-/**
- * The reason there are no numbers, phrased for the model that asked.
- *
- * The compute function collapses every cause into one null; this is the
- * distinction, so the answer says which of them happened and what fixes it
- * instead of leaving the model to invent a total.
- */
+/** The reason there are no numbers, phrased for the model that asked. */
 function explainBlocker(params: {
 	outcome: BlockedAllocationDiagnostics
 	cashCurrency: string
@@ -67,13 +61,6 @@ function explainBlocker(params: {
 				return 'A holding falls outside every asset class that has a target, so the buckets would not account for the whole portfolio.'
 			}
 			if (holding.etfType === 'mixed') {
-				// `mixed` arrives here two ways — the catalog really classifies the
-				// fund as mixed, or nothing matched it at all and this is the
-				// fallback — and from outside the resolver the two are
-				// indistinguishable, so claim neither. An empty catalog is worth
-				// calling out separately: `fetchCatalog` reports an unconfigured id,
-				// a rejected read and a timeout all as no rows, so "not listed" would
-				// be a false statement about shared data during an outage.
 				if (catalogSize === 0) {
 					return `Holding "${holding.name}" could not be placed in an asset class, and the shared catalog came back with no entries at all — it is either not configured or temporarily unreachable, so nothing could be classified from it. Retry before changing any data; list_catalog shows whether the catalog is readable.`
 				}
@@ -104,10 +91,7 @@ type CashSummary = {
 	currencySource: 'argument' | 'holdings' | 'default'
 }
 
-/**
- * Deliberately a discriminated union: a blocked answer carries no buckets at
- * all, so a caller cannot read zeroes out of one and present them as gaps.
- */
+/** A blocked answer deliberately carries no `buckets` — see docs/MCP_SERVER_PLAN.md. */
 export type BuyPlanSummary =
 	| {
 			available: false

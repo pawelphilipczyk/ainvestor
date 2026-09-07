@@ -23,8 +23,7 @@ function writeResponse(response: JsonRpcResponse): void {
 
 async function main(): Promise<void> {
 	const config = resolveMcpConfig()
-	// The stdio server runs on the user's own machine, so it is the only place a
-	// tool may read a local file.
+	// allowLocalFileTools: true per decision D8 in docs/MCP_SERVER_PLAN.md.
 	const server = createAinvestorMcpServer({
 		credentials: {
 			githubToken: config.githubToken,

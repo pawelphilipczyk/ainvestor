@@ -317,6 +317,65 @@ payload, so it is not free.
 
 ---
 
+## Cost bar for MCP tools
+
+`get_buy_plan` and `get_saved_advice` shipped with a "map every failure to a
+distinct, named reason" pattern and full per-branch test coverage. That is
+real value — it is what let review catch the `readMode` type-confusion bug
+and the malformed-file conflation bug before merge — but the same discipline
+was also spent re-verifying identical business logic at the tool layer, the
+resource layer and the HTTP layer, and restating the same design decision in
+both a doc paragraph and a code comment. Neither buys additional confidence;
+both are just cost. This section says what stays and what to stop paying for,
+so it holds for every stage after this one.
+
+Keep, always:
+
+- **Never collapse two blockers/reasons into one if a client would need to
+  act differently on them.** `get_buy_plan`'s six blockers, `get_saved_advice`'s
+  `not_found`/`malformed`/`unreadable` split, and `malformed`'s `mode`/`legacy`
+  split all stay exactly as they are — each exists because collapsing it
+  produced a wrong answer, not because it looked thorough.
+- **The discriminated-union outer shape** (`available: true`/`false` and
+  equivalents) is not up for relaxation, nor is any other discriminated
+  union's shape or blocker set.
+- **Any test that exists because review found a real bug** in this PR or an
+  earlier one stays, unconditionally.
+- **Input validation** (argument types, ranges, enums) stays exhaustive; it is
+  the boundary where a model's mistake must turn into a clear error rather
+  than a wrong answer.
+- **Coverage of a distinct code path stays, wherever it lives.** What is
+  protected is the coverage, not the file it happens to be in — `tools/*.test.ts`
+  is not exempt from the next rule just by being the tool's own test file.
+
+Relax, from here on:
+
+- **Business logic gets its exhaustive test coverage in exactly one place:**
+  the tool's own `tools/*.test.ts`. `resources.test.ts` and `http.test.ts`
+  assert transport/wiring only — status codes, auth, that the right tool or
+  resource ran — against one or two representative payloads. They do not
+  re-derive every blocker case the tool test already covers.
+- **One test per code path, not one per cosmetic variant — including inside
+  `tools/*.test.ts` itself.** If a single input already exercises several
+  branches together (a document with all four block types, say), that is one
+  test, not four. If two tests in the tool's own file end up exercising the
+  same branch with cosmetically different numbers, that is the same
+  redundancy this bar exists to cut, not something the file's status as
+  "source of truth" excuses.
+- **A code comment states a non-obvious invariant that has no doc home.** It
+  does not restate a design decision this file already records for that
+  stage. When both exist, delete the comment, not the doc paragraph — this
+  doc is the place a future stage reads before touching the code, and a stale
+  comment left behind after an edit is worse than no comment.
+
+When in doubt about whether a path is "the same business logic" or "a new
+branch a client would act on differently," the test question is: would two
+different callers need to do two different things in response? If yes, it is
+a distinct reason and keeps its own test and its own message. If no, it is a
+cosmetic variant of a path already covered, and one test is enough.
+
+---
+
 ## Separate-chat implementation prompts
 
 Run these one at a time in separate chats. Each prompt is self-contained and

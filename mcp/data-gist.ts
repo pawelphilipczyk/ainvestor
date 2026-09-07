@@ -52,8 +52,7 @@ async function discoverDataGistId(
  * tool silently creating storage would be surprising, and an empty new gist
  * would look like a wiped portfolio.
  *
- * Caches are **keyed by token**: the HTTP endpoint serves whoever presents a
- * token, so a process-wide cache would hand one user another user's gist id.
+ * Caches are **keyed by token** (see Stage 10 in docs/MCP_SERVER_PLAN.md).
  * Concurrent callers with the same token share one lookup, which can cost up to
  * 50 authenticated requests. Failures are not cached, so creating the gist and
  * retrying works without a restart.

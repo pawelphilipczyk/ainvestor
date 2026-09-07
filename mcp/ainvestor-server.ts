@@ -41,12 +41,8 @@ The portfolio, the guidelines and the catalog are also readable as the resources
 
 /**
  * The tool surface, bound to one user's credentials. Shared by both transports
- * so stdio and HTTP cannot drift on what they expose.
- *
- * `allowLocalFileTools` is the one sanctioned exception: a tool that reads a
- * path on the caller's own machine is meaningless over HTTP, where the server
- * runs on a different computer entirely. stdio passes true, HTTP false, and
- * nothing else may vary between the two.
+ * so stdio and HTTP cannot drift on what they expose; `allowLocalFileTools` is
+ * the one sanctioned exception (decision D8 in docs/MCP_SERVER_PLAN.md).
  */
 export function createAinvestorMcpServer(params: {
 	credentials: GistCredentials
