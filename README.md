@@ -100,11 +100,16 @@ the web app uses. Five tools, no extra configuration:
   rows above 100% is refused.
 - **`delete_guideline`** — remove one row by the `id` that `get_guidelines`
   reports.
-- **`get_allocation_diagnostics`** — where a given amount of cash should go. For
+- **`get_buy_plan`** — what to buy with a given amount of cash. For
   each asset class with a target: what it holds now, what the target comes to
   once the cash is invested, the smallest purchase that closes the gap, and the
   slice of the cash to put there. It is **buy-only** — nothing is ever sold, so a
   class already above target simply keeps what it has.
+
+  It returns **numbers only** — no tickers and no written analysis. It is the
+  same arithmetic the web app's advice page already treats as authoritative,
+  exposed on its own so a client can have the figures without paying for an
+  OpenAI call. Picking the actual funds is the client's job, from the catalog.
 
   The maths needs one currency throughout, since the app does no FX conversion.
   Holdings in several currencies, cash in a currency the holdings are not in, no

@@ -12,11 +12,8 @@ import type { EtfGuideline } from '../../app/lib/guidelines.ts'
 import { GUIDELINES_FILENAME } from '../../app/lib/guidelines.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resetDataGistIdCache } from '../data-gist.ts'
-import type { AllocationDiagnosticsSummary } from './allocation.ts'
-import {
-	createGetAllocationDiagnosticsTool,
-	summarizeAllocationDiagnostics,
-} from './allocation.ts'
+import type { BuyPlanSummary } from './buy-plan.ts'
+import { createGetBuyPlanTool, summarizeBuyPlan } from './buy-plan.ts'
 
 const credentials: GistCredentials = {
 	githubToken: 'token-value',
@@ -70,9 +67,9 @@ const SHORTFALL = {
 
 /** Everything the pure summary needs, with each field overridable per test. */
 function summarize(
-	overrides: Partial<Parameters<typeof summarizeAllocationDiagnostics>[0]> = {},
-): AllocationDiagnosticsSummary {
-	return summarizeAllocationDiagnostics({
+	overrides: Partial<Parameters<typeof summarizeBuyPlan>[0]> = {},
+): BuyPlanSummary {
+	return summarizeBuyPlan({
 		holdings: SHORTFALL.holdings,
 		guidelines: SHORTFALL.guidelines,
 		catalog: SHORTFALL.catalog,
@@ -84,7 +81,7 @@ function summarize(
 }
 
 /** Narrow to the branch that carries numbers, failing with the reason if it does not. */
-function withDiagnostics(summary: AllocationDiagnosticsSummary) {
+function withDiagnostics(summary: BuyPlanSummary) {
 	if (!summary.available) {
 		assert.fail(`expected diagnostics, got blocked: ${summary.reason}`)
 	}
@@ -92,7 +89,7 @@ function withDiagnostics(summary: AllocationDiagnosticsSummary) {
 }
 
 /** Narrow to the blocked branch, failing loudly if numbers came back instead. */
-function withoutDiagnostics(summary: AllocationDiagnosticsSummary) {
+function withoutDiagnostics(summary: BuyPlanSummary) {
 	if (summary.available) {
 		assert.fail(`expected no diagnostics, got ${JSON.stringify(summary)}`)
 	}
@@ -125,7 +122,7 @@ afterEach(() => {
 	resetSharedCatalogForTests()
 })
 
-describe('summarizeAllocationDiagnostics', () => {
+describe('summarizeBuyPlan', () => {
 	it('reports per-bucket gaps and splits cash that falls short of the minimum buys', () => {
 		const summary = withDiagnostics(summarize())
 
@@ -224,7 +221,7 @@ describe('summarizeAllocationDiagnostics', () => {
 	})
 })
 
-describe('summarizeAllocationDiagnostics blockers', () => {
+describe('summarizeBuyPlan blockers', () => {
 	it('withholds every number when the cash amount is not a number', () => {
 		const summary = withoutDiagnostics(summarize({ cashAmountText: 'a lot' }))
 		assert.equal(summary.blocker, 'unparseable_cash')
@@ -355,7 +352,7 @@ describe('summarizeAllocationDiagnostics blockers', () => {
 	})
 })
 
-describe('summarizeAllocationDiagnostics rounding', () => {
+describe('summarizeBuyPlan rounding', () => {
 	/**
 	 * The diagnostics come from the unrounded parse, so the deployment must too.
 	 * Planning against the rounded cash strands the difference as a remainder,
@@ -378,10 +375,10 @@ describe('summarizeAllocationDiagnostics rounding', () => {
 	})
 })
 
-describe('get_allocation_diagnostics tool', () => {
+describe('get_buy_plan tool', () => {
 	it('requires cashAmount and states the buy-only constraint', () => {
-		const tool = createGetAllocationDiagnosticsTool(credentials)
-		assert.equal(tool.name, 'get_allocation_diagnostics')
+		const tool = createGetBuyPlanTool(credentials)
+		assert.equal(tool.name, 'get_buy_plan')
 		assert.deepEqual(tool.inputSchema.required, ['cashAmount'])
 		assert.match(tool.description, /buy-only/i)
 	})
@@ -395,7 +392,7 @@ describe('get_allocation_diagnostics tool', () => {
 			holdings: SHORTFALL.holdings,
 			guidelines: SHORTFALL.guidelines,
 		})
-		const tool = createGetAllocationDiagnosticsTool(credentials)
+		const tool = createGetBuyPlanTool(credentials)
 
 		const result = await tool.handler({ cashAmount: '5000' })
 
@@ -403,9 +400,7 @@ describe('get_allocation_diagnostics tool', () => {
 			requestedUrls.every((url) => url.endsWith('/gists/pinned-gist')),
 			`unexpected requests: ${requestedUrls.join(', ')}`,
 		)
-		const payload = JSON.parse(
-			result.content[0].text,
-		) as AllocationDiagnosticsSummary
+		const payload = JSON.parse(result.content[0].text) as BuyPlanSummary
 		const summary = withDiagnostics(payload)
 		assert.equal(summary.postInvestmentTotal, 15000)
 		// No cashCurrency was passed, so it came from the holdings.
@@ -419,12 +414,12 @@ describe('get_allocation_diagnostics tool', () => {
 			ownerLogin: null,
 		})
 		stubGist({ holdings: [], guidelines: SHORTFALL.guidelines })
-		const tool = createGetAllocationDiagnosticsTool(credentials)
+		const tool = createGetBuyPlanTool(credentials)
 
 		const result = await tool.handler({ cashAmount: 1000 })
 
 		const summary = withDiagnostics(
-			JSON.parse(result.content[0].text) as AllocationDiagnosticsSummary,
+			JSON.parse(result.content[0].text) as BuyPlanSummary,
 		)
 		assert.equal(summary.cash.amount, 1000)
 		// An empty portfolio has no currency to borrow, so the app default applies.
@@ -432,7 +427,7 @@ describe('get_allocation_diagnostics tool', () => {
 	})
 
 	it('rejects a missing or unparseable cashAmount as an argument error', async () => {
-		const tool = createGetAllocationDiagnosticsTool(credentials)
+		const tool = createGetBuyPlanTool(credentials)
 		await assert.rejects(
 			async () => tool.handler({}),
 			/"cashAmount" is required/,
@@ -449,7 +444,7 @@ describe('get_allocation_diagnostics tool', () => {
 			ownerLogin: null,
 		})
 		stubGist({ holdings: [], guidelines: SHORTFALL.guidelines })
-		const tool = createGetAllocationDiagnosticsTool(credentials)
+		const tool = createGetBuyPlanTool(credentials)
 		await assert.rejects(
 			async () => tool.handler({ cashAmount: '100', cashCurrency: 'XYZ' }),
 			/"cashCurrency" must be one of/,
@@ -462,7 +457,7 @@ describe('get_allocation_diagnostics tool', () => {
 			ownerLogin: null,
 		})
 		stubGist({ holdings: [], guidelines: SHORTFALL.guidelines })
-		const tool = createGetAllocationDiagnosticsTool(credentials)
+		const tool = createGetBuyPlanTool(credentials)
 
 		const result = await tool.handler({
 			cashAmount: '100',
@@ -470,7 +465,7 @@ describe('get_allocation_diagnostics tool', () => {
 		})
 
 		const summary = withDiagnostics(
-			JSON.parse(result.content[0].text) as AllocationDiagnosticsSummary,
+			JSON.parse(result.content[0].text) as BuyPlanSummary,
 		)
 		assert.equal(summary.cash.currency, 'EUR')
 		assert.equal(summary.cash.currencySource, 'argument')
@@ -482,7 +477,7 @@ describe('get_allocation_diagnostics tool', () => {
 			ownerLogin: null,
 		})
 		globalThis.fetch = async () => new Response(null, { status: 404 })
-		const tool = createGetAllocationDiagnosticsTool(credentials)
+		const tool = createGetBuyPlanTool(credentials)
 		await assert.rejects(async () => tool.handler({ cashAmount: '100' }))
 	})
 })

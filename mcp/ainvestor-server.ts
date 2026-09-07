@@ -1,7 +1,7 @@
 import type { GistCredentials } from './data-gist.ts'
 import type { McpServerInfo } from './protocol.ts'
 import { createMcpServer } from './protocol.ts'
-import { createGetAllocationDiagnosticsTool } from './tools/allocation.ts'
+import { createGetBuyPlanTool } from './tools/buy-plan.ts'
 import {
 	createDeleteCatalogEntryTool,
 	createGetCatalogEntryTool,
@@ -29,7 +29,7 @@ Guidelines are the user's target allocation, in percent of the whole portfolio. 
 
 Guidelines can be edited: set_guideline creates or updates one row, delete_guideline removes one. Holdings stay read-only — buying and selling belongs in the web app.
 
-When asked where to put a sum of money, call get_allocation_diagnostics with that amount rather than working the gaps out from get_portfolio and get_guidelines by hand. It is buy-only: it assumes nothing is sold, so never turn its output into a recommendation to sell. It needs one currency throughout, and says so plainly when it cannot compute — report that reason instead of estimating the numbers yourself.
+When asked where to put a sum of money, call get_buy_plan with that amount rather than working the gaps out from get_portfolio and get_guidelines by hand — it is the app's own arithmetic, the same figures the web app treats as authoritative. It answers with numbers, not fund picks: choose the funds yourself from list_catalog. It is buy-only: it assumes nothing is sold, so never turn its output into a recommendation to sell. It needs one currency throughout, and says so plainly when it cannot compute — report that reason instead of estimating the numbers yourself.
 
 The catalog is the shared list of funds this app knows about, and the only source of valid tickers: never propose a fund that list_catalog does not return, because the user may not be able to buy it. Unlike the portfolio and the guidelines, the catalog is one public gist shared by every user, and only its owner can change it.`
 
@@ -55,7 +55,7 @@ export function createAinvestorMcpServer(params: {
 			createGetGuidelinesTool(credentials),
 			createSetGuidelineTool(credentials),
 			createDeleteGuidelineTool(credentials),
-			createGetAllocationDiagnosticsTool(credentials),
+			createGetBuyPlanTool(credentials),
 			createListCatalogTool(),
 			createGetCatalogEntryTool(),
 			createUpsertCatalogEntryTool(credentials),

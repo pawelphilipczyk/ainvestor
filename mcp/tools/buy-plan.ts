@@ -26,13 +26,15 @@ import { jsonResult } from './tool-result.ts'
 /** The app's own default, used only when nothing better can be inferred. */
 const DEFAULT_CASH_CURRENCY = CURRENCIES[0]
 
-const DESCRIPTION = `Work out where a given amount of cash should go: for each asset class with a target, its current value, the value the target implies once the cash is invested, and the minimum purchase that closes the gap.
+const DESCRIPTION = `Work out what to buy with a given amount of cash. For each asset class the user has a target for: what it holds now, what the target comes to once the cash is invested, the smallest purchase that closes the gap, and how much of the cash to put there.
 
-This is **buy-only** by design — it assumes nothing is sold, so a bucket already above target simply stays there and receives nothing. Never present its output as a reason to sell.
+Use this whenever the question is where to put a sum of money. It is the app's own arithmetic — the same figures the web app treats as authoritative — so prefer it over working the gaps out from get_portfolio and get_guidelines by hand.
+
+It returns **numbers only**: no tickers, no fund picks, no written analysis. Choosing specific funds is your job, from list_catalog. It is also **buy-only** by design — it assumes nothing is sold, so a class already above target simply stays there and receives nothing. Never present its output as a reason to sell.
 
 Targets come from the guidelines, folded per asset class (a named-fund row counts toward its own class). When they do not sum to 100% they are scaled to it, and both the raw and the normalized percentage are reported.
 
-The maths needs one currency: the app performs no FX conversion, so holdings in several currencies, or cash in a currency the holdings are not in, yield no numbers at all rather than a guess. In that case the answer says so and why.`
+The maths needs one currency: the app performs no FX conversion, so holdings in several currencies, or cash in a currency the holdings are not in, yield no numbers at all rather than a guess. In that case the answer says so and why — report that reason rather than estimating the figures yourself.`
 
 /**
  * The reason there are no numbers, phrased for the model that asked.
@@ -82,7 +84,7 @@ function explainBlocker(params: {
 	}
 }
 
-export type AllocationBucket = {
+export type BuyPlanBucket = {
 	etfType: EtfType
 	/** Sum of the guideline rows of this type, as written. */
 	targetPct: number
@@ -106,7 +108,7 @@ type CashSummary = {
  * Deliberately a discriminated union: a blocked answer carries no buckets at
  * all, so a caller cannot read zeroes out of one and present them as gaps.
  */
-export type AllocationDiagnosticsSummary =
+export type BuyPlanSummary =
 	| {
 			available: false
 			blocker: AllocationDiagnosticsBlocker
@@ -122,7 +124,7 @@ export type AllocationDiagnosticsSummary =
 			portfolioValue: number
 			postInvestmentTotal: number
 			targetPctSum: number
-			buckets: AllocationBucket[]
+			buckets: BuyPlanBucket[]
 			minimumBuysTotal: number
 			cashCoversAllMinimumBuys: boolean
 			/**
@@ -138,7 +140,7 @@ function bucketRow(params: {
 	diagnostic: AdviceBucketDiagnostic
 	deployment: AdviceCashDeploymentRow | undefined
 	targetPctSum: number
-}): AllocationBucket {
+}): BuyPlanBucket {
 	const { diagnostic, deployment, targetPctSum } = params
 	return {
 		etfType: diagnostic.etfType,
@@ -159,14 +161,14 @@ function bucketRow(params: {
  * `cashCurrency` is resolved by the caller rather than defaulted here: it
  * depends on the holdings, and the response reports where it came from.
  */
-export function summarizeAllocationDiagnostics(params: {
+export function summarizeBuyPlan(params: {
 	holdings: EtfEntry[]
 	guidelines: EtfGuideline[]
 	catalog: CatalogEntry[]
 	cashAmountText: string
 	cashCurrency: string
 	cashCurrencySource: 'argument' | 'holdings' | 'default'
-}): AllocationDiagnosticsSummary {
+}): BuyPlanSummary {
 	const {
 		holdings,
 		guidelines,
@@ -295,7 +297,7 @@ function resolveCashCurrency(params: {
 	return { cashCurrency: DEFAULT_CASH_CURRENCY, cashCurrencySource: 'default' }
 }
 
-export function createGetAllocationDiagnosticsTool(
+export function createGetBuyPlanTool(
 	credentials: GistCredentials,
 ): McpToolDefinition {
 	async function handler(
@@ -317,7 +319,7 @@ export function createGetAllocationDiagnosticsTool(
 		})
 
 		return jsonResult(
-			summarizeAllocationDiagnostics({
+			summarizeBuyPlan({
 				holdings: entries,
 				guidelines,
 				catalog,
@@ -329,8 +331,8 @@ export function createGetAllocationDiagnosticsTool(
 	}
 
 	return {
-		name: 'get_allocation_diagnostics',
-		title: 'Get allocation diagnostics',
+		name: 'get_buy_plan',
+		title: 'Get buy plan',
 		description: DESCRIPTION,
 		inputSchema: {
 			type: 'object',
