@@ -8,8 +8,16 @@ ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 **catalog** writes originally scheduled for Stage 7 — those came early because
 setting targets and correcting the fund list from a client is what makes the
 read tools worth having. Stage 7 keeps its box open for the holdings writes,
-which move money-carrying rows and deserve their own review. Flip a checkbox to
-`[x]` when its stage ships (same PR as the code, or a tiny follow-up).
+which move money-carrying rows and deserve their own review. Every catalog
+write (`upsert_catalog_entry` and the bank import alike) runs its finished row
+through one shared `validateCatalogEntry` — ticker/name required, ISIN format,
+`risk_kid` 1–7 — so external bank data and a hand-typed MCP call are held to
+the same check. `upsert_catalog_entry` merges directly onto the existing row
+and splices it back in by id rather than going through
+`mergeBankIntoCatalog`'s ISIN-keyed merge, which a partial update (the normal
+case) would fail to match, silently duplicating the row under the same id. Flip
+a checkbox to `[x]` when its stage ships (same PR as the code, or a tiny
+follow-up).
 
 Read before any implementation stage:
 
@@ -148,6 +156,8 @@ mcp/
   tools/catalog.ts     # list_catalog, get_catalog_entry, and the owner-only row writes
   tools/catalog-import.ts # import_catalog_from_bank_file (stdio only, reads a local path)
   tools/rounding.ts    # the two-decimal rounding both tool modules report in
+  tools/tool-result.ts    # jsonResult — the one-JSON-text-block response shape
+  tools/tool-arguments.ts # readStringArgument — trim-or-null argument parsing
   **/*.test.ts         # co-located, run by `tsx --test`
 ```
 
@@ -199,6 +209,26 @@ class through the shared catalog when `SHARED_CATALOG_GIST_ID` is set; with an
 unlisted ticker the caller must name `etfType` and the response says the class
 was not verified — the web app's form simply refuses that case, but over MCP the
 catalog may not be configured at all.
+
+`upsert_catalog_entry` finds the row by ticker and merges the call's fields
+directly onto it (`{ ...existing, ...changes }`), then splices the result back
+into the array **by id** — it does not hand the row to `mergeBankIntoCatalog`.
+That function's merge key includes `isin` when the row has one, so a partial
+update that omits `isin` (the normal case, since a caller only names the
+fields it is changing) would not match its own existing row and would append
+a duplicate under the same id instead of updating it. `import_catalog_from_bank_file`
+still uses `mergeBankIntoCatalog` correctly, because every row it submits
+carries the bank's own `isin` field fresh, so its key always agrees with what
+is already stored.
+
+Both catalog write paths run their finished row through `validateCatalogEntry`
+(`app/features/catalog/lib.ts`) before saving: ticker and name non-empty,
+`isin` (if set) matches the ISIN format via the same `normalizeIsinForCatalogId`
+the id derivation uses, and `risk_kid` (if set) is a whole number 1–7 via
+`isValidRiskKid`. Bank JSON is external input too, so `parseBankJsonForImport`
+now runs the row it built through the identical check (gaining a
+`riskKidOutOfRange` diagnostic it did not have before) rather than validating
+only the raw pre-import fields the way it used to.
 
 Never exposed: OAuth, session state, and any tool that rewrites the whole
 portfolio or catalog at once.
@@ -266,7 +296,7 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one PR.
   ```
 
-- [x] **Stage 3 — Catalog read tools** — shipped, reshaped: the filters below were cut to a single free-text query (the tool exists to ground tickers, not to browse), and the owner-only writes were added in the same PR. The prompt is kept as written for the record.
+- [x] **Stage 3 — Catalog read tools** — shipped, reshaped: the filters below were cut to a single free-text query (the tool exists to ground tickers, not to browse), and the owner-only writes were added in the same PR, in three commits: the tools themselves, a fix for a duplicate-row bug in `upsert_catalog_entry` found in review (see the write-tools section above), and `validateCatalogEntry` shared with the bank import. The prompt is kept as written for the record.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Continue after Stage 2. The plan is agreed — implement directly.
