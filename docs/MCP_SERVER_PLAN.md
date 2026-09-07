@@ -4,7 +4,7 @@ Plan for exposing this app's data to LLM clients over the **Model Context
 Protocol**. Work proceeds in **small, separately-chatted stages**; each stage
 ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
-**Progress:** Stages 1, 2, 3, 4 and 10 have shipped, plus the **guideline** and
+**Progress:** Stages 1, 2, 3, 4, 5 and 10 have shipped, plus the **guideline** and
 **catalog** writes originally scheduled for Stage 7 — those came early because
 setting targets and correcting the fund list from a client is what makes the
 read tools worth having. Stage 7 keeps its box open for the holdings writes,
@@ -154,18 +154,20 @@ the MCP layer; if one of these matters, fix the model in the app first.
 
 ```
 mcp/
-  ainvestor-server.ts  # the tool surface, shared by both transports
+  ainvestor-server.ts  # the tool and resource surface, shared by both transports
   server.ts            # stdio entry point: stdin lines in, JSON-RPC out
   http.ts              # Streamable HTTP transport, mounted at POST /mcp
   oauth-metadata.ts    # RFC 9728 / RFC 8414 discovery pointing at GitHub
-  protocol.ts          # MCP dispatch (initialize, ping, tools/list, tools/call)
+  protocol.ts          # MCP dispatch (initialize, ping, tools/*, resources/*)
   jsonrpc.ts           # JSON-RPC 2.0 types, error codes, single-line framing
   config.ts            # env resolution and validation
   data-gist.ts         # resolves the data gist id (never creates one)
+  resources.ts         # ainvestor://portfolio, ://guidelines, ://catalog
   stdout-guard.ts      # keeps console output off the stdio protocol channel
   tools/portfolio.ts   # get_portfolio
   tools/guidelines.ts  # get_guidelines, set_guideline, delete_guideline
   tools/buy-plan.ts    # get_buy_plan
+  tools/saved-advice.ts   # get_saved_advice, and the stored document as text
   tools/catalog.ts     # list_catalog, get_catalog_entry, and the owner-only row writes
   tools/catalog-import.ts # import_catalog_from_bank_file (stdio only, reads a local path)
   tools/rounding.ts    # the two-decimal rounding both tool modules report in
@@ -204,10 +206,24 @@ Read-only (Stages 2–5):
 | `list_catalog` | Catalog rows matching a free-text query, compact projection, with `matched`/`truncated` so a limited list never reads as the whole catalog |
 | `get_catalog_entry` | One entry by ticker or id, all fields |
 | `get_buy_plan` | Buy-only gaps per bucket for a given cash amount, the cash split across them, or a named reason there are no numbers |
-| `get_saved_advice` | The stored analysis for `buy_next` or `portfolio_review` |
+| `get_saved_advice` | The stored analysis for `buy_next` or `portfolio_review`, flattened to text, or a named reason there is none |
 
-Resources (Stage 5): `ainvestor://portfolio`, `ainvestor://guidelines`,
-`ainvestor://catalog`.
+Resources: `ainvestor://portfolio`, `ainvestor://guidelines`,
+`ainvestor://catalog`, each carrying exactly what its tool returns. The
+`resources` capability is advertised only when a server actually has resources,
+so `createMcpServer` stays usable without them — a client that sees the
+capability will call `resources/list`, and claiming it while answering
+`methodNotFound` is a broken handshake. Unlike a tool failure, which travels
+inside the result as `isError`, a failed `resources/read` is a JSON-RPC error:
+`contents` carries no error flag, so the alternative is handing the client an
+explanation dressed as the data it asked for. `mcp/http.ts` therefore recognises
+a rejected credential on that shape too, or an expired token would surface as a
+plain `500` from a resource read and never prompt a refresh.
+
+`ainvestor://catalog` returns **every** row, where `list_catalog` stops at its
+limit: a model running a search does not know how much it is about to pull in,
+but a client reading the dataset by URI has asked for all of it, and truncating
+there answers a different question. The compact projection keeps it bounded.
 
 Write: `set_guideline`, `delete_guideline`, `upsert_catalog_entry`,
 `delete_catalog_entry` and `import_catalog_from_bank_file` (shipped, always
@@ -236,8 +252,8 @@ is already stored.
 
 ### Keeping the three "what should I buy" tools apart
 
-`get_buy_plan` (Stage 4) has shipped; `get_saved_advice` (Stage 5) and
-`generate_advice` (Stage 9) are still to come. All three answer some version of
+`get_buy_plan` (Stage 4) and `get_saved_advice` (Stage 5) have shipped;
+`generate_advice` (Stage 9) is still to come. All three answer some version of
 "what should I do with my money", so a client asking one plain question could
 reach for any of them. That is a naming and description problem, and it is
 cheaper to settle here than to debug later:
@@ -441,7 +457,39 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one PR.
   ```
 
-- [ ] **Stage 5 — Stored advice tool and MCP resources**
+- [x] **Stage 5 — Stored advice tool and MCP resources** — shipped.
+
+  Three deviations from the prompt, all for the same reason: a stored analysis
+  that cannot be read must say *which* of the three ways it could not be read,
+  or a client regenerates an analysis that is sitting right there.
+
+  - **The read reports its outcome.** `fetchStoredAdviceAnalysisForTab` returned
+    one `null` for "never written", "stored in a shape this version cannot
+    parse", and "GitHub refused the gist". That collapse is fine for the advice
+    page, which only ever renders a snapshot or nothing, but it is not an answer
+    for a client. As with Stage 4's blockers, the distinction was lifted into the
+    app rather than re-derived in `mcp/`:
+    `fetchStoredAdviceAnalysisOutcomeForTab` returns `found`, `not_found`,
+    `malformed` or `unreadable` with the HTTP status, and the old function now
+    delegates to it and still answers snapshot-or-null, so the page is untouched.
+    A file that parses but belongs to the *other* tab is `not_found`, not
+    `malformed` — for the tab asked about there is simply nothing.
+  - **`unreadable` throws** rather than returning a blocked payload, matching
+    `fetchGuidelinesOrThrow`'s message shape (`…: 401`). That is what makes the
+    HTTP transport answer a stale token with a `401` challenge instead of a
+    cheerful "no advice saved", which is what teaches a client to refresh.
+  - **A mode the caller names and gets wrong is refused.**
+    `normalizeAdviceAnalysisTab` maps anything unknown onto `buy_next`, which is
+    right for a URL parameter and wrong here: answering a request for
+    `portfolio-review` with the buy-next analysis is a silently wrong answer.
+    It is still used for the *omitted* argument, where the default is the point.
+
+  The stored `AdviceDocument` is flattened to text
+  (`flattenAdviceDocumentToText`): the block structure is a rendering vehicle for
+  the advice page's JSX, and handed over raw it costs a model more attention to
+  decode than the sentences inside it are worth. Every block type gets the lines
+  a reader would have seen, including `capital_snapshot` and `guideline_bars`,
+  which the prompt did not mention.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Continue after Stage 4. The plan is agreed — implement directly.

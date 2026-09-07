@@ -85,7 +85,7 @@ npm run typecheck
 ## MCP server (use your data from an AI client)
 
 Exposes your AI Investor data to MCP clients, from the same private GitHub Gist
-the web app uses. Five tools, no extra configuration:
+the web app uses. Your own data, no extra configuration:
 
 - **`get_portfolio`** — every holding with its value and currency, the portfolio
   total, and each holding's share of it.
@@ -116,6 +116,14 @@ the web app uses. Five tools, no extra configuration:
   guidelines at all, or a holding whose asset class has no target each yield **no
   numbers and a plain statement of which of those it was** — never an estimate.
 
+- **`get_saved_advice`** — the written analysis the advice page last saved, in
+  either of its modes: `buy_next` or `portfolio_review`. It arrives as text, with
+  the timestamp it was written at and the cash amount it was written for, because
+  it is a **snapshot**: nothing recomputes it, so the holdings and targets it
+  reasons about may have moved since. When nothing is saved, the answer says so —
+  and says whether the file is missing or unreadable — rather than inventing an
+  analysis. Generating advice stays a web-app job.
+
 The shared ETF catalog is reachable too, and it is the only source of valid
 tickers — a fund it does not list is one you may not be able to buy:
 
@@ -139,6 +147,12 @@ the tools check that first, so a wrong token is told which account owns the
 catalog instead of getting a bare `404`.
 
 Holdings stay read-only: buying and selling remains a web-app job.
+
+The same three datasets are also readable as MCP **resources** —
+`ainvestor://portfolio`, `ainvestor://guidelines` and `ainvestor://catalog` —
+for clients that attach data to a conversation rather than call a tool for it.
+Each carries exactly what its tool returns, except that the catalog resource is
+the whole list rather than one page of search results.
 
 A guideline write is a read-modify-write of the whole `guidelines.json` file,
 and the gist API has no conditional write, so an edit you make in a browser tab
@@ -288,6 +302,11 @@ signing in to the web app once, or pinning an id.
 MCP revisions **2025-11-25** and **2025-06-18**. Older revisions are declined
 during negotiation, because 2025-03-26 requires servers to accept JSON-RPC
 batches and this one does not implement them.
+
+It advertises the **`tools`** and **`resources`** capabilities and nothing else:
+no prompts, no resource subscriptions, and no server-initiated messages, which
+is why the HTTP endpoint answers `GET` with `405` instead of opening an SSE
+stream.
 
 ### What the data cannot answer
 

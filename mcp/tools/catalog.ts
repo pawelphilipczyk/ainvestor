@@ -103,6 +103,22 @@ export function summarizeCatalogSearch(params: {
 	}
 }
 
+/**
+ * Every row, in the same shape a search returns.
+ *
+ * The tool's row limit exists because a model asking a question does not know
+ * how much it is about to pull in; a client reading `ainvestor://catalog` has
+ * asked for the dataset itself, so truncating it there would be answering a
+ * different question. The projection still keeps it compact.
+ */
+export function summarizeWholeCatalog(catalog: CatalogEntry[]) {
+	return summarizeCatalogSearch({
+		catalog,
+		query: '',
+		limit: catalog.length,
+	})
+}
+
 function readLimit(toolArguments: Record<string, unknown>): number {
 	const raw = toolArguments.limit
 	if (raw === undefined || raw === null) return DEFAULT_LIMIT

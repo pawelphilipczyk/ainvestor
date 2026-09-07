@@ -2,7 +2,7 @@ import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import { JSON_RPC_ERROR_CODES, serializeJsonRpcMessage } from './jsonrpc.ts'
-import type { McpToolDefinition } from './protocol.ts'
+import type { McpResourceDefinition, McpToolDefinition } from './protocol.ts'
 import {
 	createMcpServer,
 	LATEST_PROTOCOL_VERSION,
@@ -28,6 +28,30 @@ function newServer(tools: McpToolDefinition[] = [testTool()]) {
 	return createMcpServer({
 		serverInfo: { name: 'ainvestor', version: '0.1.0' },
 		tools,
+	})
+}
+
+function testResource(
+	overrides: Partial<McpResourceDefinition> = {},
+): McpResourceDefinition {
+	return {
+		uri: 'ainvestor://portfolio',
+		name: 'portfolio',
+		title: 'Portfolio holdings',
+		description: 'The holdings, as get_portfolio returns them.',
+		mimeType: 'application/json',
+		read: async () => '{"holdingCount":0}',
+		...overrides,
+	}
+}
+
+function newServerWithResources(
+	resources: McpResourceDefinition[] = [testResource()],
+) {
+	return createMcpServer({
+		serverInfo: { name: 'ainvestor', version: '0.1.0' },
+		tools: [testTool()],
+		resources,
 	})
 }
 
@@ -154,11 +178,30 @@ describe('mcp protocol', () => {
 	it('rejects an unknown method', async () => {
 		const server = newServer()
 		const response = (await server.handleMessage(
-			request(1, 'resources/list'),
+			request(1, 'prompts/list'),
 		)) as {
 			error: { code: number }
 		}
 		assert.equal(response.error.code, JSON_RPC_ERROR_CODES.methodNotFound)
+	})
+
+	it('declines the resource methods when it serves no resources', async () => {
+		// The capability was never advertised, so the methods are genuinely absent.
+		const server = newServer()
+		const result = resultOf(
+			await server.handleMessage(request(1, 'initialize')),
+		)
+		assert.deepEqual(result.capabilities, { tools: {} })
+		for (const method of [
+			'resources/list',
+			'resources/read',
+			'resources/templates/list',
+		]) {
+			const response = (await server.handleMessage(request(2, method))) as {
+				error: { code: number }
+			}
+			assert.equal(response.error.code, JSON_RPC_ERROR_CODES.methodNotFound)
+		}
 	})
 
 	it('never responds to a notification', async () => {
@@ -210,6 +253,84 @@ describe('mcp protocol', () => {
 			error: { code: number }
 		}
 		assert.equal(response.error.code, JSON_RPC_ERROR_CODES.invalidRequest)
+	})
+
+	it('advertises the resource capability only when it has resources', async () => {
+		const server = newServerWithResources()
+		const result = resultOf(
+			await server.handleMessage(request(1, 'initialize')),
+		)
+		assert.deepEqual(result.capabilities, { tools: {}, resources: {} })
+	})
+
+	it('lists resources without leaking the read function', async () => {
+		const server = newServerWithResources()
+		const result = resultOf(
+			await server.handleMessage(request(1, 'resources/list')),
+		)
+		const resources = result.resources as Record<string, unknown>[]
+		assert.equal(resources.length, 1)
+		assert.equal(resources[0].uri, 'ainvestor://portfolio')
+		assert.equal(resources[0].mimeType, 'application/json')
+		assert.equal('read' in resources[0], false)
+	})
+
+	it('reads a resource by uri', async () => {
+		const server = newServerWithResources()
+		const result = resultOf(
+			await server.handleMessage(
+				request(1, 'resources/read', { uri: 'ainvestor://portfolio' }),
+			),
+		)
+		assert.deepEqual(result.contents, [
+			{
+				uri: 'ainvestor://portfolio',
+				mimeType: 'application/json',
+				text: '{"holdingCount":0}',
+			},
+		])
+	})
+
+	it('answers an empty template list, since it has no parameterised resources', async () => {
+		const server = newServerWithResources()
+		const result = resultOf(
+			await server.handleMessage(request(1, 'resources/templates/list')),
+		)
+		assert.deepEqual(result.resourceTemplates, [])
+	})
+
+	it('rejects an unknown resource uri', async () => {
+		const server = newServerWithResources()
+		const response = (await server.handleMessage(
+			request(1, 'resources/read', { uri: 'ainvestor://nope' }),
+		)) as { error: { code: number; message: string } }
+		assert.equal(response.error.code, JSON_RPC_ERROR_CODES.invalidParams)
+		assert.match(response.error.message, /Unknown resource: ainvestor:\/\/nope/)
+	})
+
+	it('requires a uri to read a resource', async () => {
+		const server = newServerWithResources()
+		const response = (await server.handleMessage(
+			request(1, 'resources/read'),
+		)) as { error: { code: number } }
+		assert.equal(response.error.code, JSON_RPC_ERROR_CODES.invalidParams)
+	})
+
+	it('reports a failed resource read as an error, never as its contents', async () => {
+		// `contents` carries no error flag, so a failure returned as content would
+		// reach the client as the data it asked for.
+		const server = newServerWithResources([
+			testResource({
+				read: async () => {
+					throw new Error('GitHub API error fetching guidelines gist: 401')
+				},
+			}),
+		])
+		const response = (await server.handleMessage(
+			request(1, 'resources/read', { uri: 'ainvestor://portfolio' }),
+		)) as { error: { code: number; message: string } }
+		assert.equal(response.error.code, JSON_RPC_ERROR_CODES.internalError)
+		assert.match(response.error.message, /401/)
 	})
 
 	it('serializes every message onto a single line', () => {

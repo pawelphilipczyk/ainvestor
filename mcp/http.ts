@@ -193,7 +193,14 @@ async function readBoundedBody(request: Request): Promise<string | null> {
  * the connector stays broken until it is removed and re-added.
  */
 function isCredentialFailure(response: JsonRpcResponse): boolean {
-	if (!('result' in response)) return false
+	if ('error' in response) {
+		// A resource read has no `isError` flag to carry the failure in its result,
+		// so a rejected credential arrives as an internal-error frame instead.
+		return (
+			response.error.code === JSON_RPC_ERROR_CODES.internalError &&
+			/\b(401|403)\b/.test(response.error.message)
+		)
+	}
 	const result = response.result as {
 		isError?: boolean
 		content?: { text?: string }[]
