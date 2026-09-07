@@ -169,13 +169,7 @@ function describeMode(mode: AdviceAnalysisMode): string {
 
 const REGENERATE = 'Generating the advice again in the web app overwrites it.'
 
-/**
- * Why there is nothing to hand back, said precisely.
- *
- * The legacy file holds whichever mode was saved last, so a corrupt one is not
- * evidence that *this* mode's analysis exists — claiming it does would send the
- * user looking for something that may never have been written.
- */
+/** Why there is nothing to hand back, said precisely. */
 export function blockedSavedAdvice(params: {
 	mode: AdviceAnalysisMode
 	outcome:
@@ -203,14 +197,9 @@ export function blockedSavedAdvice(params: {
 }
 
 /**
- * Unlike `normalizeAdviceAnalysisTab`, which silently turns anything unknown
- * into the default, a mode the caller actually named and got wrong is refused:
- * quietly answering with the buy-next analysis to a request for the review is
- * worse than saying the argument is wrong.
- *
  * "Named" means present, whatever its type — `["portfolio_review"]` is a wrong
- * argument, not an absent one, and defaulting it would produce exactly the
- * silently wrong answer this exists to prevent.
+ * argument, not an absent one, and defaulting it would silently answer a
+ * request for one mode with the other.
  */
 function readMode(toolArguments: Record<string, unknown>): AdviceAnalysisMode {
 	const raw = toolArguments.mode
@@ -238,9 +227,6 @@ export function createGetSavedAdviceTool(
 			mode,
 		)
 		if (outcome.status === 'unreadable') {
-			// A rejected read is a failure of the call, not an answer about the data:
-			// thrown, it reaches an HTTP client as a 401 when the token is the
-			// problem, which is what teaches the client to refresh it.
 			throw new Error(
 				`GitHub API error fetching the advice gist: ${outcome.httpStatus}`,
 			)

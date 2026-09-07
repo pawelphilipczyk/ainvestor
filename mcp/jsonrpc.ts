@@ -1,8 +1,6 @@
 /**
  * Minimal JSON-RPC 2.0 types and helpers for the stdio MCP transport.
- *
- * Hand-rolled on purpose: the official SDK pulls in ~90 packages (express, hono,
- * zod, ajv) for a server that only needs newline-delimited JSON over stdio.
+ * Hand-rolled per decision D7 in docs/MCP_SERVER_PLAN.md.
  */
 
 export const JSONRPC_VERSION = '2.0'

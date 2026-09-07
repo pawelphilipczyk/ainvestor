@@ -1,10 +1,7 @@
 /**
- * Streamable HTTP transport for the MCP server.
- *
- * Every request carries its own GitHub token, so the server holds no secret and
- * is multi-user: whoever presents a token reads **that token's** gist, and a
- * request without one reads nothing. This is the same trust model as the stdio
- * configuration, moved from a local file to a request header.
+ * Streamable HTTP transport for the MCP server. See Stage 10 in
+ * docs/MCP_SERVER_PLAN.md for the credential model and what is verified
+ * end to end.
  *
  * Only the single-JSON-response half of the transport is implemented. That is
  * spec-legal for request/response tools; SSE would only matter for
@@ -97,11 +94,7 @@ function readBearerToken(request: Request): string | null {
 	return token.length > 0 ? token : null
 }
 
-/**
- * Gist ids are hex, but anything that cannot alter the request path is safe.
- * Without this, `../user/repos` would collapse during URL parsing and point the
- * server's authenticated call at a different GitHub endpoint entirely.
- */
+/** Gist ids are hex, but anything that cannot alter the request path is safe. */
 function isWellFormedGistId(value: string): boolean {
 	return /^[A-Za-z0-9]{1,64}$/.test(value)
 }
@@ -112,11 +105,8 @@ type CredentialsResult =
 
 /**
  * Credentials come from the request; the deployment supplies at most a default
- * gist, and only to a caller who has proved they are entitled to it.
- *
- * Without that proof `AINVESTOR_GIST_ID` would hand the deployment owner's
- * holdings to any stranger with any GitHub token, because secret gists are
- * unlisted rather than access-controlled.
+ * gist, and only to a caller who has proved they are entitled to it (decision
+ * D3 in docs/MCP_SERVER_PLAN.md).
  */
 async function readCredentials(request: Request): Promise<CredentialsResult> {
 	const githubToken = readBearerToken(request)
@@ -188,9 +178,8 @@ async function readBoundedBody(request: Request): Promise<string | null> {
 
 /**
  * True when a tool failed because GitHub rejected the credential rather than
- * because the data was unavailable. Those must reach the client as a transport
- * `401`, or a client holding an expired token never learns to refresh it and
- * the connector stays broken until it is removed and re-added.
+ * because the data was unavailable. Those must reach the client as a
+ * transport `401` — see the security note in docs/MCP_SERVER_PLAN.md.
  */
 function isCredentialFailure(response: JsonRpcResponse): boolean {
 	if ('error' in response) {

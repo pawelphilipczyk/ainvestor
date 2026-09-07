@@ -1,10 +1,8 @@
 /**
  * Bulk catalog import from a bank export on the caller's own disk.
  *
- * Deliberately **stdio only**, breaking the rule that both transports expose
- * the same tools: the deployed server cannot see the caller's filesystem, and a
- * DevTools HAR runs to megabytes while the HTTP transport caps a JSON-RPC body
- * at 256 KB. Registered by `mcp/server.ts` alone — see `createAinvestorMcpServer`.
+ * stdio only (decision D8 in docs/MCP_SERVER_PLAN.md) — gated by the
+ * `allowLocalFileTools` flag in `createAinvestorMcpServer`.
  */
 import { readFile, stat } from 'node:fs/promises'
 

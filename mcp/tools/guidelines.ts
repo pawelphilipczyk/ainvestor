@@ -140,11 +140,6 @@ type ResolvedInstrument = {
 /**
  * Resolve a named-fund row the way the web app's form does — the catalog
  * supplies the canonical ticker spelling and the asset class.
- *
- * Unlike the form, an unlisted ticker is still accepted when the caller names
- * the asset class: over MCP the shared catalog may not be configured at all,
- * and refusing every ticker in that case would leave instrument guidelines
- * unreachable. The response says which of the two happened.
  */
 async function resolveInstrument(params: {
 	ticker: string
@@ -217,10 +212,7 @@ function describeTarget(guideline: EtfGuideline): string {
 		: `the ${guideline.etfType} bucket`
 }
 
-/**
- * The cap is checked against the rows that will remain, so raising an existing
- * row's target does not count its old value twice.
- */
+/** Checked against the rows that remain, per the "set_guideline is an upsert" note in the plan. */
 function assertWithinCap(params: {
 	others: EtfGuideline[]
 	targetPct: number
