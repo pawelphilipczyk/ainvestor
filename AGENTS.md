@@ -37,6 +37,15 @@ When the **first message in a thread** asks for a **code change** (feature, fix,
 - The change is **trivial** (for example a one-line fix or a rename with obvious scope).
 - You are **continuing** an existing thread where the plan was already set in a prior message.
 
+## Before merging
+
+Before merging a PR, do a final check that:
+
+1. The **PR description** still accurately reflects the current diff (not just what was planned at the start).
+2. Any **docs referenced or touched by the change** (`README.md`, `AGENTS.md`, files under `docs/`) are still accurate given the final state of the changes.
+
+If either is stale, update it before the merge rather than after.
+
 ## UI translations (i18n)
 
 User-visible copy lives in **`app/locales/en.ts`** and **`app/locales/pl.ts`** as flat objects keyed by dot-separated paths (for example `nav.portfolio`, `portfolio.title`), sharing the same **`MessageKey`** type. When the map grows unwieldy, split into feature files and merge into `en` / `pl` without changing call sites.
