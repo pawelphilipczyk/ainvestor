@@ -822,4 +822,10 @@ export async function saveCatalog(params: {
 			`GitHub API error updating shared catalog gist: ${response.status}`,
 		)
 	}
+
+	// A write must be visible to the very next read, in this process and in
+	// every other reader sharing it (UI and the MCP HTTP transport both call
+	// fetchCatalog/fetchSharedCatalogSnapshot from this module) — otherwise a
+	// stale snapshot can keep serving for up to the TTL after a save.
+	sharedCatalogTtlCache = null
 }
