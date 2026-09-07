@@ -23,7 +23,7 @@ import { getOrCreateAdviceClient } from '../advice/advice-client.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceModelId,
-	DEFAULT_ADVICE_MODEL,
+	DEFAULT_CATALOG_ETF_MODEL,
 } from '../advice/advice-openai.ts'
 import {
 	CatalogEtfAnalysisFragment,
@@ -167,13 +167,14 @@ function catalogImportOutcomeTone(
 }
 
 function parseAdviceModelFromJsonBody(body: unknown): AdviceModelId {
-	if (body === null || typeof body !== 'object') return DEFAULT_ADVICE_MODEL
+	if (body === null || typeof body !== 'object')
+		return DEFAULT_CATALOG_ETF_MODEL
 	const raw = (body as { model?: unknown }).model
-	if (typeof raw !== 'string') return DEFAULT_ADVICE_MODEL
+	if (typeof raw !== 'string') return DEFAULT_CATALOG_ETF_MODEL
 	if ((ADVICE_MODEL_IDS as readonly string[]).includes(raw)) {
 		return raw as AdviceModelId
 	}
-	return DEFAULT_ADVICE_MODEL
+	return DEFAULT_CATALOG_ETF_MODEL
 }
 
 const adminEtfImportRedirect = () =>
@@ -203,7 +204,7 @@ function parseOptionalAdviceModelFromUrl(url: string): AdviceModelId {
 	if (raw && (ADVICE_MODEL_IDS as readonly string[]).includes(raw)) {
 		return raw as AdviceModelId
 	}
-	return DEFAULT_ADVICE_MODEL
+	return DEFAULT_CATALOG_ETF_MODEL
 }
 
 function catalogEtfAnalysisFrameSrc(
@@ -213,7 +214,7 @@ function catalogEtfAnalysisFrameSrc(
 	const base = routes.catalog.fragmentEtfAnalysis.href({
 		catalogEntryId: entryId,
 	})
-	if (model === DEFAULT_ADVICE_MODEL) return base
+	if (model === DEFAULT_CATALOG_ETF_MODEL) return base
 	const searchParams = new URLSearchParams({ model })
 	return `${base}?${searchParams.toString()}`
 }
@@ -363,7 +364,7 @@ export const catalogController = {
 			}
 
 			const contentType = context.request.headers.get('content-type') ?? ''
-			let model: AdviceModelId = DEFAULT_ADVICE_MODEL
+			let model: AdviceModelId = DEFAULT_CATALOG_ETF_MODEL
 			if (contentType.includes('application/json')) {
 				let jsonBody: unknown
 				try {

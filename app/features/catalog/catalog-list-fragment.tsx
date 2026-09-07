@@ -5,7 +5,7 @@ import type { EtfEntry } from '../../lib/gist.ts'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
-import { DEFAULT_ADVICE_MODEL } from '../advice/advice-openai.ts'
+import { DEFAULT_CATALOG_ETF_MODEL } from '../advice/advice-openai.ts'
 import {
 	type CatalogEntry,
 	type CatalogRiskBand,
@@ -61,7 +61,7 @@ function renderCatalogRow(
 	const { tickerLinksToDetail } = options
 	const etfDetailHref = routes.catalog.etf.href(
 		{ catalogEntryId: entry.id },
-		{ model: DEFAULT_ADVICE_MODEL },
+		{ model: DEFAULT_CATALOG_ETF_MODEL },
 	)
 	const riskBand = riskBandFromRiskKid(entry.risk_kid)
 	const riskCell =
