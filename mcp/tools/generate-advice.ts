@@ -197,7 +197,7 @@ export function createGenerateAdviceTool(
 				model: {
 					type: 'string',
 					enum: [...ADVICE_MODEL_IDS],
-					description: `OpenAI model to use. Defaults to ${DEFAULT_ADVICE_MODEL}, the flagship reasoning tier the web app defaults to.`,
+					description: `OpenAI model to use. Defaults to ${DEFAULT_ADVICE_MODEL}, the balanced tier the web app defaults to; gpt-5.6-sol scores a little higher but costs noticeably more per call.`,
 				},
 				save: {
 					type: 'boolean',

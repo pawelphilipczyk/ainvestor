@@ -803,6 +803,19 @@ the plan is already agreed, so implement directly rather than re-planning.
   generation is a web-app-only capability — that sentence was true only until
   this stage shipped.
 
+  **Follow-up, after shipping:** `DEFAULT_ADVICE_MODEL` was `gpt-5.6-sol`
+  (below, and originally in `advice-openai.ts`) until a real `generate_advice`
+  call over MCP was seen costing around €0.50 — Sol's $30/1M output-token rate
+  makes a single reasoning-heavy advice call meaningfully pricier than the
+  same call on the balanced tier, for a quality gain the prompt rarely needs.
+  `DEFAULT_ADVICE_MODEL` now points at `gpt-5.6-terra` instead
+  (`app/features/advice/advice-openai.ts`) — changed for **both** transports,
+  not just MCP, since the two are documented to share one default and a
+  divergent default would be exactly the kind of drift this plan's "one
+  source of truth" rule exists to prevent. `gpt-5.6-sol` stays in
+  `ADVICE_MODEL_IDS`, selectable in the web UI or via `generate_advice`'s
+  `model` argument, for whoever wants the top tier anyway.
+
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Optional stage — only do this if the decision D5 in the plan has been changed to allow generation.
 

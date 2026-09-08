@@ -113,14 +113,14 @@ describe('generate_advice', () => {
 
 		assert.equal(payload.available, true)
 		assert.equal(payload.mode, 'buy_next')
-		assert.equal(payload.model, 'gpt-5.6-sol')
+		assert.equal(payload.model, 'gpt-5.6-terra')
 		assert.equal(payload.cashAmount, '500')
 		assert.equal(payload.cashCurrency, 'PLN')
 		assert.equal(payload.text, 'Buy VTI.')
 		assert.equal(payload.saved, true)
 		assert.equal(typeof payload.savedAt, 'number')
 		assert.equal(completions.length, 1)
-		assert.equal(completions[0].model, 'gpt-5.6-sol')
+		assert.equal(completions[0].model, 'gpt-5.6-terra')
 		assert.equal(patches.length, 1)
 	})
 
