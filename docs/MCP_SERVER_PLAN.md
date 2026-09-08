@@ -986,5 +986,16 @@ the plan is already agreed, so implement directly rather than re-planning.
 - Is there appetite for adding a **time dimension** (dated transactions) to the
   app? Without it, several natural questions stay unanswerable no matter how
   good the MCP layer is. That is an app change, not an MCP change.
-- Does the 100%-cap rule on guidelines belong in the MCP write path, or should
-  the server allow an over-100% intermediate state that the UI forbids?
+- ~~Does the 100%-cap rule on guidelines belong in the MCP write path, or
+  should the server allow an over-100% intermediate state that the UI
+  forbids?~~ **Answered: the cap applies, no over-100% state, same as the
+  app.** `set_guideline` already calls the app's own
+  `wouldGuidelineTotalExceedCap` (`mcp/tools/guidelines.ts`) and refuses a
+  write that would push the total above 100%, checked against the rows that
+  remain — updating an existing row does not count its old value twice. A
+  reallocation (moving % from one row to another) therefore has to land as
+  two calls in the right order: `delete_guideline` (or a lower `set_guideline`)
+  on the row giving up share, **then** `set_guideline` on the row gaining it —
+  never the reverse, or the second call is refused. The tool description
+  already says this ("lower or delete another row first"), so no client-facing
+  change was needed; this line just records the decision.
