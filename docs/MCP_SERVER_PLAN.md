@@ -4,7 +4,7 @@ Plan for exposing this app's data to LLM clients over the **Model Context
 Protocol**. Work proceeds in **small, separately-chatted stages**; each stage
 ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
-**Progress:** Stages 1, 2, 3, 4, 5, 6, 7 and 10 have shipped, plus the
+**Progress:** Stages 1, 2, 3, 4, 5, 6, 7, 8 and 10 have shipped, plus the
 **guideline** and **catalog** writes originally scheduled for Stage 7 — those
 came early because setting targets and correcting the fund list from a client
 is what makes the read tools worth having. Every catalog
@@ -707,7 +707,21 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one PR.
   ```
 
-- [ ] **Stage 8 — Documentation**
+- [x] **Stage 8 — Documentation** — shipped.
+
+  Most of this stage's asks had already landed incrementally as each earlier
+  stage's own PR touched `README.md` — the MCP section, the environment
+  variables, the PAT-with-`gist`-scope instructions, both client config
+  examples (stdio and remote), and the "Finding your data gist id" and "What
+  the data cannot answer" sections all predate this stage. What this stage
+  actually found and fixed: the tool list was missing Stage 7's
+  `record_operation` and `remove_holding` entirely, and a leftover line still
+  read "Holdings stay read-only: buying and selling remains a web-app job" —
+  wrong since Stage 7 shipped. Both are now documented next to
+  `get_saved_advice`, the stale line is gone, and the read-modify-write /
+  no-optimistic-locking caveat (previously stated for guideline writes only)
+  now names holdings writes too, since `record_operation` and `remove_holding`
+  carry the identical risk against `etfs.json`.
 
   ```text
   Read AGENTS.md and docs/MCP_SERVER_PLAN.md. Continue after Stage 7. The plan is agreed — implement directly.
