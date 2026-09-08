@@ -234,7 +234,9 @@ export function summarizeBuyPlan(params: {
 }
 
 /** Models routinely send a number where the schema says string; take either. */
-function readCashAmountText(toolArguments: Record<string, unknown>): string {
+export function readCashAmountText(
+	toolArguments: Record<string, unknown>,
+): string {
 	const raw = toolArguments.cashAmount
 	const text =
 		typeof raw === 'number'
@@ -256,9 +258,10 @@ function readCashAmountText(toolArguments: Record<string, unknown>): string {
 /**
  * The argument wins when given, then the currency the holdings already share —
  * which spares the caller the mismatch refusal in the common case — and only
- * an empty portfolio falls back to the app's own default.
+ * an empty portfolio falls back to the app's own default. Shared with
+ * generate_advice so the two tools default the same cash currency the same way.
  */
-function resolveCashCurrency(params: {
+export function resolveCashCurrency(params: {
 	toolArguments: Record<string, unknown>
 	holdingsCurrency: string | null
 }): {

@@ -60,7 +60,7 @@ describe('getInvestmentAdvice', () => {
 		}
 	})
 
-	it('uses gpt-5.6-sol by default and forwards the chosen model to the client', async () => {
+	it('uses gpt-5.6-terra by default and forwards the chosen model to the client', async () => {
 		let defaultModel = ''
 		const defaultClient: AdviceClient = {
 			chat: {
@@ -82,7 +82,7 @@ describe('getInvestmentAdvice', () => {
 			catalog: [],
 			client: defaultClient,
 		})
-		assert.equal(defaultModel, 'gpt-5.6-sol')
+		assert.equal(defaultModel, 'gpt-5.6-terra')
 
 		let chosenModel = ''
 		const trackingClient: AdviceClient = {

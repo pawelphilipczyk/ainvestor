@@ -4,7 +4,7 @@ Plan for exposing this app's data to LLM clients over the **Model Context
 Protocol**. Work proceeds in **small, separately-chatted stages**; each stage
 ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
-**Progress:** Stages 1, 2, 3, 4, 5, 6, 7, 8 and 10 have shipped, plus the
+**Progress:** Stages 1, 2, 3, 4, 5, 6, 7, 8, 9 and 10 have shipped, plus the
 **guideline** and **catalog** writes originally scheduled for Stage 7 — those
 came early because setting targets and correcting the fund list from a client
 is what makes the read tools worth having. Every catalog
@@ -43,7 +43,7 @@ These are settled so every thread starts from the same baseline. Change them
 | D3 | Write access | **Guideline, catalog and holdings writes are all always exposed**, no env flag | Superseded the original read-only-until-Stage-7 stance: setting targets and fixing the fund list from a client is the point of those tools, and an env flag only made them fail to appear. Guideline writes reach only the gist the caller's own token owns. Catalog writes reach shared, public data, so they carry their own guard instead: the catalog gist's **owner** is the only account GitHub lets write it, and the tools check that first so the refusal names both logins rather than surfacing a bare 404. Every write is a gist **revision**, so an overwritten edit is restorable. Holdings (`record_operation`, `remove_holding`, Stage 7) got their promised separate review before shipping, but landed on the same answer as the guideline writes: they reach only the caller's own gist, through the same read-modify-write-inside-one-call shape with the same no-optimistic-locking caveat that guideline writes already carry with no reported problems, and the web app's own operation form applies a buy/sell with no confirmation step either. `record_operation` additionally requires the ticker to resolve against the shared catalog — it cannot invent a row for an arbitrary name — and `remove_holding` requires the row's own id, the same shape `delete_guideline` already uses, so a stray call cannot address the wrong row by a name collision. |
 | D8 | Local-file tools | **stdio only**, the single sanctioned difference between the transports | `import_catalog_from_bank_file` reads a path on the caller's machine, which the deployed server cannot see, and a DevTools HAR runs to megabytes against the HTTP transport's 256 KB body cap. `createAinvestorMcpServer` takes `allowLocalFileTools` for exactly this; nothing else may vary between stdio and HTTP. |
 | D4 | Location | **`mcp/` in this repo**, importing `app/lib/*` and `app/features/*` directly | Reuses `fetchEtfs`, `fetchGuidelines`, `fetchCatalog`, and the allocation maths with no package boundary. CI catches drift. |
-| D5 | AI advice | **Read stored analyses only** in v1; generating new ones is optional Stage 9 | Generation needs `OPENAI_API_KEY` in the MCP client's environment and costs money per call. |
+| D5 | AI advice | **Read stored analyses (`get_saved_advice`), plus fresh generation (`generate_advice`, Stage 9)** | Generation needs `OPENAI_API_KEY` in the MCP client's environment and costs money per call, so it stays a distinct, clearly-labelled tool rather than folded into the free read path — see the disambiguation table below. |
 | D6 | Gist discovery | `AINVESTOR_GIST_ID` when set, otherwise discovery by description | Discovery works (pagination fixed in `app/lib/gist.ts`), but an explicit id avoids listing every gist on every start. |
 | D7 | Protocol implementation | **Hand-rolled JSON-RPC over stdio, zero new dependencies** | `@modelcontextprotocol/sdk` pulls in ~90 packages (express, hono, zod, ajv) for what is newline-delimited JSON on stdin/stdout. This repo deliberately runs on three runtime dependencies. Cost: we own protocol correctness — see the note below. |
 
@@ -71,7 +71,7 @@ Named to match the existing `GH_` / `SHARED_CATALOG_GIST_ID` convention.
 | `SHARED_CATALOG_GIST_ID` | stdio | Public gist holding `catalog.json`. Required since the catalog tools shipped: without it `fetchCatalog()` quietly returns an empty list, so a search would answer "no such fund" instead of "no catalog configured". |
 | `AINVESTOR_GIST_ID` | No | Private data gist id. When unset, it is discovered by description from the caller's own token. Over HTTP a pinned id is served **only to an approved GitHub login** — see the note under Stage 10. |
 | `AINVESTOR_PUBLIC_ORIGIN` | Off Fly | The origin advertised in OAuth discovery metadata. Required wherever `FLY_APP_NAME` is absent and the host is not loopback; request headers are never trusted for this. |
-| `OPENAI_API_KEY` | No | Only needed if Stage 9 (advice generation) ships. |
+| `OPENAI_API_KEY` | Only for `generate_advice` | The same key the web app's own deployment uses. Every other tool works without it; calling `generate_advice` while it is unset fails with the same error `createAdviceClient()` already raises for the web app. |
 
 ---
 
@@ -167,6 +167,7 @@ mcp/
   tools/guidelines.ts  # get_guidelines, set_guideline, delete_guideline
   tools/buy-plan.ts    # get_buy_plan
   tools/saved-advice.ts   # get_saved_advice, and the stored document as text
+  tools/generate-advice.ts # generate_advice — a fresh, paid analysis, saved by default
   tools/catalog.ts     # list_catalog, get_catalog_entry, and the owner-only row writes
   tools/catalog-import.ts # import_catalog_from_bank_file (stdio only, reads a local path)
   tools/rounding.ts    # the two-decimal rounding both tool modules report in
@@ -207,6 +208,9 @@ Read-only (Stages 2–5):
 | `get_buy_plan` | Buy-only gaps per bucket for a given cash amount, the cash split across them, or a named reason there are no numbers |
 | `get_saved_advice` | The stored analysis for `buy_next` or `portfolio_review`, flattened to text, or a named reason there is none |
 
+`generate_advice` (Stage 9) is not in that table: it is a paid write-adjacent
+tool, not a free read — see the disambiguation section below.
+
 Resources: `ainvestor://portfolio`, `ainvestor://guidelines`,
 `ainvestor://catalog`, each carrying exactly what its tool returns. The
 `resources` capability is advertised only when a server actually has resources,
@@ -234,7 +238,11 @@ list" instruction means telling the user there is nothing to buy.
 Write: `set_guideline`, `delete_guideline`, `upsert_catalog_entry`,
 `delete_catalog_entry`, `record_operation`, `remove_holding` and
 `import_catalog_from_bank_file` (all shipped, always exposed; the catalog
-three owner-only, the import stdio-only per D8).
+three owner-only, the import stdio-only per D8). `generate_advice` (Stage 9)
+is also always exposed; unlike the others, its write half — saving the
+result to the gist — happens by default and is opted **out** of per call via
+`save: false`, matching how the web app's own Generate button behaves: see
+below.
 
 `record_operation` buys or sells one holding by its shared-catalog ticker,
 reusing `applyPortfolioOperation` from `app/lib/portfolio-operations.ts` — the
@@ -272,11 +280,11 @@ is already stored.
 
 ### Keeping the three "what should I buy" tools apart
 
-`get_buy_plan` (Stage 4) and `get_saved_advice` (Stage 5) have shipped;
-`generate_advice` (Stage 9) is still to come. All three answer some version of
-"what should I do with my money", so a client asking one plain question could
-reach for any of them. That is a naming and description problem, and it is
-cheaper to settle here than to debug later:
+`get_buy_plan` (Stage 4), `get_saved_advice` (Stage 5) and `generate_advice`
+(Stage 9) have all shipped. All three answer some version of "what should I do
+with my money", so a client asking one plain question could reach for any of
+them. That is a naming and description problem, and it was cheaper to settle
+here than to debug later:
 
 | Tool | Gives | Costs | Picks funds? |
 |---|---|---|---|
@@ -284,22 +292,24 @@ cheaper to settle here than to debug later:
 | `get_saved_advice` | The last written analysis, as stored | One gist read | Already picked, possibly stale |
 | `generate_advice` | A fresh written analysis from OpenAI | **Money, per call** | Yes |
 
-Rules for whoever implements Stages 5 and 9:
+Rules that shaped the three:
 
 - **`get_buy_plan` is the default** for "where do I put this cash". Its name
   says what it returns, and its description says outright that it gives numbers
   and no fund picks, so a model that needs tickers knows to go to
   `list_catalog` rather than reach for a paid tool.
-- **`generate_advice` must announce its cost in its own description** and say it
+- **`generate_advice` announces its cost in its own description**, and says it
   is for when the user explicitly asks for a written analysis — not for a
-  routine "what should I buy". D5 already requires the cost note; this is the
-  same requirement seen from the tool-selection side.
+  routine "what should I buy" — pointing at `get_buy_plan` and `get_saved_advice`
+  by name as the free alternatives. D5 already required the cost note; this is
+  the same requirement seen from the tool-selection side.
 - **Do not put "advice" in the name of anything that is not the LLM's prose.**
   This is why Stage 4 shipped as `get_buy_plan` rather than the
   `get_investment_advice` that was briefly considered: the app already binds
   "investment advice" to `getInvestmentAdvice()`, its OpenAI path, and the UI
   string `advice.result.title`. Three tools with "advice" in the name is exactly
-  how a client picks the wrong one.
+  how a client picks the wrong one — `generate_advice` is named for the action
+  a client takes (generate one), not for the noun the other two already share.
 - `generate_advice` recomputes the same figures internally, so a client that
   calls `get_buy_plan` first and then `generate_advice` is doing redundant but
   harmless work. Not worth guarding against; worth knowing.
@@ -739,7 +749,72 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one docs PR.
   ```
 
-- [ ] **Stage 9 — Advice generation (optional)**
+- [x] **Stage 9 — Advice generation** — shipped. D5 is changed above to reflect
+  the decision to ship it.
+
+  `generate_advice` calls `getInvestmentAdvice` (`app/features/advice/advice-openai.ts`)
+  through `getOrCreateAdviceClient()` — not `createAdviceClient()` directly —
+  so `setAdviceClient` can inject a mock in tests, exactly as
+  `app/features/advice/advice.test.ts` already does for the web route. An
+  absent `OPENAI_API_KEY` is not checked separately: `getOrCreateAdviceClient()`
+  constructs the real `OpenAI` client, which already throws a clear error when
+  the key is missing, and that throw becomes the tool's `isError` result the
+  same way every other rejected call does — duplicating the check would just
+  be a second place for the message to drift from.
+
+  Two argument-parsing helpers are shared rather than re-derived, per the
+  plan's own "do not duplicate app logic; export it" rule extended to the tool
+  layer: `resolveCashCurrency` and `readCashAmountText` are now exported from
+  `tools/buy-plan.ts`, and `readAdviceAnalysisModeArgument` (renamed from the
+  private `readMode`) from `tools/saved-advice.ts`. All three keep the exact
+  behaviour their existing tests already cover — the argument-shape tests for
+  "mode named but wrong", "cashAmount missing", and "cashCurrency defaults to
+  the holdings' currency" stay in `buy-plan.test.ts` and `saved-advice.test.ts`,
+  per the cost bar's "one place" rule, rather than being re-asserted here.
+
+  `mode` selects `buy_next` (the default, requiring `cashAmount`) or
+  `portfolio_review` (which ignores both cash arguments — `getInvestmentAdvice`
+  itself never reads them on that branch). The response omits `cashAmount`,
+  `cashCurrency` and `cashCurrencySource` entirely for `portfolio_review`
+  rather than reporting values that were never used, the same discriminated-
+  shape discipline `get_buy_plan`'s `available` union already follows.
+
+  `save` defaults to **`true`** — a deliberate change from the stage prompt
+  below, which asked for an opt-in default of off. On request, this was
+  changed to match how the web app itself behaves: the advice page's own
+  Generate button always saves, with no separate confirmation step, and a
+  client asking for advice "the way the app does it" got a silent behaviour
+  mismatch from the opt-in default. `save: false` still gets a caller the
+  text-only behaviour when that's what they actually want. When saving, the
+  tool writes through `saveStoredAdviceAnalysisForTab` to the same per-mode
+  file the web app's own Generate button writes — `activeTab` set to the mode
+  requested, so a subsequent `get_saved_advice` for that mode reads it back.
+  A **failed** save does not throw the way `set_guideline`'s save failure
+  does: the generation itself already cost money, so losing the text over a
+  save error would waste that charge for nothing. The response instead
+  carries `saved: false` and a `savePersistFailed` message alongside the
+  `text` that was, in fact, produced — mirroring the web route's own
+  `adviceGistPersistFailed` flag (`app/features/advice/index.ts`), which
+  exists for the identical reason.
+
+  `get_saved_advice`'s description and blocked-`not_found` reason, and the
+  server `INSTRUCTIONS` in `ainvestor-server.ts`, are updated to point at
+  `generate_advice` as the paid alternative instead of flatly saying advice
+  generation is a web-app-only capability — that sentence was true only until
+  this stage shipped.
+
+  **Follow-up, after shipping:** `DEFAULT_ADVICE_MODEL` was `gpt-5.6-sol`
+  (below, and originally in `advice-openai.ts`) until a real `generate_advice`
+  call over MCP was seen costing around €0.50 — Sol's $30/1M output-token rate
+  makes a single reasoning-heavy advice call meaningfully pricier than the
+  same call on the balanced tier, for a quality gain the prompt rarely needs.
+  `DEFAULT_ADVICE_MODEL` now points at `gpt-5.6-terra` instead
+  (`app/features/advice/advice-openai.ts`) — changed for **both** transports,
+  not just MCP, since the two are documented to share one default and a
+  divergent default would be exactly the kind of drift this plan's "one
+  source of truth" rule exists to prevent. `gpt-5.6-sol` stays in
+  `ADVICE_MODEL_IDS`, selectable in the web UI or via `generate_advice`'s
+  `model` argument, for whoever wants the top tier anyway.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Optional stage — only do this if the decision D5 in the plan has been changed to allow generation.
