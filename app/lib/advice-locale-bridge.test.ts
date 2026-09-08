@@ -26,6 +26,36 @@ describe('advice-locale-bridge', () => {
 		})
 	})
 
+	it('does not rewrite a bucket word found inside an unrelated word', () => {
+		runWithUiCopyContext({ locale: 'en', shellReturnPath: '/' }, () => {
+			assert.equal(
+				localizeEtfBucketTermsInAdviceProse(
+					'Rynkowe reakcje na akcje były silne.',
+				),
+				'Rynkowe reakcje na equity były silne.',
+			)
+		})
+	})
+
+	it('leaves the ambiguous word "mixed"/"Mieszany" alone in free-form prose', () => {
+		runWithUiCopyContext({ locale: 'pl', shellReturnPath: '/' }, () => {
+			assert.equal(
+				localizeEtfBucketTermsInAdviceProse(
+					'Your results this month were mixed across sectors.',
+				),
+				'Your results this month were mixed across sectors.',
+			)
+		})
+		runWithUiCopyContext({ locale: 'en', shellReturnPath: '/' }, () => {
+			assert.equal(
+				localizeEtfBucketTermsInAdviceProse(
+					'Wyniki były Mieszany w tym miesiącu.',
+				),
+				'Wyniki były Mieszany w tym miesiącu.',
+			)
+		})
+	})
+
 	it('getAdviceGuidelineBarRowDisplayLabel prefers etfType then inferred label', () => {
 		runWithUiCopyContext({ locale: 'en', shellReturnPath: '/' }, () => {
 			assert.equal(
@@ -34,22 +64,27 @@ describe('advice-locale-bridge', () => {
 					etfType: 'bond',
 					targetPct: 40,
 					currentPct: 30,
+					postBuyPct: undefined,
 				}),
 				'bond',
 			)
 			assert.equal(
 				getAdviceGuidelineBarRowDisplayLabel({
 					label: 'Akcje',
+					etfType: undefined,
 					targetPct: 60,
 					currentPct: 50,
+					postBuyPct: undefined,
 				}),
 				'equity',
 			)
 			assert.equal(
 				getAdviceGuidelineBarRowDisplayLabel({
 					label: 'Custom sleeve',
+					etfType: undefined,
 					targetPct: 10,
 					currentPct: 5,
+					postBuyPct: undefined,
 				}),
 				'Custom sleeve',
 			)

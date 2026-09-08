@@ -15,6 +15,10 @@ import {
 } from '../../app/features/advice/advice-openai.ts'
 import { fetchCatalog } from '../../app/features/catalog/lib.ts'
 import { CURRENCIES } from '../../app/lib/currencies.ts'
+import {
+	runWithUiCopyContext,
+	SUPPORTED_UI_LOCALES,
+} from '../../app/lib/ui-locale.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resolveDataGistId } from '../data-gist.ts'
 import {
@@ -28,6 +32,7 @@ import {
 	flattenAdviceDocumentToText,
 	readAdviceAnalysisModeArgument,
 } from './saved-advice.ts'
+import { readUiLocaleArgument } from './tool-arguments.ts'
 import { jsonResult } from './tool-result.ts'
 
 const DESCRIPTION = `Generate a fresh written analysis by calling OpenAI, the same path the web app's advice page uses: "buy_next" (the default) proposes concrete fund purchases for a given amount of cash; "portfolio_review" is a qualitative health check of the holdings as they stand, with no purchases proposed.
@@ -36,7 +41,9 @@ const DESCRIPTION = `Generate a fresh written analysis by calling OpenAI, the sa
 
 "buy_next" requires cashAmount, the same non-negative amount get_buy_plan takes; cashCurrency defaults to the currency the holdings already share. "portfolio_review" ignores both — the review reasons about the holdings as they are, not about a purchase.
 
-By default this also **saves** the result to the gist, exactly as the web app's own Generate button does — overwriting whatever was saved there before for that mode (the gist keeps prior revisions, so it is restorable). Pass save: false to only get the text back without persisting it. A save failure is reported alongside the generated text rather than losing an analysis that already cost money to produce.`
+By default this also **saves** the result to the gist, exactly as the web app's own Generate button does — overwriting whatever was saved there before for that mode (the gist keeps prior revisions, so it is restorable). Pass save: false to only get the text back without persisting it. A save failure is reported alongside the generated text rather than losing an analysis that already cost money to produce.
+
+An MCP call has no browser cookie to infer a UI language from, so pass "locale" to get bucket names and prose in that language (English otherwise). Whatever is chosen here is also what gets saved to the gist.`
 
 export type GenerateAdviceSummary = {
 	available: true
@@ -86,6 +93,7 @@ export function createGenerateAdviceTool(
 		const mode = readAdviceAnalysisModeArgument(toolArguments)
 		const model = readModel(toolArguments)
 		const save = readSave(toolArguments)
+		const locale = readUiLocaleArgument(toolArguments)
 		const cashAmountText =
 			mode === 'buy_next' ? readCashAmountText(toolArguments) : ''
 
@@ -110,18 +118,28 @@ export function createGenerateAdviceTool(
 					}
 
 		const client = getOrCreateAdviceClient()
-		const document = await getInvestmentAdvice({
-			holdings,
-			guidelines,
-			cashAmount: cashAmountText,
-			cashCurrency,
-			catalog,
-			client,
-			model,
-			analysisMode: mode,
-		})
-
-		const text = flattenAdviceDocumentToText(document)
+		// The model's language instruction and the flattener's known-term relabeling
+		// both read the ambient UI locale (an MCP call has no request/cookie to
+		// derive one from otherwise).
+		const { document, text } = await runWithUiCopyContext(
+			{ locale, shellReturnPath: '/' },
+			async () => {
+				const generated = await getInvestmentAdvice({
+					holdings,
+					guidelines,
+					cashAmount: cashAmountText,
+					cashCurrency,
+					catalog,
+					client,
+					model,
+					analysisMode: mode,
+				})
+				return {
+					document: generated,
+					text: flattenAdviceDocumentToText(generated),
+				}
+			},
+		)
 		let saved = false
 		let savedAt: number | undefined
 		let savePersistFailed: string | undefined
@@ -203,6 +221,12 @@ export function createGenerateAdviceTool(
 					type: 'boolean',
 					description:
 						"Persist the result to the gist, the way the web app's own Generate button does — overwriting whatever was saved there before for this mode. Defaults to true, matching the web app; pass false to only get the text back.",
+				},
+				locale: {
+					type: 'string',
+					enum: [...SUPPORTED_UI_LOCALES],
+					description:
+						'Language for bucket names and prose in the generated (and, if saved, persisted) result. Defaults to "en".',
 				},
 			},
 		},

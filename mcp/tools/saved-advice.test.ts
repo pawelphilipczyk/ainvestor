@@ -96,12 +96,14 @@ describe('flattenAdviceDocumentToText', () => {
 					rows: [
 						{
 							label: 'Bond',
+							etfType: undefined,
 							targetPct: 40,
 							currentPct: 25.555,
 							postBuyPct: 38,
 						},
 						{
 							label: 'Equity',
+							etfType: undefined,
 							targetPct: 60,
 							currentPct: 74.445,
 							postBuyPct: undefined,
@@ -138,9 +140,11 @@ describe('flattenAdviceDocumentToText', () => {
 		assert.match(text, /Holdings: 10000 PLN/)
 		assert.match(text, /After investing: 15000 PLN/)
 		assert.match(text, /Targets — vs targets:/)
-		assert.match(text, /Bond: target 40%, now 25\.56%, after buying 38%/)
+		// "Bond"/"Equity" resolve to the canonical (lowercased) etfType label via
+		// getAdviceGuidelineBarRowDisplayLabel, same as the web advice page.
+		assert.match(text, /bond: target 40%, now 25\.56%, after buying 38%/)
 		// No postBuyPct on that row, so no trailing clause invented for it.
-		assert.match(text, /Equity: target 60%, now 74\.44%\n/)
+		assert.match(text, /equity: target 60%, now 74\.44%\n/)
 		assert.match(text, /Bond fund \(AGGH\): 2500 PLN — closes the gap/)
 		assert.match(text, /- Nameless fund$/m)
 		// Blocks are separated, not run together.
@@ -171,6 +175,46 @@ describe('get_saved_advice', () => {
 		assert.equal(payload.cashCurrency, 'PLN')
 		assert.equal(payload.model, 'gpt-5.6-sol')
 		assert.equal(payload.text, 'Buy more bonds.')
+	})
+
+	it('relabels known bucket vocabulary per the "locale" argument', async () => {
+		stubGist({
+			[ADVICE_BUY_NEXT_STORAGE_FILENAME]: JSON.stringify(
+				storedAnalysis({
+					document: {
+						blocks: [
+							{
+								type: 'guideline_bars',
+								rows: [
+									{
+										label: 'Akcje',
+										etfType: undefined,
+										targetPct: 60,
+										currentPct: 50,
+										postBuyPct: undefined,
+									},
+								],
+							},
+							{ type: 'paragraph', text: 'Rozważ zwiększenie akcje.' },
+						],
+					},
+				}),
+			),
+		})
+
+		const enPayload = await callTool({ mode: 'buy_next', locale: 'en' })
+		assert.match(enPayload.text as string, /equity/)
+
+		const plPayload = await callTool({ mode: 'buy_next', locale: 'pl' })
+		assert.match(plPayload.text as string, /Akcje/)
+	})
+
+	it('rejects an unsupported locale rather than silently defaulting it', async () => {
+		const tool = createGetSavedAdviceTool(credentials)
+		await assert.rejects(
+			tool.handler({ mode: 'buy_next', locale: 'de' }),
+			/"locale" must be one of: en, pl/,
+		)
 	})
 
 	it('defaults to the buy-next analysis when no mode is named', async () => {

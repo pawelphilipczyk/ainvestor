@@ -13,16 +13,26 @@ import {
 	ADVICE_ANALYSIS_MODES,
 	normalizeAdviceAnalysisTab,
 } from '../../app/features/advice/advice-openai.ts'
+import {
+	getAdviceGuidelineBarRowDisplayLabel,
+	localizeEtfBucketTermsInAdviceProse,
+} from '../../app/lib/advice-locale-bridge.ts'
+import {
+	runWithUiCopyContext,
+	SUPPORTED_UI_LOCALES,
+} from '../../app/lib/ui-locale.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resolveDataGistId } from '../data-gist.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
-import { readStringArgument } from './tool-arguments.ts'
+import { readStringArgument, readUiLocaleArgument } from './tool-arguments.ts'
 import { jsonResult } from './tool-result.ts'
 
 const DESCRIPTION = `Read the written analysis the web app's advice page last saved, in either of its two modes: "buy_next" (what to buy with a given amount of cash) or "portfolio_review" (a qualitative review of the portfolio as it stands).
 
 This is a stored snapshot, not a fresh answer. It was written by a language model at some past moment against the data of that moment, and nothing recomputes it: the holdings, the targets and the catalog may all have moved since. The saved timestamp and the cash amount it was written for are reported alongside it — read them before repeating any figure it contains, and use get_portfolio, get_guidelines and get_buy_plan for numbers that are current.
+
+The stored document may have been written under a different UI language than the one you want now (an MCP call has no browser cookie to infer that from). Pass "locale" to get bucket names and known ETF-class vocabulary in that language; unrecognized wording is left as originally written.
 
 Free, and the default choice for "what did the advice page last say". generate_advice writes a fresh one — at a cost, per call — when the user explicitly wants new prose rather than this stored one. When nothing is saved, the answer says so rather than inventing an analysis.`
 
@@ -81,7 +91,7 @@ function captionedHeading(params: {
 function flattenAdviceBlock(block: AdviceBlock): string {
 	switch (block.type) {
 		case 'paragraph':
-			return block.text
+			return localizeEtfBucketTermsInAdviceProse(block.text)
 		case 'capital_snapshot': {
 			const lines = block.segments.map(
 				(segment) =>
@@ -110,7 +120,7 @@ function flattenAdviceBlock(block: AdviceBlock): string {
 						row.postBuyPct === undefined
 							? ''
 							: `, after buying ${formatPercent(row.postBuyPct)}`
-					return `${row.label}: target ${formatPercent(row.targetPct)}, now ${formatPercent(row.currentPct)}${postBuy}`
+					return `${getAdviceGuidelineBarRowDisplayLabel(row)}: target ${formatPercent(row.targetPct)}, now ${formatPercent(row.currentPct)}${postBuy}`
 				}),
 			})
 		case 'etf_proposals':
@@ -224,6 +234,7 @@ export function createGetSavedAdviceTool(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
 		const mode = readAdviceAnalysisModeArgument(toolArguments)
+		const locale = readUiLocaleArgument(toolArguments)
 		const gistId = await resolveDataGistId(credentials)
 		const outcome = await fetchStoredAdviceAnalysisOutcomeForTab(
 			credentials.githubToken,
@@ -238,7 +249,9 @@ export function createGetSavedAdviceTool(
 		if (outcome.status !== 'found') {
 			return jsonResult(blockedSavedAdvice({ mode, outcome }))
 		}
-		return jsonResult(summarizeSavedAdvice({ mode, stored: outcome.stored }))
+		return runWithUiCopyContext({ locale, shellReturnPath: '/' }, () =>
+			jsonResult(summarizeSavedAdvice({ mode, stored: outcome.stored })),
+		)
 	}
 
 	return {
@@ -253,6 +266,12 @@ export function createGetSavedAdviceTool(
 					enum: [...ADVICE_ANALYSIS_MODES],
 					description:
 						'Which stored analysis to read: "buy_next" (default) or "portfolio_review".',
+				},
+				locale: {
+					type: 'string',
+					enum: [...SUPPORTED_UI_LOCALES],
+					description:
+						'Language to render bucket names and known ETF-class vocabulary in. Defaults to "en". Does not re-run the model — it relabels the stored document\'s known terms; anything else stays as originally written.',
 				},
 			},
 		},
