@@ -28,7 +28,6 @@ import {
 	flattenAdviceDocumentToText,
 	readAdviceAnalysisModeArgument,
 } from './saved-advice.ts'
-import { readStringArgument } from './tool-arguments.ts'
 import { jsonResult } from './tool-result.ts'
 
 const DESCRIPTION = `Generate a fresh written analysis by calling OpenAI, the same path the web app's advice page uses: "buy_next" (the default) proposes concrete fund purchases for a given amount of cash; "portfolio_review" is a qualitative health check of the holdings as they stand, with no purchases proposed.
@@ -53,12 +52,16 @@ export type GenerateAdviceSummary = {
 	note: string
 }
 
+/** Present but the wrong type is a wrong argument, not an absent one — mirrors readAdviceAnalysisModeArgument. */
 function readModel(toolArguments: Record<string, unknown>): AdviceModelId {
-	const raw = readStringArgument(toolArguments, 'model')
-	if (raw === null) return DEFAULT_ADVICE_MODEL
-	if (!(ADVICE_MODEL_IDS as readonly string[]).includes(raw)) {
+	const raw = toolArguments.model
+	if (raw === undefined || raw === null) return DEFAULT_ADVICE_MODEL
+	if (
+		typeof raw !== 'string' ||
+		!(ADVICE_MODEL_IDS as readonly string[]).includes(raw)
+	) {
 		throw new Error(
-			`"model" must be one of: ${ADVICE_MODEL_IDS.join(', ')}; got "${raw}".`,
+			`"model" must be one of: ${ADVICE_MODEL_IDS.join(', ')}; got ${JSON.stringify(raw)}.`,
 		)
 	}
 	return raw as AdviceModelId
@@ -93,10 +96,17 @@ export function createGenerateAdviceTool(
 		])
 
 		const { currency: holdingsCurrency } = summarizePortfolio(holdings)
-		const { cashCurrency, cashCurrencySource } = resolveCashCurrency({
-			toolArguments,
-			holdingsCurrency,
-		})
+		// cashCurrency is unused for portfolio_review (getInvestmentAdvice never
+		// reads it on that branch), so an argument is not resolved or validated
+		// there either — the schema promises it is ignored, and resolving it
+		// would throw on a bad value the caller was told does not matter.
+		const { cashCurrency, cashCurrencySource } =
+			mode === 'buy_next'
+				? resolveCashCurrency({ toolArguments, holdingsCurrency })
+				: {
+						cashCurrency: holdingsCurrency ?? CURRENCIES[0],
+						cashCurrencySource: 'default' as const,
+					}
 
 		const client = getOrCreateAdviceClient()
 		const document = await getInvestmentAdvice({

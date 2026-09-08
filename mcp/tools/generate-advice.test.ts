@@ -143,12 +143,35 @@ describe('generate_advice', () => {
 		assert.equal(payload.text, 'Buy VTI.')
 	})
 
+	it('ignores an invalid cashCurrency for portfolio_review too, as the schema promises', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		stubServer()
+
+		const payload = await callTool({
+			mode: 'portfolio_review',
+			cashCurrency: 'not-a-currency',
+		})
+
+		assert.equal(payload.mode, 'portfolio_review')
+		assert.equal(payload.text, 'Buy VTI.')
+	})
+
 	it('rejects a model outside the accepted list', async () => {
 		setSharedCatalogForTests({ entries: [], ownerLogin: null })
 		stubServer()
 
 		await assert.rejects(
 			async () => callTool({ cashAmount: '100', model: 'gpt-9000' }),
+			/"model" must be one of/,
+		)
+	})
+
+	it('rejects a model of the wrong type instead of silently defaulting it', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		stubServer()
+
+		await assert.rejects(
+			async () => callTool({ cashAmount: '100', model: 5 }),
 			/"model" must be one of/,
 		)
 	})
