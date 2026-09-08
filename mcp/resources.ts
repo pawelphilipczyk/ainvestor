@@ -7,10 +7,12 @@
  * `get_portfolio` reason about identical text.
  */
 import { fetchCatalog } from '../app/features/catalog/lib.ts'
-import { fetchEtfs } from '../app/lib/gist.ts'
-import { fetchGuidelinesOrThrow } from '../app/lib/guidelines.ts'
 import type { GistCredentials } from './data-gist.ts'
 import { resolveDataGistId } from './data-gist.ts'
+import {
+	fetchEtfsCached,
+	fetchGuidelinesOrThrowCached,
+} from './private-gist-cache.ts'
 import type { McpResourceDefinition } from './protocol.ts'
 import { summarizeWholeCatalog } from './tools/catalog.ts'
 import { summarizeGuidelines } from './tools/guidelines.ts'
@@ -35,7 +37,7 @@ export function createAinvestorResources(
 			mimeType: MIME_TYPE,
 			read: async () => {
 				const gistId = await resolveDataGistId(credentials)
-				const entries = await fetchEtfs(credentials.githubToken, gistId)
+				const entries = await fetchEtfsCached(credentials.githubToken, gistId)
 				return jsonText(summarizePortfolio(entries))
 			},
 		},
@@ -48,7 +50,7 @@ export function createAinvestorResources(
 			mimeType: MIME_TYPE,
 			read: async () => {
 				const gistId = await resolveDataGistId(credentials)
-				const guidelines = await fetchGuidelinesOrThrow(
+				const guidelines = await fetchGuidelinesOrThrowCached(
 					credentials.githubToken,
 					gistId,
 				)

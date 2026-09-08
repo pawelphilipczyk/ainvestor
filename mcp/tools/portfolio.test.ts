@@ -5,6 +5,7 @@ import type { EtfEntry } from '../../app/lib/gist.ts'
 import { GIST_FILENAME } from '../../app/lib/gist.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resetDataGistIdCache, resolveDataGistId } from '../data-gist.ts'
+import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
 import { createGetPortfolioTool, summarizePortfolio } from './portfolio.ts'
 
 const config: GistCredentials = {
@@ -33,6 +34,7 @@ const originalFetch = globalThis.fetch
 afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataGistIdCache()
+	resetPrivateGistCacheForTests()
 })
 
 describe('summarizePortfolio', () => {

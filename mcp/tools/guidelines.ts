@@ -23,6 +23,10 @@ import {
 import { parseLocaleDecimalString } from '../../app/lib/locale-decimal-input.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resolveDataGistId } from '../data-gist.ts'
+import {
+	fetchGuidelinesOrThrowCached,
+	invalidateGuidelinesCache,
+} from '../private-gist-cache.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
 import { readStringArgument } from './tool-arguments.ts'
@@ -237,7 +241,7 @@ export function createGetGuidelinesTool(
 ): McpToolDefinition {
 	async function handler(): Promise<McpToolResult> {
 		const gistId = await resolveDataGistId(credentials)
-		const guidelines = await fetchGuidelinesOrThrow(
+		const guidelines = await fetchGuidelinesOrThrowCached(
 			credentials.githubToken,
 			gistId,
 		)
@@ -261,6 +265,10 @@ export function createSetGuidelineTool(
 	): Promise<McpToolResult> {
 		const { entry, catalogVerified } = await buildGuidelineEntry(toolArguments)
 		const gistId = await resolveDataGistId(credentials)
+		// Uncached: this read feeds a same-call overwrite of the whole file, so a
+		// cached copy up to the TTL old would let a concurrent edit (the web app's
+		// own saveGuidelines does not invalidate this cache) be silently discarded
+		// rather than merely raced against, the way an uncached read already is.
 		const current = await fetchGuidelinesOrThrow(
 			credentials.githubToken,
 			gistId,
@@ -288,6 +296,7 @@ export function createSetGuidelineTool(
 					)
 
 		await saveGuidelinesOrThrow(credentials.githubToken, gistId, next)
+		invalidateGuidelinesCache(credentials.githubToken, gistId)
 
 		return jsonResult({
 			action: existing === null ? 'created' : 'updated',
@@ -348,6 +357,7 @@ export function createDeleteGuidelineTool(
 		}
 
 		const gistId = await resolveDataGistId(credentials)
+		// Uncached — see the same note in set_guideline.
 		const current = await fetchGuidelinesOrThrow(
 			credentials.githubToken,
 			gistId,
@@ -361,6 +371,7 @@ export function createDeleteGuidelineTool(
 
 		const next = current.filter((guideline) => guideline.id !== id)
 		await saveGuidelinesOrThrow(credentials.githubToken, gistId, next)
+		invalidateGuidelinesCache(credentials.githubToken, gistId)
 
 		return jsonResult({
 			action: 'deleted',

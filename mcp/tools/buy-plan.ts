@@ -10,13 +10,16 @@ import {
 	planAdviceCashDeployment,
 } from '../../app/features/advice/advice-openai.ts'
 import type { CatalogEntry } from '../../app/features/catalog/lib.ts'
+import { fetchCatalog } from '../../app/features/catalog/lib.ts'
 import { CURRENCIES } from '../../app/lib/currencies.ts'
 import type { EtfEntry } from '../../app/lib/gist.ts'
-import { fetchPortfolioSnapshot } from '../../app/lib/gist.ts'
 import type { EtfGuideline, EtfType } from '../../app/lib/guidelines.ts'
-import { fetchGuidelinesOrThrow } from '../../app/lib/guidelines.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resolveDataGistId } from '../data-gist.ts'
+import {
+	fetchEtfsCached,
+	fetchGuidelinesOrThrowCached,
+} from '../private-gist-cache.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { summarizePortfolio } from './portfolio.ts'
 import { roundToTwoDecimals } from './rounding.ts'
@@ -289,9 +292,10 @@ export function createGetBuyPlanTool(
 	): Promise<McpToolResult> {
 		const cashAmountText = readCashAmountText(toolArguments)
 		const gistId = await resolveDataGistId(credentials)
-		const [{ entries, catalog }, guidelines] = await Promise.all([
-			fetchPortfolioSnapshot(credentials.githubToken, gistId),
-			fetchGuidelinesOrThrow(credentials.githubToken, gistId),
+		const [entries, catalog, guidelines] = await Promise.all([
+			fetchEtfsCached(credentials.githubToken, gistId),
+			fetchCatalog(),
+			fetchGuidelinesOrThrowCached(credentials.githubToken, gistId),
 		])
 
 		// summarizePortfolio already separates "one currency" from "mixed" and
