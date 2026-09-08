@@ -983,9 +983,8 @@ the plan is already agreed, so implement directly rather than re-planning.
   `ai-investor-data` — there is no shared process that could see both.
   Locally (`FLY_APP_NAME` unset) it resolves to the production description,
   which is why local MCP runs and tests need their own gist or a mock.
-- Is there appetite for adding a **time dimension** (dated transactions) to the
-  app? Without it, several natural questions stay unanswerable no matter how
-  good the MCP layer is. That is an app change, not an MCP change.
+- Whether to add a **time dimension** (dated transactions) is an app-wide
+  question, not an MCP one — moved to `docs/APP_ROADMAP.md`.
 - ~~Does the 100%-cap rule on guidelines belong in the MCP write path, or
   should the server allow an over-100% intermediate state that the UI
   forbids?~~ **Answered: the cap applies, no over-100% state, same as the
