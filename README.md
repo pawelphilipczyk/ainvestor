@@ -130,11 +130,11 @@ the web app uses. Your own data, no extra configuration:
   charged to this server's own `OPENAI_API_KEY` — reach for it only when you
   explicitly want new written analysis, not for a routine "what should I buy"
   (`get_buy_plan`) or "what did it last say" (`get_saved_advice`, which is free).
-  The result is returned as text and is not persisted unless you pass
-  `save: true`, which writes it to the gist exactly as the advice page's own
-  Generate button does — overwriting whatever was saved there before for that
-  mode. A failed save is reported alongside the generated text rather than
-  losing an analysis that already cost money to produce.
+  By default it also **saves** the result to the gist, exactly as the advice
+  page's own Generate button does — overwriting whatever was saved there
+  before for that mode. Pass `save: false` to only get the text back without
+  persisting it. A failed save is reported alongside the generated text
+  rather than losing an analysis that already cost money to produce.
 - **`record_operation`** — buy or sell one holding by its shared-catalog ticker.
   A buy adds to the matching row (matched by ticker — or name, for a legacy
   tickerless row — **and** currency together) or creates one if none matches; a

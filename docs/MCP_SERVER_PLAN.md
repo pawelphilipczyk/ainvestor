@@ -167,7 +167,7 @@ mcp/
   tools/guidelines.ts  # get_guidelines, set_guideline, delete_guideline
   tools/buy-plan.ts    # get_buy_plan
   tools/saved-advice.ts   # get_saved_advice, and the stored document as text
-  tools/generate-advice.ts # generate_advice — a fresh, paid analysis, save opt-in
+  tools/generate-advice.ts # generate_advice — a fresh, paid analysis, saved by default
   tools/catalog.ts     # list_catalog, get_catalog_entry, and the owner-only row writes
   tools/catalog-import.ts # import_catalog_from_bank_file (stdio only, reads a local path)
   tools/rounding.ts    # the two-decimal rounding both tool modules report in
@@ -239,8 +239,10 @@ Write: `set_guideline`, `delete_guideline`, `upsert_catalog_entry`,
 `delete_catalog_entry`, `record_operation`, `remove_holding` and
 `import_catalog_from_bank_file` (all shipped, always exposed; the catalog
 three owner-only, the import stdio-only per D8). `generate_advice` (Stage 9)
-is also always exposed, but its write half — saving the result to the gist —
-is opt-in per call via `save`, unlike the others: see below.
+is also always exposed; unlike the others, its write half — saving the
+result to the gist — happens by default and is opted **out** of per call via
+`save: false`, matching how the web app's own Generate button behaves: see
+below.
 
 `record_operation` buys or sells one holding by its shared-catalog ticker,
 reusing `applyPortfolioOperation` from `app/lib/portfolio-operations.ts` — the
@@ -777,16 +779,23 @@ the plan is already agreed, so implement directly rather than re-planning.
   rather than reporting values that were never used, the same discriminated-
   shape discipline `get_buy_plan`'s `available` union already follows.
 
-  `save` defaults to `false`. When `true`, the tool writes through
-  `saveStoredAdviceAnalysisForTab` to the same per-mode file the web app's own
-  Generate button writes — `activeTab` set to the mode requested, so a
-  subsequent `get_saved_advice` for that mode reads it back. A **failed** save
-  does not throw the way `set_guideline`'s save failure does: the generation
-  itself already cost money, so losing the text over a save error would waste
-  that charge for nothing. The response instead carries `saved: false` and a
-  `savePersistFailed` message alongside the `text` that was, in fact,
-  produced — mirroring the web route's own `adviceGistPersistFailed` flag
-  (`app/features/advice/index.ts`), which exists for the identical reason.
+  `save` defaults to **`true`** — a deliberate change from the stage prompt
+  below, which asked for an opt-in default of off. On request, this was
+  changed to match how the web app itself behaves: the advice page's own
+  Generate button always saves, with no separate confirmation step, and a
+  client asking for advice "the way the app does it" got a silent behaviour
+  mismatch from the opt-in default. `save: false` still gets a caller the
+  text-only behaviour when that's what they actually want. When saving, the
+  tool writes through `saveStoredAdviceAnalysisForTab` to the same per-mode
+  file the web app's own Generate button writes — `activeTab` set to the mode
+  requested, so a subsequent `get_saved_advice` for that mode reads it back.
+  A **failed** save does not throw the way `set_guideline`'s save failure
+  does: the generation itself already cost money, so losing the text over a
+  save error would waste that charge for nothing. The response instead
+  carries `saved: false` and a `savePersistFailed` message alongside the
+  `text` that was, in fact, produced — mirroring the web route's own
+  `adviceGistPersistFailed` flag (`app/features/advice/index.ts`), which
+  exists for the identical reason.
 
   `get_saved_advice`'s description and blocked-`not_found` reason, and the
   server `INSTRUCTIONS` in `ainvestor-server.ts`, are updated to point at

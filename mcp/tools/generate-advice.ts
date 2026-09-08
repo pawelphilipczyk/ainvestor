@@ -36,7 +36,7 @@ const DESCRIPTION = `Generate a fresh written analysis by calling OpenAI, the sa
 
 "buy_next" requires cashAmount, the same non-negative amount get_buy_plan takes; cashCurrency defaults to the currency the holdings already share. "portfolio_review" ignores both — the review reasons about the holdings as they are, not about a purchase.
 
-The result is returned as text, not persisted. Pass save: true to also write it to the gist, exactly as the web app's own Generate button does — this overwrites whatever was saved there before for that mode (the gist keeps prior revisions, so it is restorable). A save failure is reported alongside the generated text rather than losing an analysis that already cost money to produce.`
+By default this also **saves** the result to the gist, exactly as the web app's own Generate button does — overwriting whatever was saved there before for that mode (the gist keeps prior revisions, so it is restorable). Pass save: false to only get the text back without persisting it. A save failure is reported alongside the generated text rather than losing an analysis that already cost money to produce.`
 
 export type GenerateAdviceSummary = {
 	available: true
@@ -67,9 +67,10 @@ function readModel(toolArguments: Record<string, unknown>): AdviceModelId {
 	return raw as AdviceModelId
 }
 
+/** Defaults to true: the web app's own Generate button always saves, and this matches it. */
 function readSave(toolArguments: Record<string, unknown>): boolean {
 	const raw = toolArguments.save
-	if (raw === undefined || raw === null) return false
+	if (raw === undefined || raw === null) return true
 	if (typeof raw !== 'boolean') {
 		throw new Error(`"save" must be a boolean; got ${JSON.stringify(raw)}.`)
 	}
@@ -164,8 +165,8 @@ export function createGenerateAdviceTool(
 			note: saved
 				? 'Written by this call, just now, and saved to the gist — get_saved_advice will return it until something overwrites it.'
 				: savePersistFailed !== undefined
-					? 'Written by this call, just now, but the gist save failed; the text below is not lost, only not persisted. Retry with save: true, or the analysis is gone once this response is.'
-					: 'Written by this call, just now, and not saved anywhere. Pass save: true to persist it, or the analysis is gone once this response is.',
+					? 'Written by this call, just now, but the gist save failed; the text below is not lost, only not persisted. Retry, or the analysis is gone once this response is.'
+					: 'Written by this call, just now, and not saved — save: false was passed, so the analysis is gone once this response is.',
 		} satisfies GenerateAdviceSummary)
 	}
 
@@ -201,7 +202,7 @@ export function createGenerateAdviceTool(
 				save: {
 					type: 'boolean',
 					description:
-						"Persist the result to the gist, the way the web app's own Generate button does — overwriting whatever was saved there before for this mode. Defaults to false.",
+						"Persist the result to the gist, the way the web app's own Generate button does — overwriting whatever was saved there before for this mode. Defaults to true, matching the web app; pass false to only get the text back.",
 				},
 			},
 		},

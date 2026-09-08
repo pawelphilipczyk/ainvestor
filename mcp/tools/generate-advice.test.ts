@@ -105,7 +105,7 @@ afterEach(() => {
 })
 
 describe('generate_advice', () => {
-	it('generates buy_next advice and does not save unless asked', async () => {
+	it('generates buy_next advice and saves it by default, like the web app Generate button', async () => {
 		setSharedCatalogForTests({ entries: [], ownerLogin: null })
 		const { completions, patches } = stubServer()
 
@@ -117,10 +117,21 @@ describe('generate_advice', () => {
 		assert.equal(payload.cashAmount, '500')
 		assert.equal(payload.cashCurrency, 'PLN')
 		assert.equal(payload.text, 'Buy VTI.')
-		assert.equal(payload.saved, false)
-		assert.equal('savedAt' in payload, false)
+		assert.equal(payload.saved, true)
+		assert.equal(typeof payload.savedAt, 'number')
 		assert.equal(completions.length, 1)
 		assert.equal(completions[0].model, 'gpt-5.6-sol')
+		assert.equal(patches.length, 1)
+	})
+
+	it('skips saving when save: false is passed', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		const { patches } = stubServer()
+
+		const payload = await callTool({ cashAmount: '500', save: false })
+
+		assert.equal(payload.saved, false)
+		assert.equal('savedAt' in payload, false)
 		assert.equal(patches.length, 0)
 	})
 
@@ -186,11 +197,11 @@ describe('generate_advice', () => {
 		assert.equal(completions[0].model, 'gpt-5.6-luna')
 	})
 
-	it('saves to the mode-specific file when save is true', async () => {
+	it('saves to the mode-specific file', async () => {
 		setSharedCatalogForTests({ entries: [], ownerLogin: null })
 		const { patches } = stubServer()
 
-		const payload = await callTool({ cashAmount: '500', save: true })
+		const payload = await callTool({ cashAmount: '500' })
 
 		assert.equal(payload.saved, true)
 		assert.equal(typeof payload.savedAt, 'number')
@@ -210,7 +221,7 @@ describe('generate_advice', () => {
 		setSharedCatalogForTests({ entries: [], ownerLogin: null })
 		const { patches } = stubServer()
 
-		await callTool({ mode: 'portfolio_review', save: true })
+		await callTool({ mode: 'portfolio_review' })
 
 		const savedFile =
 			patches[0].body.files[ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME]
@@ -247,7 +258,7 @@ describe('generate_advice', () => {
 			})
 		}
 
-		const payload = await callTool({ cashAmount: '500', save: true })
+		const payload = await callTool({ cashAmount: '500' })
 
 		assert.equal(payload.saved, false)
 		assert.equal(payload.text, 'Buy VTI.')
