@@ -9,6 +9,10 @@ Before making Remix framework changes, read:
 - `docs/REMIX_V3_PACKAGES.md`
 - `docs/REMIX_BETA_MIGRATION_PLAN.md` when planning or performing Remix beta upgrades
 
+Before working on the MCP server, read:
+
+- `docs/MCP_SERVER_PLAN.md`
+
 Before writing any JS/TS/CSS code, read:
 
 - `docs/BIOME_RULES.md`
@@ -32,6 +36,15 @@ When the **first message in a thread** asks for a **code change** (feature, fix,
 - The user explicitly asks you to **implement immediately** or says the plan is already agreed.
 - The change is **trivial** (for example a one-line fix or a rename with obvious scope).
 - You are **continuing** an existing thread where the plan was already set in a prior message.
+
+## Before merging
+
+Before merging a PR, do a final check that:
+
+1. The **PR description** still accurately reflects the current diff (not just what was planned at the start).
+2. Any **docs referenced or touched by the change** (`README.md`, `AGENTS.md`, files under `docs/`) are still accurate given the final state of the changes.
+
+If either is stale, update it before the merge rather than after.
 
 ## UI translations (i18n)
 

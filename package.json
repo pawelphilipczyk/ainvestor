@@ -9,6 +9,7 @@
 		"ensure-deps": "node ./scripts/ensure-deps.mjs",
 		"dev": "tsx watch server.ts",
 		"start": "tsx server.ts",
+		"mcp": "tsx mcp/server.ts",
 		"typecheck": "tsc --noEmit",
 		"test": "npm run -s ensure-deps && tsx --test",
 		"test:smoke:advice": "npm run -s ensure-deps && RUN_ADVICE_OPENAI_SMOKE=1 tsx --test app/features/advice/advice-openai.smoke.test.ts",

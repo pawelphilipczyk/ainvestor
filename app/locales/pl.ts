@@ -268,10 +268,9 @@ export const pl = {
 	'advice.guideline.ariaSummary':
 		'Teraz {current}, cel {target}{postBuyClause}.',
 	'advice.guideline.afterProposedBuys': ', po proponowanych zakupach {post}',
-	'advice.model.gpt-5.5': 'GPT-5.5',
-	'advice.model.gpt-5.4-mini': 'GPT-5.4 Mini',
-	'advice.model.gpt-5.4-nano': 'GPT-5.4 Nano',
-	'advice.model.gpt-5.4': 'GPT-5.4',
+	'advice.model.gpt-5.6-sol': 'GPT-5.6 Sol (najmądrzejszy)',
+	'advice.model.gpt-5.6-terra': 'GPT-5.6 Terra (zbalansowany)',
+	'advice.model.gpt-5.6-luna': 'GPT-5.6 Luna (najtańszy)',
 	'errors.portfolio.addInvalid':
 		'Wybierz operację (kupno lub sprzedaż), fundusz z katalogu i podaj prawidłową wartość (przy sprzedaży musi być większa od 0).',
 	'errors.portfolio.catalogEntryMissing':
@@ -318,6 +317,8 @@ export const pl = {
 	'errors.catalog.import.issue.missingFundName': 'Brak fund_name.',
 	'errors.catalog.import.issue.isinInvalid':
 		'ISIN jest obecny, ale nieprawidłowy (oczekiwany format 12 znaków).',
+	'errors.catalog.import.issue.riskKidOutOfRange':
+		'risk_kid jest obecny, ale nie jest liczbą całkowitą od 1 do 7.',
 	'errors.catalog.import.issue.duplicateIdInPaste':
 		'Zduplikowane id „{id}” w tej wklejce (konflikt z wierszem {otherIndex}).',
 	'errors.catalog.import.issue.duplicateMergeKeyInPaste':

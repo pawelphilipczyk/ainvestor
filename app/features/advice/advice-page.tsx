@@ -34,6 +34,7 @@ import {
 	type AdviceModelId,
 	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
+	DEFAULT_CATALOG_ETF_MODEL,
 	normalizeAdviceAnalysisTab,
 } from './advice-openai.ts'
 
@@ -135,16 +136,18 @@ function resolveProposalEtfDetailsCatalogEntryId(
 const currencyOptions = CURRENCIES.map((c) => ({ value: c, label: c }))
 
 const MODEL_LABEL_KEYS = {
-	'gpt-5.5': 'advice.model.gpt-5.5',
-	'gpt-5.4-mini': 'advice.model.gpt-5.4-mini',
-	'gpt-5.4-nano': 'advice.model.gpt-5.4-nano',
-	'gpt-5.4': 'advice.model.gpt-5.4',
+	'gpt-5.6-sol': 'advice.model.gpt-5.6-sol',
+	'gpt-5.6-terra': 'advice.model.gpt-5.6-terra',
+	'gpt-5.6-luna': 'advice.model.gpt-5.6-luna',
 } as const satisfies Record<AdviceModelId, MessageKey>
 
-const modelOptions = ADVICE_MODEL_IDS.map((id) => ({
-	value: id,
-	label: t(MODEL_LABEL_KEYS[id]),
-}))
+/** Built per render: `t()` must resolve against the request's locale, not the import-time default. */
+function adviceModelOptions() {
+	return ADVICE_MODEL_IDS.map((id) => ({
+		value: id,
+		label: t(MODEL_LABEL_KEYS[id]),
+	}))
+}
 
 function formatAmountNumber(amount: number): string {
 	return new Intl.NumberFormat('en-US', {
@@ -401,13 +404,11 @@ function renderEtfProposals(
 	block: Extract<AdviceBlock, { type: 'etf_proposals' }>,
 	options: {
 		defaultCashCurrency: string
-		selectedModel: AdviceModelId
 		pendingApproval: boolean
 		catalog: CatalogEntry[] | undefined
 	},
 ) {
-	const { defaultCashCurrency, selectedModel, pendingApproval, catalog } =
-		options
+	const { defaultCashCurrency, pendingApproval, catalog } = options
 	const tableColSpan = 5
 	const fundNameLinkClass =
 		'text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
@@ -465,7 +466,7 @@ function renderEtfProposals(
 								catalogEntryId !== null
 									? routes.catalog.etf.href(
 											{ catalogEntryId },
-											{ model: selectedModel },
+											{ model: DEFAULT_CATALOG_ETF_MODEL },
 										)
 									: null
 							const fundCell =
@@ -524,7 +525,6 @@ function renderAdviceBlock(
 	defaultCashCurrency: string,
 	blockIndex: number,
 	etfOptions: {
-		selectedModel: AdviceModelId
 		pendingApproval: boolean
 		catalog: CatalogEntry[] | undefined
 	},
@@ -550,7 +550,6 @@ function renderAdviceBlock(
 	}
 	return renderEtfProposals(block, {
 		defaultCashCurrency,
-		selectedModel: etfOptions.selectedModel,
 		pendingApproval: etfOptions.pendingApproval,
 		catalog: etfOptions.catalog,
 	})
@@ -562,7 +561,6 @@ export type AdviceResultCardProps = {
 	analysisMode?: AdviceAnalysisMode
 	cashAmount?: string
 	cashCurrency?: string
-	selectedModel?: AdviceModelId
 	catalog?: CatalogEntry[]
 	adviceFromGist?: boolean
 	adviceGistSavedAt?: string
@@ -573,7 +571,6 @@ export type AdviceResultCardProps = {
 
 function adviceResultCardView(props: AdviceResultCardProps) {
 	const cashCurrency = props.cashCurrency ?? 'PLN'
-	const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 	const resultMode =
 		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
 	const pendingApproval = props.pendingApproval === true
@@ -617,7 +614,6 @@ function adviceResultCardView(props: AdviceResultCardProps) {
 				{props.advice.blocks.map((block, i) => (
 					<div key={`${block.type}-${i}`}>
 						{renderAdviceBlock(block, cashCurrency, i, {
-							selectedModel,
 							pendingApproval: pendingApproval || adviceGistGate !== undefined,
 							catalog: props.catalog,
 						})}
@@ -785,7 +781,7 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 										<SelectInput
 											id="adviceModel-buy-next"
 											name="adviceModel"
-											options={modelOptions}
+											options={adviceModelOptions()}
 											value={selectedModel}
 											disabled={adviceFormDisabled}
 										/>
@@ -851,7 +847,7 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 										<SelectInput
 											id="adviceModel-review"
 											name="adviceModel"
-											options={modelOptions}
+											options={adviceModelOptions()}
 											value={selectedModel}
 											disabled={adviceFormDisabled}
 										/>
@@ -885,7 +881,6 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 						analysisMode={props.analysisMode}
 						cashAmount={props.cashAmount}
 						cashCurrency={cashCurrency}
-						selectedModel={selectedModel}
 						catalog={props.catalog}
 						adviceFromGist={props.adviceFromGist}
 						adviceGistSavedAt={props.adviceGistSavedAt}

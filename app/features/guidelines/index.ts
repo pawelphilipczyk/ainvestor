@@ -23,6 +23,8 @@ import {
 	findGuidelineDuplicateOf,
 	formatEtfTypeLabel,
 	formatGuidelineTargetPercentForInput,
+	GUIDELINE_TARGET_PERCENT_MAX,
+	GUIDELINE_TARGET_PERCENT_MIN,
 	isEtfType,
 	saveGuidelines,
 	sumGuidelineTargetPercent,
@@ -66,16 +68,22 @@ function guidelinesIndexHref(tab?: GuidelinesAddTabId) {
 
 const InstrumentGuidelineSchema = object({
 	instrumentTicker: optional(string()),
-	targetPct: coerce.number().pipe(min(0.001), max(100)),
+	targetPct: coerce
+		.number()
+		.pipe(min(GUIDELINE_TARGET_PERCENT_MIN), max(GUIDELINE_TARGET_PERCENT_MAX)),
 })
 
 const AssetClassGuidelineSchema = object({
 	assetClassType: optional(string()),
-	targetPct: coerce.number().pipe(min(0.001), max(100)),
+	targetPct: coerce
+		.number()
+		.pipe(min(GUIDELINE_TARGET_PERCENT_MIN), max(GUIDELINE_TARGET_PERCENT_MAX)),
 })
 
 const UpdateGuidelineTargetSchema = object({
-	targetPct: coerce.number().pipe(min(0.001), max(100)),
+	targetPct: coerce
+		.number()
+		.pipe(min(GUIDELINE_TARGET_PERCENT_MIN), max(GUIDELINE_TARGET_PERCENT_MAX)),
 })
 
 /** Same locale rules as other decimal form fields (HTML `pattern` + {@link parseLocaleDecimalString}). */
