@@ -302,6 +302,49 @@ describe('record_operation tool', () => {
 		assert.equal(saved[0][0].value, 1500)
 	})
 
+	it('carries the exchange through in the response, like get_portfolio does', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		stubGistReadWrite([
+			entry({
+				ticker: 'VWCE',
+				value: 1000,
+				currency: 'PLN',
+				exchange: 'XETRA',
+			}),
+		])
+		const tool = createRecordOperationTool(config)
+
+		const result = await tool.handler({
+			portfolioOperation: 'buy',
+			instrumentTicker: 'VWCE',
+			value: '500',
+			currency: 'PLN',
+		})
+
+		const payload = JSON.parse(result.content[0].text) as {
+			entry: { exchange?: string }
+		}
+		assert.equal(payload.entry.exchange, 'XETRA')
+	})
+
+	it('accepts a currency with incidental whitespace', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		stubGistReadWrite([entry({ ticker: 'VWCE', value: 1000, currency: 'PLN' })])
+		const tool = createRecordOperationTool(config)
+
+		const result = await tool.handler({
+			portfolioOperation: 'buy',
+			instrumentTicker: 'VWCE',
+			value: '500',
+			currency: ' PLN ',
+		})
+
+		const payload = JSON.parse(result.content[0].text) as {
+			entry: { currency: string }
+		}
+		assert.equal(payload.entry.currency, 'PLN')
+	})
+
 	it('buys a ticker with no matching holding, creating a new row', async () => {
 		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
 		const { saved } = stubGistReadWrite([])

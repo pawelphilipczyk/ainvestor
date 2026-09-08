@@ -115,14 +115,7 @@ export function createGetPortfolioTool(
 	async function handler(): Promise<McpToolResult> {
 		const gistId = await resolveDataGistId(credentials)
 		const entries = await fetchEtfsCached(credentials.githubToken, gistId)
-		return {
-			content: [
-				{
-					type: 'text',
-					text: JSON.stringify(summarizePortfolio(entries), null, 2),
-				},
-			],
-		}
+		return jsonResult(summarizePortfolio(entries))
 	}
 
 	return {
@@ -131,17 +124,6 @@ export function createGetPortfolioTool(
 		description: DESCRIPTION,
 		inputSchema: { type: 'object', properties: {} },
 		handler,
-	}
-}
-
-/** A flat row for one holding — record_operation/remove_holding report the whole portfolio via summarizePortfolio, so this carries no share. */
-function entrySummary(entry: EtfEntry) {
-	return {
-		id: entry.id,
-		name: entry.name,
-		...(entry.ticker === undefined ? {} : { ticker: entry.ticker }),
-		value: entry.value,
-		currency: entry.currency,
 	}
 }
 
@@ -180,7 +162,7 @@ export function createRecordOperationTool(
 			)
 		}
 		const operation = parsed.value
-		const currency = operation.currency.toUpperCase()
+		const currency = operation.currency.trim().toUpperCase()
 		if (!(CURRENCIES as readonly string[]).includes(currency)) {
 			throw new Error(
 				`"currency" must be one of: ${CURRENCIES.join(', ')}; got "${operation.currency}".`,
@@ -222,7 +204,7 @@ export function createRecordOperationTool(
 
 		return jsonResult({
 			action: outcome.action,
-			entry: entrySummary(outcome.entry),
+			entry: holdingRow(outcome.entry, null),
 			...summarizePortfolio(outcome.holdings),
 		})
 	}
@@ -288,7 +270,7 @@ export function createRemoveHoldingTool(
 
 		return jsonResult({
 			action: 'removed',
-			removed: entrySummary(existing),
+			removed: holdingRow(existing, null),
 			...summarizePortfolio(next),
 		})
 	}
