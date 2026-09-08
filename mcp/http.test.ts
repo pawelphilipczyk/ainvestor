@@ -254,6 +254,7 @@ describe('mcp over http', () => {
 			'remove_holding',
 			'get_buy_plan',
 			'get_saved_advice',
+			'generate_advice',
 			'list_catalog',
 			'get_catalog_entry',
 			'upsert_catalog_entry',

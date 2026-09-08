@@ -10,6 +10,7 @@ import {
 	createUpsertCatalogEntryTool,
 } from './tools/catalog.ts'
 import { createImportCatalogFromBankFileTool } from './tools/catalog-import.ts'
+import { createGenerateAdviceTool } from './tools/generate-advice.ts'
 import {
 	createDeleteGuidelineTool,
 	createGetGuidelinesTool,
@@ -24,7 +25,7 @@ import { createGetSavedAdviceTool } from './tools/saved-advice.ts'
 
 export const SERVER_INFO: McpServerInfo = {
 	name: 'ainvestor',
-	version: '0.6.0',
+	version: '0.7.0',
 }
 
 export const INSTRUCTIONS = `Access to the user's AI Investor data, stored in their own private GitHub gist.
@@ -39,7 +40,7 @@ When asked where to put a sum of money, call get_buy_plan with that amount rathe
 
 The catalog is the shared list of funds this app knows about, and the only source of valid tickers: never propose a fund that list_catalog does not return, because the user may not be able to buy it. Unlike the portfolio and the guidelines, the catalog is one public gist shared by every user, and only its owner can change it.
 
-get_saved_advice returns the written analysis the web app's advice page last saved, in either of its two modes. It is a stored snapshot against the data of the moment it was written, and nothing here recomputes it: read its savedAt before repeating any figure from it, and take current numbers from the tools above. This server cannot generate advice; only the web app can.
+get_saved_advice returns the written analysis the web app's advice page last saved, in either of its two modes. It is a stored snapshot against the data of the moment it was written, and nothing here recomputes it: read its savedAt before repeating any figure from it, and take current numbers from the tools above. It costs nothing, so try it first. generate_advice writes a fresh one instead — it costs money, per call, so only reach for it when the user explicitly wants new written analysis rather than the stored one.
 
 The portfolio, the guidelines and the catalog are also readable as the resources ainvestor://portfolio, ainvestor://guidelines and ainvestor://catalog. The first two carry exactly what get_portfolio and get_guidelines return; ainvestor://catalog carries every fund rather than one page of search results, so read it when you want the whole list and use list_catalog to search.`
 
@@ -65,6 +66,7 @@ export function createAinvestorMcpServer(params: {
 			createRemoveHoldingTool(credentials),
 			createGetBuyPlanTool(credentials),
 			createGetSavedAdviceTool(credentials),
+			createGenerateAdviceTool(credentials),
 			createListCatalogTool(),
 			createGetCatalogEntryTool(),
 			createUpsertCatalogEntryTool(credentials),

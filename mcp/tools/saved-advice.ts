@@ -24,7 +24,7 @@ const DESCRIPTION = `Read the written analysis the web app's advice page last sa
 
 This is a stored snapshot, not a fresh answer. It was written by a language model at some past moment against the data of that moment, and nothing recomputes it: the holdings, the targets and the catalog may all have moved since. The saved timestamp and the cash amount it was written for are reported alongside it — read them before repeating any figure it contains, and use get_portfolio, get_guidelines and get_buy_plan for numbers that are current.
 
-This server does not generate advice; only the web app does. When nothing is saved, the answer says so rather than inventing an analysis.`
+Free, and the default choice for "what did the advice page last say". generate_advice writes a fresh one — at a cost, per call — when the user explicitly wants new prose rather than this stored one. When nothing is saved, the answer says so rather than inventing an analysis.`
 
 /** What the tool answers with when there is nothing to show. */
 export type SavedAdviceBlocker = 'not_found' | 'malformed'
@@ -167,7 +167,8 @@ function describeMode(mode: AdviceAnalysisMode): string {
 	return mode === 'buy_next' ? 'buy-next' : 'portfolio-review'
 }
 
-const REGENERATE = 'Generating the advice again in the web app overwrites it.'
+const REGENERATE =
+	'Generating the advice again, in the web app or with generate_advice, overwrites it.'
 
 /** Why there is nothing to hand back, said precisely. */
 export function blockedSavedAdvice(params: {
@@ -182,7 +183,7 @@ export function blockedSavedAdvice(params: {
 			available: false,
 			mode,
 			blocker: 'not_found',
-			reason: `No ${describeMode(mode)} analysis has been saved. The web app's advice page writes one when advice is generated there; this server cannot generate one. Answer from get_portfolio, get_guidelines and get_buy_plan instead.`,
+			reason: `No ${describeMode(mode)} analysis has been saved. One is written by the web app's advice page, or by calling generate_advice here — that costs money, per call. Until then, answer from get_portfolio, get_guidelines and get_buy_plan instead.`,
 		}
 	}
 	return {
@@ -199,9 +200,12 @@ export function blockedSavedAdvice(params: {
 /**
  * "Named" means present, whatever its type — `["portfolio_review"]` is a wrong
  * argument, not an absent one, and defaulting it would silently answer a
- * request for one mode with the other.
+ * request for one mode with the other. Shared with generate_advice, which
+ * takes the same "mode" argument and must refuse the same way.
  */
-function readMode(toolArguments: Record<string, unknown>): AdviceAnalysisMode {
+export function readAdviceAnalysisModeArgument(
+	toolArguments: Record<string, unknown>,
+): AdviceAnalysisMode {
 	const raw = toolArguments.mode
 	if (raw === undefined || raw === null) return normalizeAdviceAnalysisTab(null)
 	const named = readStringArgument(toolArguments, 'mode')
@@ -219,7 +223,7 @@ export function createGetSavedAdviceTool(
 	async function handler(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
-		const mode = readMode(toolArguments)
+		const mode = readAdviceAnalysisModeArgument(toolArguments)
 		const gistId = await resolveDataGistId(credentials)
 		const outcome = await fetchStoredAdviceAnalysisOutcomeForTab(
 			credentials.githubToken,

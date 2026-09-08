@@ -122,7 +122,19 @@ the web app uses. Your own data, no extra configuration:
   it is a **snapshot**: nothing recomputes it, so the holdings and targets it
   reasons about may have moved since. When nothing is saved, the answer says so —
   and says whether the file is missing or unreadable — rather than inventing an
-  analysis. Generating advice stays a web-app job.
+  analysis. Free, and the default choice for "what did the advice page last say".
+- **`generate_advice`** — writes a **fresh** analysis by calling OpenAI, the same
+  path the advice page itself uses: `buy_next` (the default) proposes concrete
+  purchases for a given amount of cash, `portfolio_review` is a qualitative
+  health check of the holdings as they stand. **This costs money, per call**,
+  charged to this server's own `OPENAI_API_KEY` — reach for it only when you
+  explicitly want new written analysis, not for a routine "what should I buy"
+  (`get_buy_plan`) or "what did it last say" (`get_saved_advice`, which is free).
+  The result is returned as text and is not persisted unless you pass
+  `save: true`, which writes it to the gist exactly as the advice page's own
+  Generate button does — overwriting whatever was saved there before for that
+  mode. A failed save is reported alongside the generated text rather than
+  losing an analysis that already cost money to produce.
 - **`record_operation`** — buy or sell one holding by its shared-catalog ticker.
   A buy adds to the matching row (matched by ticker — or name, for a legacy
   tickerless row — **and** currency together) or creates one if none matches; a
@@ -286,6 +298,10 @@ file in plain text, so keep its scope to `gist`.
 `set_guideline` uses it to resolve a fund's ticker and asset class exactly as the
 web app's form does. The server refuses to start without it rather than let an
 unconfigured catalog look like an empty one.
+
+`OPENAI_API_KEY` is optional. Every tool works without it; only `generate_advice`
+needs it, and calling that tool while it is unset fails with a clear error
+instead of the server refusing to start.
 
 Running `npm run mcp` yourself is not useful: the process waits for JSON-RPC on
 stdin and prints only a `[mcp] ready` line on stderr. That is correct, not broken.
