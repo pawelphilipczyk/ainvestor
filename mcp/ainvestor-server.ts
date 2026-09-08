@@ -15,12 +15,16 @@ import {
 	createGetGuidelinesTool,
 	createSetGuidelineTool,
 } from './tools/guidelines.ts'
-import { createGetPortfolioTool } from './tools/portfolio.ts'
+import {
+	createGetPortfolioTool,
+	createRecordOperationTool,
+	createRemoveHoldingTool,
+} from './tools/portfolio.ts'
 import { createGetSavedAdviceTool } from './tools/saved-advice.ts'
 
 export const SERVER_INFO: McpServerInfo = {
 	name: 'ainvestor',
-	version: '0.5.0',
+	version: '0.6.0',
 }
 
 export const INSTRUCTIONS = `Access to the user's AI Investor data, stored in their own private GitHub gist.
@@ -29,7 +33,7 @@ The data model has no time dimension: holdings carry a monetary value but no qua
 
 Guidelines are the user's target allocation, in percent of the whole portfolio. Read them with get_guidelines before advising on what to buy, and never fold a named-fund target on top of its own asset-class target — get_guidelines reports the aggregated buckets to use instead.
 
-Guidelines can be edited: set_guideline creates or updates one row, delete_guideline removes one. Holdings stay read-only — buying and selling belongs in the web app.
+Guidelines can be edited: set_guideline creates or updates one row, delete_guideline removes one. Holdings can be edited too: record_operation buys or sells one holding by its catalog ticker, and remove_holding deletes one outright by id.
 
 When asked where to put a sum of money, call get_buy_plan with that amount rather than working the gaps out from get_portfolio and get_guidelines by hand — it is the app's own arithmetic, the same figures the web app treats as authoritative. It answers with numbers, not fund picks: choose the funds yourself from list_catalog. It is buy-only: it assumes nothing is sold, so never turn its output into a recommendation to sell. It needs one currency throughout, and says so plainly when it cannot compute — report that reason instead of estimating the numbers yourself.
 
@@ -57,6 +61,8 @@ export function createAinvestorMcpServer(params: {
 			createGetGuidelinesTool(credentials),
 			createSetGuidelineTool(credentials),
 			createDeleteGuidelineTool(credentials),
+			createRecordOperationTool(credentials),
+			createRemoveHoldingTool(credentials),
 			createGetBuyPlanTool(credentials),
 			createGetSavedAdviceTool(credentials),
 			createListCatalogTool(),

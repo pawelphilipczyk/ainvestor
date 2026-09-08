@@ -250,6 +250,8 @@ describe('mcp over http', () => {
 			'get_guidelines',
 			'set_guideline',
 			'delete_guideline',
+			'record_operation',
+			'remove_holding',
 			'get_buy_plan',
 			'get_saved_advice',
 			'list_catalog',
