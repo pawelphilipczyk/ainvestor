@@ -4,11 +4,10 @@ Plan for exposing this app's data to LLM clients over the **Model Context
 Protocol**. Work proceeds in **small, separately-chatted stages**; each stage
 ships one PR that passes `npm run check`, `npm run typecheck`, and `npm test`.
 
-**Progress:** Stages 1, 2, 3, 4, 5, 6 and 10 have shipped, plus the **guideline** and
-**catalog** writes originally scheduled for Stage 7 — those came early because
-setting targets and correcting the fund list from a client is what makes the
-read tools worth having. Stage 7 keeps its box open for the holdings writes,
-which move money-carrying rows and deserve their own review. Every catalog
+**Progress:** Stages 1, 2, 3, 4, 5, 6, 7 and 10 have shipped, plus the
+**guideline** and **catalog** writes originally scheduled for Stage 7 — those
+came early because setting targets and correcting the fund list from a client
+is what makes the read tools worth having. Every catalog
 write (`upsert_catalog_entry` and the bank import alike) runs its finished row
 through one shared `validateCatalogEntry` — ticker/name required, ISIN format,
 `risk_kid` 1–7 — so external bank data and a hand-typed MCP call are held to
@@ -41,7 +40,7 @@ These are settled so every thread starts from the same baseline. Change them
 |---|---|---|---|
 | D1 | Transport | **Both**: stdio for a local client, `POST /mcp` on the deployed app for everything else | stdio needs the client to launch a local subprocess, so it cannot serve a phone at all. The HTTP endpoint (Stage 10) covers that without replacing stdio, and both share one tool definition in `mcp/ainvestor-server.ts`. |
 | D2 | Auth | **The caller's own GitHub token with `gist` scope** — from env over stdio, from the `Authorization` header over HTTP. Remote clients obtain that token by signing in to **GitHub**, which the app names as its authorization server in published discovery metadata | The app never becomes an authorization server and stores no secret. Building one was designed and rejected once GitHub turned out to serve the same purpose: it supports PKCE `S256`, and the connector dialog's Client ID/secret fields take a GitHub OAuth App the user registers. |
-| D3 | Write access | **Guideline and catalog writes are always exposed**, no env flag. Holdings writes still wait for Stage 7 | Superseded the original read-only-until-Stage-7 stance: setting targets and fixing the fund list from a client is the point of those tools, and an env flag only made them fail to appear. Guideline writes reach only the gist the caller's own token owns. Catalog writes reach shared, public data, so they carry their own guard instead: the catalog gist's **owner** is the only account GitHub lets write it, and the tools check that first so the refusal names both logins rather than surfacing a bare 404. Every write is a gist **revision**, so an overwritten edit is restorable. Holdings are a separate matter: `record_operation` mutates money-carrying rows, so it keeps its Stage 7 review. |
+| D3 | Write access | **Guideline, catalog and holdings writes are all always exposed**, no env flag | Superseded the original read-only-until-Stage-7 stance: setting targets and fixing the fund list from a client is the point of those tools, and an env flag only made them fail to appear. Guideline writes reach only the gist the caller's own token owns. Catalog writes reach shared, public data, so they carry their own guard instead: the catalog gist's **owner** is the only account GitHub lets write it, and the tools check that first so the refusal names both logins rather than surfacing a bare 404. Every write is a gist **revision**, so an overwritten edit is restorable. Holdings (`record_operation`, `remove_holding`, Stage 7) got their promised separate review before shipping, but landed on the same answer as the guideline writes: they reach only the caller's own gist, through the same read-modify-write-inside-one-call shape with the same no-optimistic-locking caveat that guideline writes already carry with no reported problems, and the web app's own operation form applies a buy/sell with no confirmation step either. `record_operation` additionally requires the ticker to resolve against the shared catalog — it cannot invent a row for an arbitrary name — and `remove_holding` requires the row's own id, the same shape `delete_guideline` already uses, so a stray call cannot address the wrong row by a name collision. |
 | D8 | Local-file tools | **stdio only**, the single sanctioned difference between the transports | `import_catalog_from_bank_file` reads a path on the caller's machine, which the deployed server cannot see, and a DevTools HAR runs to megabytes against the HTTP transport's 256 KB body cap. `createAinvestorMcpServer` takes `allowLocalFileTools` for exactly this; nothing else may vary between stdio and HTTP. |
 | D4 | Location | **`mcp/` in this repo**, importing `app/lib/*` and `app/features/*` directly | Reuses `fetchEtfs`, `fetchGuidelines`, `fetchCatalog`, and the allocation maths with no package boundary. CI catches drift. |
 | D5 | AI advice | **Read stored analyses only** in v1; generating new ones is optional Stage 9 | Generation needs `OPENAI_API_KEY` in the MCP client's environment and costs money per call. |
@@ -233,9 +232,23 @@ knows no funds", which against the "never propose a fund the catalog does not
 list" instruction means telling the user there is nothing to buy.
 
 Write: `set_guideline`, `delete_guideline`, `upsert_catalog_entry`,
-`delete_catalog_entry` and `import_catalog_from_bank_file` (shipped, always
-exposed; the catalog three owner-only, the import stdio-only per D8);
-`record_operation` and `remove_holding` still to come in Stage 7.
+`delete_catalog_entry`, `record_operation`, `remove_holding` and
+`import_catalog_from_bank_file` (all shipped, always exposed; the catalog
+three owner-only, the import stdio-only per D8).
+
+`record_operation` buys or sells one holding by its shared-catalog ticker,
+reusing `applyPortfolioOperation` from `app/lib/portfolio-operations.ts` — the
+same pure matching/mutation function the web app's operation form calls, so
+"add to a matching row, drop it once it reaches zero, never sell below zero"
+is defined once. A row is matched by ticker (or name, for a legacy tickerless
+row) **and** currency together, the same identity the holdings list already
+uses; a buy or sell in a currency the row is not in targets or creates a
+separate row instead of converting anything. `remove_holding` deletes one row
+outright by id, the same shape `delete_guideline` uses — useful for correcting
+a bad row without computing the exact value a sell would need to zero it.
+Both are **uncached** reads feeding a same-call overwrite, exactly like
+`set_guideline`/`delete_guideline`, and both call `invalidateEtfsCache` (added
+alongside them in `mcp/private-gist-cache.ts`) right after a successful save.
 
 `set_guideline` is an upsert, not an append: there is one row per asset class
 and one per ticker, so setting an existing one updates its target. The 100% cap
@@ -582,7 +595,7 @@ the plan is already agreed, so implement directly rather than re-planning.
 
   `mcp/private-gist-cache.ts` wraps `fetchEtfs` and `fetchGuidelinesOrThrow` individually — one token-keyed cache per function, following the shared catalog cache's shape (TTL constant, `PRIVATE_GIST_CACHE_TTL_MS` env override, test reset helper) — rather than rewriting either to hand-parse one shared payload, per the stage's own note on why that refactor was skipped. The cache key is `gistId` plus the token (hashed via the existing `createTokenCache`, never stored in the clear), because a per-request `X-Ainvestor-Gist-Id` pin means one token can read more than one gist. Every stored and returned array is cloned apart from the others, so a caller mutating its own result can never corrupt what the cache serves next — the same discipline `fetchSharedCatalogSnapshot` already applies.
 
-  Every genuinely read-only mcp tool and resource goes through `fetchEtfsCached` / `fetchGuidelinesOrThrowCached` (`get_portfolio`, `get_buy_plan`, `get_guidelines`, and both matching resources); `get_buy_plan` no longer calls `fetchPortfolioSnapshot`, since that helper's own `fetchEtfs` call would bypass the cache. `set_guideline` and `delete_guideline`, though, keep the **uncached** `fetchGuidelinesOrThrow` for their pre-write read: caching buys them nothing (they overwrite the whole file in the same call, right after the read) and actively hurts, since a cached read up to the TTL old would let an edit made elsewhere in that window — the web app's own `saveGuidelines`, or another MCP call — be silently discarded rather than merely raced against the way an uncached read already is. Both still call `invalidateGuidelinesCache` right after a successful save, so a *subsequent* cached read (`get_guidelines`) is never stale. Holdings have no write path yet (that is Stage 7's `record_operation`/`remove_holding`), so there is no `invalidateEtfsCache` — add one alongside those tools, and give them the same uncached-read treatment as the guideline writes.
+  Every genuinely read-only mcp tool and resource goes through `fetchEtfsCached` / `fetchGuidelinesOrThrowCached` (`get_portfolio`, `get_buy_plan`, `get_guidelines`, and both matching resources); `get_buy_plan` no longer calls `fetchPortfolioSnapshot`, since that helper's own `fetchEtfs` call would bypass the cache. `set_guideline` and `delete_guideline`, though, keep the **uncached** `fetchGuidelinesOrThrow` for their pre-write read: caching buys them nothing (they overwrite the whole file in the same call, right after the read) and actively hurts, since a cached read up to the TTL old would let an edit made elsewhere in that window — the web app's own `saveGuidelines`, or another MCP call — be silently discarded rather than merely raced against the way an uncached read already is. Both still call `invalidateGuidelinesCache` right after a successful save, so a *subsequent* cached read (`get_guidelines`) is never stale. Holdings had no write path yet at the time — that arrived with Stage 7's `record_operation`/`remove_holding`, which added `invalidateEtfsCache` alongside them and gave them the same uncached-read treatment as the guideline writes.
 
   Accepted tradeoff: `saveCatalog()` invalidates the shared catalog cache from inside itself, so *any* writer — MCP or the web UI — keeps that cache fresh. This cache cannot do the same without touching `app/lib/gist.ts` / `app/lib/guidelines.ts`, which the stage keeps off limits (caching must stay inside `mcp/` only). So a **read-only** tool (`get_portfolio`, `get_buy_plan`, `get_guidelines`) can serve holdings or guidelines up to `PRIVATE_GIST_CACHE_TTL_MS` stale after an edit made in the web app — bounded, and never leads to data loss the way a stale read feeding a write would.
 
@@ -612,7 +625,65 @@ the plan is already agreed, so implement directly rather than re-planning.
   Deliverable: one PR.
   ```
 
-- [ ] **Stage 7 — Write tools (opt-in)** — the guideline and catalog halves have shipped; what remains is `record_operation` and `remove_holding`.
+- [x] **Stage 7 — Holdings writes** — the guideline and catalog halves had already
+  shipped; this stage added `record_operation` and `remove_holding`.
+
+  The decision the stage prompt asked for (ship unconditionally, like the
+  guideline writes, or gate it) is recorded in D3 above: unconditional, same
+  reasoning as the guideline writes. `set_guideline`/`delete_guideline` are
+  unchanged — they had already shipped in Stage 2.
+
+  **`app/lib/portfolio-operations.ts` is new**, and is the reason this stage
+  touched the web app at all. The stage prompt said to reuse
+  `normalizePortfolioOperationInput`, but that function lived in
+  `app/features/portfolio/portfolio-operation-form/index.ts` next to
+  `PortfolioOperationSchema` — together with `findExistingHoldingIndex` and the
+  buy/sell mutation, which were inline in the route handler and not exported at
+  all. Importing the form module as it stood would have pulled `remix/ui`'s JSX
+  runtime and `remix/response/html` into the MCP server to reuse two small
+  functions, which cuts against keeping `mcp/` light (D7). So the plan's own
+  "do not duplicate app logic; if a helper is not exported, export it from its
+  existing module rather than copying it" rule was applied one level up: the
+  schema, the normalizer, `findExistingHoldingIndex`, and a new
+  `applyPortfolioOperation` (the buy/sell matching-and-mutation logic, lifted
+  out of the route handler's inline `if (operation.portfolioOperation ===
+  'buy')` branch into a pure function returning a discriminated
+  `PortfolioOperationOutcome`) all moved to this plain `app/lib/` module, which
+  imports only `remix/data-schema` — no JSX. The route handler
+  (`portfolio-operation-form/index.ts`) now calls `applyPortfolioOperation` too,
+  so the buy/sell rules are defined exactly once; its own inline duplicate was
+  deleted rather than kept alongside. Web app behaviour is unchanged — same
+  schema, same matching rules, same translated error messages, only fewer
+  lines duplicating them.
+
+  `record_operation`'s input mirrors the schema field-for-field
+  (`portfolioOperation`, `instrumentTicker`, `value`, `currency`), so the tool
+  handler feeds `toolArguments` straight through
+  `parsePortfolioOperationInput` (normalize, then `parseSafe`) rather than
+  re-deriving the same min-0 / sell-must-be-positive checks. `currency` gets
+  one more check the schema itself does not apply: the web form constrains it
+  to a `<select>` of `CURRENCIES`, but an MCP caller is not, so the tool
+  refuses anything outside that list itself. A blocked outcome
+  (`catalog_entry_missing`, `sell_no_holding`, `sell_exceeds_holdings`) is
+  thrown as a plain `Error`, matching `set_guideline`/`delete_guideline`
+  rather than answering with a discriminated `available: false` payload —
+  unlike `get_buy_plan`'s blockers, these are refusals of a specific write
+  request, not distinct shapes of "no answer exists", so the write tools'
+  existing throw convention already fits.
+
+  `remove_holding` takes only an `id`, the same shape `delete_guideline`
+  already uses (`get_portfolio` reports the ids), and is a plain filter-and-save
+  regardless of the row's value — the tool to reach for when a holding was
+  entered by mistake and computing the exact sell value to zero it out would be
+  pointless.
+
+  Both write tools read `fetchEtfs` **uncached** and call `invalidateEtfsCache`
+  (added to `mcp/private-gist-cache.ts` in this stage, alongside the two
+  tools, exactly where Stage 6's write-up said it belonged) right after a
+  successful save — the same uncached-read-then-invalidate shape
+  `set_guideline`/`delete_guideline` already established, for the same reason:
+  a cached read up to the TTL old would let a concurrent edit be silently
+  discarded by the save that follows, rather than merely raced against.
 
   ```text
   Read AGENTS.md, docs/BIOME_RULES.md, and docs/MCP_SERVER_PLAN.md. Continue after Stage 6. The plan is agreed — implement directly.

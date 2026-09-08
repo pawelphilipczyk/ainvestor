@@ -1,12 +1,22 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
+import type { CatalogEntry } from '../../app/features/catalog/lib.ts'
+import {
+	resetSharedCatalogForTests,
+	setSharedCatalogForTests,
+} from '../../app/features/catalog/lib.ts'
 import type { EtfEntry } from '../../app/lib/gist.ts'
 import { GIST_FILENAME } from '../../app/lib/gist.ts'
 import type { GistCredentials } from '../data-gist.ts'
 import { resetDataGistIdCache, resolveDataGistId } from '../data-gist.ts'
 import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
-import { createGetPortfolioTool, summarizePortfolio } from './portfolio.ts'
+import {
+	createGetPortfolioTool,
+	createRecordOperationTool,
+	createRemoveHoldingTool,
+	summarizePortfolio,
+} from './portfolio.ts'
 
 const config: GistCredentials = {
 	githubToken: 'token-value',
@@ -29,12 +39,52 @@ function stubGist(entries: EtfEntry[]): string[] {
 	return requestedUrls
 }
 
+/** A catalog entry the write-tool tests resolve `instrumentTicker` against. */
+function catalogEntry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
+	return {
+		id: 't:VWCE',
+		ticker: 'VWCE',
+		name: 'Vanguard FTSE All-World',
+		type: 'equity',
+		description: '',
+		...overrides,
+	}
+}
+
+/** Serve `entries` to a GET and capture every PATCH body as parsed holdings. */
+function stubGistReadWrite(entries: EtfEntry[]): {
+	saved: EtfEntry[][]
+	requestedMethods: string[]
+} {
+	const saved: EtfEntry[][] = []
+	const requestedMethods: string[] = []
+	globalThis.fetch = async (
+		_input: Parameters<typeof fetch>[0],
+		init?: Parameters<typeof fetch>[1],
+	) => {
+		const method = init?.method ?? 'GET'
+		requestedMethods.push(method)
+		if (method === 'PATCH') {
+			const body = JSON.parse(String(init?.body)) as {
+				files: Record<string, { content: string }>
+			}
+			saved.push(JSON.parse(body.files[GIST_FILENAME].content) as EtfEntry[])
+			return Response.json({})
+		}
+		return Response.json({
+			files: { [GIST_FILENAME]: { content: JSON.stringify(entries) } },
+		})
+	}
+	return { saved, requestedMethods }
+}
+
 const originalFetch = globalThis.fetch
 
 afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataGistIdCache()
 	resetPrivateGistCacheForTests()
+	resetSharedCatalogForTests()
 })
 
 describe('summarizePortfolio', () => {
@@ -211,5 +261,201 @@ describe('get_portfolio tool', () => {
 			async () => tool.handler({}),
 			/GitHub API error fetching portfolio gist: 404/,
 		)
+	})
+})
+
+describe('record_operation tool', () => {
+	it('declares the fields required to buy or sell', () => {
+		const tool = createRecordOperationTool(config)
+		assert.equal(tool.name, 'record_operation')
+		assert.deepEqual(tool.inputSchema.required, [
+			'portfolioOperation',
+			'instrumentTicker',
+			'value',
+			'currency',
+		])
+	})
+
+	it('buys against an existing holding, adding to its value', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		const { saved } = stubGistReadWrite([
+			entry({ ticker: 'VWCE', value: 1000, currency: 'PLN' }),
+		])
+		const tool = createRecordOperationTool(config)
+
+		const result = await tool.handler({
+			portfolioOperation: 'buy',
+			instrumentTicker: 'VWCE',
+			value: '500',
+			currency: 'PLN',
+		})
+
+		const payload = JSON.parse(result.content[0].text) as {
+			action: string
+			entry: { value: number }
+			totalValue: number
+		}
+		assert.equal(payload.action, 'updated')
+		assert.equal(payload.entry.value, 1500)
+		assert.equal(payload.totalValue, 1500)
+		assert.equal(saved.length, 1)
+		assert.equal(saved[0][0].value, 1500)
+	})
+
+	it('buys a ticker with no matching holding, creating a new row', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		const { saved } = stubGistReadWrite([])
+		const tool = createRecordOperationTool(config)
+
+		const result = await tool.handler({
+			portfolioOperation: 'buy',
+			instrumentTicker: 'VWCE',
+			value: 1000,
+			currency: 'PLN',
+		})
+
+		const payload = JSON.parse(result.content[0].text) as {
+			action: string
+			holdingCount: number
+		}
+		assert.equal(payload.action, 'created')
+		assert.equal(payload.holdingCount, 1)
+		assert.equal(saved[0].length, 1)
+	})
+
+	it('sells part of a holding, leaving the remainder', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		const { saved } = stubGistReadWrite([
+			entry({ ticker: 'VWCE', value: 1000, currency: 'PLN' }),
+		])
+		const tool = createRecordOperationTool(config)
+
+		const result = await tool.handler({
+			portfolioOperation: 'sell',
+			instrumentTicker: 'VWCE',
+			value: 400,
+			currency: 'PLN',
+		})
+
+		const payload = JSON.parse(result.content[0].text) as {
+			action: string
+			entry: { value: number }
+		}
+		assert.equal(payload.action, 'updated')
+		assert.equal(payload.entry.value, 600)
+		assert.equal(saved[0][0].value, 600)
+	})
+
+	it('sells a holding down to zero, removing the row entirely', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		const { saved } = stubGistReadWrite([
+			entry({ ticker: 'VWCE', value: 400, currency: 'PLN' }),
+		])
+		const tool = createRecordOperationTool(config)
+
+		const result = await tool.handler({
+			portfolioOperation: 'sell',
+			instrumentTicker: 'VWCE',
+			value: 400,
+			currency: 'PLN',
+		})
+
+		const payload = JSON.parse(result.content[0].text) as {
+			action: string
+			holdingCount: number
+		}
+		assert.equal(payload.action, 'removed')
+		assert.equal(payload.holdingCount, 0)
+		assert.equal(saved[0].length, 0)
+	})
+
+	it('refuses a ticker the shared catalog does not list, without writing', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		const { saved, requestedMethods } = stubGistReadWrite([])
+		const tool = createRecordOperationTool(config)
+
+		await assert.rejects(
+			async () =>
+				tool.handler({
+					portfolioOperation: 'buy',
+					instrumentTicker: 'UNKNOWN',
+					value: 100,
+					currency: 'PLN',
+				}),
+			/not in the shared catalog/,
+		)
+		assert.equal(saved.length, 0)
+		assert.equal(requestedMethods.includes('PATCH'), false)
+	})
+
+	it('refuses a sell exceeding the matching holding, without writing', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		const { saved } = stubGistReadWrite([
+			entry({ ticker: 'VWCE', value: 100, currency: 'PLN' }),
+		])
+		const tool = createRecordOperationTool(config)
+
+		await assert.rejects(
+			async () =>
+				tool.handler({
+					portfolioOperation: 'sell',
+					instrumentTicker: 'VWCE',
+					value: 200,
+					currency: 'PLN',
+				}),
+			/more than the matching holding/,
+		)
+		assert.equal(saved.length, 0)
+	})
+
+	it('refuses a currency the app does not support', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		stubGistReadWrite([])
+		const tool = createRecordOperationTool(config)
+
+		await assert.rejects(
+			async () =>
+				tool.handler({
+					portfolioOperation: 'buy',
+					instrumentTicker: 'VWCE',
+					value: 100,
+					currency: 'XYZ',
+				}),
+			/"currency" must be one of/,
+		)
+	})
+})
+
+describe('remove_holding tool', () => {
+	it('deletes a holding by id and reports the remaining portfolio', async () => {
+		const { saved } = stubGistReadWrite([
+			entry({ id: 'keep', value: 500 }),
+			entry({ id: 'drop', value: 300 }),
+		])
+		const tool = createRemoveHoldingTool(config)
+
+		const result = await tool.handler({ id: 'drop' })
+
+		const payload = JSON.parse(result.content[0].text) as {
+			action: string
+			removed: { id: string }
+			holdingCount: number
+		}
+		assert.equal(payload.action, 'removed')
+		assert.equal(payload.removed.id, 'drop')
+		assert.equal(payload.holdingCount, 1)
+		assert.equal(saved[0].length, 1)
+		assert.equal(saved[0][0].id, 'keep')
+	})
+
+	it('refuses an unknown id, without writing', async () => {
+		const { saved } = stubGistReadWrite([entry({ id: 'keep' })])
+		const tool = createRemoveHoldingTool(config)
+
+		await assert.rejects(
+			async () => tool.handler({ id: 'missing' }),
+			/No holding has id "missing"/,
+		)
+		assert.equal(saved.length, 0)
 	})
 })

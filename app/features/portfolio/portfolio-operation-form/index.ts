@@ -1,6 +1,4 @@
-import { literal, object, parseSafe, string, variant } from 'remix/data-schema'
-import { min, minLength } from 'remix/data-schema/checks'
-import * as coerce from 'remix/data-schema/coerce'
+import { parseSafe } from 'remix/data-schema'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
@@ -15,57 +13,18 @@ import type { EtfEntry } from '../../../lib/gist.ts'
 import { fetchPortfolioSnapshot, saveEtfs } from '../../../lib/gist.ts'
 import { getGuestEtfs, setGuestEtfs } from '../../../lib/guest-session-state.ts'
 import { t } from '../../../lib/i18n.ts'
-import { parseLocaleDecimalString } from '../../../lib/locale-decimal-input.ts'
+import {
+	applyPortfolioOperation,
+	normalizePortfolioOperationInput,
+	PortfolioOperationSchema,
+} from '../../../lib/portfolio-operations.ts'
 import type { AppRequestContext } from '../../../lib/request-context.ts'
 import { getSessionData } from '../../../lib/session.ts'
 import { flashBanner } from '../../../lib/session-flash.ts'
 import { routes } from '../../../routes.ts'
-import {
-	type CatalogEntry,
-	fetchCatalog,
-	findCatalogEntryByTicker,
-} from '../../catalog/lib.ts'
+import { type CatalogEntry, fetchCatalog } from '../../catalog/lib.ts'
 import { ListFragment } from './list-fragment.tsx'
 import { PortfolioOperationForm } from './operation-form.tsx'
-
-const portfolioOperationFields = {
-	instrumentTicker: string().pipe(minLength(1)),
-	value: coerce.number().pipe(min(0)),
-	currency: string(),
-}
-
-export const PortfolioBuyOperationSchema = object({
-	portfolioOperation: literal('buy'),
-	...portfolioOperationFields,
-})
-
-export const PortfolioSellOperationSchema = object({
-	portfolioOperation: literal('sell'),
-	...portfolioOperationFields,
-	value: coerce
-		.number()
-		.pipe(min(0))
-		.refine((n) => n > 0, t('errors.portfolio.sellValueNotPositive')),
-})
-
-export const PortfolioOperationSchema = variant('portfolioOperation', {
-	buy: PortfolioBuyOperationSchema,
-	sell: PortfolioSellOperationSchema,
-})
-
-function normalizePortfolioOperationValue(raw: Record<string, unknown>): void {
-	if (typeof raw.value === 'string') {
-		const parsed = parseLocaleDecimalString(raw.value)
-		raw.value = parsed === null ? raw.value : String(parsed)
-	}
-}
-
-/** Normalizes portfolio operation form payload before schema parse. */
-export function normalizePortfolioOperationInput(
-	raw: Record<string, unknown>,
-): void {
-	normalizePortfolioOperationValue(raw)
-}
 
 async function loadCatalogForPortfolioList(
 	context: AppRequestContext,
@@ -155,21 +114,6 @@ async function portfolioPersistenceFailureResponse(
 	return createRedirectResponse(routes.portfolio.index.href())
 }
 
-function findExistingHoldingIndex(params: {
-	current: EtfEntry[]
-	normalizedCurrency: string
-	normalizedTicker: string
-	normalizedName: string
-}): number {
-	return params.current.findIndex((e) => {
-		if (e.currency.toUpperCase() !== params.normalizedCurrency) return false
-		if (e.ticker) {
-			return e.ticker.toUpperCase() === params.normalizedTicker
-		}
-		return e.name.toLowerCase() === params.normalizedName
-	})
-}
-
 export { ListFragment, PortfolioOperationForm }
 
 export const portfolioOperationFormHandlers = {
@@ -230,16 +174,36 @@ export const portfolioOperationFormHandlers = {
 			}
 
 			const { instrumentTicker, value, currency } = operation
-			const match = findCatalogEntryByTicker(catalog, instrumentTicker)
-			if (!match) {
-				const message = t('errors.portfolio.catalogEntryMissing')
+			const outcome = applyPortfolioOperation({
+				current,
+				catalog,
+				input: {
+					portfolioOperation: operation.portfolioOperation,
+					instrumentTicker,
+					value,
+					currency,
+				},
+			})
+
+			if (!outcome.applied) {
+				const message = t(
+					outcome.blocker === 'catalog_entry_missing'
+						? 'errors.portfolio.catalogEntryMissing'
+						: outcome.blocker === 'sell_no_holding'
+							? 'errors.portfolio.sellNoHolding'
+							: 'errors.portfolio.sellExceedsHoldings',
+				)
 				if (requestAcceptsApplicationJson(context.request)) {
 					return new Response(
 						JSON.stringify({
 							error: message,
-							instrumentTicker: instrumentTicker.trim(),
-							...(session?.gistId && session.token
-								? { gistId: session.gistId }
+							...(outcome.blocker === 'catalog_entry_missing'
+								? {
+										instrumentTicker: instrumentTicker.trim(),
+										...(session?.gistId && session.token
+											? { gistId: session.gistId }
+											: {}),
+									}
 								: {}),
 						}),
 						{
@@ -259,92 +223,7 @@ export const portfolioOperationFormHandlers = {
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
 
-			const name = match.name
-			const normalizedName = name.toLowerCase()
-			const normalizedCurrency = currency.toUpperCase()
-			const normalizedTicker = match.ticker.toUpperCase()
-			const existingIndex = findExistingHoldingIndex({
-				current,
-				normalizedCurrency,
-				normalizedTicker,
-				normalizedName,
-			})
-			const existing = existingIndex >= 0 ? current[existingIndex] : null
-			const ticker = match.ticker
-
-			let updated: EtfEntry[]
-
-			if (operation.portfolioOperation === 'buy') {
-				const entry: EtfEntry = existing
-					? {
-							...existing,
-							ticker: existing.ticker ?? ticker,
-							value: existing.value + value,
-						}
-					: {
-							id: crypto.randomUUID(),
-							name,
-							ticker,
-							value,
-							currency: normalizedCurrency,
-						}
-				updated =
-					existingIndex >= 0
-						? current.map((e, i) => (i === existingIndex ? entry : e))
-						: [entry, ...current]
-			} else {
-				if (existingIndex < 0 || !existing) {
-					const message = t('errors.portfolio.sellNoHolding')
-					if (requestAcceptsApplicationJson(context.request)) {
-						return new Response(JSON.stringify({ error: message }), {
-							status: 422,
-							headers: { 'Content-Type': 'application/json' },
-						})
-					}
-					if (requestAcceptsFrameSubmitHtml(context.request)) {
-						return portfolioListFragmentHtmlResponse(context, {
-							entries: current,
-							inlineError: message,
-							status: 422,
-						})
-					}
-					flashBanner(context.get(Session), { text: message, tone: 'error' })
-					return createRedirectResponse(routes.portfolio.index.href())
-				}
-
-				const nextValue = existing.value - value
-				if (nextValue < 0) {
-					const message = t('errors.portfolio.sellExceedsHoldings')
-					if (requestAcceptsApplicationJson(context.request)) {
-						return new Response(JSON.stringify({ error: message }), {
-							status: 422,
-							headers: { 'Content-Type': 'application/json' },
-						})
-					}
-					if (requestAcceptsFrameSubmitHtml(context.request)) {
-						return portfolioListFragmentHtmlResponse(context, {
-							entries: current,
-							inlineError: message,
-							status: 422,
-						})
-					}
-					flashBanner(context.get(Session), { text: message, tone: 'error' })
-					return createRedirectResponse(routes.portfolio.index.href())
-				}
-
-				if (nextValue === 0) {
-					updated = current.filter((_, i) => i !== existingIndex)
-				} else {
-					const updatedEntry: EtfEntry = {
-						...existing,
-						ticker: existing.ticker ?? ticker,
-						value: nextValue,
-					}
-					updated = current.map((e, i) =>
-						i === existingIndex ? updatedEntry : e,
-					)
-				}
-			}
+			const updated = outcome.holdings
 
 			if (session?.gistId && session.token) {
 				try {
