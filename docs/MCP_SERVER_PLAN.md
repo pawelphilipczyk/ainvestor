@@ -972,9 +972,17 @@ the plan is already agreed, so implement directly rather than re-planning.
   It offers a URL and OAuth Client ID/secret only, which is why the discovery
   metadata above exists. The `Authorization` header path still serves stdio and
   anything scriptable.
-- Should the MCP server ever see the preview gist (`ai-investor-preview-data`),
-  or is production data the only target? Currently the description depends on
-  `FLY_APP_NAME`, which is unset locally, so it resolves to production.
+- ~~Should the MCP server ever see the preview gist (`ai-investor-preview-data`),
+  or is production data the only target?~~ **Answered: separation is automatic,
+  not a policy decision.** `fly.toml` (`app = "ainvestor"`) and
+  `fly.preview.toml` (`app = "ainvestor-preview"`) are two distinct Fly
+  deployments, each with its own `FLY_APP_NAME`, so each runs its own MCP
+  server instance. `getGistDescription()` (`app/lib/gist.ts`) keys off that
+  variable, so the preview deployment's server can only ever discover
+  `ai-investor-preview-data` and the production deployment's server only
+  `ai-investor-data` — there is no shared process that could see both.
+  Locally (`FLY_APP_NAME` unset) it resolves to the production description,
+  which is why local MCP runs and tests need their own gist or a mock.
 - Is there appetite for adding a **time dimension** (dated transactions) to the
   app? Without it, several natural questions stay unanswerable no matter how
   good the MCP layer is. That is an app change, not an MCP change.
