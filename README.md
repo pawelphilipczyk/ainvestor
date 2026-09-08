@@ -123,6 +123,15 @@ the web app uses. Your own data, no extra configuration:
   reasons about may have moved since. When nothing is saved, the answer says so —
   and says whether the file is missing or unreadable — rather than inventing an
   analysis. Generating advice stays a web-app job.
+- **`record_operation`** — buy or sell one holding by its shared-catalog ticker.
+  A buy adds to the matching row (matched by ticker — or name, for a legacy
+  tickerless row — **and** currency together) or creates one if none matches; a
+  sell reduces it and drops the row once it reaches zero, and is refused if it
+  would go below zero. The ticker must resolve against the shared catalog — this
+  tool cannot invent a row for an arbitrary name.
+- **`remove_holding`** — delete one holding outright by the `id` that
+  `get_portfolio` reports. Useful for correcting a bad row without computing the
+  exact value a sell would need to bring it to zero.
 
 The shared ETF catalog is reachable too, and it is the only source of valid
 tickers — a fund it does not list is one you may not be able to buy:
@@ -146,8 +155,6 @@ shared by everyone using the app, and GitHub lets only its owner write to it;
 the tools check that first, so a wrong token is told which account owns the
 catalog instead of getting a bare `404`.
 
-Holdings stay read-only: buying and selling remains a web-app job.
-
 The same three datasets are also readable as MCP **resources** —
 `ainvestor://portfolio`, `ainvestor://guidelines` and `ainvestor://catalog` —
 for clients that attach data to a conversation rather than call a tool for it.
@@ -155,10 +162,12 @@ Each carries exactly what its tool returns, except that the catalog resource is
 the whole list rather than one page of search results.
 
 A guideline write is a read-modify-write of the whole `guidelines.json` file,
-and the gist API has no conditional write, so an edit you make in a browser tab
-between the read and the save is overwritten rather than merged. Nothing is
-lost, though: every write is a gist revision, so the previous content is still
-under **Revisions** on the gist page and can be restored from there.
+and a holdings write (`record_operation`, `remove_holding`) the same for
+`etfs.json`; the gist API has no conditional write, so an edit you make in a
+browser tab between the read and the save is overwritten rather than merged.
+Nothing is lost, though: every write is a gist revision, so the previous
+content is still under **Revisions** on the gist page and can be restored from
+there.
 
 There are two ways to reach it. Both need a **classic** GitHub personal access
 token with the **`gist`** scope and nothing else — fine-grained tokens cannot
@@ -238,8 +247,8 @@ Two things to weigh before relying on this:
 - A GitHub token is not bound to this server as its audience, which the MCP
   security guidance would otherwise prefer. In practice the server is your own,
   but the token it receives is valid at GitHub generally, not just here.
-- Guideline writes are open to every caller, each one writing only the gist
-  their own token reaches — a stranger's token never touches your data.
+- Guideline and holdings writes are open to every caller, each one writing only
+  the gist their own token reaches — a stranger's token never touches your data.
 
 ### Local — stdio, via Claude Desktop
 
