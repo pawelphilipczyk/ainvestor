@@ -115,7 +115,10 @@ component where we have no styling opinion.
 component, and `surface` calls `lockScroll()` internally.
 
 `remix/ui/button` and `remix/ui/input` have **no** primitives-only variant, so
-they are the one place the rule meets real friction — see Open question 2.
+they are the one place the rule meets real friction — see Open question 2. Note
+they are still **mixin factories**, not components: `button()` and `input()`
+return mixin descriptors you apply to your own `<button>` / `<input>`, so the
+friction is CSS arriving per element, not a component swap.
 
 ### What should still be hand-rolled afterwards
 
@@ -424,12 +427,33 @@ Confirm CI and the Fly image satisfy it.
 1. **Dev/prod middleware.** Accept compression-in-dev and logging-in-prod, or
    invest in a structure that keeps them conditional under the new context
    typing?
-2. **Styled components vs the Tailwind design system.** Primitives are the clear
+2. **Styled controls vs the Tailwind design system.** Primitives are the clear
    default, but `remix/ui/button` and `remix/ui/input` have no primitives-only
    variant — adopting them means accepting Remix's CSS alongside Tailwind
    (~390 LOC deleted), and skipping them means keeping hand-rolled controls
    under reason 2. This is the one place the goal and the design system genuinely
    pull against each other.
+
+   Both are **mixin factories** in rc.2, not components: you keep your own
+   `<button>` and its Tailwind classes and apply `button({ tone: 'ghost' })` to
+   it. `ButtonTone` is `'neutral' | 'primary' | 'ghost'` and `ButtonSize` /
+   `InputSize` are `'md' | 'lg'`. That makes this a per-element opt-in rather
+   than an all-or-nothing swap, so it can be trialled on one control before
+   committing.
+
+   **Prior art — PR #150 (closed).** An earlier attempt at exactly this, on the
+   beta.0 line. It mounted `RMX_01.Style` from `remix/ui/theme`, **disabled
+   Tailwind Preflight** so the Remix reset owned global defaults, and added a
+   46-line `--rmx-*` bridge remapping Remix's variables onto this app's HSL
+   tokens. It was parked as too invasive. rc.2 has since removed the ground it
+   stood on: `remix/ui/theme` and `RMX_01` are gone (along with `glyph`,
+   `separator`, `scroll-lock`), `remix/ui/button` no longer exports a `Button`
+   component, and `--rmx-button-label-padding-inline` no longer exists — rc.2's
+   button reads only three `--rmx-*` variables, all shadow-related. So that
+   branch is not revivable, but its lesson stands: **do not disable Preflight
+   and do not build a variable bridge.** The mixin shape means neither is
+   needed. Whoever picks this up should read #150's diff first to see what to
+   avoid.
 3. **Timing.** Land Stages 1–4 now for a small diff and early warning of API
    churn, or wait for 3.0.0 final? This plan assumes now; the validated 23-file
    diff supports it.
