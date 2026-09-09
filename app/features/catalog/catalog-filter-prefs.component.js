@@ -1,9 +1,4 @@
-import {
-	addEventListeners,
-	clientEntry,
-	createElement,
-	navigate,
-} from 'remix/ui'
+import { addEventListeners, clientEntry, createElement } from 'remix/ui'
 
 // Mirrors CATALOG_FILTER_PREFS_STORAGE_KEY in catalog-filter-prefs.ts (client bundle can't import that TS module).
 const STORAGE_KEY = 'catalog/filters/v1'
@@ -101,15 +96,16 @@ function restoreFiltersIfNeeded(catalogIndexHref) {
 	if (storedSearch === null) return
 
 	const nextUrl = `${catalogIndexHref}?${storedSearch.toString()}`
-	// entry.js stubs `globalThis.navigation` with an inert no-op on browsers
-	// lacking the real Navigation API, so `navigate` alone can't tell real
-	// support from the stub — check the `Navigation` global (the interface
-	// constructor, left untouched by that stub) instead.
-	if (typeof globalThis.Navigation === 'function') {
-		navigate(nextUrl, { history: 'replace' })
-	} else {
-		window.location.replace(nextUrl)
-	}
+	// A real navigation, not remix/ui's navigate(): that API patches the live
+	// DOM in place and its diffing deliberately preserves "live" form-control
+	// state (an <option>'s selected, an <input>'s value) whenever it differs
+	// from the freshly rendered markup, on the assumption that a divergence
+	// means the user edited it. For this restore redirect the divergence is
+	// just the previous page's default state, not a user edit, so that
+	// heuristic backfires: the URL and list update but the filter dropdowns
+	// stay stuck on their old (usually blank) selection. A full navigation
+	// parses a fresh document, so the restored <option selected> takes effect.
+	window.location.replace(nextUrl)
 }
 
 /**
