@@ -24,6 +24,8 @@ const DESCRIPTION = `Read the written analysis the web app's advice page last sa
 
 This is a stored snapshot, not a fresh answer. It was written by a language model at some past moment against the data of that moment, and nothing recomputes it: the holdings, the targets and the catalog may all have moved since. The saved timestamp and the cash amount it was written for are reported alongside it — read them before repeating any figure it contains, and use get_portfolio, get_guidelines and get_buy_plan for numbers that are current.
 
+The text is in whatever UI language was active when it was generated, and that is not tracked separately — if it is in the wrong language for the user now, the fix is to call generate_advice again (which takes a "locale" argument), not to guess at a translation of this stored text.
+
 Free, and the default choice for "what did the advice page last say". generate_advice writes a fresh one — at a cost, per call — when the user explicitly wants new prose rather than this stored one. When nothing is saved, the answer says so rather than inventing an analysis.`
 
 /** What the tool answers with when there is nothing to show. */
