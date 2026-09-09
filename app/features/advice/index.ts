@@ -1,9 +1,9 @@
-import { jsx } from 'remix/component/jsx-runtime'
-import { renderToStream } from 'remix/component/server'
 import type { Issue } from 'remix/data-schema'
 import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
 import { createHtmlResponse } from 'remix/response/html'
 import { Session } from 'remix/session'
+import { jsx } from 'remix/ui/jsx-runtime'
+import { renderToStream } from 'remix/ui/server'
 import { render } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
@@ -18,6 +18,7 @@ import {
 	type SessionWithGithubGist,
 	sessionUsesGithubGist,
 } from '../../lib/session.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
@@ -122,7 +123,6 @@ function adviceResultCardPropsFromPage(
 		analysisMode: props.analysisMode,
 		cashAmount: props.cashAmount,
 		cashCurrency: props.cashCurrency,
-		selectedModel: props.selectedModel,
 		catalog: props.catalog,
 		adviceFromGist: props.adviceFromGist,
 		adviceGistSavedAt: props.adviceGistSavedAt,
@@ -160,6 +160,7 @@ function renderAdvicePageResponse(options: {
 
 	return render({
 		title: t('meta.title.advice'),
+		htmlLang: htmlLangForCurrentUiLocale(),
 		session: options.session,
 		currentPage: 'advice',
 		body: jsx(AdvicePage, {

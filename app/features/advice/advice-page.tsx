@@ -1,4 +1,4 @@
-import { Frame, type Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/ui'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import {
 	Card,
@@ -15,7 +15,7 @@ import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-p
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
-import { SECTION_INTROS } from '../../lib/section-intros.ts'
+import { getSectionIntro } from '../../lib/section-intros.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import { findCatalogEntryByTicker } from '../catalog/lib.ts'
@@ -30,6 +30,7 @@ import {
 	type AdviceModelId,
 	DEFAULT_ADVICE_ANALYSIS_MODE,
 	DEFAULT_ADVICE_MODEL,
+	DEFAULT_CATALOG_ETF_MODEL,
 	normalizeAdviceAnalysisTab,
 } from './advice-openai.ts'
 
@@ -41,9 +42,9 @@ type FormError = {
 	detail?: string
 }
 
-function FormErrorAlert(_handle: Handle, _setup?: unknown) {
-	return (props: { error: FormError }) => {
-		const { error } = props
+function FormErrorAlert(handle: Handle<{ error: FormError }>) {
+	return () => {
+		const { error } = handle.props
 		return (
 			<div
 				role="alert"
@@ -131,15 +132,18 @@ function resolveProposalEtfDetailsCatalogEntryId(
 const currencyOptions = CURRENCIES.map((c) => ({ value: c, label: c }))
 
 const MODEL_LABEL_KEYS = {
-	'gpt-5.4-mini': 'advice.model.gpt-5.4-mini',
-	'gpt-5.4-nano': 'advice.model.gpt-5.4-nano',
-	'gpt-5.4': 'advice.model.gpt-5.4',
+	'gpt-5.6-sol': 'advice.model.gpt-5.6-sol',
+	'gpt-5.6-terra': 'advice.model.gpt-5.6-terra',
+	'gpt-5.6-luna': 'advice.model.gpt-5.6-luna',
 } as const satisfies Record<AdviceModelId, MessageKey>
 
-const modelOptions = ADVICE_MODEL_IDS.map((id) => ({
-	value: id,
-	label: t(MODEL_LABEL_KEYS[id]),
-}))
+/** Built per render: `t()` must resolve against the request's locale, not the import-time default. */
+function adviceModelOptions() {
+	return ADVICE_MODEL_IDS.map((id) => ({
+		value: id,
+		label: t(MODEL_LABEL_KEYS[id]),
+	}))
+}
 
 function formatAmountNumber(amount: number): string {
 	return new Intl.NumberFormat('en-US', {
@@ -389,14 +393,14 @@ function renderEtfProposals(
 	block: Extract<AdviceBlock, { type: 'etf_proposals' }>,
 	options: {
 		defaultCashCurrency: string
-		selectedModel: AdviceModelId
 		pendingApproval: boolean
 		catalog: CatalogEntry[] | undefined
 	},
 ) {
-	const { defaultCashCurrency, selectedModel, pendingApproval, catalog } =
-		options
-	const tableColSpan = pendingApproval ? 5 : 6
+	const { defaultCashCurrency, pendingApproval, catalog } = options
+	const tableColSpan = 5
+	const fundNameLinkClass =
+		'text-primary underline decoration-primary/40 underline-offset-2 transition-colors hover:text-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring'
 	return (
 		<section>
 			{block.caption ? (
@@ -435,13 +439,6 @@ function renderEtfProposals(
 							>
 								{t('advice.table.note')}
 							</th>
-							{pendingApproval ? null : (
-								<th scope="col" class="pb-2 pl-4 pr-4 align-top">
-									<span class="sr-only">
-										{t('advice.table.etfDetailsLink')}
-									</span>
-								</th>
-							)}
 						</tr>
 					</thead>
 					<tbody>
@@ -458,18 +455,33 @@ function renderEtfProposals(
 								catalogEntryId !== null
 									? routes.catalog.etf.href(
 											{ catalogEntryId },
-											{ model: selectedModel },
+											{ model: DEFAULT_CATALOG_ETF_MODEL },
 										)
 									: null
+							const fundCell =
+								!pendingApproval && etfDetailsHref !== null ? (
+									<Link
+										href={etfDetailsHref}
+										navigationLoading={true}
+										class={fundNameLinkClass}
+										aria-label={format(t('advice.table.fundLinkAria'), {
+											name: row.name,
+										})}
+									>
+										{row.name}
+									</Link>
+								) : (
+									row.name
+								)
 							return (
 								<tr
 									key={`${row.name}-${row.ticker ?? ''}-${row.amount ?? ''}-${displayCurrency ?? ''}`}
 									class="border-b border-border last:border-0 transition-colors hover:bg-muted/40"
 								>
 									<td
-										class={`py-2 pr-4 align-top text-sm break-words text-card-foreground ${adviceTableTextColMax}`}
+										class={`py-2 pl-4 pr-4 align-top text-sm break-words text-card-foreground ${adviceTableTextColMax}`}
 									>
-										{row.name}
+										{fundCell}
 									</td>
 									<td class="py-2 pl-4 pr-4 align-top font-mono text-sm font-semibold text-muted-foreground">
 										{row.ticker ?? t('catalog.emptyCell')}
@@ -487,23 +499,6 @@ function renderEtfProposals(
 									>
 										{row.note ?? t('catalog.emptyCell')}
 									</td>
-									{pendingApproval ? null : (
-										<td class="py-2 pl-4 pr-4 align-top">
-											{etfDetailsHref !== null ? (
-												<Link
-													href={etfDetailsHref}
-													navigationLoading={true}
-													class="inline-flex whitespace-nowrap rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium text-card-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-												>
-													{t('advice.table.etfDetailsLink')}
-												</Link>
-											) : (
-												<span class="text-xs text-muted-foreground">
-													{t('catalog.emptyCell')}
-												</span>
-											)}
-										</td>
-									)}
 								</tr>
 							)
 						})}
@@ -519,7 +514,6 @@ function renderAdviceBlock(
 	defaultCashCurrency: string,
 	blockIndex: number,
 	etfOptions: {
-		selectedModel: AdviceModelId
 		pendingApproval: boolean
 		catalog: CatalogEntry[] | undefined
 	},
@@ -545,28 +539,27 @@ function renderAdviceBlock(
 	}
 	return renderEtfProposals(block, {
 		defaultCashCurrency,
-		selectedModel: etfOptions.selectedModel,
 		pendingApproval: etfOptions.pendingApproval,
 		catalog: etfOptions.catalog,
 	})
 }
 
-function adviceResultCardView(props: {
+export type AdviceResultCardProps = {
 	advice: AdviceDocument
 	lastAnalysisMode?: AdviceAnalysisMode
 	analysisMode?: AdviceAnalysisMode
 	cashAmount?: string
 	cashCurrency?: string
-	selectedModel?: AdviceModelId
 	catalog?: CatalogEntry[]
 	adviceFromGist?: boolean
 	adviceGistSavedAt?: string
 	adviceGistPersistFailed?: boolean
 	pendingApproval?: boolean
 	adviceGistGate?: 'sign_in' | 'connect_gist'
-}) {
+}
+
+function adviceResultCardView(props: AdviceResultCardProps) {
 	const cashCurrency = props.cashCurrency ?? 'PLN'
-	const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 	const resultMode =
 		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
 	const pendingApproval = props.pendingApproval === true
@@ -610,7 +603,6 @@ function adviceResultCardView(props: {
 				{props.advice.blocks.map((block, i) => (
 					<div key={`${block.type}-${i}`}>
 						{renderAdviceBlock(block, cashCurrency, i, {
-							selectedModel,
 							pendingApproval: pendingApproval || adviceGistGate !== undefined,
 							catalog: props.catalog,
 						})}
@@ -621,14 +613,13 @@ function adviceResultCardView(props: {
 	)
 }
 
-export type AdviceResultCardProps = Parameters<typeof adviceResultCardView>[0]
-
-export function AdviceResultCard(_handle: Handle, _setup?: unknown) {
-	return adviceResultCardView
+export function AdviceResultCard(handle: Handle<AdviceResultCardProps>) {
+	return () => adviceResultCardView(handle.props)
 }
 
-export function AdvicePage(_handle: Handle, _setup?: unknown) {
-	return (props: AdvicePageProps) => {
+export function AdvicePage(handle: Handle<AdvicePageProps>) {
+	return () => {
+		const props = handle.props
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 		const activeTab = normalizeAdviceAnalysisTab(props.activeTab)
@@ -650,14 +641,15 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 		)
 		const frameSrc = props.adviceResultFrameSrc
 		const accessBanner = adviceAccessBannerFromProps(props)
+		const adviceIntro = getSectionIntro('advice')
 		return (
 			<main class="mx-auto flex w-full min-w-0 max-w-3xl flex-col gap-6">
 				<div class="min-w-0 w-full">
 					<SectionIntroCard
 						page="advice"
 						variant="page"
-						title={SECTION_INTROS.advice.title}
-						description={SECTION_INTROS.advice.description}
+						title={adviceIntro.title}
+						description={adviceIntro.description}
 					/>
 				</div>
 				{accessBanner === 'pending_approval' ? (
@@ -778,7 +770,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 										<SelectInput
 											id="adviceModel-buy-next"
 											name="adviceModel"
-											options={modelOptions}
+											options={adviceModelOptions()}
 											value={selectedModel}
 											disabled={adviceFormDisabled}
 										/>
@@ -844,7 +836,7 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 										<SelectInput
 											id="adviceModel-review"
 											name="adviceModel"
-											options={modelOptions}
+											options={adviceModelOptions()}
 											value={selectedModel}
 											disabled={adviceFormDisabled}
 										/>
@@ -878,7 +870,6 @@ export function AdvicePage(_handle: Handle, _setup?: unknown) {
 						analysisMode={props.analysisMode}
 						cashAmount={props.cashAmount}
 						cashCurrency={cashCurrency}
-						selectedModel={selectedModel}
 						catalog={props.catalog}
 						adviceFromGist={props.adviceFromGist}
 						adviceGistSavedAt={props.adviceGistSavedAt}

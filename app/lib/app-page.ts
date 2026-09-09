@@ -5,6 +5,7 @@ export const AppPages = [
 	'advice',
 	'guidelines',
 	'catalog',
+	'admin',
 ] as const
 
 export type AppPage = (typeof AppPages)[number]

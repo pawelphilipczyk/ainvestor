@@ -7,6 +7,7 @@ import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
+import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
 import { routes } from '../../routes.ts'
 import {
 	parseBankJsonToCatalog,
@@ -493,7 +494,7 @@ describe('Advice', () => {
 			lastAnalysisMode: 'buy_next',
 			cashCurrency: 'PLN',
 			cashAmount: '500',
-			selectedModel: 'gpt-5.4-mini',
+			selectedModel: 'gpt-5.6-sol',
 			activeTab: 'buy_next',
 			document: {
 				blocks: [{ type: 'paragraph', text: 'Cached gist paragraph.' }],
@@ -535,7 +536,7 @@ describe('Advice', () => {
 			lastAnalysisMode: 'buy_next',
 			cashCurrency: 'PLN',
 			cashAmount: '500',
-			selectedModel: 'gpt-5.4-mini',
+			selectedModel: 'gpt-5.6-sol',
 			activeTab: 'buy_next',
 			document: {
 				blocks: [{ type: 'paragraph', text: 'Fragment-only paragraph.' }],
@@ -577,7 +578,7 @@ describe('Advice', () => {
 			lastAnalysisMode: 'buy_next',
 			cashCurrency: 'PLN',
 			cashAmount: '100',
-			selectedModel: 'gpt-5.4-mini',
+			selectedModel: 'gpt-5.6-sol',
 			activeTab: 'buy_next',
 			document: {
 				blocks: [{ type: 'paragraph', text: 'Wrong tab should not show.' }],
@@ -894,7 +895,7 @@ describe('Advice', () => {
 
 		const form = new FormData()
 		form.set('cashAmount', '100')
-		form.set('adviceModel', 'gpt-5.4-nano')
+		form.set('adviceModel', 'gpt-5.6-luna')
 		form.set('analysisMode', 'buy_next')
 
 		const response = await testSessionFetch(
@@ -907,11 +908,28 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.equal(capturedModel, 'gpt-5.4-nano')
-		assert.match(body, /value="gpt-5.4-nano"/)
+		assert.equal(capturedModel, 'gpt-5.6-luna')
+		assert.match(body, /value="gpt-5.6-luna"/)
 	})
 
-	it('renders ETF details link with catalogEntryId when etf_proposals include it', async () => {
+	it('labels the model select in the request locale, not the import-time default', async () => {
+		const cookie = await signInWithGist()
+
+		const localeCookie = (await uiLocaleCookie.serialize('pl')).split(';')[0]
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				headers: { Cookie: `${cookie}; ${localeCookie}` },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /GPT-5\.6 Sol \(najm/)
+		assert.doesNotMatch(body, /\(smartest\)/)
+	})
+
+	it('renders catalog ETF href on fund name when etf_proposals include catalogEntryId', async () => {
 		const cookie = await signInWithGist()
 		seedSharedCatalog(
 			JSON.stringify({
@@ -962,10 +980,14 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /\/catalog\/etf\/advice-learn-row/)
-		assert.match(body, /ETF details/)
+		assert.match(
+			body,
+			/<a[^>]*href="[^"]*\/catalog\/etf\/advice-learn-row[^"]*"[^>]*>[\s\S]*?Sample ETF/,
+			'fund name links to catalog ETF detail when catalogEntryId is set',
+		)
 	})
 
-	it('renders ETF details link from ticker match when catalogEntryId is absent', async () => {
+	it('renders catalog ETF href on fund name from ticker match when catalogEntryId is absent', async () => {
 		const cookie = await signInWithGist()
 		seedSharedCatalog(
 			JSON.stringify({
@@ -1015,6 +1037,10 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /\/catalog\/etf\/ticker-only-row/)
-		assert.match(body, /ETF details/)
+		assert.match(
+			body,
+			/<a[^>]*href="[^"]*\/catalog\/etf\/ticker-only-row[^"]*"[^>]*>[\s\S]*?Sample ETF/,
+			'fund name links to catalog ETF resolved by ticker',
+		)
 	})
 })

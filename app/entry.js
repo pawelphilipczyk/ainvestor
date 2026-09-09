@@ -1,9 +1,9 @@
 /**
- * Client bootstrap for Remix component runtime.
+ * Client bootstrap for Remix UI runtime.
  * Loaded via <script type="module" src="/entry.js" /> — hydrates all clientEntry components.
- * @see https://github.com/remix-run/remix/tree/main/packages/component
+ * @see https://github.com/remix-run/remix/tree/main/packages/ui
  */
-import { run } from 'remix/component'
+import { run } from 'remix/ui'
 
 // startNavigationListener() assumes window.navigation (Chromium). Without it, run() throws
 // before hydration on Firefox/Safari; stub is inert for real navigations when links use rmx-document.

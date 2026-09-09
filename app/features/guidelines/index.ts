@@ -1,12 +1,12 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
-import { jsx } from 'remix/component/jsx-runtime'
-import { renderToStream } from 'remix/component/server'
 import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { max, min } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
+import { jsx } from 'remix/ui/jsx-runtime'
+import { renderToStream } from 'remix/ui/server'
 import { render } from '../../components/render.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import {
@@ -23,6 +23,8 @@ import {
 	findGuidelineDuplicateOf,
 	formatEtfTypeLabel,
 	formatGuidelineTargetPercentForInput,
+	GUIDELINE_TARGET_PERCENT_MAX,
+	GUIDELINE_TARGET_PERCENT_MIN,
 	isEtfType,
 	saveGuidelines,
 	sumGuidelineTargetPercent,
@@ -38,6 +40,7 @@ import {
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import {
@@ -65,16 +68,22 @@ function guidelinesIndexHref(tab?: GuidelinesAddTabId) {
 
 const InstrumentGuidelineSchema = object({
 	instrumentTicker: optional(string()),
-	targetPct: coerce.number().pipe(min(0.001), max(100)),
+	targetPct: coerce
+		.number()
+		.pipe(min(GUIDELINE_TARGET_PERCENT_MIN), max(GUIDELINE_TARGET_PERCENT_MAX)),
 })
 
 const AssetClassGuidelineSchema = object({
 	assetClassType: optional(string()),
-	targetPct: coerce.number().pipe(min(0.001), max(100)),
+	targetPct: coerce
+		.number()
+		.pipe(min(GUIDELINE_TARGET_PERCENT_MIN), max(GUIDELINE_TARGET_PERCENT_MAX)),
 })
 
 const UpdateGuidelineTargetSchema = object({
-	targetPct: coerce.number().pipe(min(0.001), max(100)),
+	targetPct: coerce
+		.number()
+		.pipe(min(GUIDELINE_TARGET_PERCENT_MIN), max(GUIDELINE_TARGET_PERCENT_MAX)),
 })
 
 /** Same locale rules as other decimal form fields (HTML `pattern` + {@link parseLocaleDecimalString}). */
@@ -690,6 +699,7 @@ async function renderGuidelinesPage(params: {
 	})
 	return render({
 		title: t('meta.title.guidelines'),
+		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'guidelines',
 		body,

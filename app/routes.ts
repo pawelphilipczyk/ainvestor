@@ -4,6 +4,17 @@ const adviceForm = form('advice')
 
 export const routes = route({
 	health: get('/health'),
+	mcp: {
+		call: post('/mcp'),
+		stream: get('/mcp'),
+		// OAuth discovery. Clients read the WWW-Authenticate header first, but the
+		// spec requires them to fall back to these well-known URIs.
+		protectedResource: get('/.well-known/oauth-protected-resource'),
+		protectedResourceForEndpoint: get(
+			'/.well-known/oauth-protected-resource/mcp',
+		),
+		authorizationServer: get('/.well-known/oauth-authorization-server'),
+	},
 	home: {
 		index: get('/'),
 	},
@@ -18,6 +29,9 @@ export const routes = route({
 		login: get('/auth/github'),
 		callback: get('/auth/github/callback'),
 		logout: post('/auth/logout'),
+	},
+	locale: {
+		set: post('/locale'),
 	},
 	advice: {
 		...adviceForm,
@@ -38,5 +52,8 @@ export const routes = route({
 		import: post('/import'),
 		fragmentList: get('/fragments/list'),
 		fragmentEtfAnalysis: get('/fragments/etf-analysis/:catalogEntryId'),
+	}),
+	admin: route('/admin', {
+		etfImport: get('/etf-import'),
 	}),
 })

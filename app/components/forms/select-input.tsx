@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import {
 	selectControlCompactClasses,
 	selectControlDefaultClasses,
@@ -7,7 +7,7 @@ import {
 const selectWithChevronClasses = 'cursor-pointer appearance-none pr-10'
 
 /** Mirrors `<select>` attributes; `options` replaces `<option>` children. */
-type SelectInputProps = {
+export type SelectInputProps = {
 	id: string
 	name: string
 	options: { value: string; label: string; selected?: boolean }[]
@@ -25,8 +25,8 @@ type SelectInputProps = {
 /**
  * Server-rendered select (label is composed separately).
  */
-export function SelectInput(_handle: Handle, _setup?: unknown) {
-	return (props: SelectInputProps) => {
+export function SelectInput(handle: Handle<SelectInputProps>) {
+	return () => {
 		const {
 			class: classProp,
 			compact: compactProp,
@@ -39,7 +39,7 @@ export function SelectInput(_handle: Handle, _setup?: unknown) {
 			multiple,
 			required,
 			size,
-		} = props
+		} = handle.props
 		const shellClasses = compactProp
 			? selectControlCompactClasses
 			: selectControlDefaultClasses

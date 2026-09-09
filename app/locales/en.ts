@@ -1,9 +1,8 @@
 /**
- * English UI copy — single source of truth for user-visible strings (default locale).
- * Add other locales later as parallel modules; keep keys aligned across languages.
+ * English UI copy — default locale. Polish strings live in `pl.ts`; keep keys aligned.
  */
 
-import type { EtfType } from '../lib/guidelines.ts'
+import type { EtfType } from '../lib/etf-type.ts'
 
 /** Display labels for persisted `EtfType` values (catalog badges, guidelines). */
 export const ETF_TYPE_LABELS: Record<EtfType, string> = {
@@ -18,6 +17,7 @@ export const ETF_TYPE_LABELS: Record<EtfType, string> = {
 export const en = {
 	'app.name': 'AI Investor',
 	'app.previewChip': 'Preview',
+	'app.previewDeployTitle': 'Commit {commit}',
 
 	'chrome.flash.error': 'Error',
 	'chrome.flash.info': 'Info',
@@ -29,11 +29,13 @@ export const en = {
 	'meta.title.catalog': 'AI Investor – ETF Catalog',
 	'meta.title.catalogEtf': 'AI Investor – {name}',
 	'meta.title.guidelines': 'AI Investor – Guidelines',
+	'meta.title.adminEtfImport': 'AI Investor – Admin ETF Import',
 
 	'nav.portfolio': 'Portfolio',
 	'nav.advice': 'Get Advice',
 	'nav.catalog': 'ETF Catalog',
 	'nav.guidelines': 'Investment Guidelines',
+	'nav.admin': 'Admin',
 
 	'intro.tagline':
 		'Choose where to go next. Everything works in the browser; sign in with GitHub when you want your portfolio and catalog saved across sessions.',
@@ -49,12 +51,20 @@ export const en = {
 		'Import your broker’s ETF list and browse what’s available.',
 	'section.guidelines.title': 'Investment Guidelines',
 	'section.guidelines.description': 'Set your target allocation.',
+	'admin.etfImport.title': 'Import ETF Data',
+	'admin.etfImport.description':
+		'Update the shared ETF catalog from a broker export only when the source catalog changes.',
+	'admin.etfImport.frequencyNote':
+		'Use this only when the broker ETF catalog export changes. It updates shared data that other pages use for portfolio matching, guidelines, and advice.',
 
 	'chrome.loading': 'Loading…',
 	'chrome.aria.mainNav': 'Main navigation',
 	'chrome.aria.closeNav': 'Close navigation',
 	'chrome.aria.openNav': 'Open navigation',
 	'chrome.aria.toggleTheme': 'Toggle theme',
+	'chrome.aria.language': 'Interface language',
+	'chrome.language.en': 'English',
+	'chrome.language.pl': 'Polish',
 	'chrome.signedInAs': 'Signed in as @{login}',
 	'chrome.approvalPendingSidebar':
 		'Approval pending — ask an admin to add you to the allow list.',
@@ -109,7 +119,7 @@ export const en = {
 		'This catalog is loaded from a shared public GitHub Gist.',
 	'catalog.import.title': 'Import',
 	'catalog.import.subtitle':
-		'Paste bank API JSON below to update the shared catalog (merges with existing rows).',
+		'Paste bank API JSON or upload a DevTools HAR (.har) to update the shared catalog (merges with existing rows).',
 	'catalog.import.submit': 'Import',
 	'catalog.import.ownerOnly': 'Import updates from the shared catalog gist.',
 	'catalog.import.ownerMissing':
@@ -119,10 +129,12 @@ export const en = {
 	'catalog.import.ownerActive': 'Import updates from the shared catalog gist.',
 	'catalog.import.pasteLabel.screenReader': 'Paste bank API JSON',
 	'catalog.import.pastePlaceholder':
-		'Paste fetch response JSON here, then click Import',
+		'Paste fetch response JSON here (or use HAR upload below)',
+	'catalog.import.harLabel': 'HAR file',
 	'catalog.empty.title': 'No catalog imported yet.',
 	'catalog.empty.hint':
-		'The shared catalog gist is empty. If you are the gist owner, import ETFs here to populate it.',
+		'The shared catalog gist is empty. If you are the gist owner, open Admin and import broker ETF data to populate it.',
+	'catalog.empty.adminImportLink': 'Open Admin ETF import',
 	'catalog.filter.assetType': 'Asset type',
 	'catalog.filter.allTypes': 'All types',
 	'catalog.filter.search': 'Search',
@@ -244,7 +256,7 @@ export const en = {
 	'advice.table.amount': 'Amount',
 	'advice.table.currency': 'Currency',
 	'advice.table.note': 'Note',
-	'advice.table.etfDetailsLink': 'ETF details',
+	'advice.table.fundLinkAria': 'Open ETF details for {name}',
 	'advice.capital.title': 'Portfolio mix',
 	'advice.capital.snapshotError':
 		'Portfolio snapshot could not be shown because the data from the model was inconsistent (for example mixed currencies or invalid amounts).',
@@ -261,9 +273,9 @@ export const en = {
 	'advice.guideline.ariaSummary':
 		'Current {current}, target {target}{postBuyClause}.',
 	'advice.guideline.afterProposedBuys': ', after proposed buys {post}',
-	'advice.model.gpt-5.4-mini': 'GPT-5.4 Mini',
-	'advice.model.gpt-5.4-nano': 'GPT-5.4 Nano',
-	'advice.model.gpt-5.4': 'GPT-5.4',
+	'advice.model.gpt-5.6-sol': 'GPT-5.6 Sol (smartest)',
+	'advice.model.gpt-5.6-terra': 'GPT-5.6 Terra (balanced)',
+	'advice.model.gpt-5.6-luna': 'GPT-5.6 Luna (cheapest)',
 
 	'errors.portfolio.addInvalid':
 		'Please choose an operation (Buy or Sell), select a fund from your catalog, and enter a valid value (for sell, value must be greater than 0).',
@@ -277,14 +289,18 @@ export const en = {
 		'Enter an amount greater than zero to sell.',
 	'errors.portfolio.persistence':
 		'Could not save your portfolio. Please try again in a moment.',
+	'errors.upload.fileTooLarge':
+		'File upload is too large. Maximum size is 5 MB.',
 	'errors.catalog.importNotAllowed':
 		'Only the shared catalog gist owner can import catalog updates.',
 	'errors.catalog.import.fieldMissing':
-		'The import did not include any pasted text. Paste the bank API JSON and try again.',
+		'Provide pasted bank API JSON or choose a HAR file, then try again.',
 	'errors.catalog.import.emptyJson':
 		'Paste is empty. Paste the full bank API JSON response (an object with a "data" array of funds), then click Import.',
 	'errors.catalog.import.invalidJson':
 		'That text is not valid JSON. Copy the full fetch response body from your browser’s network tab and try again.',
+	'errors.catalog.import.invalidHar':
+		'That file is not a valid HAR export or it does not contain usable ETF screener API responses.',
 	'errors.catalog.import.noRowsParsed':
 		'No ETF rows could be read from that JSON. Expected an object with a "data" array; each item needs a ticker and fund_name (and usually matches your broker’s API shape).',
 	'errors.catalog.import.diagnostic.savedLead':
@@ -307,6 +323,8 @@ export const en = {
 	'errors.catalog.import.issue.missingFundName': 'Missing fund_name.',
 	'errors.catalog.import.issue.isinInvalid':
 		'ISIN is present but not valid (expected 12-character format).',
+	'errors.catalog.import.issue.riskKidOutOfRange':
+		'risk_kid is present but not a whole number from 1 to 7.',
 	'errors.catalog.import.issue.duplicateIdInPaste':
 		'Duplicate id "{id}" in this paste (clashes with row {otherIndex}).',
 	'errors.catalog.import.issue.duplicateMergeKeyInPaste':

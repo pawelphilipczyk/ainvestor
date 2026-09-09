@@ -6,6 +6,15 @@ import { methodOverride } from 'remix/method-override-middleware'
 import { Session } from 'remix/session'
 import { session } from 'remix/session-middleware'
 import { staticFiles } from 'remix/static-middleware'
+import { handleMcpHttpRequest } from '../mcp/http.ts'
+import {
+	buildAuthorizationServerMetadata,
+	buildProtectedResourceMetadata,
+	metadataResponse,
+	resolvePublicOrigin,
+	unknownOriginResponse,
+} from '../mcp/oauth-metadata.ts'
+import { adminController } from './features/admin/index.ts'
 import { setAdviceClient } from './features/advice/advice-client.ts'
 import { adviceController } from './features/advice/index.ts'
 import { authController } from './features/auth/index.ts'
@@ -15,13 +24,20 @@ import {
 } from './features/catalog/index.ts'
 import { guidelinesController } from './features/guidelines/index.ts'
 import { homeController } from './features/intro/index.ts'
+import { localeController } from './features/locale/index.ts'
 import {
 	portfolioController,
 	resetEtfEntries,
 } from './features/portfolio/index.ts'
 import { stripGithubTokenIfUnapproved } from './lib/approved-users.ts'
+import { multipartLimitFlashOnError } from './lib/multipart-limit-flash-middleware.ts'
+import {
+	MULTIPART_MAX_FILE_BYTES,
+	MULTIPART_MAX_TOTAL_BYTES,
+} from './lib/multipart-upload-limits.ts'
 import type { AppRequestContext } from './lib/request-context.ts'
 import { sessionCookie, sessionStorage } from './lib/session.ts'
+import { uiLocaleMiddleware } from './lib/ui-locale-middleware.ts'
 import { routes } from './routes.ts'
 
 export { resetEtfEntries, resetGuestCatalog, setAdviceClient }
@@ -35,8 +51,9 @@ const appStatic = staticFiles('app', {
 
 const remixRuntime = staticFiles('node_modules', {
 	filter: (path) =>
-		path === 'remix/dist/component.js' ||
-		path.startsWith('@remix-run/component/dist/'),
+		path === 'remix/dist/ui.js' ||
+		path.startsWith('remix/dist/ui/') ||
+		path.startsWith('@remix-run/ui/dist/'),
 })
 
 function enforceGithubApproval(): Middleware {
@@ -57,18 +74,28 @@ export const router = createRouter({
 					appStatic,
 					remixRuntime,
 					logger(),
-					formData(),
-					methodOverride(),
+					uiLocaleMiddleware(),
 					session(sessionCookie, sessionStorage),
+					multipartLimitFlashOnError(),
+					formData({
+						maxFileSize: MULTIPART_MAX_FILE_BYTES,
+						maxTotalSize: MULTIPART_MAX_TOTAL_BYTES,
+					}),
+					methodOverride(),
 					enforceGithubApproval(),
 				]
 			: [
 					appStatic,
 					remixRuntime,
 					compression(),
-					formData(),
-					methodOverride(),
+					uiLocaleMiddleware(),
 					session(sessionCookie, sessionStorage),
+					multipartLimitFlashOnError(),
+					formData({
+						maxFileSize: MULTIPART_MAX_FILE_BYTES,
+						maxTotalSize: MULTIPART_MAX_TOTAL_BYTES,
+					}),
+					methodOverride(),
 					enforceGithubApproval(),
 				],
 })
@@ -79,9 +106,40 @@ router.get(routes.health, () => {
 	})
 })
 
+// MCP endpoint. Credentials arrive per request, so this route deliberately
+// ignores the session: it is reached by Claude's servers, not by a browser.
+router.post(routes.mcp.call, (context) => handleMcpHttpRequest(context.request))
+router.get(routes.mcp.stream, (context) =>
+	handleMcpHttpRequest(context.request),
+)
+
+/** Serves one discovery document, refusing when the origin cannot be trusted. */
+function discoveryMetadata(
+	build: (origin: string) => object,
+): (context: AppRequestContext) => Response {
+	return (context) => {
+		const origin = resolvePublicOrigin(context.request)
+		if (origin === null) return unknownOriginResponse()
+		return metadataResponse(build(origin))
+	}
+}
+
+const protectedResourceMetadata = discoveryMetadata(
+	buildProtectedResourceMetadata,
+)
+
+router.get(routes.mcp.protectedResource, protectedResourceMetadata)
+router.get(routes.mcp.protectedResourceForEndpoint, protectedResourceMetadata)
+router.get(
+	routes.mcp.authorizationServer,
+	discoveryMetadata(buildAuthorizationServerMetadata),
+)
+
 router.map(routes.home, homeController)
 router.map(routes.portfolio, portfolioController)
+router.map(routes.locale, localeController)
 router.map(routes.auth, authController)
 router.map(routes.guidelines, guidelinesController)
 router.map(routes.catalog, catalogController)
 router.map(routes.advice, adviceController)
+router.map(routes.admin, adminController)

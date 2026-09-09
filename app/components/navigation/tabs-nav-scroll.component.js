@@ -1,4 +1,4 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import { addEventListeners, clientEntry, createElement } from 'remix/ui'
 
 const STORAGE_PREFIX = 'windowScroll:tab:'
 

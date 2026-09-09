@@ -1,8 +1,8 @@
-import { jsx } from 'remix/component/jsx-runtime'
-import { renderToStream } from 'remix/component/server'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
+import { jsx } from 'remix/ui/jsx-runtime'
+import { renderToStream } from 'remix/ui/server'
 import { render } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, fetchPortfolioSnapshot, saveEtfs } from '../../lib/gist.ts'
@@ -17,6 +17,7 @@ import {
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import {
@@ -243,6 +244,7 @@ async function renderPage(params: RenderPortfolioPageParams) {
 	const body = jsx(PortfolioPage, { instrumentOptions })
 	return render({
 		title: t('meta.title.portfolio'),
+		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'portfolio',
 		body,

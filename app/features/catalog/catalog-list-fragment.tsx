@@ -1,14 +1,15 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import { Card, Link, ScrollableTable } from '../../components/index.ts'
 import { formatValue } from '../../lib/format.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
-import { DEFAULT_ADVICE_MODEL } from '../advice/advice-openai.ts'
+import { DEFAULT_CATALOG_ETF_MODEL } from '../advice/advice-openai.ts'
 import {
 	type CatalogEntry,
 	type CatalogRiskBand,
+	catalogEntryMatchesQuery,
 	riskBandFromRiskKid,
 } from './lib.ts'
 
@@ -34,7 +35,7 @@ function catalogRiskBandChipClassName(band: CatalogRiskBand): string {
 	return `${shell} bg-red-500/25 text-red-700 dark:bg-red-500/15 dark:text-red-300`
 }
 
-function CatalogTableHeader(_handle: Handle, _setup?: unknown) {
+function CatalogTableHeader(_handle: Handle<Record<string, never>>) {
 	return () => (
 		<tr class="border-b border-border text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
 			<th class="pb-2 pl-4 pr-4 align-top">{t('catalog.table.ticker')}</th>
@@ -60,7 +61,7 @@ function renderCatalogRow(
 	const { tickerLinksToDetail } = options
 	const etfDetailHref = routes.catalog.etf.href(
 		{ catalogEntryId: entry.id },
-		{ model: DEFAULT_ADVICE_MODEL },
+		{ model: DEFAULT_CATALOG_ETF_MODEL },
 	)
 	const riskBand = riskBandFromRiskKid(entry.risk_kid)
 	const riskCell =
@@ -130,6 +131,36 @@ function renderCatalogRow(
 	)
 }
 
+const catalogTableColSpan = 7
+
+function renderCatalogEtfScrollableTable(params: {
+	entries: CatalogEntry[]
+	holdingsByTicker: Map<string, EtfEntry>
+	tickerLinksToDetail: boolean
+}) {
+	const { entries, holdingsByTicker, tickerLinksToDetail } = params
+	const normalizedTickerKey = (ticker: string) => ticker.toUpperCase()
+	return (
+		<ScrollableTable wrapperClass="mt-3">
+			<thead class="bg-muted/40 px-4">
+				<tr>
+					<td colspan={catalogTableColSpan} class="h-1" />
+				</tr>
+				<CatalogTableHeader />
+			</thead>
+			<tbody>
+				{entries.map((entry) =>
+					renderCatalogRow(
+						entry,
+						holdingsByTicker.get(normalizedTickerKey(entry.ticker)),
+						{ tickerLinksToDetail },
+					),
+				)}
+			</tbody>
+		</ScrollableTable>
+	)
+}
+
 type CatalogListFragmentProps = {
 	catalog: CatalogEntry[]
 	holdings: EtfEntry[]
@@ -137,6 +168,7 @@ type CatalogListFragmentProps = {
 	riskFilter: '' | CatalogRiskBand
 	query: string
 	totalCatalogCount: number
+	isAdmin: boolean
 	pendingApproval?: boolean
 }
 
@@ -144,15 +176,18 @@ type CatalogListFragmentProps = {
  * Renders the filtered catalog tables (holdings section + available section).
  * Used as Frame content and during SSR resolveFrame.
  */
-export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
-	return (props: CatalogListFragmentProps) => {
+export function CatalogListFragment(handle: Handle<CatalogListFragmentProps>) {
+	return () => {
+		const props = handle.props
 		const tickerLinksToDetail = !props.pendingApproval
-		const tableColSpan = 7
-		const holdingKey = (s: string) => s.toUpperCase()
+		const normalizedHoldingsLookupKey = (holdingNameOrTicker: string) =>
+			holdingNameOrTicker.toUpperCase()
 		const holdingsByTicker = new Map(
 			props.holdings.flatMap((e) => {
-				const pairs: [string, EtfEntry][] = [[holdingKey(e.name), e]]
-				if (e.ticker) pairs.push([holdingKey(e.ticker), e])
+				const pairs: [string, EtfEntry][] = [
+					[normalizedHoldingsLookupKey(e.name), e],
+				]
+				if (e.ticker) pairs.push([normalizedHoldingsLookupKey(e.ticker), e])
 				return pairs
 			}),
 		)
@@ -162,20 +197,19 @@ export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
 			const band = riskBandFromRiskKid(entry.risk_kid)
 			const matchesRisk =
 				!props.riskFilter || (band !== undefined && band === props.riskFilter)
-			const queryLower = props.query.toLowerCase()
-			const matchesQuery =
-				!props.query ||
-				entry.ticker.toLowerCase().includes(queryLower) ||
-				entry.name.toLowerCase().includes(queryLower) ||
-				entry.description.toLowerCase().includes(queryLower)
-			return matchesType && matchesRisk && matchesQuery
+			return (
+				matchesType &&
+				matchesRisk &&
+				catalogEntryMatchesQuery(entry, props.query)
+			)
 		})
 
 		const ownedInCatalog = filtered.filter((catalogEntry) =>
-			holdingsByTicker.has(holdingKey(catalogEntry.ticker)),
+			holdingsByTicker.has(normalizedHoldingsLookupKey(catalogEntry.ticker)),
 		)
 		const restOfCatalog = filtered.filter(
-			(catalogEntry) => !holdingsByTicker.has(holdingKey(catalogEntry.ticker)),
+			(catalogEntry) =>
+				!holdingsByTicker.has(normalizedHoldingsLookupKey(catalogEntry.ticker)),
 		)
 
 		return (
@@ -204,31 +238,43 @@ export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
 							<p class="mt-0.5 text-xs text-muted-foreground">
 								{t('catalog.holdings.subtitle')}
 							</p>
-							<ScrollableTable wrapperClass="mt-3">
-								<thead class="bg-muted/40 px-4">
-									<tr>
-										<td colspan={tableColSpan} class="h-1" />
-									</tr>
-									<CatalogTableHeader />
-								</thead>
-								<tbody>
-									{ownedInCatalog.map((e) =>
-										renderCatalogRow(
-											e,
-											holdingsByTicker.get(holdingKey(e.ticker)),
-											{ tickerLinksToDetail },
-										),
-									)}
-								</tbody>
-							</ScrollableTable>
+							{renderCatalogEtfScrollableTable({
+								entries: ownedInCatalog,
+								holdingsByTicker,
+								tickerLinksToDetail,
+							})}
 						</section>
 					</Card>
 				) : null}
 
 				{restOfCatalog.length === 0 && ownedInCatalog.length === 0 ? (
-					<Card class="p-4">
-						<p class="text-sm text-muted-foreground">{t('catalog.noMatch')}</p>
-					</Card>
+					props.totalCatalogCount === 0 ? (
+						<div class="rounded-lg border border-dashed border-border bg-card/60 p-4">
+							<p class="font-medium text-foreground">
+								{t('catalog.empty.title')}
+							</p>
+							<p class="mt-1 text-sm text-muted-foreground">
+								{t('catalog.empty.hint')}
+							</p>
+							{props.isAdmin ? (
+								<p class="mt-3">
+									<Link
+										href={routes.admin.etfImport.href()}
+										rmx-document
+										class="text-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground/90"
+									>
+										{t('catalog.empty.adminImportLink')}
+									</Link>
+								</p>
+							) : null}
+						</div>
+					) : (
+						<Card class="p-4">
+							<p class="text-sm text-muted-foreground">
+								{t('catalog.noMatch')}
+							</p>
+						</Card>
+					)
 				) : restOfCatalog.length > 0 ? (
 					<Card class="min-w-0 p-4">
 						<section>
@@ -237,19 +283,11 @@ export function CatalogListFragment(_handle: Handle, _setup?: unknown) {
 									? t('catalog.section.otherAvailable')
 									: t('catalog.section.available')}
 							</h2>
-							<ScrollableTable wrapperClass="mt-3">
-								<thead class="bg-muted/40">
-									<tr>
-										<td colspan={tableColSpan} class="h-1" />
-									</tr>
-									<CatalogTableHeader />
-								</thead>
-								<tbody>
-									{restOfCatalog.map((e) =>
-										renderCatalogRow(e, undefined, { tickerLinksToDetail }),
-									)}
-								</tbody>
-							</ScrollableTable>
+							{renderCatalogEtfScrollableTable({
+								entries: restOfCatalog,
+								holdingsByTicker,
+								tickerLinksToDetail,
+							})}
 						</section>
 					</Card>
 				) : null}

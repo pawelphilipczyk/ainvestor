@@ -1,4 +1,4 @@
-import type { Handle, RemixNode } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/ui'
 import type { SessionData } from '../../lib/session.ts'
 
 export type SessionContext = { session: SessionData | null }
@@ -13,11 +13,10 @@ type SessionProviderProps = {
  * Use handle.context.get(SessionProvider) to consume.
  */
 export function SessionProvider(
-	handle: Handle<SessionContext>,
-	_setup?: unknown,
+	handle: Handle<SessionProviderProps, SessionContext>,
 ) {
-	return (props: SessionProviderProps) => {
-		handle.context.set({ session: props.session })
-		return props.children
+	return () => {
+		handle.context.set({ session: handle.props.session })
+		return handle.props.children
 	}
 }

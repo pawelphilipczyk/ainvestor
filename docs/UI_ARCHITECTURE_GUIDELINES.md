@@ -111,6 +111,8 @@ Avoid feature-specific JavaScript conventions when a simple shared attribute con
 
 User-visible text should continue to originate from locale keys or server-side helpers, not ad-hoc strings inside client behavior.
 
+New copy must be added under the same key in **`app/locales/en.ts`** and **`app/locales/pl.ts`** (see **UI translations (i18n)** in `AGENTS.md`).
+
 This includes:
 
 - button labels and busy text
@@ -167,9 +169,9 @@ Global CSS should be minimal and primarily support Tailwind.
 
 ## Component Architecture
 
-### JSX Components (Remix `remix/component`)
+### JSX Components (Remix UI runtime)
 
-UI is built with **JSX components** rendered on the server via `remix/component`. Page bodies and the document shell are JSX; `render()` returns `createHtmlResponse(renderToStream(document))`.
+UI is built with **JSX components** rendered on the server via Remix's UI runtime (`remix/ui`, `remix/ui/server`). Page bodies and the document shell are JSX; `render()` returns `createHtmlResponse(renderToStream(document))`.
 
 **Component placement:**
 
@@ -180,7 +182,7 @@ UI is built with **JSX components** rendered on the server via `remix/component`
 
 **Rendering pattern:** Matches the Bookstore demo. The full document is JSX (`DocumentShell` wrapping page body). Controllers call `render({ title, session, currentPage, body: jsx(PageComponent, props) })`, which returns `createHtmlResponse(renderToStream(document))`. Page bodies are passed as JSX children.
 
-**Remix component signature:** Components use `(handle, setup) => (props) => JSX`. Sub-components used only within a page (e.g. `CatalogTableHeader`) are plain functions or constants — not Remix components — to avoid the "must return a render function" requirement.
+**Remix component signature:** Components use stable **`handle.props`** with the `(handle) => () => JSX` render shape; see `docs/REMIX_BETA_MIGRATION_PLAN.md` for the migration history and `AGENTS.md` for the one-props-type-per-boundary rule. Sub-components used only within a page (e.g. `CatalogTableHeader`) are plain functions or constants — not Remix components — to avoid the "must return a render function" requirement.
 
 ### Legacy: Server-Rendered Component Partials (deprecated)
 
@@ -438,21 +440,22 @@ This approach produces a UI that is fast, accessible, framework-independent, and
 
 ## Remix v3 Alignment
 
-This architecture aligns with the packages available in `remix@next`. Key Remix v3 packages relevant to UI work:
+This architecture aligns with the packages available in **`remix@3.0.0-beta.0`**
+(see root `package.json`). Key Remix v3 packages relevant to UI work:
 
 | Package | Role in this architecture |
 |---|---|
 | `remix/response/html` | `createHtmlResponse()` — wraps HTML with proper headers |
 | `remix/response/redirect` | `createRedirectResponse()` — post-form redirect |
 | `remix/static-middleware` | Serve CSS, JS islands, and other static assets |
-| `remix/component` | JSX components for page bodies and shared UI; `clientEntry`, `run()`, and event mixins such as `on()` |
-| `remix/component/server` | `renderToStream()` — full document streamed to response |
+| `remix/ui` | JSX components for page bodies and shared UI; `clientEntry`, `run()`, and event mixins such as `on()` |
+| `remix/ui/server` | `renderToStream()` — full document streamed to response |
 
 **Rendering:** All page bodies and the document shell are JSX. `render()` returns `createHtmlResponse(renderToStream(document))`. See `REMIX_V3_PACKAGES.md` for the component rendering pattern.
 
-### Client updates: Remix `remix/component` patterns (target direction)
+### Client updates: Remix UI runtime patterns (target direction)
 
-The Remix v3 component package documentation ([`packages/component` README](https://github.com/remix-run/remix/blob/main/packages/component/README.md)) describes these defaults for browser behavior:
+The Remix v3 UI runtime documentation ([API docs](https://api.remix.run/) and [`packages/ui` README](https://github.com/remix-run/remix/blob/main/packages/ui/README.md)) describes these defaults for browser behavior:
 
 - **Partial UI without a full document navigation:** use **`<Frame>`** so the client refetches **server-rendered HTML** and the runtime **diffs** it into the page. Client entries inside a frame can call **`handle.frame.reload()`** (and named **`handle.frames.get(…)`** for adjacent regions) so the server stays the source of truth for markup.
 - **Local interactivity in an island:** keep state in the **`clientEntry` setup**, mutate it in event handlers, and call **`handle.update()`** to re-render that component. Use the **`on()`** mixin for element events and **`ref()`** for small, intentional DOM work (focus, measure, scroll)—not for wholesale replacement of large subtrees.

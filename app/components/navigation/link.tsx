@@ -1,4 +1,4 @@
-import type { Handle, RemixNode } from 'remix/component'
+import type { Handle, RemixNode } from 'remix/ui'
 import {
 	busyControlLabelClass,
 	busyControlOverlayClass,
@@ -9,6 +9,8 @@ import {
 type LinkProps = {
 	href: string
 	children: RemixNode
+	/** Passed through to `<a>` for screen readers when link text is not self-explanatory. */
+	'aria-label'?: string
 	/** Root classes on `<a>` (layout, colors, focus). */
 	class?: string
 	/** Optional classes on the label wrapper (e.g. flex + gap for icon + text). */
@@ -23,22 +25,29 @@ type LinkProps = {
 
 /**
  * Anchor with optional full-page navigation loading UX (`data-navigation-loading`).
- * Remix `@remix-run/component` exposes DOM `link` props for `<link>`, not a router `Link`.
+ * Remix `@remix-run/ui` exposes DOM `link` props for `<link>`, not a router `Link`.
  */
-export function Link(_handle: Handle, _setup?: unknown) {
-	return (props: LinkProps) => {
+export function Link(handle: Handle<LinkProps>) {
+	return () => {
 		const {
 			href,
 			children,
+			'aria-label': ariaLabel,
 			class: rootClass,
 			labelClass,
 			navigationLoading,
-		} = props
+		} = handle.props
 		if (navigationLoading === true) {
 			const root = `${busyControlRootStateClasses} ${rootClass ?? ''}`.trim()
 			const label = `${busyControlLabelClass} ${labelClass ?? ''}`.trim()
 			return (
-				<a href={href} data-navigation-loading rmx-document class={root}>
+				<a
+					href={href}
+					data-navigation-loading
+					rmx-document
+					class={root}
+					aria-label={ariaLabel}
+				>
 					<span class={label}>{children}</span>
 					<span class={busyControlOverlayClass} aria-hidden="true">
 						<span class={busyControlSpinnerClass} />
@@ -47,7 +56,7 @@ export function Link(_handle: Handle, _setup?: unknown) {
 			)
 		}
 		return (
-			<a href={href} rmx-document class={rootClass}>
+			<a href={href} rmx-document class={rootClass} aria-label={ariaLabel}>
 				{children}
 			</a>
 		)

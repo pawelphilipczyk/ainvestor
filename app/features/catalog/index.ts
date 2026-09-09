@@ -1,12 +1,13 @@
-import { jsx } from 'remix/component/jsx-runtime'
-import { renderToStream } from 'remix/component/server'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
+import { jsx } from 'remix/ui/jsx-runtime'
+import { renderToStream } from 'remix/ui/server'
 import { render } from '../../components/render.ts'
 import { requestAcceptsApplicationJson } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { format, t } from '../../lib/i18n.ts'
+import { MULTIPART_MAX_FILE_BYTES } from '../../lib/multipart-upload-limits.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
@@ -16,12 +17,13 @@ import {
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import { getOrCreateAdviceClient } from '../advice/advice-client.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceModelId,
-	DEFAULT_ADVICE_MODEL,
+	DEFAULT_CATALOG_ETF_MODEL,
 } from '../advice/advice-openai.ts'
 import {
 	CatalogEtfAnalysisFragment,
@@ -32,11 +34,12 @@ import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { normalizedCatalogFilterPrefs } from './catalog-filter-prefs.ts'
 import { CatalogListFragment } from './catalog-list-fragment.tsx'
 import {
-	catalogCanImport,
+	isAdmin,
 	loadCatalogEtfDetailContext,
 	loadCatalogPageContext,
 } from './catalog-load-context.ts'
 import { CatalogPage } from './catalog-page.tsx'
+import { extractBankApiJsonFromHar } from './har-bank-json-adapter.ts'
 import type { CatalogEntry, CatalogRiskBand } from './lib.ts'
 import {
 	type BankJsonImportRowIssue,
@@ -73,6 +76,8 @@ function formatBankImportRowIssue(issue: BankJsonImportRowIssue): string {
 			return t('errors.catalog.import.issue.missingFundName')
 		case 'isinInvalid':
 			return t('errors.catalog.import.issue.isinInvalid')
+		case 'riskKidOutOfRange':
+			return t('errors.catalog.import.issue.riskKidOutOfRange')
 		case 'duplicateIdInPaste':
 			return format(t('errors.catalog.import.issue.duplicateIdInPaste'), {
 				id: issue.id,
@@ -162,17 +167,18 @@ function catalogImportOutcomeTone(
 }
 
 function parseAdviceModelFromJsonBody(body: unknown): AdviceModelId {
-	if (body === null || typeof body !== 'object') return DEFAULT_ADVICE_MODEL
+	if (body === null || typeof body !== 'object')
+		return DEFAULT_CATALOG_ETF_MODEL
 	const raw = (body as { model?: unknown }).model
-	if (typeof raw !== 'string') return DEFAULT_ADVICE_MODEL
+	if (typeof raw !== 'string') return DEFAULT_CATALOG_ETF_MODEL
 	if ((ADVICE_MODEL_IDS as readonly string[]).includes(raw)) {
 		return raw as AdviceModelId
 	}
-	return DEFAULT_ADVICE_MODEL
+	return DEFAULT_CATALOG_ETF_MODEL
 }
 
-const catalogIndexRedirect = () =>
-	createRedirectResponse(routes.catalog.index.href())
+const adminEtfImportRedirect = () =>
+	createRedirectResponse(routes.admin.etfImport.href())
 
 const CATALOG_ENTRY_ID_PARAM_MAX = 128
 
@@ -198,7 +204,7 @@ function parseOptionalAdviceModelFromUrl(url: string): AdviceModelId {
 	if (raw && (ADVICE_MODEL_IDS as readonly string[]).includes(raw)) {
 		return raw as AdviceModelId
 	}
-	return DEFAULT_ADVICE_MODEL
+	return DEFAULT_CATALOG_ETF_MODEL
 }
 
 function catalogEtfAnalysisFrameSrc(
@@ -208,7 +214,7 @@ function catalogEtfAnalysisFrameSrc(
 	const base = routes.catalog.fragmentEtfAnalysis.href({
 		catalogEntryId: entryId,
 	})
-	if (model === DEFAULT_ADVICE_MODEL) return base
+	if (model === DEFAULT_CATALOG_ETF_MODEL) return base
 	const searchParams = new URLSearchParams({ model })
 	return `${base}?${searchParams.toString()}`
 }
@@ -262,13 +268,12 @@ export const catalogController = {
 				catalog: catalogSnapshot.entries,
 				entries,
 				session: layoutSession,
-				pendingApproval: layoutSession?.approvalStatus === 'pending',
-				canImport: catalogCanImport({
+				isAdmin: isAdmin({
 					session,
 					layoutSession,
 					ownerLogin: catalogSnapshot.ownerLogin,
 				}),
-				sharedCatalogOwnerLogin: catalogSnapshot.ownerLogin,
+				pendingApproval: layoutSession?.approvalStatus === 'pending',
 				typeFilter,
 				riskFilter,
 				query,
@@ -304,6 +309,7 @@ export const catalogController = {
 			if (pendingApproval) {
 				return render({
 					title: format(t('meta.title.catalogEtf'), { name: fundName }),
+					htmlLang: htmlLangForCurrentUiLocale(),
 					session: layoutSession,
 					currentPage: 'catalog',
 					body: jsx(CatalogEtfPage, {
@@ -320,6 +326,7 @@ export const catalogController = {
 
 			return render({
 				title: format(t('meta.title.catalogEtf'), { name: fundName }),
+				htmlLang: htmlLangForCurrentUiLocale(),
 				session: layoutSession,
 				currentPage: 'catalog',
 				body: jsx(CatalogEtfPage, {
@@ -361,7 +368,7 @@ export const catalogController = {
 			}
 
 			const contentType = context.request.headers.get('content-type') ?? ''
-			let model: AdviceModelId = DEFAULT_ADVICE_MODEL
+			let model: AdviceModelId = DEFAULT_CATALOG_ETF_MODEL
 			if (contentType.includes('application/json')) {
 				let jsonBody: unknown
 				try {
@@ -457,7 +464,7 @@ export const catalogController = {
 					})
 				}
 				flashBanner(session, { text, tone })
-				return catalogIndexRedirect()
+				return adminEtfImportRedirect()
 			}
 
 			const sessionData = getSessionData(session)
@@ -473,19 +480,40 @@ export const catalogController = {
 				return importFailureResponse(t('errors.catalog.importNotAllowed'))
 			}
 
-			const rawFromForm = context.get(FormData)?.get('bankApiJson')
-			if (typeof rawFromForm !== 'string') {
-				return importFailureResponse(t('errors.catalog.import.fieldMissing'))
-			}
-			const trimmedJson = rawFromForm.trim()
-			if (trimmedJson.length === 0) {
-				return importFailureResponse(t('errors.catalog.import.emptyJson'))
-			}
+			const form = context.get(FormData)
+			const harUpload = form?.get('bankApiHar')
+
 			let parsedJson: unknown
-			try {
-				parsedJson = JSON.parse(trimmedJson)
-			} catch {
-				return importFailureResponse(t('errors.catalog.import.invalidJson'))
+
+			if (harUpload instanceof File && harUpload.size > 0) {
+				if (harUpload.size > MULTIPART_MAX_FILE_BYTES) {
+					return importFailureResponse(t('errors.upload.fileTooLarge'))
+				}
+				let harRoot: unknown
+				try {
+					harRoot = JSON.parse(await harUpload.text())
+				} catch {
+					return importFailureResponse(t('errors.catalog.import.invalidHar'))
+				}
+				const extracted = extractBankApiJsonFromHar(harRoot)
+				if (!extracted.ok) {
+					return importFailureResponse(t('errors.catalog.import.invalidHar'))
+				}
+				parsedJson = extracted.payload
+			} else {
+				const rawFromForm = form?.get('bankApiJson')
+				if (typeof rawFromForm !== 'string') {
+					return importFailureResponse(t('errors.catalog.import.fieldMissing'))
+				}
+				const trimmedJson = rawFromForm.trim()
+				if (trimmedJson.length === 0) {
+					return importFailureResponse(t('errors.catalog.import.emptyJson'))
+				}
+				try {
+					parsedJson = JSON.parse(trimmedJson)
+				} catch {
+					return importFailureResponse(t('errors.catalog.import.invalidJson'))
+				}
 			}
 
 			const parseResult = parseBankJsonForImport(parsedJson, entries)
@@ -555,7 +583,7 @@ export const catalogController = {
 				tone: successTone,
 			})
 
-			return createRedirectResponse(routes.catalog.index.href())
+			return adminEtfImportRedirect()
 		},
 
 		async fragmentList(context: AppRequestContext) {
@@ -571,8 +599,7 @@ export const catalogController = {
 			})
 
 			const load = await loadCatalogPageContext(context)
-			const { catalogSnapshot, entries } = load
-			const layoutSession = getLayoutSession(context.get(Session))
+			const { catalogSnapshot, entries, session, layoutSession } = load
 			const pendingApproval = layoutSession?.approvalStatus === 'pending'
 
 			return createHtmlResponse(
@@ -584,6 +611,11 @@ export const catalogController = {
 						riskFilter,
 						query,
 						totalCatalogCount: catalogSnapshot.entries.length,
+						isAdmin: isAdmin({
+							session,
+							layoutSession,
+							ownerLogin: catalogSnapshot.ownerLogin,
+						}),
 						pendingApproval,
 					}),
 				),
@@ -614,9 +646,8 @@ async function renderCatalogPage(params: {
 	catalog: CatalogEntry[]
 	entries: EtfEntry[]
 	session: SessionData | null
+	isAdmin: boolean
 	pendingApproval?: boolean
-	canImport: boolean
-	sharedCatalogOwnerLogin: string | null
 	typeFilter: string
 	riskFilter: '' | CatalogRiskBand
 	query: string
@@ -626,9 +657,8 @@ async function renderCatalogPage(params: {
 		catalog,
 		entries,
 		session,
+		isAdmin,
 		pendingApproval,
-		canImport,
-		sharedCatalogOwnerLogin,
 		typeFilter,
 		riskFilter,
 		query,
@@ -637,15 +667,14 @@ async function renderCatalogPage(params: {
 	const frameSrc = catalogListFrameSrc({ typeFilter, riskFilter, query })
 	const body = jsx(CatalogPage, {
 		catalogCount: catalog.length,
-		canImport,
 		typeFilter,
 		riskFilter,
 		query,
-		sharedCatalogOwnerLogin,
 		catalogListFrameSrc: frameSrc,
 	})
 	return render({
 		title: t('meta.title.catalog'),
+		htmlLang: htmlLangForCurrentUiLocale(),
 		session,
 		currentPage: 'catalog',
 		body,
@@ -660,6 +689,7 @@ async function renderCatalogPage(params: {
 						riskFilter,
 						query,
 						totalCatalogCount: catalog.length,
+						isAdmin,
 						pendingApproval,
 					}),
 				)

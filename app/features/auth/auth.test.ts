@@ -36,7 +36,13 @@ describe('GitHub OAuth routes', () => {
 
 		assert.equal(response.status, 302)
 		assert.equal(response.headers.get('location'), '/')
-		const cookie = response.headers.get('set-cookie') ?? ''
-		assert.ok(cookie.includes('session=;') || cookie.includes('Max-Age=0'))
+		const setCookies = response.headers.getSetCookie?.() ?? []
+		const joined =
+			setCookies.length > 0
+				? setCookies.join('\n')
+				: (response.headers.get('set-cookie') ?? '')
+		assert.ok(joined.includes('session=;') || joined.includes('Max-Age=0'))
+		// Remix cookie encoding does not use a raw `=en` suffix (value is encoded).
+		assert.match(joined, /ui_locale=/i)
 	})
 })

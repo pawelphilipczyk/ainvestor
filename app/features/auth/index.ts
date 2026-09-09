@@ -4,7 +4,11 @@ import { Session } from 'remix/session'
 import { isGithubLoginApproved } from '../../lib/approved-users.ts'
 import { getClientId, getClientSecret } from '../../lib/auth.ts'
 import { findOrCreateGist } from '../../lib/gist.ts'
+import { t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
+import { flashBanner } from '../../lib/session-flash.ts'
+import { DEFAULT_UI_LOCALE } from '../../lib/ui-locale.ts'
+import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
 import { routes } from '../../routes.ts'
 import {
 	fetchSharedCatalogSnapshot,
@@ -123,36 +127,59 @@ export const authController = {
 
 			context.get(Session).regenerateId()
 			context.get(Session).set('login', login)
-			let sharedCatalogAdmin = false
+			let isAdmin = false
 			try {
 				const sharedCatalogSnapshot = await fetchSharedCatalogSnapshot()
-				sharedCatalogAdmin = isSharedCatalogAdmin({
+				isAdmin = isSharedCatalogAdmin({
 					sessionLogin: login,
 					ownerLogin: sharedCatalogSnapshot.ownerLogin,
 				})
 			} catch (error) {
 				console.error('[auth] Shared catalog lookup failed', error)
 			}
-			context.get(Session).set('sharedCatalogAdmin', sharedCatalogAdmin)
 
-			if (!sharedCatalogAdmin && !isGithubLoginApproved(login)) {
+			if (!isAdmin && !isGithubLoginApproved(login)) {
 				context.get(Session).unset('token')
 				context.get(Session).unset('gistId')
 				context.get(Session).set('approvalStatus', 'pending')
 				return createRedirectResponse(routes.home.index.href())
 			}
 
-			const gistId = await findOrCreateGist(token)
+			context.get(Session).set('isAdmin', isAdmin)
+
+			// Resolving the gist now sweeps every page of the user's gists and can
+			// fail on a huge account or a GitHub hiccup. An unhandled rejection
+			// here would end a successful sign-in on a bare 500, so sign the user
+			// in regardless and let the page report the storage problem.
+			let gistId: string | null = null
+			try {
+				gistId = await findOrCreateGist(token)
+			} catch (error) {
+				console.error('[auth] Could not resolve the data gist', error)
+			}
+
 			context.get(Session).set('token', token)
-			context.get(Session).set('gistId', gistId)
+			if (gistId !== null) context.get(Session).set('gistId', gistId)
 			context.get(Session).unset('approvalStatus')
+
+			if (gistId === null) {
+				flashBanner(context.get(Session), {
+					text: t('errors.portfolio.persistence'),
+					tone: 'error',
+				})
+			}
 
 			return createRedirectResponse(routes.home.index.href())
 		},
 
-		logout(context: AppRequestContext) {
+		async logout(context: AppRequestContext) {
 			context.get(Session).destroy()
-			return createRedirectResponse(routes.home.index.href())
+			const headers = new Headers()
+			headers.append(
+				'Set-Cookie',
+				await uiLocaleCookie.serialize(DEFAULT_UI_LOCALE),
+			)
+			return createRedirectResponse(routes.home.index.href(), { headers })
 		},
 	},
 }

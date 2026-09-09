@@ -1,4 +1,4 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/component'
+import { addEventListeners, clientEntry, createElement } from 'remix/ui'
 
 /**
  * Holding row actions: scroll to the trade form and set operation + fund.

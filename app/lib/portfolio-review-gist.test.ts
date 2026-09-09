@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
+import { DEFAULT_ADVICE_MODEL } from '../features/advice/advice-openai.ts'
 import {
 	buildClearPortfolioReviewGistPatch,
 	PORTFOLIO_REVIEW_FILENAME,
@@ -20,14 +21,14 @@ describe('portfolio-review-gist', () => {
 			files: {
 				[PORTFOLIO_REVIEW_FILENAME]: {
 					content: JSON.stringify({
-						model: 'gpt-5.4-mini',
+						model: 'gpt-5.6-sol',
 						advice,
 					}),
 				},
 			},
 		})
 		assert.ok(stored)
-		assert.equal(stored.model, 'gpt-5.4-mini')
+		assert.equal(stored.model, 'gpt-5.6-sol')
 		assert.deepEqual(stored.advice, advice)
 	})
 
@@ -43,7 +44,7 @@ describe('portfolio-review-gist', () => {
 			},
 		})
 		assert.ok(stored)
-		assert.equal(stored.model, 'gpt-5.4-mini')
+		assert.equal(stored.model, DEFAULT_ADVICE_MODEL)
 		assert.deepEqual(stored.advice, advice)
 	})
 

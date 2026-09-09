@@ -1,11 +1,11 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import {
 	textNumberControlCompactClasses,
 	textNumberControlDefaultClasses,
 } from './form-control-classes.ts'
 
 /** Mirrors common `<input>` attributes (see MDN); `compact` is layout-only. */
-type TextInputProps = {
+export type TextInputProps = {
 	id: string
 	name: string
 	placeholder?: string
@@ -25,8 +25,8 @@ type TextInputProps = {
 /**
  * Server-rendered text or search input (label is composed separately).
  */
-export function TextInput(_handle: Handle, _setup?: unknown) {
-	return (props: TextInputProps) => {
+export function TextInput(handle: Handle<TextInputProps>) {
+	return () => {
 		const {
 			type: typeProp,
 			compact: compactProp,
@@ -41,7 +41,7 @@ export function TextInput(_handle: Handle, _setup?: unknown) {
 			defaultValue,
 			form,
 			readOnly,
-		} = props
+		} = handle.props
 		const inputType = typeProp ?? 'text'
 		const sizeClasses = compactProp
 			? textNumberControlCompactClasses

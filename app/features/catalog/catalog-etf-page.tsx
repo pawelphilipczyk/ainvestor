@@ -1,4 +1,4 @@
-import { Frame, type Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/ui'
 import { Card } from '../../components/data-display/card.tsx'
 import { SubmitButton } from '../../components/forms/submit-button.tsx'
 import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
@@ -29,8 +29,9 @@ function formatOptionalPercent(value: number): string {
 	}).format(value)}%`
 }
 
-export function CatalogEtfPage(_handle: Handle, _setup?: unknown) {
-	return (props: CatalogEtfPageProps) => {
+export function CatalogEtfPage(handle: Handle<CatalogEtfPageProps>) {
+	return () => {
+		const props = handle.props
 		const { entry } = props
 		const typeLabel =
 			formatEtfTypeLabel(entry.type) || t('catalog.etfTypeUnknown')

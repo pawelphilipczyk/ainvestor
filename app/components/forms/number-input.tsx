@@ -1,4 +1,4 @@
-import type { Handle, Props } from 'remix/component'
+import type { Handle, Props } from 'remix/ui'
 import {
 	textNumberControlCompactClasses,
 	textNumberControlDefaultClasses,
@@ -14,6 +14,12 @@ function defaultPatternForInputMode(mode: string): string {
 		: DEFAULT_PATTERN_FOR_INPUTMODE_DECIMAL_LIKE
 }
 
+export type NumberInputProps = Omit<Props<'input'>, 'class'> & {
+	class?: string
+	/** Layout density; matches {@link TextInput} `compact`. */
+	compact?: boolean
+}
+
 /**
  * Server-rendered number field (label is composed separately).
  * Forwards native `<input>` props; defaults `type="number"` with `min={0}` and `step="any"`.
@@ -21,14 +27,8 @@ function defaultPatternForInputMode(mode: string): string {
  *
  * Spreads use a cast: Remix `Props<'input'>` is a discriminated union (e.g. `list` with combobox), so a generic rest bag does not narrow for TS.
  */
-export function NumberInput(_handle: Handle, _setup?: unknown) {
-	return (
-		props: Omit<Props<'input'>, 'class'> & {
-			class?: string
-			/** Layout density; matches {@link TextInput} `compact`. */
-			compact?: boolean
-		},
-	) => {
+export function NumberInput(handle: Handle<NumberInputProps>) {
+	return () => {
 		const {
 			type: typeProp,
 			min = 0,
@@ -41,7 +41,7 @@ export function NumberInput(_handle: Handle, _setup?: unknown) {
 			inputmode,
 			pattern: patternProp,
 			...rest
-		} = props
+		} = handle.props
 		const sizeClasses = compactProp
 			? textNumberControlCompactClasses
 			: textNumberControlDefaultClasses

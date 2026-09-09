@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import {
 	Card,
 	FieldLabel,
@@ -11,7 +11,7 @@ import { routes } from '../../../routes.ts'
 /**
  * CSV import form: paste and/or file upload, progressive enhancement for list fragment.
  */
-export function ImportEtfForm(_handle: Handle, _setup?: unknown) {
+export function ImportEtfForm(_handle: Handle<Record<string, never>>) {
 	return () => (
 		<Card
 			variant="muted"

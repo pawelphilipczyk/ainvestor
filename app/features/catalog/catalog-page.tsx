@@ -1,18 +1,20 @@
-import { Frame, type Handle } from 'remix/component'
+import { Frame, type Handle } from 'remix/ui'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import {
 	Card,
 	FieldLabel,
 	SelectInput,
 	SubmitButton,
-	TextareaInput,
 	TextInput,
 } from '../../components/index.ts'
 import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
-import { SessionProvider } from '../../components/layout/session-provider.tsx'
+import {
+	type SessionContext,
+	SessionProvider,
+} from '../../components/layout/session-provider.tsx'
 import { ETF_TYPES, formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
-import { SECTION_INTROS } from '../../lib/section-intros.ts'
+import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 // @ts-expect-error Runtime-only remix clientEntry (scoped to this page)
@@ -21,18 +23,18 @@ import type { CatalogRiskBand } from './lib.ts'
 
 type CatalogPageProps = {
 	catalogCount: number
-	canImport: boolean
 	typeFilter: string
 	riskFilter: '' | CatalogRiskBand
 	query: string
-	sharedCatalogOwnerLogin: string | null
 	catalogListFrameSrc: string
 }
 
-export function CatalogPage(handle: Handle, _setup?: unknown) {
-	return (props: CatalogPageProps) => {
+export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
+	return () => {
+		const props = handle.props
 		const session = handle.context.get(SessionProvider)?.session ?? null
 
+		const catalogIntro = getSectionIntro('catalog')
 		return (
 			<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
 				<CatalogFilterPrefsEnhancement
@@ -41,8 +43,8 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 				<SectionIntroCard
 					page="catalog"
 					variant="page"
-					title={SECTION_INTROS.catalog.title}
-					description={SECTION_INTROS.catalog.description}
+					title={catalogIntro.title}
+					description={catalogIntro.description}
 				>
 					<p class="mt-0.5 text-xs text-muted-foreground">
 						{t('catalog.sharedSource')}
@@ -53,58 +55,6 @@ export function CatalogPage(handle: Handle, _setup?: unknown) {
 						</p>
 					) : null}
 				</SectionIntroCard>
-
-				{props.canImport ? (
-					<Card variant="muted" class="p-4">
-						<section>
-							<h2 class="text-base font-semibold tracking-tight text-card-foreground">
-								{t('catalog.import.title')}
-							</h2>
-							<p class="mt-0.5 text-xs text-muted-foreground">
-								{t('catalog.import.subtitle')}
-							</p>
-							{props.sharedCatalogOwnerLogin ? (
-								<p class="mt-2 text-xs text-muted-foreground">
-									{t('catalog.import.ownerActive')}
-								</p>
-							) : null}
-							<form
-								method="post"
-								action={routes.catalog.import.href()}
-								class="mt-3 grid max-w-xl gap-3"
-								data-frame-submit="catalog-list"
-								data-error-id="catalog-import-error"
-								data-reset-form
-							>
-								<div
-									id="catalog-import-error"
-									class="hidden whitespace-pre-wrap rounded-md border border-border border-l-4 border-l-destructive bg-card px-4 py-3 text-sm text-foreground shadow-sm"
-									role="alert"
-								></div>
-								<FieldLabel fieldId="pasteZone" variant="screenReader">
-									{t('catalog.import.pasteLabel.screenReader')}
-								</FieldLabel>
-								<TextareaInput
-									id="pasteZone"
-									name="bankApiJson"
-									placeholder={t('catalog.import.pastePlaceholder')}
-									rows={3}
-									required={true}
-									class="block w-full max-w-xl"
-								/>
-								<SubmitButton>{t('catalog.import.submit')}</SubmitButton>
-							</form>
-							{props.catalogCount === 0 ? (
-								<div class="mt-4 rounded-lg border border-dashed border-border bg-card/60 p-4 text-sm text-muted-foreground">
-									<p class="font-medium text-foreground">
-										{t('catalog.empty.title')}
-									</p>
-									<p class="mt-1">{t('catalog.empty.hint')}</p>
-								</div>
-							) : null}
-						</section>
-					</Card>
-				) : null}
 
 				{props.catalogCount > 0 ? (
 					<Card variant="muted" class="p-4">

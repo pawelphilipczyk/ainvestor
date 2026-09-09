@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import {
 	FieldLabel,
 	NumberInput,
@@ -17,8 +17,11 @@ type PortfolioOperationFormProps = {
 /**
  * Portfolio buy/sell as a single form: operation, fund, value, currency, then Apply.
  */
-export function PortfolioOperationForm(_handle: Handle, _setup?: unknown) {
-	return (props: PortfolioOperationFormProps) => {
+export function PortfolioOperationForm(
+	handle: Handle<PortfolioOperationFormProps>,
+) {
+	return () => {
+		const props = handle.props
 		const instrumentPlaceholder =
 			props.instrumentOptions.length === 0
 				? t('forms.catalog.emptyPlaceholder')

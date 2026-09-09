@@ -1,8 +1,8 @@
-import type { RemixNode } from 'remix/component'
-import { jsx } from 'remix/component/jsx-runtime'
-import type { RenderToStreamOptions } from 'remix/component/server'
-import { renderToStream } from 'remix/component/server'
 import { createHtmlResponse } from 'remix/response/html'
+import type { RemixNode } from 'remix/ui'
+import { jsx } from 'remix/ui/jsx-runtime'
+import type { RenderToStreamOptions } from 'remix/ui/server'
+import { renderToStream } from 'remix/ui/server'
 import type { AppPage } from '../lib/app-page.ts'
 import type { SessionData } from '../lib/session.ts'
 import type { FlashedBanner } from '../lib/session-flash.ts'
@@ -10,6 +10,7 @@ import { DocumentShell } from './layout/document-shell.tsx'
 
 export type RenderOptions = {
 	title: string
+	htmlLang: string
 	session: SessionData | null
 	currentPage: AppPage
 	body: RemixNode
@@ -27,6 +28,7 @@ export type RenderOptions = {
 export async function render(options: RenderOptions): Promise<Response> {
 	const document = jsx(DocumentShell, {
 		title: options.title,
+		htmlLang: options.htmlLang,
 		session: options.session,
 		currentPage: options.currentPage,
 		flashBanner: options.flashBanner,

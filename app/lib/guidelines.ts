@@ -1,29 +1,19 @@
 import { ETF_TYPE_LABELS } from '../locales/en.ts'
+import { ETF_TYPE_LABELS_PL } from '../locales/pl.ts'
+import type { EtfType } from './etf-type.ts'
+import { ETF_TYPES } from './etf-type.ts'
 import { t } from './i18n.ts'
 import { takePrivateGistFetchTestGuidelines } from './private-gist-fetch-test-overlay.ts'
+import { getUiLocale } from './ui-locale.ts'
 
 export const GUIDELINES_FILENAME = 'guidelines.json'
 
-export type EtfType =
-	| 'equity'
-	| 'bond'
-	| 'real_estate'
-	| 'commodity'
-	| 'mixed'
-	| 'money_market'
-
-export const ETF_TYPES = [
-	'equity',
-	'bond',
-	'real_estate',
-	'commodity',
-	'mixed',
-	'money_market',
-] as const satisfies readonly EtfType[]
-
-/** Human-readable ETF category label (locale-backed; default English). */
+export type { EtfType } from './etf-type.ts'
+export { ETF_TYPES } from './etf-type.ts'
+/** Human-readable ETF category label for persisted `EtfType` keys (UI locale, not broker data). */
 export function formatEtfTypeLabel(etfType: EtfType): string {
-	const label = ETF_TYPE_LABELS[etfType]
+	const labels = getUiLocale() === 'pl' ? ETF_TYPE_LABELS_PL : ETF_TYPE_LABELS
+	const label = labels[etfType]
 	if (typeof label === 'string' && label.length > 0) {
 		return label
 	}
@@ -45,6 +35,14 @@ export type EtfGuideline = {
 	targetPct: number
 	etfType: EtfType
 }
+
+/**
+ * Bounds for one guideline's `targetPct`, shared by every entry point that
+ * accepts a target — the web form's schema and the MCP write tool — so the two
+ * cannot drift into accepting different numbers.
+ */
+export const GUIDELINE_TARGET_PERCENT_MIN = 0.001
+export const GUIDELINE_TARGET_PERCENT_MAX = 100
 
 const GUIDELINE_TOTAL_EPS = 1e-9
 
@@ -196,30 +194,88 @@ function githubHeaders(token: string): HeadersInit {
 	}
 }
 
-/** Fetch guidelines from an existing gist by ID. */
+type GuidelinesGistReadResult =
+	| { ok: true; guidelines: EtfGuideline[] }
+	| { ok: false; status: number }
+
+async function readGuidelinesGist(
+	token: string,
+	gistId: string,
+): Promise<GuidelinesGistReadResult> {
+	const testRows = takePrivateGistFetchTestGuidelines(token, gistId)
+	if (testRows !== null) return { ok: true, guidelines: testRows }
+	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
+		headers: githubHeaders(token),
+	})
+	if (!response.ok) return { ok: false, status: response.status }
+	const gist = (await response.json()) as GistPayload
+	return { ok: true, guidelines: parseGuidelinesFromGist(gist) }
+}
+
+/**
+ * Fetch guidelines from an existing gist by ID, failing loudly when GitHub
+ * rejects the read.
+ *
+ * Use this wherever an empty list and an unreachable gist must not look alike —
+ * a read-modify-write above all, where mistaking a rejected read for "no
+ * guidelines" would save a list that silently drops every existing row.
+ */
+export async function fetchGuidelinesOrThrow(
+	token: string,
+	gistId: string,
+): Promise<EtfGuideline[]> {
+	const result = await readGuidelinesGist(token, gistId)
+	if (!result.ok) {
+		throw new Error(
+			`GitHub API error fetching guidelines gist: ${result.status}`,
+		)
+	}
+	return result.guidelines
+}
+
+/**
+ * Fetch guidelines for a read-only view, where a rejected read shows as an empty
+ * list so the page still renders. Never build a list you then save from this.
+ */
 export async function fetchGuidelines(
 	token: string,
 	gistId: string,
 ): Promise<EtfGuideline[]> {
-	const testRows = takePrivateGistFetchTestGuidelines(token, gistId)
-	if (testRows !== null) return testRows
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		headers: githubHeaders(token),
-	})
-	if (!response.ok) return []
-	const gist = (await response.json()) as GistPayload
-	return parseGuidelinesFromGist(gist)
+	const result = await readGuidelinesGist(token, gistId)
+	return result.ok ? result.guidelines : []
 }
 
-/** Save guidelines to an existing gist by ID. */
+async function writeGuidelinesGist(params: {
+	token: string
+	gistId: string
+	guidelines: EtfGuideline[]
+}): Promise<Response> {
+	return fetch(`${GITHUB_API}/gists/${params.gistId}`, {
+		method: 'PATCH',
+		headers: githubHeaders(params.token),
+		body: JSON.stringify(buildGuidelinesGistPatch(params.guidelines)),
+	})
+}
+
+/** Save guidelines to an existing gist by ID, failing loudly when GitHub rejects the write. */
+export async function saveGuidelinesOrThrow(
+	token: string,
+	gistId: string,
+	guidelines: EtfGuideline[],
+): Promise<void> {
+	const response = await writeGuidelinesGist({ token, gistId, guidelines })
+	if (!response.ok) {
+		throw new Error(
+			`GitHub API error saving guidelines gist: ${response.status}`,
+		)
+	}
+}
+
+/** Save guidelines, ignoring a rejected write (the web app's long-standing behaviour). */
 export async function saveGuidelines(
 	token: string,
 	gistId: string,
 	guidelines: EtfGuideline[],
 ): Promise<void> {
-	await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		method: 'PATCH',
-		headers: githubHeaders(token),
-		body: JSON.stringify(buildGuidelinesGistPatch(guidelines)),
-	})
+	await writeGuidelinesGist({ token, gistId, guidelines })
 }

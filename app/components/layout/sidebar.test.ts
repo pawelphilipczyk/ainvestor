@@ -3,8 +3,8 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { jsx } from 'remix/component/jsx-runtime'
-import { renderToString } from 'remix/component/server'
+import { jsx } from 'remix/ui/jsx-runtime'
+import { renderToString } from 'remix/ui/server'
 import type { AppPage } from '../../lib/app-page.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { router } from '../../router.ts'
@@ -45,6 +45,41 @@ describe('sidebar component', () => {
 		assert.match(result, /href="\/advice"/)
 		assert.match(result, /href="\/catalog"/)
 		assert.match(result, /href="\/guidelines"/)
+		assert.doesNotMatch(result, /href="\/admin\/etf-import"/)
+	})
+
+	it('Sidebar renders Admin in the lower navigation group for admins', async () => {
+		const result = await renderSidebarWithSession(
+			getNavLinks({ isAdmin: true }),
+			'admin',
+			{
+				login: 'catalog-admin',
+				token: 'tok',
+				gistId: 'gist-1',
+				isAdmin: true,
+			},
+		)
+
+		assert.match(
+			result,
+			/<div[^>]*data-sidebar-secondary-nav[^>]*>[\s\S]*href="\/admin\/etf-import"[\s\S]*<\/div>/,
+		)
+		assert.match(result, /aria-current="page"[^>]*>Admin/)
+	})
+
+	it('Sidebar hides Admin for signed-in non-admin users', async () => {
+		const result = await renderSidebarWithSession(
+			getNavLinks({ isAdmin: false }),
+			'portfolio',
+			{
+				login: 'alice',
+				token: 'tok',
+				gistId: 'gist-1',
+			},
+		)
+
+		assert.doesNotMatch(result, /href="\/admin\/etf-import"/)
+		assert.doesNotMatch(result, />Admin</)
 	})
 
 	it('Sidebar is pinned open at md breakpoint and backdrop is overlay-only below md', async () => {
@@ -103,24 +138,50 @@ describe('sidebar component', () => {
 	})
 })
 
-describe('remix component runtime in document', () => {
+describe('remix ui runtime in document', () => {
 	it('body no longer uses legacy data-island activation attributes', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 		assert.doesNotMatch(body, /data-island=/)
 	})
 
-	it('document includes import map for remix component runtime', async () => {
+	it('document includes import map for remix ui runtime', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /"remix\/component":\s*"\/remix\/dist\/component\.js"/)
+		assert.match(body, /"remix\/ui":\s*"\/remix\/dist\/ui\.js"/)
 		assert.match(
 			body,
-			/"@remix-run\/component":\s*"\/@remix-run\/component\/dist\/index\.js"/,
+			/"remix\/ui\/scroll-lock":\s*"\/remix\/dist\/ui\/scroll-lock\.js"/,
+		)
+		assert.match(
+			body,
+			/"@remix-run\/ui":\s*"\/@remix-run\/ui\/dist\/index\.js"/,
+		)
+		assert.match(
+			body,
+			/"@remix-run\/ui\/scroll-lock":\s*"\/@remix-run\/ui\/dist\/utils\/scroll-lock\.js"/,
 		)
 	})
 
-	it('document loads entry.js to boot remix component runtime', async () => {
+	it('GET /remix/dist/ui/scroll-lock.js is served for client sidebar imports', async () => {
+		const response = await router.fetch(
+			'http://localhost/remix/dist/ui/scroll-lock.js',
+		)
+		assert.equal(response.status, 200)
+		const body = await response.text()
+		assert.match(body, /@remix-run\/ui\/scroll-lock/)
+	})
+
+	it('GET /@remix-run/ui/dist/utils/scroll-lock.js is served for nested imports', async () => {
+		const response = await router.fetch(
+			'http://localhost/@remix-run/ui/dist/utils/scroll-lock.js',
+		)
+		assert.equal(response.status, 200)
+		const body = await response.text()
+		assert.match(body, /lockScroll/)
+	})
+
+	it('document loads entry.js to boot remix ui runtime', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
 		assert.match(body, /<script[^>]*type="module"[^>]*src="\/entry\.js"/)
@@ -135,7 +196,7 @@ describe('remix component runtime in document', () => {
 		const response = await router.fetch('http://localhost/entry.js')
 		assert.equal(response.status, 200)
 		const body = await response.text()
-		assert.match(body, /import \{ run \} from 'remix\/component'/)
+		assert.match(body, /import \{ run \} from 'remix\/ui'/)
 		assert.match(body, /run\(\{/)
 		assert.match(body, /resolveFrame/)
 		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
@@ -164,9 +225,18 @@ describe('sidebar component entry static file', () => {
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
-		assert.match(body, /from 'remix\/component'/)
+		assert.match(body, /from 'remix\/ui'/)
 		assert.match(body, /addEventListeners/)
 		assert.match(body, /handle\.signal/)
 		assert.match(body, /addEventListeners\(doc, handle\.signal/)
+	})
+
+	it('sidebar component entry uses remix scroll lock for mobile overlay', async () => {
+		const response = await router.fetch(
+			'http://localhost/components/layout/sidebar.component.js',
+		)
+		const body = await response.text()
+		assert.match(body, /from 'remix\/ui\/scroll-lock'/)
+		assert.match(body, /lockScroll/)
 	})
 })

@@ -3,7 +3,7 @@ import {
 	clientEntry,
 	createElement,
 	navigate,
-} from 'remix/component'
+} from 'remix/ui'
 import { setSubmitButtonLoading } from './submit-button-loading.component.js'
 
 const CLIENT_MESSAGES_ID = 'ui-client-messages'
@@ -95,6 +95,23 @@ async function navigateDocumentUrl(href, history = 'push') {
 		)
 	}
 	await navigate(href, { history })
+}
+
+/**
+ * Remix frame `replace()` reconciles against live DOM state and treats `<dialog>.open`
+ * as a preserved attribute when it differs from the server HTML. A `showModal()`
+ * dialog therefore stays open across the swap. Close every open native dialog
+ * before applying response HTML so list deletes (and similar) do not leave a
+ * stuck top-layer modal.
+ *
+ * @param {Document} document
+ */
+function closeAllOpenHtmlDialogs(document) {
+	for (const element of document.querySelectorAll('dialog')) {
+		if (element instanceof HTMLDialogElement && element.open) {
+			element.close()
+		}
+	}
 }
 
 /**
@@ -269,6 +286,7 @@ export const FrameSubmitEnhancement = clientEntry(
 								const html = await response.text()
 								const frameHandle = handle.frames.get(frameName)
 								if (frameHandle) {
+									closeAllOpenHtmlDialogs(document)
 									await frameHandle.replace(html)
 									const hideFormOnSuccess =
 										form.dataset.frameHideFormOnSuccess === '1' ||

@@ -91,4 +91,18 @@ describe('approved-users', () => {
 		assert.equal(session.get('gistId'), undefined)
 		assert.equal(session.get('approvalStatus'), 'pending')
 	})
+
+	it('stripGithubTokenIfUnapproved leaves admin session when login is not on allowlist', () => {
+		delete process.env.APPROVED_GITHUB_LOGINS
+		const session = createSession()
+		session.set('login', 'anyone')
+		session.set('token', 'secret')
+		session.set('gistId', 'gist1')
+		session.set('isAdmin', true)
+		stripGithubTokenIfUnapproved(session)
+		assert.equal(session.get('token'), 'secret')
+		assert.equal(session.get('gistId'), 'gist1')
+		assert.equal(session.get('isAdmin'), true)
+		assert.equal(session.get('approvalStatus'), undefined)
+	})
 })

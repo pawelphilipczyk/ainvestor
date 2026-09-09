@@ -1,13 +1,13 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import { getNavLinks } from '../../components/layout/sidebar-nav.ts'
 import { t } from '../../lib/i18n.ts'
-import { SECTION_INTROS } from '../../lib/section-intros.ts'
+import { getSectionIntro } from '../../lib/section-intros.ts'
 
 /**
  * Landing page: large card links to each main section of the app.
  */
-export function IntroPage(_handle: Handle, _setup?: unknown) {
+export function IntroPage(_handle: Handle<Record<string, never>>) {
 	return () => (
 		<main class="mx-auto w-full min-w-0 max-w-4xl">
 			<header class="mb-8">
@@ -19,20 +19,22 @@ export function IntroPage(_handle: Handle, _setup?: unknown) {
 				</p>
 			</header>
 			<ul class="grid list-none gap-4 p-0 sm:grid-cols-2">
-				{getNavLinks().map((link) => {
-					const intro = SECTION_INTROS[link.page]
-					return (
-						<li key={link.page}>
-							<SectionIntroCard
-								page={link.page}
-								variant="home-link"
-								href={link.href}
-								title={intro.title}
-								description={intro.description}
-							/>
-						</li>
-					)
-				})}
+				{getNavLinks()
+					.filter((link) => link.placement === 'primary')
+					.map((link) => {
+						const intro = getSectionIntro(link.page)
+						return (
+							<li key={link.page}>
+								<SectionIntroCard
+									page={link.page}
+									variant="home-link"
+									href={link.href}
+									title={intro.title}
+									description={intro.description}
+								/>
+							</li>
+						)
+					})}
 			</ul>
 		</main>
 	)

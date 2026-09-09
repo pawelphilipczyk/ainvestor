@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import { Card } from '../../../components/index.ts'
 import { formatValue } from '../../../lib/format.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
@@ -25,16 +25,19 @@ function instrumentTickerForPortfolioTradeForm(
 	return entry.ticker ?? entry.name
 }
 
+export type ListFragmentProps = {
+	entries?: EtfEntry[]
+	inlineError?: string
+	catalog?: CatalogEntry[]
+}
+
 /**
  * Renders the ETF list as HTML fragment for progressive enhancement.
  * Used by GET /fragments/portfolio-list for fetch-based form updates.
  */
-export function ListFragment(_handle: Handle, _setup?: unknown) {
-	return (props: {
-		entries?: EtfEntry[]
-		inlineError?: string
-		catalog?: CatalogEntry[]
-	}) => {
+export function ListFragment(handle: Handle<ListFragmentProps>) {
+	return () => {
+		const props = handle.props
 		const entries = props.entries ?? []
 		const catalog = props.catalog ?? []
 		const showRowTradeActions = catalog.length > 0

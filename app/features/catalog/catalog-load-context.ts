@@ -58,7 +58,7 @@ export async function loadCatalogPageContext(
 	return { catalogSnapshot, entries, session, layoutSession }
 }
 
-export function catalogCanImport(params: {
+export function isAdmin(params: {
 	session: CatalogPageLoadContext['session']
 	layoutSession: SessionData | null
 	ownerLogin: string | null

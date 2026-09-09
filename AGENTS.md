@@ -7,6 +7,11 @@ This repository uses a server-first UI architecture. Before making UI-related ch
 Before making Remix framework changes, read:
 
 - `docs/REMIX_V3_PACKAGES.md`
+- `docs/REMIX_BETA_MIGRATION_PLAN.md` when planning or performing Remix beta upgrades
+
+Before working on the MCP server, read:
+
+- `docs/MCP_SERVER_PLAN.md`
 
 Before writing any JS/TS/CSS code, read:
 
@@ -32,17 +37,28 @@ When the **first message in a thread** asks for a **code change** (feature, fix,
 - The change is **trivial** (for example a one-line fix or a rename with obvious scope).
 - You are **continuing** an existing thread where the plan was already set in a prior message.
 
+## Before merging
+
+Before merging a PR, do a final check that:
+
+1. The **PR description** still accurately reflects the current diff (not just what was planned at the start).
+2. Any **docs referenced or touched by the change** (`README.md`, `AGENTS.md`, files under `docs/`) are still accurate given the final state of the changes.
+
+If either is stale, update it before the merge rather than after.
+
 ## UI translations (i18n)
 
-User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed by dot-separated paths (for example `nav.portfolio`, `portfolio.title`). This keeps all English strings in one module for now; when the map grows unwieldy, split into feature files and merge into `en` (or add `app/locales/pl.ts`, etc.) without changing call sites.
+User-visible copy lives in **`app/locales/en.ts`** and **`app/locales/pl.ts`** as flat objects keyed by dot-separated paths (for example `nav.portfolio`, `portfolio.title`), sharing the same **`MessageKey`** type. When the map grows unwieldy, split into feature files and merge into `en` / `pl` without changing call sites.
+
+**English and Polish together:** Any new user-visible string (labels, placeholders, `aria-label` / `title` text, flash messages, page titles, option text, empty states, errors shown in the shell, and new fields in **`#ui-client-messages`**) must add a matching entry in **both** `en.ts` and `pl.ts` before the change is considered complete. Keep `{placeholder}` names identical across locales so `format()` works. Do not ship UI copy that only exists in English.
 
 **Server rendering:** Import **`t`** from `app/lib/i18n.ts` for static strings. Use **`format(template, { name, count })`** from the same module when a string needs `{placeholder}` substitution. Page titles and flash/API error messages should use `t()` / `format()` at the controller or handler boundary so they stay translatable.
 
 **Remix v3:** The framework does not ship a dedicated i18n package. Server-first apps typically resolve a locale in middleware or the session, load the right message map, and pass strings into JSX (or a small `t` scoped to the request). Community stacks often pair **i18next** with **remix-i18next** when they need React-heavy client translation; this project’s UI is mostly server-rendered JSX, so a typed message map plus `t`/`format` is enough until multi-locale routing or client-only copy demands a heavier library.
 
-**ETF type labels** shown in the catalog and guidelines come from **`ETF_TYPE_LABELS`** in `app/locales/en.ts` (typed as `Record<EtfType, string>` for exhaustiveness) via `formatEtfTypeLabel()` in `app/lib/guidelines.ts`, which falls back to **`catalog.etfTypeUnknown`** if a label is missing. Keep data keys like `real_estate` stable; translate display labels only.
+**ETF type labels** shown in the catalog and guidelines use **`ETF_TYPE_LABELS`** in `app/locales/en.ts` and **`ETF_TYPE_LABELS_PL`** in `app/locales/pl.ts` (each typed as `Record<EtfType, string>` for exhaustiveness) via `formatEtfTypeLabel()` in `app/lib/guidelines.ts`, which falls back to **`catalog.etfTypeUnknown`** if a label is missing. Keep persisted keys like `real_estate` stable; translate display labels only.
 
-**Section intros** (`SECTION_INTROS` in `app/lib/section-intros.ts`) are built from locale keys so home cards and page headers stay aligned with `t()`.
+**Section intros** — call **`getSectionIntro(page)`** from `app/lib/section-intros.ts` when rendering so home cards and page headers resolve `t()` at request time (not at module load). Copy still comes from the `section.*` / `admin.*` keys in `en.ts` / `pl.ts`.
 
 **Sidebar nav:** Use **`getNavLinks()`** from `app/components/layout/sidebar-nav.ts` (not a module-level array) so link labels are resolved when the shell or intro page renders, not at import time.
 
@@ -59,7 +75,7 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 
 ## Required defaults for Remix work
 
-1. **Remix documentation source:** Always use the GitHub repository as the only source of truth for Remix v3 APIs and patterns: [https://github.com/remix-run/remix](https://github.com/remix-run/remix). Do not rely on older docs or other websites.
+1. **Remix documentation sources:** Use the official Remix API docs site ([https://api.remix.run/](https://api.remix.run/)) together with the GitHub repository ([https://github.com/remix-run/remix](https://github.com/remix-run/remix)) for Remix v3 APIs, changelogs, and package source. For beta migrations, check the package changelog from this repo's current version and read `docs/REMIX_BETA_MIGRATION_PLAN.md`. Do not rely on older Remix v2 docs or unrelated websites.
 
 2. **Maximize Remix package usage:** Before writing a helper, utility, or middleware from scratch, check whether `remix` already provides it. Prefer Remix packages over custom implementations. Common examples:
    - Use `remix/cookie` instead of custom HMAC signing
@@ -96,10 +112,10 @@ User-visible copy lives in **`app/locales/en.ts`** as a flat `en` object keyed b
 - **Naming — spell it out:** Prefer full words in function and variable names; avoid abbreviations (`ctx`, `req`, `res`, `idx`, `opts`, single-letter loop names, and similar). Exceptions: domain terms that are already standard words (`id`, `url`, `tab`), the project’s **`t()`** / **`format()`** helpers for i18n, and names you cannot change because they implement or shadow an external API (for example a parameter named `request` when matching a framework signature).
 
 - **Keep types simple:** Prefer small object literals, `as const` for fixed maps/unions, and `keyof typeof` over hand-maintained string union types when a single source of truth exists.
-- **Prefer inference:** Omit redundant annotations on locals and private helpers. For component props, **inline the props object** on the inner implementation. If another module needs the props type, derive it once: **`type FooProps = Parameters<ReturnType<typeof Foo>>[0]`** (do not hand-duplicate a parallel `type FooProps = { ... }`).
+- **Prefer inference:** Omit redundant annotations on locals and private helpers. For component props on the current alpha runtime, **inline the props object** on the render callback when it stays local. If another module needs the props type, derive it once from the component boundary when possible, or export one explicit props type. For Remix beta's `handle.props` signature, prefer an exported props type at the component boundary because the render callback no longer receives props.
 
-- **One props shape per UI boundary:** Do not restate the same object shape in two places. If a Remix component or fragment exports **`export type FooProps`** (or **`CatalogEtfAnalysisFragmentProps`**), any controller, helper, or test that builds props for **`jsx(Foo, props)`** must **import and use that type** (or derive it with **`Parameters<ReturnType<typeof Foo>>[0]`** if the type is not exported). Never parallel an anonymous `{ field?: string }` or a second `type` alias that mirrors the component’s props — those drift silently when fields change. Apply the same idea to shared DTOs: one exported type, imported everywhere it crosses a module boundary.
+- **One props shape per UI boundary:** Do not restate the same object shape in two places. If a Remix component or fragment exports **`export type FooProps`** (or **`CatalogEtfAnalysisFragmentProps`**), any controller, helper, or test that builds props for **`jsx(Foo, props)`** must **import and use that type**. On the current alpha runtime, deriving with **`Parameters<ReturnType<typeof Foo>>[0]`** is acceptable when no exported type exists; for Remix beta, use the exported props type because render callbacks take no props. Never parallel an anonymous `{ field?: string }` or a second `type` alias that mirrors the component’s props — those drift silently when fields change. Apply the same idea to shared DTOs: one exported type, imported everywhere it crosses a module boundary.
 
 - **When to annotate explicitly:** Public boundaries, `remix` discriminated props (e.g. inputs where `type` narrows other attributes), or places where inference produces `any` or overly wide types.
 
-- **Form controls:** Prefer **MDN / HTML attribute names** on props (`name`, `type`, `autocomplete`, `class`, …). Do not rename to `fieldName` or similar. Listing a small `type` shape for each wrapper is OK; avoid `...rest as Props<'input'>` — `Props<'input'>` from `remix/component` is a discriminated union, and spreading `rest` breaks narrowing (e.g. `role`, `list` on `<input>`).
+- **Form controls:** Prefer **MDN / HTML attribute names** on props (`name`, `type`, `autocomplete`, `class`, …). Do not rename to `fieldName` or similar. Listing a small `type` shape for each wrapper is OK; avoid `...rest as Props<'input'>` — `Props<'input'>` from the Remix UI runtime (`remix/ui`) is a discriminated union, and spreading `rest` breaks narrowing (e.g. `role`, `list` on `<input>`).

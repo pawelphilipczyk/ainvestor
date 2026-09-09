@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import { format, t } from './i18n.ts'
+import { runWithUiCopyContext } from './ui-locale.ts'
 
 describe('i18n', () => {
 	it('format replaces placeholders', () => {
@@ -22,5 +23,12 @@ describe('i18n', () => {
 		assert.equal(t('app.name'), 'AI Investor')
 		assert.equal(t('nav.portfolio'), 'Portfolio')
 		assert.equal(t('chrome.signIn'), 'Sign in')
+	})
+
+	it('t returns Polish strings when UI locale context is pl', () => {
+		runWithUiCopyContext({ locale: 'pl', shellReturnPath: '/' }, () => {
+			assert.equal(t('nav.portfolio'), 'Portfel')
+			assert.equal(t('chrome.signIn'), 'Zaloguj')
+		})
 	})
 })

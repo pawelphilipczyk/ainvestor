@@ -1,17 +1,20 @@
 import * as assert from 'node:assert/strict'
-import { describe, it } from 'node:test'
+import { afterEach, describe, it } from 'node:test'
 
 import {
 	buildCatalogGistPatch,
 	CATALOG_FILENAME,
 	catalogMergeKey,
+	fetchSharedCatalogSnapshot,
 	mergeBankIntoCatalog,
 	normalizeCatalogTickerLookupKey,
 	parseBankJsonForImport,
 	parseBankJsonToCatalog,
 	parseCatalogFromGist,
 	parseCatalogRiskFilterParam,
+	resetSharedCatalogForTests,
 	riskBandFromRiskKid,
+	saveCatalog,
 } from './lib.ts'
 
 describe('riskBandFromRiskKid', () => {
@@ -45,6 +48,151 @@ describe('parseCatalogRiskFilterParam', () => {
 		assert.equal(parseCatalogRiskFilterParam(''), '')
 		assert.equal(parseCatalogRiskFilterParam('  '), '')
 		assert.equal(parseCatalogRiskFilterParam('extreme'), '')
+	})
+})
+
+describe('fetchSharedCatalogSnapshot ttl cache', () => {
+	const originalFetch = globalThis.fetch
+	const originalGistId = process.env.SHARED_CATALOG_GIST_ID
+	const originalTtl = process.env.SHARED_CATALOG_CACHE_TTL_MS
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch
+		resetSharedCatalogForTests()
+		if (originalGistId === undefined) {
+			delete process.env.SHARED_CATALOG_GIST_ID
+		} else {
+			process.env.SHARED_CATALOG_GIST_ID = originalGistId
+		}
+		if (originalTtl === undefined) {
+			delete process.env.SHARED_CATALOG_CACHE_TTL_MS
+		} else {
+			process.env.SHARED_CATALOG_CACHE_TTL_MS = originalTtl
+		}
+	})
+
+	it('hits GitHub once and returns independent clones while the cache entry is valid', async () => {
+		let fetchCount = 0
+		globalThis.fetch = async (input: string | URL | Request) => {
+			fetchCount += 1
+			assert.match(String(input), /\/gists\/ttl-gist-test$/)
+			return new Response(
+				JSON.stringify({
+					files: {
+						[CATALOG_FILENAME]: {
+							content: JSON.stringify([
+								{
+									id: '1',
+									ticker: 'ABC',
+									name: 'Alpha',
+									type: 'equity',
+									description: '',
+								},
+							]),
+						},
+					},
+					owner: { login: 'owner' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'ttl-gist-test'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+
+		const first = await fetchSharedCatalogSnapshot()
+		const second = await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 1)
+		assert.equal(first.entries.length, 1)
+		assert.equal(second.entries.length, 1)
+		assert.equal(first.entries[0]?.ticker, 'ABC')
+		if (first.entries[0]) {
+			first.entries[0] = { ...first.entries[0], ticker: 'MUT' }
+		}
+		assert.equal(second.entries[0]?.ticker, 'ABC')
+	})
+
+	it('does not cache when ttl is 0', async () => {
+		let fetchCount = 0
+		globalThis.fetch = async () => {
+			fetchCount += 1
+			return new Response(
+				JSON.stringify({
+					files: { [CATALOG_FILENAME]: { content: '[]' } },
+					owner: { login: 'o' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-no-ttl'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+
+		await fetchSharedCatalogSnapshot()
+		await fetchSharedCatalogSnapshot()
+		assert.equal(fetchCount, 2)
+	})
+
+	it('saveCatalog invalidates the cached snapshot so the next read is fresh', async () => {
+		let getCount = 0
+		let served = 'ABC'
+		globalThis.fetch = async (
+			input: string | URL | Request,
+			init?: RequestInit,
+		) => {
+			if (init?.method === 'PATCH') {
+				const body = JSON.parse(String(init.body)) as {
+					files: Record<string, { content: string }>
+				}
+				const patched = JSON.parse(
+					body.files[CATALOG_FILENAME]?.content ?? '[]',
+				) as { ticker: string }[]
+				served = patched[0]?.ticker ?? served
+				return new Response('{}', { status: 200 })
+			}
+			getCount += 1
+			assert.match(String(input), /\/gists\/ttl-gist-save$/)
+			return new Response(
+				JSON.stringify({
+					files: {
+						[CATALOG_FILENAME]: {
+							content: JSON.stringify([
+								{
+									id: '1',
+									ticker: served,
+									name: 'Alpha',
+									type: 'equity',
+									description: '',
+								},
+							]),
+						},
+					},
+					owner: { login: 'owner' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'ttl-gist-save'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+
+		const before = await fetchSharedCatalogSnapshot()
+		assert.equal(before.entries[0]?.ticker, 'ABC')
+		assert.equal(getCount, 1)
+
+		await saveCatalog({
+			token: 'tkn',
+			entries: [
+				{
+					id: '1',
+					ticker: 'XYZ',
+					name: 'Alpha',
+					type: 'equity',
+					description: '',
+				},
+			],
+		})
+
+		const after = await fetchSharedCatalogSnapshot()
+		assert.equal(getCount, 2)
+		assert.equal(after.entries[0]?.ticker, 'XYZ')
 	})
 })
 
@@ -323,6 +471,38 @@ describe('parseBankJsonToCatalog', () => {
 		)
 		assert.equal(result.entries.length, 1)
 		assert.equal(result.skippedRowDiagnostics.length, 2)
+	})
+
+	it('parseBankJsonForImport rejects an invalid ISIN even though ticker and name are fine', () => {
+		const result = parseBankJsonForImport(
+			{
+				data: [{ fund_name: 'Bad ISIN', ticker: 'BAD', isin: 'not-an-isin' }],
+			},
+			[],
+		)
+		assert.equal(result.entries.length, 0)
+		assert.equal(result.skippedRowDiagnostics.length, 1)
+		assert.deepEqual(result.skippedRowDiagnostics[0].issues, [
+			{ kind: 'isinInvalid' },
+		])
+	})
+
+	it('parseBankJsonForImport rejects a risk_kid outside 1-7', () => {
+		const result = parseBankJsonForImport(
+			{
+				data: [
+					{ fund_name: 'Bad Risk', ticker: 'RISK', risk_kid: 9 },
+					{ fund_name: 'Good Risk', ticker: 'OK', risk_kid: 4 },
+				],
+			},
+			[],
+		)
+		assert.equal(result.entries.length, 1)
+		assert.equal(result.entries[0].ticker, 'OK')
+		assert.equal(result.skippedRowDiagnostics.length, 1)
+		assert.deepEqual(result.skippedRowDiagnostics[0].issues, [
+			{ kind: 'riskKidOutOfRange' },
+		])
 	})
 
 	it('parseBankJsonForImport merges first duplicate in paste and skips later duplicate', () => {

@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/component'
+import type { Handle } from 'remix/ui'
 import {
 	busyControlLabelClass,
 	busyControlOverlayClass,
@@ -10,7 +10,7 @@ import {
 	submitButtonDefaultClasses,
 } from './form-control-classes.ts'
 
-type SubmitButtonProps = {
+export type SubmitButtonProps = {
 	children: string
 	disabled?: boolean
 	/** When true, use the same height as {@link TextInput} / {@link SelectInput} with `compact`. */
@@ -26,8 +26,8 @@ type SubmitButtonProps = {
  * set `data-loading` + `aria-busy` and show a centered spinner (label hidden),
  * matching {@link Link} navigation loading.
  */
-export function SubmitButton(_handle: Handle, _setup?: unknown) {
-	return (props: SubmitButtonProps) => {
+export function SubmitButton(handle: Handle<SubmitButtonProps>) {
+	return () => {
 		const {
 			children,
 			disabled,
@@ -35,7 +35,7 @@ export function SubmitButton(_handle: Handle, _setup?: unknown) {
 			class: classProp,
 			name,
 			value,
-		} = props
+		} = handle.props
 		const baseClasses = compactProp
 			? submitButtonCompactClasses
 			: submitButtonDefaultClasses

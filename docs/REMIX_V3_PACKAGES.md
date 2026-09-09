@@ -1,8 +1,19 @@
 # Remix v3 — Packages & Best Practices
 
-> **Source of truth:** [https://github.com/remix-run/remix](https://github.com/remix-run/remix)
-> All API references below are derived directly from the GitHub repository.
-> Version in use: `remix@3.0.0-alpha.4`
+> **Sources of truth:**
+> [Remix API docs](https://api.remix.run/) and
+> [Remix GitHub repository](https://github.com/remix-run/remix).
+> Cross-check beta migration work against both sources, especially the package
+> changelog at `packages/remix/CHANGELOG.md`.
+> Version in use: `remix@3.0.0-beta.0` (locked in `package-lock.json`)
+> Beta migration notes: `docs/REMIX_BETA_MIGRATION_PLAN.md` (checklist complete;
+> this file describes the beta baseline the app ships on.)
+
+> **Beta note:** Remix beta removes the deprecated `remix/component` exports.
+> This app imports **`remix/ui`**, **`remix/ui/server`**, and
+> **`remix/ui/jsx-runtime`**, with the **`handle.props`** component shape.
+> Older snippets in this doc may still mention alpha paths for comparison; the
+> live code follows the beta paths above.
 
 ---
 
@@ -61,8 +72,12 @@ All packages are runtime-agnostic: they work on Node.js, Bun, Deno, Cloudflare W
 | `remix/data-table-mysql` | MySQL data table adapter |
 | `remix/data-table-sqlite` | SQLite data table adapter |
 | `remix/tar-parser` | TAR archive parser |
-| `remix/component` | Island component system (JSX) |
-| `remix/component/server` | Server-side component rendering |
+| `remix/ui` | UI runtime and island component system (beta replacement for `remix/component`) |
+| `remix/ui/server` | Server-side UI rendering (beta replacement for `remix/component/server`) |
+| `remix/ui/jsx-runtime` | JSX runtime for beta UI components |
+| `remix/ui/jsx-dev-runtime` | JSX development runtime for beta UI components |
+| `remix/component` | Alpha.4 island component system (removed in beta) |
+| `remix/component/server` | Alpha.4 server-side component rendering (removed in beta) |
 
 ---
 
@@ -569,28 +584,39 @@ await storage.remove('user-123-avatar')
 
 ---
 
-## Island Component System — `remix/component`
+## Island Component System — `remix/ui` (current app)
 
-A full-featured component system that renders on the server and hydrates interactive "islands" on the client. More powerful than the manual `data-island` pattern.
+A full-featured component system that renders on the server and hydrates
+interactive "islands" on the client. The beta line exposes this under **`remix/ui`**
+(replacing removed **`remix/component`** imports from alpha).
+
+### Beta target API
 
 ```ts
 // Server: render full page
-import { renderToStream } from 'remix/component/server'
+import { renderToStream } from 'remix/ui/server'
 
 let stream = renderToStream(<App />)
 return new Response(stream, { headers: { 'Content-Type': 'text/html' } })
 
 // Component with server+client rendering
-import { clientEntry, on, type Handle } from 'remix/component'
+import { clientEntry, on, type Handle } from 'remix/ui'
+
+type CounterProps = {
+  initialCount: number
+  label: string
+}
 
 export let Counter = clientEntry(
   '/assets/counter.js#Counter',
-  function Counter(handle: Handle, setup: number) {
-    let count = setup
-    return (props: { label: string }) => (
+  function Counter(handle: Handle<CounterProps>) {
+    let count = handle.props.initialCount
+
+    return () => (
       <div>
-        <span>{props.label}: {count}</span>
+        <span>{handle.props.label}: {count}</span>
         <button
+          type="button"
           mix={[
             on('click', () => {
               count++
@@ -606,7 +632,7 @@ export let Counter = clientEntry(
 )
 
 // Client bootstrap
-import { run } from 'remix/component'
+import { run } from 'remix/ui'
 let app = run({
   loadModule: (moduleUrl, exportName) => import(moduleUrl).then((mod) => mod[exportName]),
   resolveFrame: async (src, signal) => {
@@ -615,6 +641,12 @@ let app = run({
   },
 })
 ```
+
+### Current app imports
+
+The app imports `Frame`, `clientEntry`, `Handle`, `Props`, `run`, and event
+helpers from **`remix/ui`**; server rendering from **`remix/ui/server`**; JSX
+from **`remix/ui/jsx-runtime`**.
 
 **`<Frame>`** streams partial server UI into a page region and supports reload without full navigation.
 
@@ -634,18 +666,22 @@ const body = jsx(PortfolioPage, { entries, session })
 return render({ title: 'AI Investor', session, currentPage: 'portfolio', body })
 ```
 
-**Component signature:** Remix components use `(handle, setup) => (props) => JSX`. Sub-components used only within a page (e.g. table header rows) are plain functions or constants — not Remix components — to avoid the "must return a render function" requirement.
+**Component signature:** Components use **`(handle: Handle<Props>) => () => JSX`**
+and read props from **`handle.props`**. Sub-components used only within a page
+(e.g. table header rows) are plain functions or constants — not Remix
+components — to avoid the "must return a render function" requirement.
 
 ---
 
-## DOM Event Handling via `remix/component`
+## DOM Event Handling via `remix/ui`
 
-The current GitHub docs place component event helpers on `remix/component`, not on a separate `remix/interaction` package.
+The beta API places component event helpers on **`remix/ui`**, not on a separate
+`remix/interaction` package.
 
 Use `on()` mixins on elements rendered by Remix components:
 
 ```ts
-import { on } from 'remix/component'
+import { on } from 'remix/ui'
 
 function SearchInput(handle: Handle) {
   let query = ''
@@ -850,14 +886,16 @@ Parse `FormData` once globally rather than in each handler.
 | `remix/compression-middleware` | ✅ | `compression()` in production middleware stack |
 | `form()` shorthand | ✅ | guidelines routes use `form('guidelines')` |
 | `remix/headers` | ❌ | Not used yet |
-| `remix/component` | ✅ | JSX page components, `clientEntry` islands, and the documented home for `on()` event mixins |
-| `remix/component/server` | ✅ | `renderToStream()` — full document; `renderToString()` for interaction scripts |
+| `remix/component` | ❌ | Removed in beta; app uses `remix/ui` instead |
+| `remix/component/server` | ❌ | Removed in beta; app uses `remix/ui/server` instead |
+| `remix/ui` | ✅ | JSX pages, `clientEntry` islands, `Frame`, `on()`, `navigate`, `run()` |
+| `remix/ui/server` | ✅ | `renderToStream()` / `renderToString()` for documents and fragments |
 | `resources()` shorthand | ❌ | No RESTful resource collections yet |
 
 ### What still could be added (future opportunities)
 
 1. **`remix/static-middleware` (expand scope for Tailwind)** — `app/styles/tailwind.css` exists locally but the pages load Tailwind from the public CDN. Expanding to serve a compiled CSS file requires adding a Tailwind CLI build step to the project (compile `tailwind.css` → `tailwind.built.css`, then serve it via `staticFiles`).
 
-2. **`remix/component` event mixins** — interactive components can adopt the documented `on()` mixin pattern instead of manual `addEventListener` wiring where that would simplify cleanup and async interruption handling.
+2. **`remix/ui` event mixins** — interactive components can adopt the documented `on()` mixin pattern instead of manual `addEventListener` wiring where that would simplify cleanup and async interruption handling.
 
 3. **`resources()` shorthand** — if more RESTful resource collections are added in the future, prefer `resources('name', { only: [...] })` over manual route declarations.
