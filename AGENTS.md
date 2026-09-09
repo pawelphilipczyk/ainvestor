@@ -12,7 +12,8 @@ This repository uses a server-first UI architecture. Before making UI-related ch
 Before making Remix framework changes, read:
 
 - `docs/REMIX_V3_PACKAGES.md`
-- `docs/REMIX_BETA_MIGRATION_PLAN.md` when planning or performing Remix beta upgrades
+- `docs/REMIX_RC_MIGRATION_PLAN.md` when planning or performing the `beta.0` → `3.0.0-rc.2` upgrade
+- `docs/REMIX_BETA_MIGRATION_PLAN.md` for the earlier alpha → beta upgrade (historical)
 
 Before working on the MCP server, read:
 
