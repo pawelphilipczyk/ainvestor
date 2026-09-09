@@ -17,7 +17,6 @@ import { t } from '../../lib/i18n.ts'
 import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-// @ts-expect-error Runtime-only remix clientEntry (scoped to this page)
 import { CatalogFilterPrefsEnhancement } from './catalog-filter-prefs.component.js'
 import type { CatalogRiskBand } from './lib.ts'
 

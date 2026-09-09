@@ -3,7 +3,7 @@ import {
 	clientEntry,
 	createElement,
 	navigate,
-} from 'remix/component'
+} from 'remix/ui'
 
 // Mirrors CATALOG_FILTER_PREFS_STORAGE_KEY in catalog-filter-prefs.ts (client bundle can't import that TS module).
 const STORAGE_KEY = 'catalog/filters/v1'
@@ -101,10 +101,10 @@ function restoreFiltersIfNeeded(catalogIndexHref) {
 	if (storedSearch === null) return
 
 	const nextUrl = `${catalogIndexHref}?${storedSearch.toString()}`
-	// `remix/component`'s entry.js stubs `globalThis.navigation` with an inert
-	// no-op on browsers lacking the real Navigation API, so `navigate` alone
-	// can't tell real support from the stub — check the `Navigation` global
-	// (the interface constructor, left untouched by that stub) instead.
+	// entry.js stubs `globalThis.navigation` with an inert no-op on browsers
+	// lacking the real Navigation API, so `navigate` alone can't tell real
+	// support from the stub — check the `Navigation` global (the interface
+	// constructor, left untouched by that stub) instead.
 	if (typeof globalThis.Navigation === 'function') {
 		navigate(nextUrl, { history: 'replace' })
 	} else {
@@ -121,6 +121,8 @@ export const CatalogFilterPrefsEnhancement = clientEntry(
 	'/features/catalog/catalog-filter-prefs.component.js#CatalogFilterPrefsEnhancement',
 	function CatalogFilterPrefsEnhancement(handle) {
 		if (typeof document !== 'undefined') {
+			restoreFiltersIfNeeded(handle.props['data-catalog-index-href'])
+
 			addEventListeners(document, handle.signal, {
 				submit(event) {
 					const form = event.target
@@ -144,17 +146,11 @@ export const CatalogFilterPrefsEnhancement = clientEntry(
 			})
 		}
 
-		// `data-catalog-index-href` arrives as a render prop, not on `handle` —
-		// entry-component setup functions only get `(handle, setup)`.
-		return (props) => {
-			if (typeof document !== 'undefined') {
-				restoreFiltersIfNeeded(props['data-catalog-index-href'])
-			}
-			return createElement('span', {
+		return () =>
+			createElement('span', {
 				hidden: true,
 				'aria-hidden': 'true',
 				'data-component': 'catalog-filter-prefs-enhancement',
 			})
-		}
 	},
 )
