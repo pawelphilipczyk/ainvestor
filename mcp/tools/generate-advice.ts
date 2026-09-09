@@ -118,9 +118,8 @@ export function createGenerateAdviceTool(
 					}
 
 		const client = getOrCreateAdviceClient()
-		// The model's language instruction and the flattener's known-term relabeling
-		// both read the ambient UI locale (an MCP call has no request/cookie to
-		// derive one from otherwise).
+		// getInvestmentAdvice's language instruction to the model reads the ambient
+		// UI locale (an MCP call has no request/cookie to derive one from otherwise).
 		const { document, text } = await runWithUiCopyContext(
 			{ locale, shellReturnPath: '/' },
 			async () => {

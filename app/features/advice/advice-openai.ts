@@ -75,7 +75,7 @@ You MUST respond with a single JSON object only (no markdown code fences, no ext
       { "role": "cash", "label": "Deployable cash", "amount": 2000, "currency": "USD" }
     ], "postTotal": { "label": "Total portfolio (holdings + cash)", "amount": 12000, "currency": "USD" } },
     { "type": "guideline_bars", "caption": "optional short heading", "rows": [
-      { "label": "Equities (bucket)", "etfType": "equity", "targetPct": 60, "currentPct": 45, "postBuyPct": 58 }
+      { "label": "Equities (bucket)", "targetPct": 60, "currentPct": 45, "postBuyPct": 58 }
     ]},
     { "type": "paragraph", "text": "..." },
     { "type": "etf_proposals", "caption": "optional short heading", "rows": [
@@ -96,10 +96,8 @@ are short human labels (you may adjust wording). Do not repeat these numeric tot
 shown visually in this block.
 
 **guideline_bars:** Include when the user has allocation guidelines. **rows** cover each relevant bucket
-(asset class and/or named-fund lines aggregated as in the buy-only rules). Each row must include **etfType**:
-one of \`"equity" | "bond" | "real_estate" | "commodity" | "mixed" | "money_market"\` (stable key from the
-app). **label** is a short human-readable name in the **same language** as the UI preamble in the user
-message (must describe the same bucket as **etfType**). **targetPct**, **currentPct**,
+(asset class and/or named-fund lines aggregated as in the buy-only rules). **label** is a short
+human-readable name in the **same language** as the UI preamble in the user message. **targetPct**, **currentPct**,
 and **postBuyPct** are **whole-portfolio percentages** (0–100), aligned with the same aggregation you use
 in analysis. **postBuyPct** is optional but strongly preferred when you propose buys — it is the estimated
 weight **after** your **etf_proposals** are applied. Omit **guideline_bars** entirely when there are no

@@ -12,10 +12,6 @@ import {
 	TabsNav,
 } from '../../components/index.ts'
 import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
-import {
-	getAdviceGuidelineBarRowDisplayLabel,
-	localizeEtfBucketTermsInAdviceProse,
-} from '../../lib/advice-locale-bridge.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
@@ -308,8 +304,7 @@ function renderGuidelineBars(
 			) : (
 				<>
 					<ul class="space-y-4">
-						{block.rows.map((row, rowIndex) => {
-							const displayLabel = getAdviceGuidelineBarRowDisplayLabel(row)
+						{block.rows.map((row) => {
 							const currentW = clampPct(row.currentPct)
 							const postW =
 								row.postBuyPct !== undefined ? clampPct(row.postBuyPct) : null
@@ -320,22 +315,16 @@ function renderGuidelineBars(
 											post: formatPctOneDecimal(row.postBuyPct),
 										})
 									: ''
-							const summary = `${displayLabel}: ${format(
-								t('advice.guideline.ariaSummary'),
-								{
-									current: formatPctOneDecimal(row.currentPct),
-									target: formatPctOneDecimal(row.targetPct),
-									postBuyClause,
-								},
-							)}`
+							const summary = `${format(t('advice.guideline.ariaSummary'), {
+								current: formatPctOneDecimal(row.currentPct),
+								target: formatPctOneDecimal(row.targetPct),
+								postBuyClause,
+							})}`
 							return (
-								<li
-									key={`guideline-bar-${rowIndex}-${displayLabel}`}
-									class="space-y-1.5"
-								>
+								<li key={row.label} class="space-y-1.5">
 									<div class="flex min-w-0 flex-wrap items-baseline justify-between gap-x-2 gap-y-0.5 text-sm">
 										<span class="min-w-0 break-words font-medium text-card-foreground">
-											{displayLabel}
+											{row.label}
 										</span>
 										<span class="tabular-nums text-muted-foreground">
 											{formatPctOneDecimal(row.currentPct)} →{' '}
@@ -532,7 +521,7 @@ function renderAdviceBlock(
 	if (block.type === 'paragraph') {
 		return (
 			<div class="min-w-0 max-w-full whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">
-				{localizeEtfBucketTermsInAdviceProse(block.text)}
+				{block.text}
 			</div>
 		)
 	}
