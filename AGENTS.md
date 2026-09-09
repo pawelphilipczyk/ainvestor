@@ -1,5 +1,10 @@
 # Agent Working Agreement
 
+Before starting any non-trivial change, skim `docs/LESSONS_LEARNED.md` for
+known gotchas already hit (and debugged) in this repo. Add an entry there
+whenever you uncover a surprising framework/tooling root cause that cost
+real investigation — see that file's own header for what belongs in it.
+
 This repository uses a server-first UI architecture. Before making UI-related changes, read:
 
 - `docs/UI_ARCHITECTURE_GUIDELINES.md`
