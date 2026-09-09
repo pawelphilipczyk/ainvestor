@@ -87,6 +87,31 @@ function clearStoredSearchParams() {
 	}
 }
 
+function restoreFiltersIfNeeded(catalogIndexHref) {
+	if (typeof catalogIndexHref !== 'string' || catalogIndexHref.length === 0) {
+		return
+	}
+	const catalogIndexPath = new URL(catalogIndexHref, window.location.origin)
+		.pathname
+	const currentParams = new URLSearchParams(window.location.search)
+	const hasFilterParams = PREF_FIELDS.some((field) => currentParams.has(field))
+	if (window.location.pathname !== catalogIndexPath || hasFilterParams) return
+
+	const storedSearch = readStoredSearchParams()
+	if (storedSearch === null) return
+
+	const nextUrl = `${catalogIndexHref}?${storedSearch.toString()}`
+	// `remix/component`'s entry.js stubs `globalThis.navigation` with an inert
+	// no-op on browsers lacking the real Navigation API, so `navigate` alone
+	// can't tell real support from the stub — check the `Navigation` global
+	// (the interface constructor, left untouched by that stub) instead.
+	if (typeof globalThis.Navigation === 'function') {
+		navigate(nextUrl, { history: 'replace' })
+	} else {
+		window.location.replace(nextUrl)
+	}
+}
+
 /**
  * Persists catalog list filters to localStorage, restores them via a one-shot
  * redirect when `/catalog` loads with no filter params, and clears storage when
@@ -96,34 +121,6 @@ export const CatalogFilterPrefsEnhancement = clientEntry(
 	'/features/catalog/catalog-filter-prefs.component.js#CatalogFilterPrefsEnhancement',
 	function CatalogFilterPrefsEnhancement(handle) {
 		if (typeof document !== 'undefined') {
-			const root = handle.element
-			const catalogIndexHref =
-				root instanceof HTMLElement
-					? root.dataset.catalogIndexHref?.trim()
-					: undefined
-
-			if (typeof catalogIndexHref === 'string' && catalogIndexHref.length > 0) {
-				const catalogIndexPath = new URL(
-					catalogIndexHref,
-					window.location.origin,
-				).pathname
-				const currentParams = new URLSearchParams(window.location.search)
-				const hasFilterParams = PREF_FIELDS.some((field) =>
-					currentParams.has(field),
-				)
-				if (window.location.pathname === catalogIndexPath && !hasFilterParams) {
-					const storedSearch = readStoredSearchParams()
-					if (storedSearch !== null) {
-						const nextUrl = `${catalogIndexHref}?${storedSearch.toString()}`
-						if (typeof globalThis.navigation?.navigate === 'function') {
-							navigate(nextUrl, { history: 'replace' })
-						} else {
-							window.location.replace(nextUrl)
-						}
-					}
-				}
-			}
-
 			addEventListeners(document, handle.signal, {
 				submit(event) {
 					const form = event.target
@@ -147,11 +144,17 @@ export const CatalogFilterPrefsEnhancement = clientEntry(
 			})
 		}
 
-		return () =>
-			createElement('span', {
+		// `data-catalog-index-href` arrives as a render prop, not on `handle` —
+		// entry-component setup functions only get `(handle, setup)`.
+		return (props) => {
+			if (typeof document !== 'undefined') {
+				restoreFiltersIfNeeded(props['data-catalog-index-href'])
+			}
+			return createElement('span', {
 				hidden: true,
 				'aria-hidden': 'true',
 				'data-component': 'catalog-filter-prefs-enhancement',
 			})
+		}
 	},
 )
