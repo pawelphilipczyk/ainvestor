@@ -46,6 +46,12 @@ export function SelectInput(handle: Handle<SelectInputProps>) {
 		const selectClasses =
 			`${shellClasses} ${selectWithChevronClasses} ${classProp ?? ''}`.trim()
 		const isControlledSelect = value !== undefined
+		const controlledValue = isControlledSelect ? String(value) : undefined
+		// A server-rendered `<select>` has no `value` content attribute a
+		// browser honors on initial parse — only a matching `<option selected>`
+		// picks the initial selection. Derive it from `value` here rather than
+		// trusting a caller-supplied per-option `selected` flag, so `value`
+		// stays the single source of truth for a controlled select.
 		return (
 			<div class="relative w-full">
 				<select
@@ -63,7 +69,9 @@ export function SelectInput(handle: Handle<SelectInputProps>) {
 						<option
 							value={opt.value}
 							{...(isControlledSelect
-								? {}
+								? opt.value === controlledValue
+									? { selected: true }
+									: {}
 								: opt.selected
 									? { selected: true }
 									: {})}
