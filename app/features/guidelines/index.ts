@@ -61,7 +61,10 @@ function normalizeGuidelinesAddTab(tab: string | null): GuidelinesAddTabId {
 
 function guidelinesIndexHref(tab?: GuidelinesAddTabId) {
 	if (tab === 'instrument') {
-		return routes.guidelines.index.href({}, { tab: 'instrument' })
+		return routes.guidelines.index.href(
+			{},
+			{ searchParams: { tab: 'instrument' } },
+		)
 	}
 	return routes.guidelines.index.href()
 }

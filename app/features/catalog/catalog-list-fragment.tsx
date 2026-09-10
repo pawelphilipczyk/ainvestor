@@ -61,7 +61,7 @@ function renderCatalogRow(
 	const { tickerLinksToDetail } = options
 	const etfDetailHref = routes.catalog.etf.href(
 		{ catalogEntryId: entry.id },
-		{ model: DEFAULT_CATALOG_ETF_MODEL },
+		{ searchParams: { model: DEFAULT_CATALOG_ETF_MODEL } },
 	)
 	const riskBand = riskBandFromRiskKid(entry.risk_kid)
 	const riskCell =
