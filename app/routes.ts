@@ -1,4 +1,4 @@
-import { del, form, get, post, route } from 'remix/fetch-router/routes'
+import { del, form, get, post, route } from 'remix/routes'
 
 const adviceForm = form('advice')
 

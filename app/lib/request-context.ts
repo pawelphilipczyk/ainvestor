@@ -1,4 +1,4 @@
-import type { MergeContext, RequestContext } from 'remix/fetch-router'
+import type { MergeContext, RequestContext } from 'remix/router'
 import type { Session } from 'remix/session'
 
 /**

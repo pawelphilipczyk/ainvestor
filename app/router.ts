@@ -1,11 +1,11 @@
-import { compression } from 'remix/compression-middleware'
-import { createRouter, type Middleware } from 'remix/fetch-router'
-import { formData } from 'remix/form-data-middleware'
-import { logger } from 'remix/logger-middleware'
-import { methodOverride } from 'remix/method-override-middleware'
+import { compression } from 'remix/middleware/compression'
+import { formData } from 'remix/middleware/form-data'
+import { logger } from 'remix/middleware/logger'
+import { methodOverride } from 'remix/middleware/method-override'
+import { session } from 'remix/middleware/session'
+import { staticFiles } from 'remix/middleware/static'
+import { createRouter, type Middleware } from 'remix/router'
 import { Session } from 'remix/session'
-import { session } from 'remix/session-middleware'
-import { staticFiles } from 'remix/static-middleware'
 import { handleMcpHttpRequest } from '../mcp/http.ts'
 import {
 	buildAuthorizationServerMetadata,

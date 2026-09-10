@@ -2,8 +2,8 @@ import {
 	MaxFileSizeExceededError,
 	MaxTotalSizeExceededError,
 } from '@remix-run/form-data-parser'
-import type { Middleware } from 'remix/fetch-router'
 import { createRedirectResponse } from 'remix/response/redirect'
+import type { Middleware } from 'remix/router'
 import { Session } from 'remix/session'
 import { routes } from '../routes.ts'
 import { t } from './i18n.ts'
