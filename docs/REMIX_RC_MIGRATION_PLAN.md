@@ -360,10 +360,46 @@ At this point the app is on rc.2 and green. **Ship it, then keep going** — the
 remaining stages are where the hand-rolled code actually goes away, and each is
 independently valuable and revertible.
 
-**Stage 5 — plumbing (low risk, no visual change).** `render.ts` → `render()`
-middleware and `context.render()`; `IMPORT_MAP` + `remixRuntime` allowlist →
-`ImportMap` and `AssetServer`; `form-data-payload.ts` →
-`remix/data-schema/form-data`.
+**Stage 5 — plumbing (low risk, no visual change). Done**, with one item
+kept under Reason 3:
+
+- `render.ts` → `render()` middleware and `context.render()`. Adopted for
+  every page render *except* the five call sites that pass a per-render
+  `resolveFrame` (advice, two in catalog, guidelines, portfolio) — those
+  short-circuit a known `<Frame>` src to data the render already computed
+  (advice/ETF analysis), avoiding a second in-process request. The
+  `render()` middleware's `RenderFunction` (`context.render`) has no
+  per-call `resolveFrame` hook, so those five keep calling `renderToStream`
+  directly; `render.ts` now takes `context` and branches on whether
+  `options.resolveFrame` is given. Named gap, Reason 3.
+- `IMPORT_MAP` in `document-shell.tsx` + `remixRuntime` allowlist in
+  `router.ts` → `ImportMap` from `remix/ui/server`, backed by a minimal
+  `createAssetServer({ allowPackages: ['remix'] })` in
+  `app/lib/remix-assets.ts`. **Not** via `getImportMap()`/`getScriptEntry()`
+  as the table implied — tried, and it doesn't fit: both key their mappings
+  to a `scopes` entry for the *importing module's own served URL* (assuming
+  that module is itself served by the same asset server), so they only
+  resolve for pages the asset server serves. Our `.component.js`/`entry.js`
+  files stay on `staticFiles()` — already-built plain JS at stable
+  root-relative paths, with root-relative `clientEntry()` ids rather than
+  `import.meta.url`/`file:` ones, so `render()`'s `resolveClientEntry` never
+  needs the asset server for them either — and a scoped map never applies to
+  a module loaded from outside the asset server's own URL namespace.
+  Demonstrated against this codebase, Reason 3 on the *mechanism*; the
+  simpler `getHref()` per package file, assembled into a flat top-level
+  `imports` map by hand, gives the same win (no hand-maintained dist path
+  that can drift across upgrades) without the scoping mismatch.
+- `form-data-payload.ts` → **kept, Reason 3.** `remix/data-schema/form-data`
+  parses `FormData` directly via a schema (`object()`/`field()`), but every
+  call site here (guidelines ×3, portfolio, advice, locale) runs
+  app-specific normalization — locale-decimal parsing, defaulting blank
+  fields, mapping raw multi-field combinations — on a plain object *before*
+  `parseSafe()`, and the schema-first API has no hook for that step. Moving
+  it in would mean rewriting five schemas' worth of validation logic, which
+  is bigger than a "no visual change" plumbing stage and belongs, if
+  pursued, in its own reviewed change. `objectFromFormData`'s job (produce
+  the plain object those normalizers mutate) stays; its comment is
+  corrected to say why rather than claim no parser exists.
 
 **Stage 6 — behavior via primitives (medium risk, no visual change if done
 right).** Sidebar → `remix/ui/popover`; tabs-nav → `tabs/primitives`;

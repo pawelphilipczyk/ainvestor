@@ -145,14 +145,32 @@ describe('remix ui runtime in document', () => {
 		assert.doesNotMatch(body, /data-island=/)
 	})
 
-	it('document includes import map for remix ui runtime', async () => {
+	it('document includes import map for remix ui runtime, and both entries are servable', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /"remix\/ui":\s*"\/remix\/dist\/ui\.js"/)
-		assert.match(
-			body,
-			/"@remix-run\/ui":\s*"\/@remix-run\/ui\/dist\/index\.js"/,
+		const remixUiHref = /"remix\/ui":\s*"([^"]+)"/.exec(body)?.[1]
+		const remixRunUiHref = /"@remix-run\/ui":\s*"([^"]+)"/.exec(body)?.[1]
+		assert.ok(remixUiHref, 'import map is missing a remix/ui entry')
+		assert.ok(remixRunUiHref, 'import map is missing an @remix-run/ui entry')
+
+		const remixUiResponse = await router.fetch(
+			new URL(remixUiHref, 'http://localhost/'),
 		)
+		assert.equal(remixUiResponse.status, 200)
+		assert.match(
+			remixUiResponse.headers.get('content-type') ?? '',
+			/javascript/,
+		)
+
+		const remixRunUiResponse = await router.fetch(
+			new URL(remixRunUiHref, 'http://localhost/'),
+		)
+		assert.equal(remixRunUiResponse.status, 200)
+		assert.match(
+			remixRunUiResponse.headers.get('content-type') ?? '',
+			/javascript/,
+		)
+
 		// rc.2 removed the `remix/ui/scroll-lock` and `@remix-run/ui/scroll-lock`
 		// subpaths; lockScroll is now vendored in app/lib/scroll-lock.js instead
 		// of resolved through the import map. See app/lib/scroll-lock.js.

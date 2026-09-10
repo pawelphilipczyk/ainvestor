@@ -264,7 +264,7 @@ export const catalogController = {
 			const load = await loadCatalogPageContext(context)
 			const { catalogSnapshot, entries, session, layoutSession } = load
 
-			return renderCatalogPage({
+			return renderCatalogPage(context, {
 				catalog: catalogSnapshot.entries,
 				entries,
 				session: layoutSession,
@@ -307,7 +307,7 @@ export const catalogController = {
 			const fundName = entry.name
 
 			if (pendingApproval) {
-				return render({
+				return render(context, {
 					title: format(t('meta.title.catalogEtf'), { name: fundName }),
 					htmlLang: htmlLangForCurrentUiLocale(),
 					session: layoutSession,
@@ -324,7 +324,7 @@ export const catalogController = {
 			const model = parseOptionalAdviceModelFromUrl(context.request.url)
 			const analysisFrameSrc = catalogEtfAnalysisFrameSrc(entry.id, model)
 
-			return render({
+			return render(context, {
 				title: format(t('meta.title.catalogEtf'), { name: fundName }),
 				htmlLang: htmlLangForCurrentUiLocale(),
 				session: layoutSession,
@@ -642,17 +642,20 @@ function catalogListFrameSrc(params: {
 	return qs ? `${base}?${qs}` : base
 }
 
-async function renderCatalogPage(params: {
-	catalog: CatalogEntry[]
-	entries: EtfEntry[]
-	session: SessionData | null
-	isAdmin: boolean
-	pendingApproval?: boolean
-	typeFilter: string
-	riskFilter: '' | CatalogRiskBand
-	query: string
-	flashBanner?: FlashedBanner
-}) {
+async function renderCatalogPage(
+	context: AppRequestContext,
+	params: {
+		catalog: CatalogEntry[]
+		entries: EtfEntry[]
+		session: SessionData | null
+		isAdmin: boolean
+		pendingApproval?: boolean
+		typeFilter: string
+		riskFilter: '' | CatalogRiskBand
+		query: string
+		flashBanner?: FlashedBanner
+	},
+) {
 	const {
 		catalog,
 		entries,
@@ -672,7 +675,7 @@ async function renderCatalogPage(params: {
 		query,
 		catalogListFrameSrc: frameSrc,
 	})
-	return render({
+	return render(context, {
 		title: t('meta.title.catalog'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session,

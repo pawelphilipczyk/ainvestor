@@ -440,7 +440,7 @@ export const guidelinesController = {
 					: getGuestGuidelines(context.get(Session)),
 				fetchCatalog(),
 			])
-			return renderGuidelinesPage({
+			return renderGuidelinesPage(context, {
 				guidelines,
 				session: layoutSession,
 				catalog,
@@ -685,13 +685,16 @@ export const guidelinesController = {
 // ---------------------------------------------------------------------------
 // Page renderer
 // ---------------------------------------------------------------------------
-async function renderGuidelinesPage(params: {
-	guidelines: EtfGuideline[]
-	session: SessionData | null
-	catalog: CatalogEntry[]
-	flashBanner?: FlashedBanner
-	activeAddTab: GuidelinesAddTabId
-}) {
+async function renderGuidelinesPage(
+	context: AppRequestContext,
+	params: {
+		guidelines: EtfGuideline[]
+		session: SessionData | null
+		catalog: CatalogEntry[]
+		flashBanner?: FlashedBanner
+		activeAddTab: GuidelinesAddTabId
+	},
+) {
 	const { guidelines, session, catalog, flashBanner, activeAddTab } = params
 	const assetClassOptions = assetClassSelectOptionsFromCatalog(catalog)
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
@@ -700,7 +703,7 @@ async function renderGuidelinesPage(params: {
 		instrumentOptions,
 		activeAddTab,
 	})
-	return render({
+	return render(context, {
 		title: t('meta.title.guidelines'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session,

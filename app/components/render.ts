@@ -4,6 +4,7 @@ import { jsx } from 'remix/ui/jsx-runtime'
 import type { RenderToStreamOptions } from 'remix/ui/server'
 import { renderToStream } from 'remix/ui/server'
 import type { AppPage } from '../lib/app-page.ts'
+import type { AppRequestContext } from '../lib/request-context.ts'
 import type { SessionData } from '../lib/session.ts'
 import type { FlashedBanner } from '../lib/session-flash.ts'
 import { DocumentShell } from './layout/document-shell.tsx'
@@ -18,14 +19,22 @@ export type RenderOptions = {
 	init?: ResponseInit
 	/** Merged into the response headers (e.g. client hints). */
 	responseHeaders?: HeadersInit
+	/**
+	 * Renders a known `<Frame>` target inline from data this render already
+	 * has, instead of the default fetch-based frame resolution — avoids
+	 * recomputing something costly (advice/ETF analysis) via a second
+	 * in-process request. `context.render`'s `RenderFunction` has no per-call
+	 * hook for this, so pages that need it render through `renderToStream`
+	 * directly instead of the `render()` middleware. (Reason 3.)
+	 */
 	resolveFrame?: RenderToStreamOptions['resolveFrame']
 }
 
-/**
- * Renders a page with the document shell and returns an HTML response.
- * Matches the Bookstore demo pattern: createHtmlResponse(renderToStream(...))
- */
-export async function render(options: RenderOptions): Promise<Response> {
+/** Renders a page with the document shell and returns an HTML response. */
+export async function render(
+	context: AppRequestContext,
+	options: RenderOptions,
+): Promise<Response> {
 	const document = jsx(DocumentShell, {
 		title: options.title,
 		htmlLang: options.htmlLang,
@@ -35,19 +44,23 @@ export async function render(options: RenderOptions): Promise<Response> {
 		children: options.body,
 	})
 
-	const streamOptions: RenderToStreamOptions | undefined = options.resolveFrame
-		? { resolveFrame: options.resolveFrame }
-		: undefined
-
 	const mergedHeaders = new Headers(options.init?.headers)
 	if (options.responseHeaders !== undefined) {
 		new Headers(options.responseHeaders).forEach((value, key) => {
 			mergedHeaders.set(key, value)
 		})
 	}
+	const init: ResponseInit = { ...options.init, headers: mergedHeaders }
 
-	return createHtmlResponse(renderToStream(document, streamOptions), {
-		...options.init,
-		headers: mergedHeaders,
-	})
+	if (options.resolveFrame) {
+		return createHtmlResponse(
+			renderToStream(document, {
+				resolveFrame: options.resolveFrame,
+				signal: context.request.signal,
+			}),
+			init,
+		)
+	}
+
+	return context.render(document, init)
 }
