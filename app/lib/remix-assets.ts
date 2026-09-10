@@ -29,11 +29,14 @@ export const remixAssetServer = createAssetServer({
  * to them and `remix/ui` would fail to resolve in the browser. Demonstrated
  * against this codebase; Reason 3.
  */
+const [remixUiHref, remixRunUiHref] = await Promise.all([
+	remixAssetServer.getHref('node_modules/remix/dist/ui.js'),
+	remixAssetServer.getHref('node_modules/@remix-run/ui/dist/index.js'),
+])
+
 export const remixUiImportMap = {
 	imports: {
-		'remix/ui': await remixAssetServer.getHref('node_modules/remix/dist/ui.js'),
-		'@remix-run/ui': await remixAssetServer.getHref(
-			'node_modules/@remix-run/ui/dist/index.js',
-		),
+		'remix/ui': remixUiHref,
+		'@remix-run/ui': remixRunUiHref,
 	},
 }

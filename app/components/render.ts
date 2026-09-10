@@ -54,7 +54,10 @@ export async function render(
 
 	if (options.resolveFrame) {
 		return createHtmlResponse(
-			renderToStream(document, { resolveFrame: options.resolveFrame }),
+			renderToStream(document, {
+				resolveFrame: options.resolveFrame,
+				signal: context.request.signal,
+			}),
 			init,
 		)
 	}
