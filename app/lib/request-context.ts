@@ -1,11 +1,12 @@
-import type { MergeContext, RequestContext } from 'remix/router'
-import type { Session } from 'remix/session'
+import type { MiddlewareContext } from 'remix/router'
+import type { appMiddleware } from '../router.ts'
 
 /**
- * Request context after global `formData()` and `session()` middleware.
- * Handlers should use this instead of bare `RequestContext` so `get(FormData)` and `get(Session)` type-check.
+ * Request context produced by the app's global middleware chain.
+ *
+ * Derived from `appMiddleware` rather than hand-maintained: since rc.2 each
+ * middleware carries its own context contribution in the type system, so the
+ * chain itself is the source of truth for what `context.get(...)` can resolve.
+ * Handlers defined outside `router.ts` should annotate their context with this.
  */
-export type AppRequestContext = MergeContext<
-	MergeContext<RequestContext, readonly [readonly [typeof FormData, FormData]]>,
-	readonly [readonly [typeof Session, Session]]
->
+export type AppRequestContext = MiddlewareContext<typeof appMiddleware>

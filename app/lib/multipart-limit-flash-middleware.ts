@@ -27,7 +27,11 @@ export function multipartLimitFlashOnError(): Middleware {
 			if (!isMultipartLimit) throw error
 			if (!context.has(Session)) throw error
 
+			// `has()` does not narrow the `get()` return type, which includes
+			// `undefined` for keys without a default value since rc.2.
 			const session = context.get(Session)
+			if (!session) throw error
+
 			flashBanner(session, {
 				text: t('errors.upload.fileTooLarge'),
 				tone: 'error',
