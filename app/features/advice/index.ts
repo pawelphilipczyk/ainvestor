@@ -143,11 +143,14 @@ function resolveAdviceResultFrame(
 	return renderToStream(jsx(AdviceResultCard, cardProps))
 }
 
-function renderAdvicePageResponse(options: {
-	session: SessionData | null
-	props: AdvicePageRenderProps
-	init?: ResponseInit
-}) {
+function renderAdvicePageResponse(
+	context: AppRequestContext,
+	options: {
+		session: SessionData | null
+		props: AdvicePageRenderProps
+		init?: ResponseInit
+	},
+) {
 	const activeTab = normalizeAdviceAnalysisTab(options.props.activeTab)
 	const frameSrc = shouldStreamAdviceResult(options.props)
 		? adviceResultFragmentSrc(activeTab)
@@ -158,7 +161,7 @@ function renderAdvicePageResponse(options: {
 			? { [ADVICE_GIST_STALE_HEADER]: '1' }
 			: undefined
 
-	return render({
+	return render(context, {
 		title: t('meta.title.advice'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session: options.session,
@@ -286,7 +289,7 @@ export const adviceController = {
 				pendingApproval,
 				activeTab,
 			})
-			return renderAdvicePageResponse({
+			return renderAdvicePageResponse(context, {
 				session: layoutSession,
 				props: withAdviceGate(
 					baseProps,
@@ -333,7 +336,7 @@ export const adviceController = {
 			const activeTabFromUrl = parseAdviceTabParam(context.request.url)
 			const form = context.get(FormData)
 			if (!form) {
-				return renderAdvicePageResponse({
+				return renderAdvicePageResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -403,7 +406,7 @@ export const adviceController = {
 					(ADVICE_ANALYSIS_MODES as readonly string[]).includes(rawMode)
 						? (rawMode as AdviceAnalysisMode)
 						: DEFAULT_ADVICE_ANALYSIS_MODE
-				return renderAdvicePageResponse({
+				return renderAdvicePageResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -434,7 +437,7 @@ export const adviceController = {
 			} = result.value
 			const trimmedCash = rawCashAmount.trim()
 			if (analysisMode === 'buy_next' && trimmedCash === '') {
-				return renderAdvicePageResponse({
+				return renderAdvicePageResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -458,7 +461,7 @@ export const adviceController = {
 			const cashAmount = trimmedCash
 
 			if (pendingApproval) {
-				return renderAdvicePageResponse({
+				return renderAdvicePageResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -482,7 +485,7 @@ export const adviceController = {
 
 			if (analysisMode === 'portfolio_review' && adviceIntent === 'clear') {
 				if (!sessionUsesGithubGist(session)) {
-					return renderAdvicePageResponse({
+					return renderAdvicePageResponse(context, {
 						session: layoutSession,
 						props: withAdviceGate(
 							{
@@ -522,7 +525,7 @@ export const adviceController = {
 					activeTabFromUrl === 'portfolio_review'
 						? await fetchCatalog()
 						: undefined
-				return renderAdvicePageResponse({
+				return renderAdvicePageResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -540,7 +543,7 @@ export const adviceController = {
 			}
 
 			if (!sessionUsesGithubGist(session)) {
-				return renderAdvicePageResponse({
+				return renderAdvicePageResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -603,7 +606,7 @@ export const adviceController = {
 					adviceGistPersistFailed = true
 					console.warn('[advice] could not save gist snapshot', gistErr)
 				}
-				return renderAdvicePageResponse({
+				return renderAdvicePageResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -635,7 +638,7 @@ export const adviceController = {
 							? `${err.message}\n${err.stack ?? ''}`.trim()
 							: err.message
 						: String(err)
-				return renderAdvicePageResponse({
+				return renderAdvicePageResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{

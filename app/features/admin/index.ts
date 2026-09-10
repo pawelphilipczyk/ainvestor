@@ -26,7 +26,7 @@ export const adminController = {
 				})
 			}
 
-			return render({
+			return render(context, {
 				title: t('meta.title.adminEtfImport'),
 				htmlLang: htmlLangForCurrentUiLocale(),
 				session: layoutSession,

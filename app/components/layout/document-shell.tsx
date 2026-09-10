@@ -1,8 +1,10 @@
 import type { Handle, RemixNode } from 'remix/ui'
+import { ImportMap } from 'remix/ui/server'
 import { PortfolioTradeFocus } from '../../features/portfolio/portfolio-trade-focus.component.js'
 import type { AppPage } from '../../lib/app-page.ts'
 import { baseCss } from '../../lib/document-styles.ts'
 import { t } from '../../lib/i18n.ts'
+import { remixUiImportMap } from '../../lib/remix-assets.ts'
 import type { SessionData } from '../../lib/session.ts'
 import type { FlashBannerTone } from '../../lib/session-flash.ts'
 import { tailwindConfig } from '../../lib/tailwind-config.ts'
@@ -13,13 +15,6 @@ import { AppTopBar } from './app-top-bar.tsx'
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
 import { getNavLinks } from './sidebar-nav.ts'
-
-const IMPORT_MAP = JSON.stringify({
-	imports: {
-		'remix/ui': '/remix/dist/ui.js',
-		'@remix-run/ui': '/@remix-run/ui/dist/index.js',
-	},
-})
 
 type DocumentShellProps = {
 	title: string
@@ -89,7 +84,7 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 					innerHTML={`tailwind.config = ${JSON.stringify(tailwindConfig)}`}
 				/>
 				<style type="text/tailwindcss" innerHTML={baseCss} />
-				<script type="importmap" innerHTML={IMPORT_MAP} />
+				<ImportMap value={remixUiImportMap} />
 				<script
 					type="application/json"
 					id="ui-client-messages"

@@ -47,7 +47,7 @@ export const portfolioController = {
 						session.token,
 						session.gistId,
 					)
-					return renderPage({
+					return renderPage(context, {
 						entries,
 						session: layoutSession,
 						flashBanner: flashedBanner,
@@ -55,7 +55,7 @@ export const portfolioController = {
 					})
 				} catch {
 					const catalog = await fetchCatalog()
-					return renderPage({
+					return renderPage(context, {
 						entries: [],
 						session: layoutSession,
 						flashBanner: {
@@ -66,7 +66,7 @@ export const portfolioController = {
 					})
 				}
 			}
-			return renderPage({
+			return renderPage(context, {
 				entries: getGuestEtfs(context.get(Session)),
 				session: layoutSession,
 				flashBanner: flashedBanner,
@@ -238,11 +238,14 @@ type RenderPortfolioPageParams = {
 	catalog: CatalogEntry[]
 }
 
-async function renderPage(params: RenderPortfolioPageParams) {
+async function renderPage(
+	context: AppRequestContext,
+	params: RenderPortfolioPageParams,
+) {
 	const { entries, session, flashBanner, catalog } = params
 	const instrumentOptions = instrumentSelectOptionsFromCatalog(catalog)
 	const body = jsx(PortfolioPage, { instrumentOptions })
-	return render({
+	return render(context, {
 		title: t('meta.title.portfolio'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session,

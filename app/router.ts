@@ -2,6 +2,7 @@ import { compression } from 'remix/middleware/compression'
 import { formData } from 'remix/middleware/form-data'
 import { logger } from 'remix/middleware/logger'
 import { methodOverride } from 'remix/middleware/method-override'
+import { render } from 'remix/middleware/render'
 import { session } from 'remix/middleware/session'
 import { staticFiles } from 'remix/middleware/static'
 import { createMiddleware, createRouter, type Middleware } from 'remix/router'
@@ -35,6 +36,7 @@ import {
 	MULTIPART_MAX_FILE_BYTES,
 	MULTIPART_MAX_TOTAL_BYTES,
 } from './lib/multipart-upload-limits.ts'
+import { remixAssetServer } from './lib/remix-assets.ts'
 import type { AppRequestContext } from './lib/request-context.ts'
 import { sessionCookie, sessionStorage } from './lib/session.ts'
 import { uiLocaleMiddleware } from './lib/ui-locale-middleware.ts'
@@ -51,12 +53,13 @@ const appStatic = staticFiles('app', {
 		path === 'lib/scroll-lock.js',
 })
 
-const remixRuntime = staticFiles('node_modules', {
-	filter: (path) =>
-		path === 'remix/dist/ui.js' ||
-		path.startsWith('remix/dist/ui/') ||
-		path.startsWith('@remix-run/ui/dist/'),
-})
+/** Serves `remix`'s browser runtime; see `app/lib/remix-assets.ts`. */
+function remixAssets(): Middleware {
+	return async (context, next) => {
+		const response = await remixAssetServer.fetch(context.request)
+		return response ?? next()
+	}
+}
 
 /**
  * Drops a GitHub token from the session when its login is not approved.
@@ -87,7 +90,7 @@ function enforceGithubApproval(): Middleware {
  */
 export const appMiddleware = createMiddleware(
 	appStatic,
-	remixRuntime,
+	remixAssets(),
 	compression(),
 	logger(),
 	uiLocaleMiddleware(),
@@ -99,6 +102,7 @@ export const appMiddleware = createMiddleware(
 	}),
 	methodOverride(),
 	enforceGithubApproval(),
+	render(),
 )
 
 export const router = createRouter({ middleware: appMiddleware })
