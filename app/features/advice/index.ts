@@ -666,5 +666,5 @@ export const adviceController = {
 /** Test helper: path + query for switching to a tab. */
 export function adviceTabHref(mode: AdviceAnalysisMode): string {
 	const tabQuery = mode === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
-	return routes.advice.index.href({}, { tab: tabQuery })
+	return routes.advice.index.href({}, { searchParams: { tab: tabQuery } })
 }

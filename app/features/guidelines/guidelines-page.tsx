@@ -49,7 +49,7 @@ export function GuidelinesPage(
 		const bucketTabHref = routes.guidelines.index.href()
 		const instrumentTabHref = routes.guidelines.index.href(
 			{},
-			{ tab: 'instrument' },
+			{ searchParams: { tab: 'instrument' } },
 		)
 		const activeAddTab = props.activeAddTab
 		const guidelinesIntro = getSectionIntro('guidelines')

@@ -1,9 +1,5 @@
-import {
-	addEventListeners,
-	clientEntry,
-	createElement,
-	navigate,
-} from 'remix/ui'
+import { clientEntry, createElement, navigate } from 'remix/ui'
+import { addEventListeners } from '../../lib/event-listeners.js'
 import { setSubmitButtonLoading } from './submit-button-loading.component.js'
 
 const CLIENT_MESSAGES_ID = 'ui-client-messages'

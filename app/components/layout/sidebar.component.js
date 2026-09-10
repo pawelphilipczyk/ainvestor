@@ -1,5 +1,6 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/ui'
-import { lockScroll } from 'remix/ui/scroll-lock'
+import { clientEntry, createElement } from 'remix/ui'
+import { addEventListeners } from '../../lib/event-listeners.js'
+import { lockScroll } from '../../lib/scroll-lock.js'
 
 /** Matches Tailwind `md:` (tablet / iPad portrait and up). */
 const DESKTOP_MEDIA = '(min-width: 768px)'

@@ -1,4 +1,5 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/ui'
+import { clientEntry, createElement } from 'remix/ui'
+import { addEventListeners } from '../../lib/event-listeners.js'
 
 function toggleTheme(doc) {
 	const isDark = doc.documentElement.classList.toggle('dark')

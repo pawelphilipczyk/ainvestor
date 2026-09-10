@@ -455,7 +455,7 @@ function renderEtfProposals(
 								catalogEntryId !== null
 									? routes.catalog.etf.href(
 											{ catalogEntryId },
-											{ model: DEFAULT_CATALOG_ETF_MODEL },
+											{ searchParams: { model: DEFAULT_CATALOG_ETF_MODEL } },
 										)
 									: null
 							const fundCell =
@@ -632,12 +632,21 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 		const pendingApproval = props.pendingApproval === true
 		const adviceGistGate = props.adviceGistGate
 		const adviceFormDisabled = pendingApproval || adviceGistGate !== undefined
-		const buyNextHref = routes.advice.index.href({}, { tab: 'buy_next' })
-		const reviewHref = routes.advice.index.href({}, { tab: 'portfolio_review' })
-		const buyNextAction = routes.advice.action.href({}, { tab: 'buy_next' })
+		const buyNextHref = routes.advice.index.href(
+			{},
+			{ searchParams: { tab: 'buy_next' } },
+		)
+		const reviewHref = routes.advice.index.href(
+			{},
+			{ searchParams: { tab: 'portfolio_review' } },
+		)
+		const buyNextAction = routes.advice.action.href(
+			{},
+			{ searchParams: { tab: 'buy_next' } },
+		)
 		const reviewAction = routes.advice.action.href(
 			{},
-			{ tab: 'portfolio_review' },
+			{ searchParams: { tab: 'portfolio_review' } },
 		)
 		const frameSrc = props.adviceResultFrameSrc
 		const accessBanner = adviceAccessBannerFromProps(props)

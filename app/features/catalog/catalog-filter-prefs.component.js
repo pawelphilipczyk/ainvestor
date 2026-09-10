@@ -1,4 +1,5 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/ui'
+import { clientEntry, createElement } from 'remix/ui'
+import { addEventListeners } from '../../lib/event-listeners.js'
 
 // Mirrors CATALOG_FILTER_PREFS_STORAGE_KEY in catalog-filter-prefs.ts (client bundle can't import that TS module).
 const STORAGE_KEY = 'catalog/filters/v1'

@@ -151,34 +151,31 @@ describe('remix ui runtime in document', () => {
 		assert.match(body, /"remix\/ui":\s*"\/remix\/dist\/ui\.js"/)
 		assert.match(
 			body,
-			/"remix\/ui\/scroll-lock":\s*"\/remix\/dist\/ui\/scroll-lock\.js"/,
-		)
-		assert.match(
-			body,
 			/"@remix-run\/ui":\s*"\/@remix-run\/ui\/dist\/index\.js"/,
 		)
-		assert.match(
-			body,
-			/"@remix-run\/ui\/scroll-lock":\s*"\/@remix-run\/ui\/dist\/utils\/scroll-lock\.js"/,
-		)
+		// rc.2 removed the `remix/ui/scroll-lock` and `@remix-run/ui/scroll-lock`
+		// subpaths; lockScroll is now vendored in app/lib/scroll-lock.js instead
+		// of resolved through the import map. See app/lib/scroll-lock.js.
+		assert.doesNotMatch(body, /remix\/ui\/scroll-lock/)
+		assert.doesNotMatch(body, /@remix-run\/ui\/scroll-lock/)
 	})
 
-	it('GET /remix/dist/ui/scroll-lock.js is served for client sidebar imports', async () => {
-		const response = await router.fetch(
-			'http://localhost/remix/dist/ui/scroll-lock.js',
-		)
+	it('GET /lib/scroll-lock.js is served for the vendored lockScroll helper', async () => {
+		const response = await router.fetch('http://localhost/lib/scroll-lock.js')
 		assert.equal(response.status, 200)
+		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 		const body = await response.text()
-		assert.match(body, /@remix-run\/ui\/scroll-lock/)
+		assert.match(body, /export function lockScroll/)
 	})
 
-	it('GET /@remix-run/ui/dist/utils/scroll-lock.js is served for nested imports', async () => {
+	it('GET /lib/event-listeners.js is served for the vendored addEventListeners helper', async () => {
 		const response = await router.fetch(
-			'http://localhost/@remix-run/ui/dist/utils/scroll-lock.js',
+			'http://localhost/lib/event-listeners.js',
 		)
 		assert.equal(response.status, 200)
+		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 		const body = await response.text()
-		assert.match(body, /lockScroll/)
+		assert.match(body, /export function addEventListeners/)
 	})
 
 	it('document loads entry.js to boot remix ui runtime', async () => {
@@ -192,14 +189,16 @@ describe('remix ui runtime in document', () => {
 		const body = await response.text()
 		assert.match(body, /id="page-content"[^>]*\bmin-w-0\b[^>]*\bmd:ml-64\b/)
 	})
-	it('GET /entry.js returns bootstrap with run({ loadModule, resolveFrame })', async () => {
+	it('GET /entry.js returns bootstrap with run({ loadModule }) and no custom resolveFrame', async () => {
 		const response = await router.fetch('http://localhost/entry.js')
 		assert.equal(response.status, 200)
 		const body = await response.text()
 		assert.match(body, /import \{ run \} from 'remix\/ui'/)
 		assert.match(body, /run\(\{/)
-		assert.match(body, /resolveFrame/)
 		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
+		// rc.2's default resolveFrame is a strict superset of the app's old
+		// custom implementation (adds form-submission support); see app/entry.js.
+		assert.doesNotMatch(body, /resolveFrame/)
 	})
 })
 
@@ -231,12 +230,13 @@ describe('sidebar component entry static file', () => {
 		assert.match(body, /addEventListeners\(doc, handle\.signal/)
 	})
 
-	it('sidebar component entry uses remix scroll lock for mobile overlay', async () => {
+	it('sidebar component entry uses the vendored scroll lock for mobile overlay', async () => {
 		const response = await router.fetch(
 			'http://localhost/components/layout/sidebar.component.js',
 		)
 		const body = await response.text()
-		assert.match(body, /from 'remix\/ui\/scroll-lock'/)
+		// rc.2 removed the `remix/ui/scroll-lock` subpath; see app/lib/scroll-lock.js.
+		assert.match(body, /from '\.\.\/\.\.\/lib\/scroll-lock\.js'/)
 		assert.match(body, /lockScroll/)
 	})
 })

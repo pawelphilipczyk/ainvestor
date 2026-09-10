@@ -1,11 +1,11 @@
-import { compression } from 'remix/compression-middleware'
-import { createRouter, type Middleware } from 'remix/fetch-router'
-import { formData } from 'remix/form-data-middleware'
-import { logger } from 'remix/logger-middleware'
-import { methodOverride } from 'remix/method-override-middleware'
+import { compression } from 'remix/middleware/compression'
+import { formData } from 'remix/middleware/form-data'
+import { logger } from 'remix/middleware/logger'
+import { methodOverride } from 'remix/middleware/method-override'
+import { session } from 'remix/middleware/session'
+import { staticFiles } from 'remix/middleware/static'
+import { createMiddleware, createRouter, type Middleware } from 'remix/router'
 import { Session } from 'remix/session'
-import { session } from 'remix/session-middleware'
-import { staticFiles } from 'remix/static-middleware'
 import { handleMcpHttpRequest } from '../mcp/http.ts'
 import {
 	buildAuthorizationServerMetadata,
@@ -46,7 +46,9 @@ const appStatic = staticFiles('app', {
 	filter: (path) =>
 		path.endsWith('.component.js') ||
 		path === 'entry.js' ||
-		path === 'lib/dialog-trigger.js',
+		path === 'lib/dialog-trigger.js' ||
+		path === 'lib/event-listeners.js' ||
+		path === 'lib/scroll-lock.js',
 })
 
 const remixRuntime = staticFiles('node_modules', {
@@ -56,49 +58,50 @@ const remixRuntime = staticFiles('node_modules', {
 		path.startsWith('@remix-run/ui/dist/'),
 })
 
+/**
+ * Drops a GitHub token from the session when its login is not approved.
+ *
+ * The handler is deliberately typed against the bare `Middleware` contract
+ * rather than {@link AppRequestContext}: this middleware is a member of
+ * `appMiddleware`, and `AppRequestContext` is derived from `appMiddleware`, so
+ * annotating it with the derived type would be circular. It only needs to read
+ * `Session`, which the loose context resolves via the context-key fallback.
+ */
 function enforceGithubApproval(): Middleware {
-	const handler = async (
-		context: AppRequestContext,
-		next: () => Promise<Response>,
-	) => {
-		stripGithubTokenIfUnapproved(context.get(Session))
+	return async (context, next) => {
+		const session = context.get(Session)
+		if (session) stripGithubTokenIfUnapproved(session)
 		return next()
 	}
-	return handler as unknown as Middleware
 }
 
-export const router = createRouter({
-	middleware:
-		process.env.NODE_ENV === 'development'
-			? [
-					appStatic,
-					remixRuntime,
-					logger(),
-					uiLocaleMiddleware(),
-					session(sessionCookie, sessionStorage),
-					multipartLimitFlashOnError(),
-					formData({
-						maxFileSize: MULTIPART_MAX_FILE_BYTES,
-						maxTotalSize: MULTIPART_MAX_TOTAL_BYTES,
-					}),
-					methodOverride(),
-					enforceGithubApproval(),
-				]
-			: [
-					appStatic,
-					remixRuntime,
-					compression(),
-					uiLocaleMiddleware(),
-					session(sessionCookie, sessionStorage),
-					multipartLimitFlashOnError(),
-					formData({
-						maxFileSize: MULTIPART_MAX_FILE_BYTES,
-						maxTotalSize: MULTIPART_MAX_TOTAL_BYTES,
-					}),
-					methodOverride(),
-					enforceGithubApproval(),
-				],
-})
+/**
+ * The global middleware chain, in run order.
+ *
+ * One unconditional tuple for every environment. Since rc.2 each middleware
+ * contributes its own entry to the request-context type, so a dev/prod ternary
+ * would yield two different context types and the router would reject the
+ * union. Running `compression()` in development and `logger()` in production is
+ * the accepted cost; tune each middleware's options rather than reintroducing a
+ * conditional chain.
+ */
+export const appMiddleware = createMiddleware(
+	appStatic,
+	remixRuntime,
+	compression(),
+	logger(),
+	uiLocaleMiddleware(),
+	session(sessionCookie, sessionStorage),
+	multipartLimitFlashOnError(),
+	formData({
+		maxFileSize: MULTIPART_MAX_FILE_BYTES,
+		maxTotalSize: MULTIPART_MAX_TOTAL_BYTES,
+	}),
+	methodOverride(),
+	enforceGithubApproval(),
+)
+
+export const router = createRouter({ middleware: appMiddleware })
 
 router.get(routes.health, () => {
 	return new Response('ok', {
