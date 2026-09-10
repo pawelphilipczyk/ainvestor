@@ -98,3 +98,36 @@ that state expressed as the literal attribute the HTML spec defines
 display-only name. Test the *SSR output string* directly for controlled form
 elements (`renderToString(...)`), not just typecheck/behavior at the JSX
 call site — the rendered string is what a browser actually receives.
+
+## A green `npm run typecheck` says nothing about the client islands
+
+`tsconfig.json`'s `include` is `["server.ts", "app/**/*.ts", "app/**/*.tsx",
+"mcp/**/*.ts"]` — note the absence of `.js`. Every browser island in this repo
+(`app/entry.js`, the `*.component.js` files) is therefore **invisible to
+`tsc`**, even though those files import from `remix/ui` just like the server
+code does. The `.component.d.ts` siblings only type the island for its
+*importer*; they do not typecheck the island's own body.
+
+The consequence bites hardest on framework upgrades. During the Remix
+`beta.0` → `3.0.0-rc.2` trial, `npm run typecheck` reached **0 errors** while
+two genuine breakages sat in the client layer: `addEventListeners` had been
+removed from `@remix-run/ui` entirely, and `resolveFrame`'s signature had
+changed from `(src, signal, target)` to `(src, options)` — so `app/entry.js`
+was passing an `AbortSignal` positionally into what is now an options object.
+
+The two fail very differently, which is the real trap:
+
+- The **removed export** fails loudly, but only at module *link* time —
+  `SyntaxError: The requested module 'remix/ui' does not provide an export
+  named 'addEventListeners'`. The test suite catches it, because importing the
+  router pulls the islands in transitively.
+- The **changed signature** fails **silently and only in a browser**. It is
+  still valid JavaScript, nothing throws at import, and no test exercises it,
+  because frame resolution only runs against a live DOM.
+
+**Rule of thumb:** treat a clean typecheck as covering the server half of this
+app and nothing more. When a `remix/ui` API changes, grep the `.js` islands by
+hand (`grep -rn "from 'remix/ui'" app --include=*.js`) and diff the upstream
+type surface for the exact symbols they import — a signature change in an
+untyped call site has no automated signal anywhere in this repo, so the manual
+browser pass is the only thing standing between it and production.
