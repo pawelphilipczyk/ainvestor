@@ -1,9 +1,17 @@
 # Agent Working Agreement
 
 Before starting any non-trivial change, skim `docs/LESSONS_LEARNED.md` for
-known gotchas already hit (and debugged) in this repo. Add an entry there
-whenever you uncover a surprising framework/tooling root cause that cost
-real investigation — see that file's own header for what belongs in it.
+known gotchas already hit (and debugged) in this repo.
+
+Adding to that file is **rare and deliberate** — the default is not to. An
+entry must be something you could not have learned by reading (not our config,
+not the library's docs): you found it empirically, the symptom actively misled
+you, the cause stays non-obvious even once the symptom is known, and it yields
+a rule that changes future code. Documented behavior of general tools, facts
+recoverable from this repo's own configuration, and version-migration breakage
+all belong elsewhere. Read that file's header and check your entry against all
+four criteria before adding it; if it fails any, put it in a code comment or
+the relevant topic doc instead.
 
 This repository uses a server-first UI architecture. Before making UI-related changes, read:
 

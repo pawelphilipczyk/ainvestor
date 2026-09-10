@@ -1,38 +1,39 @@
 # Lessons learned
 
-A running log of debugging discoveries in this repo that took real
-investigation to uncover — captured so the next person (or agent) doesn't
-have to rediscover them from scratch.
+A short log of things this repo learned the hard way — empirical discoveries
+about how our dependencies actually behave, captured so nobody pays the same
+debugging cost twice.
 
-This file is for **surprising framework/tooling behavior that cost real
-debugging time**, not prescriptive "how to build X" guidance — that stays in
-the topic-specific docs (`UI_ARCHITECTURE_GUIDELINES.md`,
-`REMIX_V3_PACKAGES.md`, `BIOME_RULES.md`, …). Add a new entry whenever a bug
-turns out to have a non-obvious root cause that could plausibly bite someone
-else the same way.
+**The bar is deliberately high.** This file is only worth reading if every
+entry earns its place, so a new entry must be something you *could not have
+learned by reading* — not the repo's own config, not the library's docs. It
+has to have been discovered by running the thing. Before adding one, check it
+clears all four:
 
-## A stale branch's CI failure can be the base branch's fault, not the diff's
+1. **Empirical.** You found it by reproducing against the real runtime or
+   reading a dependency's source — not by reading `tsconfig.json`, our own
+   docs, or the library's README.
+2. **Misleading symptom.** The broken thing *looked* fine: checks passed, no
+   error was thrown, or it failed only on a path nobody exercises. A loud,
+   accurate error message is not a lesson.
+3. **Non-obvious after the fact.** Someone who knows the symptom still would
+   not guess the cause. If one sentence of explanation makes it obvious, it
+   belongs in a code comment, not here.
+4. **Changes future code.** It yields a rule you would apply again, not a
+   fact you would look up once.
 
-GitHub Actions' `pull_request` trigger tests a **merge of the PR branch into
-the current base branch**, not the PR branch alone. A long-lived branch that
-never rebased/merged `main` can pass every local check yet fail CI for
-reasons that have nothing to do with its own diff — CI is actually running
-the PR's source files against `main`'s *current* `package.json` /
-`package-lock.json` and every other file the PR never touched.
+**Does not belong here,** however much time it cost:
 
-**Symptom:** a `ERR_PACKAGE_PATH_NOT_EXPORTED` (or similarly "impossible"
-resolution error) for a package specifier that works fine locally, that only
-reproduces in CI, and that a fresh local `npm ci` under the exact CI Node
-version still doesn't reproduce.
+- Documented behavior of a general tool (GitHub Actions, npm, git). Link the
+  upstream docs from the relevant topic doc instead.
+- Facts recoverable by reading this repo's own configuration.
+- Prescriptive "how to build X" guidance — that stays in the topic-specific
+  docs (`UI_ARCHITECTURE_GUIDELINES.md`, `REMIX_V3_PACKAGES.md`,
+  `BIOME_RULES.md`, …).
+- Version-migration breakage, which belongs in the relevant migration plan.
 
-**Diagnostic:** `git log <pr-branch>..origin/main --oneline | wc -l`, and
-compare `main`'s `package.json` against the branch's own
-(`git show origin/main:package.json` vs. the branch's) for the dependency in
-question. If `main` bumped it to a breaking version since the branch was
-opened, that's the real failure — not the PR's code.
-
-**Fix:** merge (or rebase) `main` into the branch, then re-validate against
-the *merged* state, not just the original diff.
+Prefer deleting a stale or weak entry over keeping it for completeness. Two
+entries people trust beat ten they skim.
 
 ## `remix/ui`'s `navigate()` preserves "live" form-control state on purpose — don't use it for a full restore/redirect
 
@@ -99,35 +100,3 @@ display-only name. Test the *SSR output string* directly for controlled form
 elements (`renderToString(...)`), not just typecheck/behavior at the JSX
 call site — the rendered string is what a browser actually receives.
 
-## A green `npm run typecheck` says nothing about the client islands
-
-`tsconfig.json`'s `include` is `["server.ts", "app/**/*.ts", "app/**/*.tsx",
-"mcp/**/*.ts"]` — note the absence of `.js`. Every browser island in this repo
-(`app/entry.js`, the `*.component.js` files) is therefore **invisible to
-`tsc`**, even though those files import from `remix/ui` just like the server
-code does. The `.component.d.ts` siblings only type the island for its
-*importer*; they do not typecheck the island's own body.
-
-The consequence bites hardest on framework upgrades. During the Remix
-`beta.0` → `3.0.0-rc.2` trial, `npm run typecheck` reached **0 errors** while
-two genuine breakages sat in the client layer: `addEventListeners` had been
-removed from `@remix-run/ui` entirely, and `resolveFrame`'s signature had
-changed from `(src, signal, target)` to `(src, options)` — so `app/entry.js`
-was passing an `AbortSignal` positionally into what is now an options object.
-
-The two fail very differently, which is the real trap:
-
-- The **removed export** fails loudly, but only at module *link* time —
-  `SyntaxError: The requested module 'remix/ui' does not provide an export
-  named 'addEventListeners'`. The test suite catches it, because importing the
-  router pulls the islands in transitively.
-- The **changed signature** fails **silently and only in a browser**. It is
-  still valid JavaScript, nothing throws at import, and no test exercises it,
-  because frame resolution only runs against a live DOM.
-
-**Rule of thumb:** treat a clean typecheck as covering the server half of this
-app and nothing more. When a `remix/ui` API changes, grep the `.js` islands by
-hand (`grep -rn "from 'remix/ui'" app --include=*.js`) and diff the upstream
-type surface for the exact symbols they import — a signature change in an
-untyped call site has no automated signal anywhere in this repo, so the manual
-browser pass is the only thing standing between it and production.
