@@ -12,6 +12,7 @@
 		"mcp": "tsx mcp/server.ts",
 		"typecheck": "tsc --noEmit",
 		"test": "npm run -s ensure-deps && tsx --test",
+		"test:browser": "npm run -s ensure-deps && tsx --test \"app/**/*.browser.ts\"",
 		"test:smoke:advice": "npm run -s ensure-deps && RUN_ADVICE_OPENAI_SMOKE=1 tsx --test app/features/advice/advice-openai.smoke.test.ts",
 		"lint": "biome lint .",
 		"format": "biome format .",
@@ -25,6 +26,7 @@
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.7",
 		"@types/node": "^24.5.2",
+		"playwright": "^1.63.0",
 		"typescript": "^5.9.2"
 	}
 }

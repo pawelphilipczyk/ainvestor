@@ -75,6 +75,22 @@ npm run test
 
 `npm run test` auto-installs dependencies with `npm ci` when `node_modules` is missing.
 
+### Browser tests
+
+Client behavior that only exists after hydration — `clientEntry` wiring, Remix
+UI mixins, the sidebar overlay — cannot be seen by `npm run test` or by the type
+checker, because it lives in `.component.js` files outside `tsconfig.json`.
+Those are covered by Playwright against a real Chromium:
+
+```bash
+npx playwright install chromium   # one time
+npm run test:browser
+```
+
+They are kept out of `npm run test` on purpose, so CI never has to download a
+browser. Files are named `*.browser.ts`; the harness is
+`app/lib/browser-test.ts`.
+
 ## Type check
 
 ```bash

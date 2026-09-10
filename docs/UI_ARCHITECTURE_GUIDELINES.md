@@ -171,6 +171,24 @@ Adopting a primitive therefore means folding the markup into the `clientEntry`:
 (`toggle.control`). Keep the delegated-listener island shape for behavior that
 is genuinely document-wide and not attached to one element.
 
+Two limits worth knowing before planning a port:
+
+- **Context does not cross a `clientEntry` boundary on the client.** Each entry
+  hydrates into its own virtual root, so a primitive whose parts talk through a
+  provider (`popover`, `tabs`, `select`) needs every one of its parts inside the
+  *same* entry. A provider in a server component around two separate entries
+  works on the server and silently does nothing in the browser.
+- **Not every primitive fits every widget.** `remix/ui/popover`'s `surface` is a
+  dropdown positioner: it forces `popover="manual"` and writes inline
+  `inset: … auto auto …` from the anchor. The sidebar was measured against it in
+  Stage 6 and kept its hand-rolled overlay for that reason — see §6 of
+  `docs/REMIX_RC_MIGRATION_PLAN.md`. Measure before porting, and record the gap
+  where the code lives when the answer is no.
+
+**Testing a port:** none of this wiring exists before hydration, so a
+server-render assertion cannot see it. Add a `*.browser.ts` file and run
+`npm run test:browser` (see `app/lib/browser-test.ts`).
+
 ---
 
 ## Styling Strategy

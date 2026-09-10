@@ -293,11 +293,34 @@ reachable** — `@remix-run/ui`'s `popover` entry exports `{}`. Imported by
 `sidebar.component.js`; it was the single root cause of all 9 initial test
 failures in the trial.
 
-**Adopt `remix/ui/popover` for the mobile sidebar overlay.** Its `surface` mixin
-calls `lockScroll()` internally and also covers outside-click dismissal and
-focus restore, deleting most of the 107-line `sidebar.component.js` rather than
-porting it. Vendor the ~50-line helper only if popover is tried and does not fit
-the sidebar's layout, with the gap named per reason 3.
+**Tried in Stage 6 against this sidebar; it does not fit — reason 3.** The
+attempt drove the real `<aside>` markup with `popover.surface` + `popover.anchor`
+in Chromium at 1280x800 and 390x844, with `fixed inset-y-0 left-0 w-64` supplied
+explicitly so the measurement did not depend on the Tailwind CDN. Three
+mismatches, none of them tunable through the mixin's options:
+
+1. `surface` unconditionally applies `attrs({ popover: 'manual' })`, so the
+   element is `display: none` until JS calls `showPopover()` — measured at
+   *both* breakpoints. This sidebar is a persistent desktop rail that must
+   render visible from the server, with no JavaScript.
+2. On open, `surface` runs `anchor()` against a registered anchor, which writes
+   `position: fixed; inset: <y>px auto auto <x>px` inline. Inline styles beat
+   utility classes, so `inset-y-0 left-0` cannot survive: the full-height drawer
+   was measured at `16,771 270x14` — a strip parked under the toggle button.
+   `AnchorOptions` has no "do not position" mode.
+3. `lockScroll()` fires on every open, including desktop, where the rail is not
+   an overlay. Measured `documentElement.style.overflow === 'hidden'` at 1280px.
+
+`surface` is a dropdown/menu positioner, not a drawer primitive. `lockScroll`
+and `onOutsideClick` are not reachable on their own either — `@remix-run/ui`'s
+`popover` entry exports only `Context`, `anchor`, `surface`, `focusOnShow` and
+`focusOnHide`. So `app/lib/scroll-lock.js` stays vendored, and
+`sidebar.component.js` keeps its document-level delegation (which the plan's
+*What should still be hand-rolled* section already allows under reason 3).
+
+What the attempt did produce: `app/components/layout/sidebar.browser.ts`, real
+Chromium coverage of open, close, backdrop, Escape, scroll lock and the
+desktop no-lock rule — behavior that previously had no test at all.
 
 ### 7. Client `resolveFrame` changed — and form handling went native
 
@@ -435,6 +458,27 @@ re-exports.
   attribute `aria-checked=""` — ARIA reads that as the `switch` default
   (`false`) until hydration rewrites it. Accepted; working around it would mean
   re-hand-rolling what the mixin owns.
+- **sidebar → `remix/ui/popover`. Attempted; not adopted (reason 3).** The
+  measurements are in §6. `app/lib/scroll-lock.js` therefore survives Stage 6,
+  and its deletion trigger is rewritten to say so rather than pointing at an
+  outcome that has now been ruled out. The attempt is not a dead loss: it paid
+  for the browser harness below and for the sidebar's first real test.
+  If the hand-rolled overlay is still worth retiring, the option that remains is
+  architectural rather than a swap — split the persistent desktop rail from the
+  mobile drawer and give the drawer a native `<dialog>` (focus trap, Escape,
+  `::backdrop`, top layer, all native). That trades duplicated nav markup for
+  deleting the scroll-lock, outside-click and focus code, and it is a design
+  decision, not a migration step, so it is not folded into this stage.
+- **Browser tests.** `npm run test:browser` (Playwright, `app/**/*.browser.ts`,
+  helper in `app/lib/browser-test.ts`). Deliberately outside `npm test`: it
+  needs a browser binary from `npx playwright install chromium`, which CI does
+  not download — `playwright@1.63` ships no postinstall, so adding the
+  dependency costs `npm ci` nothing but the tarball. This is the
+  "manual browser pass" the plan calls non-negotiable, made repeatable. The
+  Tailwind CDN is stubbed so runs are deterministic offline, which means these
+  tests assert component-owned state (classes, ARIA, inline styles,
+  `localStorage`) rather than geometry; breakpoint *behavior* is still real,
+  since the sidebar branches on `matchMedia`.
 - **Tests.** `render()` from `remix/ui/test` mounts into `document.body`, and
   nothing in this repo supplies a DOM — upstream drives it with Playwright,
   which is not a dependency here. Until that call is made, the replacement for
@@ -457,9 +501,13 @@ on every adoption step until replaced. `render()` from `remix/ui/test` needs a
 DOM this repo does not have (see Stage 6) — until that is resolved, assert the
 server-rendered contract via `renderToString`.
 
-**Manual browser pass — non-negotiable, after Stage 4 and again after Stage 6.**
-The riskiest changes are invisible to typecheck and tests. Exercise: sidebar
-open/close on mobile including scroll lock, theme toggle, locale select, every
+**Browser pass — non-negotiable, after Stage 4 and again after Stage 6.**
+Since Stage 6 this is partly automated: `npm run test:browser` covers the
+sidebar overlay and the theme toggle, and every further Stage 6 component
+should arrive with its own `*.browser.ts`. Still walk the rest by hand — the
+riskiest changes are invisible to typecheck and to the server-render tests.
+Exercise: sidebar open/close on mobile including scroll lock, theme toggle,
+locale select, every
 `<Frame>` fragment (portfolio, guidelines, catalog list, catalog ETF analysis,
 advice result), form submission via `FrameSubmitEnhancement`, and navigation
 loading states. Check Firefox or Safari too — `app/entry.js` carries a

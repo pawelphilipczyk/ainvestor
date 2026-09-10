@@ -12,14 +12,23 @@
  * @see https://github.com/remix-run/remix/blob/main/packages/ui/CHANGELOG.md
  * @see https://github.com/remix-run/remix/tree/main/packages/ui
  *
- * DELETE THIS FILE when the sidebar is restructured onto `remix/ui/popover`'s
- * `surface` mixin, which calls `lockScroll()` internally and also covers
- * outside-click dismissal and focus restore (Stage 6 of
- * `docs/REMIX_RC_MIGRATION_PLAN.md`) — or sooner, if Remix makes `lockScroll`
- * a public export again. Vendored rather than adopted here under reason 3 of
- * that plan's decision rule: `surface` is an open/close mixin whose model the
- * sidebar's current toggle logic does not fit without the restructuring that
- * Stage 6 owns, and Stage 4 is only meant to unblock.
+ * DELETE THIS FILE when Remix makes `lockScroll` a public export again, or if
+ * the mobile drawer is ever split from the desktop rail and moved onto a native
+ * `<dialog>`.
+ *
+ * **Not** when the sidebar moves onto `remix/ui/popover` — Stage 6 tried that
+ * and ruled it out. Measured in Chromium: `surface` always sets
+ * `popover="manual"` (so the element is `display: none` until JS opens it, at
+ * every breakpoint, while this sidebar is a persistent desktop rail that must
+ * render from the server without JS), and on open it runs `anchor()`, which
+ * writes `position: fixed; inset: <y>px auto auto <x>px` inline and so
+ * overrides `inset-y-0 left-0`, turning the full-height drawer into a strip
+ * under the toggle button. `surface` is a dropdown positioner, not a drawer.
+ * `lockScroll` and `onOutsideClick` are not separately reachable either:
+ * `@remix-run/ui`'s `popover` entry exports only `Context`, `anchor`,
+ * `surface`, `focusOnShow` and `focusOnHide`. Reason 3 of the plan's decision
+ * rule, with §6 of `docs/REMIX_RC_MIGRATION_PLAN.md` carrying the full
+ * measurements.
  *
  * Locks are reference counted per document, so nested or repeated locks release
  * the document only once the last holder releases.
