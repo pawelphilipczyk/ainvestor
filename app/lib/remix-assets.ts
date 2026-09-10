@@ -19,6 +19,31 @@ export const remixAssetServer = createAssetServer({
 })
 
 /**
+ * Bare specifiers the browser has to resolve, mapped to the package file each
+ * one resolves to on disk.
+ *
+ * Two layers, because two different things do the importing:
+ *
+ * - `remix/ui*` — imported by our own `.component.js` client entries and by
+ *   `entry.js`.
+ * - `@remix-run/ui*` — imported by the `remix/ui*` files themselves once the
+ *   browser has loaded them (`remix/ui/toggle/primitives` is a one-line
+ *   `export *` re-export, and so is every other `remix/ui` subpath).
+ *
+ * Add a pair here when a client entry starts importing a new `remix/ui`
+ * subpath; the Stage 6 primitives adoption in
+ * `docs/REMIX_RC_MIGRATION_PLAN.md` is what makes this list grow.
+ */
+const browserModulePaths = {
+	'remix/ui': 'node_modules/remix/dist/ui.js',
+	'remix/ui/toggle/primitives':
+		'node_modules/remix/dist/ui/toggle/primitives.js',
+	'@remix-run/ui': 'node_modules/@remix-run/ui/dist/index.js',
+	'@remix-run/ui/toggle/primitives':
+		'node_modules/@remix-run/ui/dist/toggle/primitives.js',
+} as const
+
+/**
  * A flat top-level import map, built from `getHref()` rather than
  * `getImportMap()`/`getScriptEntry()`. Those key their mappings to a
  * `scopes` entry for the *importing* module's own served URL, which only
@@ -29,14 +54,17 @@ export const remixAssetServer = createAssetServer({
  * to them and `remix/ui` would fail to resolve in the browser. Demonstrated
  * against this codebase; Reason 3.
  */
-const [remixUiHref, remixRunUiHref] = await Promise.all([
-	remixAssetServer.getHref('node_modules/remix/dist/ui.js'),
-	remixAssetServer.getHref('node_modules/@remix-run/ui/dist/index.js'),
-])
+const hrefs = await Promise.all(
+	Object.values(browserModulePaths).map((filePath) =>
+		remixAssetServer.getHref(filePath),
+	),
+)
 
 export const remixUiImportMap = {
-	imports: {
-		'remix/ui': remixUiHref,
-		'@remix-run/ui': remixRunUiHref,
-	},
+	imports: Object.fromEntries(
+		Object.keys(browserModulePaths).map((specifier, index) => [
+			specifier,
+			hrefs[index],
+		]),
+	),
 }

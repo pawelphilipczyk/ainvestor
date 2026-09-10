@@ -3,8 +3,7 @@ import { t } from '../../lib/i18n.ts'
 import { getShellReturnPath, getUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import { Link } from '../navigation/link.tsx'
-import { ThemeToggleInteractions } from '../navigation/theme-toggle.component.js'
-import { ThemeToggleButton } from '../navigation/theme-toggle.tsx'
+import { ThemeToggle } from '../navigation/theme-toggle.component.js'
 import { AppBranding } from './app-branding.tsx'
 import { LocaleSelectSubmit } from './locale-select.component.js'
 import type { SessionContext } from './session-provider.tsx'
@@ -72,7 +71,7 @@ export function AppTopBar(
 								{t('chrome.signIn')}
 							</Link>
 						)}
-						<ThemeToggleButton />
+						<ThemeToggle label={t('chrome.aria.toggleTheme')} />
 						<button
 							data-sidebar-toggle
 							type="button"
@@ -99,7 +98,6 @@ export function AppTopBar(
 						</button>
 					</div>
 				</div>
-				<ThemeToggleInteractions />
 				<LocaleSelectSubmit />
 			</>
 		)

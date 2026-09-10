@@ -141,6 +141,36 @@ When a **POST** returns **JSON** (not a Frame partial) and you want the **same b
 
 **Note:** Full page loads only hydrate `clientEntry` components that appear in the current response. Prefer **full navigation** or **Frame** boundaries so the server always supplies the markup and scripts a screen needs.
 
+### 8. To use a Remix UI mixin, the `clientEntry` must own the markup
+
+Remix UI primitives (`remix/ui/toggle/primitives`, `.../tabs/primitives`,
+`.../select/primitives`, `remix/ui/popover`) are **element mixins**: you apply
+them through `mix={[…]}` on an element, and the mixin wires itself to the
+component handle that rendered it. A mixin cannot attach to markup some *other*
+component rendered — so the long-standing island shape here (a server component
+holds the markup, a `clientEntry` renders a hidden `<span>` and delegates
+`click` from `document`) has nowhere to put one.
+
+Adopting a primitive therefore means folding the markup into the `clientEntry`:
+
+- The entry module stays plain `.js` served by `staticFiles()` — the browser
+  loads it as-is, so it builds its markup with `createElement`, not JSX, and
+  keeps a `.component.d.ts` sidecar for the TypeScript side.
+- Anything the render function needs must arrive as **serializable props**, and
+  that includes translated copy: the render function runs in the browser too,
+  where `t()` (request-scoped, server-only) does not exist. Pass
+  `label={t('…')}` from the server component that mounts it.
+- Setup runs on the server *and* on the client. Read live DOM state behind a
+  `typeof document === 'undefined'` guard and return the server-rendered
+  default on the server, so the first client render matches the document.
+- Any bare specifier the entry imports must be added to `browserModulePaths` in
+  `app/lib/remix-assets.ts` — both the `remix/ui/*` specifier and the
+  `@remix-run/ui/*` one it re-exports — or the browser cannot resolve it.
+
+**Reference implementation:** `app/components/navigation/theme-toggle.component.js`
+(`toggle.control`). Keep the delegated-listener island shape for behavior that
+is genuinely document-wide and not attached to one element.
+
 ---
 
 ## Styling Strategy

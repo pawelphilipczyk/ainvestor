@@ -85,7 +85,7 @@ replacements for code in `app/`.
 | Hand-written `AppRequestContext` | 11 | `MiddlewareContext<typeof appMiddleware>` | **New in rc.2** (also compulsory — see §2) |
 | `tsx watch` dev loop | — | `remix/node-hmr` + `remix/ui-hmr` + `remix/ui/dev/refresh` | **New in rc.2** |
 | Direct `tsx` dependency | — | `remix/node-tsx` (oxc-based loader, already a transitive dep) | **New in rc.2** |
-| Source-text assertions (`assert.match(body, /addEventListeners/)`) | — | `render()` from `remix/ui/test` | Since beta.0 |
+| Source-text assertions (`assert.match(body, /addEventListeners/)`) | — | `render()` from `remix/ui/test` — but it mounts into `document.body`, so it needs a DOM this repo does not have (see Stage 6) | Since beta.0 |
 
 Roughly **1,100 LOC of hand-rolled code has a Remix owner**, before the
 dev-tooling swaps.
@@ -402,12 +402,46 @@ kept under Reason 3:
   corrected to say why rather than claim no parser exists.
 
 **Stage 6 — behavior via primitives (medium risk, no visual change if done
-right).** Sidebar → `remix/ui/popover`; tabs-nav → `tabs/primitives`;
-theme-toggle → `toggle/primitives`; locale-select and select-input →
-`select/primitives`; `frame-submit.component.js` form mechanics → native
-`form-navigation`. One component per PR, Tailwind classes untouched — only
-behavior moves. Any vendored helper from Stage 4 should be deleted here; if one
-survives, record which call site needed it and why.
+right). In progress.** Sidebar → `remix/ui/popover`; tabs-nav →
+`tabs/primitives`; theme-toggle → `toggle/primitives`; locale-select and
+select-input → `select/primitives`; `frame-submit.component.js` form mechanics
+→ native `form-navigation`. One component per PR, Tailwind classes untouched —
+only behavior moves. Any vendored helper from Stage 4 should be deleted here; if
+one survives, record which call site needed it and why.
+
+*The shape of the work, learned on the first component.* Every island in this
+app is a hidden `<span>` that delegates `click` from `document`, while the
+markup lives in a separate server component. Remix UI primitives are **element
+mixins** bound to the handle of the component that rendered the element, so
+none of them can attach to that shape: adopting one means folding the markup
+into the `clientEntry` and passing translated copy in as props (the render
+function also runs in the browser, where `t()` does not exist). That restructure
+— not the primitive itself — is the actual cost of each item below, and it is
+written up as pattern 8 in `docs/UI_ARCHITECTURE_GUIDELINES.md`. Each new
+`remix/ui/*` specifier an entry imports also needs a `browserModulePaths` entry
+in `app/lib/remix-assets.ts`, alongside the `@remix-run/ui/*` subpath it
+re-exports.
+
+- **theme-toggle → `toggle/primitives`. Done.** `theme-toggle.tsx` and
+  `theme-toggle.component.js` collapse into one `clientEntry` whose `<button>`
+  carries `toggle.control({ checked, onCheckedChange })`; every Tailwind class
+  and both SVGs are byte-identical, and the entry gained `role="switch"`,
+  `aria-checked` and `data-state` that the hand-rolled button never exposed.
+  Third `addEventListeners` call site retired. Verified in Chromium (click,
+  Space, `localStorage` round-trip, reload with `theme=light`, and a sweep of
+  the four main pages): no hydration warning, no runtime error.
+  One wrinkle, recorded in the component: the mixin hands the renderer a
+  boolean `aria-checked`, which the server renderer streams as the bare
+  attribute `aria-checked=""` — ARIA reads that as the `switch` default
+  (`false`) until hydration rewrites it. Accepted; working around it would mean
+  re-hand-rolling what the mixin owns.
+- **Tests.** `render()` from `remix/ui/test` mounts into `document.body`, and
+  nothing in this repo supplies a DOM — upstream drives it with Playwright,
+  which is not a dependency here. Until that call is made, the replacement for
+  the source-text assertions is a **server-render** assertion: render the entry
+  with `renderToString` and assert the contract it emits (`role`,
+  `data-state`, the `rmx-data` hydration record) instead of grepping the module
+  source. `theme-toggle.test.ts` is the worked example.
 
 **Stage 7 — styled components and dev tooling.** `remix/ui/button` and
 `remix/ui/input` against `submit-button.tsx` and the three input components —
@@ -417,9 +451,11 @@ against the direct `tsx` dependency.
 
 **Throughout — tests.** Replace source-text assertions
 (`assert.match(body, /addEventListeners/)`, the import-map regexes in
-`sidebar.test.ts`) with real render tests via `render()` from `remix/ui/test`.
-Those assertions are themselves hand-rolled testing, they are the 3 trial
-failures, and they will keep breaking on every adoption step until replaced.
+`sidebar.test.ts`) with real render tests. Those assertions are themselves
+hand-rolled testing, they are the 3 trial failures, and they will keep breaking
+on every adoption step until replaced. `render()` from `remix/ui/test` needs a
+DOM this repo does not have (see Stage 6) — until that is resolved, assert the
+server-rendered contract via `renderToString`.
 
 **Manual browser pass — non-negotiable, after Stage 4 and again after Stage 6.**
 The riskiest changes are invisible to typecheck and tests. Exercise: sidebar
