@@ -1,5 +1,6 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/ui'
+import { clientEntry, createElement } from 'remix/ui'
 import { openDialogForTrigger } from '../../lib/dialog-trigger.js'
+import { addEventListeners } from '../../lib/event-listeners.js'
 
 function guidelineIdFromDataset(element, attributeName) {
 	const raw = element.dataset?.[attributeName]

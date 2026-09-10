@@ -1,4 +1,5 @@
-import { addEventListeners, clientEntry, createElement } from 'remix/ui'
+import { clientEntry, createElement } from 'remix/ui'
+import { addEventListeners } from '../../lib/event-listeners.js'
 
 /**
  * Holding row actions: scroll to the trade form and set operation + fund.

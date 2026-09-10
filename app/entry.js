@@ -29,11 +29,4 @@ run({
 		}
 		return loaded
 	},
-	async resolveFrame(src, signal) {
-		const response = await fetch(src, {
-			headers: { Accept: 'text/html' },
-			signal,
-		})
-		return response.body ?? (await response.text())
-	},
 })
