@@ -113,7 +113,7 @@ export function CatalogEtfPage(handle: Handle<CatalogEtfPageProps>) {
 					<div class="mx-auto flex w-full min-w-0 max-w-3xl items-center gap-3">
 						<a
 							href={props.catalogFallbackHref}
-							rmx-document
+							data-rmx-document
 							class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 							data-catalog-etf-back=""
 						>

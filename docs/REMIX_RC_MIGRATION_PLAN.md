@@ -85,7 +85,7 @@ replacements for code in `app/`.
 | Hand-written `AppRequestContext` | 11 | `MiddlewareContext<typeof appMiddleware>` | **New in rc.2** (also compulsory — see §2) |
 | `tsx watch` dev loop | — | `remix/node-hmr` + `remix/ui-hmr` + `remix/ui/dev/refresh` | **New in rc.2** |
 | Direct `tsx` dependency | — | `remix/node-tsx` (oxc-based loader, already a transitive dep) | **New in rc.2** |
-| Source-text assertions (`assert.match(body, /addEventListeners/)`) | — | `render()` from `remix/ui/test` | Since beta.0 |
+| Source-text assertions (`assert.match(body, /addEventListeners/)`) | — | `render()` from `remix/ui/test` — but it mounts into `document.body`, so it needs a DOM this repo does not have (see Stage 6) | Since beta.0 |
 
 Roughly **1,100 LOC of hand-rolled code has a Remix owner**, before the
 dev-tooling swaps.
@@ -293,11 +293,34 @@ reachable** — `@remix-run/ui`'s `popover` entry exports `{}`. Imported by
 `sidebar.component.js`; it was the single root cause of all 9 initial test
 failures in the trial.
 
-**Adopt `remix/ui/popover` for the mobile sidebar overlay.** Its `surface` mixin
-calls `lockScroll()` internally and also covers outside-click dismissal and
-focus restore, deleting most of the 107-line `sidebar.component.js` rather than
-porting it. Vendor the ~50-line helper only if popover is tried and does not fit
-the sidebar's layout, with the gap named per reason 3.
+**Tried in Stage 6 against this sidebar; it does not fit — reason 3.** The
+attempt drove the real `<aside>` markup with `popover.surface` + `popover.anchor`
+in Chromium at 1280x800 and 390x844, with `fixed inset-y-0 left-0 w-64` supplied
+explicitly so the measurement did not depend on the Tailwind CDN. Three
+mismatches, none of them tunable through the mixin's options:
+
+1. `surface` unconditionally applies `attrs({ popover: 'manual' })`, so the
+   element is `display: none` until JS calls `showPopover()` — measured at
+   *both* breakpoints. This sidebar is a persistent desktop rail that must
+   render visible from the server, with no JavaScript.
+2. On open, `surface` runs `anchor()` against a registered anchor, which writes
+   `position: fixed; inset: <y>px auto auto <x>px` inline. Inline styles beat
+   utility classes, so `inset-y-0 left-0` cannot survive: the full-height drawer
+   was measured at `16,771 270x14` — a strip parked under the toggle button.
+   `AnchorOptions` has no "do not position" mode.
+3. `lockScroll()` fires on every open, including desktop, where the rail is not
+   an overlay. Measured `documentElement.style.overflow === 'hidden'` at 1280px.
+
+`surface` is a dropdown/menu positioner, not a drawer primitive. `lockScroll`
+and `onOutsideClick` are not reachable on their own either — `@remix-run/ui`'s
+`popover` entry exports only `Context`, `anchor`, `surface`, `focusOnShow` and
+`focusOnHide`. So `app/lib/scroll-lock.js` stays vendored, and
+`sidebar.component.js` keeps its document-level delegation (which the plan's
+*What should still be hand-rolled* section already allows under reason 3).
+
+What the attempt did produce: `app/components/layout/sidebar.browser.ts`, real
+Chromium coverage of open, close, backdrop, Escape, scroll lock and the
+desktop no-lock rule — behavior that previously had no test at all.
 
 ### 7. Client `resolveFrame` changed — and form handling went native
 
@@ -402,12 +425,104 @@ kept under Reason 3:
   corrected to say why rather than claim no parser exists.
 
 **Stage 6 — behavior via primitives (medium risk, no visual change if done
-right).** Sidebar → `remix/ui/popover`; tabs-nav → `tabs/primitives`;
-theme-toggle → `toggle/primitives`; locale-select and select-input →
-`select/primitives`; `frame-submit.component.js` form mechanics → native
-`form-navigation`. One component per PR, Tailwind classes untouched — only
-behavior moves. Any vendored helper from Stage 4 should be deleted here; if one
-survives, record which call site needed it and why.
+right). In progress.** Sidebar → `remix/ui/popover`; tabs-nav →
+`tabs/primitives`; theme-toggle → `toggle/primitives`; locale-select and
+select-input → `select/primitives`; `frame-submit.component.js` form mechanics
+→ native `form-navigation`. One component per PR, Tailwind classes untouched —
+only behavior moves. Any vendored helper from Stage 4 should be deleted here; if
+one survives, record which call site needed it and why.
+
+*The shape of the work, learned on the first component.* Every island in this
+app is a hidden `<span>` that delegates `click` from `document`, while the
+markup lives in a separate server component. Remix UI primitives are **element
+mixins** bound to the handle of the component that rendered the element, so
+none of them can attach to that shape: adopting one means folding the markup
+into the `clientEntry` and passing translated copy in as props (the render
+function also runs in the browser, where `t()` does not exist). That restructure
+— not the primitive itself — is the actual cost of each item below, and it is
+written up as pattern 8 in `docs/UI_ARCHITECTURE_GUIDELINES.md`. Each new
+`remix/ui/*` specifier an entry imports also needs a `browserModulePaths` entry
+in `app/lib/remix-assets.ts`, alongside the `@remix-run/ui/*` subpath it
+re-exports.
+
+- **theme-toggle → `toggle/primitives`. Done.** `theme-toggle.tsx` and
+  `theme-toggle.component.js` collapse into one `clientEntry` whose `<button>`
+  carries `toggle.control({ checked, onCheckedChange })`; every Tailwind class
+  and both SVGs are byte-identical, and the entry gained `role="switch"`,
+  `aria-checked` and `data-state` that the hand-rolled button never exposed.
+  Third `addEventListeners` call site retired. Verified in Chromium (click,
+  Space, `localStorage` round-trip, reload with `theme=light`, and a sweep of
+  the four main pages): no hydration warning, no runtime error.
+  One wrinkle, recorded in the component: the mixin hands the renderer a
+  boolean `aria-checked`, which the server renderer streams as the bare
+  attribute `aria-checked=""` — ARIA reads that as the `switch` default
+  (`false`) until hydration rewrites it. Accepted; working around it would mean
+  re-hand-rolling what the mixin owns.
+- **sidebar → `remix/ui/popover`. Attempted; not adopted (reason 3).** The
+  measurements are in §6. `app/lib/scroll-lock.js` therefore survives Stage 6,
+  and its deletion trigger is rewritten to say so rather than pointing at an
+  outcome that has now been ruled out. The attempt is not a dead loss: it paid
+  for the browser harness below and for the sidebar's first real test.
+  If the hand-rolled overlay is still worth retiring, the option that remains is
+  architectural rather than a swap — split the persistent desktop rail from the
+  mobile drawer and give the drawer a native `<dialog>` (focus trap, Escape,
+  `::backdrop`, top layer, all native). That trades duplicated nav markup for
+  deleting the scroll-lock, outside-click and focus code, and it is a design
+  decision, not a migration step, so it is not folded into this stage.
+- **`rmx-document` was silently inert on rc.2 — fixed.** The runtime reads
+  `data-rmx-document`; the app wrote `rmx-document`, which the JSX runtime
+  renders verbatim rather than prefixing. So the opt-out did nothing and every
+  nav link, tab link and branding link was being intercepted into a top-frame
+  swap instead of the full document load the attribute asks for. Verified in
+  Chromium by marking `window` before a sidebar click: the marker survived
+  (frame swap), and survives no longer once the attribute is spelled
+  `data-rmx-document`. Fixed across 10 files and pinned by
+  `app/components/navigation/document-navigation.browser.ts`. The same naming
+  applies to the rest of the family — `data-rmx-target`, `data-rmx-src`,
+  `data-rmx-history`, `data-rmx-reset-scroll` — or use the `link()` mixin from
+  `remix/ui`, which writes them for you. Exactly the failure mode §7 predicted:
+  silent, browser-only, invisible to `tsc` and to the server-render tests.
+- **frame-submit → native form navigation. Proven viable; not yet landed.**
+  The mechanics do transfer. Adding `data-rmx-target="portfolio-list"` to the
+  portfolio trade form and deleting its `data-frame-submit` /
+  `data-frame-replace-from-response` attributes reproduced the current
+  behavior with **no app JavaScript at all**: the runtime resolved the
+  submitter and form data, POSTed to the action with `Accept: text/html`,
+  and diffed the response into the named frame. The server side already
+  speaks that contract — `requestAcceptsFrameSubmitHtml()` matches exactly the
+  `Accept: text/html` the runtime's default resolver sends, so no handler
+  changes were needed. Measured against the characterization tests below: the
+  frame re-rendered and the URL bar stayed put; the single regression was
+  `data-reset-form`, i.e. the app-specific UX layer, not the mechanics.
+  Reverted rather than half-landed, because finishing it means re-hooking that
+  layer (form reset, `setSubmitButtonLoading`, inline banner tones, dialog
+  closing, the advice gist-stale branch) onto frame `reloadStart` /
+  `reloadComplete` events instead of onto our own `submit` interception, then
+  carrying all 11 forms across four modes (GET + fragment action, POST +
+  replace-from-response, POST + reload-src, plain POST + reload). That is its
+  own reviewed change, and it is the largest single deletion left in the plan.
+- **Characterization tests.** `app/components/client/frame-submit.browser.ts`
+  pins the current behavior of the two most common modes in user-visible terms
+  (what the frame region shows, where the URL bar points, whether the form
+  reset), so the port above can be judged against something rather than
+  eyeballed.
+- **Browser tests.** `npm run test:browser` (Playwright, `app/**/*.browser.ts`,
+  helper in `app/lib/browser-test.ts`). Deliberately outside `npm test`: it
+  needs a browser binary from `npx playwright install chromium`, which CI does
+  not download — `playwright@1.63` ships no postinstall, so adding the
+  dependency costs `npm ci` nothing but the tarball. This is the
+  "manual browser pass" the plan calls non-negotiable, made repeatable. The
+  Tailwind CDN is stubbed so runs are deterministic offline, which means these
+  tests assert component-owned state (classes, ARIA, inline styles,
+  `localStorage`) rather than geometry; breakpoint *behavior* is still real,
+  since the sidebar branches on `matchMedia`.
+- **Tests.** `render()` from `remix/ui/test` mounts into `document.body`, and
+  nothing in this repo supplies a DOM — upstream drives it with Playwright,
+  which is not a dependency here. Until that call is made, the replacement for
+  the source-text assertions is a **server-render** assertion: render the entry
+  with `renderToString` and assert the contract it emits (`role`,
+  `data-state`, the `rmx-data` hydration record) instead of grepping the module
+  source. `theme-toggle.test.ts` is the worked example.
 
 **Stage 7 — styled components and dev tooling.** `remix/ui/button` and
 `remix/ui/input` against `submit-button.tsx` and the three input components —
@@ -417,13 +532,19 @@ against the direct `tsx` dependency.
 
 **Throughout — tests.** Replace source-text assertions
 (`assert.match(body, /addEventListeners/)`, the import-map regexes in
-`sidebar.test.ts`) with real render tests via `render()` from `remix/ui/test`.
-Those assertions are themselves hand-rolled testing, they are the 3 trial
-failures, and they will keep breaking on every adoption step until replaced.
+`sidebar.test.ts`) with real render tests. Those assertions are themselves
+hand-rolled testing, they are the 3 trial failures, and they will keep breaking
+on every adoption step until replaced. `render()` from `remix/ui/test` needs a
+DOM this repo does not have (see Stage 6) — until that is resolved, assert the
+server-rendered contract via `renderToString`.
 
-**Manual browser pass — non-negotiable, after Stage 4 and again after Stage 6.**
-The riskiest changes are invisible to typecheck and tests. Exercise: sidebar
-open/close on mobile including scroll lock, theme toggle, locale select, every
+**Browser pass — non-negotiable, after Stage 4 and again after Stage 6.**
+Since Stage 6 this is partly automated: `npm run test:browser` covers the
+sidebar overlay and the theme toggle, and every further Stage 6 component
+should arrive with its own `*.browser.ts`. Still walk the rest by hand — the
+riskiest changes are invisible to typecheck and to the server-render tests.
+Exercise: sidebar open/close on mobile including scroll lock, theme toggle,
+locale select, every
 `<Frame>` fragment (portfolio, guidelines, catalog list, catalog ETF analysis,
 advice result), form submission via `FrameSubmitEnhancement`, and navigation
 loading states. Check Firefox or Safari too — `app/entry.js` carries a

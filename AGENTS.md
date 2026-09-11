@@ -20,7 +20,8 @@ This repository uses a server-first UI architecture. Before making UI-related ch
 Before making Remix framework changes, read:
 
 - `docs/REMIX_V3_PACKAGES.md`
-- `docs/REMIX_RC_MIGRATION_PLAN.md` when planning or performing the `beta.0` → `3.0.0-rc.2` upgrade
+- `docs/REMIX_RC_MIGRATION_STATUS.md` **first** when resuming the `beta.0` → `3.0.0-rc.2` upgrade — it says which stage is in flight, what landed most recently, and what the next step is
+- `docs/REMIX_RC_MIGRATION_PLAN.md` for the plan itself, and for the measurements behind every decision the status file references
 - `docs/REMIX_BETA_MIGRATION_PLAN.md` for the earlier alpha → beta upgrade (historical)
 
 Before working on the MCP server, read:
@@ -108,6 +109,7 @@ User-visible copy lives in **`app/locales/en.ts`** and **`app/locales/pl.ts`** a
 - When a task involves UI implementation, patterns in `docs/UI_ARCHITECTURE_GUIDELINES.md` are the source of truth.
 - When a task involves Remix routing, sessions, middleware, or HTTP utilities, `docs/REMIX_V3_PACKAGES.md` is the reference.
 - For all JS/TS/CSS formatting and lint rules, `docs/BIOME_RULES.md` is the reference. Run `npm run check` before committing.
+- Client behavior that only exists after hydration (`clientEntry` wiring, Remix UI mixins, anything in a `.component.js` file `tsconfig.json` does not include) is invisible to `npm test` and `npm run typecheck`. Cover it with a `*.browser.ts` file and run `npm run test:browser` — Playwright against a real Chromium, one-time setup `npx playwright install chromium`. It is kept out of `npm test` on purpose, so CI never downloads a browser.
 - ClientEntry components that are feature-specific live next to the feature (`.component.js` suffix). Shared clientEntry components live in `app/components/`.
 
 ## Pattern capture rule
