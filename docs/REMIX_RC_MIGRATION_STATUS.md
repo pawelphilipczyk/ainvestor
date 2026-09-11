@@ -14,6 +14,9 @@ Update this file in the same commit as the work it describes.
 - **Stage:** 6 (behavior via primitives). Stages 1–5 are merged on `main`.
 - **Branch:** `claude/migration-stage-6-k3d712` — Stage 6 commits stack here
   rather than going out as separate PRs off `main`.
+- **PR:** <https://github.com/pawelphilipczyk/ainvestor/pull/188>, open against
+  `main`. Further Stage 6 work keeps stacking onto this branch and lands in
+  that PR; update its description when the diff moves on.
 - **Green:** `npm run check`, `npm run typecheck`, `npm test` (581) and
   `npm run test:browser` (9) all pass.
 - **Working style:** small steps. One component or one flow per commit, each
@@ -86,7 +89,5 @@ Done when the browser tests pass unchanged against the new path, including the
 ## Open questions for the user
 
 1. The `data-rmx-document` fix in `bd7977e` is a user-facing behavior fix
-   sitting in a migration branch. Lift it onto its own PR off `main` so it can
-   ship sooner, or let it ride with Stage 6?
-2. When should this branch open a PR — after the frame-submit port, or at the
-   end of Stage 6?
+   sitting in a migration branch. It rides with PR #188 unless we lift it onto
+   its own PR off `main` so it can ship sooner. Asked on the PR; unanswered.
