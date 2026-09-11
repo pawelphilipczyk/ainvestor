@@ -89,4 +89,38 @@ describe('theme toggle (browser)', () => {
 		})
 		assert.deepEqual(opened.problems, [], 'no hydration mismatch warning')
 	})
+
+	/**
+	 * Regression: `applyIsDark()` used to let a `localStorage` failure (Safari
+	 * private mode, blocked site data) propagate, which skipped the
+	 * `handle.update()` after it. `toggle.control` is controlled on `checked`,
+	 * so the un-re-rendered mixin kept recomputing the same next value and the
+	 * switch wedged after a single press — measured as dark/light/light/light.
+	 */
+	it('keeps toggling when localStorage is blocked', async () => {
+		const opened = await openHome()
+		await opened.page.evaluate(() => {
+			Storage.prototype.setItem = () => {
+				throw new DOMException('blocked', 'QuotaExceededError')
+			}
+		})
+
+		const isDark = () =>
+			opened.page.evaluate(() =>
+				document.documentElement.classList.contains('dark'),
+			)
+
+		const states = [await isDark()]
+		for (let click = 0; click < 3; click++) {
+			await opened.page.click('[data-theme-toggle]')
+			states.push(await isDark())
+		}
+
+		assert.deepEqual(
+			states,
+			[true, false, true, false],
+			'the theme still applies when it cannot be persisted',
+		)
+		assert.deepEqual(opened.problems, [])
+	})
 })

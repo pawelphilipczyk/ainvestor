@@ -68,7 +68,23 @@ export async function startBrowserTestSession(): Promise<BrowserTestSession> {
 		server.listen(0, '127.0.0.1', resolve)
 	})
 	const { port } = server.address() as AddressInfo
-	const browser = await chromium.launch(launchOptions())
+
+	const closeServer = () =>
+		new Promise<void>((resolve, reject) => {
+			server.close((error) => (error ? reject(error) : resolve()))
+		})
+
+	let browser: Browser
+	try {
+		browser = await chromium.launch(launchOptions())
+	} catch (error) {
+		// Without this the listening socket keeps the process alive and the run
+		// hangs instead of reporting why the browser could not start — which is
+		// the very first thing anyone hits, before `npx playwright install
+		// chromium`.
+		await closeServer()
+		throw error
+	}
 
 	return {
 		baseUrl: `http://127.0.0.1:${port}`,
@@ -97,10 +113,11 @@ export async function startBrowserTestSession(): Promise<BrowserTestSession> {
 			return { page, problems }
 		},
 		async close() {
-			await browser.close()
-			await new Promise<void>((resolve, reject) => {
-				server.close((error) => (error ? reject(error) : resolve()))
-			})
+			try {
+				await browser.close()
+			} finally {
+				await closeServer()
+			}
 		},
 	}
 }

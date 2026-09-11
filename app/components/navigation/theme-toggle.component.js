@@ -19,10 +19,18 @@ function readIsDark() {
 function applyIsDark(isDark) {
 	if (typeof document === 'undefined') return
 	document.documentElement.classList.toggle(DARK_CLASS, isDark)
-	document.defaultView?.localStorage.setItem(
-		THEME_STORAGE_KEY,
-		isDark ? 'dark' : 'light',
-	)
+	try {
+		document.defaultView?.localStorage.setItem(
+			THEME_STORAGE_KEY,
+			isDark ? 'dark' : 'light',
+		)
+	} catch {
+		// Private mode / blocked site data. The theme still applies for this
+		// page; only persistence is lost. Letting this throw would skip the
+		// caller's `handle.update()`, leaving the mixin rendered against a stale
+		// `checked` — the switch would then wedge after a single press, because
+		// every later click recomputes the same next value.
+	}
 }
 
 /** Sun: visible in light mode, rotated and scaled out by the `dark:` variants. */
@@ -83,9 +91,15 @@ function moonIcon() {
  * boolean `aria-checked`, and the server renderer emits a `true` boolean as a
  * bare attribute — so the streamed HTML carries `aria-checked=""`, which ARIA
  * treats as the `switch` default (`false`) until `entry.js` hydrates and
- * rewrites it to `"true"`. It self-corrects on hydration and the control is
- * inert without JavaScript either way, so it is accepted rather than patched
- * around; patching it would mean re-hand-rolling what the mixin owns.
+ * rewrites it to `"true"`. Pre-hydration, and permanently without JavaScript,
+ * the switch therefore reports "off" whatever the theme is.
+ *
+ * Not fixable from here: passing `aria-checked="true"` on the host props does
+ * not help, because the mixin spreads the host props and then overrides that
+ * key with its own boolean (`toggle/primitives.js`, `nextProps`). Tried and
+ * measured — the rendered output is unchanged. Accepted rather than worked
+ * around, since the alternative is re-hand-rolling what the mixin owns; it is
+ * an upstream limitation of server-rendering this primitive.
  */
 export const ThemeToggle = clientEntry(
 	'/components/navigation/theme-toggle.component.js#ThemeToggle',
