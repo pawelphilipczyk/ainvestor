@@ -171,4 +171,36 @@ describe('frame submit flows (browser)', () => {
 			'[console.error] Failed to load resource: the server responded with a status of 422 ()',
 		])
 	})
+
+	it('data-rmx-target: an unrelated same-page reload of the frame does not touch the unsubmitted form', async () => {
+		const opened = await open('/portfolio')
+		const { page } = opened
+
+		await page.selectOption('#portfolioOperation', 'buy')
+		await page.selectOption('#instrumentTicker', 'BTEQ')
+		await page.fill('#portfolio-trade-form input[name="value"]', '12345')
+
+		// The locale switch is a same-page soft navigation that reuses the
+		// persisted `portfolio-list` Frame instance, dispatching an "inherited"
+		// reloadStart/reloadComplete on it even though this form was never
+		// submitted — it must not touch the form's unsaved value or button state.
+		await page.selectOption('#ui-locale-select', 'pl')
+		await page.waitForFunction(() => document.documentElement.lang === 'pl', {
+			timeout: 5000,
+		})
+
+		assert.equal(
+			await page.evaluate(
+				() =>
+					(
+						document.querySelector(
+							'#portfolio-trade-form input[name="value"]',
+						) as HTMLInputElement
+					)?.value,
+			),
+			'12345',
+			'an unrelated frame reload must not clear the unsubmitted form',
+		)
+		assert.deepEqual(opened.problems, [])
+	})
 })

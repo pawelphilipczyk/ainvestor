@@ -95,6 +95,14 @@ actually common) hooking `reloadStart`/`reloadComplete` on its target frame.
   `role="alert"` node its own error fragment renders. Each ported form needs
   its own tell; don't assume `role="alert"` generalizes without checking that
   form's fragment.
+- **`reloadStart`/`reloadComplete` fire for any reload of the named frame,
+  not only ones this form's own submit caused.** A same-page soft navigation
+  elsewhere on the page (e.g. the locale `<select>`) reuses the persisted
+  `Frame` and dispatches an "inherited" reload on it too — confirmed live,
+  reachable by just switching language with unsaved trade-form input. Gate
+  the frame-event handlers on a `submit` event of the specific form first
+  (`pendingSubmit` in `PortfolioTradeFormFrame`); do not react to
+  `reloadStart`/`reloadComplete` unconditionally in any per-form frame hook.
 
 ## Open questions for the user
 
