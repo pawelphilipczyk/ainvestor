@@ -45,8 +45,7 @@ export function PortfolioOperationForm(
 					method="post"
 					action={routes.portfolio.create.href()}
 					class="mt-4 grid gap-4"
-					data-frame-submit="portfolio-list"
-					data-frame-replace-from-response="1"
+					data-rmx-target="portfolio-list"
 					data-reset-form
 				>
 					<div class="grid gap-2">

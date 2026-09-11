@@ -124,4 +124,51 @@ describe('frame submit flows (browser)', () => {
 		)
 		assert.deepEqual(opened.problems, [])
 	})
+
+	it('POST + replace-from-response, 422: renders the inline error in the list frame without navigating', async () => {
+		const opened = await open('/portfolio')
+		const { page } = opened
+
+		await page.selectOption('#portfolioOperation', 'sell')
+		await page.selectOption('#instrumentTicker', 'BTEQ')
+		await page.fill('#portfolio-trade-form input[name="value"]', '100')
+		await page.click('#portfolio-trade-form button[type="submit"]')
+		await page.waitForFunction(
+			() =>
+				document.body.innerText.includes(
+					'You do not hold that fund in this currency yet',
+				),
+			undefined,
+			{ timeout: 5000 },
+		)
+
+		assert.match(
+			await pageText(opened),
+			/You do not hold that fund in this currency yet/,
+			'inline error rendered inside the list frame',
+		)
+		assert.equal(
+			new URL(page.url()).pathname,
+			'/portfolio',
+			'no document navigation on validation failure',
+		)
+		assert.equal(
+			await page.evaluate(
+				() =>
+					(
+						document.querySelector(
+							'#portfolio-trade-form input[name="value"]',
+						) as HTMLInputElement
+					)?.value,
+			),
+			'100',
+			'data-reset-form does not clear the form on a validation failure',
+		)
+		// Chromium logs a devtools console error for any non-2xx fetch response
+		// regardless of whether the app handles it, independent of the frame
+		// submit code path. Expected here, not a hydration or runtime problem.
+		assert.deepEqual(opened.problems, [
+			'[console.error] Failed to load resource: the server responded with a status of 422 ()',
+		])
+	})
 })

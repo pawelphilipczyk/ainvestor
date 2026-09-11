@@ -14,14 +14,12 @@ ahead of time.
 
 ## Where we are
 
-- **Stage:** 6 (behavior via primitives). Stages 1–5 are merged on `main`.
-- **Branch:** `claude/migration-stage-6-k3d712` — Stage 6 commits stack here
-  rather than going out as separate PRs off `main`.
-- **PR:** <https://github.com/pawelphilipczyk/ainvestor/pull/188>, open against
-  `main`. Further Stage 6 work keeps stacking onto this branch and lands in
-  that PR; update its description when the diff moves on.
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (581) and
-  `npm run test:browser` (9) all pass.
+- **Stage:** 6 (behavior via primitives). Stages 1–5, and the Stage 6 work
+  through `4dd2f20`, are merged on `main`.
+- **Branch:** `claude/remix-rc-migration-next-pp4m2m`, opened fresh off `main`
+  after PR #188 merged.
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (582) and
+  `npm run test:browser` (18) all pass.
 - **Working style:** small steps. One component or one flow per commit, each
   landing green, each with its own browser coverage where the change is
   client-side.
@@ -30,6 +28,7 @@ ahead of time.
 
 | Commit | What |
 |---|---|
+| `(pending)` | Ported the portfolio trade form (`#portfolio-trade-form`) from `FrameSubmitEnhancement` to native `data-rmx-target="portfolio-list"`. The server side needed no change — the default frame resolver's `Accept: text/html` request already matches `requestAcceptsFrameSubmitHtml`, and it accepts 4xx HTML responses, so the existing 422 inline-error fragment (`list-fragment.tsx`'s `role="alert"` banner) renders into the frame unmodified. Added `PortfolioTradeFormFrame`, a client entry that hooks `data-reset-form` and `setSubmitButtonLoading` onto the frame's `reloadStart` / `reloadComplete` events (`handle.frames.get('portfolio-list')`) instead of our own `submit` interception; since the event carries no response data, it tells success from failure by checking for the `role="alert"` node the error fragment renders (the only one on this page) so a 422 no longer clears the form. Added the 422 characterization test first (per the prior *Next step*), confirmed it green against the old enhancement, then ported and reran it unchanged — plus a new assertion that the form field keeps its value after a 422. Browser suite now 18. Import-etf-form stays on `FrameSubmitEnhancement` (still targets the same `portfolio-list` frame via `replace()`, which does not dispatch `reloadStart`/`reloadComplete`, so the two paths don't interfere). |
 | `4dd2f20` | Code review of PR #188. Fixed two real defects it found: the browser harness leaked its listening socket when Chromium failed to launch (so a first run without `npx playwright install chromium` hung instead of reporting why), and a blocked `localStorage` write wedged the theme toggle after one press. Both reproduced before fixing and pinned by tests. A third finding — `aria-checked` server-rendering as a bare attribute — stands as an upstream limitation; the suggested workaround was tried and is clobbered by the mixin. Browser suite now 17. |
 | `b7c26a4` | Browser sweep of the whole UI after the `data-rmx-document` fix: every page loads and hydrates, locale round-trip, catalog → ETF detail, sidebar nav, mobile overlay — all good. Added page smoke tests and pinned that `data-navigation-loading` overrides the document opt-out (measured; the enhancement `preventDefault()`s and calls Remix `navigate()`, so those links frame-swap by design). Browser suite now 16. |
 | `bd7977e` | Fixed `rmx-document` → `data-rmx-document` (the opt-out was silently inert on rc.2, so every nav link was doing a frame swap instead of a document load). Proved native form navigation can replace `FrameSubmitEnhancement`'s mechanics, then reverted it — see *Next step*. Added characterization browser tests for the frame-submit flows. |
@@ -38,24 +37,18 @@ ahead of time.
 
 ## Next step
 
-**Port the portfolio trade form to native form navigation** — one form, one
-mode, the smallest slice that proves the part still unproven.
+**Carry the next form across**: guidelines (×4, POST + replace-from-response)
+is the natural next target — same mode as portfolio, and it will tell us
+whether the `role="alert"` success/failure signal generalizes or whether
+guidelines' errors need a different tell (check `guidelines-list-fragment.tsx`
+for its own alert markup before assuming it matches). Catalog ETF analysis is
+the other replace-from-response form but adds `data-frame-hide-form-on-success`,
+better done once the simpler case is proven twice.
 
-1. First extend `app/components/client/frame-submit.browser.ts` with the **422
-   inline-error path** for that form (submit it invalid, assert the error
-   surfaces in the list frame). The port must preserve it, and it is not
-   covered yet.
-2. Then swap the form's `data-frame-submit` / `data-frame-replace-from-response`
-   for `data-rmx-target="portfolio-list"`, and re-hook the app-specific UX —
-   `data-reset-form` and `setSubmitButtonLoading` — onto the frame's
-   `reloadStart` / `reloadComplete` events instead of our own `submit`
-   interception. `FrameHandle` is a `TypedEventTarget` with those two events;
-   reach it from a client entry via `handle.frames.get('portfolio-list')`.
-3. Leave the other ten forms on `FrameSubmitEnhancement` for now. Both paths
-   coexist: the enhancement only acts on forms carrying `data-frame-submit`.
-
-Done when the browser tests pass unchanged against the new path, including the
-422 case and the form reset.
+Each form needs its own `PortfolioTradeFormFrame`-shaped client entry (or a
+shared helper if the success/failure tell and reset/loading logic turn out
+identical across forms — don't abstract until the second port shows what's
+actually common) hooking `reloadStart`/`reloadComplete` on its target frame.
 
 ## Backlog after that, in order
 
@@ -90,9 +83,19 @@ Done when the browser tests pass unchanged against the new path, including the
 - **`render()` from `remix/ui/test` is unusable here** — it mounts into
   `document.body` and upstream drives it with Playwright. Server-render
   assertions plus `*.browser.ts` are the replacement for source-text tests.
+- **No server change needed for the `data-rmx-target` port.** The default
+  frame resolver's request (`Accept: text/html`, 4xx-with-HTML accepted) is
+  exactly what `requestAcceptsFrameSubmitHtml` and the existing 422 fragment
+  responses already assume. Confirm this holds for each remaining
+  replace-from-response form before assuming it's universal — it follows from
+  those two matching, not from the runtime generally.
+- **`reloadStart`/`reloadComplete` carry no response data.** A form's
+  success/failure UX (reset-on-success, keep-values-on-error) has to be
+  inferred from the DOM after the swap — the portfolio port checks for the
+  `role="alert"` node its own error fragment renders. Each ported form needs
+  its own tell; don't assume `role="alert"` generalizes without checking that
+  form's fragment.
 
 ## Open questions for the user
 
-1. The `data-rmx-document` fix in `bd7977e` is a user-facing behavior fix
-   sitting in a migration branch. It rides with PR #188 unless we lift it onto
-   its own PR off `main` so it can ship sooner. Asked on the PR; unanswered.
+None right now.
