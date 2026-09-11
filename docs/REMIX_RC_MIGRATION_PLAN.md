@@ -501,6 +501,48 @@ re-exports.
   carrying all 11 forms across four modes (GET + fragment action, POST +
   replace-from-response, POST + reload-src, plain POST + reload). That is its
   own reviewed change, and it is the largest single deletion left in the plan.
+- **`data-rmx-target` commits the form's `action` as the document URL —
+  breaks any form whose action isn't its own page. Attempted on guidelines
+  (×4: add-instrument, add-bucket, update-target, delete); not adopted,
+  reason 3.** The portfolio port above worked with "the URL bar stayed put"
+  only because `portfolio.create` POSTs to `/portfolio`, the same path as
+  `portfolio.index` — a coincidence of that one route, not a property of
+  `data-rmx-target`. Guidelines' four actions are nested paths
+  (`/guidelines/instrument`, `/guidelines/asset-class`,
+  `/guidelines/:id/target`, `/guidelines/:id`), none equal to `/guidelines`.
+  Porting them the same way (attributes only, plus a `guidelines-list`-wide
+  client entry mirroring `PortfolioTradeFormFrame` for the reset/busy-state/
+  dialog-closing UX) reproduced the list update correctly, but left the
+  address bar on the action URL after every submit — confirmed live:
+  `GET /guidelines/instrument` after an add returns **405 Method Not
+  Allowed**, so a refresh, back/forward, or share/bookmark right after any
+  of the four actions breaks.
+
+  Traced in `@remix-run/ui`'s `runtime/navigation.ts`: a frame-targeted POST
+  still goes through `interceptNavigation`/`event.intercept()`, which is the
+  Navigation API committing `event.destination.url` — the form's actual
+  `action`, fixed by the browser, not by any data attribute — as the current
+  entry regardless of `target`; `topFrame.src` is set to it too. `data-rmx-
+  history` only chooses push vs. replace (`getReplaceHistory`), not whether
+  the URL commits at all, and remains true through both the precommit and
+  non-precommit branches (`startNavigationListenerImpl`). `data-rmx-src`
+  redirects only what the *named frame* fetches (`resolveAndRenderReload`
+  reads `frame.src`); it cannot change what the Navigation API treats as the
+  destination. There is no attribute-level way to keep the document on its
+  current URL while `data-rmx-target`-submitting to a different one.
+
+  This is not guidelines-specific: every other form left in the backlog
+  posts to a path distinct from its page (catalog ETF analysis
+  `/catalog/etf/:id/analysis` vs. `/catalog/etf/:id`; portfolio CSV import
+  `/portfolio/import` vs. `/portfolio`; all three advice forms). Treat
+  "action path equals page path" as a precondition before adopting
+  `data-rmx-target` on a form, not an incidental detail — portfolio's trade
+  form is the one item in the backlog that happens to clear it.  Guidelines'
+  four forms stay on `data-frame-submit` / `data-frame-replace-from-response`
+  under reason 3 until one of: (a) the routes are consolidated so each
+  action posts back to its own page (a real route/controller change, out of
+  scope for a "mechanics only" port), or (b) a newer Remix build adds a way
+  to pin the document URL on a frame-targeted submission.
 - **Characterization tests.** `app/components/client/frame-submit.browser.ts`
   pins the current behavior of the two most common modes in user-visible terms
   (what the frame region shows, where the URL bar points, whether the form
@@ -614,3 +656,19 @@ Confirm CI and the Fly image satisfy it.
 3. **Timing.** Land Stages 1–4 now for a small diff and early warning of API
    churn, or wait for 3.0.0 final? This plan assumes now; the validated 23-file
    diff supports it.
+4. **The remaining `data-rmx-target` forms all hit the URL-pinning gap
+   above.** Guidelines, catalog ETF analysis, portfolio CSV import and all
+   three advice forms post to a path other than their own page, so none of
+   them can adopt `data-rmx-target` as a pure attribute swap without leaving
+   the address bar on a route that 405s on GET. Three ways forward, in
+   increasing order of invasiveness: (a) leave all of them on
+   `data-frame-submit` / `data-frame-replace-from-response` — Reason 1 now
+   applies broadly, not just per-form, so "carry the remaining forms across"
+   in the backlog below may already be done, modulo re-verifying each mode;
+   (b) consolidate each action back onto its own page's path (e.g. `POST
+   /guidelines` dispatching on a hidden `intent` field, matching what
+   `portfolio.create` already does by having only one action) — a real
+   routing/controller change, not mechanics, and changes URLs other code or
+   bookmarks may depend on; (c) wait and re-check future Remix releases for
+   a document-URL-pinning option on frame-targeted submissions. Needs a
+   decision before Stage 6 continues past the trade form.
