@@ -669,10 +669,21 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		assert.match(body, /data-instrument-ticker="VTI"/)
 	})
 
-	it('forms use data-frame-submit for Frame-based list reload', async () => {
+	it('CSV import form uses data-frame-submit for Frame-based list reload', async () => {
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
 		assert.match(body, /data-frame-submit="portfolio-list"/)
+	})
+
+	it('buy/sell form uses native data-rmx-target for Frame-based list reload', async () => {
+		const response = await testSessionFetch('http://localhost/portfolio')
+		const body = await response.text()
+		const formIdx = body.indexOf('id="portfolio-trade-form"')
+		assert.notEqual(formIdx, -1)
+		const formTag = body.slice(formIdx, formIdx + 400)
+		assert.match(formTag, /data-rmx-target="portfolio-list"/)
+		assert.doesNotMatch(formTag, /data-frame-submit=/)
+		assert.doesNotMatch(formTag, /data-frame-replace-from-response/)
 	})
 
 	it('buy/sell form appears above the holdings frame', async () => {
