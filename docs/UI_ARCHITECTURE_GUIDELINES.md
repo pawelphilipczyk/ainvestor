@@ -203,6 +203,17 @@ writes the attributes for you. `data-rmx-target="<frame name>"` on a `<form>`
 is also the native replacement for `data-frame-submit` — see §7 and the Stage 6
 notes in `docs/REMIX_RC_MIGRATION_PLAN.md`.
 
+**`data-navigation-loading` wins over `data-rmx-document`.** Links rendered by
+`Link navigationLoading={true}` (and the catalog ETF links) carry both, and the
+two pull in opposite directions. `NavigationLinkLoadingEnhancement` calls
+`preventDefault()` and then Remix `navigate()`, which the runtime treats as a
+programmatic navigation against the top frame — so those links frame-swap and
+the document opt-out never applies. That is the enhancement's deliberate
+trade: a busy state on the link, at the cost of a document load. Measured and
+pinned in `app/components/navigation/document-navigation.browser.ts`; the
+`data-rmx-document` on those links is redundant. Don't "fix" one of the two
+attributes without deciding which behavior the link should actually have.
+
 ---
 
 ## Styling Strategy
