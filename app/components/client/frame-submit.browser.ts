@@ -1,0 +1,127 @@
+import * as assert from 'node:assert/strict'
+import { after, before, describe, it } from 'node:test'
+import type {
+	BrowserTestPage,
+	BrowserTestSession,
+} from '../../lib/browser-test.ts'
+import {
+	DESKTOP_VIEWPORT,
+	startBrowserTestSession,
+} from '../../lib/browser-test.ts'
+import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
+
+/**
+ * Characterization tests for `FrameSubmitEnhancement`, one per mode it
+ * supports. They pin the behavior as it is today so the Stage 6 move of the
+ * form *mechanics* onto the rc.2 runtime's native form navigation
+ * (`docs/REMIX_RC_MIGRATION_PLAN.md` §7) can be judged against something real.
+ *
+ * They assert user-visible outcomes — what the frame region shows, where the
+ * URL bar points, whether the form reset — rather than internals, so they stay
+ * meaningful across that change. Frames render as comment-delimited regions,
+ * not elements, so frame content is read from the page text.
+ */
+describe('frame submit flows (browser)', () => {
+	let session: BrowserTestSession
+
+	before(async () => {
+		seedSharedCatalog()
+		session = await startBrowserTestSession()
+	})
+
+	after(async () => {
+		await session.close()
+	})
+
+	async function open(path: string) {
+		const opened = await session.openPage(DESKTOP_VIEWPORT)
+		await opened.page.goto(`${session.baseUrl}${path}`, {
+			waitUntil: 'networkidle',
+		})
+		return opened
+	}
+
+	const pageText = ({ page }: BrowserTestPage) =>
+		page.evaluate(() => document.body.innerText)
+
+	/**
+	 * Text of the holdings region only. The fund `<select>` lists every catalog
+	 * ticker, so a whole-page match would always find one.
+	 */
+	const holdingsText = ({ page }: BrowserTestPage) =>
+		page.evaluate(() => {
+			const text = document.body.innerText
+			const index = text.indexOf('Your Holdings')
+			return index === -1 ? '' : text.slice(index)
+		})
+
+	it('GET + fragment action: filters the list frame and syncs the document URL', async () => {
+		const opened = await open('/catalog')
+		const before = await pageText(opened)
+		assert.match(before, /BTEQ/, 'equity fund listed before filtering')
+		assert.match(before, /BTBD/, 'bond fund listed before filtering')
+
+		await opened.page.selectOption('#type', 'bond')
+		await opened.page.click('[data-catalog-filter-form] button[type="submit"]')
+		await opened.page.waitForFunction(
+			() => !document.body.innerText.includes('BTEQ'),
+			undefined,
+			{ timeout: 5000 },
+		)
+
+		const after = await pageText(opened)
+		assert.match(after, /BTBD/, 'bond fund survives the filter')
+		assert.doesNotMatch(after, /BTEQ/, 'equity fund filtered out of the frame')
+		assert.match(opened.page.url(), /[?&]type=bond/, 'document URL carries it')
+		assert.equal(
+			new URL(opened.page.url()).pathname,
+			'/catalog',
+			'URL bar stays on the document, not the fragment route',
+		)
+		assert.deepEqual(opened.problems, [])
+	})
+
+	it('POST + replace-from-response: re-renders the list frame and resets the form', async () => {
+		const opened = await open('/portfolio')
+		const { page } = opened
+		assert.doesNotMatch(await holdingsText(opened), /BTEQ/, 'no holdings yet')
+
+		await page.selectOption('#portfolioOperation', 'buy')
+		await page.selectOption('#instrumentTicker', 'BTEQ')
+		await page.fill('#portfolio-trade-form input[name="value"]', '100')
+		await page.click('#portfolio-trade-form button[type="submit"]')
+		await page.waitForFunction(
+			() => {
+				const text = document.body.innerText
+				const index = text.indexOf('Your Holdings')
+				return index !== -1 && text.slice(index).includes('BTEQ')
+			},
+			undefined,
+			{ timeout: 5000 },
+		)
+
+		assert.match(
+			await holdingsText(opened),
+			/BTEQ/,
+			'holding appears in the frame',
+		)
+		assert.equal(
+			new URL(page.url()).pathname,
+			'/portfolio',
+			'no document navigation',
+		)
+		assert.equal(
+			await page.evaluate(
+				() =>
+					(
+						document.querySelector(
+							'#portfolio-trade-form input[name="value"]',
+						) as HTMLInputElement
+					)?.value,
+			),
+			'',
+			'data-reset-form cleared the form',
+		)
+		assert.deepEqual(opened.problems, [])
+	})
+})

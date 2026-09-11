@@ -44,7 +44,7 @@ export function Link(handle: Handle<LinkProps>) {
 				<a
 					href={href}
 					data-navigation-loading
-					rmx-document
+					data-rmx-document
 					class={root}
 					aria-label={ariaLabel}
 				>
@@ -56,7 +56,7 @@ export function Link(handle: Handle<LinkProps>) {
 			)
 		}
 		return (
-			<a href={href} rmx-document class={rootClass} aria-label={ariaLabel}>
+			<a href={href} data-rmx-document class={rootClass} aria-label={ariaLabel}>
 				{children}
 			</a>
 		)

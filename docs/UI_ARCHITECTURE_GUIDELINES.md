@@ -189,6 +189,20 @@ Two limits worth knowing before planning a port:
 server-render assertion cannot see it. Add a `*.browser.ts` file and run
 `npm run test:browser` (see `app/lib/browser-test.ts`).
 
+### 9. Runtime navigation attributes are spelled `data-rmx-*`
+
+The Remix client runtime reads `data-rmx-document`, `data-rmx-target`,
+`data-rmx-src`, `data-rmx-history` and `data-rmx-reset-scroll`. The JSX runtime
+renders attribute names verbatim, so an unprefixed `rmx-document` reaches the
+DOM as `rmx-document` and the runtime never sees it — the link keeps working,
+it just silently does a frame swap instead of the document load you asked for.
+Nothing warns about this: not `tsc`, not a server-render assertion.
+
+Write the `data-` prefix, or apply the `link()` mixin from `remix/ui`, which
+writes the attributes for you. `data-rmx-target="<frame name>"` on a `<form>`
+is also the native replacement for `data-frame-submit` — see §7 and the Stage 6
+notes in `docs/REMIX_RC_MIGRATION_PLAN.md`.
+
 ---
 
 ## Styling Strategy

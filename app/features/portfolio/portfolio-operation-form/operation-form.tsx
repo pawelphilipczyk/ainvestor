@@ -102,7 +102,7 @@ export function PortfolioOperationForm(
 					{t('portfolio.operation.footer.beforeLink')}{' '}
 					<a
 						href={routes.catalog.index.href()}
-						rmx-document
+						data-rmx-document
 						class="font-medium text-primary underline underline-offset-2"
 					>
 						{t('portfolio.operation.footer.link')}

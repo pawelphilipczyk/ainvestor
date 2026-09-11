@@ -20,7 +20,7 @@ function renderSidebarNavLink(params: { link: NavLink; currentPage: AppPage }) {
 	return (
 		<a
 			href={link.href}
-			rmx-document
+			data-rmx-document
 			class={`flex items-center rounded-md px-3 py-2 text-sm font-medium transition-colors ${isCurrent ? 'bg-accent text-accent-foreground' : 'text-foreground hover:bg-accent hover:text-accent-foreground'}`}
 			aria-current={isCurrent ? 'page' : undefined}
 		>

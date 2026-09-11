@@ -260,7 +260,7 @@ export function CatalogListFragment(handle: Handle<CatalogListFragmentProps>) {
 								<p class="mt-3">
 									<Link
 										href={routes.admin.etfImport.href()}
-										rmx-document
+										data-rmx-document
 										class="text-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground/90"
 									>
 										{t('catalog.empty.adminImportLink')}

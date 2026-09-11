@@ -58,7 +58,7 @@ export function SectionIntroCard(handle: Handle<SectionIntroCardProps>) {
 			return (
 				<a
 					href={handle.props.href}
-					rmx-document
+					data-rmx-document
 					class="group block rounded-xl no-underline outline-none transition-shadow focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
 				>
 					<Card

@@ -469,6 +469,43 @@ re-exports.
   `::backdrop`, top layer, all native). That trades duplicated nav markup for
   deleting the scroll-lock, outside-click and focus code, and it is a design
   decision, not a migration step, so it is not folded into this stage.
+- **`rmx-document` was silently inert on rc.2 — fixed.** The runtime reads
+  `data-rmx-document`; the app wrote `rmx-document`, which the JSX runtime
+  renders verbatim rather than prefixing. So the opt-out did nothing and every
+  nav link, tab link and branding link was being intercepted into a top-frame
+  swap instead of the full document load the attribute asks for. Verified in
+  Chromium by marking `window` before a sidebar click: the marker survived
+  (frame swap), and survives no longer once the attribute is spelled
+  `data-rmx-document`. Fixed across 10 files and pinned by
+  `app/components/navigation/document-navigation.browser.ts`. The same naming
+  applies to the rest of the family — `data-rmx-target`, `data-rmx-src`,
+  `data-rmx-history`, `data-rmx-reset-scroll` — or use the `link()` mixin from
+  `remix/ui`, which writes them for you. Exactly the failure mode §7 predicted:
+  silent, browser-only, invisible to `tsc` and to the server-render tests.
+- **frame-submit → native form navigation. Proven viable; not yet landed.**
+  The mechanics do transfer. Adding `data-rmx-target="portfolio-list"` to the
+  portfolio trade form and deleting its `data-frame-submit` /
+  `data-frame-replace-from-response` attributes reproduced the current
+  behavior with **no app JavaScript at all**: the runtime resolved the
+  submitter and form data, POSTed to the action with `Accept: text/html`,
+  and diffed the response into the named frame. The server side already
+  speaks that contract — `requestAcceptsFrameSubmitHtml()` matches exactly the
+  `Accept: text/html` the runtime's default resolver sends, so no handler
+  changes were needed. Measured against the characterization tests below: the
+  frame re-rendered and the URL bar stayed put; the single regression was
+  `data-reset-form`, i.e. the app-specific UX layer, not the mechanics.
+  Reverted rather than half-landed, because finishing it means re-hooking that
+  layer (form reset, `setSubmitButtonLoading`, inline banner tones, dialog
+  closing, the advice gist-stale branch) onto frame `reloadStart` /
+  `reloadComplete` events instead of onto our own `submit` interception, then
+  carrying all 11 forms across four modes (GET + fragment action, POST +
+  replace-from-response, POST + reload-src, plain POST + reload). That is its
+  own reviewed change, and it is the largest single deletion left in the plan.
+- **Characterization tests.** `app/components/client/frame-submit.browser.ts`
+  pins the current behavior of the two most common modes in user-visible terms
+  (what the frame region shows, where the URL bar points, whether the form
+  reset), so the port above can be judged against something rather than
+  eyeballed.
 - **Browser tests.** `npm run test:browser` (Playwright, `app/**/*.browser.ts`,
   helper in `app/lib/browser-test.ts`). Deliberately outside `npm test`: it
   needs a browser binary from `npx playwright install chromium`, which CI does

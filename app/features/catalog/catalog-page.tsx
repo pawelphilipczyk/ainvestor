@@ -137,7 +137,7 @@ export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
 									href={routes.catalog.index.href()}
 									data-catalog-filter-clear
 									data-navigation-loading
-									rmx-document
+									data-rmx-document
 									class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
 								>
 									{t('catalog.filter.clear')}

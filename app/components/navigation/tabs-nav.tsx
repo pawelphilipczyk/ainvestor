@@ -73,7 +73,7 @@ export function TabLink(handle: Handle<TabLinkOwnProps, TabsNavContext>) {
 		return (
 			<a
 				href={href}
-				rmx-document
+				data-rmx-document
 				class={isActive ? tabActiveClass : tabInactiveClass}
 				aria-current={isActive ? 'page' : undefined}
 				{...scrollKeyAttr}
