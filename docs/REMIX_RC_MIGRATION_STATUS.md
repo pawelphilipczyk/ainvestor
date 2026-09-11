@@ -19,8 +19,8 @@ ahead of time.
   `main`.
 - **Branch:** `claude/next-migration-step-fulvgt`, opened fresh off `main`
   after PR #189 merged.
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (582) and
-  `npm run test:browser` (18) all pass.
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (583) and
+  `npm run test:browser` (24) all pass.
 - **Working style:** small steps. One component or one flow per commit, each
   landing green, each with its own browser coverage where the change is
   client-side.
@@ -29,7 +29,7 @@ ahead of time.
 
 | Commit | What |
 |---|---|
-| `(pending)` | Attempted the next step exactly as written below (guidelines ×4, `data-rmx-target` + a `GuidelinesListFrame` client entry mirroring `PortfolioTradeFormFrame`). It worked mechanically — list updates, `role="alert"` tell generalized — but every one of the four actions (`/guidelines/instrument`, `/guidelines/asset-class`, `/guidelines/:id/target`, `/guidelines/:id`) is a path distinct from the page (`/guidelines`), and confirmed live that `data-rmx-target` still commits the form's `action` as the document URL regardless of `target` (`GET /guidelines/instrument` afterwards → 405). Portfolio's port only avoided this because `portfolio.create` happens to POST to `/portfolio`, same as the page. Traced the mechanism in `@remix-run/ui`'s `runtime/navigation.ts` — no attribute pins the document URL while frame-targeting elsewhere. Reverted the port rather than ship a broken refresh/back-button; wrote the finding up as Plan §7 (new bullet after the portfolio one) and Open question 4, since it blocks every remaining form in the backlog below, not just guidelines. Still 582/582, still 18/18 browser. |
+| `(pending)` | Guidelines' 4 forms (add-instrument, add-bucket, update-target, delete) ported to native `data-rmx-target`. First attempt hit a real blocker: `data-rmx-target` commits the form's `action` as the document URL regardless of which frame it targets, and guidelines' four actions were nested paths distinct from `/guidelines` — confirmed live (`GET /guidelines/instrument` → 405 after an add). Resolved it rather than reverting under reason 3: consolidated `routes.ts`'s `guidelines` entry onto `...form('guidelines')` (one `index`/`action` GET+POST pair at `/guidelines`, the same first-party shape `advice` already used) and added a hidden `guidelineIntent` field (`addInstrument`/`addAssetClass`/`updateTarget`/`delete`) the single `action` handler switches on — same pattern as `advice`'s `adviceIntent`; `updateTarget`/`delete` take the row `id` as a hidden field instead of a path segment, and the `_method=DELETE` override is gone (no longer needed with one POST route). With every form's action now equal to the page, the `data-rmx-target` port (a `GuidelinesListFrame` client entry mirroring `PortfolioTradeFormFrame`, covering all 4 forms since it hooks the frame rather than one fixed form id) worked with no URL drift. Wrote the pattern up as the project standard in `docs/UI_ARCHITECTURE_GUIDELINES.md` §10, and closed Plan Open question 4 (chose option (b)). `npm test` 583/583, `npm run test:browser` 24/24 (5 new: add success/reset, add 422/no-reset, update-target, delete-via-dialog closes its own dialog, unrelated-reload doesn't clear the form). |
 | `6265ddf` | Ported the portfolio trade form (`#portfolio-trade-form`) from `FrameSubmitEnhancement` to native `data-rmx-target="portfolio-list"`. The server side needed no change — the default frame resolver's `Accept: text/html` request already matches `requestAcceptsFrameSubmitHtml`, and it accepts 4xx HTML responses, so the existing 422 inline-error fragment (`list-fragment.tsx`'s `role="alert"` banner) renders into the frame unmodified. Added `PortfolioTradeFormFrame`, a client entry that hooks `data-reset-form` and `setSubmitButtonLoading` onto the frame's `reloadStart` / `reloadComplete` events (`handle.frames.get('portfolio-list')`) instead of our own `submit` interception; since the event carries no response data, it tells success from failure by checking for the `role="alert"` node the error fragment renders (the only one on this page) so a 422 no longer clears the form. Added the 422 characterization test first (per the prior *Next step*), confirmed it green against the old enhancement, then ported and reran it unchanged — plus a new assertion that the form field keeps its value after a 422. Browser suite now 18. Import-etf-form stays on `FrameSubmitEnhancement` (still targets the same `portfolio-list` frame via `replace()`, which does not dispatch `reloadStart`/`reloadComplete`, so the two paths don't interfere). |
 | `4dd2f20` | Code review of PR #188. Fixed two real defects it found: the browser harness leaked its listening socket when Chromium failed to launch (so a first run without `npx playwright install chromium` hung instead of reporting why), and a blocked `localStorage` write wedged the theme toggle after one press. Both reproduced before fixing and pinned by tests. A third finding — `aria-checked` server-rendering as a bare attribute — stands as an upstream limitation; the suggested workaround was tried and is clobbered by the mixin. Browser suite now 17. |
 | `b7c26a4` | Browser sweep of the whole UI after the `data-rmx-document` fix: every page loads and hydrates, locale round-trip, catalog → ETF detail, sidebar nav, mobile overlay — all good. Added page smoke tests and pinned that `data-navigation-loading` overrides the document opt-out (measured; the enhancement `preventDefault()`s and calls Remix `navigate()`, so those links frame-swap by design). Browser suite now 16. |
@@ -39,27 +39,35 @@ ahead of time.
 
 ## Next step
 
-**Blocked on a decision — see Open questions below before porting another
-form.** The `role="alert"` tell and the `GuidelinesListFrame`-shaped shared
-client entry both generalized fine; what doesn't is the document URL. Every
-remaining form's action is a different path from its page (guidelines ×4,
-catalog ETF analysis, portfolio CSV import, advice ×3), and `data-rmx-target`
-has no way to submit to one of those without the address bar landing there
-too — see Plan §7 for the traced mechanism and the three ways forward. Do not
-attempt another form port under the current assumptions; pick (a), (b) or (c)
-from Plan Open question 4 first.
+**Carry the next feature's forms across, route-consolidation-first.** The
+pattern is now proven twice (advice, guidelines) and written up as the
+standard in `docs/UI_ARCHITECTURE_GUIDELINES.md` §10. Catalog ETF analysis is
+next — its one form (`data-frame-hide-form-on-success`, a wrinkle no prior
+form has needed) currently posts to `/catalog/etf/:id/analysis`, a path
+distinct from its page (`/catalog/etf/:id`). Before touching
+`data-rmx-target`:
 
-If the answer is (a) — stay on `data-frame-submit` for everything except
-portfolio's trade form — the remaining item in the backlog below is close to
-already done: re-verify each mode still matches `FrameSubmitEnhancement`'s
-contract (nothing here changed it) and move on to backlog items 2–4.
+1. Consolidate `catalog`'s routes so the ETF detail page and its analysis
+   action share one path — a `form('catalog/etf/:catalogEntryId')`-shaped
+   pair, or fold `etfAnalysis` into the existing `etf` route as a POST
+   action — with a hidden intent field if the route ends up serving more
+   than one POST purpose.
+2. Only then add `data-rmx-target` + a client entry for the reset/busy-state
+   tell, following `guidelines-list-frame.component.js` as the reference
+   shape (one entry per page, hooking the frame rather than a fixed form id,
+   so it is ready if the page grows more forms later).
+
+Portfolio CSV import needs the identical route-consolidation-first treatment
+after that (`/portfolio/import` vs. `/portfolio`) — lower priority since it's
+a single low-frequency form, not blocking anything else.
 
 ## Backlog after that, in order
 
-1. ~~Carry the remaining forms across~~ — blocked, see *Next step*. If the
-   resolution is to stay on `data-frame-submit` / `data-frame-replace-from-
-   response` for everything but the portfolio trade form, this item is
-   effectively closed rather than pending.
+1. Catalog ETF analysis, then portfolio CSV import — both per *Next step*
+   above. Advice's 3 forms need no route change (`form('advice')` already
+   gives them one path) — just the `data-rmx-target` + client-entry port
+   itself, including its two special cases (the gist-stale branch, `POST +
+   reload-src` mode instead of replace-from-response).
 2. Delete whatever is left of `frame-submit.component.js` beyond the
    app-specific UX layer, and shrink `frame-submit-request.ts` if the `Accept`
    branching collapses.
@@ -104,23 +112,43 @@ contract (nothing here changed it) and move on to backlog items 2–4.
   `Frame` and dispatches an "inherited" reload on it too — confirmed live,
   reachable by just switching language with unsaved trade-form input. Gate
   the frame-event handlers on a `submit` event of the specific form first
-  (`pendingSubmit` in `PortfolioTradeFormFrame`); do not react to
-  `reloadStart`/`reloadComplete` unconditionally in any per-form frame hook.
+  (`pendingSubmit` in `PortfolioTradeFormFrame` / `GuidelinesListFrame`); do
+  not react to `reloadStart`/`reloadComplete` unconditionally in any per-form
+  frame hook.
+- **A `data-rmx-target` form's `action` must equal its page's own path, or
+  the address bar drifts to a route that 405s on GET.** Confirmed live on
+  guidelines before the fix (Plan §7). The standard from here on: one
+  `form('<feature>')` route per feature (`index` + `action` at the same
+  URL — `remix/routes`' own shorthand, first used by `advice`) with a
+  hidden intent field (`adviceIntent`, `guidelineIntent`, …) discriminating
+  sub-actions inside the single `action` handler. Full writeup:
+  `docs/UI_ARCHITECTURE_GUIDELINES.md` §10. Check this *before* wiring
+  `data-rmx-target` on any form, not after.
+- **A frame-wide client entry, not a per-form one, is the right shape once a
+  page has more than one `data-rmx-target` form sharing a frame.**
+  `GuidelinesListFrame` hooks a single document-level `submit` listener plus
+  the named frame's `reloadStart`/`reloadComplete`, and dispatches on
+  whichever tracked form/control last submitted — covering the 2 external
+  add-forms and the 2 per-row forms re-rendered inside the frame on every
+  reload, in one file. `PortfolioTradeFormFrame` (one form, one page) is
+  the special case, not the template, for any page adopting a second
+  `data-rmx-target` form on the same frame.
+- **Deleting a row whose own confirmation `<dialog>` is `showModal()`-open
+  needs an explicit close before/around the frame swap.** The rc.2 diff
+  (`@remix-run/ui`'s `diff-dom`) treats a `<dialog>`'s `open` attribute as
+  live state it preserves across a patch, same as `<input>` `value`/
+  `checked` — without an explicit close, a dialog whose row survives the
+  swap would stay stuck open, and (measured) a dialog whose row does *not*
+  survive can otherwise interact oddly with the diff given the browser's own
+  top-layer handling of a modal being removed. `GuidelinesListFrame` closes
+  every open `<dialog>` on `reloadStart`, gated on `pendingSubmit` so it
+  only fires for a reload this page's own forms caused. Verified in
+  Chromium: the delete-confirmation dialog for the deleted row closes
+  cleanly, `document.querySelectorAll('dialog[open]').length` is `0`
+  afterward.
 
 ## Open questions for the user
 
-1. **How to unblock the remaining `data-rmx-target` form ports** (Plan Open
-   question 4). Every form left in the backlog posts to a path other than its
-   own page, and `data-rmx-target` commits that path to the address bar
-   regardless of which frame it targets — confirmed live (`GET
-   /guidelines/instrument` → 405 after an add). Three options, increasing in
-   invasiveness: (a) accept it and leave every remaining form on
-   `data-frame-submit` — the portfolio trade form stays the one exception;
-   (b) consolidate each feature's actions onto its own page's path (e.g. a
-   single `POST /guidelines` dispatching on a hidden `intent` field) — a real
-   routing/controller change, not mechanics, and a URL-shape change some
-   other code or a bookmark could depend on; (c) wait and re-check whether a
-   future Remix build adds a document-URL-pinning option for frame-targeted
-   submissions. Recommend (a) unless the URL-shape change in (b) is wanted
-   for its own sake — it costs nothing to keep the working `FrameSubmitEnhancement`
-   path, and (b) is a scope increase beyond "adopt the framework's mechanics."
+None right now. Plan Open question 4 (how to unblock `data-rmx-target` form
+ports whose action isn't their own page) is resolved — see *Next step*
+above and `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 4.

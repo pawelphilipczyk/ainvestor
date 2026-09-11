@@ -502,21 +502,21 @@ re-exports.
   replace-from-response, POST + reload-src, plain POST + reload). That is its
   own reviewed change, and it is the largest single deletion left in the plan.
 - **`data-rmx-target` commits the form's `action` as the document URL —
-  breaks any form whose action isn't its own page. Attempted on guidelines
-  (×4: add-instrument, add-bucket, update-target, delete); not adopted,
-  reason 3.** The portfolio port above worked with "the URL bar stayed put"
-  only because `portfolio.create` POSTs to `/portfolio`, the same path as
-  `portfolio.index` — a coincidence of that one route, not a property of
-  `data-rmx-target`. Guidelines' four actions are nested paths
-  (`/guidelines/instrument`, `/guidelines/asset-class`,
-  `/guidelines/:id/target`, `/guidelines/:id`), none equal to `/guidelines`.
-  Porting them the same way (attributes only, plus a `guidelines-list`-wide
-  client entry mirroring `PortfolioTradeFormFrame` for the reset/busy-state/
-  dialog-closing UX) reproduced the list update correctly, but left the
-  address bar on the action URL after every submit — confirmed live:
-  `GET /guidelines/instrument` after an add returns **405 Method Not
-  Allowed**, so a refresh, back/forward, or share/bookmark right after any
-  of the four actions breaks.
+  breaks any form whose action isn't its own page. Hit on guidelines
+  (×4: add-instrument, add-bucket, update-target, delete); resolved by
+  route consolidation, not left under reason 3.** The portfolio port above
+  worked with "the URL bar stayed put" only because `portfolio.create`
+  POSTs to `/portfolio`, the same path as `portfolio.index` — a coincidence
+  of that one route, not a property of `data-rmx-target`. Guidelines'
+  four actions were nested paths (`/guidelines/instrument`,
+  `/guidelines/asset-class`, `/guidelines/:id/target`, `/guidelines/:id`),
+  none equal to `/guidelines`. A first attempt ported them the same way as
+  portfolio (attributes only, plus a `guidelines-list`-wide client entry
+  mirroring `PortfolioTradeFormFrame`) and reproduced the list update
+  correctly, but left the address bar on the action URL after every submit
+  — confirmed live: `GET /guidelines/instrument` after an add returned
+  **405 Method Not Allowed**, so a refresh, back/forward, or share/bookmark
+  right after any of the four actions broke.
 
   Traced in `@remix-run/ui`'s `runtime/navigation.ts`: a frame-targeted POST
   still goes through `interceptNavigation`/`event.intercept()`, which is the
@@ -531,18 +531,31 @@ re-exports.
   destination. There is no attribute-level way to keep the document on its
   current URL while `data-rmx-target`-submitting to a different one.
 
-  This is not guidelines-specific: every other form left in the backlog
-  posts to a path distinct from its page (catalog ETF analysis
+  Not guidelines-specific — every other form left in the backlog posts to a
+  path distinct from its page (catalog ETF analysis
   `/catalog/etf/:id/analysis` vs. `/catalog/etf/:id`; portfolio CSV import
-  `/portfolio/import` vs. `/portfolio`; all three advice forms). Treat
-  "action path equals page path" as a precondition before adopting
-  `data-rmx-target` on a form, not an incidental detail — portfolio's trade
-  form is the one item in the backlog that happens to clear it.  Guidelines'
-  four forms stay on `data-frame-submit` / `data-frame-replace-from-response`
-  under reason 3 until one of: (a) the routes are consolidated so each
-  action posts back to its own page (a real route/controller change, out of
-  scope for a "mechanics only" port), or (b) a newer Remix build adds a way
-  to pin the document URL on a frame-targeted submission.
+  `/portfolio/import` vs. `/portfolio`; all three advice forms, already on
+  one route — see below). **Resolved by taking option (b) from the open
+  question this raised:** consolidate each feature onto one `form('<name>')`
+  route (an `index`/`action` GET+POST pair at the same URL — a first-party
+  `remix/routes` shorthand, already how `advice` was routed) and
+  discriminate sub-actions with a hidden intent field the single `action`
+  handler switches on, the same shape `advice`'s `adviceIntent` already
+  used. `routes.ts`'s `guidelines` entry is now `...form('guidelines')` +
+  `fragmentList`; `guidelinesController.action` reads a hidden
+  `guidelineIntent` (`addInstrument` / `addAssetClass` / `updateTarget` /
+  `delete`) and dispatches to what were the four separate route handlers;
+  `updateTarget`/`delete` take the row `id` as a hidden field instead of a
+  path segment. `remix/data-schema`'s `object()` strips unknown keys by
+  default, so the intent/id fields needed no changes to the existing
+  per-action validation schemas. With every form's `action` now equal to
+  `/guidelines`, the retry of the `data-rmx-target` port (the client entry
+  above, unchanged) works with no URL drift. Full pattern writeup:
+  `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 — it is now the standard for
+  every remaining `data-rmx-target` form, not only guidelines. Catalog ETF
+  analysis and portfolio CSV import still need the same route consolidation
+  before they can move; option (b) is chosen for them too, not still an
+  open question — see the backlog in `docs/REMIX_RC_MIGRATION_STATUS.md`.
 - **Characterization tests.** `app/components/client/frame-submit.browser.ts`
   pins the current behavior of the two most common modes in user-visible terms
   (what the frame region shows, where the URL bar points, whether the form
@@ -656,19 +669,25 @@ Confirm CI and the Fly image satisfy it.
 3. **Timing.** Land Stages 1–4 now for a small diff and early warning of API
    churn, or wait for 3.0.0 final? This plan assumes now; the validated 23-file
    diff supports it.
-4. **The remaining `data-rmx-target` forms all hit the URL-pinning gap
-   above.** Guidelines, catalog ETF analysis, portfolio CSV import and all
-   three advice forms post to a path other than their own page, so none of
-   them can adopt `data-rmx-target` as a pure attribute swap without leaving
-   the address bar on a route that 405s on GET. Three ways forward, in
-   increasing order of invasiveness: (a) leave all of them on
-   `data-frame-submit` / `data-frame-replace-from-response` — Reason 1 now
-   applies broadly, not just per-form, so "carry the remaining forms across"
-   in the backlog below may already be done, modulo re-verifying each mode;
-   (b) consolidate each action back onto its own page's path (e.g. `POST
-   /guidelines` dispatching on a hidden `intent` field, matching what
-   `portfolio.create` already does by having only one action) — a real
-   routing/controller change, not mechanics, and changes URLs other code or
-   bookmarks may depend on; (c) wait and re-check future Remix releases for
-   a document-URL-pinning option on frame-targeted submissions. Needs a
-   decision before Stage 6 continues past the trade form.
+4. **RESOLVED — option (b), route consolidation.** Some of the
+   `data-rmx-target` forms hit the URL-pinning gap above (§ the guidelines
+   bullet): whenever a form's `action` differs from its page's own path,
+   `data-rmx-target` leaves the address bar on a route that 405s on GET.
+   Guidelines (4 forms) and catalog ETF analysis (1 form) had this problem;
+   portfolio CSV import too. Advice's 3 forms did not — `form('advice')`
+   already gives `advice.index` and `advice.action` the same `/advice`
+   path, so they were never affected (correcting an earlier version of this
+   note that lumped them in).
+
+   Chose (b) over leaving everything on `data-frame-submit` (a) or waiting
+   for a future Remix release to add URL-pinning (c): `remix/routes`'
+   `form()` helper already generates the one-route-per-feature shape as a
+   first-party idiom, `advice` was already proof it works end-to-end in
+   this codebase, and the hidden-intent-field dispatch costs less than the
+   URL-shape risk (a) leaves permanently parked and (c) leaves indefinitely
+   blocked. Landed for guidelines — see the bullet above and
+   `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 for the pattern writeup, which
+   is now the standard for every `data-rmx-target` form. Catalog ETF
+   analysis and portfolio CSV import still need the same route
+   consolidation before their own `data-rmx-target` port; not a fresh
+   decision when they're picked up, just an application of this one.

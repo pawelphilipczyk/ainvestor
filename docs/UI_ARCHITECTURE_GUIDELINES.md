@@ -214,6 +214,53 @@ pinned in `app/components/navigation/document-navigation.browser.ts`; the
 `data-rmx-document` on those links is redundant. Don't "fix" one of the two
 attributes without deciding which behavior the link should actually have.
 
+### 10. A `data-rmx-target` form must post back to its own page — one action route per feature, dispatched by a hidden intent field
+
+`data-rmx-target="<frame name>"` (§9) still goes through the Navigation API:
+`event.intercept()` commits `event.destination.url` — the form's actual
+`action` — as the document's URL regardless of which frame the submission
+targets (`@remix-run/ui`'s `runtime/navigation.ts`: `topFrame.src =
+event.destination.url`, unconditionally). Nothing in the `data-rmx-*` family
+opts out of that — `data-rmx-history` only chooses push vs. replace, and
+`data-rmx-src` only redirects what the *frame* fetches, not what the address
+bar becomes. So a form whose `action` is a different path from the page it
+lives on leaves the address bar on that action after every submit. Confirmed
+live during the guidelines port: after an add, the URL sat on
+`/guidelines/instrument`, and `GET /guidelines/instrument` — a POST-only
+route — returned 405. A refresh, back/forward, or share/bookmark right after
+submitting broke. Full trace in `docs/REMIX_RC_MIGRATION_PLAN.md`'s Stage 6
+notes.
+
+**The fix: give each feature one route both its page and its forms use.**
+`remix/routes` ships exactly this shape — `form('<pattern>')` (used as
+`...form('guidelines')` in `routes.ts`) generates an `index` (`GET`) +
+`action` (`POST`) pair at the same URL, "suitable for showing a standard
+HTML `<form>` and handling its submit action at the same URL." That is the
+framework's own idiom, not a workaround invented for this migration.
+
+**Telling actions apart under one route: a hidden field, switched on in the
+handler.** `advice` already did this before guidelines needed it — three
+forms (run buy-next, run portfolio-review, clear) all post to the one
+`advice.action` route, each carrying its own
+`<input type="hidden" name="adviceIntent" value="run" />` /
+`value="clear"`, and `guidelinesController`'s `action(context)` reads it
+off the parsed payload and branches. `guidelines` follows the identical
+shape: `guidelineIntent` is `addInstrument` / `addAssetClass` /
+`updateTarget` / `delete`, and `updateTarget`/`delete` carry the row's `id`
+as a second hidden field instead of a path segment
+(`app/features/guidelines/guidelines-list-fragment.tsx`,
+`app/features/guidelines/index.ts`). `remix/data-schema`'s `object()` strips
+unknown keys by default, so the intent/id fields need no entry in each
+sub-action's own validation schema.
+
+**This is the standard for every `data-rmx-target` form going forward, not
+just guidelines and advice.** Before wiring a form's `data-rmx-target`,
+confirm its `action` equals its page's own route — if it doesn't yet,
+consolidate onto `form('<feature>')` and a hidden intent field first. Every
+remaining form left on `data-frame-submit` (portfolio CSV import, catalog
+ETF analysis) will need the same route consolidation before it can move;
+see the backlog in `docs/REMIX_RC_MIGRATION_STATUS.md`.
+
 ---
 
 ## Styling Strategy

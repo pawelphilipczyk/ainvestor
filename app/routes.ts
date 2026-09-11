@@ -1,6 +1,7 @@
 import { del, form, get, post, route } from 'remix/routes'
 
 const adviceForm = form('advice')
+const guidelinesForm = form('guidelines')
 
 export const routes = route({
 	health: get('/health'),
@@ -38,11 +39,7 @@ export const routes = route({
 		fragmentResult: get('/fragments/advice-result'),
 	},
 	guidelines: {
-		index: get('/guidelines'),
-		instrument: post('/guidelines/instrument'),
-		assetClass: post('/guidelines/asset-class'),
-		updateTarget: post('/guidelines/:id/target'),
-		delete: del('/guidelines/:id'),
+		...guidelinesForm,
 		fragmentList: get('/fragments/guidelines-list'),
 	},
 	catalog: route('/catalog', {

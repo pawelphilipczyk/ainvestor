@@ -882,9 +882,9 @@ Parse `FormData` once globally rather than in each handler.
 | `remix/session-middleware` | ✅ | `session()` in router middleware chain |
 | `remix/cookie` | ✅ | `sessionCookie` in `app/lib/session.ts` |
 | `remix/data-schema` | ✅ | `parseSafe()` + `coerce.*` in portfolio, guidelines, advice |
-| `remix/method-override-middleware` | ✅ | `methodOverride()` in router; DELETE /guidelines/:id |
+| `remix/method-override-middleware` | ✅ | `methodOverride()` in router; DELETE /portfolio/:id |
 | `remix/compression-middleware` | ✅ | `compression()` in production middleware stack |
-| `form()` shorthand | ✅ | guidelines routes use `form('guidelines')` |
+| `form()` shorthand | ✅ | `advice`/`guidelines` routes use `form('advice')` / `form('guidelines')` — one `index`/`action` pair per feature, with a hidden `<feature>Intent` field distinguishing sub-actions; see `docs/UI_ARCHITECTURE_GUIDELINES.md` §9 |
 | `remix/headers` | ❌ | Not used yet |
 | `remix/component` | ❌ | Removed in beta; app uses `remix/ui` instead |
 | `remix/component/server` | ❌ | Removed in beta; app uses `remix/ui/server` instead |

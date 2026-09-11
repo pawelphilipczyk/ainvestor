@@ -22,6 +22,7 @@ import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 // @ts-expect-error Runtime-only JS client entry module
 import { GuidelinesDeleteDialogInteractions } from './guidelines-list.component.js'
+import { GuidelinesListFrame } from './guidelines-list-frame.component.js'
 
 type GuidelinesAddTabId = 'instrument' | 'bucket'
 
@@ -96,13 +97,18 @@ export function GuidelinesPage(
 										{t('guidelines.etfCard.hint')}
 									</p>
 									<form
+										id="guidelines-add-form"
 										method="post"
-										action={routes.guidelines.instrument.href()}
+										action={routes.guidelines.action.href()}
 										class="grid gap-4"
-										data-frame-submit="guidelines-list"
-										data-frame-replace-from-response="1"
+										data-rmx-target="guidelines-list"
 										data-reset-form
 									>
+										<input
+											type="hidden"
+											name="guidelineIntent"
+											value="addInstrument"
+										/>
 										<div class="grid gap-2">
 											<FieldLabel fieldId="instrumentTicker">
 												{t('guidelines.etfCard.field.fund')}
@@ -140,13 +146,18 @@ export function GuidelinesPage(
 										{t('guidelines.bucket.hint')}
 									</p>
 									<form
+										id="guidelines-add-form"
 										method="post"
-										action={routes.guidelines.assetClass.href()}
+										action={routes.guidelines.action.href()}
 										class="grid gap-4"
-										data-frame-submit="guidelines-list"
-										data-frame-replace-from-response="1"
+										data-rmx-target="guidelines-list"
 										data-reset-form
 									>
+										<input
+											type="hidden"
+											name="guidelineIntent"
+											value="addAssetClass"
+										/>
 										<div class="grid gap-2">
 											<FieldLabel fieldId="assetClassType">
 												{t('guidelines.bucket.field.class')}
@@ -194,6 +205,7 @@ export function GuidelinesPage(
 						src={routes.guidelines.fragmentList.href()}
 						fallback={frameLoadingPlaceholder()}
 					/>
+					<GuidelinesListFrame />
 				</main>
 				<GuidelinesDeleteDialogInteractions />
 			</>

@@ -118,15 +118,18 @@ export function GuidelinesListFragment(
 										</div>
 										<form
 											method="post"
-											action={routes.guidelines.updateTarget.href({
-												id: g.id,
-											})}
+											action={routes.guidelines.action.href()}
 											class="hidden inline-flex min-w-0 flex-wrap items-center gap-2"
-											data-frame-submit="guidelines-list"
-											data-frame-replace-from-response="1"
+											data-rmx-target="guidelines-list"
 											data-guideline-edit-form={g.id}
 											data-guideline-original-target={targetPercentDisplay}
 										>
+											<input
+												type="hidden"
+												name="guidelineIntent"
+												value="updateTarget"
+											/>
+											<input type="hidden" name="id" value={g.id} />
 											<FieldLabel
 												fieldId={targetFieldId}
 												variant="screenReader"
@@ -204,11 +207,15 @@ export function GuidelinesListFragment(
 											</form>
 											<form
 												method="post"
-												action={routes.guidelines.delete.href({ id: g.id })}
-												data-frame-submit="guidelines-list"
-												data-frame-replace-from-response="1"
+												action={routes.guidelines.action.href()}
+												data-rmx-target="guidelines-list"
 											>
-												<input type="hidden" name="_method" value="DELETE" />
+												<input
+													type="hidden"
+													name="guidelineIntent"
+													value="delete"
+												/>
+												<input type="hidden" name="id" value={g.id} />
 												<button
 													type="submit"
 													class="rounded-md bg-destructive px-3 py-1.5 text-sm text-white hover:opacity-90"
