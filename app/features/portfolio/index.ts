@@ -4,10 +4,7 @@ import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
 import { renderToStream } from 'remix/ui/server'
 import { render } from '../../components/render.ts'
-import {
-	requestAcceptsApplicationJson,
-	requestAcceptsFrameSubmitHtml,
-} from '../../lib/frame-submit-request.ts'
+import { requestAcceptsFrameSubmitHtml } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, fetchPortfolioSnapshot, saveEtfs } from '../../lib/gist.ts'
 import { getGuestEtfs, setGuestEtfs } from '../../lib/guest-session-state.ts'
@@ -30,10 +27,10 @@ import {
 } from '../catalog/lib.ts'
 import {
 	ListFragment,
-	loadPortfolioEntries,
 	portfolioListFragmentHtmlResponse,
 	portfolioOperationFormHandlers,
 	portfolioPersistenceFailureResponse,
+	portfolioValidationFailureResponse,
 } from './portfolio-operation-form/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
 
@@ -49,33 +46,6 @@ export { resetEtfEntries, resetTestSessionCookieJar } from './state.ts'
  * see `docs/UI_ARCHITECTURE_GUIDELINES.md` §10.
  */
 const PORTFOLIO_INTENTS = ['trade', 'import'] as const
-
-async function portfolioImportInvalidResponse(context: AppRequestContext) {
-	const message = t('errors.portfolio.importInvalid')
-	if (requestAcceptsApplicationJson(context.request)) {
-		return new Response(JSON.stringify({ error: message }), {
-			status: 422,
-			headers: { 'Content-Type': 'application/json' },
-		})
-	}
-	if (requestAcceptsFrameSubmitHtml(context.request)) {
-		const entries = await loadPortfolioEntries(context)
-		if (entries === null) {
-			return portfolioListFragmentHtmlResponse(context, {
-				entries: [],
-				inlineError: t('errors.portfolio.persistence'),
-				status: 422,
-			})
-		}
-		return portfolioListFragmentHtmlResponse(context, {
-			entries,
-			inlineError: message,
-			status: 422,
-		})
-	}
-	flashBanner(context.get(Session), { text: message, tone: 'error' })
-	return createRedirectResponse(routes.portfolio.index.href())
-}
 
 async function handleImport(context: AppRequestContext, form: FormData) {
 	const pasteRaw = form.get('portfolioCsvPaste')
@@ -95,7 +65,12 @@ async function handleImport(context: AppRequestContext, form: FormData) {
 	}
 
 	const imported = csvText ? parsePortfolioCsv(csvText) : []
-	if (imported.length === 0) return portfolioImportInvalidResponse(context)
+	if (imported.length === 0) {
+		return portfolioValidationFailureResponse(
+			context,
+			t('errors.portfolio.importInvalid'),
+		)
+	}
 
 	const session = getSessionData(context.get(Session))
 	let current: EtfEntry[]

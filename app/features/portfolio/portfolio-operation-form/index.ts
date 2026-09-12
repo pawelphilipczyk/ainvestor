@@ -114,12 +114,50 @@ async function portfolioPersistenceFailureResponse(
 	return createRedirectResponse(routes.portfolio.index.href())
 }
 
+/**
+ * JSON/frame-HTML/flash+redirect response for a validation failure that
+ * happens before any holdings snapshot has been loaded for this request —
+ * reloads entries fresh for the frame-HTML branch, falling back to a
+ * persistence-error banner if that reload itself fails. Shared by the trade
+ * form's schema validation and CSV import's "no valid rows" case, so the
+ * three-way `Accept` branching lives in one place.
+ */
+async function portfolioValidationFailureResponse(
+	context: AppRequestContext,
+	message: string,
+): Promise<Response> {
+	if (requestAcceptsApplicationJson(context.request)) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	if (requestAcceptsFrameSubmitHtml(context.request)) {
+		const entries = await loadPortfolioEntries(context)
+		if (entries === null) {
+			return portfolioListFragmentHtmlResponse(context, {
+				entries: [],
+				inlineError: t('errors.portfolio.persistence'),
+				status: 422,
+			})
+		}
+		return portfolioListFragmentHtmlResponse(context, {
+			entries,
+			inlineError: message,
+			status: 422,
+		})
+	}
+	flashBanner(context.get(Session), { text: message, tone: 'error' })
+	return createRedirectResponse(routes.portfolio.index.href())
+}
+
 export {
 	ListFragment,
 	loadPortfolioEntries,
 	PortfolioOperationForm,
 	portfolioListFragmentHtmlResponse,
 	portfolioPersistenceFailureResponse,
+	portfolioValidationFailureResponse,
 }
 
 export const portfolioOperationFormHandlers = {
@@ -133,30 +171,10 @@ export const portfolioOperationFormHandlers = {
 
 			const result = parseSafe(PortfolioOperationSchema, formPayload)
 			if (!result.success) {
-				const message = t('errors.portfolio.addInvalid')
-				if (requestAcceptsApplicationJson(context.request)) {
-					return new Response(JSON.stringify({ error: message }), {
-						status: 422,
-						headers: { 'Content-Type': 'application/json' },
-					})
-				}
-				if (requestAcceptsFrameSubmitHtml(context.request)) {
-					const entries = await loadPortfolioEntries(context)
-					if (entries === null) {
-						return portfolioListFragmentHtmlResponse(context, {
-							entries: [],
-							inlineError: t('errors.portfolio.persistence'),
-							status: 422,
-						})
-					}
-					return portfolioListFragmentHtmlResponse(context, {
-						entries,
-						inlineError: message,
-						status: 422,
-					})
-				}
-				flashBanner(context.get(Session), { text: message, tone: 'error' })
-				return createRedirectResponse(routes.portfolio.index.href())
+				return portfolioValidationFailureResponse(
+					context,
+					t('errors.portfolio.addInvalid'),
+				)
 			}
 
 			const operation = result.value
