@@ -89,7 +89,7 @@ rather than assume.
 - **Playwright is in** as a dev dependency. It ships no postinstall, so `npm ci`
   never downloads a browser on its own. Browser tests stay out of `npm test`
   deliberately; CI runs them as a separate `browser-test` job
-  (`.github/workflows/lint.yml`) that installs Chromium itself (cached by
+  (`.github/workflows/ci.yml`) that installs Chromium itself (cached by
   Playwright version) and runs `npm run test:browser`.
 - **`render()` from `remix/ui/test` is unusable here** — it mounts into
   `document.body` and upstream drives it with Playwright. Server-render
