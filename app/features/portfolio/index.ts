@@ -4,6 +4,10 @@ import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
 import { renderToStream } from 'remix/ui/server'
 import { render } from '../../components/render.ts'
+import {
+	requestAcceptsApplicationJson,
+	requestAcceptsFrameSubmitHtml,
+} from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, fetchPortfolioSnapshot, saveEtfs } from '../../lib/gist.ts'
 import { getGuestEtfs, setGuestEtfs } from '../../lib/guest-session-state.ts'
@@ -26,11 +30,120 @@ import {
 } from '../catalog/lib.ts'
 import {
 	ListFragment,
+	loadPortfolioEntries,
+	portfolioListFragmentHtmlResponse,
 	portfolioOperationFormHandlers,
+	portfolioPersistenceFailureResponse,
 } from './portfolio-operation-form/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
 
 export { resetEtfEntries, resetTestSessionCookieJar } from './state.ts'
+
+/**
+ * Discriminates the two actions the single `portfolio.action` route handles,
+ * via a hidden `portfolioIntent` field on each `<form>` — same shape as
+ * `advice`'s `adviceIntent` / `guidelines`' `guidelineIntent`. Consolidating
+ * the trade form and the CSV import form onto one POST route
+ * (`form('portfolio')` in `routes.ts`) keeps both forms' `action` equal to
+ * the page's own URL, which native `data-rmx-target` submission requires —
+ * see `docs/UI_ARCHITECTURE_GUIDELINES.md` §10.
+ */
+const PORTFOLIO_INTENTS = ['trade', 'import'] as const
+
+async function portfolioImportInvalidResponse(context: AppRequestContext) {
+	const message = t('errors.portfolio.importInvalid')
+	if (requestAcceptsApplicationJson(context.request)) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	if (requestAcceptsFrameSubmitHtml(context.request)) {
+		const entries = await loadPortfolioEntries(context)
+		if (entries === null) {
+			return portfolioListFragmentHtmlResponse(context, {
+				entries: [],
+				inlineError: t('errors.portfolio.persistence'),
+				status: 422,
+			})
+		}
+		return portfolioListFragmentHtmlResponse(context, {
+			entries,
+			inlineError: message,
+			status: 422,
+		})
+	}
+	flashBanner(context.get(Session), { text: message, tone: 'error' })
+	return createRedirectResponse(routes.portfolio.index.href())
+}
+
+async function handleImport(context: AppRequestContext, form: FormData) {
+	const pasteRaw = form.get('portfolioCsvPaste')
+	const paste =
+		typeof pasteRaw === 'string' && pasteRaw.trim().length > 0
+			? pasteRaw.trim()
+			: null
+
+	const file = form.get('portfolioCsv')
+	let csvText: string | null = null
+
+	if (file && typeof file !== 'string' && (file as Blob).size > 0) {
+		const bytes = await (file as Blob).arrayBuffer()
+		csvText = decodeCsvBytes(bytes)
+	} else if (paste) {
+		csvText = paste
+	}
+
+	const imported = csvText ? parsePortfolioCsv(csvText) : []
+	if (imported.length === 0) return portfolioImportInvalidResponse(context)
+
+	const session = getSessionData(context.get(Session))
+	let current: EtfEntry[]
+	if (session?.gistId && session.token) {
+		try {
+			current = await fetchEtfs(session.token, session.gistId)
+		} catch {
+			return portfolioPersistenceFailureResponse(context)
+		}
+	} else {
+		current = getGuestEtfs(context.get(Session))
+	}
+
+	// Merge imported with existing (same name+currency: add values)
+	const byKey = new Map<string, EtfEntry>()
+	for (const entry of current) {
+		byKey.set(`${entry.name.toLowerCase()}:${entry.currency}`, entry)
+	}
+	for (const importedEntry of imported) {
+		const key = `${importedEntry.name.toLowerCase()}:${importedEntry.currency}`
+		const existing = byKey.get(key)
+		if (existing) {
+			byKey.set(key, {
+				...existing,
+				value: existing.value + importedEntry.value,
+				exchange: existing.exchange || importedEntry.exchange || undefined,
+			})
+		} else {
+			byKey.set(key, importedEntry)
+		}
+	}
+	const updated = Array.from(byKey.values())
+
+	if (session?.gistId && session.token) {
+		try {
+			await saveEtfs(session.token, session.gistId, updated)
+		} catch {
+			return portfolioPersistenceFailureResponse(context)
+		}
+	} else {
+		setGuestEtfs(context.get(Session), updated)
+	}
+
+	if (requestAcceptsFrameSubmitHtml(context.request)) {
+		return portfolioListFragmentHtmlResponse(context, { entries: updated })
+	}
+	return createRedirectResponse(routes.portfolio.index.href())
+}
 
 // ---------------------------------------------------------------------------
 // Controller
@@ -114,86 +227,19 @@ export const portfolioController = {
 			)
 		},
 
-		async create(context: AppRequestContext) {
-			return portfolioOperationFormHandlers.actions.create(context)
-		},
-
-		async import(context: AppRequestContext) {
+		async action(context: AppRequestContext) {
 			const form = context.get(FormData)
 			if (!form) return createRedirectResponse(routes.portfolio.index.href())
 
-			const pasteRaw = form.get('portfolioCsvPaste')
-			const paste =
-				typeof pasteRaw === 'string' && pasteRaw.trim().length > 0
-					? pasteRaw.trim()
-					: null
-
-			const file = form.get('portfolioCsv')
-			let csvText: string | null = null
-
-			if (file && typeof file !== 'string' && (file as Blob).size > 0) {
-				const bytes = await (file as Blob).arrayBuffer()
-				csvText = decodeCsvBytes(bytes)
-			} else if (paste) {
-				csvText = paste
-			}
-
-			if (!csvText) return createRedirectResponse(routes.portfolio.index.href())
-			const imported = parsePortfolioCsv(csvText)
-			if (imported.length === 0)
-				return createRedirectResponse(routes.portfolio.index.href())
-
-			const session = getSessionData(context.get(Session))
-			let current: EtfEntry[]
-			if (session?.gistId && session.token) {
-				try {
-					current = await fetchEtfs(session.token, session.gistId)
-				} catch {
-					flashBanner(context.get(Session), {
-						text: t('errors.portfolio.persistence'),
-						tone: 'error',
-					})
+			const intent = form.get('portfolioIntent')
+			switch (intent as (typeof PORTFOLIO_INTENTS)[number] | null) {
+				case 'trade':
+					return portfolioOperationFormHandlers.actions.create(context)
+				case 'import':
+					return handleImport(context, form)
+				default:
 					return createRedirectResponse(routes.portfolio.index.href())
-				}
-			} else {
-				current = getGuestEtfs(context.get(Session))
 			}
-
-			// Merge imported with existing (same name+currency: add values)
-			const byKey = new Map<string, EtfEntry>()
-			for (const entry of current) {
-				byKey.set(`${entry.name.toLowerCase()}:${entry.currency}`, entry)
-			}
-			for (const importedEntry of imported) {
-				const key = `${importedEntry.name.toLowerCase()}:${importedEntry.currency}`
-				const existing = byKey.get(key)
-				if (existing) {
-					byKey.set(key, {
-						...existing,
-						value: existing.value + importedEntry.value,
-						exchange: existing.exchange || importedEntry.exchange || undefined,
-					})
-				} else {
-					byKey.set(key, importedEntry)
-				}
-			}
-			const updated = Array.from(byKey.values())
-
-			if (session?.gistId && session.token) {
-				try {
-					await saveEtfs(session.token, session.gistId, updated)
-				} catch {
-					flashBanner(context.get(Session), {
-						text: t('errors.portfolio.persistence'),
-						tone: 'error',
-					})
-					return createRedirectResponse(routes.portfolio.index.href())
-				}
-			} else {
-				setGuestEtfs(context.get(Session), updated)
-			}
-
-			return createRedirectResponse(routes.portfolio.index.href())
 		},
 
 		async delete(context: AppRequestContext) {

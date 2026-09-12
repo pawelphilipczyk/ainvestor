@@ -14,7 +14,7 @@ import { setAdviceClient } from '../advice/advice-client.ts'
  * `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 and `docs/REMIX_RC_MIGRATION_STATUS.md`.
  * `catalog-etf-analysis-frame.component.js` is the client entry driving its UX,
  * including `data-frame-hide-form-on-success` — the one option neither prior
- * port (`PortfolioTradeFormFrame`, `GuidelinesListFrame`) needed.
+ * port (`PortfolioListFrame`, `GuidelinesListFrame`) needed.
  */
 describe('catalog ETF analysis form (browser)', () => {
 	let session: BrowserTestSession

@@ -283,6 +283,8 @@ export const pl = {
 		'Podaj kwotę większą od zera przy sprzedaży.',
 	'errors.portfolio.persistence':
 		'Nie udało się zapisać portfela. Spróbuj ponownie za chwilę.',
+	'errors.portfolio.importInvalid':
+		'Nie znaleziono żadnych pozycji w tym pliku CSV. Sprawdź format i spróbuj ponownie.',
 	'errors.upload.fileTooLarge':
 		'Przesłany plik jest za duży. Maksymalny rozmiar to 5 MB.',
 	'errors.catalog.importNotAllowed':

@@ -10,10 +10,12 @@ import { setSubmitButtonLoading } from './submit-button-loading.component.js'
  * The rc.2 runtime handles the fetch, the 422 inline-error swap and the frame
  * replace itself — see `docs/REMIX_RC_MIGRATION_STATUS.md`.
  *
- * First written for `PortfolioTradeFormFrame` (one form, fixed id) and
- * duplicated near-identically for `GuidelinesListFrame` (four forms sharing
- * one frame, matched generically). Extracted here on the second port so the
- * two stop being able to drift apart — see `docs/REMIX_RC_MIGRATION_STATUS.md`.
+ * First written for the portfolio trade form (one form, fixed id — since
+ * renamed `PortfolioListFrame` when the CSV import form joined it on the same
+ * frame) and duplicated near-identically for `GuidelinesListFrame` (four forms
+ * sharing one frame, matched generically). Extracted here on the second port
+ * so the two stop being able to drift apart — see
+ * `docs/REMIX_RC_MIGRATION_STATUS.md`.
  *
  * `reloadStart` / `reloadComplete` fire for *any* reload of the named frame,
  * not only ones a tracked form's own submit caused: a same-page soft

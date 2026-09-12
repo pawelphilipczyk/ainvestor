@@ -203,4 +203,63 @@ describe('frame submit flows (browser)', () => {
 		)
 		assert.deepEqual(opened.problems, [])
 	})
+
+	it('CSV import: paste succeeds and updates the holdings frame', async () => {
+		const opened = await open('/portfolio')
+		const { page } = opened
+
+		await page.fill(
+			'#portfolioCsvPaste',
+			'Papier;Giełda;Wartość;Waluta\nIBTA LN ETF;GBR-LSE;4087.48;PLN',
+		)
+		await page.click('#portfolio-import-form button[type="submit"]')
+		await page.waitForFunction(
+			() => {
+				const text = document.body.innerText
+				const index = text.indexOf('Your Holdings')
+				return index !== -1 && text.slice(index).includes('IBTA')
+			},
+			undefined,
+			{ timeout: 5000 },
+		)
+
+		assert.match(
+			await holdingsText(opened),
+			/IBTA/,
+			'imported holding appears in the frame',
+		)
+		assert.equal(
+			new URL(page.url()).pathname,
+			'/portfolio',
+			'no document navigation',
+		)
+		assert.deepEqual(opened.problems, [])
+	})
+
+	it('CSV import, no valid rows: renders the inline error in the list frame without navigating', async () => {
+		const opened = await open('/portfolio')
+		const { page } = opened
+
+		await page.fill('#portfolioCsvPaste', 'not,a,valid,csv')
+		await page.click('#portfolio-import-form button[type="submit"]')
+		await page.waitForFunction(
+			() => document.body.innerText.includes('No holdings found in that CSV'),
+			undefined,
+			{ timeout: 5000 },
+		)
+
+		assert.match(
+			await pageText(opened),
+			/No holdings found in that CSV/,
+			'inline error rendered inside the list frame',
+		)
+		assert.equal(
+			new URL(page.url()).pathname,
+			'/portfolio',
+			'no document navigation on validation failure',
+		)
+		assert.deepEqual(opened.problems, [
+			'[console.error] Failed to load resource: the server responded with a status of 422 ()',
+		])
+	})
 })

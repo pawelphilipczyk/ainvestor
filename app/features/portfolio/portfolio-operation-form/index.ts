@@ -114,7 +114,13 @@ async function portfolioPersistenceFailureResponse(
 	return createRedirectResponse(routes.portfolio.index.href())
 }
 
-export { ListFragment, PortfolioOperationForm }
+export {
+	ListFragment,
+	loadPortfolioEntries,
+	PortfolioOperationForm,
+	portfolioListFragmentHtmlResponse,
+	portfolioPersistenceFailureResponse,
+}
 
 export const portfolioOperationFormHandlers = {
 	actions: {

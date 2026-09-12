@@ -40,6 +40,7 @@ function portfolioBuyForm(fields: {
 	currency: string
 }) {
 	const form = new FormData()
+	form.set('portfolioIntent', 'trade')
 	form.set('portfolioOperation', 'buy')
 	form.set('instrumentTicker', fields.instrumentTicker)
 	form.set('value', fields.value)
@@ -53,6 +54,7 @@ function portfolioSellForm(fields: {
 	currency: string
 }) {
 	const form = new FormData()
+	form.set('portfolioIntent', 'trade')
 	form.set('portfolioOperation', 'sell')
 	form.set('instrumentTicker', fields.instrumentTicker)
 	form.set('value', fields.value)
@@ -107,7 +109,7 @@ describe('Portfolio page', () => {
 		assert.match(body, /<h1[^>]*>\s*Portfolio\s*<\/h1>/)
 		assert.match(body, /<form[^>]*method="post"[^>]*action="\/portfolio"/)
 		assert.match(body, /Import from CSV/)
-		assert.match(body, /action="\/portfolio\/import"/)
+		assert.match(body, /id="portfolio-import-form"/)
 		assert.match(body, /Buy or sell/)
 		assert.match(body, /name="portfolioCsvPaste"/)
 	})
@@ -226,10 +228,11 @@ describe('Portfolio page', () => {
 		const csv = `Papier;Giełda;Wartość;Waluta
 IBTA LN ETF;GBR-LSE;4087.48;PLN`
 		const form = new FormData()
+		form.set('portfolioIntent', 'import')
 		form.set('portfolioCsvPaste', csv)
 
 		const importResponse = await testSessionFetch(
-			new Request('http://localhost/portfolio/import', {
+			new Request('http://localhost/portfolio', {
 				method: 'POST',
 				body: form,
 			}),
@@ -248,6 +251,7 @@ IBTA LN ETF;GBR-LSE;4087.48;PLN`
 IBTA LN ETF;GBR-LSE;4087.48;PLN
 IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		const form = new FormData()
+		form.set('portfolioIntent', 'import')
 		form.set(
 			'portfolioCsv',
 			new Blob([csv], { type: 'text/csv' }),
@@ -255,7 +259,7 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		)
 
 		const importResponse = await testSessionFetch(
-			new Request('http://localhost/portfolio/import', {
+			new Request('http://localhost/portfolio', {
 				method: 'POST',
 				body: form,
 			}),
@@ -270,6 +274,89 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		assert.match(homeBody, /3[,.]?217/)
 		assert.match(homeBody, /GBR-LSE/)
 		assert.match(homeBody, /DEU-XETRA/)
+	})
+
+	it('returns HTML list fragment on successful CSV import when Accept: text/html', async () => {
+		const csv = `Papier;Giełda;Wartość;Waluta
+IBTA LN ETF;GBR-LSE;4087.48;PLN`
+		const form = new FormData()
+		form.set('portfolioIntent', 'import')
+		form.set('portfolioCsvPaste', csv)
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		assert.equal(importResponse.status, 200)
+		const ct = importResponse.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		const body = await importResponse.text()
+		assert.match(body, /IBTA LN ETF/)
+		assert.match(body, /4[,.]?087/)
+	})
+
+	it('returns 422 HTML list fragment when CSV import has no valid rows with Accept: text/html', async () => {
+		const form = new FormData()
+		form.set('portfolioIntent', 'import')
+		form.set('portfolioCsvPaste', 'not,a,valid,csv')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		assert.equal(importResponse.status, 422)
+		const ct = importResponse.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		const body = await importResponse.text()
+		assert.match(body, /No holdings found in that CSV/)
+		assert.match(body, /Your Holdings/)
+	})
+
+	it('returns 422 JSON when CSV import has no valid rows with Accept: application/json', async () => {
+		const form = new FormData()
+		form.set('portfolioIntent', 'import')
+		form.set('portfolioCsvPaste', 'not,a,valid,csv')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+		assert.equal(importResponse.status, 422)
+		const data = await importResponse.json()
+		assert.match(data.error, /No holdings found in that CSV/)
+	})
+
+	it('redirects with a flash banner when CSV import has no valid rows (full-page)', async () => {
+		const form = new FormData()
+		form.set('portfolioIntent', 'import')
+		form.set('portfolioCsvPaste', 'not,a,valid,csv')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: form,
+			}),
+		)
+		assert.equal(importResponse.status, 302)
+		const location = importResponse.headers.get('Location')
+		const cookie = importResponse.headers.get('Set-Cookie')
+		const homeResponse = await testSessionFetch(
+			location
+				? new URL(location, 'http://localhost/').href
+				: 'http://localhost/portfolio',
+			{ headers: cookie ? { Cookie: cookie.split(';')[0] } : undefined },
+		)
+		const body = await homeResponse.text()
+		assert.match(body, /No holdings found in that CSV/)
 	})
 
 	it('adds to existing ETF value when adding same name instead of replacing', async () => {
@@ -669,10 +756,16 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		assert.match(body, /data-instrument-ticker="VTI"/)
 	})
 
-	it('CSV import form uses data-frame-submit for Frame-based list reload', async () => {
+	it('CSV import form uses native data-rmx-target for Frame-based list reload', async () => {
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
-		assert.match(body, /data-frame-submit="portfolio-list"/)
+		const formIdx = body.indexOf('id="portfolio-import-form"')
+		assert.notEqual(formIdx, -1)
+		const formTag = body.slice(formIdx, formIdx + 400)
+		assert.match(formTag, /action="\/portfolio"/)
+		assert.match(formTag, /data-rmx-target="portfolio-list"/)
+		assert.doesNotMatch(formTag, /data-frame-submit=/)
+		assert.doesNotMatch(formTag, /data-frame-replace-from-response/)
 	})
 
 	it('buy/sell form uses native data-rmx-target for Frame-based list reload', async () => {

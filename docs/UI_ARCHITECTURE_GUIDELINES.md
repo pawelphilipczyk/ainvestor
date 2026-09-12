@@ -256,10 +256,13 @@ sub-action's own validation schema.
 **This is the standard for every `data-rmx-target` form going forward, not
 just guidelines and advice.** Before wiring a form's `data-rmx-target`,
 confirm its `action` equals its page's own route — if it doesn't yet,
-consolidate onto `form('<feature>')` and a hidden intent field first. Every
-remaining form left on `data-frame-submit` (portfolio CSV import, catalog
-ETF analysis) will need the same route consolidation before it can move;
-see the backlog in `docs/REMIX_RC_MIGRATION_STATUS.md`.
+consolidate onto `form('<feature>')` and a hidden intent field first.
+Guidelines, portfolio's trade/CSV-import forms, and catalog's ETF analysis
+form are done; every remaining form left on `data-frame-submit` (advice's 3
+forms, catalog's ETF import form) will need the same check before it can
+move — advice already has one route (`form('advice')` + `adviceIntent`) so
+only catalog's ETF import form needs consolidating; see the backlog in
+`docs/REMIX_RC_MIGRATION_STATUS.md`.
 
 ---
 
