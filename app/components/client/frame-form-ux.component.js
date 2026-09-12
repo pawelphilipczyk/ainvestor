@@ -3,11 +3,12 @@ import { setSubmitButtonLoading } from './submit-button-loading.component.js'
 
 /**
  * UX layer shared by every page that ported a `data-rmx-target="<frame>"` form
- * off `FrameSubmitEnhancement`: busy state on the submit control, and
- * `data-reset-form` on success, driven by the named frame's `reloadStart` /
- * `reloadComplete` events instead of a `submit` interception. The rc.2 runtime
- * handles the fetch, the 422 inline-error swap and the frame replace itself —
- * see `docs/REMIX_RC_MIGRATION_STATUS.md`.
+ * off `FrameSubmitEnhancement`: busy state on the submit control,
+ * `data-reset-form` on success, and `data-frame-hide-form-on-success` to hide
+ * the form once its result has rendered — driven by the named frame's
+ * `reloadStart` / `reloadComplete` events instead of a `submit` interception.
+ * The rc.2 runtime handles the fetch, the 422 inline-error swap and the frame
+ * replace itself — see `docs/REMIX_RC_MIGRATION_STATUS.md`.
  *
  * First written for `PortfolioTradeFormFrame` (one form, fixed id) and
  * duplicated near-identically for `GuidelinesListFrame` (four forms sharing
@@ -90,6 +91,9 @@ export function watchFrameFormSubmissions(handle, frameName, options = {}) {
 			const failed = document.querySelector('[role="alert"]') !== null
 			if (!failed && form.hasAttribute('data-reset-form')) {
 				form.reset()
+			}
+			if (!failed && form.hasAttribute('data-frame-hide-form-on-success')) {
+				form.classList.add('hidden')
 			}
 		},
 		{ signal: handle.signal },

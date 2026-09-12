@@ -21,6 +21,7 @@ import { adviceController } from './features/advice/index.ts'
 import { authController } from './features/auth/index.ts'
 import {
 	catalogController,
+	catalogEtfController,
 	resetGuestCatalog,
 } from './features/catalog/index.ts'
 import { guidelinesController } from './features/guidelines/index.ts'
@@ -148,5 +149,6 @@ router.map(routes.locale, localeController)
 router.map(routes.auth, authController)
 router.map(routes.guidelines, guidelinesController)
 router.map(routes.catalog, catalogController)
+router.map(routes.catalog.etf, catalogEtfController)
 router.map(routes.advice, adviceController)
 router.map(routes.admin, adminController)
