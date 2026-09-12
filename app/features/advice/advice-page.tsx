@@ -33,16 +33,17 @@ import {
 	DEFAULT_CATALOG_ETF_MODEL,
 	normalizeAdviceAnalysisTab,
 } from './advice-openai.ts'
+import { AdviceResultFrame } from './advice-result-frame.component.js'
 
 /** Same max-width tokens as catalog list tables (`catalog-list-fragment.tsx`) for apples-to-apples layout. */
 const adviceTableTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'
 
-type FormError = {
+export type FormError = {
 	summary: string
 	detail?: string
 }
 
-function FormErrorAlert(handle: Handle<{ error: FormError }>) {
+export function FormErrorAlert(handle: Handle<{ error: FormError }>) {
 	return () => {
 		const { error } = handle.props
 		return (
@@ -89,8 +90,8 @@ type AdvicePageProps = {
 	pendingApproval?: boolean
 	/** Guest or signed-in user without a private gist — forms disabled; explain sign-in / Portfolio. */
 	adviceGistGate?: 'sign_in' | 'connect_gist'
-	/** When set, analysis results load inside a Remix `<Frame>` at this URL. */
-	adviceResultFrameSrc?: string
+	/** Fragment URL the `advice-result` Frame loads/reloads — always rendered, even with no result yet. */
+	adviceResultFrameSrc: string
 }
 
 type AdviceAccessBanner =
@@ -599,6 +600,27 @@ function adviceResultCardView(props: AdviceResultCardProps) {
 							currency: cashCurrency,
 						})}
 			</p>
+			{resultMode === 'portfolio_review' ? (
+				<form
+					method="post"
+					action={routes.advice.action.href(
+						{},
+						{ searchParams: { tab: 'portfolio_review' } },
+					)}
+					class="mt-3"
+					data-rmx-target="advice-result"
+				>
+					<input type="hidden" name="analysisMode" value="portfolio_review" />
+					<input type="hidden" name="adviceIntent" value="clear" />
+					<button
+						type="submit"
+						disabled={pendingApproval || adviceGistGate !== undefined}
+						class="inline-flex h-9 min-h-9 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+					>
+						{t('advice.portfolioReview.clearStored')}
+					</button>
+				</form>
+			) : null}
 			<div class="mt-3 space-y-6">
 				{props.advice.blocks.map((block, i) => (
 					<div key={`${block.type}-${i}`}>
@@ -623,12 +645,6 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
 		const activeTab = normalizeAdviceAnalysisTab(props.activeTab)
-		const resultMode =
-			props.advice !== undefined
-				? (props.lastAnalysisMode ??
-					props.analysisMode ??
-					DEFAULT_ADVICE_ANALYSIS_MODE)
-				: null
 		const pendingApproval = props.pendingApproval === true
 		const adviceGistGate = props.adviceGistGate
 		const adviceFormDisabled = pendingApproval || adviceGistGate !== undefined
@@ -731,8 +747,7 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 								method="post"
 								action={buyNextAction}
 								class="space-y-4"
-								data-frame-submit="advice-result"
-								data-frame-reload-src={frameSrc ?? ''}
+								data-rmx-target="advice-result"
 							>
 								<input type="hidden" name="analysisMode" value="buy_next" />
 								<input type="hidden" name="adviceIntent" value="run" />
@@ -795,35 +810,11 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 						</Card>
 					) : (
 						<Card variant="muted" class="min-w-0 rounded-t-none border-t-0 p-6">
-							{props.advice !== undefined ? (
-								<form
-									method="post"
-									action={reviewAction}
-									class="mb-4"
-									data-frame-submit="advice-result"
-									data-frame-reload-src={frameSrc ?? ''}
-								>
-									<input
-										type="hidden"
-										name="analysisMode"
-										value="portfolio_review"
-									/>
-									<input type="hidden" name="adviceIntent" value="clear" />
-									<button
-										type="submit"
-										disabled={adviceFormDisabled}
-										class="inline-flex h-10 min-h-10 items-center justify-center rounded-md border border-border bg-background px-4 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
-									>
-										{t('advice.portfolioReview.clearStored')}
-									</button>
-								</form>
-							) : null}
 							<form
 								method="post"
 								action={reviewAction}
 								class="space-y-4"
-								data-frame-submit="advice-result"
-								data-frame-reload-src={frameSrc ?? ''}
+								data-rmx-target="advice-result"
 							>
 								<input
 									type="hidden"
@@ -863,30 +854,12 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 						</Card>
 					)}
 				</div>
-				{frameSrc !== undefined ? (
-					<Frame
-						name="advice-result"
-						src={frameSrc}
-						fallback={frameLoadingPlaceholder()}
-					/>
-				) : props.advice !== undefined &&
-					resultMode !== null &&
-					(props.cashAmount !== undefined ||
-						resultMode === 'portfolio_review') ? (
-					<AdviceResultCard
-						advice={props.advice}
-						lastAnalysisMode={props.lastAnalysisMode}
-						analysisMode={props.analysisMode}
-						cashAmount={props.cashAmount}
-						cashCurrency={cashCurrency}
-						catalog={props.catalog}
-						adviceFromGist={props.adviceFromGist}
-						adviceGistSavedAt={props.adviceGistSavedAt}
-						adviceGistPersistFailed={props.adviceGistPersistFailed}
-						pendingApproval={pendingApproval}
-						adviceGistGate={adviceGistGate}
-					/>
-				) : null}
+				<Frame
+					name="advice-result"
+					src={frameSrc}
+					fallback={frameLoadingPlaceholder()}
+				/>
+				<AdviceResultFrame />
 			</main>
 		)
 	}

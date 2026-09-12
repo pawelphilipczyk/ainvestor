@@ -1043,4 +1043,134 @@ describe('Advice', () => {
 			'fund name links to catalog ETF resolved by ticker',
 		)
 	})
+
+	it('buy-next and portfolio-review forms use native data-rmx-target for Frame-based result reload', async () => {
+		const cookie = await signInWithGist()
+		const response = await testSessionFetch(adviceUrl('buy_next'), {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		const formIdx = body.indexOf('id="cashAmount-buy-next"')
+		assert.notEqual(formIdx, -1)
+		const formTag = body.slice(Math.max(0, formIdx - 800), formIdx)
+		assert.match(formTag, /data-rmx-target="advice-result"/)
+		assert.doesNotMatch(formTag, /data-frame-submit=/)
+		assert.doesNotMatch(formTag, /data-frame-reload-src=/)
+	})
+
+	it('advice-result Frame is always present, even before any analysis exists', async () => {
+		const response = await testSessionFetch('http://localhost/advice')
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /"name":"advice-result"/)
+		assert.match(body, /\/fragments\/advice-result\?tab=buy_next/)
+	})
+
+	it('POST /advice run success with Accept: text/html returns the small result fragment', async () => {
+		const cookie = await signInWithGist()
+		setAdviceClient(makeMockClient('Buy VTI for broad market exposure.'))
+
+		const form = new FormData()
+		form.set('cashAmount', '1000')
+		form.set('analysisMode', 'buy_next')
+		form.set('adviceIntent', 'run')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie, Accept: 'text/html' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		const ct = response.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		assert.doesNotMatch(body, /<html\b/i)
+		assert.match(body, /Buy VTI for broad market exposure\./)
+	})
+
+	it('POST /advice run failure with Accept: text/html remaps 503 to 200 and renders the error fragment', async () => {
+		const cookie = await signInWithGist()
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => {
+						throw new Error('simulated API failure')
+					},
+				},
+			},
+		})
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+		form.set('analysisMode', 'buy_next')
+		form.set('adviceIntent', 'run')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie, Accept: 'text/html' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(
+			response.status,
+			200,
+			'the frame fragment response must stay below 500 or defaultResolveFrame drops it',
+		)
+		assert.doesNotMatch(body, /<html\b/i)
+		assert.match(body, /role="alert"/)
+		assert.match(
+			body,
+			/We couldn't get advice right now\. Please try again in a moment\./,
+		)
+	})
+
+	it('POST /advice validation failure with Accept: text/html renders the error fragment, not the full page', async () => {
+		const cookie = await signInWithGist()
+		setAdviceClient(makeMockClient('irrelevant'))
+
+		const form = new FormData()
+		form.set('analysisMode', 'buy_next')
+		form.set('adviceIntent', 'run')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie, Accept: 'text/html' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 400)
+		assert.doesNotMatch(body, /<html\b/i)
+		assert.match(body, /role="alert"/)
+		assert.match(body, /Enter how much cash you plan to invest/)
+	})
+
+	it('POST /advice clear with Accept: text/html returns 204', async () => {
+		const cookie = await signInWithGist()
+
+		const clearForm = new FormData()
+		clearForm.set('analysisMode', 'portfolio_review')
+		clearForm.set('adviceIntent', 'clear')
+		const response = await testSessionFetch(
+			new Request(adviceUrl('portfolio_review'), {
+				method: 'POST',
+				body: clearForm,
+				headers: { Cookie: cookie, Accept: 'text/html' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 204)
+		assert.equal(body, '')
+	})
 })
