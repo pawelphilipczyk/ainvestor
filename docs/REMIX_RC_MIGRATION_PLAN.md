@@ -578,6 +578,33 @@ re-exports.
   with `renderToString` and assert the contract it emits (`role`,
   `data-state`, the `rmx-data` hydration record) instead of grepping the module
   source. `theme-toggle.test.ts` is the worked example.
+- **tabs-nav → `tabs/primitives`. Attempted; not adopted (reason 3).** Measured
+  live in Chromium, same rigor as the sidebar attempt: a throwaway `clientEntry`
+  (`Context` + `root`/`list`/`tab`/`panel` from `remix/ui/tabs/primitives`) was
+  mounted on the guidelines page's add-tabs, driven with Playwright, then
+  removed once the measurement was in hand — nothing from the spike is in this
+  diff. Two results, both exactly what reading `@remix-run/ui`'s
+  `tabs/primitives.js` predicted before touching a browser: `tab()`'s entire
+  behavior is `context.activateTab(name)` on a `<button>`, with no `href`, no
+  history, no fetch, so (1) clicking a tab toggles which `<div role="tabpanel">`
+  is `hidden` **with the URL unchanged** — confirmed by comparing `page.url()`
+  before and after a click (identical), and (2) with JavaScript disabled the
+  two `<button>`s are inert — the server still renders both panels correctly
+  for the request's own tab, but there is no way to reach the other one, since
+  a bare `<button>` carries no `href`/`formaction` for a mixin to attach one
+  to. Both are disqualifying, not just gaps to work around: `tabs-nav.tsx`'s
+  whole job is real per-tab `<a href>` navigation between server-rendered
+  pages — each tab is its own bookmarkable/shareable URL, `activeId` is read
+  from that URL's own query param on the server, and `TabsNavScrollRestoration`
+  restores window scroll around that same navigation — and (2) is a direct
+  violation of this project's own "must function with little or no JavaScript"
+  principle (`docs/UI_ARCHITECTURE_GUIDELINES.md` §3), which the current
+  `<a>`-based tabs meet for free. Recovering navigation would mean hand-writing
+  an `onActiveTabChange` handler that itself pushes history and re-fetches the
+  new tab's content — more hand-rolled code than `tabs-nav.tsx` has today, the
+  opposite of what adopting a primitive is for. `tabs-nav.tsx` and
+  `tabs-nav-scroll.component.js` stay under reason 3; see
+  `docs/REMIX_RC_MIGRATION_STATUS.md` for the closed backlog item.
 
 **Stage 7 — styled components and dev tooling.** `remix/ui/button` and
 `remix/ui/input` against `submit-button.tsx` and the three input components —
