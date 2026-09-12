@@ -87,8 +87,10 @@ rather than assume.
   would not let us delete `app/lib/event-listeners.js` (7 of the 8 remaining
   call sites are genuine document-level delegation, which the plan sanctions).
 - **Playwright is in** as a dev dependency. It ships no postinstall, so `npm ci`
-  never downloads a browser and CI is unaffected. Browser tests stay out of
-  `npm test` deliberately.
+  never downloads a browser on its own. Browser tests stay out of `npm test`
+  deliberately; CI runs them as a separate `browser-test` job
+  (`.github/workflows/ci.yml`) that installs Chromium itself (cached by
+  Playwright version) and runs `npm run test:browser`.
 - **`render()` from `remix/ui/test` is unusable here** — it mounts into
   `document.body` and upstream drives it with Playwright. Server-render
   assertions plus `*.browser.ts` are the replacement for source-text tests.
