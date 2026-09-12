@@ -44,8 +44,7 @@ export const routes = route({
 	},
 	catalog: route('/catalog', {
 		index: get('/'),
-		etf: get('/etf/:catalogEntryId'),
-		etfAnalysis: post('/etf/:catalogEntryId/analysis'),
+		etf: form('etf/:catalogEntryId'),
 		import: post('/import'),
 		fragmentList: get('/fragments/list'),
 		fragmentEtfAnalysis: get('/fragments/etf-analysis/:catalogEntryId'),

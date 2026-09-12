@@ -59,7 +59,7 @@ function renderCatalogRow(
 	options: { tickerLinksToDetail: boolean },
 ) {
 	const { tickerLinksToDetail } = options
-	const etfDetailHref = routes.catalog.etf.href(
+	const etfDetailHref = routes.catalog.etf.index.href(
 		{ catalogEntryId: entry.id },
 		{ searchParams: { model: DEFAULT_CATALOG_ETF_MODEL } },
 	)

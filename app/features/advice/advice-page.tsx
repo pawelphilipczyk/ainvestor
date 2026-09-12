@@ -453,7 +453,7 @@ function renderEtfProposals(
 							)
 							const etfDetailsHref =
 								catalogEntryId !== null
-									? routes.catalog.etf.href(
+									? routes.catalog.etf.index.href(
 											{ catalogEntryId },
 											{ searchParams: { model: DEFAULT_CATALOG_ETF_MODEL } },
 										)

@@ -281,139 +281,6 @@ export const catalogController = {
 			})
 		},
 
-		async etf(context: AppRequestContext) {
-			const entryId = decodeCatalogEntryIdFromPath(
-				(context.params as Record<string, string>).catalogEntryId,
-			)
-			if (entryId === null) {
-				return new Response('Not found', {
-					status: 404,
-					headers: { 'content-type': 'text/plain; charset=utf-8' },
-				})
-			}
-
-			const { catalogSnapshot, layoutSession } =
-				await loadCatalogEtfDetailContext(context)
-			const pendingApproval = layoutSession?.approvalStatus === 'pending'
-			const catalogFallbackHref = routes.catalog.index.href()
-			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
-			if (entry === undefined) {
-				return new Response('Not found', {
-					status: 404,
-					headers: { 'content-type': 'text/plain; charset=utf-8' },
-				})
-			}
-
-			const fundName = entry.name
-
-			if (pendingApproval) {
-				return render(context, {
-					title: format(t('meta.title.catalogEtf'), { name: fundName }),
-					htmlLang: htmlLangForCurrentUiLocale(),
-					session: layoutSession,
-					currentPage: 'catalog',
-					body: jsx(CatalogEtfPage, {
-						entry,
-						descriptionText: t('catalog.etfDetail.pendingBody'),
-						catalogFallbackHref,
-					}),
-					init: { headers: { 'Cache-Control': 'no-store' } },
-				})
-			}
-
-			const model = parseOptionalAdviceModelFromUrl(context.request.url)
-			const analysisFrameSrc = catalogEtfAnalysisFrameSrc(entry.id, model)
-
-			return render(context, {
-				title: format(t('meta.title.catalogEtf'), { name: fundName }),
-				htmlLang: htmlLangForCurrentUiLocale(),
-				session: layoutSession,
-				currentPage: 'catalog',
-				body: jsx(CatalogEtfPage, {
-					entry,
-					catalogFallbackHref,
-					analysisPostHref: routes.catalog.etfAnalysis.href({
-						catalogEntryId: entry.id,
-					}),
-					analysisFrameSrc,
-					selectedModel: model,
-				}),
-				init: { headers: { 'Cache-Control': 'no-store' } },
-				resolveFrame(source) {
-					if (samePathAndSearch(source, analysisFrameSrc)) {
-						return renderToStream(jsx(CatalogEtfAnalysisFragment, {}))
-					}
-					return ''
-				},
-			})
-		},
-
-		async etfAnalysis(context: AppRequestContext) {
-			const entryId = decodeCatalogEntryIdFromPath(
-				(context.params as Record<string, string>).catalogEntryId,
-			)
-			if (entryId === null) {
-				return renderCatalogEtfAnalysisFragmentHtml(
-					{ error: t('errors.catalog.etfDetail.notFound') },
-					{ status: 404 },
-				)
-			}
-
-			const layoutSession = getLayoutSession(context.get(Session))
-			if (layoutSession?.approvalStatus === 'pending') {
-				return renderCatalogEtfAnalysisFragmentHtml(
-					{ error: t('errors.catalog.etfDetail.pendingAnalysis') },
-					{ status: 403 },
-				)
-			}
-
-			const contentType = context.request.headers.get('content-type') ?? ''
-			let model: AdviceModelId = DEFAULT_CATALOG_ETF_MODEL
-			if (contentType.includes('application/json')) {
-				let jsonBody: unknown
-				try {
-					jsonBody = await context.request.json()
-				} catch {
-					jsonBody = null
-				}
-				model = parseAdviceModelFromJsonBody(jsonBody)
-			} else {
-				const form = context.get(FormData)
-				const rawModel = form?.get('model')
-				if (
-					typeof rawModel === 'string' &&
-					(ADVICE_MODEL_IDS as readonly string[]).includes(rawModel)
-				) {
-					model = rawModel as AdviceModelId
-				}
-			}
-
-			const catalogSnapshot = await fetchSharedCatalogSnapshot()
-			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
-			if (entry === undefined) {
-				return renderCatalogEtfAnalysisFragmentHtml(
-					{ error: t('errors.catalog.etfDetail.notFound') },
-					{ status: 404 },
-				)
-			}
-
-			try {
-				const client = getOrCreateAdviceClient()
-				const text = await getCatalogEtfDeepDiveText({
-					entry,
-					client,
-					model,
-				})
-				return renderCatalogEtfAnalysisFragmentHtml({ text })
-			} catch (err) {
-				console.error('[catalog] etf analysis POST failed', err)
-				return renderCatalogEtfAnalysisFragmentHtml(
-					{ error: t('errors.catalog.etfDetail.service') },
-					{ status: 503 },
-				)
-			}
-		},
-
 		async fragmentEtfAnalysis(context: AppRequestContext) {
 			const entryId = decodeCatalogEntryIdFromPath(
 				(context.params as Record<string, string>).catalogEntryId,
@@ -621,6 +488,159 @@ export const catalogController = {
 				),
 				{ headers: { 'Cache-Control': 'no-store' } },
 			)
+		},
+	},
+}
+
+/**
+ * ETF detail page (`GET`) + its on-demand analysis submit (`POST`), both at
+ * `/catalog/etf/:catalogEntryId` (`...form('etf/:catalogEntryId')` nested
+ * under `catalog` in `routes.ts`). Mapped separately from `catalogController`
+ * because `router.map()` requires a nested route group's controller to be
+ * registered with its own call — see `docs/UI_ARCHITECTURE_GUIDELINES.md` §10:
+ * the analysis form's `action` has to equal the page's own URL for native
+ * `data-rmx-target` submission, which requires the one-route-per-feature shape.
+ */
+export const catalogEtfController = {
+	actions: {
+		async index(context: AppRequestContext) {
+			const entryId = decodeCatalogEntryIdFromPath(
+				(context.params as Record<string, string>).catalogEntryId,
+			)
+			if (entryId === null) {
+				return new Response('Not found', {
+					status: 404,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				})
+			}
+
+			const { catalogSnapshot, layoutSession } =
+				await loadCatalogEtfDetailContext(context)
+			const pendingApproval = layoutSession?.approvalStatus === 'pending'
+			const catalogFallbackHref = routes.catalog.index.href()
+			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
+			if (entry === undefined) {
+				return new Response('Not found', {
+					status: 404,
+					headers: { 'content-type': 'text/plain; charset=utf-8' },
+				})
+			}
+
+			const fundName = entry.name
+
+			if (pendingApproval) {
+				return render(context, {
+					title: format(t('meta.title.catalogEtf'), { name: fundName }),
+					htmlLang: htmlLangForCurrentUiLocale(),
+					session: layoutSession,
+					currentPage: 'catalog',
+					body: jsx(CatalogEtfPage, {
+						entry,
+						descriptionText: t('catalog.etfDetail.pendingBody'),
+						catalogFallbackHref,
+					}),
+					init: { headers: { 'Cache-Control': 'no-store' } },
+				})
+			}
+
+			const model = parseOptionalAdviceModelFromUrl(context.request.url)
+			const analysisFrameSrc = catalogEtfAnalysisFrameSrc(entry.id, model)
+
+			return render(context, {
+				title: format(t('meta.title.catalogEtf'), { name: fundName }),
+				htmlLang: htmlLangForCurrentUiLocale(),
+				session: layoutSession,
+				currentPage: 'catalog',
+				body: jsx(CatalogEtfPage, {
+					entry,
+					catalogFallbackHref,
+					analysisPostHref: routes.catalog.etf.action.href({
+						catalogEntryId: entry.id,
+					}),
+					analysisFrameSrc,
+					selectedModel: model,
+				}),
+				init: { headers: { 'Cache-Control': 'no-store' } },
+				resolveFrame(source) {
+					if (samePathAndSearch(source, analysisFrameSrc)) {
+						return renderToStream(jsx(CatalogEtfAnalysisFragment, {}))
+					}
+					return ''
+				},
+			})
+		},
+
+		async action(context: AppRequestContext) {
+			const entryId = decodeCatalogEntryIdFromPath(
+				(context.params as Record<string, string>).catalogEntryId,
+			)
+			if (entryId === null) {
+				return renderCatalogEtfAnalysisFragmentHtml(
+					{ error: t('errors.catalog.etfDetail.notFound') },
+					{ status: 404 },
+				)
+			}
+
+			const layoutSession = getLayoutSession(context.get(Session))
+			if (layoutSession?.approvalStatus === 'pending') {
+				return renderCatalogEtfAnalysisFragmentHtml(
+					{ error: t('errors.catalog.etfDetail.pendingAnalysis') },
+					{ status: 403 },
+				)
+			}
+
+			const contentType = context.request.headers.get('content-type') ?? ''
+			let model: AdviceModelId = DEFAULT_CATALOG_ETF_MODEL
+			if (contentType.includes('application/json')) {
+				let jsonBody: unknown
+				try {
+					jsonBody = await context.request.json()
+				} catch {
+					jsonBody = null
+				}
+				model = parseAdviceModelFromJsonBody(jsonBody)
+			} else {
+				const form = context.get(FormData)
+				const rawModel = form?.get('model')
+				if (
+					typeof rawModel === 'string' &&
+					(ADVICE_MODEL_IDS as readonly string[]).includes(rawModel)
+				) {
+					model = rawModel as AdviceModelId
+				}
+			}
+
+			const catalogSnapshot = await fetchSharedCatalogSnapshot()
+			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
+			if (entry === undefined) {
+				return renderCatalogEtfAnalysisFragmentHtml(
+					{ error: t('errors.catalog.etfDetail.notFound') },
+					{ status: 404 },
+				)
+			}
+
+			try {
+				const client = getOrCreateAdviceClient()
+				const text = await getCatalogEtfDeepDiveText({
+					entry,
+					client,
+					model,
+				})
+				return renderCatalogEtfAnalysisFragmentHtml({ text })
+			} catch (err) {
+				console.error('[catalog] etf analysis POST failed', err)
+				// Status 200, not 503: this response only ever reaches the native
+				// `data-rmx-target` frame runtime, and `@remix-run/ui`'s
+				// `defaultResolveFrame` throws (dropping the HTML body) for any
+				// status >= 500 regardless of content type -- confirmed live, see
+				// `docs/REMIX_RC_MIGRATION_STATUS.md`. The error still reaches the
+				// user via the `role="alert"` fragment `watchFrameFormSubmissions`
+				// checks for.
+				return renderCatalogEtfAnalysisFragmentHtml(
+					{ error: t('errors.catalog.etfDetail.service') },
+					{ status: 200 },
+				)
+			}
 		},
 	},
 }

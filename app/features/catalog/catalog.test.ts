@@ -103,8 +103,8 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Test Fund/)
 		assert.match(body, /From your catalog/)
 		assert.match(body, /AI overview/)
-		assert.match(body, /action="\/catalog\/etf\/row-detail-test\/analysis"/)
-		assert.match(body, /data-frame-submit="catalog-etf-analysis"/)
+		assert.match(body, /action="\/catalog\/etf\/row-detail-test"/)
+		assert.match(body, /data-rmx-target="catalog-etf-analysis"/)
 		assert.match(body, /\/catalog\/fragments\/etf-analysis\/row-detail-test/)
 		assert.match(body, /ETF analysis/)
 		assert.doesNotMatch(body, /Educational ETF paragraph/)
@@ -143,7 +143,7 @@ describe('ETF Catalog page', () => {
 		assert.doesNotMatch(body, /Fragment Fund/)
 	})
 
-	it('POST /catalog/etf/:id/analysis returns HTML fragment with text when OpenAI succeeds', async () => {
+	it('POST /catalog/etf/:id returns HTML fragment with text when OpenAI succeeds', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -168,7 +168,7 @@ describe('ETF Catalog page', () => {
 		})
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/catalog/etf/row-detail-test/analysis', {
+			new Request('http://localhost/catalog/etf/row-detail-test', {
 				method: 'POST',
 				headers: {
 					Accept: 'text/html',
@@ -183,7 +183,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Educational ETF paragraph\./)
 	})
 
-	it('POST /catalog/etf/:id/analysis returns 403 when session is pending approval', async () => {
+	it('POST /catalog/etf/:id returns 403 when session is pending approval', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -207,17 +207,14 @@ describe('ETF Catalog page', () => {
 		const cookie = cookieHeader.split(';')[0]
 
 		const response = await testSessionFetch(
-			new Request(
-				'http://localhost/catalog/etf/pending-analysis-test/analysis',
-				{
-					method: 'POST',
-					headers: {
-						Accept: 'text/html',
-						Cookie: cookie,
-					},
-					body: new FormData(),
+			new Request('http://localhost/catalog/etf/pending-analysis-test', {
+				method: 'POST',
+				headers: {
+					Accept: 'text/html',
+					Cookie: cookie,
 				},
-			),
+				body: new FormData(),
+			}),
 		)
 		assert.equal(response.status, 403)
 		const body = await response.text()
