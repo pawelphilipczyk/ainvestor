@@ -422,6 +422,216 @@ async function updateGuidelineTarget(params: {
 	return null
 }
 
+/**
+ * Discriminates the four actions the single `guidelines.action` route
+ * handles, via a hidden `guidelineIntent` field on each `<form>` — same
+ * shape as `advice`'s `adviceIntent`. Consolidating onto one POST route
+ * (`form('guidelines')` in `routes.ts`) keeps every form's `action` equal
+ * to the page's own URL, which native `data-rmx-target` submission requires
+ * — see `docs/UI_ARCHITECTURE_GUIDELINES.md` §9 and
+ * `docs/REMIX_RC_MIGRATION_PLAN.md`'s Stage 6 notes.
+ */
+const GUIDELINE_INTENTS = [
+	'addInstrument',
+	'addAssetClass',
+	'updateTarget',
+	'delete',
+] as const
+
+async function handleAddInstrument(context: AppRequestContext, form: FormData) {
+	const formPayload = objectFromFormData(form)
+	normalizeGuidelineTargetPctInput(formPayload)
+	const result = parseSafe(InstrumentGuidelineSchema, formPayload)
+	if (!result.success) {
+		if (requestAcceptsFrameSubmitHtml(context.request)) {
+			const guidelines = await loadGuidelinesForSession(context)
+			return guidelinesListFragmentHtmlResponse({
+				guidelines,
+				inlineError: t('errors.guidelines.addFormInvalid'),
+				status: 422,
+			})
+		}
+		return createRedirectResponse(guidelinesIndexHref('instrument'))
+	}
+
+	const session = getSessionData(context.get(Session))
+	const catalog = await fetchCatalog()
+
+	const ticker = (result.value.instrumentTicker ?? '').trim()
+	if (!ticker) {
+		if (requestAcceptsFrameSubmitHtml(context.request)) {
+			const guidelines = await loadGuidelinesForSession(context)
+			return guidelinesListFragmentHtmlResponse({
+				guidelines,
+				inlineError: t('errors.guidelines.addFormInvalid'),
+				status: 422,
+			})
+		}
+		return createRedirectResponse(guidelinesIndexHref('instrument'))
+	}
+	const match = findCatalogEntryByTicker(catalog, ticker)
+	if (!match) {
+		if (requestAcceptsFrameSubmitHtml(context.request)) {
+			const guidelines = await loadGuidelinesForSession(context)
+			return guidelinesListFragmentHtmlResponse({
+				guidelines,
+				inlineError: t('errors.guidelines.catalogEntryStale'),
+				status: 422,
+			})
+		}
+		return createRedirectResponse(guidelinesIndexHref('instrument'))
+	}
+
+	const { targetPct } = result.value
+	const entry: EtfGuideline = {
+		id: crypto.randomUUID(),
+		kind: 'instrument',
+		etfName: match.ticker,
+		targetPct,
+		etfType: match.type,
+	}
+
+	const capError = await persistGuideline({
+		entry,
+		session,
+		remixSession: context.get(Session),
+		request: context.request,
+		context,
+		addTab: 'instrument',
+	})
+	if (capError) return capError
+	if (requestAcceptsFrameSubmitHtml(context.request)) {
+		const guidelines = await loadGuidelinesForSession(context)
+		return guidelinesListFragmentHtmlResponse({ guidelines })
+	}
+	return createRedirectResponse(guidelinesIndexHref('instrument'))
+}
+
+async function handleAddAssetClass(context: AppRequestContext, form: FormData) {
+	const formPayload = objectFromFormData(form)
+	normalizeGuidelineTargetPctInput(formPayload)
+	const result = parseSafe(AssetClassGuidelineSchema, formPayload)
+	if (!result.success) {
+		if (requestAcceptsFrameSubmitHtml(context.request)) {
+			const guidelines = await loadGuidelinesForSession(context)
+			return guidelinesListFragmentHtmlResponse({
+				guidelines,
+				inlineError: t('errors.guidelines.addFormInvalid'),
+				status: 422,
+			})
+		}
+		return createRedirectResponse(guidelinesIndexHref('bucket'))
+	}
+
+	const session = getSessionData(context.get(Session))
+	const catalog = await fetchCatalog()
+	const allowedAssetClasses = new Set(
+		assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
+	)
+
+	const raw = (result.value.assetClassType ?? '').trim()
+	if (!raw || !isEtfType(raw) || !allowedAssetClasses.has(raw)) {
+		if (requestAcceptsFrameSubmitHtml(context.request)) {
+			const guidelines = await loadGuidelinesForSession(context)
+			return guidelinesListFragmentHtmlResponse({
+				guidelines,
+				inlineError: t('errors.guidelines.assetClassStale'),
+				status: 422,
+			})
+		}
+		return createRedirectResponse(guidelinesIndexHref('bucket'))
+	}
+
+	const { targetPct } = result.value
+	const entry: EtfGuideline = {
+		id: crypto.randomUUID(),
+		kind: 'asset_class',
+		etfName: '',
+		targetPct,
+		etfType: raw,
+	}
+
+	const capError = await persistGuideline({
+		entry,
+		session,
+		remixSession: context.get(Session),
+		request: context.request,
+		context,
+		addTab: 'bucket',
+	})
+	if (capError) return capError
+	if (requestAcceptsFrameSubmitHtml(context.request)) {
+		const guidelines = await loadGuidelinesForSession(context)
+		return guidelinesListFragmentHtmlResponse({ guidelines })
+	}
+	return createRedirectResponse(guidelinesIndexHref('bucket'))
+}
+
+async function handleUpdateTarget(context: AppRequestContext, form: FormData) {
+	const id = form.get('id')
+	if (typeof id !== 'string' || !id) {
+		return createRedirectResponse(routes.guidelines.index.href())
+	}
+
+	const formPayload = objectFromFormData(form)
+	normalizeGuidelineTargetPctInput(formPayload)
+	const result = parseSafe(UpdateGuidelineTargetSchema, formPayload)
+	if (!result.success) {
+		return guidelinesUpdateSchemaValidationResponse({
+			context,
+			request: context.request,
+			session: context.get(Session),
+			issues: result.issues,
+		})
+	}
+
+	const session = getSessionData(context.get(Session))
+	const persistError = await updateGuidelineTarget({
+		id,
+		newTargetPercent: result.value.targetPct,
+		session,
+		remixSession: context.get(Session),
+		request: context.request,
+		context,
+	})
+	if (persistError) return persistError
+
+	if (requestAcceptsFrameSubmitHtml(context.request)) {
+		const guidelines = await loadGuidelinesForSession(context)
+		return guidelinesListFragmentHtmlResponse({ guidelines })
+	}
+	return createRedirectResponse(routes.guidelines.index.href())
+}
+
+async function handleDelete(context: AppRequestContext, form: FormData) {
+	const id = form.get('id')
+	if (typeof id !== 'string' || !id) {
+		return createRedirectResponse(routes.guidelines.index.href())
+	}
+
+	const session = getSessionData(context.get(Session))
+
+	if (session?.gistId && session.token) {
+		const current = await fetchGuidelines(session.token, session.gistId)
+		await saveGuidelines(
+			session.token,
+			session.gistId,
+			current.filter((g) => g.id !== id),
+		)
+	} else {
+		setGuestGuidelines(
+			context.get(Session),
+			getGuestGuidelines(context.get(Session)).filter((g) => g.id !== id),
+		)
+	}
+
+	if (requestAcceptsFrameSubmitHtml(context.request)) {
+		const guidelines = await loadGuidelinesForSession(context)
+		return guidelinesListFragmentHtmlResponse({ guidelines })
+	}
+	return createRedirectResponse(routes.guidelines.index.href())
+}
+
 // ---------------------------------------------------------------------------
 // Controller
 // ---------------------------------------------------------------------------
@@ -449,223 +659,23 @@ export const guidelinesController = {
 			})
 		},
 
-		async instrument(context: AppRequestContext) {
-			const form = context.get(FormData)
-			if (!form) {
-				if (requestAcceptsFrameSubmitHtml(context.request)) {
-					const guidelines = await loadGuidelinesForSession(context)
-					return guidelinesListFragmentHtmlResponse({
-						guidelines,
-						inlineError: t('errors.guidelines.addFormInvalid'),
-						status: 422,
-					})
-				}
-				return createRedirectResponse(guidelinesIndexHref('instrument'))
-			}
-
-			const formPayload = objectFromFormData(form)
-			normalizeGuidelineTargetPctInput(formPayload)
-			const result = parseSafe(InstrumentGuidelineSchema, formPayload)
-			if (!result.success) {
-				if (requestAcceptsFrameSubmitHtml(context.request)) {
-					const guidelines = await loadGuidelinesForSession(context)
-					return guidelinesListFragmentHtmlResponse({
-						guidelines,
-						inlineError: t('errors.guidelines.addFormInvalid'),
-						status: 422,
-					})
-				}
-				return createRedirectResponse(guidelinesIndexHref('instrument'))
-			}
-
-			const session = getSessionData(context.get(Session))
-			const catalog = await fetchCatalog()
-
-			const ticker = (result.value.instrumentTicker ?? '').trim()
-			if (!ticker) {
-				if (requestAcceptsFrameSubmitHtml(context.request)) {
-					const guidelines = await loadGuidelinesForSession(context)
-					return guidelinesListFragmentHtmlResponse({
-						guidelines,
-						inlineError: t('errors.guidelines.addFormInvalid'),
-						status: 422,
-					})
-				}
-				return createRedirectResponse(guidelinesIndexHref('instrument'))
-			}
-			const match = findCatalogEntryByTicker(catalog, ticker)
-			if (!match) {
-				if (requestAcceptsFrameSubmitHtml(context.request)) {
-					const guidelines = await loadGuidelinesForSession(context)
-					return guidelinesListFragmentHtmlResponse({
-						guidelines,
-						inlineError: t('errors.guidelines.catalogEntryStale'),
-						status: 422,
-					})
-				}
-				return createRedirectResponse(guidelinesIndexHref('instrument'))
-			}
-
-			const { targetPct } = result.value
-			const entry: EtfGuideline = {
-				id: crypto.randomUUID(),
-				kind: 'instrument',
-				etfName: match.ticker,
-				targetPct,
-				etfType: match.type,
-			}
-
-			const capError = await persistGuideline({
-				entry,
-				session,
-				remixSession: context.get(Session),
-				request: context.request,
-				context,
-				addTab: 'instrument',
-			})
-			if (capError) return capError
-			if (requestAcceptsFrameSubmitHtml(context.request)) {
-				const guidelines = await loadGuidelinesForSession(context)
-				return guidelinesListFragmentHtmlResponse({ guidelines })
-			}
-			return createRedirectResponse(guidelinesIndexHref('instrument'))
-		},
-
-		async assetClass(context: AppRequestContext) {
-			const form = context.get(FormData)
-			if (!form) {
-				if (requestAcceptsFrameSubmitHtml(context.request)) {
-					const guidelines = await loadGuidelinesForSession(context)
-					return guidelinesListFragmentHtmlResponse({
-						guidelines,
-						inlineError: t('errors.guidelines.addFormInvalid'),
-						status: 422,
-					})
-				}
-				return createRedirectResponse(guidelinesIndexHref('bucket'))
-			}
-
-			const formPayload = objectFromFormData(form)
-			normalizeGuidelineTargetPctInput(formPayload)
-			const result = parseSafe(AssetClassGuidelineSchema, formPayload)
-			if (!result.success) {
-				if (requestAcceptsFrameSubmitHtml(context.request)) {
-					const guidelines = await loadGuidelinesForSession(context)
-					return guidelinesListFragmentHtmlResponse({
-						guidelines,
-						inlineError: t('errors.guidelines.addFormInvalid'),
-						status: 422,
-					})
-				}
-				return createRedirectResponse(guidelinesIndexHref('bucket'))
-			}
-
-			const session = getSessionData(context.get(Session))
-			const catalog = await fetchCatalog()
-			const allowedAssetClasses = new Set(
-				assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
-			)
-
-			const raw = (result.value.assetClassType ?? '').trim()
-			if (!raw || !isEtfType(raw) || !allowedAssetClasses.has(raw)) {
-				if (requestAcceptsFrameSubmitHtml(context.request)) {
-					const guidelines = await loadGuidelinesForSession(context)
-					return guidelinesListFragmentHtmlResponse({
-						guidelines,
-						inlineError: t('errors.guidelines.assetClassStale'),
-						status: 422,
-					})
-				}
-				return createRedirectResponse(guidelinesIndexHref('bucket'))
-			}
-
-			const { targetPct } = result.value
-			const entry: EtfGuideline = {
-				id: crypto.randomUUID(),
-				kind: 'asset_class',
-				etfName: '',
-				targetPct,
-				etfType: raw,
-			}
-
-			const capError = await persistGuideline({
-				entry,
-				session,
-				remixSession: context.get(Session),
-				request: context.request,
-				context,
-				addTab: 'bucket',
-			})
-			if (capError) return capError
-			if (requestAcceptsFrameSubmitHtml(context.request)) {
-				const guidelines = await loadGuidelinesForSession(context)
-				return guidelinesListFragmentHtmlResponse({ guidelines })
-			}
-			return createRedirectResponse(guidelinesIndexHref('bucket'))
-		},
-
-		async updateTarget(context: AppRequestContext) {
-			const id = (context.params as Record<string, string>).id
-			if (!id) return createRedirectResponse(routes.guidelines.index.href())
-
+		async action(context: AppRequestContext) {
 			const form = context.get(FormData)
 			if (!form) return createRedirectResponse(routes.guidelines.index.href())
 
-			const formPayload = objectFromFormData(form)
-			normalizeGuidelineTargetPctInput(formPayload)
-			const result = parseSafe(UpdateGuidelineTargetSchema, formPayload)
-			if (!result.success) {
-				return guidelinesUpdateSchemaValidationResponse({
-					context,
-					request: context.request,
-					session: context.get(Session),
-					issues: result.issues,
-				})
+			const intent = form.get('guidelineIntent')
+			switch (intent as (typeof GUIDELINE_INTENTS)[number] | null) {
+				case 'addInstrument':
+					return handleAddInstrument(context, form)
+				case 'addAssetClass':
+					return handleAddAssetClass(context, form)
+				case 'updateTarget':
+					return handleUpdateTarget(context, form)
+				case 'delete':
+					return handleDelete(context, form)
+				default:
+					return createRedirectResponse(routes.guidelines.index.href())
 			}
-
-			const session = getSessionData(context.get(Session))
-			const persistError = await updateGuidelineTarget({
-				id,
-				newTargetPercent: result.value.targetPct,
-				session,
-				remixSession: context.get(Session),
-				request: context.request,
-				context,
-			})
-			if (persistError) return persistError
-
-			if (requestAcceptsFrameSubmitHtml(context.request)) {
-				const guidelines = await loadGuidelinesForSession(context)
-				return guidelinesListFragmentHtmlResponse({ guidelines })
-			}
-			return createRedirectResponse(routes.guidelines.index.href())
-		},
-
-		async delete(context: AppRequestContext) {
-			const id = (context.params as Record<string, string>).id
-			if (!id) return createRedirectResponse(routes.guidelines.index.href())
-
-			const session = getSessionData(context.get(Session))
-
-			if (session?.gistId && session.token) {
-				const current = await fetchGuidelines(session.token, session.gistId)
-				await saveGuidelines(
-					session.token,
-					session.gistId,
-					current.filter((g) => g.id !== id),
-				)
-			} else {
-				setGuestGuidelines(
-					context.get(Session),
-					getGuestGuidelines(context.get(Session)).filter((g) => g.id !== id),
-				)
-			}
-
-			if (requestAcceptsFrameSubmitHtml(context.request)) {
-				const guidelines = await loadGuidelinesForSession(context)
-				return guidelinesListFragmentHtmlResponse({ guidelines })
-			}
-			return createRedirectResponse(routes.guidelines.index.href())
 		},
 
 		async fragmentList(context: AppRequestContext) {

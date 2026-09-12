@@ -35,6 +35,44 @@ afterEach(() => {
 	resetSharedCatalogForTests()
 })
 
+/**
+ * All four guidelines forms POST to the single `guidelines.action` route
+ * (`/guidelines`), discriminated by a hidden `guidelineIntent` field — see
+ * `docs/UI_ARCHITECTURE_GUIDELINES.md` §9. This builds that request.
+ */
+function guidelineActionRequest(
+	fields: Record<string, string>,
+	headers?: HeadersInit,
+) {
+	const form = new FormData()
+	for (const [key, value] of Object.entries(fields)) form.set(key, value)
+	return new Request('http://localhost/guidelines', {
+		method: 'POST',
+		body: form,
+		...(headers ? { headers } : {}),
+	})
+}
+
+function addInstrument(instrumentTicker: string, targetPct: string) {
+	return testSessionFetch(
+		guidelineActionRequest({
+			guidelineIntent: 'addInstrument',
+			instrumentTicker,
+			targetPct,
+		}),
+	)
+}
+
+function addAssetClass(assetClassType: string, targetPct: string) {
+	return testSessionFetch(
+		guidelineActionRequest({
+			guidelineIntent: 'addAssetClass',
+			assetClassType,
+			targetPct,
+		}),
+	)
+}
+
 describe('Guidelines page', () => {
 	it('GET /guidelines returns 200 with tabbed add forms', async () => {
 		await seedGuestCatalog()
@@ -46,7 +84,8 @@ describe('Guidelines page', () => {
 		assert.match(body, /guidelines-list\.component\.js/)
 		assert.match(body, /href="\/guidelines"/)
 		assert.match(body, /href="\/guidelines\?tab=instrument"/)
-		assert.match(body, /action="\/guidelines\/asset-class"/)
+		assert.match(body, /action="\/guidelines"/)
+		assert.match(body, /name="guidelineIntent"[^>]*value="addAssetClass"/)
 		assert.match(body, /name="assetClassType"/)
 		assert.match(body, /Specific ETF target/)
 		assert.match(body, /Asset class bucket/)
@@ -55,7 +94,11 @@ describe('Guidelines page', () => {
 			'http://localhost/guidelines?tab=instrument',
 		)
 		const instrumentBody = await instrumentPage.text()
-		assert.match(instrumentBody, /action="\/guidelines\/instrument"/)
+		assert.match(instrumentBody, /action="\/guidelines"/)
+		assert.match(
+			instrumentBody,
+			/name="guidelineIntent"[^>]*value="addInstrument"/,
+		)
 		assert.match(instrumentBody, /name="instrumentTicker"/)
 
 		assert.match(body, /Remaining:\s*<strong[^>]*>100%<\/strong>/)
@@ -85,44 +128,18 @@ describe('Guidelines page', () => {
 		assert.match(assetPct[0], /inputmode="decimal"/)
 	})
 
-	it('POST /guidelines/instrument adds a guideline and redirects', async () => {
+	it('addInstrument adds a guideline and redirects', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('targetPct', '60')
-
-		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: form,
-			}),
-		)
+		const response = await addInstrument('VTI', '60')
 
 		assert.equal(response.status, 302)
 		assert.equal(response.headers.get('location'), '/guidelines?tab=instrument')
 	})
 
-	it('POST /guidelines/instrument rejects duplicate ticker with flash message', async () => {
+	it('addInstrument rejects duplicate ticker with flash message', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('instrumentTicker', 'VTI')
-		first.set('targetPct', '40')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('instrumentTicker', 'VTI')
-		second.set('targetPct', '30')
-		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: second,
-			}),
-		)
+		await addInstrument('VTI', '40')
+		const response = await addInstrument('VTI', '30')
 
 		assert.equal(response.status, 302)
 		assert.equal(response.headers.get('location'), '/guidelines?tab=instrument')
@@ -133,31 +150,22 @@ describe('Guidelines page', () => {
 		const body = await page.text()
 		assert.match(body, /already have a guideline for VTI/)
 		assert.match(body, /edit or remove that line/)
-		const deleteActions = body.match(/action="\/guidelines\/[a-f0-9-]+"/g) ?? []
-		assert.equal(deleteActions.length, 1)
+		const rows = body.match(/data-guideline-edit-form="[a-f0-9-]+"/g) ?? []
+		assert.equal(rows.length, 1)
 	})
 
-	it('POST /guidelines/instrument returns 422 JSON for duplicate ticker when Accept is JSON', async () => {
+	it('addInstrument returns 422 JSON for duplicate ticker when Accept is JSON', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('instrumentTicker', 'VTI')
-		first.set('targetPct', '40')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('instrumentTicker', ' vti ')
-		second.set('targetPct', '30')
+		await addInstrument('VTI', '40')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: second,
-				headers: { Accept: 'application/json' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addInstrument',
+					instrumentTicker: ' vti ',
+					targetPct: '30',
+				},
+				{ Accept: 'application/json' },
+			),
 		)
 
 		assert.equal(response.status, 422)
@@ -165,27 +173,18 @@ describe('Guidelines page', () => {
 		assert.match(data.error ?? '', /already have a guideline for VTI/)
 	})
 
-	it('POST /guidelines/instrument returns 422 HTML list fragment for duplicate when Accept is text/html', async () => {
+	it('addInstrument returns 422 HTML list fragment for duplicate when Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('instrumentTicker', 'VTI')
-		first.set('targetPct', '40')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('instrumentTicker', ' vti ')
-		second.set('targetPct', '30')
+		await addInstrument('VTI', '40')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: second,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addInstrument',
+					instrumentTicker: ' vti ',
+					targetPct: '30',
+				},
+				{ Accept: 'text/html' },
+			),
 		)
 
 		assert.equal(response.status, 422)
@@ -196,27 +195,10 @@ describe('Guidelines page', () => {
 		assert.match(html, /already have a guideline for VTI/)
 	})
 
-	it('POST /guidelines/asset-class rejects duplicate asset class with flash message', async () => {
+	it('addAssetClass rejects duplicate asset class with flash message', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('assetClassType', 'equity')
-		first.set('targetPct', '40')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('assetClassType', 'equity')
-		second.set('targetPct', '30')
-		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: second,
-			}),
-		)
+		await addAssetClass('equity', '40')
+		const response = await addAssetClass('equity', '30')
 
 		assert.equal(response.status, 302)
 		assert.equal(response.headers.get('location'), '/guidelines')
@@ -225,31 +207,22 @@ describe('Guidelines page', () => {
 		const body = await page.text()
 		assert.match(body, /already have a guideline for the equity asset class/)
 		assert.match(body, /edit or remove that line/)
-		const deleteActions = body.match(/action="\/guidelines\/[a-f0-9-]+"/g) ?? []
-		assert.equal(deleteActions.length, 1)
+		const rows = body.match(/data-guideline-edit-form="[a-f0-9-]+"/g) ?? []
+		assert.equal(rows.length, 1)
 	})
 
-	it('POST /guidelines/asset-class returns 422 JSON for duplicate asset class when Accept is JSON', async () => {
+	it('addAssetClass returns 422 JSON for duplicate asset class when Accept is JSON', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('assetClassType', 'equity')
-		first.set('targetPct', '40')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('assetClassType', 'equity')
-		second.set('targetPct', '30')
+		await addAssetClass('equity', '40')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: second,
-				headers: { Accept: 'application/json' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addAssetClass',
+					assetClassType: 'equity',
+					targetPct: '30',
+				},
+				{ Accept: 'application/json' },
+			),
 		)
 
 		assert.equal(response.status, 422)
@@ -260,27 +233,18 @@ describe('Guidelines page', () => {
 		)
 	})
 
-	it('POST /guidelines/asset-class returns 422 HTML list fragment for duplicate when Accept is text/html', async () => {
+	it('addAssetClass returns 422 HTML list fragment for duplicate when Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('assetClassType', 'equity')
-		first.set('targetPct', '40')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('assetClassType', 'equity')
-		second.set('targetPct', '30')
+		await addAssetClass('equity', '40')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: second,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addAssetClass',
+					assetClassType: 'equity',
+					targetPct: '30',
+				},
+				{ Accept: 'text/html' },
+			),
 		)
 
 		assert.equal(response.status, 422)
@@ -291,27 +255,10 @@ describe('Guidelines page', () => {
 		assert.match(html, /already have a guideline for the equity asset class/)
 	})
 
-	it('POST /guidelines/instrument rejects when total target % would exceed 100', async () => {
+	it('addInstrument rejects when total target % would exceed 100', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('instrumentTicker', 'VTI')
-		first.set('targetPct', '60')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('instrumentTicker', 'BND')
-		second.set('targetPct', '50')
-		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: second,
-			}),
-		)
+		await addInstrument('VTI', '60')
+		const response = await addInstrument('BND', '50')
 
 		assert.equal(response.status, 302)
 		assert.equal(response.headers.get('location'), '/guidelines?tab=instrument')
@@ -323,35 +270,26 @@ describe('Guidelines page', () => {
 		assert.match(body, /cannot add up to more than 100%/)
 		assert.match(body, /60/)
 		assert.match(body, /50/)
-		const deleteActions = body.match(/action="\/guidelines\/[a-f0-9-]+"/g) ?? []
+		const rows = body.match(/data-guideline-edit-form="[a-f0-9-]+"/g) ?? []
 		assert.equal(
-			deleteActions.length,
+			rows.length,
 			1,
 			'expected only the first guideline after rejected over-cap add',
 		)
 	})
 
-	it('POST /guidelines/instrument returns 422 JSON when total would exceed 100 and Accept is JSON', async () => {
+	it('addInstrument returns 422 JSON when total would exceed 100 and Accept is JSON', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('instrumentTicker', 'VTI')
-		first.set('targetPct', '60')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('instrumentTicker', 'BND')
-		second.set('targetPct', '50')
+		await addInstrument('VTI', '60')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: second,
-				headers: { Accept: 'application/json' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addInstrument',
+					instrumentTicker: 'BND',
+					targetPct: '50',
+				},
+				{ Accept: 'application/json' },
+			),
 		)
 
 		assert.equal(response.status, 422)
@@ -359,27 +297,18 @@ describe('Guidelines page', () => {
 		assert.match(data.error ?? '', /cannot add up to more than 100%/)
 	})
 
-	it('POST /guidelines/instrument returns 422 HTML list fragment when total would exceed 100 and Accept is text/html', async () => {
+	it('addInstrument returns 422 HTML list fragment when total would exceed 100 and Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('instrumentTicker', 'VTI')
-		first.set('targetPct', '60')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('instrumentTicker', 'BND')
-		second.set('targetPct', '50')
+		await addInstrument('VTI', '60')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: second,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addInstrument',
+					instrumentTicker: 'BND',
+					targetPct: '50',
+				},
+				{ Accept: 'text/html' },
+			),
 		)
 
 		assert.equal(response.status, 422)
@@ -390,27 +319,10 @@ describe('Guidelines page', () => {
 		assert.match(html, /cannot add up to more than 100%/)
 	})
 
-	it('POST /guidelines/asset-class rejects when total target % would exceed 100', async () => {
+	it('addAssetClass rejects when total target % would exceed 100', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('assetClassType', 'equity')
-		first.set('targetPct', '60')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('assetClassType', 'bond')
-		second.set('targetPct', '50')
-		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: second,
-			}),
-		)
+		await addAssetClass('equity', '60')
+		const response = await addAssetClass('bond', '50')
 
 		assert.equal(response.status, 302)
 		assert.equal(response.headers.get('location'), '/guidelines')
@@ -420,35 +332,26 @@ describe('Guidelines page', () => {
 		assert.match(body, /cannot add up to more than 100%/)
 		assert.match(body, /60/)
 		assert.match(body, /50/)
-		const deleteActions = body.match(/action="\/guidelines\/[a-f0-9-]+"/g) ?? []
+		const rows = body.match(/data-guideline-edit-form="[a-f0-9-]+"/g) ?? []
 		assert.equal(
-			deleteActions.length,
+			rows.length,
 			1,
 			'expected only the first guideline after rejected over-cap add',
 		)
 	})
 
-	it('POST /guidelines/asset-class returns 422 JSON when total would exceed 100 and Accept is JSON', async () => {
+	it('addAssetClass returns 422 JSON when total would exceed 100 and Accept is JSON', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('assetClassType', 'equity')
-		first.set('targetPct', '60')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('assetClassType', 'bond')
-		second.set('targetPct', '50')
+		await addAssetClass('equity', '60')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: second,
-				headers: { Accept: 'application/json' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addAssetClass',
+					assetClassType: 'bond',
+					targetPct: '50',
+				},
+				{ Accept: 'application/json' },
+			),
 		)
 
 		assert.equal(response.status, 422)
@@ -456,27 +359,18 @@ describe('Guidelines page', () => {
 		assert.match(data.error ?? '', /cannot add up to more than 100%/)
 	})
 
-	it('POST /guidelines/asset-class returns 422 HTML list fragment when total would exceed 100 and Accept is text/html', async () => {
+	it('addAssetClass returns 422 HTML list fragment when total would exceed 100 and Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('assetClassType', 'equity')
-		first.set('targetPct', '60')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-
-		const second = new FormData()
-		second.set('assetClassType', 'bond')
-		second.set('targetPct', '50')
+		await addAssetClass('equity', '60')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: second,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addAssetClass',
+					assetClassType: 'bond',
+					targetPct: '50',
+				},
+				{ Accept: 'text/html' },
+			),
 		)
 
 		assert.equal(response.status, 422)
@@ -487,18 +381,9 @@ describe('Guidelines page', () => {
 		assert.match(html, /cannot add up to more than 100%/)
 	})
 
-	it('POST /guidelines/instrument accepts locale-style target % (comma decimal)', async () => {
+	it('addInstrument accepts locale-style target % (comma decimal)', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('targetPct', '12,5')
-
-		const postResponse = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: form,
-			}),
-		)
+		const postResponse = await addInstrument('VTI', '12,5')
 
 		assert.equal(postResponse.status, 302)
 		assert.equal(
@@ -515,16 +400,7 @@ describe('Guidelines page', () => {
 
 	it('added guideline appears on the guidelines page', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'BND')
-		form.set('targetPct', '30')
-
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: form,
-			}),
-		)
+		await addInstrument('BND', '30')
 
 		const response = await testSessionFetch('http://localhost/guidelines')
 		const body = await response.text()
@@ -536,15 +412,7 @@ describe('Guidelines page', () => {
 
 	it('guidelines list fragment shows read-only target, hidden edit form, and delete dialog', async () => {
 		await seedGuestCatalog()
-		const add = new FormData()
-		add.set('instrumentTicker', 'VTI')
-		add.set('targetPct', '25')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: add,
-			}),
-		)
+		await addInstrument('VTI', '25')
 
 		const frag = await testSessionFetch(
 			'http://localhost/fragments/guidelines-list',
@@ -574,37 +442,26 @@ describe('Guidelines page', () => {
 		assert.match(html, /data-dialog-id="guideline-delete-dialog-/)
 		assert.match(
 			html,
-			/Remove the[\s\S]*?guideline\?[\s\S]*?name="_method"[\s\S]*?value="DELETE"/,
+			/Remove the[\s\S]*?guideline\?[\s\S]*?name="guidelineIntent"[\s\S]*?value="delete"/,
 		)
 	})
 
-	it('POST /guidelines/:id/target updates target % and keeps total within 100', async () => {
+	it('updateTarget updates target % and keeps total within 100', async () => {
 		await seedGuestCatalog()
-		const add = new FormData()
-		add.set('instrumentTicker', 'VTI')
-		add.set('targetPct', '40')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: add,
-			}),
-		)
+		await addInstrument('VTI', '40')
 
 		const listBody = await (
 			await testSessionFetch('http://localhost/guidelines')
 		).text()
-		const idMatch = listBody.match(
-			/action="\/guidelines\/([a-f0-9-]+)\/target"/,
-		)
-		assert.ok(idMatch, 'expected update target form action')
+		const idMatch = listBody.match(/data-guideline-edit-form="([a-f0-9-]+)"/)
+		assert.ok(idMatch, 'expected an update-target form')
 		const id = idMatch[1]
 
-		const update = new FormData()
-		update.set('targetPct', '55')
 		const postRes = await testSessionFetch(
-			new Request(`http://localhost/guidelines/${id}/target`, {
-				method: 'POST',
-				body: update,
+			guidelineActionRequest({
+				guidelineIntent: 'updateTarget',
+				id,
+				targetPct: '55',
 			}),
 		)
 		assert.equal(postRes.status, 302)
@@ -618,35 +475,22 @@ describe('Guidelines page', () => {
 		assert.match(after, /Total allocated:\s*<strong[^>]*>55%<\/strong>/)
 	})
 
-	it('POST /guidelines/:id/target returns HTML list fragment on success when Accept is text/html', async () => {
+	it('updateTarget returns HTML list fragment on success when Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const add = new FormData()
-		add.set('instrumentTicker', 'VTI')
-		add.set('targetPct', '40')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: add,
-			}),
-		)
+		await addInstrument('VTI', '40')
 
 		const listBody = await (
 			await testSessionFetch('http://localhost/guidelines')
 		).text()
-		const idMatch = listBody.match(
-			/action="\/guidelines\/([a-f0-9-]+)\/target"/,
-		)
-		assert.ok(idMatch, 'expected update target form action')
+		const idMatch = listBody.match(/data-guideline-edit-form="([a-f0-9-]+)"/)
+		assert.ok(idMatch, 'expected an update-target form')
 		const id = idMatch[1]
 
-		const update = new FormData()
-		update.set('targetPct', '55')
 		const postRes = await testSessionFetch(
-			new Request(`http://localhost/guidelines/${id}/target`, {
-				method: 'POST',
-				body: update,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{ guidelineIntent: 'updateTarget', id, targetPct: '55' },
+				{ Accept: 'text/html' },
+			),
 		)
 		assert.equal(postRes.status, 200)
 		const ct = postRes.headers.get('content-type') ?? ''
@@ -658,17 +502,17 @@ describe('Guidelines page', () => {
 		assert.match(html, /Total allocated:\s*<strong[^>]*>55%<\/strong>/)
 	})
 
-	it('POST /guidelines/instrument returns 422 HTML fragment when ticker not in catalog and Accept is text/html', async () => {
+	it('addInstrument returns 422 HTML fragment when ticker not in catalog and Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'ZZZZ')
-		form.set('targetPct', '10')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: form,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addInstrument',
+					instrumentTicker: 'ZZZZ',
+					targetPct: '10',
+				},
+				{ Accept: 'text/html' },
+			),
 		)
 		assert.equal(response.status, 422)
 		const ct = response.headers.get('content-type') ?? ''
@@ -678,17 +522,17 @@ describe('Guidelines page', () => {
 		assert.match(html, /no longer in your catalog/)
 	})
 
-	it('POST /guidelines/instrument returns 422 HTML fragment when schema fails and Accept is text/html', async () => {
+	it('addInstrument returns 422 HTML fragment when schema fails and Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'VTI')
-		form.set('targetPct', '0')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: form,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addInstrument',
+					instrumentTicker: 'VTI',
+					targetPct: '0',
+				},
+				{ Accept: 'text/html' },
+			),
 		)
 		assert.equal(response.status, 422)
 		const ct = response.headers.get('content-type') ?? ''
@@ -698,17 +542,17 @@ describe('Guidelines page', () => {
 		assert.match(html, /Check the fund or bucket/)
 	})
 
-	it('POST /guidelines/asset-class returns 422 HTML when asset class not in catalog options and Accept is text/html', async () => {
+	it('addAssetClass returns 422 HTML when asset class not in catalog options and Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('assetClassType', 'commodity')
-		form.set('targetPct', '10')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: form,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addAssetClass',
+					assetClassType: 'commodity',
+					targetPct: '10',
+				},
+				{ Accept: 'text/html' },
+			),
 		)
 		assert.equal(response.status, 422)
 		const ct = response.headers.get('content-type') ?? ''
@@ -718,17 +562,17 @@ describe('Guidelines page', () => {
 		assert.match(html, /no longer available/)
 	})
 
-	it('POST /guidelines/instrument returns HTML list fragment on success when Accept is text/html', async () => {
+	it('addInstrument returns HTML list fragment on success when Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'BND')
-		form.set('targetPct', '30')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: form,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addInstrument',
+					instrumentTicker: 'BND',
+					targetPct: '30',
+				},
+				{ Accept: 'text/html' },
+			),
 		)
 		assert.equal(response.status, 200)
 		const ct = response.headers.get('content-type') ?? ''
@@ -739,17 +583,17 @@ describe('Guidelines page', () => {
 		assert.match(html, /30/)
 	})
 
-	it('POST /guidelines/asset-class returns HTML list fragment on success when Accept is text/html', async () => {
+	it('addAssetClass returns HTML list fragment on success when Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('targetPct', '55')
-		form.set('assetClassType', 'equity')
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: form,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addAssetClass',
+					assetClassType: 'equity',
+					targetPct: '55',
+				},
+				{ Accept: 'text/html' },
+			),
 		)
 		assert.equal(response.status, 200)
 		const ct = response.headers.get('content-type') ?? ''
@@ -759,42 +603,25 @@ describe('Guidelines page', () => {
 		assert.match(html, /equity \(bucket\)/)
 	})
 
-	it('POST /guidelines/:id/target rejects when new total would exceed 100', async () => {
+	it('updateTarget rejects when new total would exceed 100', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('instrumentTicker', 'VTI')
-		first.set('targetPct', '60')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-		const second = new FormData()
-		second.set('instrumentTicker', 'BND')
-		second.set('targetPct', '30')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: second,
-			}),
-		)
+		await addInstrument('VTI', '60')
+		await addInstrument('BND', '30')
 
 		const listBody = await (
 			await testSessionFetch('http://localhost/guidelines')
 		).text()
 		const bndMatch = listBody.match(
-			/BND[\s\S]*?action="\/guidelines\/([a-f0-9-]+)\/target"/,
+			/BND[\s\S]*?data-guideline-edit-form="([a-f0-9-]+)"/,
 		)
 		assert.ok(bndMatch, 'expected BND row update form')
 		const bndId = bndMatch[1]
 
-		const update = new FormData()
-		update.set('targetPct', '50')
 		const response = await testSessionFetch(
-			new Request(`http://localhost/guidelines/${bndId}/target`, {
-				method: 'POST',
-				body: update,
+			guidelineActionRequest({
+				guidelineIntent: 'updateTarget',
+				id: bndId,
+				targetPct: '50',
 			}),
 		)
 		assert.equal(response.status, 302)
@@ -806,88 +633,50 @@ describe('Guidelines page', () => {
 		assert.match(body, /110/)
 	})
 
-	it('POST /guidelines/:id/target returns 422 JSON when total would exceed 100 and Accept is JSON', async () => {
+	it('updateTarget returns 422 JSON when total would exceed 100 and Accept is JSON', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('instrumentTicker', 'VTI')
-		first.set('targetPct', '60')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-		const second = new FormData()
-		second.set('instrumentTicker', 'BND')
-		second.set('targetPct', '30')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: second,
-			}),
-		)
+		await addInstrument('VTI', '60')
+		await addInstrument('BND', '30')
 
 		const listBody = await (
 			await testSessionFetch('http://localhost/guidelines')
 		).text()
 		const bndMatch = listBody.match(
-			/BND[\s\S]*?action="\/guidelines\/([a-f0-9-]+)\/target"/,
+			/BND[\s\S]*?data-guideline-edit-form="([a-f0-9-]+)"/,
 		)
 		assert.ok(bndMatch)
 		const bndId = bndMatch[1]
 
-		const update = new FormData()
-		update.set('targetPct', '50')
 		const response = await testSessionFetch(
-			new Request(`http://localhost/guidelines/${bndId}/target`, {
-				method: 'POST',
-				body: update,
-				headers: { Accept: 'application/json' },
-			}),
+			guidelineActionRequest(
+				{ guidelineIntent: 'updateTarget', id: bndId, targetPct: '50' },
+				{ Accept: 'application/json' },
+			),
 		)
 		assert.equal(response.status, 422)
 		const data = (await response.json()) as { error?: string }
 		assert.match(data.error ?? '', /would make the total/)
 	})
 
-	it('POST /guidelines/:id/target returns 422 HTML list fragment when total would exceed 100 and Accept is text/html', async () => {
+	it('updateTarget returns 422 HTML list fragment when total would exceed 100 and Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const first = new FormData()
-		first.set('instrumentTicker', 'VTI')
-		first.set('targetPct', '60')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: first,
-			}),
-		)
-		const second = new FormData()
-		second.set('instrumentTicker', 'BND')
-		second.set('targetPct', '30')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: second,
-			}),
-		)
+		await addInstrument('VTI', '60')
+		await addInstrument('BND', '30')
 
 		const listBody = await (
 			await testSessionFetch('http://localhost/guidelines')
 		).text()
 		const bndMatch = listBody.match(
-			/BND[\s\S]*?action="\/guidelines\/([a-f0-9-]+)\/target"/,
+			/BND[\s\S]*?data-guideline-edit-form="([a-f0-9-]+)"/,
 		)
 		assert.ok(bndMatch, 'expected BND row update form')
 		const bndId = bndMatch[1]
 
-		const update = new FormData()
-		update.set('targetPct', '50')
 		const response = await testSessionFetch(
-			new Request(`http://localhost/guidelines/${bndId}/target`, {
-				method: 'POST',
-				body: update,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{ guidelineIntent: 'updateTarget', id: bndId, targetPct: '50' },
+				{ Accept: 'text/html' },
+			),
 		)
 		assert.equal(response.status, 422)
 		const ct = response.headers.get('content-type') ?? ''
@@ -897,35 +686,22 @@ describe('Guidelines page', () => {
 		assert.match(html, /would make the total/)
 	})
 
-	it('POST /guidelines/:id/target returns 422 JSON when target % is out of schema range', async () => {
+	it('updateTarget returns 422 JSON when target % is out of schema range', async () => {
 		await seedGuestCatalog()
-		const add = new FormData()
-		add.set('instrumentTicker', 'VTI')
-		add.set('targetPct', '40')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: add,
-			}),
-		)
+		await addInstrument('VTI', '40')
 
 		const listBody = await (
 			await testSessionFetch('http://localhost/guidelines')
 		).text()
-		const idMatch = listBody.match(
-			/action="\/guidelines\/([a-f0-9-]+)\/target"/,
-		)
+		const idMatch = listBody.match(/data-guideline-edit-form="([a-f0-9-]+)"/)
 		assert.ok(idMatch)
 		const id = idMatch[1]
 
-		const update = new FormData()
-		update.set('targetPct', '0')
 		const response = await testSessionFetch(
-			new Request(`http://localhost/guidelines/${id}/target`, {
-				method: 'POST',
-				body: update,
-				headers: { Accept: 'application/json' },
-			}),
+			guidelineActionRequest(
+				{ guidelineIntent: 'updateTarget', id, targetPct: '0' },
+				{ Accept: 'application/json' },
+			),
 		)
 		assert.equal(response.status, 422)
 		const data = (await response.json()) as {
@@ -936,35 +712,22 @@ describe('Guidelines page', () => {
 		assert.ok(Array.isArray(data.issues))
 	})
 
-	it('POST /guidelines/:id/target returns 422 HTML list fragment when target % is invalid and Accept is text/html', async () => {
+	it('updateTarget returns 422 HTML list fragment when target % is invalid and Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const add = new FormData()
-		add.set('instrumentTicker', 'VTI')
-		add.set('targetPct', '40')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: add,
-			}),
-		)
+		await addInstrument('VTI', '40')
 
 		const listBody = await (
 			await testSessionFetch('http://localhost/guidelines')
 		).text()
-		const idMatch = listBody.match(
-			/action="\/guidelines\/([a-f0-9-]+)\/target"/,
-		)
+		const idMatch = listBody.match(/data-guideline-edit-form="([a-f0-9-]+)"/)
 		assert.ok(idMatch)
 		const id = idMatch[1]
 
-		const update = new FormData()
-		update.set('targetPct', '0')
 		const response = await testSessionFetch(
-			new Request(`http://localhost/guidelines/${id}/target`, {
-				method: 'POST',
-				body: update,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{ guidelineIntent: 'updateTarget', id, targetPct: '0' },
+				{ Accept: 'text/html' },
+			),
 		)
 		assert.equal(response.status, 422)
 		const ct = response.headers.get('content-type') ?? ''
@@ -973,15 +736,12 @@ describe('Guidelines page', () => {
 		assert.match(html, /Your Guidelines/)
 	})
 
-	it('POST /guidelines/instrument ignores missing ticker', async () => {
+	it('addInstrument ignores missing ticker', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('targetPct', '50')
-
 		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: form,
+			guidelineActionRequest({
+				guidelineIntent: 'addInstrument',
+				targetPct: '50',
 			}),
 		)
 
@@ -992,18 +752,9 @@ describe('Guidelines page', () => {
 		assert.match(body, /No guidelines/)
 	})
 
-	it('POST /guidelines/instrument rejects unknown ticker', async () => {
+	it('addInstrument rejects unknown ticker', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('instrumentTicker', 'ZZZZ')
-		form.set('targetPct', '10')
-
-		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: form,
-			}),
-		)
+		const response = await addInstrument('ZZZZ', '10')
 
 		assert.equal(response.status, 302)
 
@@ -1012,18 +763,9 @@ describe('Guidelines page', () => {
 		assert.match(body, /No guidelines/)
 	})
 
-	it('POST /guidelines/asset-class adds a bucket guideline', async () => {
+	it('addAssetClass adds a bucket guideline', async () => {
 		await seedGuestCatalog()
-		const form = new FormData()
-		form.set('targetPct', '55')
-		form.set('assetClassType', 'equity')
-
-		const response = await testSessionFetch(
-			new Request('http://localhost/guidelines/asset-class', {
-				method: 'POST',
-				body: form,
-			}),
-		)
+		const response = await addAssetClass('equity', '55')
 
 		assert.equal(response.status, 302)
 
@@ -1034,15 +776,7 @@ describe('Guidelines page', () => {
 
 	it('guidelines list delete uses dialog confirmation pattern', async () => {
 		await seedGuestCatalog()
-		const addForm = new FormData()
-		addForm.set('instrumentTicker', 'VNQ')
-		addForm.set('targetPct', '10')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: addForm,
-			}),
-		)
+		await addInstrument('VNQ', '10')
 
 		const listResponse = await testSessionFetch('http://localhost/guidelines')
 		const listBody = await listResponse.text()
@@ -1050,7 +784,7 @@ describe('Guidelines page', () => {
 		assert.match(listBody, /data-dialog-id="guideline-delete-dialog-/)
 		assert.match(
 			listBody,
-			/Remove the[\s\S]*?guideline\?[\s\S]*?name="_method"[\s\S]*?value="DELETE"/,
+			/Remove the[\s\S]*?guideline\?[\s\S]*?name="guidelineIntent"[\s\S]*?value="delete"/,
 		)
 	})
 
@@ -1078,33 +812,20 @@ describe('Guidelines page', () => {
 		assert.match(dialogTriggerBody, /showModal/)
 	})
 
-	it('DELETE /guidelines/:id removes the guideline via method override', async () => {
+	it('delete removes the guideline', async () => {
 		await seedGuestCatalog()
-		const addForm = new FormData()
-		addForm.set('instrumentTicker', 'VNQ')
-		addForm.set('targetPct', '10')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: addForm,
-			}),
-		)
+		await addInstrument('VNQ', '10')
 
 		const listResponse = await testSessionFetch('http://localhost/guidelines')
 		const listBody = await listResponse.text()
 		const idMatch = listBody.match(
-			/action="\/guidelines\/([a-f0-9-]+)"[^>]*>[\s\S]*?name="_method"[\s\S]*?value="DELETE"/,
+			/data-dialog-id="guideline-delete-dialog-([a-f0-9-]+)"/,
 		)
-		assert.ok(idMatch, 'delete form action should be present')
+		assert.ok(idMatch, 'delete dialog trigger should be present')
 		const id = idMatch[1]
 
-		const deleteForm = new FormData()
-		deleteForm.set('_method', 'DELETE')
 		const deleteResponse = await testSessionFetch(
-			new Request(`http://localhost/guidelines/${id}`, {
-				method: 'POST',
-				body: deleteForm,
-			}),
+			guidelineActionRequest({ guidelineIntent: 'delete', id }),
 		)
 
 		assert.equal(deleteResponse.status, 302)
@@ -1116,34 +837,23 @@ describe('Guidelines page', () => {
 		assert.match(afterBody, /No guidelines/)
 	})
 
-	it('DELETE /guidelines/:id returns HTML list fragment when Accept is text/html', async () => {
+	it('delete returns HTML list fragment when Accept is text/html', async () => {
 		await seedGuestCatalog()
-		const addForm = new FormData()
-		addForm.set('instrumentTicker', 'VNQ')
-		addForm.set('targetPct', '10')
-		await testSessionFetch(
-			new Request('http://localhost/guidelines/instrument', {
-				method: 'POST',
-				body: addForm,
-			}),
-		)
+		await addInstrument('VNQ', '10')
 
 		const listResponse = await testSessionFetch('http://localhost/guidelines')
 		const listBody = await listResponse.text()
 		const idMatch = listBody.match(
-			/action="\/guidelines\/([a-f0-9-]+)"[^>]*>[\s\S]*?name="_method"[\s\S]*?value="DELETE"/,
+			/data-dialog-id="guideline-delete-dialog-([a-f0-9-]+)"/,
 		)
-		assert.ok(idMatch, 'delete form action should be present')
+		assert.ok(idMatch, 'delete dialog trigger should be present')
 		const id = idMatch[1]
 
-		const deleteForm = new FormData()
-		deleteForm.set('_method', 'DELETE')
 		const deleteResponse = await testSessionFetch(
-			new Request(`http://localhost/guidelines/${id}`, {
-				method: 'POST',
-				body: deleteForm,
-				headers: { Accept: 'text/html' },
-			}),
+			guidelineActionRequest(
+				{ guidelineIntent: 'delete', id },
+				{ Accept: 'text/html' },
+			),
 		)
 
 		assert.equal(deleteResponse.status, 200)
@@ -1161,12 +871,29 @@ describe('Guidelines page', () => {
 		assert.match(body, /"name":"guidelines-list"/)
 	})
 
-	it('forms use data-frame-submit for Frame-based list reload', async () => {
+	it('add forms use native data-rmx-target for Frame-based list reload', async () => {
 		const response = await testSessionFetch(
 			'http://localhost/guidelines?tab=instrument',
 		)
 		const body = await response.text()
-		assert.match(body, /data-frame-submit="guidelines-list"/)
-		assert.match(body, /data-frame-replace-from-response/)
+		assert.match(body, /data-rmx-target="guidelines-list"/)
+		assert.doesNotMatch(body, /data-frame-submit=/)
+		assert.doesNotMatch(body, /data-frame-replace-from-response/)
+	})
+
+	it('update-target and delete forms use native data-rmx-target for Frame-based list reload', async () => {
+		await seedGuestCatalog()
+		await addInstrument('VTI', '25')
+
+		const frag = await testSessionFetch(
+			'http://localhost/fragments/guidelines-list',
+		)
+		const html = await frag.text()
+		assert.match(html, /data-rmx-target="guidelines-list"/)
+		assert.match(html, /name="guidelineIntent"[^>]*value="updateTarget"/)
+		assert.match(html, /name="guidelineIntent"[^>]*value="delete"/)
+		assert.doesNotMatch(html, /data-frame-submit=/)
+		assert.doesNotMatch(html, /data-frame-replace-from-response/)
+		assert.doesNotMatch(html, /name="_method"/)
 	})
 })
