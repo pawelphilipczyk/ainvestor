@@ -448,7 +448,7 @@ describe('Advice', () => {
 		assert.equal(saved?.document.blocks[0]?.type, 'paragraph')
 	})
 
-	it('POST /advice sets X-Advice-Gist-Stale and still returns analysis HTML when gist save fails', async () => {
+	it('POST /advice still returns analysis HTML with a not-saved notice when gist save fails', async () => {
 		const cookie = await signInWithGist()
 		setAdviceGistTestOverlay(null)
 		setAdviceGistTestSaveShouldFail(true)
@@ -468,7 +468,6 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.equal(response.headers.get('X-Advice-Gist-Stale'), '1')
 		assert.match(body, /Shown despite gist save failure\./)
 		assert.match(body, /Could not save this analysis to your data gist/)
 	})

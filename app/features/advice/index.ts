@@ -95,8 +95,6 @@ type AdvicePageRenderProps = {
 	adviceGistGate?: 'sign_in' | 'connect_gist'
 }
 
-const ADVICE_GIST_STALE_HEADER = 'X-Advice-Gist-Stale'
-
 function adviceResultFragmentSrc(activeTab: AdviceAnalysisMode): string {
 	const tabQuery =
 		activeTab === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
@@ -159,11 +157,6 @@ function renderAdvicePageResponse(
 	// `renderAdviceActionResponse` below.
 	const frameSrc = adviceResultFragmentSrc(activeTab)
 
-	const responseHeaders =
-		options.props.adviceGistPersistFailed === true
-			? { [ADVICE_GIST_STALE_HEADER]: '1' }
-			: undefined
-
 	return render(context, {
 		title: t('meta.title.advice'),
 		htmlLang: htmlLangForCurrentUiLocale(),
@@ -174,7 +167,6 @@ function renderAdvicePageResponse(
 			adviceResultFrameSrc: frameSrc,
 		}),
 		init: options.init,
-		responseHeaders,
 		resolveFrame(source) {
 			return resolveAdviceResultFrame(source, frameSrc, options.props)
 		},
