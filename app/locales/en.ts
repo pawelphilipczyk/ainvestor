@@ -289,6 +289,8 @@ export const en = {
 		'Enter an amount greater than zero to sell.',
 	'errors.portfolio.persistence':
 		'Could not save your portfolio. Please try again in a moment.',
+	'errors.portfolio.importInvalid':
+		'No holdings found in that CSV. Check the format and try again.',
 	'errors.upload.fileTooLarge':
 		'File upload is too large. Maximum size is 5 MB.',
 	'errors.catalog.importNotAllowed':

@@ -11,8 +11,8 @@ import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { ImportEtfForm } from './import-etf-form/import-etf-form.tsx'
+import { PortfolioListFrame } from './portfolio-list-frame.component.js'
 import { PortfolioOperationForm } from './portfolio-operation-form/index.ts'
-import { PortfolioTradeFormFrame } from './portfolio-trade-form-frame.component.js'
 
 type PortfolioPageProps = {
 	instrumentOptions: { value: string; label: string }[]
@@ -66,7 +66,7 @@ export function PortfolioPage(
 					src={routes.portfolio.fragmentList.href()}
 					fallback={frameLoadingPlaceholder()}
 				/>
-				<PortfolioTradeFormFrame />
+				<PortfolioListFrame />
 			</main>
 		)
 	}

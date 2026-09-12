@@ -953,6 +953,7 @@ describe('ETF Catalog page', () => {
 		seedSharedCatalog(bankJson)
 
 		const addForm = new FormData()
+		addForm.set('portfolioIntent', 'trade')
 		addForm.set('portfolioOperation', 'buy')
 		addForm.set('instrumentTicker', 'VTI')
 		addForm.set('value', '5000')

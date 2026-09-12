@@ -15,12 +15,12 @@ ahead of time.
 ## Where we are
 
 - **Stage:** 6 (behavior via primitives). Stages 1–5, and the Stage 6 work
-  through `de7df75` (the shared `watchFrameFormSubmissions` extraction, PR
-  #191), are merged on `main`.
-- **Branch:** `claude/next-migration-step-18cia2`, opened fresh off `main`
-  after PR #191 merged.
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (583) and
-  `npm run test:browser` (26) all pass.
+  through `3c5c299` (catalog ETF analysis ported to native `data-rmx-target`,
+  PR #192), are merged on `main`.
+- **Branch:** `claude/remix-rc2-migration-next-ulsael`, opened fresh off
+  `main` after PR #192/#193 merged.
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (587) and
+  `npm run test:browser` (28) all pass.
 - **Working style:** small steps. One component or one flow per commit, each
   landing green, each with its own browser coverage where the change is
   client-side.
@@ -29,6 +29,7 @@ ahead of time.
 
 | Commit | What |
 |---|---|
+| `e71e8ce` | Portfolio CSV import ported to native `data-rmx-target`, route-consolidation-first per the prior *Next step*. `routes.ts`'s `portfolio.create` (`POST /portfolio`, the trade form) and `portfolio.import` (`POST /portfolio/import`) became `...form('portfolio')` — one `index`/`action` pair at `/portfolio` — plus a hidden `portfolioIntent` field (`trade`/`import`) the single `action` handler switches on, same shape as `guidelines`' `guidelineIntent`. The trade form's own action already happened to equal `/portfolio` before this (it was defined by hand at the same path as `index`, not via `form()`), so this consolidation was really about the import form, which posted to a different path. Renamed `PortfolioTradeFormFrame` to `PortfolioListFrame` since it now drives two forms sharing the `portfolio-list` frame (unchanged mechanically — it already matched by `data-rmx-target` attribute, not a fixed form id); updated `frame-form-ux.component.js`'s history comment and `catalog-etf-analysis.browser.ts`'s reference-shape comment to match. A same-day self-review (`/code-review high`) flagged the import handler's own copy of the JSON/frame-HTML/flash+redirect branching as a near-duplicate of the trade form's schema-validation branch in `portfolio-operation-form/index.ts`; extracted both into a shared `portfolioValidationFailureResponse(context, message)` (alongside the existing `portfolioPersistenceFailureResponse`) rather than letting two copies of the same three-way `Accept` switch drift, the same reasoning `de7df75` used to extract `watchFrameFormSubmissions`. One deliberate behavior change alongside the wiring: the old `import` action always redirected on invalid input (empty paste, unparseable CSV, zero rows) with no feedback at all — the only portfolio/guidelines form with no error path. Porting it onto the shared `data-rmx-target` convention (JSON 422 / HTML-fragment 422 with `role="alert"` / flash+redirect, matched on `Accept`) needed *some* response for that case, so it now reports `errors.portfolio.importInvalid` the same way every other form here reports validation failures, rather than silently doing nothing. Confirmed the ≥ 500 frame-response limitation doesn't apply here — CSV import has no upstream call, so every failure path is already < 500. `npm test` 587/587 (4 new: success/422-HTML/422-JSON/flash-redirect for invalid CSV), `npm run test:browser` 28/28 (2 new: paste-import success updates the frame, no-valid-rows renders the inline error without navigating). |
 | `3c5c299` | Catalog ETF analysis form ported to native `data-rmx-target`, route-consolidation-first per the prior *Next step*. `routes.ts`'s `catalog.etf` (`GET`) and `catalog.etfAnalysis` (`POST /etf/:id/analysis`) became `...form('etf/:catalogEntryId')` nested under `catalog` — one `index`/`action` pair at `/catalog/etf/:catalogEntryId`, mapped with a separate `router.map(routes.catalog.etf, catalogEtfController)` call since `router.map()` refuses a nested route group inside the outer controller's `actions` (error message says so explicitly: call `router.map()` for that route map separately). No hidden intent field needed — the `action` route serves exactly one POST purpose. Added `CatalogEtfAnalysisFrame`, following `guidelines-list-frame.component.js`'s one-entry-per-page shape. Hit one new wrinkle beyond the guidelines/portfolio ports: `@remix-run/ui`'s `defaultResolveFrame` (`runtime/run.ts`) throws for **any** response status ≥ 500 regardless of content type — unlike 4xx, which it accepts whenever the body is HTML — so the frame's own `render()` never runs and the error fragment is silently dropped; `reloadComplete` still fires (in a `finally`), so without this fix the client code would have read "no `role=\"alert\"` present" as success and hidden the form over a request that never rendered anything. Confirmed live with a mocked OpenAI failure before touching the fix (browser test failed exactly as predicted: `[role="alert"]` never appeared). Fixed by returning `200` instead of `503` for the upstream-failure branch — the only status this route ever needs at genuine 5xx (403/404 stay as they are, both already <500 and unaffected). Added `data-frame-hide-form-on-success` support to `watchFrameFormSubmissions` (checked as a per-form attribute, same as `data-reset-form`, gated on `!failed` so a failed analysis leaves the form visible for retry) — the wrinkle flagged in the prior *Next step*, and the first thing to need it. `npm test` 583/583, `npm run test:browser` 26/26 (2 new: success hides the form and lands the analysis text with no URL drift, upstream failure renders the inline error and leaves the form/busy-state alone). |
 | `de7df75` | Extracted `watchFrameFormSubmissions` (`app/components/client/frame-form-ux.component.js`) from the near-identical logic duplicated between `PortfolioTradeFormFrame` and `GuidelinesListFrame` — flagged by code review on PR #191. Checked rc.2 first for a built-in replacement before extracting: `FrameHandle` (`@remix-run/ui`'s `component.ts`) exposes only `src`, `reload()`, `replace()` and the two payload-less `reloadStart`/`reloadComplete` events, and the `button()` mixin (`@remix-run/ui/button`) is presentational only (CSS + default `type="button"`) — no busy/pending state, no submission-status API, in either. Reason 1: nothing to adopt. Both call sites' matching turned out identical once compared side by side — both target forms already carry `data-rmx-target="<frame>"`, so the shared helper matches on that attribute generically instead of `PortfolioTradeFormFrame`'s old fixed-id lookup, and it captures the submitting form/control at `submit` time (as `GuidelinesListFrame` already did) rather than re-querying by id at `reloadComplete` (as `PortfolioTradeFormFrame` used to) — needed for guidelines' multiple per-row forms, and harmless for portfolio's single form. `closeDialogsOnReload` is an option, on for guidelines only. Both `frame-submit.browser.ts` (portfolio) and `guidelines.browser.ts` pass unchanged. |
 | `d6168c2` | Guidelines' 4 forms (add-instrument, add-bucket, update-target, delete) ported to native `data-rmx-target`. First attempt hit a real blocker: `data-rmx-target` commits the form's `action` as the document URL regardless of which frame it targets, and guidelines' four actions were nested paths distinct from `/guidelines` — confirmed live (`GET /guidelines/instrument` → 405 after an add). Resolved it rather than reverting under reason 3: consolidated `routes.ts`'s `guidelines` entry onto `...form('guidelines')` (one `index`/`action` GET+POST pair at `/guidelines`, the same first-party shape `advice` already used) and added a hidden `guidelineIntent` field (`addInstrument`/`addAssetClass`/`updateTarget`/`delete`) the single `action` handler switches on — same pattern as `advice`'s `adviceIntent`; `updateTarget`/`delete` take the row `id` as a hidden field instead of a path segment, and the `_method=DELETE` override is gone (no longer needed with one POST route). With every form's action now equal to the page, the `data-rmx-target` port (a `GuidelinesListFrame` client entry mirroring `PortfolioTradeFormFrame`, covering all 4 forms since it hooks the frame rather than one fixed form id) worked with no URL drift. Wrote the pattern up as the project standard in `docs/UI_ARCHITECTURE_GUIDELINES.md` §10, and closed Plan Open question 4 (chose option (b)). `npm test` 583/583, `npm run test:browser` 24/24 (5 new: add success/reset, add 422/no-reset, update-target, delete-via-dialog closes its own dialog, unrelated-reload doesn't clear the form). |
@@ -41,39 +42,39 @@ ahead of time.
 
 ## Next step
 
-**Portfolio CSV import, route-consolidation-first** (`/portfolio/import` vs.
-`/portfolio`) — the same treatment catalog ETF analysis just got. Consolidate
-onto a shared path first (`import-etf-form` posts to a different route than
-the portfolio page), then add `data-rmx-target` + a client entry following
-`catalog-etf-analysis-frame.component.js` / `guidelines-list-frame.component.js`
-as the reference shape. Lower priority than the rest of the backlog below
-since it's a single low-frequency form, not blocking anything else — pick
-whichever is more useful next.
+**Advice's 3 forms** (run buy-next, run portfolio-review, clear) ported from
+`FrameSubmitEnhancement`/`data-frame-submit="advice-result"` to native
+`data-rmx-target`. No route change needed — `form('advice')` already gives
+them one path (`advice.action`), and they already carry `adviceIntent`
+(`run`/`clear`) discriminating the single handler, the pattern portfolio and
+guidelines were consolidated onto. What's left is the `data-rmx-target` +
+client-entry port itself (following `PortfolioListFrame` /
+`GuidelinesListFrame` as the reference shape), including advice's two special
+cases: the gist-stale branch (`POST` response swaps `<main>` from the full
+document instead of reloading a frame — confirm whether that still fits a
+frame-based reload or needs its own handling) and the `POST + reload-src`
+mode `FrameSubmitEnhancement` currently gives it instead of
+replace-from-response. Advice's whole-page 503 (`advice/index.ts`'s `run`
+action, on an OpenAI failure) is a full document response, not a frame fetch,
+so the ≥ 500 frame limitation below doesn't apply to it.
 
 Whichever form is ported next: check whether any of its non-2xx responses can
 be ≥ 500. `@remix-run/ui`'s `defaultResolveFrame` throws for any such status
 regardless of content type, silently dropping the HTML error fragment — see
-the decision recorded below. Portfolio CSV import's failure responses are
-already 422/UI-flash shaped, so this likely doesn't apply there, but confirm
-rather than assume.
+the decision recorded below.
 
 ## Backlog after that, in order
 
-1. Portfolio CSV import per *Next step* above. Advice's 3 forms need no route
-   change (`form('advice')` already gives them one path) — just the
-   `data-rmx-target` + client-entry port itself, including its two special
-   cases (the gist-stale branch, `POST + reload-src` mode instead of
-   replace-from-response). Advice's whole-page 503 (`advice/index.ts`'s `run`
-   action, on an OpenAI failure) is a full document response, not a frame
-   fetch, so the ≥ 500 frame limitation below doesn't apply to it.
-2. Delete whatever is left of `frame-submit.component.js` beyond the
+1. Delete whatever is left of `frame-submit.component.js` beyond the
    app-specific UX layer, and shrink `frame-submit-request.ts` if the `Accept`
-   branching collapses.
-3. `tabs-nav` → `tabs/primitives`: expected to go the way of the sidebar
+   branching collapses. (Catalog's ETF import form still uses
+   `data-frame-submit="catalog-list"` too — check it alongside advice before
+   assuming nothing targets `FrameSubmitEnhancement` anymore.)
+2. `tabs-nav` → `tabs/primitives`: expected to go the way of the sidebar
    (`tab` requires an `HTMLButtonElement`, the provider switches panels
    client-side, ours is `<a>` navigation between pages). Worth a measured
    attempt so it is recorded with evidence rather than predicted.
-4. Stage 7 — `remix/ui/button` / `remix/ui/input`, then the dev tooling swaps.
+3. Stage 7 — `remix/ui/button` / `remix/ui/input`, then the dev tooling swaps.
 
 ## Decisions already taken — do not relitigate
 
@@ -172,6 +173,18 @@ rather than assume.
   ≥ 500 needs remapping, and only when the response is reached through a frame
   fetch rather than a full document response (advice's whole-page 503 is the
   latter and is unaffected — see the backlog above).
+- **A route-consolidation port surfacing a form's first real error response is
+  in scope, not scope creep.** Portfolio CSV import's pre-port `action` always
+  redirected on invalid input (empty paste, unparseable CSV, zero rows parsed)
+  with no flash, no inline error, nothing — the only form on these two pages
+  with no error path at all. Adopting the shared `data-rmx-target` contract
+  (JSON 422 / HTML-fragment 422 with `role="alert"` / flash+redirect, chosen
+  by `Accept`) needs *some* response for that case, matching every other form
+  here; leaving it silent would mean inventing a fourth, import-only response
+  shape just to avoid a one-line locale addition. `errors.portfolio.
+  importInvalid` closes that gap. If a future consolidation finds a similarly
+  silent failure path, give it the same treatment rather than preserving the
+  silence for "port mechanics only" purity.
 
 ## Open questions for the user
 

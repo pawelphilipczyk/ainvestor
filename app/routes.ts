@@ -2,6 +2,7 @@ import { del, form, get, post, route } from 'remix/routes'
 
 const adviceForm = form('advice')
 const guidelinesForm = form('guidelines')
+const portfolioForm = form('portfolio')
 
 export const routes = route({
 	health: get('/health'),
@@ -20,9 +21,7 @@ export const routes = route({
 		index: get('/'),
 	},
 	portfolio: {
-		index: get('/portfolio'),
-		create: post('/portfolio'),
-		import: post('/portfolio/import'),
+		...portfolioForm,
 		delete: del('/portfolio/:id'),
 		fragmentList: get('/fragments/portfolio-list'),
 	},
