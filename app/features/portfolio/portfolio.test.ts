@@ -447,9 +447,9 @@ IBTA LN ETF;GBR-LSE;4087.48;PLN`
 		assert.doesNotMatch(listBody, /data-island="features\/portfolio\/etf-card"/)
 	})
 
-	it('serves frame-submit component entry for form enhancement', async () => {
+	it('serves portfolio-list-frame component entry for form enhancement', async () => {
 		const componentScriptResponse = await testSessionFetch(
-			'http://localhost/components/client/frame-submit.component.js',
+			'http://localhost/features/portfolio/portfolio-list-frame.component.js',
 		)
 		assert.equal(componentScriptResponse.status, 200)
 		assert.match(

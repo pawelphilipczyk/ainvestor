@@ -18,6 +18,7 @@ import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { CatalogFilterPrefsEnhancement } from './catalog-filter-prefs.component.js'
+import { CatalogListFrame } from './catalog-list-frame.component.js'
 import type { CatalogRiskBand } from './lib.ts'
 
 type CatalogPageProps = {
@@ -62,8 +63,8 @@ export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
 							action={routes.catalog.index.href()}
 							class="flex flex-wrap items-end gap-3"
 							data-catalog-filter-form
-							data-frame-submit="catalog-list"
-							data-frame-get-fragment-action={routes.catalog.fragmentList.href()}
+							data-rmx-target="catalog-list"
+							data-rmx-history="replace"
 						>
 							<div class="grid gap-1.5">
 								<FieldLabel fieldId="type" variant="filter">
@@ -152,6 +153,7 @@ export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
 					src={props.catalogListFrameSrc}
 					fallback={frameLoadingPlaceholder()}
 				/>
+				<CatalogListFrame />
 			</main>
 		)
 	}

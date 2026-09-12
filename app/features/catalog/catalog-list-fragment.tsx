@@ -161,7 +161,7 @@ function renderCatalogEtfScrollableTable(params: {
 	)
 }
 
-type CatalogListFragmentProps = {
+export type CatalogListFragmentProps = {
 	catalog: CatalogEntry[]
 	holdings: EtfEntry[]
 	typeFilter: string

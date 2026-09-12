@@ -13,7 +13,18 @@ on:
 
 concurrency:
   group: deploy-preview
-  cancel-in-progress: true
+  # `fly.preview.toml` deploys every PR to the same single shared app (a
+  # stable URL for OAuth callback, "only one PR preview at a time"), so the
+  # group stays unparameterized on purpose -- two deploys must never run
+  # concurrently against it. But cancel-in-progress here means any other
+  # PR's push (or a workflow_dispatch) silently cancels whichever deploy was
+  # already running, leaving that PR's own run showing "cancelled" with no
+  # retry and the shared app not reflecting that PR's code -- confirmed live
+  # (run 639, this PR, cancelled by run 640 from an unrelated PR pushed 28s
+  # later). Queue instead of cancelling: still only one deploy runs at a
+  # time, and the most recent push still ends up live last, but no run gets
+  # silently dropped.
+  cancel-in-progress: false
 
 env:
   FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}

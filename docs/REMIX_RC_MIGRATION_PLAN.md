@@ -688,6 +688,9 @@ Confirm CI and the Fly image satisfy it.
    blocked. Landed for guidelines — see the bullet above and
    `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 for the pattern writeup, which
    is now the standard for every `data-rmx-target` form. Catalog ETF
-   analysis and portfolio CSV import still need the same route
-   consolidation before their own `data-rmx-target` port; not a fresh
-   decision when they're picked up, just an application of this one.
+   analysis and portfolio CSV import needed the same route consolidation
+   before their own `data-rmx-target` port, and got it (not a fresh
+   decision, just an application of this one). The catalog list's own
+   filter form did not — its `action` already equalled `/catalog` before
+   this rule ever came up — so it moved straight to `data-rmx-target` once
+   ported; see `docs/REMIX_RC_MIGRATION_STATUS.md`.

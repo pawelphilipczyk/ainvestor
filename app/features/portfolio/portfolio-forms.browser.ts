@@ -11,17 +11,23 @@ import {
 import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
 
 /**
- * Characterization tests for `FrameSubmitEnhancement`, one per mode it
- * supports. They pin the behavior as it is today so the Stage 6 move of the
- * form *mechanics* onto the rc.2 runtime's native form navigation
- * (`docs/REMIX_RC_MIGRATION_PLAN.md` §7) can be judged against something real.
+ * Browser coverage for the portfolio trade form and CSV import, both
+ * `data-rmx-target="portfolio-list"` forms driven by `PortfolioListFrame`
+ * (`app/features/portfolio/portfolio-list-frame.component.js`) — see
+ * `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 and
+ * `docs/REMIX_RC_MIGRATION_STATUS.md`.
  *
- * They assert user-visible outcomes — what the frame region shows, where the
- * URL bar points, whether the form reset — rather than internals, so they stay
- * meaningful across that change. Frames render as comment-delimited regions,
- * not elements, so frame content is read from the page text.
+ * Originally written as characterization tests for the hand-rolled
+ * `FrameSubmitEnhancement` mechanism these forms used to run on, before each
+ * was ported to the rc.2 runtime's native form navigation. That mechanism
+ * (and its `data-frame-submit`-driven catalog filter-form sibling test) is
+ * gone now that every form using it has moved — see the catalog list's own
+ * `catalog-list-filter.browser.ts` for that one — but the assertions here
+ * (what the frame region shows, where the URL bar points, whether the form
+ * reset) are still this repo's only browser coverage for portfolio's forms,
+ * so they stay, renamed to reflect what they actually exercise today.
  */
-describe('frame submit flows (browser)', () => {
+describe('portfolio forms (browser)', () => {
 	let session: BrowserTestSession
 
 	before(async () => {
@@ -55,33 +61,7 @@ describe('frame submit flows (browser)', () => {
 			return index === -1 ? '' : text.slice(index)
 		})
 
-	it('GET + fragment action: filters the list frame and syncs the document URL', async () => {
-		const opened = await open('/catalog')
-		const before = await pageText(opened)
-		assert.match(before, /BTEQ/, 'equity fund listed before filtering')
-		assert.match(before, /BTBD/, 'bond fund listed before filtering')
-
-		await opened.page.selectOption('#type', 'bond')
-		await opened.page.click('[data-catalog-filter-form] button[type="submit"]')
-		await opened.page.waitForFunction(
-			() => !document.body.innerText.includes('BTEQ'),
-			undefined,
-			{ timeout: 5000 },
-		)
-
-		const after = await pageText(opened)
-		assert.match(after, /BTBD/, 'bond fund survives the filter')
-		assert.doesNotMatch(after, /BTEQ/, 'equity fund filtered out of the frame')
-		assert.match(opened.page.url(), /[?&]type=bond/, 'document URL carries it')
-		assert.equal(
-			new URL(opened.page.url()).pathname,
-			'/catalog',
-			'URL bar stays on the document, not the fragment route',
-		)
-		assert.deepEqual(opened.problems, [])
-	})
-
-	it('POST + replace-from-response: re-renders the list frame and resets the form', async () => {
+	it('trade form: buy re-renders the list frame and resets the form', async () => {
 		const opened = await open('/portfolio')
 		const { page } = opened
 		assert.doesNotMatch(await holdingsText(opened), /BTEQ/, 'no holdings yet')
@@ -125,7 +105,7 @@ describe('frame submit flows (browser)', () => {
 		assert.deepEqual(opened.problems, [])
 	})
 
-	it('POST + replace-from-response, 422: renders the inline error in the list frame without navigating', async () => {
+	it('trade form, 422: renders the inline error in the list frame without navigating', async () => {
 		const opened = await open('/portfolio')
 		const { page } = opened
 
@@ -172,7 +152,7 @@ describe('frame submit flows (browser)', () => {
 		])
 	})
 
-	it('data-rmx-target: an unrelated same-page reload of the frame does not touch the unsubmitted form', async () => {
+	it('an unrelated same-page reload of the frame does not touch the unsubmitted trade form', async () => {
 		const opened = await open('/portfolio')
 		const { page } = opened
 
