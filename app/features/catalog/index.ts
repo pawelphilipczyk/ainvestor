@@ -252,6 +252,45 @@ function renderCatalogListFragmentHtml(
 	})
 }
 
+/**
+ * The `catalog-list` Frame's fragment for whatever filters the request's URL
+ * carries -- shared by `fragmentList` (the Frame's own initial `src`) and
+ * `index`'s frame-fetch branch (a live `data-rmx-target` filter reload), so
+ * the two can't drift on what "the fragment for these filters" means.
+ */
+async function catalogListFragmentResponse(
+	context: AppRequestContext,
+): Promise<Response> {
+	const url = new URL(context.request.url)
+	const {
+		type: typeFilter,
+		risk: riskFilter,
+		query,
+	} = normalizedCatalogFilterPrefs({
+		type: url.searchParams.get('type') ?? '',
+		risk: url.searchParams.get('risk') ?? '',
+		query: url.searchParams.get('q') ?? '',
+	})
+
+	const load = await loadCatalogPageContext(context)
+	const { catalogSnapshot, entries, session, layoutSession } = load
+
+	return renderCatalogListFragmentHtml({
+		catalog: catalogSnapshot.entries,
+		holdings: entries,
+		typeFilter,
+		riskFilter,
+		query,
+		totalCatalogCount: catalogSnapshot.entries.length,
+		isAdmin: isAdmin({
+			session,
+			layoutSession,
+			ownerLogin: catalogSnapshot.ownerLogin,
+		}),
+		pendingApproval: layoutSession?.approvalStatus === 'pending',
+	})
+}
+
 function samePathAndSearch(a: string, b: string): boolean {
 	try {
 		const urlA = new URL(a, 'https://frame-resolve.local')
@@ -268,6 +307,16 @@ function samePathAndSearch(a: string, b: string): boolean {
 export const catalogController = {
 	actions: {
 		async index(context: AppRequestContext) {
+			// A `data-rmx-target="catalog-list"` filter submission (native
+			// form-navigation) fetches this same `/catalog` route with
+			// `Accept: text/html` -- see docs/UI_ARCHITECTURE_GUIDELINES.md §10. A
+			// named (non-top) Frame always diffs its response as a plain fragment,
+			// even a full `<html>` document, so this route must not send the full
+			// page down that path.
+			if (requestAcceptsFrameSubmitHtml(context.request)) {
+				return catalogListFragmentResponse(context)
+			}
+
 			const url = new URL(context.request.url)
 			const {
 				type: typeFilter,
@@ -281,38 +330,17 @@ export const catalogController = {
 
 			const load = await loadCatalogPageContext(context)
 			const { catalogSnapshot, entries, session, layoutSession } = load
-			const pendingApproval = layoutSession?.approvalStatus === 'pending'
-			const isAdminFlag = isAdmin({
-				session,
-				layoutSession,
-				ownerLogin: catalogSnapshot.ownerLogin,
-			})
-
-			// A `data-rmx-target="catalog-list"` filter submission (native
-			// form-navigation) fetches this same `/catalog` route with
-			// `Accept: text/html` -- see docs/UI_ARCHITECTURE_GUIDELINES.md §10. A
-			// named (non-top) Frame always diffs its response as a plain fragment,
-			// even a full `<html>` document, so this route must not send the full
-			// page down that path.
-			if (requestAcceptsFrameSubmitHtml(context.request)) {
-				return renderCatalogListFragmentHtml({
-					catalog: catalogSnapshot.entries,
-					holdings: entries,
-					typeFilter,
-					riskFilter,
-					query,
-					totalCatalogCount: catalogSnapshot.entries.length,
-					isAdmin: isAdminFlag,
-					pendingApproval,
-				})
-			}
 
 			return renderCatalogPage(context, {
 				catalog: catalogSnapshot.entries,
 				entries,
 				session: layoutSession,
-				isAdmin: isAdminFlag,
-				pendingApproval,
+				isAdmin: isAdmin({
+					session,
+					layoutSession,
+					ownerLogin: catalogSnapshot.ownerLogin,
+				}),
+				pendingApproval: layoutSession?.approvalStatus === 'pending',
 				typeFilter,
 				riskFilter,
 				query,
@@ -493,35 +521,7 @@ export const catalogController = {
 		},
 
 		async fragmentList(context: AppRequestContext) {
-			const url = new URL(context.request.url)
-			const {
-				type: typeFilter,
-				risk: riskFilter,
-				query,
-			} = normalizedCatalogFilterPrefs({
-				type: url.searchParams.get('type') ?? '',
-				risk: url.searchParams.get('risk') ?? '',
-				query: url.searchParams.get('q') ?? '',
-			})
-
-			const load = await loadCatalogPageContext(context)
-			const { catalogSnapshot, entries, session, layoutSession } = load
-			const pendingApproval = layoutSession?.approvalStatus === 'pending'
-
-			return renderCatalogListFragmentHtml({
-				catalog: catalogSnapshot.entries,
-				holdings: entries,
-				typeFilter,
-				riskFilter,
-				query,
-				totalCatalogCount: catalogSnapshot.entries.length,
-				isAdmin: isAdmin({
-					session,
-					layoutSession,
-					ownerLogin: catalogSnapshot.ownerLogin,
-				}),
-				pendingApproval,
-			})
+			return catalogListFragmentResponse(context)
 		},
 	},
 }
