@@ -1036,7 +1036,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /1 ETF in catalog/)
 	})
 
-	it('catalog filter form uses Frame submit + fragment action for list updates', async () => {
+	it('catalog filter form uses native data-rmx-target for list updates', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -1055,16 +1055,42 @@ describe('ETF Catalog page', () => {
 
 		assert.match(
 			body,
-			/<form\b[^>]*\bmethod="get"[^>]*\bdata-frame-submit="catalog-list"/,
+			/<form\b[^>]*\bmethod="get"[^>]*\bdata-rmx-target="catalog-list"/,
 		)
 		assert.match(
 			body,
-			/<form\b[^>]*\bdata-frame-get-fragment-action="\/catalog\/fragments\/list"/,
+			/<form\b[^>]*\bdata-rmx-target="catalog-list"[^>]*\bdata-rmx-history="replace"/,
 		)
 		assert.match(
 			body,
-			/<form\b(?=[^>]*\bmethod="get")(?=[^>]*\bdata-frame-submit="catalog-list")[^>]*>[\s\S]*?submit-button-busy-overlay[\s\S]*?<\/form>/,
+			/<form\b(?=[^>]*\bmethod="get")(?=[^>]*\bdata-rmx-target="catalog-list")[^>]*>[\s\S]*?submit-button-busy-overlay[\s\S]*?<\/form>/,
 		)
+	})
+
+	it('GET /catalog with Accept: text/html (a frame-targeted filter reload) returns only the list fragment', async () => {
+		const bankJson = JSON.stringify({
+			data: [
+				{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' },
+				{ fund_name: 'Vanguard Bond', ticker: 'BND', assets: 'obligacje' },
+			],
+			count: 2,
+			total_count: 2,
+		})
+		seedSharedCatalog(bankJson)
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/catalog?type=bond', {
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.doesNotMatch(body, /<html/)
+		assert.doesNotMatch(body, /<body/)
+		assert.match(body, /BND/)
+		assert.doesNotMatch(body, /VTI/)
+		assert.match(body, /Showing 1 of 2 ETFs/)
 	})
 
 	it('catalog type filter narrows results', async () => {

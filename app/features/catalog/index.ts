@@ -4,7 +4,10 @@ import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
 import { renderToStream } from 'remix/ui/server'
 import { render } from '../../components/render.ts'
-import { requestAcceptsApplicationJson } from '../../lib/frame-submit-request.ts'
+import {
+	requestAcceptsApplicationJson,
+	requestAcceptsFrameSubmitHtml,
+} from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { MULTIPART_MAX_FILE_BYTES } from '../../lib/multipart-upload-limits.ts'
@@ -32,7 +35,10 @@ import {
 import { getCatalogEtfDeepDiveText } from './catalog-etf-openai.ts'
 import { CatalogEtfPage } from './catalog-etf-page.tsx'
 import { normalizedCatalogFilterPrefs } from './catalog-filter-prefs.ts'
-import { CatalogListFragment } from './catalog-list-fragment.tsx'
+import {
+	CatalogListFragment,
+	type CatalogListFragmentProps,
+} from './catalog-list-fragment.tsx'
 import {
 	isAdmin,
 	loadCatalogEtfDetailContext,
@@ -234,6 +240,18 @@ function renderCatalogEtfAnalysisFragmentHtml(
 	)
 }
 
+function renderCatalogListFragmentHtml(
+	props: CatalogListFragmentProps,
+	init?: ResponseInit,
+): Response {
+	const headers = new Headers(init?.headers)
+	headers.set('Cache-Control', 'no-store')
+	return createHtmlResponse(renderToStream(jsx(CatalogListFragment, props)), {
+		...init,
+		headers,
+	})
+}
+
 function samePathAndSearch(a: string, b: string): boolean {
 	try {
 		const urlA = new URL(a, 'https://frame-resolve.local')
@@ -263,17 +281,38 @@ export const catalogController = {
 
 			const load = await loadCatalogPageContext(context)
 			const { catalogSnapshot, entries, session, layoutSession } = load
+			const pendingApproval = layoutSession?.approvalStatus === 'pending'
+			const isAdminFlag = isAdmin({
+				session,
+				layoutSession,
+				ownerLogin: catalogSnapshot.ownerLogin,
+			})
+
+			// A `data-rmx-target="catalog-list"` filter submission (native
+			// form-navigation) fetches this same `/catalog` route with
+			// `Accept: text/html` -- see docs/UI_ARCHITECTURE_GUIDELINES.md §10. A
+			// named (non-top) Frame always diffs its response as a plain fragment,
+			// even a full `<html>` document, so this route must not send the full
+			// page down that path.
+			if (requestAcceptsFrameSubmitHtml(context.request)) {
+				return renderCatalogListFragmentHtml({
+					catalog: catalogSnapshot.entries,
+					holdings: entries,
+					typeFilter,
+					riskFilter,
+					query,
+					totalCatalogCount: catalogSnapshot.entries.length,
+					isAdmin: isAdminFlag,
+					pendingApproval,
+				})
+			}
 
 			return renderCatalogPage(context, {
 				catalog: catalogSnapshot.entries,
 				entries,
 				session: layoutSession,
-				isAdmin: isAdmin({
-					session,
-					layoutSession,
-					ownerLogin: catalogSnapshot.ownerLogin,
-				}),
-				pendingApproval: layoutSession?.approvalStatus === 'pending',
+				isAdmin: isAdminFlag,
+				pendingApproval,
 				typeFilter,
 				riskFilter,
 				query,
@@ -469,25 +508,20 @@ export const catalogController = {
 			const { catalogSnapshot, entries, session, layoutSession } = load
 			const pendingApproval = layoutSession?.approvalStatus === 'pending'
 
-			return createHtmlResponse(
-				renderToStream(
-					jsx(CatalogListFragment, {
-						catalog: catalogSnapshot.entries,
-						holdings: entries,
-						typeFilter,
-						riskFilter,
-						query,
-						totalCatalogCount: catalogSnapshot.entries.length,
-						isAdmin: isAdmin({
-							session,
-							layoutSession,
-							ownerLogin: catalogSnapshot.ownerLogin,
-						}),
-						pendingApproval,
-					}),
-				),
-				{ headers: { 'Cache-Control': 'no-store' } },
-			)
+			return renderCatalogListFragmentHtml({
+				catalog: catalogSnapshot.entries,
+				holdings: entries,
+				typeFilter,
+				riskFilter,
+				query,
+				totalCatalogCount: catalogSnapshot.entries.length,
+				isAdmin: isAdmin({
+					session,
+					layoutSession,
+					ownerLogin: catalogSnapshot.ownerLogin,
+				}),
+				pendingApproval,
+			})
 		},
 	},
 }

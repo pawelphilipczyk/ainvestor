@@ -258,11 +258,14 @@ just guidelines and advice.** Before wiring a form's `data-rmx-target`,
 confirm its `action` equals its page's own route — if it doesn't yet,
 consolidate onto `form('<feature>')` and a hidden intent field first.
 Guidelines, portfolio's trade/CSV-import forms, catalog's ETF analysis form,
-and advice's 3 forms are done; catalog's ETF import form is the only one
-left on `data-frame-submit` and will need the same route check before it can
-move. A route matching this rule is necessary but not sufficient, though —
-advice's port needed it *and* a bigger fix (every response had to stop being
-a full-page render, and the result Frame had to stop being conditional); see
+advice's 3 forms, and the catalog list's own filter form are done — the
+last of those was a plain GET, and its `action` already equalled its page
+(`/catalog`), so it needed no route consolidation, just the frame-fetch
+dispatcher below. `FrameSubmitEnhancement`/`data-frame-submit` has no
+remaining callers; see `docs/REMIX_RC_MIGRATION_STATUS.md`. A route matching
+this rule is necessary but not sufficient, though — advice's port needed it
+*and* a bigger fix (every response had to stop being a full-page render, and
+the result Frame had to stop being conditional); see
 `docs/REMIX_RC_MIGRATION_STATUS.md`'s decision log before assuming the next
 port is attribute-only.
 
