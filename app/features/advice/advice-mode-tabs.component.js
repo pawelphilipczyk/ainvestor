@@ -1,13 +1,12 @@
 import { clientEntry, createElement, ref } from 'remix/ui'
 import { Context, list, root, tab } from 'remix/ui/tabs/primitives'
 import { setSubmitButtonLoading } from '../../components/client/submit-button-loading.component.js'
+import {
+	tabsListClass as listClass,
+	tabsTabClass as tabClass,
+} from '../../components/client/tabs-classes.component.js'
 
 const FRAME_NAME = 'advice-result'
-
-const listClass = 'flex flex-wrap gap-2 border-b border-border pb-px'
-
-const tabClass =
-	'rounded-t-md px-4 py-2 text-sm font-medium outline-none transition-colors text-muted-foreground hover:text-card-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 [&[data-state=active]]:-mb-px [&[data-state=active]]:border [&[data-state=active]]:border-b-0 [&[data-state=active]]:border-border [&[data-state=active]]:bg-muted/60 [&[data-state=active]]:text-card-foreground'
 
 /**
  * Real, same-page tab switching for advice's two analysis modes — same
@@ -59,7 +58,11 @@ export const AdviceModeTabs = clientEntry(
 				() => setSubmitButtonLoading(control, false),
 				{ once: true },
 			)
-			void frame.reload()
+			// `reload()`'s own promise rethrows on failure (@remix-run/ui's
+			// resolveAndRenderReload, after dispatching a component-error event
+			// to errorTarget) — caught here only to avoid an unhandled rejection;
+			// reloadComplete above already clears the busy state either way.
+			frame.reload().catch(() => {})
 		}
 
 		return () =>

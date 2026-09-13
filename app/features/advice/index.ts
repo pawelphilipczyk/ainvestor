@@ -168,13 +168,18 @@ function renderAdviceModePanelHtml(
 
 function resolveAdviceResultFrame(
 	source: string,
-	frameSrc: string,
-	activeTab: AdviceAnalysisMode,
-	props: AdvicePageRenderProps,
+	options: {
+		frameSrc: string
+		activeTab: AdviceAnalysisMode
+		props: AdvicePageRenderProps
+	},
 ) {
-	if (source !== frameSrc) return ''
+	if (source !== options.frameSrc) return ''
 	return renderToStream(
-		jsx(AdviceModePanel, adviceModePanelPropsFromPage(activeTab, props)),
+		jsx(
+			AdviceModePanel,
+			adviceModePanelPropsFromPage(options.activeTab, options.props),
+		),
 	)
 }
 
@@ -206,12 +211,11 @@ function renderAdvicePageResponse(
 		}),
 		init: options.init,
 		resolveFrame(source) {
-			return resolveAdviceResultFrame(
-				source,
+			return resolveAdviceResultFrame(source, {
 				frameSrc,
 				activeTab,
-				options.props,
-			)
+				props: options.props,
+			})
 		},
 	})
 }
