@@ -636,18 +636,7 @@ export type AdviceModePanelProps = {
 	card?: AdviceResultCardProps
 }
 
-/**
- * One mode's full content — input form *and* result, together. Lives inside
- * the `advice-result` Frame (both modes' own copy), not directly on the
- * page: each mode's remembered defaults (`cashAmount`, `cashCurrency`,
- * `selectedModel`) are gist-backed and mode-specific, so fetching them only
- * for the currently active tab — and re-fetching on demand when the user
- * switches — avoids loading both modes' state on every page view. See
- * `docs/REMIX_RC_MIGRATION_STATUS.md` for the full design trace. Replaces
- * the former `AdviceResultFragment` (error-or-card only); the form moved in
- * from `AdvicePage`, which used to render it directly, one mode at a time,
- * chosen by a full-page reload.
- */
+/** One mode's full content — input form and result together — rendered inside the `advice-result` Frame. */
 export function AdviceModePanel(handle: Handle<AdviceModePanelProps>) {
 	return () => {
 		const props = handle.props
@@ -851,26 +840,7 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 						buyNextFrameSrc={props.buyNextFrameSrc}
 						portfolioReviewFrameSrc={props.portfolioReviewFrameSrc}
 					/>
-					{/*
-						No `fallback`, deliberately: `@remix-run/ui`'s `buildFrameSegment`
-						(server/stream.js) treats a `fallback`-carrying Frame as
-						non-blocking — it streams the fallback immediately and delivers
-						the real content only via the client-side hydration patch, which
-						needs JavaScript. Confirmed live (Chromium, JS disabled): every
-						other Frame in this app already has this property, harmlessly,
-						because their content lived outside any form a no-JS user needs
-						(guidelines-list, portfolio-list, catalog-list, catalog-etf-analysis).
-						This Frame is different — `AdviceModePanel` moved the input form
-						itself in here (see docs/REMIX_RC_MIGRATION_STATUS.md), so keeping
-						a fallback would mean a no-JS visitor never sees the form at all.
-						Omitting `fallback` makes `buildFrameSegment` block on
-						`resolveFrame` and inline the real HTML instead — free here, since
-						`resolveAdviceResultFrame` only reshapes `props` the page already
-						awaited via `loadAdvicePageState`, no extra I/O. Client-triggered
-						reloads (a form submit or `AdviceModeTabs` switching modes) are
-						unaffected either way; `nonBlocking` only governs the very first
-						server-rendered paint.
-					*/}
+					{/* No `fallback`, deliberately — see docs/UI_ARCHITECTURE_GUIDELINES.md §11. */}
 					<Frame name="advice-result" src={frameSrc} />
 				</div>
 				<AdviceResultFrame />

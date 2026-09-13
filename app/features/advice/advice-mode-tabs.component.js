@@ -9,27 +9,11 @@ import {
 const FRAME_NAME = 'advice-result'
 
 /**
- * Real, same-page tab switching for advice's two analysis modes — same
- * pattern as `guidelines-tabs.component.js`, but with no `panel()`: each
- * mode's content (its input form *and* its result) lives in the shared
- * `advice-result` Frame instead of two co-resident panels, because that
- * content is gist-backed and mode-specific — see `AdviceModePanel` in
- * `advice-page.tsx` and `docs/REMIX_RC_MIGRATION_STATUS.md` for the design
- * trace. Switching tabs here means pointing the Frame at the other mode's
- * fragment URL and reloading it, not toggling a `hidden` attribute.
- *
- * `FrameHandle.src` is a plain, live-read property (`@remix-run/ui`'s
- * `frame.js`: `resolveAndRenderReload` reads `frame.src` at reload time, not
- * a value captured once at creation), so setting it before calling
- * `reload()` is enough to fetch the new mode's content — the same handle
- * `watchFrameFormSubmissions` already uses for busy-state UX
- * (`app/components/client/frame-form-ux.component.js`), and that file's own
- * "reloadStart/reloadComplete fire for any reload of the named frame" note
- * applies here too: its listeners are gated on a tracked form's own submit,
- * so this tab-triggered reload doesn't spuriously touch it.
- *
- * Busy state on the clicked tab reuses `setSubmitButtonLoading` (the same
- * helper submit buttons use) rather than inventing a second convention.
+ * Same-page tab switching for advice's two analysis modes. No `panel()`
+ * (unlike `guidelines-tabs.component.js`): each mode's content is gist-backed
+ * and mode-specific, so switching points the shared `advice-result` Frame at
+ * the other mode's fragment URL and reloads it, instead of toggling a
+ * `hidden` attribute. See `docs/UI_ARCHITECTURE_GUIDELINES.md` §11.
  */
 export const AdviceModeTabs = clientEntry(
 	'/features/advice/advice-mode-tabs.component.js#AdviceModeTabs',
@@ -58,10 +42,6 @@ export const AdviceModeTabs = clientEntry(
 				() => setSubmitButtonLoading(control, false),
 				{ once: true },
 			)
-			// `reload()`'s own promise rethrows on failure (@remix-run/ui's
-			// resolveAndRenderReload, after dispatching a component-error event
-			// to errorTarget) — caught here only to avoid an unhandled rejection;
-			// reloadComplete above already clears the busy state either way.
 			frame.reload().catch(() => {})
 		}
 

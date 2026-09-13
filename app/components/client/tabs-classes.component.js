@@ -1,10 +1,4 @@
-/**
- * Shared Tailwind classes for `tab()`-mixin tab bars — used by
- * `app/features/guidelines/guidelines-tabs.component.js` and
- * `app/features/advice/advice-mode-tabs.component.js`. Extracted on the
- * second use per `docs/UI_ARCHITECTURE_GUIDELINES.md`'s "Extract a shared
- * primitive on the second use".
- */
+/** Shared Tailwind classes for `tab()`-mixin tab bars. */
 export const tabsListClass = 'flex flex-wrap gap-2 border-b border-border pb-px'
 
 export const tabsTabClass =

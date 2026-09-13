@@ -132,14 +132,7 @@ function adviceResultCardPropsFromPage(
 	}
 }
 
-/**
- * The `advice-result` Frame's whole content for one mode — its input form
- * (gist-backed remembered defaults included) *and* its result, together.
- * `props` is always already loaded for `mode` specifically (`activeTab` was
- * `mode` when `loadAdvicePageState` ran), so this is a plain reshape, not a
- * second load. See `AdviceModePanel` in `advice-page.tsx` for why the form
- * moved in here instead of staying directly on the page.
- */
+/** Reshapes already-loaded page state into one mode's `AdviceModePanel` props. */
 function adviceModePanelPropsFromPage(
 	mode: AdviceAnalysisMode,
 	props: AdvicePageRenderProps,
