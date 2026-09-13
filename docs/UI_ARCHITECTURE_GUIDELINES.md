@@ -269,6 +269,67 @@ the result Frame had to stop being conditional); see
 `docs/REMIX_RC_MIGRATION_STATUS.md`'s decision log before assuming the next
 port is attribute-only.
 
+### 11. `tabs/primitives` is for same-page view switching, not page navigation — and it's the one deliberate exception to "no JS required"
+
+`remix/ui/tabs/primitives` (`Context`/`root`/`list`/`tab`/`panel`) has exactly
+one documented use, straight from the package's own README
+(`node_modules/remix/src/ui/tabs/README.md`): *"Use it when related views
+share the same page space."* Every example there hosts `tab()` on a real
+`<button>` and pairs it with `panel()` — both panels render into the DOM up
+front, and activating a tab is a client-side `hidden`/`inert` toggle with no
+fetch and no URL change. There is no `href`, routing, or navigation concept
+anywhere in it.
+
+**Do not reach for it as a `TabsNav`/`TabLink` (§ this doc, real per-page
+navigation) replacement.** Those are a different thing — separate pages,
+each with its own bookmarkable URL, `activeId` read from the request's own
+query param — and `tabs-nav.tsx` stays hand-rolled for that job (measured
+against `tabs/primitives` and rejected, reason 3; full trace in
+`docs/REMIX_RC_MIGRATION_STATUS.md` and `docs/REMIX_RC_MIGRATION_PLAN.md`
+Stage 6). Hosting `tab()` on an `<a href>` instead of a `<button>` does
+mechanically work — the mixin doesn't hard-require a particular host — but
+it fights the primitive's own design: its keydown handler unconditionally
+`preventDefault()`s Enter (and Space), which is correct when the host's
+default action is a click you want to suppress, and silently breaks
+keyboard activation when the host's default action is the navigation you
+were trying to keep. Measured live, not assumed: confirmed Enter stopped
+navigating a `tab()`-hosted anchor in Chromium.
+
+**Where the views genuinely share one page** — `guidelines-add-tabs.
+component.js`'s two add-forms (asset-class bucket vs. named instrument;
+switching between them is choosing an input mode for the same action, not
+moving to a different page) — the primitive is used exactly as documented:
+`<button>` hosts, `panel()` around both forms, `defaultActiveTab` seeded
+from the page's own `?tab=` query param so the *initial* render is still
+correct with no JS. This gets real ARIA (`role="tab"`/`"tablist"`,
+`aria-selected`, `aria-controls`/`aria-labelledby`) and full keyboard
+support (arrow-key roving focus, Home/End, Enter, Space) entirely for free —
+`<button>` has native Enter/Space activation, so unlike the `<a>` case above
+there is no keydown glue to write.
+
+**The one deliberate, written exception to "must function with little or no
+JavaScript"** (§3): *switching* tabs needs JavaScript — there is no native
+fallback for a client-side `hidden` toggle. Accept this only for a widget
+that is genuinely same-page (per the test above, not by assumption), and
+only because the *initial* tab still renders correctly without JS (the
+`?tab=` query param still drives `defaultActiveTab` server-side). Panel
+content for both tabs renders on every load regardless of which is active —
+confirm this is cheap before adopting; it was for guidelines (two small
+forms) and would need checking again per widget (advice's mode tabs, for
+example, sit in front of a shared, lazily-loaded `<Frame>` rather than
+duplicating heavy content, so the same shape would likely also be cheap
+there, but that hasn't been measured — see the backlog in
+`docs/REMIX_RC_MIGRATION_STATUS.md`).
+
+A `.component.js` can't import a `.tsx` file (no build step, served to the
+browser as-is), so a shared presentational helper like `Card`'s
+`getCardClassNames()` has to be inlined as a literal Tailwind class string
+in the entry rather than imported — see `guidelines-add-tabs.component.js`
+for the worked example, including the active/inactive tab styling via
+Tailwind's `[&[data-state=active]]:` arbitrary variant (matching the
+`data-state` attribute `tab()`/`panel()` already write, not a hand-rolled
+class toggle).
+
 ---
 
 ## Styling Strategy

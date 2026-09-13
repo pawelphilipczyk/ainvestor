@@ -578,7 +578,8 @@ re-exports.
   with `renderToString` and assert the contract it emits (`role`,
   `data-state`, the `rmx-data` hydration record) instead of grepping the module
   source. `theme-toggle.test.ts` is the worked example.
-- **tabs-nav → `tabs/primitives`. Attempted; not adopted (reason 3).** Measured
+- **tabs-nav → `tabs/primitives` as a navigation replacement. Attempted; not
+  adopted (reason 3).** Measured
   live in Chromium, same rigor as the sidebar attempt: a throwaway `clientEntry`
   (`Context` + `root`/`list`/`tab`/`panel` from `remix/ui/tabs/primitives`) was
   mounted on the guidelines page's add-tabs, driven with Playwright, then
@@ -603,8 +604,53 @@ re-exports.
   an `onActiveTabChange` handler that itself pushes history and re-fetches the
   new tab's content — more hand-rolled code than `tabs-nav.tsx` has today, the
   opposite of what adopting a primitive is for. `tabs-nav.tsx` and
-  `tabs-nav-scroll.component.js` stay under reason 3; see
-  `docs/REMIX_RC_MIGRATION_STATUS.md` for the closed backlog item.
+  `tabs-nav-scroll.component.js` stay under reason 3 **for this job** — see the
+  next bullet for a real adoption of the same primitive against a different
+  job it actually fits, and `docs/REMIX_RC_MIGRATION_STATUS.md` for the closed
+  backlog item.
+- **A follow-up question, asked once the navigation verdict above landed: is
+  there a Remix-idiomatic way to keep instant, client-side tab switching
+  without giving up keyboard support or the no-JS principle?** Two more
+  things were measured before answering it, not assumed:
+  1. `tab()` composed with the `link()` mixin (`@remix-run/ui`'s
+     `link-mixin.js`) hosted on a real `<a href>` — ARIA/keyboard from
+     `tab()`, real navigation from the anchor's own `href` (for a native
+     `<a>`/`<area>` host, `link()` only ever writes `href` and the
+     `data-rmx-*` attributes; it attaches no click handler of its own, so
+     there is nothing to conflict with). This does work for mouse clicks and
+     arrow-key roving focus (confirmed live), but keyboard **Enter** silently
+     stops navigating: `tab()`'s own keydown handler calls `event.
+     preventDefault()` unconditionally on Enter, which suppresses the
+     anchor's native Enter-activation before the browser acts on it — a real,
+     measured defect (a plain `<a href>` baseline, no mixin at all, confirmed
+     Enter's native browser default *is* navigation), not a hypothetical one.
+     Fixable with a small, targeted `on('keydown', …)` addition that calls
+     `navigate(href)` on Enter, but it's still working the primitive against
+     its own grain.
+  2. **The primitive's own documented intent settled which of the two
+     directions was worth pursuing.** `node_modules/remix/src/ui/tabs/
+     README.md` — the Remix team's own docs, not inferred from source —
+     states plainly: *"Use it when related views share the same page
+     space,"* and its Behavior Notes section: *"Enter, Space, and pointer
+     clicks activate the focused tab."* Every one of its examples hosts
+     `tab()` on `<button>` with `panel()`; there is no `href`/navigation
+     concept anywhere in the doc. The `<a>`+`link()` composition above is a
+     working mechanism, not the documented one — and that's exactly why its
+     keydown handler doesn't protect Enter's native anchor behavior, the way
+     it doesn't need to for its actual, intended host.
+  3. This reframed the real question from "how do we bolt navigation onto
+     `tab()`" to "is there a tab set here that's genuinely same-page, as
+     documented, rather than page-navigation wearing tab styling?" —
+     answered yes for guidelines' add-tabs (bucket vs. named-instrument are
+     two input modes for the same action, not two pages) and adopted for
+     real: `<button>` hosts, `panel()`, full Enter/Space/click/arrow-key
+     support with zero extra glue (native `<button>` semantics, unlike the
+     `<a>` composition above), at the cost of one explicit, written exception
+     to the no-JS principle for *switching* — the initial tab still renders
+     correctly server-side. Full implementation trace in
+     `docs/REMIX_RC_MIGRATION_STATUS.md`'s newest *Done* row; the pattern and
+     its boundary against this bullet's navigation verdict are written up as
+     the project standard in `docs/UI_ARCHITECTURE_GUIDELINES.md` §11.
 
 **Stage 7 — styled components and dev tooling.** `remix/ui/button` and
 `remix/ui/input` against `submit-button.tsx` and the three input components —

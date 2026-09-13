@@ -38,9 +38,12 @@ const browserModulePaths = {
 	'remix/ui': 'node_modules/remix/dist/ui.js',
 	'remix/ui/toggle/primitives':
 		'node_modules/remix/dist/ui/toggle/primitives.js',
+	'remix/ui/tabs/primitives': 'node_modules/remix/dist/ui/tabs/primitives.js',
 	'@remix-run/ui': 'node_modules/@remix-run/ui/dist/index.js',
 	'@remix-run/ui/toggle/primitives':
 		'node_modules/@remix-run/ui/dist/toggle/primitives.js',
+	'@remix-run/ui/tabs/primitives':
+		'node_modules/@remix-run/ui/dist/tabs/primitives.js',
 } as const
 
 /**
