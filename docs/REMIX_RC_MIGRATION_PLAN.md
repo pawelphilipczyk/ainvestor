@@ -578,6 +578,121 @@ re-exports.
   with `renderToString` and assert the contract it emits (`role`,
   `data-state`, the `rmx-data` hydration record) instead of grepping the module
   source. `theme-toggle.test.ts` is the worked example.
+- **tabs-nav → `tabs/primitives` as a navigation replacement. Attempted; not
+  adopted (reason 3).** Measured
+  live in Chromium, same rigor as the sidebar attempt: a throwaway `clientEntry`
+  (`Context` + `root`/`list`/`tab`/`panel` from `remix/ui/tabs/primitives`) was
+  mounted on the guidelines page's add-tabs, driven with Playwright, then
+  removed once the measurement was in hand — nothing from the spike is in this
+  diff. Two results, both exactly what reading `@remix-run/ui`'s
+  `tabs/primitives.js` predicted before touching a browser: `tab()`'s entire
+  behavior is `context.activateTab(name)` on a `<button>`, with no `href`, no
+  history, no fetch, so (1) clicking a tab toggles which `<div role="tabpanel">`
+  is `hidden` **with the URL unchanged** — confirmed by comparing `page.url()`
+  before and after a click (identical), and (2) with JavaScript disabled the
+  two `<button>`s are inert — the server still renders both panels correctly
+  for the request's own tab, but there is no way to reach the other one, since
+  a bare `<button>` carries no `href`/`formaction` for a mixin to attach one
+  to. Both are disqualifying, not just gaps to work around: `tabs-nav.tsx`'s
+  whole job is real per-tab `<a href>` navigation between server-rendered
+  pages — each tab is its own bookmarkable/shareable URL, `activeId` is read
+  from that URL's own query param on the server, and `TabsNavScrollRestoration`
+  restores window scroll around that same navigation — and (2) is a direct
+  violation of this project's own "must function with little or no JavaScript"
+  principle (`docs/UI_ARCHITECTURE_GUIDELINES.md` §3), which the current
+  `<a>`-based tabs meet for free. Recovering navigation would mean hand-writing
+  an `onActiveTabChange` handler that itself pushes history and re-fetches the
+  new tab's content — more hand-rolled code than `tabs-nav.tsx` has today, the
+  opposite of what adopting a primitive is for. `tabs-nav.tsx` and
+  `tabs-nav-scroll.component.js` stay under reason 3 **for this job** — see the
+  next bullet for a real adoption of the same primitive against a different
+  job it actually fits, and `docs/REMIX_RC_MIGRATION_STATUS.md` for the closed
+  backlog item.
+- **A follow-up question, asked once the navigation verdict above landed: is
+  there a Remix-idiomatic way to keep instant, client-side tab switching
+  without giving up keyboard support or the no-JS principle?** Two more
+  things were measured before answering it, not assumed:
+  1. `tab()` composed with the `link()` mixin (`@remix-run/ui`'s
+     `link-mixin.js`) hosted on a real `<a href>` — ARIA/keyboard from
+     `tab()`, real navigation from the anchor's own `href` (for a native
+     `<a>`/`<area>` host, `link()` only ever writes `href` and the
+     `data-rmx-*` attributes; it attaches no click handler of its own, so
+     there is nothing to conflict with). This does work for mouse clicks and
+     arrow-key roving focus (confirmed live), but keyboard **Enter** silently
+     stops navigating: `tab()`'s own keydown handler calls `event.
+     preventDefault()` unconditionally on Enter, which suppresses the
+     anchor's native Enter-activation before the browser acts on it — a real,
+     measured defect (a plain `<a href>` baseline, no mixin at all, confirmed
+     Enter's native browser default *is* navigation), not a hypothetical one.
+     Fixable with a small, targeted `on('keydown', …)` addition that calls
+     `navigate(href)` on Enter, but it's still working the primitive against
+     its own grain.
+  2. **The primitive's own documented intent settled which of the two
+     directions was worth pursuing.** `node_modules/remix/src/ui/tabs/
+     README.md` — the Remix team's own docs, not inferred from source —
+     states plainly: *"Use it when related views share the same page
+     space,"* and its Behavior Notes section: *"Enter, Space, and pointer
+     clicks activate the focused tab."* Every one of its examples hosts
+     `tab()` on `<button>` with `panel()`; there is no `href`/navigation
+     concept anywhere in the doc. The `<a>`+`link()` composition above is a
+     working mechanism, not the documented one — and that's exactly why its
+     keydown handler doesn't protect Enter's native anchor behavior, the way
+     it doesn't need to for its actual, intended host.
+  3. This reframed the real question from "how do we bolt navigation onto
+     `tab()`" to "is there a tab set here that's genuinely same-page, as
+     documented, rather than page-navigation wearing tab styling?" —
+     answered yes for guidelines' add-tabs (bucket vs. named-instrument are
+     two input modes for the same action, not two pages) and adopted for
+     real: `<button>` hosts, `panel()`, full Enter/Space/click/arrow-key
+     support with zero extra glue (native `<button>` semantics, unlike the
+     `<a>` composition above), at the cost of one explicit, written exception
+     to the no-JS principle for *switching* — the initial tab still renders
+     correctly server-side. Full implementation trace in
+     `docs/REMIX_RC_MIGRATION_STATUS.md`'s newest *Done* row; the pattern and
+     its boundary against this bullet's navigation verdict are written up as
+     the project standard in `docs/UI_ARCHITECTURE_GUIDELINES.md` §11.
+- **Advice's mode tabs (`buy_next`/`portfolio_review`) — the one other tab set
+  in the app — adopted onto the same pattern, once investigated rather than
+  assumed to carry over.** Asked directly: could guidelines' shape (both
+  panels co-resident, `panel()` toggling) apply here too? No — guidelines'
+  panels are independent and static (two unrelated option lists); advice's
+  panels each carry gist-backed, mode-specific state (`cashAmount`,
+  `cashCurrency`, `selectedModel`, whether a saved review exists) that
+  `loadAdvicePageState` only ever loaded for the single active tab. Making
+  both co-resident would mean fetching both tabs' gist state on every page
+  view. Resolved by reading `@remix-run/ui`'s `component.js`/`frame.js`
+  rather than assuming: `FrameHandle.src` is a plain, live-read property
+  (`resolveAndRenderReload` reads `frame.src` at reload time, not a value
+  captured at creation), so a client entry can point the shared
+  `advice-result` Frame at the *other* mode's own fragment URL and call
+  `reload()` — fetching that mode's state exactly once, on demand, only when
+  the user actually switches to it. Given that mechanism, the user chose
+  folding each mode's whole panel (form *and* result) inside the Frame over
+  eagerly loading both tabs' state — the same "content outside the frame
+  goes stale" shape the original advice port's "Clear saved review" button
+  already had to move inside this same Frame for (see `6ddab0e`'s row in
+  `docs/REMIX_RC_MIGRATION_STATUS.md`). New `AdviceModePanel` replaces
+  `AdviceResultFragment` (deleted): the form moved in from `AdvicePage`,
+  which used to render one mode's copy directly; `advice.fragmentResult`'s
+  old 204-when-nothing-to-show contract is gone since the panel — at minimum
+  the form — now always renders. **Caught a real regression before it
+  shipped:** moving the form inside a `fallback`-carrying `<Frame>` broke it
+  for no-JS visitors entirely. Confirmed by reading `@remix-run/ui`'s
+  `server/stream.js` (`buildFrameSegment`: `nonBlocking = !!props.fallback`
+  — a fallback-carrying frame streams only the fallback synchronously and
+  delivers real content solely through the client hydration patch) and then
+  confirming live that this is true of *every* Frame in this app already
+  (tested `/guidelines` with JS disabled — `guidelines-list`'s Frame, wholly
+  untouched by this change, never shows its list either). Always harmless
+  before, since no page put a no-JS-required form inside a fallback-carrying
+  Frame; fixed by dropping `fallback` from the `advice-result` Frame
+  specifically, which costs nothing extra since `resolveAdviceResultFrame`
+  only reshapes props the page already awaited before calling `render()` —
+  no new I/O, just a blocking (not deferred) inline render. This was also
+  the last caller of `tabs-nav.tsx`/`tabs-nav-scroll.component.js`, so both
+  were deleted in the same change rather than left as a reason-3 carve-out
+  with nothing left to carve out. Full trace: `docs/REMIX_RC_MIGRATION_STATUS.md`'s
+  newest *Done* row.
 
 **Stage 7 — styled components and dev tooling.** `remix/ui/button` and
 `remix/ui/input` against `submit-button.tsx` and the three input components —

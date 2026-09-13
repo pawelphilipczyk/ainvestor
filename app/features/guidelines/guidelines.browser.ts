@@ -55,7 +55,7 @@ describe('guidelines forms (browser)', () => {
 	) {
 		await page.selectOption('#instrumentTicker', ticker)
 		await page.fill('#instrumentTargetPct', targetPct)
-		await page.click('#guidelines-add-form button[type="submit"]')
+		await page.click('#guidelines-add-form-instrument button[type="submit"]')
 	}
 
 	it('add-instrument form: success resets the form, keeps the URL on /guidelines, and lists the guideline', async () => {
@@ -88,12 +88,12 @@ describe('guidelines forms (browser)', () => {
 
 		await page.selectOption('#assetClassType', 'equity')
 		await page.fill('#assetTargetPct', '40')
-		await page.click('#guidelines-add-form button[type="submit"]')
+		await page.click('#guidelines-add-form-bucket button[type="submit"]')
 		await page.waitForSelector('li:has-text("bucket")', { timeout: 5000 })
 
 		await page.selectOption('#assetClassType', 'equity')
 		await page.fill('#assetTargetPct', '30')
-		await page.click('#guidelines-add-form button[type="submit"]')
+		await page.click('#guidelines-add-form-bucket button[type="submit"]')
 		await page.waitForFunction(
 			() => document.body.innerText.includes('already have a guideline'),
 			undefined,
@@ -225,5 +225,118 @@ describe('guidelines forms (browser)', () => {
 			'an unrelated frame reload must not clear the unsubmitted form',
 		)
 		assert.deepEqual(opened.problems, [])
+	})
+})
+
+/**
+ * `guidelines-tabs.component.js`: real, client-side `remix/ui/tabs/primitives`
+ * usage (`Context`/`root`/`list`/`tab`/`panel`, `<button>` hosts), per the
+ * Remix team's own documented intent (`node_modules/remix/src/ui/tabs/README.md`)
+ * rather than `tabs-nav.tsx`'s page-navigation pattern — see
+ * `docs/REMIX_RC_MIGRATION_STATUS.md`. Switching is instant and client-side
+ * only; there is no server round trip and no URL change to assert.
+ */
+describe('guidelines add-tabs (browser)', () => {
+	let session: BrowserTestSession
+
+	before(async () => {
+		seedSharedCatalog()
+		session = await startBrowserTestSession()
+	})
+
+	after(async () => {
+		await session.close()
+	})
+
+	async function openGuidelines() {
+		const opened = await session.openPage(DESKTOP_VIEWPORT)
+		await opened.page.goto(`${session.baseUrl}/guidelines`, {
+			waitUntil: 'networkidle',
+		})
+		return opened
+	}
+
+	it('mouse click switches the visible panel with no navigation', async () => {
+		const { page, problems } = await openGuidelines()
+		const urlBefore = page.url()
+
+		assert.equal(
+			await page.locator('#guidelines-add-form-bucket').isVisible(),
+			true,
+		)
+		assert.equal(
+			await page.locator('#guidelines-add-form-instrument').isVisible(),
+			false,
+		)
+
+		await page.getByRole('tab', { name: 'Specific ETF target' }).click()
+
+		assert.equal(
+			await page.locator('#guidelines-add-form-instrument').isVisible(),
+			true,
+		)
+		assert.equal(
+			await page.locator('#guidelines-add-form-bucket').isVisible(),
+			false,
+		)
+		assert.equal(page.url(), urlBefore, 'switching tabs must not navigate')
+		assert.deepEqual(problems, [])
+	})
+
+	it('keyboard: Enter and Space activate a focused tab, matching native <button> semantics', async () => {
+		const { page, problems } = await openGuidelines()
+
+		await page.getByRole('tab', { name: 'Specific ETF target' }).focus()
+		await page.keyboard.press('Enter')
+		assert.equal(
+			await page.locator('#guidelines-add-form-instrument').isVisible(),
+			true,
+			'Enter activates the focused tab',
+		)
+
+		await page.getByRole('tab', { name: 'Asset class bucket' }).focus()
+		await page.keyboard.press(' ')
+		assert.equal(
+			await page.locator('#guidelines-add-form-bucket').isVisible(),
+			true,
+			'Space activates the focused tab',
+		)
+		assert.deepEqual(problems, [])
+	})
+
+	it('keyboard: ArrowRight moves focus and activates the next tab', async () => {
+		const { page, problems } = await openGuidelines()
+
+		await page.getByRole('tab', { name: 'Asset class bucket' }).focus()
+		await page.keyboard.press('ArrowRight')
+
+		const focused = await page.evaluate(() =>
+			document.activeElement?.textContent?.trim(),
+		)
+		assert.equal(focused, 'Specific ETF target')
+		assert.equal(
+			await page.locator('#guidelines-add-form-instrument').isVisible(),
+			true,
+		)
+		assert.deepEqual(problems, [])
+	})
+
+	it('no-JS: the initial tab from ?tab= still renders correctly server-side', async () => {
+		const context = await session.browser.newContext({
+			javaScriptEnabled: false,
+		})
+		const page = await context.newPage()
+		await page.goto(`${session.baseUrl}/guidelines?tab=instrument`, {
+			waitUntil: 'load',
+		})
+		assert.equal(
+			await page.locator('#guidelines-add-form-instrument').isVisible(),
+			true,
+		)
+		assert.equal(
+			await page.locator('#guidelines-add-form-bucket').isVisible(),
+			false,
+		)
+		await context.close()
 	})
 })

@@ -73,6 +73,28 @@ function addAssetClass(assetClassType: string, targetPct: string) {
 	)
 }
 
+/**
+ * `guidelines-tabs.component.js` renders both add-tab panels into the
+ * DOM on every load (`remix/ui/tabs/primitives`' `panel()` toggles which one
+ * is visible client-side, not server-side conditional rendering) — so the
+ * inactive panel's own opening `<div mix={[panel(...)]}>` tag is what carries
+ * `hidden`/`inert`/`data-state`, not the panel's absence from the response.
+ * This finds that tag by its generated id suffix (`<handle-id>-<name>-panel`)
+ * rather than assuming an attribute order `attrs()` doesn't guarantee.
+ */
+function panelOpenTag(html: string, panelName: 'bucket' | 'instrument') {
+	// `id="..."` specifically, not `aria-controls="..."` — the tab *button*
+	// also references this same `-<name>-panel` suffix via `aria-controls`
+	// and appears earlier in the document, so a bare substring search would
+	// find that instead of the panel `<div>` itself.
+	const idMatch = html.match(new RegExp(`id="[\\w-]*-${panelName}-panel"`))
+	assert.ok(idMatch, `expected a ${panelName} panel id in the response`)
+	const idIndex = idMatch.index ?? -1
+	const tagStart = html.lastIndexOf('<div', idIndex)
+	const tagEnd = html.indexOf('>', idIndex)
+	return html.slice(tagStart, tagEnd)
+}
+
 describe('Guidelines page', () => {
 	it('GET /guidelines returns 200 with tabbed add forms', async () => {
 		await seedGuestCatalog()
@@ -82,13 +104,23 @@ describe('Guidelines page', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Guidelines/)
 		assert.match(body, /guidelines-list\.component\.js/)
-		assert.match(body, /href="\/guidelines"/)
-		assert.match(body, /href="\/guidelines\?tab=instrument"/)
+		assert.match(body, /role="tablist"/)
+		assert.match(body, /role="tab"/)
 		assert.match(body, /action="\/guidelines"/)
 		assert.match(body, /name="guidelineIntent"[^>]*value="addAssetClass"/)
+		assert.match(body, /name="guidelineIntent"[^>]*value="addInstrument"/)
 		assert.match(body, /name="assetClassType"/)
+		assert.match(body, /name="instrumentTicker"/)
 		assert.match(body, /Specific ETF target/)
 		assert.match(body, /Asset class bucket/)
+
+		// default (no ?tab=) is the bucket tab: its panel renders active,
+		// the instrument panel renders present but hidden/inert.
+		assert.match(panelOpenTag(body, 'bucket'), /data-state="active"/)
+		assert.doesNotMatch(panelOpenTag(body, 'bucket'), /hidden/)
+		assert.match(panelOpenTag(body, 'instrument'), /data-state="inactive"/)
+		assert.match(panelOpenTag(body, 'instrument'), /\bhidden\b/)
+		assert.match(panelOpenTag(body, 'instrument'), /\binert\b/)
 
 		const instrumentPage = await testSessionFetch(
 			'http://localhost/guidelines?tab=instrument',
@@ -100,6 +132,16 @@ describe('Guidelines page', () => {
 			/name="guidelineIntent"[^>]*value="addInstrument"/,
 		)
 		assert.match(instrumentBody, /name="instrumentTicker"/)
+		assert.match(
+			panelOpenTag(instrumentBody, 'instrument'),
+			/data-state="active"/,
+		)
+		assert.doesNotMatch(panelOpenTag(instrumentBody, 'instrument'), /hidden/)
+		assert.match(
+			panelOpenTag(instrumentBody, 'bucket'),
+			/data-state="inactive"/,
+		)
+		assert.match(panelOpenTag(instrumentBody, 'bucket'), /\bhidden\b/)
 
 		assert.match(body, /Remaining:\s*<strong[^>]*>100%<\/strong>/)
 		assert.match(body, /No guidelines added yet\./)

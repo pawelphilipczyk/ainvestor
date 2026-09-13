@@ -17,8 +17,3 @@ export { TextareaInput } from './forms/textarea-input.tsx'
 export { AppBranding } from './layout/app-branding.tsx'
 export { AppTopBar } from './layout/app-top-bar.tsx'
 export { Link } from './navigation/link.tsx'
-export {
-	TabLink,
-	TabsNav,
-	type TabsNavContext,
-} from './navigation/tabs-nav.tsx'

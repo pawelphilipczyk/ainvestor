@@ -39,11 +39,12 @@ import {
 	getInvestmentAdvice,
 	normalizeAdviceAnalysisTab,
 } from './advice-openai.ts'
-import { AdvicePage, type AdviceResultCardProps } from './advice-page.tsx'
 import {
-	AdviceResultFragment,
-	type AdviceResultFragmentProps,
-} from './advice-result-fragment.tsx'
+	AdviceModePanel,
+	type AdviceModePanelProps,
+	AdvicePage,
+	type AdviceResultCardProps,
+} from './advice-page.tsx'
 
 const ADVICE_INTENTS = ['run', 'clear'] as const
 
@@ -131,15 +132,48 @@ function adviceResultCardPropsFromPage(
 	}
 }
 
+/** Reshapes already-loaded page state into one mode's `AdviceModePanel` props. */
+function adviceModePanelPropsFromPage(
+	mode: AdviceAnalysisMode,
+	props: AdvicePageRenderProps,
+): AdviceModePanelProps {
+	return {
+		mode,
+		cashAmount: props.cashAmount,
+		cashCurrency: props.cashCurrency,
+		selectedModel: props.selectedModel,
+		disabled:
+			props.pendingApproval === true || props.adviceGistGate !== undefined,
+		error: props.formError,
+		card: adviceResultCardPropsFromPage(props) ?? undefined,
+	}
+}
+
+function renderAdviceModePanelHtml(
+	panelProps: AdviceModePanelProps,
+	init?: ResponseInit,
+) {
+	return createHtmlResponse(renderToStream(jsx(AdviceModePanel, panelProps)), {
+		status: init?.status ?? 200,
+		headers: { 'Cache-Control': 'no-store' },
+	})
+}
+
 function resolveAdviceResultFrame(
 	source: string,
-	frameSrc: string,
-	props: AdvicePageRenderProps,
+	options: {
+		frameSrc: string
+		activeTab: AdviceAnalysisMode
+		props: AdvicePageRenderProps
+	},
 ) {
-	if (source !== frameSrc) return ''
-	const cardProps = adviceResultCardPropsFromPage(props)
-	if (cardProps === null) return ''
-	return renderToStream(jsx(AdviceResultFragment, { card: cardProps }))
+	if (source !== options.frameSrc) return ''
+	return renderToStream(
+		jsx(
+			AdviceModePanel,
+			adviceModePanelPropsFromPage(options.activeTab, options.props),
+		),
+	)
 }
 
 function renderAdvicePageResponse(
@@ -165,26 +199,33 @@ function renderAdvicePageResponse(
 		body: jsx(AdvicePage, {
 			...options.props,
 			adviceResultFrameSrc: frameSrc,
+			buyNextFrameSrc: adviceResultFragmentSrc('buy_next'),
+			portfolioReviewFrameSrc: adviceResultFragmentSrc('portfolio_review'),
 		}),
 		init: options.init,
 		resolveFrame(source) {
-			return resolveAdviceResultFrame(source, frameSrc, options.props)
+			return resolveAdviceResultFrame(source, {
+				frameSrc,
+				activeTab,
+				props: options.props,
+			})
 		},
 	})
 }
 
 /**
- * Small JSON/HTML-fragment/full-page dispatcher for `advice.action`, mirroring
+ * Small HTML-fragment/full-page dispatcher for `advice.action`, mirroring
  * `portfolio`'s `portfolioValidationFailureResponse` shape: every branch below
  * builds the exact same `AdvicePageRenderProps` the full-page render already
  * used, and this decides which shape the client actually gets. `Accept:
  * text/html` (the header `@remix-run/ui`'s `defaultResolveFrame` sends for a
  * native `data-rmx-target` submission) means the response IS the
- * `advice-result` Frame's own content — a small fragment, not the full
- * document — since a named (non-top) frame diffs the response as a plain
- * fragment regardless of whether it happens to contain a full `<html>` tree.
- * Every other request (no JS, or a bare fetch without that exact header) gets
- * today's full-page render unchanged, `formError` and all.
+ * `advice-result` Frame's own content — the full mode panel (form and
+ * result), not just the result — since a named (non-top) frame diffs the
+ * response as a plain fragment regardless of whether it happens to contain a
+ * full `<html>` tree. Every other request (no JS, or a bare fetch without
+ * that exact header) gets today's full-page render unchanged, `formError`
+ * and all.
  *
  * Status ≥ 500 (the OpenAI-failure branch) is remapped to 200 for the frame
  * response only, same fix as the catalog ETF analysis port:
@@ -204,35 +245,10 @@ function renderAdviceActionResponse(
 		return renderAdvicePageResponse(context, options)
 	}
 	const status = options.init?.status
-	const frameInit = {
-		status: status !== undefined && status >= 500 ? 200 : status,
-	}
-	if (options.props.formError !== undefined) {
-		const content: AdviceResultFragmentProps = {
-			error: options.props.formError,
-		}
-		return renderAdviceResultFragmentHtml(content, frameInit)
-	}
-	const cardProps = adviceResultCardPropsFromPage(options.props)
-	if (cardProps !== null) {
-		return renderAdviceResultFragmentHtml({ card: cardProps }, frameInit)
-	}
-	return new Response(null, {
-		status: 204,
-		headers: { 'Cache-Control': 'no-store' },
-	})
-}
-
-function renderAdviceResultFragmentHtml(
-	content: AdviceResultFragmentProps,
-	init?: ResponseInit,
-) {
-	return createHtmlResponse(
-		renderToStream(jsx(AdviceResultFragment, content)),
-		{
-			status: init?.status ?? 200,
-			headers: { 'Cache-Control': 'no-store' },
-		},
+	const activeTab = normalizeAdviceAnalysisTab(options.props.activeTab)
+	return renderAdviceModePanelHtml(
+		adviceModePanelPropsFromPage(activeTab, options.props),
+		{ status: status !== undefined && status >= 500 ? 200 : status },
 	)
 }
 
@@ -374,14 +390,9 @@ export const adviceController = {
 				session,
 				pendingApproval,
 			)
-			const cardProps = adviceResultCardPropsFromPage(props)
-			if (cardProps === null) {
-				return new Response(null, {
-					status: 204,
-					headers: { 'Cache-Control': 'no-store' },
-				})
-			}
-			return renderAdviceResultFragmentHtml({ card: cardProps })
+			return renderAdviceModePanelHtml(
+				adviceModePanelPropsFromPage(activeTab, props),
+			)
 		},
 
 		async action(context: AppRequestContext) {

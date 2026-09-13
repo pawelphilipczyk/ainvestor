@@ -555,7 +555,7 @@ describe('Advice', () => {
 		assert.doesNotMatch(body, /<html\b/i)
 	})
 
-	it('GET /advice/fragments/advice-result returns 204 when there is no result for the tab', async () => {
+	it('GET /advice/fragments/advice-result returns 200 with just the form when there is no result for the tab', async () => {
 		const cookie = await signInWithGist()
 		setAdviceGistTestOverlay(null)
 
@@ -565,8 +565,13 @@ describe('Advice', () => {
 		})
 		const body = await response.text()
 
-		assert.equal(response.status, 204)
-		assert.equal(body, '')
+		// The fragment is the whole mode panel now (form + result), not just
+		// the result — so it always renders, even with nothing to show yet.
+		// See docs/REMIX_RC_MIGRATION_STATUS.md.
+		assert.equal(response.status, 200)
+		assert.match(body, /name="cashAmount"/)
+		assert.doesNotMatch(body, /role="alert"/)
+		assert.doesNotMatch(body, /<html\b/i)
 	})
 
 	it('GET /advice does not show gist snapshot when URL tab differs from snapshot tab', async () => {
@@ -1154,7 +1159,7 @@ describe('Advice', () => {
 		assert.match(body, /Enter how much cash you plan to invest/)
 	})
 
-	it('POST /advice clear with Accept: text/html returns 204', async () => {
+	it('POST /advice clear with Accept: text/html returns 200 with the form and no result', async () => {
 		const cookie = await signInWithGist()
 
 		const clearForm = new FormData()
@@ -1169,7 +1174,10 @@ describe('Advice', () => {
 		)
 		const body = await response.text()
 
-		assert.equal(response.status, 204)
-		assert.equal(body, '')
+		// Same panel-always-renders contract as fragmentResult's 204 case above.
+		assert.equal(response.status, 200)
+		assert.match(body, /name="adviceModel"/)
+		assert.doesNotMatch(body, /role="alert"/)
+		assert.doesNotMatch(body, /aria-live="polite"/)
 	})
 })
