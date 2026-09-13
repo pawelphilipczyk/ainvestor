@@ -30,9 +30,9 @@ const panelClass =
  * `hidden`/`inert` toggle with no native fallback. Accepted for this widget;
  * see `docs/REMIX_RC_MIGRATION_STATUS.md`.
  */
-export const GuidelinesAddTabs = clientEntry(
-	'/features/guidelines/guidelines-add-tabs.component.js#GuidelinesAddTabs',
-	function GuidelinesAddTabs(handle) {
+export const GuidelinesTabs = clientEntry(
+	'/features/guidelines/guidelines-tabs.component.js#GuidelinesTabs',
+	function GuidelinesTabs(handle) {
 		return () =>
 			createElement(
 				Context,

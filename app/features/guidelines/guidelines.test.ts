@@ -74,7 +74,7 @@ function addAssetClass(assetClassType: string, targetPct: string) {
 }
 
 /**
- * `guidelines-add-tabs.component.js` renders both add-tab panels into the
+ * `guidelines-tabs.component.js` renders both add-tab panels into the
  * DOM on every load (`remix/ui/tabs/primitives`' `panel()` toggles which one
  * is visible client-side, not server-side conditional rendering) — so the
  * inactive panel's own opening `<div mix={[panel(...)]}>` tag is what carries

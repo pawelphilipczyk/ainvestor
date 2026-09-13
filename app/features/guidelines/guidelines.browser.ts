@@ -229,7 +229,7 @@ describe('guidelines forms (browser)', () => {
 })
 
 /**
- * `guidelines-add-tabs.component.js`: real, client-side `remix/ui/tabs/primitives`
+ * `guidelines-tabs.component.js`: real, client-side `remix/ui/tabs/primitives`
  * usage (`Context`/`root`/`list`/`tab`/`panel`, `<button>` hosts), per the
  * Remix team's own documented intent (`node_modules/remix/src/ui/tabs/README.md`)
  * rather than `tabs-nav.tsx`'s page-navigation pattern — see

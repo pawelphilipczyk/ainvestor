@@ -186,7 +186,7 @@ describe('advice forms (browser)', () => {
 
 /**
  * `advice-mode-tabs.component.js`: real, client-side `remix/ui/tabs/primitives`
- * usage, same shape as `guidelines-add-tabs.component.js` but pointing the
+ * usage, same shape as `guidelines-tabs.component.js` but pointing the
  * shared `advice-result` Frame at the other mode's own fragment URL and
  * reloading it on switch, instead of toggling a `hidden` panel — each mode's
  * form defaults are gist-backed and mode-specific, so they're fetched fresh

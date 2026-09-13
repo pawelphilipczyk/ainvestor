@@ -17,10 +17,10 @@ import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-import { GuidelinesAddTabs } from './guidelines-add-tabs.component.js'
 // @ts-expect-error Runtime-only JS client entry module
 import { GuidelinesDeleteDialogInteractions } from './guidelines-list.component.js'
 import { GuidelinesListFrame } from './guidelines-list-frame.component.js'
+import { GuidelinesTabs } from './guidelines-tabs.component.js'
 
 type GuidelinesAddTabId = 'instrument' | 'bucket'
 
@@ -66,7 +66,7 @@ export function GuidelinesPage(
 						</p>
 					</SectionIntroCard>
 
-					<GuidelinesAddTabs
+					<GuidelinesTabs
 						activeAddTab={activeAddTab}
 						navAriaLabel={t('guidelines.tabs.navAria')}
 						bucketLabel={t('guidelines.bucket.title')}

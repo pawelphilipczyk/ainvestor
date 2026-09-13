@@ -311,7 +311,7 @@ write. Two worked examples, differing in how the *content* per tab reaches
 the client, because the two apps of it are shaped differently:
 
 - **Both tabs' content is small and independent — co-resident, client-side
-  `panel()` toggle.** `guidelines-add-tabs.component.js`'s two add-forms
+  `panel()` toggle.** `guidelines-tabs.component.js`'s two add-forms
   (asset-class bucket vs. named instrument; switching is choosing an input
   mode for the same action) — both panels render into the DOM on every
   load, `panel()` sets `hidden`/`inert` on the inactive one. Confirm this is
@@ -360,7 +360,7 @@ existing fallback-carrying Frame.
 A `.component.js` can't import a `.tsx` file (no build step, served to the
 browser as-is), so a shared presentational helper like `Card`'s
 `getCardClassNames()` has to be inlined as a literal Tailwind class string
-in the entry rather than imported — see `guidelines-add-tabs.component.js`
+in the entry rather than imported — see `guidelines-tabs.component.js`
 for the worked example, including the active/inactive tab styling via
 Tailwind's `[&[data-state=active]]:` arbitrary variant (matching the
 `data-state` attribute `tab()` already writes, not a hand-rolled class

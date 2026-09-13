@@ -11,7 +11,7 @@ const tabClass =
 
 /**
  * Real, same-page tab switching for advice's two analysis modes — same
- * pattern as `guidelines-add-tabs.component.js`, but with no `panel()`: each
+ * pattern as `guidelines-tabs.component.js`, but with no `panel()`: each
  * mode's content (its input form *and* its result) lives in the shared
  * `advice-result` Frame instead of two co-resident panels, because that
  * content is gist-backed and mode-specific — see `AdviceModePanel` in
