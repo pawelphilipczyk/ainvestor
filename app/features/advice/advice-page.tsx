@@ -8,10 +8,7 @@ import {
 	ScrollableTable,
 	SelectInput,
 	SubmitButton,
-	TabLink,
-	TabsNav,
 } from '../../components/index.ts'
-import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { format, type MessageKey, t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
@@ -24,6 +21,7 @@ import type {
 	AdviceDocument,
 	AdviceEtfProposalRow,
 } from './advice-document.ts'
+import { AdviceModeTabs } from './advice-mode-tabs.component.js'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -69,29 +67,16 @@ export function FormErrorAlert(handle: Handle<{ error: FormError }>) {
 }
 
 type AdvicePageProps = {
-	cashAmount?: string
-	cashCurrency?: string
-	analysisMode?: AdviceAnalysisMode
 	/** Selected tab from `?tab=` (defaults to buy_next). */
 	activeTab?: AdviceAnalysisMode
-	/** Which flow produced the current `advice` (for the result card). */
-	lastAnalysisMode?: AdviceAnalysisMode
-	selectedModel?: AdviceModelId
-	advice?: AdviceDocument
-	/** Shared catalog for resolving ETF detail links on proposal rows. */
-	catalog?: CatalogEntry[]
-	/** Last run was loaded from `advice-analysis.json` in the user gist. */
-	adviceFromGist?: boolean
-	/** ISO timestamp when gist snapshot was written (for notice line). */
-	adviceGistSavedAt?: string
-	/** Saving to gist failed; this run is visible until reload only. */
-	adviceGistPersistFailed?: boolean
-	formError?: FormError
 	pendingApproval?: boolean
 	/** Guest or signed-in user without a private gist — forms disabled; explain sign-in / Portfolio. */
 	adviceGistGate?: 'sign_in' | 'connect_gist'
-	/** Fragment URL the `advice-result` Frame loads/reloads — always rendered, even with no result yet. */
+	/** Fragment URL the `advice-result` Frame loads/reloads for the active tab — always rendered, even with no result yet. */
 	adviceResultFrameSrc: string
+	/** Fragment URL for each mode, so switching tabs client-side can point the frame at the other one. */
+	buyNextFrameSrc: string
+	portfolioReviewFrameSrc: string
 }
 
 type AdviceAccessBanner =
@@ -639,31 +624,160 @@ export function AdviceResultCard(handle: Handle<AdviceResultCardProps>) {
 	return () => adviceResultCardView(handle.props)
 }
 
-export function AdvicePage(handle: Handle<AdvicePageProps>) {
+export type AdviceModePanelProps = {
+	mode: AdviceAnalysisMode
+	cashAmount?: string
+	cashCurrency?: string
+	selectedModel?: AdviceModelId
+	disabled?: boolean
+	/** Set when the last submission for this mode failed. */
+	error?: FormError
+	/** Set when there is a result to show for this mode. */
+	card?: AdviceResultCardProps
+}
+
+/**
+ * One mode's full content — input form *and* result, together. Lives inside
+ * the `advice-result` Frame (both modes' own copy), not directly on the
+ * page: each mode's remembered defaults (`cashAmount`, `cashCurrency`,
+ * `selectedModel`) are gist-backed and mode-specific, so fetching them only
+ * for the currently active tab — and re-fetching on demand when the user
+ * switches — avoids loading both modes' state on every page view. See
+ * `docs/REMIX_RC_MIGRATION_STATUS.md` for the full design trace. Replaces
+ * the former `AdviceResultFragment` (error-or-card only); the form moved in
+ * from `AdvicePage`, which used to render it directly, one mode at a time,
+ * chosen by a full-page reload.
+ */
+export function AdviceModePanel(handle: Handle<AdviceModePanelProps>) {
 	return () => {
 		const props = handle.props
 		const cashCurrency = props.cashCurrency ?? 'PLN'
 		const selectedModel = props.selectedModel ?? DEFAULT_ADVICE_MODEL
+		const disabled = props.disabled === true
+		const action = routes.advice.action.href(
+			{},
+			{ searchParams: { tab: props.mode } },
+		)
+		return (
+			<>
+				{props.mode === 'buy_next' ? (
+					<Card variant="muted" class="min-w-0 rounded-t-none border-t-0 p-6">
+						<form
+							method="post"
+							action={action}
+							class="space-y-4"
+							data-rmx-target="advice-result"
+						>
+							<input type="hidden" name="analysisMode" value="buy_next" />
+							<input type="hidden" name="adviceIntent" value="run" />
+							{props.error ? <FormErrorAlert error={props.error} /> : null}
+							<p class="text-xs text-muted-foreground">
+								{t('advice.tab.hint.buyNext')}
+							</p>
+							<div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+								<div class="grid min-w-0 flex-1 gap-2">
+									<FieldLabel fieldId="cashAmount-buy-next">
+										{t('advice.form.field.cash')}
+									</FieldLabel>
+									<NumberInput
+										id="cashAmount-buy-next"
+										name="cashAmount"
+										placeholder={t('advice.form.placeholder.cash')}
+										required={true}
+										min={1}
+										step="any"
+										inputMode="decimal"
+										pattern={LOCALE_DECIMAL_HTML_PATTERN}
+										defaultValue={props.cashAmount}
+										disabled={disabled}
+									/>
+								</div>
+								<div class="grid w-full gap-2 sm:w-36">
+									<FieldLabel fieldId="cashCurrency-buy-next">
+										{t('advice.form.field.currency')}
+									</FieldLabel>
+									<SelectInput
+										id="cashCurrency-buy-next"
+										name="cashCurrency"
+										options={currencyOptions}
+										value={cashCurrency}
+										disabled={disabled}
+									/>
+								</div>
+								<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
+									<FieldLabel fieldId="adviceModel-buy-next">
+										{t('advice.form.field.model')}
+									</FieldLabel>
+									<SelectInput
+										id="adviceModel-buy-next"
+										name="adviceModel"
+										options={adviceModelOptions()}
+										value={selectedModel}
+										disabled={disabled}
+									/>
+								</div>
+								<SubmitButton
+									disabled={disabled}
+									class="sm:!w-auto sm:shrink-0"
+								>
+									{t('advice.form.submit')}
+								</SubmitButton>
+							</div>
+						</form>
+					</Card>
+				) : (
+					<Card variant="muted" class="min-w-0 rounded-t-none border-t-0 p-6">
+						<form
+							method="post"
+							action={action}
+							class="space-y-4"
+							data-rmx-target="advice-result"
+						>
+							<input
+								type="hidden"
+								name="analysisMode"
+								value="portfolio_review"
+							/>
+							<input type="hidden" name="adviceIntent" value="run" />
+							{props.error ? <FormErrorAlert error={props.error} /> : null}
+							<p class="text-xs text-muted-foreground">
+								{t('advice.tab.hint.portfolioReview')}
+							</p>
+							<div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
+								<div class="grid min-w-0 w-full gap-2 sm:min-w-[11rem] sm:flex-1">
+									<FieldLabel fieldId="adviceModel-review">
+										{t('advice.form.field.model')}
+									</FieldLabel>
+									<SelectInput
+										id="adviceModel-review"
+										name="adviceModel"
+										options={adviceModelOptions()}
+										value={selectedModel}
+										disabled={disabled}
+									/>
+								</div>
+								<SubmitButton
+									disabled={disabled}
+									class="sm:!w-auto sm:shrink-0"
+								>
+									{props.card !== undefined
+										? t('advice.form.submitPortfolioRegenerate')
+										: t('advice.form.submit')}
+								</SubmitButton>
+							</div>
+						</form>
+					</Card>
+				)}
+				{props.card !== undefined ? <AdviceResultCard {...props.card} /> : null}
+			</>
+		)
+	}
+}
+
+export function AdvicePage(handle: Handle<AdvicePageProps>) {
+	return () => {
+		const props = handle.props
 		const activeTab = normalizeAdviceAnalysisTab(props.activeTab)
-		const pendingApproval = props.pendingApproval === true
-		const adviceGistGate = props.adviceGistGate
-		const adviceFormDisabled = pendingApproval || adviceGistGate !== undefined
-		const buyNextHref = routes.advice.index.href(
-			{},
-			{ searchParams: { tab: 'buy_next' } },
-		)
-		const reviewHref = routes.advice.index.href(
-			{},
-			{ searchParams: { tab: 'portfolio_review' } },
-		)
-		const buyNextAction = routes.advice.action.href(
-			{},
-			{ searchParams: { tab: 'buy_next' } },
-		)
-		const reviewAction = routes.advice.action.href(
-			{},
-			{ searchParams: { tab: 'portfolio_review' } },
-		)
 		const frameSrc = props.adviceResultFrameSrc
 		const accessBanner = adviceAccessBannerFromProps(props)
 		const adviceIntro = getSectionIntro('advice')
@@ -729,136 +843,36 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 					</div>
 				) : null}
 				<div class="flex min-w-0 w-full flex-col">
-					<TabsNav
-						activeId={activeTab}
-						aria-label={t('advice.tabs.navAria')}
-						scrollGroupId="advice-analysis"
-					>
-						<TabLink id="buy_next" href={buyNextHref}>
-							{t('advice.analysisMode.buy_next')}
-						</TabLink>
-						<TabLink id="portfolio_review" href={reviewHref}>
-							{t('advice.analysisMode.portfolio_review')}
-						</TabLink>
-					</TabsNav>
-					{activeTab === 'buy_next' ? (
-						<Card variant="muted" class="min-w-0 rounded-t-none border-t-0 p-6">
-							<form
-								method="post"
-								action={buyNextAction}
-								class="space-y-4"
-								data-rmx-target="advice-result"
-							>
-								<input type="hidden" name="analysisMode" value="buy_next" />
-								<input type="hidden" name="adviceIntent" value="run" />
-								{props.formError ? (
-									<FormErrorAlert error={props.formError} />
-								) : null}
-								<p class="text-xs text-muted-foreground">
-									{t('advice.tab.hint.buyNext')}
-								</p>
-								<div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
-									<div class="grid min-w-0 flex-1 gap-2">
-										<FieldLabel fieldId="cashAmount-buy-next">
-											{t('advice.form.field.cash')}
-										</FieldLabel>
-										<NumberInput
-											id="cashAmount-buy-next"
-											name="cashAmount"
-											placeholder={t('advice.form.placeholder.cash')}
-											required={true}
-											min={1}
-											step="any"
-											inputMode="decimal"
-											pattern={LOCALE_DECIMAL_HTML_PATTERN}
-											defaultValue={props.cashAmount}
-											disabled={adviceFormDisabled}
-										/>
-									</div>
-									<div class="grid w-full gap-2 sm:w-36">
-										<FieldLabel fieldId="cashCurrency-buy-next">
-											{t('advice.form.field.currency')}
-										</FieldLabel>
-										<SelectInput
-											id="cashCurrency-buy-next"
-											name="cashCurrency"
-											options={currencyOptions}
-											value={cashCurrency}
-											disabled={adviceFormDisabled}
-										/>
-									</div>
-									<div class="grid w-full gap-2 sm:min-w-[11rem] sm:flex-1">
-										<FieldLabel fieldId="adviceModel-buy-next">
-											{t('advice.form.field.model')}
-										</FieldLabel>
-										<SelectInput
-											id="adviceModel-buy-next"
-											name="adviceModel"
-											options={adviceModelOptions()}
-											value={selectedModel}
-											disabled={adviceFormDisabled}
-										/>
-									</div>
-									<SubmitButton
-										disabled={adviceFormDisabled}
-										class="sm:!w-auto sm:shrink-0"
-									>
-										{t('advice.form.submit')}
-									</SubmitButton>
-								</div>
-							</form>
-						</Card>
-					) : (
-						<Card variant="muted" class="min-w-0 rounded-t-none border-t-0 p-6">
-							<form
-								method="post"
-								action={reviewAction}
-								class="space-y-4"
-								data-rmx-target="advice-result"
-							>
-								<input
-									type="hidden"
-									name="analysisMode"
-									value="portfolio_review"
-								/>
-								<input type="hidden" name="adviceIntent" value="run" />
-								{props.formError ? (
-									<FormErrorAlert error={props.formError} />
-								) : null}
-								<p class="text-xs text-muted-foreground">
-									{t('advice.tab.hint.portfolioReview')}
-								</p>
-								<div class="flex min-w-0 flex-col gap-4 sm:flex-row sm:items-end sm:gap-2">
-									<div class="grid min-w-0 w-full gap-2 sm:min-w-[11rem] sm:flex-1">
-										<FieldLabel fieldId="adviceModel-review">
-											{t('advice.form.field.model')}
-										</FieldLabel>
-										<SelectInput
-											id="adviceModel-review"
-											name="adviceModel"
-											options={adviceModelOptions()}
-											value={selectedModel}
-											disabled={adviceFormDisabled}
-										/>
-									</div>
-									<SubmitButton
-										disabled={adviceFormDisabled}
-										class="sm:!w-auto sm:shrink-0"
-									>
-										{props.advice !== undefined
-											? t('advice.form.submitPortfolioRegenerate')
-											: t('advice.form.submit')}
-									</SubmitButton>
-								</div>
-							</form>
-						</Card>
-					)}
+					<AdviceModeTabs
+						activeTab={activeTab}
+						navAriaLabel={t('advice.tabs.navAria')}
+						buyNextLabel={t('advice.analysisMode.buy_next')}
+						portfolioReviewLabel={t('advice.analysisMode.portfolio_review')}
+						buyNextFrameSrc={props.buyNextFrameSrc}
+						portfolioReviewFrameSrc={props.portfolioReviewFrameSrc}
+					/>
+					{/*
+						No `fallback`, deliberately: `@remix-run/ui`'s `buildFrameSegment`
+						(server/stream.js) treats a `fallback`-carrying Frame as
+						non-blocking — it streams the fallback immediately and delivers
+						the real content only via the client-side hydration patch, which
+						needs JavaScript. Confirmed live (Chromium, JS disabled): every
+						other Frame in this app already has this property, harmlessly,
+						because their content lived outside any form a no-JS user needs
+						(guidelines-list, portfolio-list, catalog-list, catalog-etf-analysis).
+						This Frame is different — `AdviceModePanel` moved the input form
+						itself in here (see docs/REMIX_RC_MIGRATION_STATUS.md), so keeping
+						a fallback would mean a no-JS visitor never sees the form at all.
+						Omitting `fallback` makes `buildFrameSegment` block on
+						`resolveFrame` and inline the real HTML instead — free here, since
+						`resolveAdviceResultFrame` only reshapes `props` the page already
+						awaited via `loadAdvicePageState`, no extra I/O. Client-triggered
+						reloads (a form submit or `AdviceModeTabs` switching modes) are
+						unaffected either way; `nonBlocking` only governs the very first
+						server-rendered paint.
+					*/}
+					<Frame name="advice-result" src={frameSrc} />
 				</div>
-				<Frame
-					name="advice-result"
-					src={frameSrc}
-					fallback={frameLoadingPlaceholder()}
-				/>
 				<AdviceResultFrame />
 			</main>
 		)

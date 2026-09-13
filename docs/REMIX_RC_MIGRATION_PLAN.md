@@ -651,6 +651,48 @@ re-exports.
      `docs/REMIX_RC_MIGRATION_STATUS.md`'s newest *Done* row; the pattern and
      its boundary against this bullet's navigation verdict are written up as
      the project standard in `docs/UI_ARCHITECTURE_GUIDELINES.md` §11.
+- **Advice's mode tabs (`buy_next`/`portfolio_review`) — the one other tab set
+  in the app — adopted onto the same pattern, once investigated rather than
+  assumed to carry over.** Asked directly: could guidelines' shape (both
+  panels co-resident, `panel()` toggling) apply here too? No — guidelines'
+  panels are independent and static (two unrelated option lists); advice's
+  panels each carry gist-backed, mode-specific state (`cashAmount`,
+  `cashCurrency`, `selectedModel`, whether a saved review exists) that
+  `loadAdvicePageState` only ever loaded for the single active tab. Making
+  both co-resident would mean fetching both tabs' gist state on every page
+  view. Resolved by reading `@remix-run/ui`'s `component.js`/`frame.js`
+  rather than assuming: `FrameHandle.src` is a plain, live-read property
+  (`resolveAndRenderReload` reads `frame.src` at reload time, not a value
+  captured at creation), so a client entry can point the shared
+  `advice-result` Frame at the *other* mode's own fragment URL and call
+  `reload()` — fetching that mode's state exactly once, on demand, only when
+  the user actually switches to it. Given that mechanism, the user chose
+  folding each mode's whole panel (form *and* result) inside the Frame over
+  eagerly loading both tabs' state — the same "content outside the frame
+  goes stale" shape the original advice port's "Clear saved review" button
+  already had to move inside this same Frame for (see `6ddab0e`'s row in
+  `docs/REMIX_RC_MIGRATION_STATUS.md`). New `AdviceModePanel` replaces
+  `AdviceResultFragment` (deleted): the form moved in from `AdvicePage`,
+  which used to render one mode's copy directly; `advice.fragmentResult`'s
+  old 204-when-nothing-to-show contract is gone since the panel — at minimum
+  the form — now always renders. **Caught a real regression before it
+  shipped:** moving the form inside a `fallback`-carrying `<Frame>` broke it
+  for no-JS visitors entirely. Confirmed by reading `@remix-run/ui`'s
+  `server/stream.js` (`buildFrameSegment`: `nonBlocking = !!props.fallback`
+  — a fallback-carrying frame streams only the fallback synchronously and
+  delivers real content solely through the client hydration patch) and then
+  confirming live that this is true of *every* Frame in this app already
+  (tested `/guidelines` with JS disabled — `guidelines-list`'s Frame, wholly
+  untouched by this change, never shows its list either). Always harmless
+  before, since no page put a no-JS-required form inside a fallback-carrying
+  Frame; fixed by dropping `fallback` from the `advice-result` Frame
+  specifically, which costs nothing extra since `resolveAdviceResultFrame`
+  only reshapes props the page already awaited before calling `render()` —
+  no new I/O, just a blocking (not deferred) inline render. This was also
+  the last caller of `tabs-nav.tsx`/`tabs-nav-scroll.component.js`, so both
+  were deleted in the same change rather than left as a reason-3 carve-out
+  with nothing left to carve out. Full trace: `docs/REMIX_RC_MIGRATION_STATUS.md`'s
+  newest *Done* row.
 
 **Stage 7 — styled components and dev tooling.** `remix/ui/button` and
 `remix/ui/input` against `submit-button.tsx` and the three input components —

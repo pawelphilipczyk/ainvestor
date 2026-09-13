@@ -280,13 +280,17 @@ front, and activating a tab is a client-side `hidden`/`inert` toggle with no
 fetch and no URL change. There is no `href`, routing, or navigation concept
 anywhere in it.
 
-**Do not reach for it as a `TabsNav`/`TabLink` (§ this doc, real per-page
-navigation) replacement.** Those are a different thing — separate pages,
-each with its own bookmarkable URL, `activeId` read from the request's own
-query param — and `tabs-nav.tsx` stays hand-rolled for that job (measured
-against `tabs/primitives` and rejected, reason 3; full trace in
+**Do not reach for it as a real per-page navigation replacement** (separate
+pages, each with its own bookmarkable URL, `activeId` read from the
+request's own query param) — that was `tabs-nav.tsx`'s job, measured against
+`tabs/primitives` and rejected for it, reason 3; full trace in
 `docs/REMIX_RC_MIGRATION_STATUS.md` and `docs/REMIX_RC_MIGRATION_PLAN.md`
-Stage 6). Hosting `tab()` on an `<a href>` instead of a `<button>` does
+Stage 6. `tabs-nav.tsx`/`tabs-nav-scroll.component.js` no longer exist —
+every tab set the app has turned out to be genuinely same-page once looked
+at closely (see below), so nothing ever needed that job again; if a future
+page's tabs turn out to be *real* navigation, that's what's being reached
+for again, and the measurement is worth re-reading before re-implementing
+it by hand. Hosting `tab()` on an `<a href>` instead of a `<button>` does
 mechanically work — the mixin doesn't hard-require a particular host — but
 it fights the primitive's own design: its keydown handler unconditionally
 `preventDefault()`s Enter (and Space), which is correct when the host's
@@ -295,31 +299,63 @@ keyboard activation when the host's default action is the navigation you
 were trying to keep. Measured live, not assumed: confirmed Enter stopped
 navigating a `tab()`-hosted anchor in Chromium.
 
-**Where the views genuinely share one page** — `guidelines-add-tabs.
-component.js`'s two add-forms (asset-class bucket vs. named instrument;
-switching between them is choosing an input mode for the same action, not
-moving to a different page) — the primitive is used exactly as documented:
-`<button>` hosts, `panel()` around both forms, `defaultActiveTab` seeded
-from the page's own `?tab=` query param so the *initial* render is still
-correct with no JS. This gets real ARIA (`role="tab"`/`"tablist"`,
-`aria-selected`, `aria-controls`/`aria-labelledby`) and full keyboard
-support (arrow-key roving focus, Home/End, Enter, Space) entirely for free —
-`<button>` has native Enter/Space activation, so unlike the `<a>` case above
-there is no keydown glue to write.
+**Where the views genuinely share one page**, the primitive is used exactly
+as documented: `<button>` hosts, `defaultActiveTab`/the content's own
+initial source seeded from the page's own `?tab=` query param so the
+*initial* render is still correct with no JS. This gets real ARIA
+(`role="tab"`/`"tablist"`, `aria-selected`, `aria-controls`/
+`aria-labelledby`) and full keyboard support (arrow-key roving focus,
+Home/End, Enter, Space) entirely for free — `<button>` has native Enter/
+Space activation, so unlike the `<a>` case above there is no keydown glue to
+write. Two worked examples, differing in how the *content* per tab reaches
+the client, because the two apps of it are shaped differently:
+
+- **Both tabs' content is small and independent — co-resident, client-side
+  `panel()` toggle.** `guidelines-add-tabs.component.js`'s two add-forms
+  (asset-class bucket vs. named instrument; switching is choosing an input
+  mode for the same action) — both panels render into the DOM on every
+  load, `panel()` sets `hidden`/`inert` on the inactive one. Confirm this is
+  actually cheap before reaching for it: it costs nothing extra here because
+  neither panel does anything but hold a couple of static-option-list
+  `<select>`s.
+- **A tab's content is gist-backed/mode-specific and expensive to load for
+  a tab nobody's looking at — a shared `<Frame>`, pointed at the new mode's
+  own `src` and reloaded on switch.** `advice-mode-tabs.component.js`: no
+  `panel()` at all (there's nothing to hide client-side — the differing
+  content lives entirely in the Frame, not in two co-resident panels).
+  `FrameHandle.src` (`@remix-run/ui`'s `component.js`) is a plain, live-read
+  property — `resolveAndRenderReload` (`frame.js`) reads `frame.src` at
+  reload time, not a value captured at creation — so `onActiveTabChange` can
+  do `frame.src = otherModeFragmentUrl; frame.reload()` to fetch that mode's
+  state exactly once, on demand, only when the user actually switches to
+  it. `docs/REMIX_RC_MIGRATION_STATUS.md`'s newest *Done* row has the full
+  design trace, including why guidelines' shape didn't carry over
+  (guidelines' panels have no per-tab remembered state to fetch at all).
 
 **The one deliberate, written exception to "must function with little or no
 JavaScript"** (§3): *switching* tabs needs JavaScript — there is no native
-fallback for a client-side `hidden` toggle. Accept this only for a widget
-that is genuinely same-page (per the test above, not by assumption), and
-only because the *initial* tab still renders correctly without JS (the
-`?tab=` query param still drives `defaultActiveTab` server-side). Panel
-content for both tabs renders on every load regardless of which is active —
-confirm this is cheap before adopting; it was for guidelines (two small
-forms) and would need checking again per widget (advice's mode tabs, for
-example, sit in front of a shared, lazily-loaded `<Frame>` rather than
-duplicating heavy content, so the same shape would likely also be cheap
-there, but that hasn't been measured — see the backlog in
-`docs/REMIX_RC_MIGRATION_STATUS.md`).
+fallback for a client-side `hidden` toggle or a client-triggered `reload()`.
+Accept this only for a widget that is genuinely same-page (per the test
+above, not by assumption), and only because the *initial* tab still renders
+correctly without JS.
+
+**A `<Frame fallback={…}>` never shows its real content without
+JavaScript — confirm this before putting anything a no-JS visitor needs
+inside one.** `@remix-run/ui`'s `server/stream.js` (`buildFrameSegment`):
+`nonBlocking = !!props.fallback` — a fallback-carrying frame streams only
+the fallback synchronously and delivers the real content solely through the
+client hydration patch, regardless of how quickly `resolveFrame` actually
+resolves. Confirmed live, and true of *every* Frame in this app already
+(`guidelines-list`'s Frame, JS disabled, never shows its list either) — it
+was always harmless before because no page put a no-JS-required form inside
+one. Advice's mode-tabs port did exactly that (folded each mode's own form
+into the `advice-result` Frame, per the second bullet above), which would
+have silently broken the form for no-JS visitors had `fallback` stayed;
+fixed by dropping `fallback` from that Frame specifically, which costs
+nothing extra when — as there — `resolveFrame` only reshapes props the page
+already awaited before calling `render()`, no new I/O. Check again before
+any other page moves visitor-facing, no-JS-required content inside an
+existing fallback-carrying Frame.
 
 A `.component.js` can't import a `.tsx` file (no build step, served to the
 browser as-is), so a shared presentational helper like `Card`'s
@@ -327,8 +363,8 @@ browser as-is), so a shared presentational helper like `Card`'s
 in the entry rather than imported — see `guidelines-add-tabs.component.js`
 for the worked example, including the active/inactive tab styling via
 Tailwind's `[&[data-state=active]]:` arbitrary variant (matching the
-`data-state` attribute `tab()`/`panel()` already write, not a hand-rolled
-class toggle).
+`data-state` attribute `tab()` already writes, not a hand-rolled class
+toggle).
 
 ---
 

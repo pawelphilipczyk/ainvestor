@@ -14,18 +14,21 @@ ahead of time.
 
 ## Where we are
 
-- **Stage:** 6 (behavior via primitives) is **done**. `frame-submit.
-  component.js`/`FrameSubmitEnhancement` is fully retired. tabs-nav →
-  `tabs/primitives`, the last item, turned out to have two distinct answers
-  once measured rather than one: **not adopted** for `tabs-nav.tsx`'s actual
-  job (real per-page navigation — reason 3, unchanged), but **adopted for
-  real** where a tab set turned out to be genuinely same-page, which is what
-  the primitive is documented to be for — see the newest row below.
+- **Stage:** 6 (behavior via primitives) is **done**, and its optional
+  follow-on — advice's mode tabs onto the same real `tabs/primitives` pattern
+  — is done too. `frame-submit.component.js`/`FrameSubmitEnhancement` is
+  fully retired. tabs-nav → `tabs/primitives` turned out to have two distinct
+  answers once measured rather than one: **not adopted** for `tabs-nav.tsx`'s
+  actual job (real per-page navigation — reason 3, unchanged), but **adopted
+  for real** for genuinely same-page tab sets — guidelines' add-tabs first,
+  then advice's mode tabs, which needed a real design change (moving each
+  mode's form inside the `advice-result` Frame) rather than a copy of
+  guidelines' shape — see the two newest rows below.
   Stages 1–5, and the Stage 6 work through `6ddab0e` (advice's 3 forms ported
   to native `data-rmx-target`, PR #195), are merged on `main`.
 - **Branch:** `claude/remix-rc2-tabs-nav-port-d86b2p`, off `main`.
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (594) and
-  `npm run test:browser` (37) all pass.
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (589) and
+  `npm run test:browser` (40) all pass.
 - **Working style:** small steps. One component or one flow per commit, each
   landing green, each with its own browser coverage where the change is
   client-side.
@@ -34,6 +37,7 @@ ahead of time.
 
 | Commit | What |
 |---|---|
+| `(pending)` | **Advice's mode tabs (`buy_next`/`portfolio_review`) ported to real `tabs/primitives` usage** — the optional backlog item from the guidelines port, closed. Unlike guidelines' two independent, always-cheap panels, advice's panels carry gist-backed, mode-specific "remembered defaults" (`cashAmount`, `cashCurrency`, `selectedModel`, whether a saved review exists) that `loadAdvicePageState` only ever loaded for the single active tab — investigated before writing any code (per the user's ask) rather than assumed to carry over from guidelines' shape. Two real findings from that investigation: (1) `FrameHandle.src` (`@remix-run/ui`'s `component.js`) is a plain, live-read property — `resolveAndRenderReload` (`frame.js`) reads `frame.src` at reload time, not a value captured at creation — so a client entry can point the shared `advice-result` Frame at the *other* mode's fragment URL and call `reload()` to fetch that mode's own state on demand, exactly once, only when the user actually switches to it; (2) the user chose folding each mode's whole panel (form *and* result) inside the Frame over eagerly loading both tabs' state on every page view, since the panels were already the right shape for it (the "Clear saved review" button had already had to move inside this same Frame during the original advice port, for the identical "content outside the frame goes stale" reason). New `app/features/advice/advice-mode-tabs.component.js` (+`.d.ts`) — `Context`/`root`/`list`/`tab`, no `panel()` (there is nothing to hide/show client-side; the *content* differing by tab lives in the Frame, not in two co-resident panels) — replaces `advice-page.tsx`'s `<TabsNav>`/`<TabLink>` block. New `AdviceModePanel` (`advice-page.tsx`) replaces `AdviceResultFragment` (deleted, `advice-result-fragment.tsx` gone): renders one mode's form *and* result together, since both now load and refresh as one unit through the Frame — the form moved in from `AdvicePage`, which used to render one mode's copy directly, chosen by a full-page reload. `index.ts`'s `resolveAdviceResultFrame`/`fragmentResult`/`renderAdviceActionResponse` all now render this panel instead of a card-or-error-only fragment, so `fragmentResult`'s old 204-when-nothing-to-show contract is gone — the panel (at minimum, the form) always renders, 200, matching the "each mode's own page always showed its own form" behavior this design is replacing. Caught and fixed one correctness bug the co-rendering exposed: `formError` used to render unconditionally in both mode blocks (harmless when only one ever existed in the DOM); the new design scopes it to the panel matching the error's own mode. **Found and fixed a real regression before it shipped, not after:** moving the form inside the Frame broke it for no-JS visitors entirely — confirmed by reading `@remix-run/ui`'s `server/stream.js` (`buildFrameSegment`: `nonBlocking = !!props.fallback`; a `fallback`-carrying Frame streams only the fallback synchronously and delivers real content solely via the client hydration patch, which needs JavaScript) and then confirming live that this is *already true of every other Frame in this app* (tested `/guidelines` with JS disabled — `guidelines-list`'s Frame, untouched by this change, also never shows real content without JS). That was always survivable elsewhere because no visitor-facing form lived inside those frames; moving advice's form in made it not survivable here. Fixed by dropping `fallback` from the `advice-result` Frame specifically — `buildFrameSegment`'s `else` branch then awaits `resolveFrame` and inlines the real HTML, blocking the response until ready, which costs nothing extra here since `resolveAdviceResultFrame` only reshapes `props` the page already awaited via `loadAdvicePageState` before calling `render()` at all, no new I/O. Verified live in Chromium: mouse click swaps the frame to the other mode with no navigation (confirmed in the request log: `GET /fragments/advice-result?tab=portfolio_review 200` fires exactly on click, not on page load); Enter and Space both activate a focused tab (free — real `<button>` hosts, unlike `0b05bbe`'s `<a>` attempt); with JS disabled, `/advice?tab=portfolio_review` renders the portfolio_review form inline, buy_next's nowhere in the DOM. This was also the last caller of `tabs-nav.tsx`/`tabs-nav-scroll.component.js` (guidelines moved off them first — see the row below), so both, their `.test.ts`, and their `document-shell.tsx`/`components/index.ts` registrations were deleted in this same commit rather than left as a stale reason-3 carve-out with nothing left to carve out. `npm test` 589/589 (2 rewritten for the 204→200 contract change; 5 fewer than the prior row's 594, all `tabs-nav.test.ts`'s own, not lost coverage), `npm run test:browser` 40/40 (3 new: click-switches, Enter/Space, no-JS initial render). |
 | `ddf1b63` | **Guidelines' add-tabs ported to real `tabs/primitives` usage** (`Context`/`root`/`list`/`tab`/`panel`, `<button>` hosts, `panel()` toggling client-side) — the correction to `0b05bbe` below, once the Remix team's own docs turned up. `node_modules/remix/src/ui/tabs/README.md` states the primitive's intended use directly: "Use it when related views share the same page space" — every example hosts `tab()` on a `<button>` with `panel()`, no `href` anywhere. Guidelines' bucket/instrument add-forms fit that description (choosing an input mode for the same action, not moving to a different page), unlike `tabs-nav.tsx`'s real per-page tabs (advice's mode tabs, left as `tabs-nav.tsx` for now — see *Backlog* below). New `app/features/guidelines/guidelines-add-tabs.component.js` (+`.d.ts`) replaces `guidelines-page.tsx`'s `<TabsNav>`/`<TabLink>`/`<Card>` block; both panel forms now always render in the DOM (`panel()` sets `hidden`/`inert` on the inactive one, not the server), so their previously-shared `id="guidelines-add-form"` had to split into `-bucket`/`-instrument` (a real, if minor, pre-existing latent bug — duplicate ids are invalid HTML — that only mattered once both could exist in the DOM at once) and `guidelines.browser.ts`'s form-submit selectors were updated to match. `defaultActiveTab` is still seeded from the page's own `?tab=` query param (unchanged controller code), so the *initial* tab is correct with no JS; **switching tabs needs JavaScript** — the one deliberate, written exception to `docs/UI_ARCHITECTURE_GUIDELINES.md` §3's "must function with little or no JavaScript," recorded in both that doc's new §11 and the component's own header comment, not left implicit. Verified live in Chromium rather than assumed: mouse click switches panels with the URL provably unchanged; Enter *and* Space both activate a focused tab correctly, with zero extra glue — unlike the earlier `<a>`-hosted attempt (`0b05bbe`), a real `<button>` host gets native Enter/Space activation for free, which is exactly why `0b05bbe`'s Enter-key gap doesn't recur here; ArrowRight moves focus and activates the next tab (`activateTabInDirection`); with JS disabled, `/guidelines?tab=instrument` still renders the instrument panel active and the bucket panel hidden, confirming the no-JS exception is scoped to *switching* only, not the initial page. A `.component.js` can't import a `.tsx` file (no build step), so `Card`'s "muted" variant classes are inlined as a literal string rather than imported; active/inactive tab styling uses Tailwind's `[&[data-state=active]]:` arbitrary variant against the `data-state` attribute `tab()`/`panel()` already write, no hand-rolled class toggling. `docs/UI_ARCHITECTURE_GUIDELINES.md` gained a new §11 writing up this pattern (and the boundary against `tabs-nav.tsx`'s job) as the project standard for any future same-page tab set. `npm test` 594/594 (1 test's assertions rewritten for the new server-rendered shape — panel presence/`hidden` state instead of tab `href`s — plus the pre-existing suite otherwise unchanged), `npm run test:browser` 37/37 (4 new: click-switches, Enter/Space, ArrowRight, no-JS initial render). |
 | `0b05bbe` | **tabs-nav → `tabs/primitives`: attempted, not adopted (reason 3).** Closed the last item of the prior *Next step* below. Built a throwaway `clientEntry` (`Context`/`root`/`list`/`tab`/`panel` from `remix/ui/tabs/primitives`), mounted it on the guidelines page's add-tabs, drove it with Playwright (`PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`, the pre-installed build's actual path — the plain `chromium.launch()` default looks for a headless-shell build number this environment doesn't have), then deleted the spike once the measurement was in hand — this is a docs-only commit, nothing from the spike ships. Two results, matching what `@remix-run/ui`'s `tabs/primitives.js` source already predicted before touching a browser: (1) clicking a tab flips which `<div role="tabpanel">` carries `hidden` but leaves the URL bar exactly as it was (`page.url()` identical before/after — no history entry, no fetch, nothing) — `tab()`'s whole behavior is `context.activateTab(name)` on a `<button>`, with no `href`, no navigation of any kind; (2) with `javaScriptEnabled: false`, the server still renders both panels correctly for the request's own tab, but the two `<button>`s are inert — there is no way to reach the other tab at all, since a bare `<button>` has no `href`/`formaction` for anything to hang navigation off. Both are disqualifying for `tabs-nav.tsx`'s actual job: every tab here is a real, bookmarkable `<a href>` to a different server-rendered page (`activeId` is read from that URL's own query param), and `TabsNavScrollRestoration` restores window scroll around that same navigation — none of which the primitive's client-side panel-toggle model has any place for, and (2) is a direct violation of `docs/UI_ARCHITECTURE_GUIDELINES.md` §3 ("must function with little or no JavaScript"), which the current `<a>`-based tabs satisfy for free. `tabs-nav.tsx` and `tabs-nav-scroll.component.js` stay under reason 3. Full write-up: `docs/REMIX_RC_MIGRATION_PLAN.md` Stage 6. `npm test`/`npm run test:browser` unaffected (no source changed). |
 | `2c8e1c2` | **Correction first:** the prior *Next step* entry below (carried in PR #191 through #195, and in `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 and `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 4) named "catalog's ETF import form" as the last `FrameSubmitEnhancement` user, with the attribute `data-frame-submit="catalog-list"`. That was wrong: `CatalogImportCard`'s bank-JSON-paste/HAR-upload form (`app/features/catalog/catalog-import-card.tsx`, rendered on `/admin/etf-import`, not `/catalog`) never carried `data-frame-submit` in its whole history (`git log -S`), and posts to `/catalog/import` — a path distinct from its own page, so porting *that* form would have needed the same route-consolidation fix every other port did. Confirmed by grepping the actual rendered markup instead of trusting the description: the only `data-frame-submit` left anywhere in `app/` was on the **catalog list's own filter form** (`method="get"`, `catalog-page.tsx`, targeting the `catalog-list` frame it sits above) — a leftover of the same name collision (`catalog-list` is both the frame's name and this form's old attribute value), not the import form. Ported that one. The bank-JSON import form is untouched by this migration; it still does a full-page POST + redirect, as it always has, and is not on `FrameSubmitEnhancement` and never was. **Ported the catalog list filter form to native `data-rmx-target="catalog-list"` `data-rmx-history="replace"`.** This is the first *GET* `data-rmx-target` form in the migration — every prior port (portfolio, guidelines, advice, catalog ETF analysis) was POST — so its runtime path was read from `@remix-run/ui`'s source rather than assumed to match: `form-navigation.js` resolves no `getSubmission` for a GET form (same as a plain `<a>` click), so `navigation.js` routes it through the same `<a>`/`<form method="get">` branch as a link — no special-casing needed, and `defaultResolveFrame` still sends `Accept: text/html` and no method override, matching the exact-match check `requestAcceptsFrameSubmitHtml` already used by every POST port. Added a frame-fetch branch to `catalogController.actions.index` (dispatching on that same `Accept: text/html` check, same shape as every prior port's dispatcher) so a `data-rmx-target` filter submission — which now fetches `/catalog?type=…` itself, not the separate `/catalog/fragments/list` route — gets the small `CatalogListFragment` instead of the full page; extracted `renderCatalogListFragmentHtml` so `index` and the pre-existing `fragmentList` route (still used for the Frame's own initial `src`) share it instead of duplicating the render call. Added `CatalogListFrame`, a `watchFrameFormSubmissions(handle, 'catalog-list')` client entry for the submit-button busy state — the filter form has no validation and no error path, so it needs neither `data-reset-form` nor `data-frame-hide-form-on-success`, unlike every prior port's frame-UX entry. Verified live in Chromium (not just asserted): a `window` marker set before submit survives the filter (proving an in-place frame patch, not a full reload); `data-rmx-history="replace"` reproduces the old `history.replaceState` behavior exactly, including the same-surprising consequence the old code already had — one "back" from a second filter change skips over the first and lands on whatever page was current *before* the unfiltered `/catalog` load, since every filter submission replaces the same entry rather than pushing a new one. **This was also the last `FrameSubmitEnhancement` form, so the backlog item is done in the same commit:** deleted `frame-submit.component.js` (+`.d.ts`) and its `document-shell.tsx` registration; deleted `frame-submit.browser.ts`, but not its test *bodies* — 5 of its 6 tests were the only browser coverage this repo has for the portfolio trade form and CSV import (already native `data-rmx-target`, ported in `6265ddf`/`e71e8ce`, but never given their own browser file), so those moved to `app/features/portfolio/portfolio-forms.browser.ts` under an accurate name; only the 6th test (the catalog filter form, now redundant with this commit's own `catalog-list-filter.browser.ts`) was dropped rather than moved. `requestAcceptsApplicationJson`/`requestAcceptsFrameSubmitHtml` (`app/lib/frame-submit-request.ts`) stay — they're the shared `Accept` dispatch every native port uses, not `FrameSubmitEnhancement`-specific; only their docstrings, which named the retired mechanism, were corrected. `npm test` 594/594 (1 new: the frame-fetch branch returns only the fragment), `npm run test:browser` 33/33 (31 baseline + 3 new catalog filter tests − 1 dropped redundant test). |
@@ -51,11 +55,12 @@ ahead of time.
 
 ## Next step
 
-Stage 6 is done — `FrameSubmitEnhancement` is retired, and tabs-nav's two
-possible primitive adoptions have both been resolved: not adopted for real
-navigation (`tabs-nav.tsx` stays), adopted for real where the tabs are
-genuinely same-page (guidelines' add-tabs, see the newest row above).
-Nothing else in Stage 6's inventory remains unattempted.
+Stage 6 and its optional follow-on are both done — `FrameSubmitEnhancement`
+is retired, and every tab set in the app has been resolved one way or the
+other: not adopted for real navigation (nothing left uses `tabs-nav.tsx` —
+guidelines' and advice's tabs both moved to real `tabs/primitives` usage,
+see the two newest rows above), adopted for real everywhere the tabs are
+genuinely same-page. Nothing left in Stage 6's inventory.
 
 **Move to Stage 7** — `remix/ui/button` / `remix/ui/input` against
 `submit-button.tsx` and the three input components (the design-system call in
@@ -71,41 +76,59 @@ already equals its own page's route before wiring the attribute.
 
 ## Backlog after that, in order
 
-1. **Optional — advice's mode tabs (`buy_next`/`portfolio_review`) onto the
-   same real `tabs/primitives` pattern guidelines' add-tabs now use.** Not
-   done in this pass (scope was guidelines only); plausible fit, not
-   measured. Each mode's panel content is already lightweight (the heavy
-   part, advice results, lives in one shared, lazily-loaded `<Frame
-   name="advice-result">` below both panels, not duplicated per tab), which
-   is the property that made guidelines' rendering-both-panels cost
-   negligible — but confirm this for advice specifically before assuming it
-   carries over, per §11's own caution. Would also mean deciding whether
-   losing the mode's own bookmarkable `?tab=` URL after a client-side switch
-   (same no-JS/URL trade discussed for guidelines) is acceptable there too.
-2. Stage 7 (above).
+Nothing left — Stage 7 (above) is the next step, not a backlog item.
+`tabs-nav.tsx`, `tabs-nav.test.ts`, `tabs-nav-scroll.component.js`
+(+`.d.ts`), and their registration in `document-shell.tsx`/export from
+`components/index.ts` were deleted in this same commit — advice's mode-tabs
+port left them with no remaining caller, so there was nothing left to keep
+them under reason 3 for. `npm test` accordingly drops from 594 to 589 (the 5
+tests were `tabs-nav.test.ts`'s own, not lost coverage).
 
 ## Decisions already taken — do not relitigate
 
 - **Sidebar keeps its hand-rolled overlay.** Measured, reason 3. Plan §6.
-- **`tabs-nav.tsx` keeps its hand-rolled `<a>`-based tabs for real, per-page
-  navigation** (advice's mode tabs today). Measured live in Chromium against
-  `remix/ui/tabs/primitives`, reason 3: `tab()` is documented and built for
-  same-page view switching (`node_modules/remix/src/ui/tabs/README.md`), not
-  navigation — hosting it on `<a href>` instead of the documented `<button>`
-  does work mechanically, but its keydown handler unconditionally
-  `preventDefault()`s Enter, which silently breaks keyboard activation for a
-  host whose default action (navigation) you actually wanted to keep. This
-  verdict is scoped to navigation-style tabs specifically — see the next
-  bullet for the same primitive adopted for real elsewhere.
-- **`tabs/primitives` *is* adopted, for real, where a tab set is genuinely
-  same-page** — guidelines' add-tabs (see the newest *Done* row above),
-  exactly the Remix team's own documented use case. `<button>` hosts (not
-  `<a>`), `panel()` toggling client-side, `defaultActiveTab` seeded from the
-  page's own `?tab=` for a correct no-JS initial render. The one accepted
-  trade: *switching* tabs needs JavaScript, a written exception to
+- **`tabs-nav.tsx` (real per-page `<a>` navigation) has no remaining caller.**
+  Measured live in Chromium against `remix/ui/tabs/primitives` for that job
+  and rejected, reason 3: `tab()` is documented and built for same-page view
+  switching (`node_modules/remix/src/ui/tabs/README.md`), not navigation —
+  hosting it on `<a href>` instead of the documented `<button>` does work
+  mechanically, but its keydown handler unconditionally `preventDefault()`s
+  Enter, which silently breaks keyboard activation for a host whose default
+  action (navigation) you actually wanted to keep. Every tab set the app
+  actually has turned out to be genuinely same-page once looked at closely
+  (see the next bullet), so nothing calls `tabs-nav.tsx` anymore; it and
+  `tabs-nav-scroll.component.js` are dead code, not a live "reason 3" carve-out
+  — see *Backlog* above.
+- **`tabs/primitives` *is* adopted, for real, everywhere in the app that has
+  a tab set** — guidelines' add-tabs and advice's mode tabs (see the two
+  newest *Done* rows above), exactly the Remix team's own documented use
+  case. `<button>` hosts (not `<a>`), content differing by tab swapped
+  in — client-side `panel()` toggling for guidelines (both panels cheap and
+  independent), a shared Frame pointed at a new `src` and reloaded for advice
+  (its panels carry gist-backed, mode-specific state, so each is fetched on
+  demand instead of both loaded eagerly) — and `defaultActiveTab`/the
+  Frame's own initial `src` seeded from the page's own `?tab=` either way,
+  for a correct no-JS initial render. The one accepted trade in both cases:
+  *switching* tabs needs JavaScript, a written exception to
   `docs/UI_ARCHITECTURE_GUIDELINES.md` §3, scoped to same-page tab widgets —
-  see that doc's new §11 for the pattern and its boundary against the
+  see that doc's §11 for the pattern and its boundary against the
   navigation-style bullet above.
+- **A `<Frame fallback={…}>` never shows its real content without
+  JavaScript, in this app or in general.** Read from `@remix-run/ui`'s
+  `server/stream.js` (`buildFrameSegment`: `nonBlocking = !!props.fallback`
+  — a fallback-carrying frame streams only the fallback and delivers real
+  content solely through the client hydration patch) and confirmed live: an
+  untouched, pre-existing Frame (`guidelines-list`, JS disabled) never shows
+  its list either, exactly the same way. This was always harmless before
+  because no page put a form a no-JS visitor needs to use *inside* a
+  fallback-carrying Frame — advice's mode-tabs port did exactly that
+  (moved each mode's form into the `advice-result` Frame, see the newest
+  *Done* row), which would have silently broken the form for no-JS visitors
+  had `fallback` stayed. Fixed there by dropping `fallback` from that one
+  Frame (blocking is free when, as here, `resolveFrame` only reshapes
+  already-awaited props — no new I/O). Worth checking again before any other
+  page moves visitor-facing, no-JS-required content inside an existing
+  fallback-carrying Frame.
 - **`select/primitives` is not adopted** for `locale-select` / `select-input`:
   it replaces a native `<select>` with a button + div listbox + hidden input,
   against AGENTS.md's "native browser primitives before custom JavaScript".

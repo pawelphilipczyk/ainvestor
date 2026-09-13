@@ -9,7 +9,6 @@ import type { SessionData } from '../../lib/session.ts'
 import type { FlashBannerTone } from '../../lib/session-flash.ts'
 import { tailwindConfig } from '../../lib/tailwind-config.ts'
 import { NavigationLinkLoadingEnhancement } from '../navigation/navigation-link-loading.component.js'
-import { TabsNavScrollRestoration } from '../navigation/tabs-nav-scroll.component.js'
 import { AppTopBar } from './app-top-bar.tsx'
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
@@ -147,7 +146,6 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 					<PortfolioTradeFocus />
 				) : null}
 				<NavigationLinkLoadingEnhancement />
-				<TabsNavScrollRestoration />
 				<script type="module" src="/entry.js" />
 			</body>
 		</html>
