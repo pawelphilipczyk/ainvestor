@@ -295,8 +295,13 @@ Then edit `claude_desktop_config.json` — macOS
 {
   "mcpServers": {
     "ainvestor": {
-      "command": "/absolute/path/to/ainvestor/node_modules/.bin/tsx",
-      "args": ["/absolute/path/to/ainvestor/mcp/server.ts"],
+      "command": "node",
+      "args": [
+        "--import",
+        "remix/node-tsx",
+        "/absolute/path/to/ainvestor/mcp/server.ts"
+      ],
+      "cwd": "/absolute/path/to/ainvestor",
       "env": {
         "GH_TOKEN": "ghp_your_token_here",
         "AINVESTOR_GIST_ID": "your_private_data_gist_id",

@@ -2,9 +2,8 @@ import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'
 
 const requiredPaths = [
-	'node_modules/.bin/tsx',
 	'node_modules/.bin/biome',
-	'node_modules/remix/package.json',
+	'node_modules/remix/dist/node-tsx.js',
 ]
 
 const hasDependencies = requiredPaths.every((path) => existsSync(path))

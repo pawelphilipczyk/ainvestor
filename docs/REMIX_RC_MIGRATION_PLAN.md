@@ -83,8 +83,8 @@ replacements for code in `app/`.
 | Custom `resolveFrame` in `app/entry.js` | ~10 | Built-in default resolver | **New in rc.2** |
 | `app/lib/form-data-payload.ts` | 11 | `remix/data-schema/form-data` | Since beta.0 — its comment ("there is no separate parser") is simply wrong |
 | Hand-written `AppRequestContext` | 11 | `MiddlewareContext<typeof appMiddleware>` | **New in rc.2** (also compulsory — see §2) |
-| `tsx watch` dev loop | — | `remix/node-hmr` + `remix/ui-hmr` + `remix/ui/dev/refresh` | **New in rc.2** |
-| Direct `tsx` dependency | — | `remix/node-tsx` (oxc-based loader, already a transitive dep) | **New in rc.2** |
+| `tsx watch` dev loop | — | `remix/node-hmr` + `remix/ui-hmr/node` (adopted, server-side only); `remix/ui/dev/refresh`/browser-side HMR not adopted — see Stage 7 | **New in rc.2** |
+| Direct `tsx` dependency | — | `remix/node-tsx` (oxc-based loader, already a transitive dep) — adopted | **New in rc.2** |
 | Source-text assertions (`assert.match(body, /addEventListeners/)`) | — | `render()` from `remix/ui/test` — but it mounts into `document.body`, so it needs a DOM this repo does not have (see Stage 6) | Since beta.0 |
 
 Roughly **1,100 LOC of hand-rolled code has a Remix owner**, before the
@@ -695,14 +695,24 @@ re-exports.
   with nothing left to carve out. Full trace: `docs/REMIX_RC_MIGRATION_STATUS.md`'s
   newest *Done* row.
 
-**Stage 7 — styled components and dev tooling.** `remix/ui/button` and
-`remix/ui/input` against `submit-button.tsx` and the three input components —
-the design-system call in Open question 2, **resolved: not adopted, reason 2**
-(measured live; see Open question 2 for the full trace — flagged as a
-migration follow-up for whenever `remix/ui` ships `button/primitives` and
-`input/primitives`). Then `remix/node-hmr` + `remix/ui-hmr`
-+ `remix/ui/dev/refresh` against the `tsx watch` loop, and `remix/node-tsx`
-against the direct `tsx` dependency.
+**Stage 7 — styled components and dev tooling. Done — last stage in this
+plan.** `remix/ui/button` and `remix/ui/input` against `submit-button.tsx` and
+the three input components — the design-system call in Open question 2,
+**resolved: not adopted, reason 2** (measured live; see Open question 2 for
+the full trace — flagged as a migration follow-up for whenever `remix/ui`
+ships `button/primitives` and `input/primitives`). Then the dev-tooling
+swap: `remix/node-tsx` **fully replaces** the `tsx` dependency (every script
+now runs `node --import remix/node-tsx` instead of the `tsx` binary), and
+`remix/node-hmr` + `remix/ui-hmr/node` replace the `tsx watch` restart loop
+with real in-place hot reload for server components — confirmed live (an
+edited route component hot-swaps with no process restart). `remix/ui/dev/refresh`
+(browser-side HMR, patching an already-open tab without a reload) is **not
+adopted**: it requires `.component.js` client entries to be served through
+`remix/assets`, and this app serves them as plain static files instead — the
+same architecture Stage 5 chose under reason 3 for a related reason. Full
+trace: `docs/REMIX_RC_MIGRATION_STATUS.md`'s dev-tooling *Done* row and its
+"Decisions already taken" bullet. Flagged as a second migration follow-up,
+revisited only if that serving architecture changes.
 
 **Throughout — tests.** Replace source-text assertions
 (`assert.match(body, /addEventListeners/)`, the import-map regexes in
