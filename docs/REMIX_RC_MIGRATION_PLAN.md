@@ -72,12 +72,12 @@ replacements for code in `app/`.
 | Hand-rolled today | LOC | Replace with | Availability |
 |---|---:|---|---|
 | Form interception in `frame-submit.component.js` — `getSubmitControl`, `createFormData`, `buildGetNavigationUrl`, submitter detection | ~120 of 411 | Native `form-navigation` runtime | **New in rc.2** |
-| `text-input` / `number-input` / `textarea-input` | 239 | `remix/ui/input` | **New in rc.2** |
+| `text-input` / `number-input` / `textarea-input` | 239 | ~~`remix/ui/input`~~ — not adopted, see Open question 2 | **New in rc.2** |
 | `tabs-nav.tsx` + `tabs-nav-scroll.component.js` | 202 | `remix/ui/tabs/primitives` | **New in rc.2** |
 | Sidebar overlay: scroll lock, outside-click, focus restore | 107 | `remix/ui/popover` — `surface` does all three | Since beta.0 |
 | `select-input.tsx` | 91 | `remix/ui/select/primitives` | **New in rc.2** |
 | `theme-toggle.tsx` + `.component.js` | 76 | `remix/ui/toggle/primitives` | **New in rc.2** |
-| `submit-button.tsx` + `submit-button-loading.component.js` | 151 | `remix/ui/button` | Since beta.0 |
+| `submit-button.tsx` + `submit-button-loading.component.js` | 151 | ~~`remix/ui/button`~~ — not adopted, see Open question 2 | Since beta.0 |
 | `app/components/render.ts` | 55 | `render()` from `remix/middleware/render` → `context.render(node, init)` | **New in rc.2** |
 | `IMPORT_MAP` in `document-shell.tsx` + `remixRuntime` allowlist in `router.ts` | ~15 | `ImportMap` from `remix/ui/server`, backed by the native `import-map-manager`; `@remix-run/assets` `AssetServer` | **New in rc.2** |
 | Custom `resolveFrame` in `app/entry.js` | ~10 | Built-in default resolver | **New in rc.2** |
@@ -88,7 +88,8 @@ replacements for code in `app/`.
 | Source-text assertions (`assert.match(body, /addEventListeners/)`) | — | `render()` from `remix/ui/test` — but it mounts into `document.body`, so it needs a DOM this repo does not have (see Stage 6) | Since beta.0 |
 
 Roughly **1,100 LOC of hand-rolled code has a Remix owner**, before the
-dev-tooling swaps.
+dev-tooling swaps — of which ~390 (`submit-button` + the three input
+components) turned out not adopted once measured; see Open question 2.
 
 ### Use the `/primitives` exports, not the styled components
 
@@ -696,7 +697,10 @@ re-exports.
 
 **Stage 7 — styled components and dev tooling.** `remix/ui/button` and
 `remix/ui/input` against `submit-button.tsx` and the three input components —
-the design-system call in Open question 2. Then `remix/node-hmr` + `remix/ui-hmr`
+the design-system call in Open question 2, **resolved: not adopted, reason 2**
+(measured live; see Open question 2 for the full trace — flagged as a
+migration follow-up for whenever `remix/ui` ships `button/primitives` and
+`input/primitives`). Then `remix/node-hmr` + `remix/ui-hmr`
 + `remix/ui/dev/refresh` against the `tsx watch` loop, and `remix/node-tsx`
 against the direct `tsx` dependency.
 
@@ -754,19 +758,21 @@ Confirm CI and the Fly image satisfy it.
 1. **Dev/prod middleware.** Accept compression-in-dev and logging-in-prod, or
    invest in a structure that keeps them conditional under the new context
    typing?
-2. **Styled controls vs the Tailwind design system.** Primitives are the clear
-   default, but `remix/ui/button` and `remix/ui/input` have no primitives-only
-   variant — adopting them means accepting Remix's CSS alongside Tailwind
-   (~390 LOC deleted), and skipping them means keeping hand-rolled controls
-   under reason 2. This is the one place the goal and the design system genuinely
-   pull against each other.
+2. **RESOLVED — not adopted, reason 2 (measured, Stage 7).** Primitives are the
+   clear default, but `remix/ui/button` and `remix/ui/input` have no
+   primitives-only variant — adopting them means accepting Remix's CSS
+   alongside Tailwind (~390 LOC deleted), and skipping them means keeping
+   hand-rolled controls under reason 2. This was the one place the goal and
+   the design system genuinely pulled against each other, so it went through
+   the same measure-before-deciding process as the tabs-nav call, not an
+   assumption.
 
    Both are **mixin factories** in rc.2, not components: you keep your own
    `<button>` and its Tailwind classes and apply `button({ tone: 'ghost' })` to
    it. `ButtonTone` is `'neutral' | 'primary' | 'ghost'` and `ButtonSize` /
    `InputSize` are `'md' | 'lg'`. That makes this a per-element opt-in rather
-   than an all-or-nothing swap, so it can be trialled on one control before
-   committing.
+   than an all-or-nothing swap, so it was trialled on `submit-button.tsx` alone
+   before deciding for the other three input components.
 
    **Prior art — PR #150 (closed).** An earlier attempt at exactly this, on the
    beta.0 line. It mounted `RMX_01.Style` from `remix/ui/theme`, **disabled
@@ -779,8 +785,61 @@ Confirm CI and the Fly image satisfy it.
    button reads only three `--rmx-*` variables, all shadow-related. So that
    branch is not revivable, but its lesson stands: **do not disable Preflight
    and do not build a variable bridge.** The mixin shape means neither is
-   needed. Whoever picks this up should read #150's diff first to see what to
-   avoid.
+   needed.
+
+   **What was actually measured, live, against `submit-button.tsx`:**
+
+   - `button()`/`input()` are not headless like every other primitive adopted
+     in this migration (tabs, toggle, select). Reading
+     `@remix-run/ui`'s `button/index.js` / `input/index.js` shows they ship a
+     complete, opinionated visual design: pill buttons (`border-radius: 999px`)
+     at 26px(md)/30px(lg) tall, inputs at 8px radius and 32px(md)/36px(lg)
+     tall — against this app's `rounded-md` and `h-9`/`h-10` (36px/40px)
+     tokens — plus hardcoded `light-dark(#hex, #hex)` colors that do not read
+     this app's `--primary`/`--background`/`--border-input` custom properties,
+     and an Inter Variable font stack this app never loads.
+   - Confirmed live in Chromium: applying `mix={[button({ tone: 'primary' })]}`
+     next to the existing Tailwind classes renders the mixin's own 26px pill,
+     not the app's `h-10 rounded-md bg-primary` — the classes are present in
+     the DOM but inert.
+   - Root cause, not just an observation: `@remix-run/ui`'s `css()` mixin
+     inserts its generated rules through `document.adoptedStyleSheets` inside
+     a dedicated `@layer rmx.<hash>` (confirmed by reading the actual adopted
+     stylesheet at runtime). `remix/ui`'s own top-level README documents this
+     directly ("Cascade Layers" section): "Unlayered CSS outranks layered CSS,
+     so use explicit layer order when mixing Remix UI with global styles" —
+     this is Remix's deliberate, documented interop path, not a bug. Verified
+     live both directions: a plain unlayered override rule really does beat
+     `rmx` with no `!important`, and reordering an explicit `@layer` statement
+     really does let a same-named Tailwind layer (`utilities`) outrank `rmx`
+     instead.
+   - That mechanism doesn't create a middle ground, though: a cascade layer
+     wins or loses **as a whole**, not per property. Flipping the layer order
+     so this app's Tailwind wins means it wins for every property the mixin
+     sets — there is no "keep the mixin's disabled-state handling but override
+     its colors" short of going back to per-property `!important` overrides,
+     which reintroduces the same 390 LOC the adoption was meant to delete, plus
+     the mixin's own runtime overhead, for zero net visual change.
+   - `@remix-run/ui`'s own `package.json` describes it as "headless
+     primitives, **and** styled components" — two explicit tiers. Every other
+     control this migration touched (tabs, toggle, select, popover) ships
+     both; `button`/`input` currently ship only the styled tier. The button
+     README's composition guidance ("Compose app-owned styles **around** the
+     primitive when a control needs local layout or state styling") confirms
+     the styled mixins are meant to own a control's core visual identity, with
+     app styles adding local layout on top — not to have that identity
+     replaced. This matches this plan's own §"Use the `/primitives` exports,
+     not the styled components" framing ("take a styled component where we
+     have no styling opinion") — this app already has one.
+
+   **Decision:** not adopted, reason 2, for both `submit-button.tsx` and the
+   three input components (`text-input.tsx`, `number-input.tsx`,
+   `textarea-input.tsx`; `select-input.tsx` was already reason-2'd against
+   `select/primitives`). Recorded as a **migration follow-up**: revisit if/when
+   `remix/ui` ships `button/primitives` and `input/primitives` — the headless
+   tier every other adopted control already has. Until then this is the same
+   kind of dead end tabs-nav's `0b05bbe` measurement found, not an open
+   question.
 3. **Timing.** Land Stages 1–4 now for a small diff and early warning of API
    churn, or wait for 3.0.0 final? This plan assumes now; the validated 23-file
    diff supports it.
