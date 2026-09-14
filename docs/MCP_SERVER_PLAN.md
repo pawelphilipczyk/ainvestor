@@ -173,7 +173,7 @@ mcp/
   tools/rounding.ts    # the two-decimal rounding both tool modules report in
   tools/tool-result.ts    # jsonResult — the one-JSON-text-block response shape
   tools/tool-arguments.ts # readStringArgument — trim-or-null argument parsing
-  **/*.test.ts         # co-located, run by `tsx --test`
+  **/*.test.ts         # co-located, run by `node --import remix/node-tsx --test`
 ```
 
 `createMcpServer()` in `protocol.ts` does no I/O — it maps a parsed message to a
