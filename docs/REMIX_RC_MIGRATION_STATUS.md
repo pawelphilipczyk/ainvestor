@@ -14,20 +14,25 @@ ahead of time.
 
 ## Where we are
 
-- **Stage:** 6 (behavior via primitives) is **done**, and its optional
-  follow-on — advice's mode tabs onto the same real `tabs/primitives` pattern
-  — is done too. `frame-submit.component.js`/`FrameSubmitEnhancement` is
-  fully retired. tabs-nav → `tabs/primitives` turned out to have two distinct
-  answers once measured rather than one: **not adopted** for `tabs-nav.tsx`'s
-  actual job (real per-page navigation — reason 3, unchanged), but **adopted
-  for real** for genuinely same-page tab sets — guidelines' add-tabs first,
-  then advice's mode tabs, which needed a real design change (moving each
-  mode's form inside the `advice-result` Frame) rather than a copy of
-  guidelines' shape — see the two newest rows below.
-  Stages 1–5, and the Stage 6 work through `6ddab0e` (advice's 3 forms ported
-  to native `data-rmx-target`, PR #195), are merged on `main`.
-- **Branch:** `claude/remix-rc2-tabs-nav-port-d86b2p`, off `main`.
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (589) and
+- **Stage:** 6 (behavior via primitives) is **done and merged on `main`**
+  (PR #198). **Stage 7 (styled components and dev tooling) is done — this was
+  the last staged item in the Plan.** Part 1 (`remix/ui/button` /
+  `remix/ui/input`): **not adopted, reason 2**, per a live measurement (see
+  `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2). Part 2 (dev tooling):
+  **partially adopted** — `remix/node-tsx` fully replaces the `tsx`
+  dependency everywhere (dev/start/mcp/tests), and `remix/node-hmr` +
+  `remix/ui-hmr/node` give the dev server real in-place hot reload for server
+  components instead of `tsx watch`'s always-restart loop, confirmed live.
+  `remix/ui/dev/refresh` (browser-side HMR — patching already-open tabs
+  without a reload) was **not** adopted: it needs `.component.js` client
+  entries served through `remix/assets`, and this app serves them as plain
+  static files instead (`staticFiles()`, `app/router.ts`) — the same
+  architecture Stage 5 already chose under reason 3 for a related reason
+  (scoped import maps). Recorded as a migration follow-up, not a gap in this
+  step. **The staged plan (Stages 1–7) is now complete**; what's left is the
+  two follow-ups below, to revisit if their blockers ever lift.
+- **Branch:** `claude/next-migration-step-jd3kw9`, off `main`.
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (590) and
   `npm run test:browser` (40) all pass.
 - **Working style:** small steps. One component or one flow per commit, each
   landing green, each with its own browser coverage where the change is
@@ -37,6 +42,8 @@ ahead of time.
 
 | Commit | What |
 |---|---|
+| `1767e80` | **Stage 7, part 2 — dev tooling: `remix/node-tsx` fully adopted, `remix/node-hmr` + `remix/ui-hmr/node` adopted for server-side hot reload, `remix/ui/dev/refresh` (browser-side HMR) not adopted.** Removed the `tsx` dependency entirely: every script (`dev`, `start`, `mcp`, `test`, `test:browser`, `test:smoke:advice`) now runs via `node --import remix/node-tsx` instead of the `tsx` binary; confirmed live (`node --import remix/node-tsx --test` — 590/590; `node --import remix/node-tsx server.ts` serves `/portfolio` 200) before removing the package. `README.md`'s Claude Desktop stdio example updated to match (`node --import remix/node-tsx <path>`, plus a `cwd` field — confirmed live that `--import`'s bare-specifier resolution is relative to the process's working directory, not the entry script's path, so a config that only fixes the script's own absolute path would still fail to resolve `remix`). `scripts/ensure-deps.mjs`'s dependency check swapped from `node_modules/.bin/tsx` to `node_modules/remix/dist/node-tsx.js`. `tsconfig.json` gained `isolatedModules: true` per `node-tsx`'s own recommended config (already had `NodeNext`/`allowImportingTsExtensions`/`verbatimModuleSyntax`); typecheck stayed clean. New `hmr.ts` (root) replaces the `tsx watch server.ts` restart-on-every-change loop with `remix/node-hmr`'s `run('./server.ts', { nodeArgs: [...] })`, itself loaded via `node --import remix/node-tsx hmr.ts` so the `.ts` entry point needs no separate transform step; `nodeArgs` registers both `remix/node-tsx` (so the *child* server process can load `.ts`/`.tsx` too) and `remix/ui-hmr/node` (transforms Remix UI server component modules so they can hot-swap via `import.meta.hot` instead of forcing a restart). Verified live, not just wired: booted `npm run dev`, edited a route component's source (`app/features/intro/intro-page.tsx`, reverted after), and the running server logged `hmr update app/features/intro/intro-page.tsx` and kept serving 200s with no process restart. **`remix/ui/dev/refresh`'s `reconcileRoots`/`setComponentStalenessCheck` were not adopted** — read `@remix-run/ui-hmr`'s own `browser-runtime.ts` first rather than assumed: they're consumed internally by `ui-hmr`'s *browser* runtime (the piece that live-patches an already-open tab's mounted component tree when a hot-swapped module arrives over a browser HMR channel), which in turn requires the browser-facing modules to be served through `remix/assets`' `createAssetServer` with its `hmr` option. This app's `.component.js` client entries are served as plain static files instead (`staticFiles()`, `app/router.ts`) — the same architecture Stage 5 already chose under reason 3, for the related reason that a scoped import map never applies to statically-served files. Adopting browser-side HMR would mean re-architecting how client entries are served, well past "swap the dev loop" scope, so it's recorded as a **migration follow-up** rather than forced in: an edit to a `.component.js` file still causes a full `node-hmr` restart today (same as `tsx watch` always did), only server-rendered `.tsx`/route-component edits get the faster in-place path. `npm run check`, `npm run typecheck`, `npm test` (590/590), `npm run test:browser` (40/40) all green; no test files changed, since this is dev/build tooling only. |
+| `0bb474c` | **Stage 7, part 1 — `remix/ui/button` / `remix/ui/input` measured against `submit-button.tsx`: not adopted, reason 2.** Docs-only commit, matching `0b05bbe`'s pattern: built a throwaway spike (`mix={[button({ tone: 'primary' })]}` added to `submit-button.tsx` alongside its existing Tailwind classes), booted the real dev server, drove it with Playwright against `/portfolio` (renders with no session), then deleted the spike once the measurement was in hand — nothing from it ships. Confirmed live that the mixin's own 26px pill styling wins over the element's `h-10 rounded-md bg-primary` classes even though both are present in the DOM; traced the *why* to `@remix-run/ui`'s `css()` mixin inserting its rules via `document.adoptedStyleSheets` inside a dedicated `@layer rmx.<hash>` — documented, deliberate Remix behavior (`remix/ui`'s own README, "Cascade Layers" section: "Unlayered CSS outranks layered CSS"), not a bug. Verified both directions live: a plain unlayered override rule beats `rmx` with no `!important`, and an explicit `@layer` reorder (`@layer rmx, utilities;`) lets a same-named Tailwind layer outrank `rmx` instead. Concluded it's not a usable middle ground regardless: a cascade layer wins or loses as a whole, not per property, so making this app's Tailwind win means it wins for everything the mixin sets — net zero value from the mixin, not a partial adoption. Cross-checked against `@remix-run/ui`'s own `package.json` ("headless primitives, **and** styled components") and the button README's composition guidance ("compose app-owned styles **around** the primitive") — `button`/`input` are the styled tier, meant to own a control's visual identity outright, unlike every other primitive this migration adopted (tabs, toggle, select all shipped a headless `/primitives` variant `button`/`input` currently lack). Full trace in `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2, now RESOLVED. Recorded as a **migration follow-up**, not an open question: revisit once `remix/ui` ships `button/primitives` / `input/primitives`. `npm test`/`npm run test:browser` unaffected (no source changed). |
 | `dd6c7ce` | **Advice's mode tabs (`buy_next`/`portfolio_review`) ported to real `tabs/primitives` usage** — the optional backlog item from the guidelines port, closed. Unlike guidelines' two independent, always-cheap panels, advice's panels carry gist-backed, mode-specific "remembered defaults" (`cashAmount`, `cashCurrency`, `selectedModel`, whether a saved review exists) that `loadAdvicePageState` only ever loaded for the single active tab — investigated before writing any code (per the user's ask) rather than assumed to carry over from guidelines' shape. Two real findings from that investigation: (1) `FrameHandle.src` (`@remix-run/ui`'s `component.js`) is a plain, live-read property — `resolveAndRenderReload` (`frame.js`) reads `frame.src` at reload time, not a value captured at creation — so a client entry can point the shared `advice-result` Frame at the *other* mode's fragment URL and call `reload()` to fetch that mode's own state on demand, exactly once, only when the user actually switches to it; (2) the user chose folding each mode's whole panel (form *and* result) inside the Frame over eagerly loading both tabs' state on every page view, since the panels were already the right shape for it (the "Clear saved review" button had already had to move inside this same Frame during the original advice port, for the identical "content outside the frame goes stale" reason). New `app/features/advice/advice-mode-tabs.component.js` (+`.d.ts`) — `Context`/`root`/`list`/`tab`, no `panel()` (there is nothing to hide/show client-side; the *content* differing by tab lives in the Frame, not in two co-resident panels) — replaces `advice-page.tsx`'s `<TabsNav>`/`<TabLink>` block. New `AdviceModePanel` (`advice-page.tsx`) replaces `AdviceResultFragment` (deleted, `advice-result-fragment.tsx` gone): renders one mode's form *and* result together, since both now load and refresh as one unit through the Frame — the form moved in from `AdvicePage`, which used to render one mode's copy directly, chosen by a full-page reload. `index.ts`'s `resolveAdviceResultFrame`/`fragmentResult`/`renderAdviceActionResponse` all now render this panel instead of a card-or-error-only fragment, so `fragmentResult`'s old 204-when-nothing-to-show contract is gone — the panel (at minimum, the form) always renders, 200, matching the "each mode's own page always showed its own form" behavior this design is replacing. Caught and fixed one correctness bug the co-rendering exposed: `formError` used to render unconditionally in both mode blocks (harmless when only one ever existed in the DOM); the new design scopes it to the panel matching the error's own mode. **Found and fixed a real regression before it shipped, not after:** moving the form inside the Frame broke it for no-JS visitors entirely — confirmed by reading `@remix-run/ui`'s `server/stream.js` (`buildFrameSegment`: `nonBlocking = !!props.fallback`; a `fallback`-carrying Frame streams only the fallback synchronously and delivers real content solely via the client hydration patch, which needs JavaScript) and then confirming live that this is *already true of every other Frame in this app* (tested `/guidelines` with JS disabled — `guidelines-list`'s Frame, untouched by this change, also never shows real content without JS). That was always survivable elsewhere because no visitor-facing form lived inside those frames; moving advice's form in made it not survivable here. Fixed by dropping `fallback` from the `advice-result` Frame specifically — `buildFrameSegment`'s `else` branch then awaits `resolveFrame` and inlines the real HTML, blocking the response until ready, which costs nothing extra here since `resolveAdviceResultFrame` only reshapes `props` the page already awaited via `loadAdvicePageState` before calling `render()` at all, no new I/O. Verified live in Chromium: mouse click swaps the frame to the other mode with no navigation (confirmed in the request log: `GET /fragments/advice-result?tab=portfolio_review 200` fires exactly on click, not on page load); Enter and Space both activate a focused tab (free — real `<button>` hosts, unlike `0b05bbe`'s `<a>` attempt); with JS disabled, `/advice?tab=portfolio_review` renders the portfolio_review form inline, buy_next's nowhere in the DOM. This was also the last caller of `tabs-nav.tsx`/`tabs-nav-scroll.component.js` (guidelines moved off them first — see the row below), so both, their `.test.ts`, and their `document-shell.tsx`/`components/index.ts` registrations were deleted in this same commit rather than left as a stale reason-3 carve-out with nothing left to carve out. `npm test` 589/589 (2 rewritten for the 204→200 contract change; 5 fewer than the prior row's 594, all `tabs-nav.test.ts`'s own, not lost coverage), `npm run test:browser` 40/40 (3 new: click-switches, Enter/Space, no-JS initial render). |
 | `ddf1b63` | **Guidelines' add-tabs ported to real `tabs/primitives` usage** (`Context`/`root`/`list`/`tab`/`panel`, `<button>` hosts, `panel()` toggling client-side) — the correction to `0b05bbe` below, once the Remix team's own docs turned up. `node_modules/remix/src/ui/tabs/README.md` states the primitive's intended use directly: "Use it when related views share the same page space" — every example hosts `tab()` on a `<button>` with `panel()`, no `href` anywhere. Guidelines' bucket/instrument add-forms fit that description (choosing an input mode for the same action, not moving to a different page), unlike `tabs-nav.tsx`'s real per-page tabs (advice's mode tabs, left as `tabs-nav.tsx` for now — see *Backlog* below). New `app/features/guidelines/guidelines-tabs.component.js` (+`.d.ts`) replaces `guidelines-page.tsx`'s `<TabsNav>`/`<TabLink>`/`<Card>` block; both panel forms now always render in the DOM (`panel()` sets `hidden`/`inert` on the inactive one, not the server), so their previously-shared `id="guidelines-add-form"` had to split into `-bucket`/`-instrument` (a real, if minor, pre-existing latent bug — duplicate ids are invalid HTML — that only mattered once both could exist in the DOM at once) and `guidelines.browser.ts`'s form-submit selectors were updated to match. `defaultActiveTab` is still seeded from the page's own `?tab=` query param (unchanged controller code), so the *initial* tab is correct with no JS; **switching tabs needs JavaScript** — the one deliberate, written exception to `docs/UI_ARCHITECTURE_GUIDELINES.md` §3's "must function with little or no JavaScript," recorded in both that doc's new §11 and the component's own header comment, not left implicit. Verified live in Chromium rather than assumed: mouse click switches panels with the URL provably unchanged; Enter *and* Space both activate a focused tab correctly, with zero extra glue — unlike the earlier `<a>`-hosted attempt (`0b05bbe`), a real `<button>` host gets native Enter/Space activation for free, which is exactly why `0b05bbe`'s Enter-key gap doesn't recur here; ArrowRight moves focus and activates the next tab (`activateTabInDirection`); with JS disabled, `/guidelines?tab=instrument` still renders the instrument panel active and the bucket panel hidden, confirming the no-JS exception is scoped to *switching* only, not the initial page. A `.component.js` can't import a `.tsx` file (no build step), so `Card`'s "muted" variant classes are inlined as a literal string rather than imported; active/inactive tab styling uses Tailwind's `[&[data-state=active]]:` arbitrary variant against the `data-state` attribute `tab()`/`panel()` already write, no hand-rolled class toggling. `docs/UI_ARCHITECTURE_GUIDELINES.md` gained a new §11 writing up this pattern (and the boundary against `tabs-nav.tsx`'s job) as the project standard for any future same-page tab set. `npm test` 594/594 (1 test's assertions rewritten for the new server-rendered shape — panel presence/`hidden` state instead of tab `href`s — plus the pre-existing suite otherwise unchanged), `npm run test:browser` 37/37 (4 new: click-switches, Enter/Space, ArrowRight, no-JS initial render). |
 | `0b05bbe` | **tabs-nav → `tabs/primitives`: attempted, not adopted (reason 3).** Closed the last item of the prior *Next step* below. Built a throwaway `clientEntry` (`Context`/`root`/`list`/`tab`/`panel` from `remix/ui/tabs/primitives`), mounted it on the guidelines page's add-tabs, drove it with Playwright (`PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`, the pre-installed build's actual path — the plain `chromium.launch()` default looks for a headless-shell build number this environment doesn't have), then deleted the spike once the measurement was in hand — this is a docs-only commit, nothing from the spike ships. Two results, matching what `@remix-run/ui`'s `tabs/primitives.js` source already predicted before touching a browser: (1) clicking a tab flips which `<div role="tabpanel">` carries `hidden` but leaves the URL bar exactly as it was (`page.url()` identical before/after — no history entry, no fetch, nothing) — `tab()`'s whole behavior is `context.activateTab(name)` on a `<button>`, with no `href`, no navigation of any kind; (2) with `javaScriptEnabled: false`, the server still renders both panels correctly for the request's own tab, but the two `<button>`s are inert — there is no way to reach the other tab at all, since a bare `<button>` has no `href`/`formaction` for anything to hang navigation off. Both are disqualifying for `tabs-nav.tsx`'s actual job: every tab here is a real, bookmarkable `<a href>` to a different server-rendered page (`activeId` is read from that URL's own query param), and `TabsNavScrollRestoration` restores window scroll around that same navigation — none of which the primitive's client-side panel-toggle model has any place for, and (2) is a direct violation of `docs/UI_ARCHITECTURE_GUIDELINES.md` §3 ("must function with little or no JavaScript"), which the current `<a>`-based tabs satisfy for free. `tabs-nav.tsx` and `tabs-nav-scroll.component.js` stay under reason 3. Full write-up: `docs/REMIX_RC_MIGRATION_PLAN.md` Stage 6. `npm test`/`npm run test:browser` unaffected (no source changed). |
@@ -55,18 +62,16 @@ ahead of time.
 
 ## Next step
 
-Stage 6 and its optional follow-on are both done — `FrameSubmitEnhancement`
-is retired, and every tab set in the app has been resolved one way or the
-other: not adopted for real navigation (nothing left uses `tabs-nav.tsx` —
-guidelines' and advice's tabs both moved to real `tabs/primitives` usage,
-see the two newest rows above), adopted for real everywhere the tabs are
-genuinely same-page. Nothing left in Stage 6's inventory.
+**None — the staged plan (Stages 1–7) is complete.** Stage 7 part 1
+(`remix/ui/button` / `remix/ui/input`) is resolved, not adopted, reason 2.
+Stage 7 part 2 (dev tooling) is done: `remix/node-tsx` fully replaces `tsx`,
+and `remix/node-hmr` + `remix/ui-hmr/node` give real in-place hot reload for
+server components. See the two newest *Done* rows above for both.
 
-**Move to Stage 7** — `remix/ui/button` / `remix/ui/input` against
-`submit-button.tsx` and the three input components (the design-system call in
-the Plan's Open question 2), then the dev-tooling swaps (`remix/node-hmr` +
-`remix/ui-hmr` + `remix/ui/dev/refresh` against the `tsx watch` loop,
-`remix/node-tsx` against the direct `tsx` dependency).
+What remains is the two follow-ups in *Backlog* below — neither is
+actionable today, both wait on an external change (a future Remix release,
+or a deliberate re-architecture this app hasn't decided to make) — plus the
+standing note right below about any future `data-rmx-target` form work.
 
 If any further `data-rmx-target` form work turns up, check whether any of its
 non-2xx responses can be ≥ 500 (`@remix-run/ui`'s `defaultResolveFrame` throws
@@ -74,18 +79,57 @@ for any such status regardless of content type, silently dropping the HTML
 error fragment — see the decision recorded below) and whether its `action`
 already equals its own page's route before wiring the attribute.
 
-## Backlog after that, in order
+## Backlog — migration follow-ups, neither actionable today
 
-Nothing left — Stage 7 (above) is the next step, not a backlog item.
+1. **`remix/ui/button` / `remix/ui/input`:** revisit if/when Remix ships
+   `button/primitives` and `input/primitives` — the headless tier every other
+   primitive adopted in this migration (tabs, toggle, select) already has.
+   Until then this is a closed measurement, not an open question — see the
+   `0bb474c` *Done* row and `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2.
+2. **Browser-side HMR (`remix/ui/dev/refresh`):** revisit only if this app
+   ever moves `.component.js` client-entry serving off `staticFiles()` and
+   onto `remix/assets`' `createAssetServer` — a real re-architecture, not a
+   tooling swap, and one Stage 5 already declined (reason 3) for a related
+   reason (scoped import maps). Until then, editing a client entry restarts
+   the dev server same as it always did; only server-rendered `.tsx`/route
+   components get the faster in-place hot-reload path. See the newest *Done*
+   row above.
+
 `tabs-nav.tsx`, `tabs-nav.test.ts`, `tabs-nav-scroll.component.js`
 (+`.d.ts`), and their registration in `document-shell.tsx`/export from
-`components/index.ts` were deleted in this same commit — advice's mode-tabs
+`components/index.ts` were deleted on the way here — advice's mode-tabs
 port left them with no remaining caller, so there was nothing left to keep
-them under reason 3 for. `npm test` accordingly drops from 594 to 589 (the 5
-tests were `tabs-nav.test.ts`'s own, not lost coverage).
+them under reason 3 for. `npm test` accordingly dropped from 594 to 589 at
+the time (the 5 tests were `tabs-nav.test.ts`'s own, not lost coverage); it
+sits at 590 now.
 
 ## Decisions already taken — do not relitigate
 
+- **Browser-side HMR (`remix/ui/dev/refresh`) is not adopted.** Read
+  `@remix-run/ui-hmr`'s own `browser-runtime.ts` before concluding this:
+  `reconcileRoots`/`setComponentStalenessCheck` are consumed internally by
+  `ui-hmr`'s browser runtime, which needs the browser-facing modules served
+  through `remix/assets`' `createAssetServer` (its `hmr` option). This app's
+  `.component.js` client entries are served as plain static files
+  (`staticFiles()`, `app/router.ts`) instead — reason 3, same architecture
+  Stage 5 already chose for the related "scoped import maps don't resolve for
+  statically-served files" finding. Server-side HMR (`remix/node-hmr` +
+  `remix/ui-hmr/node`) is adopted and confirmed live; only the browser-tab
+  live-patch piece is out. Migration follow-up if that architecture ever
+  changes — see *Backlog* above.
+- **`remix/ui/button` / `remix/ui/input` are not adopted** for `submit-button.tsx`
+  or the three input components. Measured live, reason 2: unlike every other
+  primitive this migration adopted, they ship only the fully-styled tier (no
+  `/primitives` headless variant exists yet), and their CSS lives in a
+  dedicated `@layer rmx.<hash>` via `document.adoptedStyleSheets` — by design,
+  per `remix/ui`'s own README ("Cascade Layers" section), not a bug. A cascade
+  layer wins or loses as a whole, not per property, so there is no partial
+  adoption: either accept the mixin's own visual design wholesale (pill
+  buttons, hardcoded colors, different sizing than this app's `h-9`/`h-10`
+  tokens) or keep this app's Tailwind design, in which case the mixin
+  contributes nothing. Full trace: `docs/REMIX_RC_MIGRATION_PLAN.md` Open
+  question 2 (RESOLVED). **Migration follow-up:** revisit if/when `remix/ui`
+  ships `button/primitives` / `input/primitives` — see *Backlog* above.
 - **Sidebar keeps its hand-rolled overlay.** Measured, reason 3. Plan §6.
 - **`tabs-nav.tsx` (real per-page `<a>` navigation) has no remaining caller.**
   Measured live in Chromium against `remix/ui/tabs/primitives` for that job
