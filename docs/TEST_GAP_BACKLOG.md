@@ -1,7 +1,8 @@
 # Test gap backlog
 
-Worked by the **gap sweep** Routine (daily, 22:00 Europe/Warsaw). Process,
-statuses and the rules a run must obey: `docs/TEST_HEALTH.md`.
+Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
+alongside the overlap backlog in the same run. Process, statuses and the
+rules a run must obey: `docs/TEST_HEALTH.md`.
 
 **Next area to sweep:** 5 — `app/lib`
 **Last swept:** 2026-09-16 (seed pass, whole-suite survey)

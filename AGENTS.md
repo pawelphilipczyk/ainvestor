@@ -35,7 +35,7 @@ Before writing any JS/TS/CSS code, read:
 Before adding, deleting or reorganising tests, read:
 
 - `docs/TEST_HEALTH.md` — how the suite is kept free of overlap and gaps, and
-  the rules the two daily sweep Routines follow
+  the rules the weekly sweep Routine follows
 - `docs/TEST_OVERLAP_BACKLOG.md` and `docs/TEST_GAP_BACKLOG.md` — the queues
   those sweeps work from. If you notice redundant or missing coverage while
   doing something else, append it there as `proposed` rather than acting on it

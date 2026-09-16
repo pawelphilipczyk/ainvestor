@@ -1,7 +1,8 @@
 # Test overlap backlog
 
-Worked by the **overlap sweep** Routine (daily, 21:00 Europe/Warsaw). Process,
-statuses and the rules a run must obey: `docs/TEST_HEALTH.md`.
+Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
+alongside the gap backlog in the same run. Process, statuses and the rules a
+run must obey: `docs/TEST_HEALTH.md`.
 
 **Next area to sweep:** 1 — `app/features/advice`
 **Last swept:** 2026-09-16 (seed pass, whole-suite survey)
