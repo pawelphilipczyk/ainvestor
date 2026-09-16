@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { EtfEntry } from '../../lib/gist.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
+import { parseLocaleDecimalString } from '../../lib/locale-decimal-input.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
 import type { AdviceClient } from './advice-client.ts'
 import {
@@ -685,18 +686,8 @@ describe('normalizeAdviceAnalysisTab', () => {
 })
 
 describe('parseAdviceCashAmount', () => {
-	it('parses integers and decimals with common separators', () => {
-		assert.equal(parseAdviceCashAmount('2000'), 2000)
-		assert.equal(parseAdviceCashAmount(' 2000 '), 2000)
-		assert.equal(parseAdviceCashAmount('2,000'), 2000)
-		assert.equal(parseAdviceCashAmount('2000.50'), 2000.5)
-		assert.equal(parseAdviceCashAmount('2.000,50'), 2000.5)
-	})
-
-	it('returns null for empty or invalid', () => {
-		assert.equal(parseAdviceCashAmount(''), null)
-		assert.equal(parseAdviceCashAmount('abc'), null)
-		assert.equal(parseAdviceCashAmount('-1'), null)
+	it('is the shared locale decimal parser, not its own implementation', () => {
+		assert.equal(parseAdviceCashAmount, parseLocaleDecimalString)
 	})
 })
 
