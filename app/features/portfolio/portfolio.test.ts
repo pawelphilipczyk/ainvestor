@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
+import { assetHref } from '../../lib/remix-assets.ts'
 import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
@@ -449,21 +450,31 @@ IBTA LN ETF;GBR-LSE;4087.48;PLN`
 
 	it('serves portfolio-list-frame component entry for form enhancement', async () => {
 		const componentScriptResponse = await testSessionFetch(
-			'http://localhost/features/portfolio/portfolio-list-frame.component.js',
+			new URL(
+				await assetHref(
+					'app/features/portfolio/portfolio-list-frame.component.js',
+				),
+				'http://localhost/',
+			).href,
 		)
 		assert.equal(componentScriptResponse.status, 200)
 		assert.match(
 			componentScriptResponse.headers.get('content-type') ?? '',
-			/text\/javascript/,
+			/javascript/,
 		)
 	})
 
 	it('serves navigation-link-loading component entry', async () => {
 		const response = await testSessionFetch(
-			'http://localhost/components/navigation/navigation-link-loading.component.js',
+			new URL(
+				await assetHref(
+					'app/components/navigation/navigation-link-loading.component.js',
+				),
+				'http://localhost/',
+			).href,
 		)
 		assert.equal(response.status, 200)
-		assert.match(response.headers.get('content-type') ?? '', /text\/javascript/)
+		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 	})
 
 	it('POST /portfolio sell reduces value for a holding', async () => {

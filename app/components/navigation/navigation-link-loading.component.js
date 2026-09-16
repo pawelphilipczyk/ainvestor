@@ -50,7 +50,7 @@ function usesNativeNavigationApi() {
 }
 
 export const NavigationLinkLoadingEnhancement = clientEntry(
-	'/components/navigation/navigation-link-loading.component.js#NavigationLinkLoadingEnhancement',
+	`${import.meta.url}#NavigationLinkLoadingEnhancement`,
 	function NavigationLinkLoadingEnhancement(handle) {
 		if (typeof document !== 'undefined') {
 			const doc = document

@@ -62,7 +62,7 @@ function hideGuidelineTargetEdit(document, guidelineId) {
 }
 
 export const GuidelinesDeleteDialogInteractions = clientEntry(
-	'/features/guidelines/guidelines-list.component.js#GuidelinesDeleteDialogInteractions',
+	`${import.meta.url}#GuidelinesDeleteDialogInteractions`,
 	function GuidelinesDeleteDialogInteractions(handle) {
 		if (typeof document !== 'undefined') {
 			const doc = document

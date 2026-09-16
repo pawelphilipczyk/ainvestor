@@ -102,7 +102,7 @@ function moonIcon() {
  * an upstream limitation of server-rendering this primitive.
  */
 export const ThemeToggle = clientEntry(
-	'/components/navigation/theme-toggle.component.js#ThemeToggle',
+	`${import.meta.url}#ThemeToggle`,
 	function ThemeToggle(handle) {
 		let isDark = readIsDark()
 

@@ -30,7 +30,10 @@ ahead of time.
   architecture Stage 5 already chose under reason 3 for a related reason
   (scoped import maps). Recorded as a migration follow-up, not a gap in this
   step. **The staged plan (Stages 1–7) is now complete**; what's left is the
-  two follow-ups below, to revisit if their blockers ever lift.
+  two follow-ups below. Follow-up 2's blocker has since lifted — the
+  `staticFiles()` architecture described above is gone, and both it and the
+  browser-HMR work it was blocking now live in
+  **`docs/REMIX_ASSETS_MIGRATION_PLAN.md`**.
 - **Branch:** `claude/next-migration-step-jd3kw9`, off `main`.
 - **Green:** `npm run check`, `npm run typecheck`, `npm test` (590) and
   `npm run test:browser` (40) all pass.
@@ -68,10 +71,12 @@ Stage 7 part 2 (dev tooling) is done: `remix/node-tsx` fully replaces `tsx`,
 and `remix/node-hmr` + `remix/ui-hmr/node` give real in-place hot reload for
 server components. See the two newest *Done* rows above for both.
 
-What remains is the two follow-ups in *Backlog* below — neither is
-actionable today, both wait on an external change (a future Remix release,
-or a deliberate re-architecture this app hasn't decided to make) — plus the
-standing note right below about any future `data-rmx-target` form work.
+What remains is the two follow-ups in *Backlog* below — plus the standing
+note right below about any future `data-rmx-target` form work. Follow-up 2
+(browser HMR) is **no longer waiting**: the re-architecture it needed has
+since been done and the work moved to
+`docs/REMIX_ASSETS_MIGRATION_PLAN.md`. Follow-up 1 still waits on a future
+Remix release.
 
 If any further `data-rmx-target` form work turns up, check whether any of its
 non-2xx responses can be ≥ 500 (`@remix-run/ui`'s `defaultResolveFrame` throws
@@ -86,14 +91,24 @@ already equals its own page's route before wiring the attribute.
    primitive adopted in this migration (tabs, toggle, select) already has.
    Until then this is a closed measurement, not an open question — see the
    `0bb474c` *Done* row and `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2.
-2. **Browser-side HMR (`remix/ui/dev/refresh`):** revisit only if this app
-   ever moves `.component.js` client-entry serving off `staticFiles()` and
-   onto `remix/assets`' `createAssetServer` — a real re-architecture, not a
-   tooling swap, and one Stage 5 already declined (reason 3) for a related
-   reason (scoped import maps). Until then, editing a client entry restarts
-   the dev server same as it always did; only server-rendered `.tsx`/route
-   components get the faster in-place hot-reload path. See the newest *Done*
-   row above.
+2. **Browser-side HMR (`remix/ui/dev/refresh`):** **no longer blocked, and no
+   longer tracked here.** The blocker named below — that this app served
+   `.component.js` client entries with `staticFiles()` rather than through
+   `remix/assets`' `createAssetServer` — was the re-architecture Stage 5
+   declined under reason 3 (scoped import maps). That re-architecture has now
+   been done, in its own migration: see
+   **`docs/REMIX_ASSETS_MIGRATION_PLAN.md`**, which carries this follow-up as
+   its Stage 2 along with the two questions still open on it (the watcher
+   under `node --test`, and `hmr.ts`'s restart racing a browser patch). Read
+   that file, not this bullet, when picking the work up.
+
+   *Original entry, for the record:* revisit only if this app ever moves
+   `.component.js` client-entry serving off `staticFiles()` and onto
+   `remix/assets`' `createAssetServer` — a real re-architecture, not a tooling
+   swap, and one Stage 5 already declined (reason 3) for a related reason
+   (scoped import maps). Until then, editing a client entry restarts the dev
+   server same as it always did; only server-rendered `.tsx`/route components
+   get the faster in-place hot-reload path. See the newest *Done* row above.
 
 `tabs-nav.tsx`, `tabs-nav.test.ts`, `tabs-nav-scroll.component.js`
 (+`.d.ts`), and their registration in `document-shell.tsx`/export from

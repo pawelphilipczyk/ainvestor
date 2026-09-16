@@ -4,7 +4,6 @@ import { logger } from 'remix/middleware/logger'
 import { methodOverride } from 'remix/middleware/method-override'
 import { render } from 'remix/middleware/render'
 import { session } from 'remix/middleware/session'
-import { staticFiles } from 'remix/middleware/static'
 import { createMiddleware, createRouter, type Middleware } from 'remix/router'
 import { Session } from 'remix/session'
 import { handleMcpHttpRequest } from '../mcp/http.ts'
@@ -45,16 +44,11 @@ import { routes } from './routes.ts'
 
 export { resetEtfEntries, resetGuestCatalog, setAdviceClient }
 
-const appStatic = staticFiles('app', {
-	filter: (path) =>
-		path.endsWith('.component.js') ||
-		path === 'entry.js' ||
-		path === 'lib/dialog-trigger.js' ||
-		path === 'lib/event-listeners.js' ||
-		path === 'lib/scroll-lock.js',
-})
-
-/** Serves `remix`'s browser runtime; see `app/lib/remix-assets.ts`. */
+/**
+ * Serves every browser module — this app's own client entries and the
+ * `remix`/`@remix-run/ui` package files they import. See
+ * `app/lib/remix-assets.ts`.
+ */
 function remixAssets(): Middleware {
 	return async (context, next) => {
 		const response = await remixAssetServer.fetch(context.request)
@@ -90,7 +84,6 @@ function enforceGithubApproval(): Middleware {
  * conditional chain.
  */
 export const appMiddleware = createMiddleware(
-	appStatic,
 	remixAssets(),
 	compression(),
 	logger(),
@@ -103,7 +96,7 @@ export const appMiddleware = createMiddleware(
 	}),
 	methodOverride(),
 	enforceGithubApproval(),
-	render(),
+	render({ assets: remixAssetServer }),
 )
 
 export const router = createRouter({ middleware: appMiddleware })

@@ -11,7 +11,7 @@ const panelClass =
 
 /** Real, same-page tab switching — see `docs/UI_ARCHITECTURE_GUIDELINES.md` §11. */
 export const GuidelinesTabs = clientEntry(
-	'/features/guidelines/guidelines-tabs.component.js#GuidelinesTabs',
+	`${import.meta.url}#GuidelinesTabs`,
 	function GuidelinesTabs(handle) {
 		return () =>
 			createElement(

@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { jsx } from 'remix/ui/jsx-runtime'
 import { renderToString } from 'remix/ui/server'
 import type { AppPage } from '../../lib/app-page.ts'
+import { assetHref } from '../../lib/remix-assets.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { router } from '../../router.ts'
 import { SessionProvider } from './session-provider.tsx'
@@ -178,17 +179,22 @@ describe('remix ui runtime in document', () => {
 		assert.doesNotMatch(body, /@remix-run\/ui\/scroll-lock/)
 	})
 
-	it('GET /lib/scroll-lock.js is served for the vendored lockScroll helper', async () => {
-		const response = await router.fetch('http://localhost/lib/scroll-lock.js')
+	it('the vendored lockScroll helper is served for the browser', async () => {
+		const response = await router.fetch(
+			new URL(await assetHref('app/lib/scroll-lock.js'), 'http://localhost/'),
+		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 		const body = await response.text()
 		assert.match(body, /export function lockScroll/)
 	})
 
-	it('GET /lib/event-listeners.js is served for the vendored addEventListeners helper', async () => {
+	it('the vendored addEventListeners helper is served for the browser', async () => {
 		const response = await router.fetch(
-			'http://localhost/lib/event-listeners.js',
+			new URL(
+				await assetHref('app/lib/event-listeners.js'),
+				'http://localhost/',
+			),
 		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
@@ -196,10 +202,14 @@ describe('remix ui runtime in document', () => {
 		assert.match(body, /export function addEventListeners/)
 	})
 
-	it('document loads entry.js to boot remix ui runtime', async () => {
+	it('document loads the bootstrap entry to boot remix ui runtime', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /<script[^>]*type="module"[^>]*src="\/entry\.js"/)
+		const entryHref = await assetHref('app/entry.js')
+		assert.match(
+			body,
+			new RegExp(`<script[^>]*type="module"[^>]*src="${entryHref}"`),
+		)
 	})
 
 	it('document offsets main column beside fixed sidebar from md breakpoint', async () => {
@@ -207,11 +217,15 @@ describe('remix ui runtime in document', () => {
 		const body = await response.text()
 		assert.match(body, /id="page-content"[^>]*\bmin-w-0\b[^>]*\bmd:ml-64\b/)
 	})
-	it('GET /entry.js returns bootstrap with run({ loadModule }) and no custom resolveFrame', async () => {
-		const response = await router.fetch('http://localhost/entry.js')
+	it('the bootstrap entry is served with run({ loadModule }) and no custom resolveFrame', async () => {
+		const response = await router.fetch(
+			new URL(await assetHref('app/entry.js'), 'http://localhost/'),
+		)
 		assert.equal(response.status, 200)
 		const body = await response.text()
-		assert.match(body, /import \{ run \} from 'remix\/ui'/)
+		// The asset server compiles what it serves, so this is the compiled
+		// module, not the source file: quoting is its choice, not ours.
+		assert.match(body, /import \{ run \} from ['"]remix\/ui['"]/)
 		assert.match(body, /run\(\{/)
 		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
 		// rc.2's default resolveFrame is a strict superset of the app's old
@@ -220,10 +234,13 @@ describe('remix ui runtime in document', () => {
 	})
 })
 
-describe('sidebar component entry static file', () => {
-	it('GET /components/layout/sidebar.component.js returns 200 with javascript content-type', async () => {
+describe('sidebar component entry asset', () => {
+	it('the sidebar component entry is served with a javascript content-type', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/layout/sidebar.component.js',
+			new URL(
+				await assetHref('app/components/layout/sidebar.component.js'),
+				'http://localhost/',
+			),
 		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
@@ -238,11 +255,14 @@ describe('sidebar component entry static file', () => {
 
 	it('sidebar component entry wires document listeners via handle.signal', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/layout/sidebar.component.js',
+			new URL(
+				await assetHref('app/components/layout/sidebar.component.js'),
+				'http://localhost/',
+			),
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
-		assert.match(body, /from 'remix\/ui'/)
+		assert.match(body, /from ['"]remix\/ui['"]/)
 		assert.match(body, /addEventListeners/)
 		assert.match(body, /handle\.signal/)
 		assert.match(body, /addEventListeners\(doc, handle\.signal/)
@@ -250,11 +270,14 @@ describe('sidebar component entry static file', () => {
 
 	it('sidebar component entry uses the vendored scroll lock for mobile overlay', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/layout/sidebar.component.js',
+			new URL(
+				await assetHref('app/components/layout/sidebar.component.js'),
+				'http://localhost/',
+			),
 		)
 		const body = await response.text()
 		// rc.2 removed the `remix/ui/scroll-lock` subpath; see app/lib/scroll-lock.js.
-		assert.match(body, /from '\.\.\/\.\.\/lib\/scroll-lock\.js'/)
+		assert.match(body, /from ['"]\.\.\/\.\.\/lib\/scroll-lock\.js['"]/)
 		assert.match(body, /lockScroll/)
 	})
 })

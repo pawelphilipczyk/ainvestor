@@ -1,73 +1,104 @@
+import * as path from 'node:path'
 import { createAssetServer } from 'remix/assets'
+import type { RenderToStreamOptions } from 'remix/ui/server'
+
+const rootDir = path.resolve(import.meta.dirname, '..', '..')
+
+/** Absolute path of a repo file, the form `remixAssetServer` takes. */
+function assetSourcePath(relativePath: string): string {
+	return path.join(rootDir, relativePath)
+}
 
 /**
- * Serves `remix`'s own browser runtime (and its `@remix-run/ui` dependency)
- * so the document's import map is generated from the installed package
- * version instead of a hand-maintained path literal that drifts across
- * upgrades (see the rc.2 migration: the old literal pointed at a file rc.2
- * had already removed).
+ * Serves every browser module this app ships: its own client entries
+ * (`app/**\/*.component.js`, their `app/lib/*.js` helpers, `app/entry.js`) and
+ * the `remix`/`@remix-run/ui` package files they import.
+ *
+ * Nothing here is a hand-maintained path literal. The document's import map,
+ * the bootstrap `<script src>` and every client entry's `href` are all derived
+ * from the installed package version and the files on disk, so none of them
+ * can drift across an upgrade — the failure the rc.2 migration hit with the
+ * old literal, which pointed at a file rc.2 had already removed.
+ *
+ * `allowFiles` is the security boundary: only these globs are reachable, so
+ * server-only `.ts`/`.tsx` sources under `app/` are not served.
  */
 export const remixAssetServer = createAssetServer({
 	basePath: '/assets',
-	allowFiles: [],
+	rootDir,
+	allowFiles: ['app/entry.js', 'app/**/*.component.js', 'app/lib/*.js'],
 	allowPackages: ['remix'],
-	// Only the installed `remix`/`@remix-run/ui` package files are served here
-	// (not app source): they change on `npm install`, not on live edits, so
-	// there is nothing to watch. Also keeps `tsx --test`'s process-isolated
-	// test files from each starting a filesystem watcher over `node_modules`.
-	watch: false,
+	// Watch in development only, and only there because the alternative is
+	// serving stale JavaScript: this server caches each module's *compiled*
+	// output, where `staticFiles()` used to read the file per request.
+	// `hmr.ts` does not save us — `remix/ui-hmr/node` hot-swaps a
+	// `.component.js` edit in place, with no process restart to rebuild this
+	// cache with it (confirmed live: `hmr update …` logged, edited export
+	// still absent from the served module). Off everywhere else, so
+	// `node --test`'s process-isolated test files do not each start a
+	// filesystem watcher, and so production never pays for one. Stage 3's
+	// `fingerprint` also requires it off; see
+	// `docs/REMIX_ASSETS_MIGRATION_PLAN.md`.
+	watch:
+		process.env.NODE_ENV === 'development'
+			? { ignore: ['**/node_modules/**'] }
+			: false,
 })
 
 /**
- * Bare specifiers the browser has to resolve, mapped to the package file each
- * one resolves to on disk.
+ * Served URL of one repo file, e.g. `assetHref('app/entry.js')`.
  *
- * Two layers, because two different things do the importing:
- *
- * - `remix/ui*` — imported by our own `.component.js` client entries and by
- *   `entry.js`.
- * - `@remix-run/ui*` — imported by the `remix/ui*` files themselves once the
- *   browser has loaded them (`remix/ui/toggle/primitives` is a one-line
- *   `export *` re-export, and so is every other `remix/ui` subpath).
- *
- * Add a pair here when a client entry starts importing a new `remix/ui`
- * subpath; the Stage 6 primitives adoption in
- * `docs/REMIX_RC_MIGRATION_PLAN.md` is what makes this list grow.
+ * The one way to name a browser module's URL. Nothing should hard-code an
+ * `/assets/...` path: the mount layout and any future fingerprinting are the
+ * asset server's to decide.
  */
-const browserModulePaths = {
-	'remix/ui': 'node_modules/remix/dist/ui.js',
-	'remix/ui/toggle/primitives':
-		'node_modules/remix/dist/ui/toggle/primitives.js',
-	'remix/ui/tabs/primitives': 'node_modules/remix/dist/ui/tabs/primitives.js',
-	'@remix-run/ui': 'node_modules/@remix-run/ui/dist/index.js',
-	'@remix-run/ui/toggle/primitives':
-		'node_modules/@remix-run/ui/dist/toggle/primitives.js',
-	'@remix-run/ui/tabs/primitives':
-		'node_modules/@remix-run/ui/dist/tabs/primitives.js',
-} as const
+export function assetHref(relativePath: string): Promise<string> {
+	return remixAssetServer.getHref(assetSourcePath(relativePath))
+}
 
 /**
- * A flat top-level import map, built from `getHref()` rather than
- * `getImportMap()`/`getScriptEntry()`. Those key their mappings to a
- * `scopes` entry for the *importing* module's own served URL, which only
- * resolves for modules the asset server itself serves. Our client
- * `.component.js` files and `entry.js` are served at stable root-relative
- * paths by `staticFiles()` instead (they're already-built plain JS — see
- * `docs/REMIX_RC_MIGRATION_PLAN.md` Stage 5), so a scoped map never applies
- * to them and `remix/ui` would fail to resolve in the browser. Demonstrated
- * against this codebase; Reason 3.
+ * The browser bootstrap: `app/entry.js`'s served URL and the import map that
+ * resolves its bare specifiers.
+ *
+ * Its map is scoped to `/assets/app/`, so it covers every app module served
+ * from that namespace — including client entries the renderer loads later.
+ * Each client entry still merges its *own* map (the `remix/ui/*` subpaths only
+ * it imports) into the document through `resolveClientEntry` below, so this is
+ * the floor, not the whole map.
  */
-const hrefs = await Promise.all(
-	Object.values(browserModulePaths).map((filePath) =>
-		remixAssetServer.getHref(filePath),
-	),
+export const remixBootstrapEntry = await remixAssetServer.getScriptEntry(
+	assetSourcePath('app/entry.js'),
 )
 
-export const remixUiImportMap = {
-	imports: Object.fromEntries(
-		Object.keys(browserModulePaths).map((specifier, index) => [
-			specifier,
-			hrefs[index],
-		]),
-	),
+/**
+ * Turns a `clientEntry()` source ID into the browser module metadata the
+ * server renderer emits for hydration.
+ *
+ * `render()` (the middleware, in `app/router.ts`) does this itself from its
+ * `assets` option. This export exists for the one render path that cannot use
+ * the middleware — the per-render `resolveFrame` branch in
+ * `app/components/render.ts`, which calls `renderToStream` directly and would
+ * otherwise fall back to the renderer's default resolver and emit the raw
+ * `file:` source path as a script `src`.
+ */
+export const resolveClientEntry: NonNullable<
+	RenderToStreamOptions['resolveClientEntry']
+> = async (entryId, component) => {
+	const hashIndex = entryId.lastIndexOf('#')
+	const sourceId = hashIndex === -1 ? entryId : entryId.slice(0, hashIndex)
+	const exportName =
+		(hashIndex === -1 ? '' : entryId.slice(hashIndex + 1)) || component.name
+	if (exportName === '') {
+		throw new Error(
+			`clientEntry() needs an export name in its ID or a named component function. Received "${entryId}".`,
+		)
+	}
+	// Same split as the middleware's own resolver: a `file:` ID is a source
+	// path the asset server compiles and names, anything else is already a
+	// browser URL and passes through. Keeping the branch means a malformed
+	// entry ID fails the same way on these pages as on every other one.
+	if (!sourceId.startsWith('file:')) return { href: sourceId, exportName }
+	const { href, importMap, preloads } =
+		await remixAssetServer.getScriptEntry(sourceId)
+	return { href, importMap, exportName, preloads }
 }

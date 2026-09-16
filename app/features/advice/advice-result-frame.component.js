@@ -9,7 +9,7 @@ import { watchFrameFormSubmissions } from '../../components/client/frame-form-ux
  * `watchFrameFormSubmissions` for the shared mechanics.
  */
 export const AdviceResultFrame = clientEntry(
-	'/features/advice/advice-result-frame.component.js#AdviceResultFrame',
+	`${import.meta.url}#AdviceResultFrame`,
 	function AdviceResultFrame(handle) {
 		watchFrameFormSubmissions(handle, 'advice-result')
 

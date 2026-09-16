@@ -40,7 +40,7 @@ function resetMobileOverlay(sidebar, backdrop, sidebarToggle, scrollLockRef) {
 }
 
 export const SidebarInteractions = clientEntry(
-	'/components/layout/sidebar.component.js#SidebarInteractions',
+	`${import.meta.url}#SidebarInteractions`,
 	function SidebarInteractions(handle) {
 		if (typeof document !== 'undefined') {
 			const doc = document

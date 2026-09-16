@@ -2,7 +2,7 @@ import { clientEntry, createElement } from 'remix/ui'
 import { addEventListeners } from '../../lib/event-listeners.js'
 
 export const LocaleSelectSubmit = clientEntry(
-	'/components/layout/locale-select.component.js#LocaleSelectSubmit',
+	`${import.meta.url}#LocaleSelectSubmit`,
 	function LocaleSelectSubmit(handle) {
 		if (typeof document !== 'undefined') {
 			addEventListeners(document, handle.signal, {

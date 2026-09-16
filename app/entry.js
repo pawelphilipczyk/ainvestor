@@ -1,6 +1,7 @@
 /**
  * Client bootstrap for Remix UI runtime.
- * Loaded via <script type="module" src="/entry.js" /> — hydrates all clientEntry components.
+ * Loaded via the module script the document shell renders, from the URL the
+ * asset server gives `app/entry.js` — hydrates all clientEntry components.
  * @see https://github.com/remix-run/remix/tree/main/packages/ui
  */
 import { run } from 'remix/ui'

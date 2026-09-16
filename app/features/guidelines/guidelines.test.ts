@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
+import { assetHref } from '../../lib/remix-assets.ts'
 import {
 	resetTestSessionCookieJar,
 	testSessionFetch,
@@ -832,7 +833,10 @@ describe('Guidelines page', () => {
 
 	it('serves guidelines-list component entry for delete dialog', async () => {
 		const componentScriptResponse = await testSessionFetch(
-			'http://localhost/features/guidelines/guidelines-list.component.js',
+			new URL(
+				await assetHref('app/features/guidelines/guidelines-list.component.js'),
+				'http://localhost/',
+			).href,
 		)
 		assert.equal(componentScriptResponse.status, 200)
 		assert.match(
@@ -844,10 +848,12 @@ describe('Guidelines page', () => {
 		assert.match(body, /clientEntry/)
 		assert.match(body, /openDialogForTrigger/)
 		assert.match(body, /dialog-trigger\.js/)
-		assert.match(body, /closest\('\[data-dialog-id\]'\)/)
+		// Compiled output, not the source file: quoting is the asset server's choice.
+		assert.match(body, /closest\(['"]\[data-dialog-id\]['"]\)/)
 
 		const dialogTriggerResponse = await testSessionFetch(
-			'http://localhost/lib/dialog-trigger.js',
+			new URL(await assetHref('app/lib/dialog-trigger.js'), 'http://localhost/')
+				.href,
 		)
 		assert.equal(dialogTriggerResponse.status, 200)
 		const dialogTriggerBody = await dialogTriggerResponse.text()

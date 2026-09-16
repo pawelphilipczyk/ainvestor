@@ -8,7 +8,7 @@ import { watchFrameFormSubmissions } from '../../components/client/frame-form-ux
  * analysis has loaded so the button doesn't linger above the result.
  */
 export const CatalogEtfAnalysisFrame = clientEntry(
-	'/features/catalog/catalog-etf-analysis-frame.component.js#CatalogEtfAnalysisFrame',
+	`${import.meta.url}#CatalogEtfAnalysisFrame`,
 	function CatalogEtfAnalysisFrame(handle) {
 		watchFrameFormSubmissions(handle, 'catalog-etf-analysis')
 

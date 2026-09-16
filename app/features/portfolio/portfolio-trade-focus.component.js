@@ -7,7 +7,7 @@ import { addEventListeners } from '../../lib/event-listeners.js'
  * plus `data-instrument-ticker` (catalog form value).
  */
 export const PortfolioTradeFocus = clientEntry(
-	'/features/portfolio/portfolio-trade-focus.component.js#PortfolioTradeFocus',
+	`${import.meta.url}#PortfolioTradeFocus`,
 	function PortfolioTradeFocus(handle) {
 		if (typeof document !== 'undefined') {
 			addEventListeners(document, handle.signal, {

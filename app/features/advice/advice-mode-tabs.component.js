@@ -16,7 +16,7 @@ const FRAME_NAME = 'advice-result'
  * `hidden` attribute. See `docs/UI_ARCHITECTURE_GUIDELINES.md` §11.
  */
 export const AdviceModeTabs = clientEntry(
-	'/features/advice/advice-mode-tabs.component.js#AdviceModeTabs',
+	`${import.meta.url}#AdviceModeTabs`,
 	function AdviceModeTabs(handle) {
 		let buyNextNode = null
 		let portfolioReviewNode = null

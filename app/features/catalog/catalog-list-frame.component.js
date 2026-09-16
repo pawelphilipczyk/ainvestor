@@ -10,7 +10,7 @@ import { watchFrameFormSubmissions } from '../../components/client/frame-form-ux
  * `data-reset-form` nor `data-frame-hide-form-on-success`.
  */
 export const CatalogListFrame = clientEntry(
-	'/features/catalog/catalog-list-frame.component.js#CatalogListFrame',
+	`${import.meta.url}#CatalogListFrame`,
 	function CatalogListFrame(handle) {
 		watchFrameFormSubmissions(handle, 'catalog-list')
 
