@@ -109,8 +109,13 @@ Both backlogs use the same statuses:
 
 ## Reading the output
 
-Every PR body states: the area swept, what was proposed, what was acted on,
-and why that item was chosen. If a run finds nothing worth proposing in its
-area, it says so, advances the pointer, and still opens its PR only if it
-acted on an `approved` item — otherwise it reports "nothing to do" and
-opens nothing. A quiet day is a valid result.
+Every run opens exactly one PR, and its body states: the area swept, what was
+proposed, what was acted on, and why that item was chosen. A run that finds
+nothing worth proposing and has nothing `approved` to act on still opens a PR —
+it advances the rotation pointer and says the area came back clean. That PR is
+a one-line diff and a receipt that the sweep ran; merge it and move on. **A
+quiet day is a valid result, and padding the backlog to avoid one is worse
+than the quiet day.**
+
+Each PR follows the repo's template (`.github/pull_request_template.md`) and is
+titled `test-sweep(overlap|gap): <area> — <what it did>`.
