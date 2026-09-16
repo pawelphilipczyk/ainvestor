@@ -185,7 +185,7 @@ _Nothing yet._
 ## Done
 
 ### GAP-003 — guest session state
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-16 · **Area:** `app/lib` · **PR:** (this PR)
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-16 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/203
 
 `app/lib/guest-session-state.ts` had no direct coverage. Route-level tests
 sign in first and only exercise the happy path for guests (seeding a guest

@@ -138,7 +138,7 @@ error, rejected writes). Same domain, disjoint assertions.
 ## Done
 
 ### OV-001 — `parseAdviceCashAmount` tests re-test `parseLocaleDecimalString`
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-16 · **Area:** advice · **PR:** (this PR)
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-16 · **Area:** advice · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/203
 
 `app/features/advice/advice-openai.ts:301` is
 `export const parseAdviceCashAmount = parseLocaleDecimalString` — a plain
