@@ -268,7 +268,7 @@ return createHtmlResponse(html`
 | **Resources** | Not used | Bookstore: `resources('orders')`, `resources('books')`, etc. |
 | **File uploads** | None | Bookstore: `uploadHandler` + `createFsFileStorage` |
 | **Middleware order** | logger, formData, methodOverride, session | Same; bookstore adds asyncContext, compression, loadDatabase |
-| **Static files** | Custom filter for `.component.js` and remix runtime | Bookstore: `./public`; demos: `staticFiles('.')` for component demos |
+| **Static files** | None — browser modules are compiled and served by `remix/assets`' `createAssetServer` instead (see `docs/REMIX_ASSETS_MIGRATION_PLAN.md`) | Bookstore: `./public`; demos: `staticFiles('.')` for component demos |
 
 ---
 
