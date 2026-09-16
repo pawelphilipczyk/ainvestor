@@ -119,3 +119,21 @@ than the quiet day.**
 
 Each PR follows the repo's template (`.github/pull_request_template.md`) and is
 titled `test-sweep(overlap|gap): <area> — <what it did>`.
+
+## The Routines themselves
+
+Both live in the account's Claude Routines list (claude.ai → Routines), fire a
+**fresh session per run**, and carry the whole job description in their prompt —
+nothing about them lives in this repo except this doc and the two backlogs.
+
+| | Trigger ID |
+|---|---|
+| Test overlap sweep (daily) | `trig_012M5XxD9qtZi9DKWkSWeiTY` |
+| Test gap sweep (daily) | `trig_01TkALXWciu1hBha4CPhBwjE` |
+
+Notifications are **off** on both: the PR is the notification, and a run that
+finds nothing should be silent. Turn them on in the Routines UI if you would
+rather hear about every run.
+
+A run always pushes its branch before trying to open the PR, so if the PR step
+fails the work is still on the remote — the run prints a compare link instead.
