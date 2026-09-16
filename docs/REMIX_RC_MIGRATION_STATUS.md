@@ -86,14 +86,17 @@ already equals its own page's route before wiring the attribute.
    primitive adopted in this migration (tabs, toggle, select) already has.
    Until then this is a closed measurement, not an open question — see the
    `0bb474c` *Done* row and `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2.
-2. **Browser-side HMR (`remix/ui/dev/refresh`):** revisit only if this app
-   ever moves `.component.js` client-entry serving off `staticFiles()` and
-   onto `remix/assets`' `createAssetServer` — a real re-architecture, not a
-   tooling swap, and one Stage 5 already declined (reason 3) for a related
-   reason (scoped import maps). Until then, editing a client entry restarts
-   the dev server same as it always did; only server-rendered `.tsx`/route
-   components get the faster in-place hot-reload path. See the newest *Done*
-   row above.
+2. **Browser-side HMR (`remix/ui/dev/refresh`): now scoped into its own
+   migration — see `docs/REMIX_ASSETS_MIGRATION_PLAN.md`.** It needs
+   `.component.js` client-entry serving moved off `staticFiles()` and onto
+   `remix/assets`' `createAssetServer` — a real re-architecture, not a tooling
+   swap, and one Stage 5 already declined (reason 3) for a related reason
+   (scoped import maps). A spike has since proved the path works end to end,
+   found one high-severity blocker on the five direct-render pages, and
+   measured the costs; all of that lives in that plan now. Until it lands,
+   editing a client entry restarts the dev server same as it always did; only
+   server-rendered `.tsx`/route components get the faster in-place hot-reload
+   path. See the newest *Done* row above.
 
 `tabs-nav.tsx`, `tabs-nav.test.ts`, `tabs-nav-scroll.component.js`
 (+`.d.ts`), and their registration in `document-shell.tsx`/export from
