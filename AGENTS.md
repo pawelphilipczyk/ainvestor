@@ -32,6 +32,15 @@ Before writing any JS/TS/CSS code, read:
 
 - `docs/BIOME_RULES.md`
 
+Before adding, deleting or reorganising tests, read:
+
+- `docs/TEST_HEALTH.md` — how the suite is kept free of overlap and gaps, and
+  the rules the two daily sweep Routines follow
+- `docs/TEST_OVERLAP_BACKLOG.md` and `docs/TEST_GAP_BACKLOG.md` — the queues
+  those sweeps work from. If you notice redundant or missing coverage while
+  doing something else, append it there as `proposed` rather than acting on it
+  mid-task.
+
 ## Plan before implementing (first message)
 
 When the **first message in a thread** asks for a **code change** (feature, fix, or refactor), **do not start editing or running broad refactors immediately.** First **plan and summarize** so the user can refine the approach and answer questions.
