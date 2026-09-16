@@ -128,12 +128,13 @@ nothing about them lives in this repo except this doc and the two backlogs.
 
 | | Trigger ID |
 |---|---|
-| Test overlap sweep (daily) | `trig_012M5XxD9qtZi9DKWkSWeiTY` |
-| Test gap sweep (daily) | `trig_01TkALXWciu1hBha4CPhBwjE` |
+| Test overlap sweep (daily) | `trig_01G6iJP7rCLqdPa2Y5QcDYeY` |
+| Test gap sweep (daily) | `trig_015fTL8XPCYcQgda9zikEFQ9` |
 
-Notifications are **off** on both: the PR is the notification, and a run that
-finds nothing should be silent. Turn them on in the Routines UI if you would
-rather hear about every run.
+**Push notifications are on**, email off, so each run reaches your phone with a
+one-line summary — area swept, what was proposed, what it did, PR link. Change
+either channel in the Routines UI. (The notification setting is fixed when a
+Routine is created; editing it afterwards is a UI-only operation.)
 
 A run always pushes its branch before trying to open the PR, so if the PR step
 fails the work is still on the remote — the run prints a compare link instead.
