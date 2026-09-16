@@ -442,9 +442,12 @@ into the `clientEntry` and passing translated copy in as props (the render
 function also runs in the browser, where `t()` does not exist). That restructure
 — not the primitive itself — is the actual cost of each item below, and it is
 written up as pattern 8 in `docs/UI_ARCHITECTURE_GUIDELINES.md`. Each new
-`remix/ui/*` specifier an entry imports also needs a `browserModulePaths` entry
-in `app/lib/remix-assets.ts`, alongside the `@remix-run/ui/*` subpath it
-re-exports.
+`remix/ui/*` specifier an entry imports also needed a `browserModulePaths`
+entry in `app/lib/remix-assets.ts`, alongside the `@remix-run/ui/*` subpath it
+re-exports — **no longer true.** The assets migration deleted that table; the
+asset server now reads an entry's specifiers out of its own module graph.
+Importing a new subpath needs no registration. See
+`docs/REMIX_ASSETS_MIGRATION_PLAN.md`.
 
 - **theme-toggle → `toggle/primitives`. Done.** `theme-toggle.tsx` and
   `theme-toggle.component.js` collapse into one `clientEntry` whose `<button>`

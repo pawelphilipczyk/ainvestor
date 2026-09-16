@@ -28,15 +28,21 @@ export const remixAssetServer = createAssetServer({
 	rootDir,
 	allowFiles: ['app/entry.js', 'app/**/*.component.js', 'app/lib/*.js'],
 	allowPackages: ['remix'],
-	// No watcher. In development `hmr.ts` restarts the server process for any
-	// change `remix/ui-hmr/node` cannot hot-swap, and a `.component.js` file is
-	// never one it can — so the process (and this server's cache) is rebuilt on
-	// every client-entry edit anyway. Enabling it is Stage 2's job, where
-	// browser HMR needs a live watcher; see
-	// `docs/REMIX_ASSETS_MIGRATION_PLAN.md`. Keeping it off also stops
-	// `node --test`'s process-isolated test files from each starting a
-	// filesystem watcher.
-	watch: false,
+	// Watch in development only, and only there because the alternative is
+	// serving stale JavaScript: this server caches each module's *compiled*
+	// output, where `staticFiles()` used to read the file per request.
+	// `hmr.ts` does not save us — `remix/ui-hmr/node` hot-swaps a
+	// `.component.js` edit in place, with no process restart to rebuild this
+	// cache with it (confirmed live: `hmr update …` logged, edited export
+	// still absent from the served module). Off everywhere else, so
+	// `node --test`'s process-isolated test files do not each start a
+	// filesystem watcher, and so production never pays for one. Stage 3's
+	// `fingerprint` also requires it off; see
+	// `docs/REMIX_ASSETS_MIGRATION_PLAN.md`.
+	watch:
+		process.env.NODE_ENV === 'development'
+			? { ignore: ['**/node_modules/**'] }
+			: false,
 })
 
 /**
@@ -87,6 +93,11 @@ export const resolveClientEntry: NonNullable<
 			`clientEntry() needs an export name in its ID or a named component function. Received "${entryId}".`,
 		)
 	}
+	// Same split as the middleware's own resolver: a `file:` ID is a source
+	// path the asset server compiles and names, anything else is already a
+	// browser URL and passes through. Keeping the branch means a malformed
+	// entry ID fails the same way on these pages as on every other one.
+	if (!sourceId.startsWith('file:')) return { href: sourceId, exportName }
 	const { href, importMap, preloads } =
 		await remixAssetServer.getScriptEntry(sourceId)
 	return { href, importMap, exportName, preloads }

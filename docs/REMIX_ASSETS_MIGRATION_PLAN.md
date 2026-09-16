@@ -62,11 +62,16 @@ Three things were less obvious and are worth keeping in mind:
    does). A component rendered through it still emits its raw `file:` entry
    ID, so a test that needs the real browser URL has to go through the router.
 
-**Not done in this stage, on purpose:** `watch` stays `false`. In development
-`hmr.ts` restarts the server process for any change `remix/ui-hmr/node` cannot
-hot-swap in place, and a `.component.js` is never one it can, so the cache is
-rebuilt on every client-entry edit anyway. Turning the watcher on is Stage 2's
-job, where it is a hard requirement rather than a nicety.
+**The watcher is on in development, off everywhere else.** This server caches
+each module's *compiled* output, where `staticFiles()` used to read the file
+per request, so without a watcher a dev edit to a client entry is served
+stale. `hmr.ts` does not cover for it: `remix/ui-hmr/node` hot-swaps a
+`.component.js` edit in place with no process restart, so nothing rebuilds
+this cache. Measured, not assumed — with `watch: false`, an edit logged
+`hmr update …` and the edited export was still absent from the served module.
+It stays off under `node --test` (each test file is its own process and would
+start its own watcher) and in production (nothing changes on disk, and
+Stage 3's `fingerprint` requires it off).
 
 ## Stage 2 — browser HMR (`remix/ui/dev/refresh`)
 
@@ -78,13 +83,13 @@ channel factory on the asset server (`BrowserHmrChannelFactory`, typed in
 
 Two things to settle first, neither of them measured yet:
 
-- The watcher must not run under `node --test`. Each test file is its own
-  process and would start its own watcher; that is exactly why `watch: false`
-  is there today. A `NODE_ENV === 'development'` gate is the obvious answer
-  but has not been proven against the HMR path.
-- `hmr.ts` already restarts the process on a `.component.js` edit. A restart
-  that races the browser patch would undo it, so the two loops need to agree
-  on who owns client-entry files.
+- The `NODE_ENV === 'development'` gate on `watch` (Stage 1) is what keeps the
+  watcher out of `node --test`. HMR needs `watch` on, so it inherits that gate
+  — fine for `npm run dev`, but it has not been proven against the HMR path.
+- `remix/ui-hmr/node` already hot-swaps a `.component.js` edit server-side
+  without restarting. Stage 1 measured that the asset server does not follow
+  it (hence the watcher); whether the watcher's rebuild and that hot-swap can
+  race the browser patch is the open question.
 
 ## Stage 3 — fingerprinting and cache headers
 
