@@ -4,6 +4,7 @@ import { jsx } from 'remix/ui/jsx-runtime'
 import type { RenderToStreamOptions } from 'remix/ui/server'
 import { renderToStream } from 'remix/ui/server'
 import type { AppPage } from '../lib/app-page.ts'
+import { resolveClientEntry } from '../lib/remix-assets.ts'
 import type { AppRequestContext } from '../lib/request-context.ts'
 import type { SessionData } from '../lib/session.ts'
 import type { FlashedBanner } from '../lib/session-flash.ts'
@@ -56,6 +57,11 @@ export async function render(
 		return createHtmlResponse(
 			renderToStream(document, {
 				resolveFrame: options.resolveFrame,
+				// The `render()` middleware wires this from its own `assets`
+				// option; this branch bypasses the middleware, so it has to pass
+				// the same resolver or the shell's client entries would be
+				// emitted with their raw `file:` source paths as script `src`.
+				resolveClientEntry,
 				signal: context.request.signal,
 			}),
 			init,

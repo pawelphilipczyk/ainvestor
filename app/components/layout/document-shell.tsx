@@ -4,7 +4,7 @@ import { PortfolioTradeFocus } from '../../features/portfolio/portfolio-trade-fo
 import type { AppPage } from '../../lib/app-page.ts'
 import { baseCss } from '../../lib/document-styles.ts'
 import { t } from '../../lib/i18n.ts'
-import { remixUiImportMap } from '../../lib/remix-assets.ts'
+import { remixBootstrapEntry } from '../../lib/remix-assets.ts'
 import type { SessionData } from '../../lib/session.ts'
 import type { FlashBannerTone } from '../../lib/session-flash.ts'
 import { tailwindConfig } from '../../lib/tailwind-config.ts'
@@ -82,7 +82,7 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 					innerHTML={`tailwind.config = ${JSON.stringify(tailwindConfig)}`}
 				/>
 				<style type="text/tailwindcss" innerHTML={baseCss} />
-				<ImportMap value={remixUiImportMap} />
+				<ImportMap value={remixBootstrapEntry.importMap} />
 				<script
 					type="application/json"
 					id="ui-client-messages"
@@ -146,7 +146,7 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 					<PortfolioTradeFocus />
 				) : null}
 				<NavigationLinkLoadingEnhancement />
-				<script type="module" src="/entry.js" />
+				<script type="module" src={remixBootstrapEntry.href} />
 			</body>
 		</html>
 	)

@@ -153,9 +153,10 @@ holds the markup, a `clientEntry` renders a hidden `<span>` and delegates
 
 Adopting a primitive therefore means folding the markup into the `clientEntry`:
 
-- The entry module stays plain `.js` served by `staticFiles()` — the browser
-  loads it as-is, so it builds its markup with `createElement`, not JSX, and
-  keeps a `.component.d.ts` sidecar for the TypeScript side.
+- The entry module stays plain `.js` — the browser loads it as-is, so it builds
+  its markup with `createElement`, not JSX, and keeps a `.component.d.ts`
+  sidecar for the TypeScript side. It is served (and compiled) by the asset
+  server in `app/lib/remix-assets.ts`, not by `staticFiles()`.
 - Anything the render function needs must arrive as **serializable props**, and
   that includes translated copy: the render function runs in the browser too,
   where `t()` (request-scoped, server-only) does not exist. Pass
@@ -163,9 +164,14 @@ Adopting a primitive therefore means folding the markup into the `clientEntry`:
 - Setup runs on the server *and* on the client. Read live DOM state behind a
   `typeof document === 'undefined'` guard and return the server-rendered
   default on the server, so the first client render matches the document.
-- Any bare specifier the entry imports must be added to `browserModulePaths` in
-  `app/lib/remix-assets.ts` — both the `remix/ui/*` specifier and the
-  `@remix-run/ui/*` one it re-exports — or the browser cannot resolve it.
+- Bare specifiers need no registration. The asset server reads them out of the
+  entry's own module graph and the renderer merges the resulting scope into the
+  document import map, so importing a new `remix/ui/*` subpath is just an
+  import. (Before the assets migration this meant hand-editing a
+  `browserModulePaths` table in `app/lib/remix-assets.ts`; that table is gone.)
+- Give the entry its own module URL with ``clientEntry(`${import.meta.url}#Name`, …)``.
+  A root-relative literal like `'/components/…/x.component.js#Name'` is served
+  by nothing now and would be emitted verbatim as a broken script `src`.
 
 **Reference implementation:** `app/components/navigation/theme-toggle.component.js`
 (`toggle.control`). Keep the delegated-listener island shape for behavior that
@@ -672,7 +678,7 @@ This architecture aligns with the packages available in **`remix@3.0.0-beta.0`**
 |---|---|
 | `remix/response/html` | `createHtmlResponse()` — wraps HTML with proper headers |
 | `remix/response/redirect` | `createRedirectResponse()` — post-form redirect |
-| `remix/static-middleware` | Serve CSS, JS islands, and other static assets |
+| `remix/assets` | `createAssetServer()` — compiles and serves every browser module (client entries, their helpers, and the `remix`/`@remix-run/ui` package files they import), and derives the document import map |
 | `remix/ui` | JSX components for page bodies and shared UI; `clientEntry`, `run()`, and event mixins such as `on()` |
 | `remix/ui/server` | `renderToStream()` — full document streamed to response |
 

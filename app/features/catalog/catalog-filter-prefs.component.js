@@ -115,7 +115,7 @@ function restoreFiltersIfNeeded(catalogIndexHref) {
  * the user hits Clear.
  */
 export const CatalogFilterPrefsEnhancement = clientEntry(
-	'/features/catalog/catalog-filter-prefs.component.js#CatalogFilterPrefsEnhancement',
+	`${import.meta.url}#CatalogFilterPrefsEnhancement`,
 	function CatalogFilterPrefsEnhancement(handle) {
 		if (typeof document !== 'undefined') {
 			restoreFiltersIfNeeded(handle.props['data-catalog-index-href'])

@@ -15,7 +15,7 @@ function isModifiedClick(event) {
 }
 
 export const CatalogEtfBackEnhancement = clientEntry(
-	'/features/catalog/catalog-etf-back.component.js#CatalogEtfBackEnhancement',
+	`${import.meta.url}#CatalogEtfBackEnhancement`,
 	function CatalogEtfBackEnhancement(handle) {
 		if (typeof document !== 'undefined') {
 			addEventListeners(document, handle.signal, {

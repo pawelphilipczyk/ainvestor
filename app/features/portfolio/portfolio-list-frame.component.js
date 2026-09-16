@@ -13,7 +13,7 @@ import { watchFrameFormSubmissions } from '../../components/client/frame-form-ux
  * See `watchFrameFormSubmissions` for the shared mechanics.
  */
 export const PortfolioListFrame = clientEntry(
-	'/features/portfolio/portfolio-list-frame.component.js#PortfolioListFrame',
+	`${import.meta.url}#PortfolioListFrame`,
 	function PortfolioListFrame(handle) {
 		watchFrameFormSubmissions(handle, 'portfolio-list')
 

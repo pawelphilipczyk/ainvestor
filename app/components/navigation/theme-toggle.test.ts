@@ -5,6 +5,7 @@ import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
 import { jsx } from 'remix/ui/jsx-runtime'
 import { renderToString } from 'remix/ui/server'
+import { assetHref } from '../../lib/remix-assets.ts'
 import { router } from '../../router.ts'
 import { ThemeToggle } from './theme-toggle.component.js'
 
@@ -12,6 +13,10 @@ const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 
 function renderThemeToggle() {
 	return renderToString(jsx(ThemeToggle, { label: 'Toggle theme' }))
+}
+
+function themeToggleHref() {
+	return assetHref('app/components/navigation/theme-toggle.component.js')
 }
 
 describe('theme-toggle component', () => {
@@ -41,20 +46,30 @@ describe('theme-toggle component', () => {
 	})
 
 	it('ThemeToggle server-renders as a hydratable client entry', async () => {
-		const result = await renderThemeToggle()
-		assert.match(
-			result,
-			/"moduleUrl":"\/components\/navigation\/theme-toggle\.component\.js"/,
+		// Through the router, not `renderToString`: the browser module URL is
+		// resolved from the entry's source path by the `render()` middleware's
+		// asset server, and `renderToString` takes no `resolveClientEntry` hook.
+		const response = await router.fetch('http://localhost/')
+		const body = await response.text()
+		assert.match(body, new RegExp(`"moduleUrl":"${await themeToggleHref()}"`))
+		assert.match(body, /"exportName":"ThemeToggle"/)
+		assert.doesNotMatch(
+			body,
+			/"moduleUrl":"file:/,
+			'a client entry leaked its filesystem path into the hydration payload',
 		)
-		assert.match(result, /"exportName":"ThemeToggle"/)
+	})
+
+	it('ThemeToggle takes its label as a serialized hydration prop', async () => {
+		const result = await renderThemeToggle()
 		assert.match(result, /"props":\{"label":"Toggle theme"\}/)
 	})
 })
 
-describe('theme-toggle component entry static file', () => {
-	it('GET /components/navigation/theme-toggle.component.js returns 200 with javascript content-type', async () => {
+describe('theme-toggle component entry asset', () => {
+	it('the theme-toggle entry is served with a javascript content-type', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/navigation/theme-toggle.component.js',
+			new URL(await themeToggleHref(), 'http://localhost/'),
 		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
@@ -69,11 +84,12 @@ describe('theme-toggle component entry static file', () => {
 
 	it('theme-toggle entry drives the button from remix toggle primitives', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/navigation/theme-toggle.component.js',
+			new URL(await themeToggleHref(), 'http://localhost/'),
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
-		assert.match(body, /from 'remix\/ui\/toggle\/primitives'/)
+		// Compiled output, not the source file: quoting is the asset server's choice.
+		assert.match(body, /from ['"]remix\/ui\/toggle\/primitives['"]/)
 		// The document-level click delegation this component used before is gone.
 		assert.doesNotMatch(body, /addEventListeners/)
 	})

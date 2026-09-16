@@ -15,7 +15,7 @@ import { watchFrameFormSubmissions } from '../../components/client/frame-form-ux
  * inside a confirmation `<dialog>`.
  */
 export const GuidelinesListFrame = clientEntry(
-	'/features/guidelines/guidelines-list-frame.component.js#GuidelinesListFrame',
+	`${import.meta.url}#GuidelinesListFrame`,
 	function GuidelinesListFrame(handle) {
 		watchFrameFormSubmissions(handle, 'guidelines-list', {
 			closeDialogsOnReload: true,
