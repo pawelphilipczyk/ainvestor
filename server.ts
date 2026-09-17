@@ -2,7 +2,7 @@ import * as http from 'node:http'
 
 import { createRequestListener } from 'remix/node-fetch-server'
 
-import { remixAssetServer } from './app/lib/remix-assets.ts'
+import { loadNodeHmrRuntime, remixAssetServer } from './app/lib/remix-assets.ts'
 import { router } from './app/router.ts'
 
 function validateRequiredConfig(): void {
@@ -34,11 +34,12 @@ server.listen(port, '0.0.0.0', async () => {
 	// Tell `hmr.ts` the restart has finished. Without it `node-hmr` publishes
 	// `server:update` as soon as the child is spawned, and a browser can
 	// refresh against a server that is not listening yet. Only meaningful
-	// under supervision; `remix/node-hmr/runtime` refuses to load anywhere
-	// else, so it is imported behind the same flag the asset server uses.
+	// under supervision, and `loadNodeHmrRuntime()` is what decides whether
+	// this process really is — the flag alone is not enough, and an unguarded
+	// import here would take the server down with it.
 	if (process.env.REMIX_NODE_HMR === '1') {
-		const { emitServerReady } = await import('remix/node-hmr/runtime')
-		emitServerReady()
+		const runtime = await loadNodeHmrRuntime()
+		runtime?.emitServerReady()
 	}
 })
 

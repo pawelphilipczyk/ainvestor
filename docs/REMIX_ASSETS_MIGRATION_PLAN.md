@@ -109,7 +109,11 @@ Both questions this stage opened are now answered:
   *derived* from that flag rather than set beside it, so no later edit can
   enable HMR with watching off (the asset server rejects that pairing).
   `npm test` runs in ~8 s with no hang, and a test asserts no served module
-  carries HMR instrumentation.
+  carries HMR instrumentation. That test checks *component* modules only:
+  `uiHmr()` instruments nothing else, so a module like `app/entry.js` reads
+  clean whether the gate works or not (measured: 10 instrumentation markers in
+  `theme-toggle.component.js` under supervision, none in `app/entry.js` or
+  `app/lib/scroll-lock.js` either way).
 - **The server-side hot-swap and the browser patch do not race.** Both fired
   on the same edit in the measurement above and the tab still patched
   correctly.
@@ -168,6 +172,16 @@ server-only module, so audit it deliberately rather than widening it to
   imported by a process `node-hmr` is not supervising, and `server.ts` is the
   same entry module under `npm start`. Hence the dynamic import behind the
   flag in both files rather than a top-level one.
+- **The flag is a hint, not a guarantee, and the import is guarded.** Review
+  caught this: `REMIX_NODE_HMR=1` is an ordinary environment variable, so it
+  is inherited by any child process and can be set by hand, while the
+  `node-hmr` export condition that makes the runtime importable does not
+  travel with it. Unguarded, the mismatch was fatal — `REMIX_NODE_HMR=1 node
+  server.ts` died on an unhandled rejection moments after logging that it was
+  running. Both call sites now go through `loadNodeHmrRuntime()`, which
+  returns `null` and warns once instead; the asset server treats that as HMR
+  inactive, which is the documented contract for a channel factory returning
+  nothing.
 - **`assetHref()` is the only way to name a browser module's URL.** Nothing
   hard-codes an `/assets/...` path, tests included. The mount layout and any
   future fingerprinting (Stage 3) are the asset server's to decide.

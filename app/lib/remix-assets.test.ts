@@ -138,9 +138,14 @@ describe('asset server access boundary', () => {
 		const page = await fetchPage('/')
 		assert.doesNotMatch(page, /ui-hmr\/runtime\/browser/)
 
+		// Component modules only. `uiHmr()` instruments those and nothing else:
+		// measured against a live supervised dev server, `theme-toggle.component.js`
+		// came back with 10 instrumentation markers while `app/entry.js` and
+		// `app/lib/scroll-lock.js` had none. Asserting over a module that is
+		// never instrumented either way would pass whatever this gate did.
 		for (const source of [
-			'app/entry.js',
 			'app/components/navigation/theme-toggle.component.js',
+			'app/features/portfolio/portfolio-list-frame.component.js',
 		]) {
 			const response = await router.fetch(
 				new URL(await assetHref(source), 'http://localhost/'),

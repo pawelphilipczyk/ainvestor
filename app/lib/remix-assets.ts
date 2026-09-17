@@ -16,6 +16,36 @@ const rootDir = path.resolve(import.meta.dirname, '..', '..')
 const browserHmrAvailable = process.env.REMIX_NODE_HMR === '1'
 
 /**
+ * `remix/node-hmr/runtime`, or `null` when this process is not really
+ * supervised by `node-hmr`.
+ *
+ * `REMIX_NODE_HMR=1` is an ordinary environment variable, so it is inherited
+ * by any child process and can be set by hand, while the `node-hmr` export
+ * condition that makes this module importable does not travel with it. That
+ * mismatch is not hypothetical and not survivable unguarded: the import
+ * throws, and the rejection killed the server moments after it logged that it
+ * was running. Measured, with `REMIX_NODE_HMR=1 node server.ts`.
+ *
+ * Cached so both call sites — the asset server's channel factory and
+ * `server.ts`'s ready signal — share one import and one warning.
+ */
+let nodeHmrRuntime:
+	| Promise<typeof import('remix/node-hmr/runtime') | null>
+	| undefined
+
+export function loadNodeHmrRuntime(): Promise<
+	typeof import('remix/node-hmr/runtime') | null
+> {
+	nodeHmrRuntime ??= import('remix/node-hmr/runtime').catch(() => {
+		console.warn(
+			'[hmr] REMIX_NODE_HMR is set but node-hmr is not supervising this process. Browser HMR is off; run `npm run dev` to enable it.',
+		)
+		return null
+	})
+	return nodeHmrRuntime
+}
+
+/**
  * Whether to watch source files for changes.
  *
  * Derived from {@link browserHmrAvailable} rather than set beside it: the
@@ -59,10 +89,10 @@ export const remixAssetServer = createAssetServer({
 	// module under `npm start`, where that import would fail.
 	hmr: browserHmrAvailable
 		? async () => {
-				const { createBrowserHmrChannel } = await import(
-					'remix/node-hmr/runtime'
-				)
-				return createBrowserHmrChannel()
+				// Returning `undefined` leaves HMR inactive, which is the right
+				// outcome when the flag is set without real supervision.
+				const runtime = await loadNodeHmrRuntime()
+				return runtime?.createBrowserHmrChannel()
 			}
 		: undefined,
 	// Watching is what keeps development honest, with or without HMR: this
