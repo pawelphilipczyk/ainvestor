@@ -30,10 +30,11 @@ ahead of time.
   architecture Stage 5 already chose under reason 3 for a related reason
   (scoped import maps). Recorded as a migration follow-up, not a gap in this
   step. **The staged plan (Stages 1–7) is now complete**; what's left is the
-  two follow-ups below. Follow-up 2's blocker has since lifted — the
-  `staticFiles()` architecture described above is gone, and both it and the
-  browser-HMR work it was blocking now live in
-  **`docs/REMIX_ASSETS_MIGRATION_PLAN.md`**.
+  two follow-ups below — of which follow-up 2 is now **done**: the
+  `staticFiles()` architecture described above is gone, and the browser HMR it
+  was blocking works. Both live in
+  **`docs/REMIX_ASSETS_MIGRATION_PLAN.md`**. Follow-up 1 still waits on a
+  future Remix release.
 - **Branch:** `claude/next-migration-step-jd3kw9`, off `main`.
 - **Green:** `npm run check`, `npm run typecheck`, `npm test` (590) and
   `npm run test:browser` (40) all pass.
@@ -91,16 +92,20 @@ already equals its own page's route before wiring the attribute.
    primitive adopted in this migration (tabs, toggle, select) already has.
    Until then this is a closed measurement, not an open question — see the
    `0bb474c` *Done* row and `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2.
-2. **Browser-side HMR (`remix/ui/dev/refresh`):** **no longer blocked, and no
-   longer tracked here.** The blocker named below — that this app served
-   `.component.js` client entries with `staticFiles()` rather than through
-   `remix/assets`' `createAssetServer` — was the re-architecture Stage 5
-   declined under reason 3 (scoped import maps). That re-architecture has now
-   been done, in its own migration: see
-   **`docs/REMIX_ASSETS_MIGRATION_PLAN.md`**, which carries this follow-up as
-   its Stage 2 along with the two questions still open on it (the watcher
-   under `node --test`, and `hmr.ts`'s restart racing a browser patch). Read
-   that file, not this bullet, when picking the work up.
+2. **Browser-side HMR:** **done — closed, not backlog.** The blocker named
+   below (this app serving `.component.js` client entries with
+   `staticFiles()` rather than through `remix/assets`' `createAssetServer`)
+   was the re-architecture Stage 5 declined under reason 3. That landed as
+   Stage 1 of its own migration, and browser HMR followed as Stage 2: editing
+   a client entry now patches an open tab instead of reloading it, confirmed
+   live. Both questions this bullet left open are answered there. See
+   **`docs/REMIX_ASSETS_MIGRATION_PLAN.md`**.
+
+   One correction to the wording below: the goal was reached *without*
+   importing `remix/ui/dev/refresh`. Those exports are consumed by
+   `@remix-run/ui-hmr`'s own browser runtime, which the asset server serves —
+   naming the export as the deliverable was a wrong guess at the mechanism,
+   not a wrong goal.
 
    *Original entry, for the record:* revisit only if this app ever moves
    `.component.js` client-entry serving off `staticFiles()` and onto
