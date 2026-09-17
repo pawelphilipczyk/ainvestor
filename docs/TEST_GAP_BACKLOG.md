@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 6 — `app/components` + shared browser layer
-**Last swept:** 2026-09-16 (app/lib)
+**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
+**Last swept:** 2026-09-17 (app/components + shared browser layer)
 
 ---
 
@@ -50,14 +50,25 @@ valuable case is the *rejection* — correct status, the flash reaching the next
 render, no partial import.
 
 ### GAP-004 — shared form-control classes
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/components`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-17 · **Area:** `app/components` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/PENDING
 
 `app/components/forms/form-control-classes.ts` — no direct coverage, while at
 least two component tests assert its output indirectly (see `OV-002` in the
 overlap backlog).
 
-**Triage:** testing the helper once and thinning the component assertions is
-one change that closes a gap and an overlap together. Coordinate with `OV-002`.
+**Re-checked 2026-09-17:** confirmed. The module is pure string composition
+(no branching); `submit-button.test.ts:16-22` and `select-input.test.ts:44-55`
+both assert the literal content of `formControlHeightCompact` (`h-9 min-h-9`)
+through each component's one-line `compact` ternary.
+
+**Action taken:** added `app/components/forms/form-control-classes.test.ts`,
+pinning the default/compact height constants directly and asserting each
+composed control-classes export carries the right height tier and not the
+other one. Left `submit-button.test.ts`/`select-input.test.ts` untouched —
+thinning those is `OV-002`'s action (now `approved`), not this run's; only
+one overlap action (already-approved-before-this-run) and one gap-filling
+test are allowed per run, and `OV-002` only became `approved` during this
+same run.
 
 ### GAP-005 — form payload and frame-submit request helpers
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
@@ -158,6 +169,108 @@ that later reaches `formatValue` and would otherwise throw inside
 **Note:** `formatPortfolioValueForInput` in the same file appears to have no
 production caller left (only its own definition matches a repo-wide grep) —
 worth a look for removal rather than a test, separately from this item.
+
+### GAP-012 — `NumberInput`'s no-`inputMode` and `numeric` branches are unreached
+**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** `app/components`
+
+`app/components/forms/number-input.tsx` — no test file names it. All four
+production call sites (`portfolio-operation-form/operation-form.tsx:79-86`,
+`guidelines-page.tsx:109-116,157-164`, `guidelines-list-fragment.tsx:142-150`,
+`advice-page.tsx:671-682`) pass `inputMode="decimal"` *and* an explicit
+`pattern`, and route tests (`guidelines.test.ts:151-172`,
+`portfolio.test.ts:180-184`) only assert `type="text"`/`inputmode="decimal"`,
+never the `pattern` value or a case with `pattern` omitted. So
+`defaultPatternForInputMode('numeric')` (no production caller uses
+`inputMode="numeric"`), the `'decimal'` fallback pattern (every real caller
+supplies its own `pattern`), and the plain `type="number"`/`min="0"`/
+`step="any"` default branch (taken when `inputMode` is absent, also no
+production caller) are all reachable code with zero coverage, direct or
+indirect.
+
+**Triage:** genuine gap — plain SSR component test (same pattern as
+`submit-button.test.ts`), not a browser test: assert
+`inputMode="decimal"` with no `pattern` renders the decimal fallback,
+`inputMode="numeric"` renders `[0-9]*`, and no `inputMode` renders
+`type="number" min="0" step="any"`.
+
+### GAP-013 — plain-button spinner fallback in `submit-button-loading.component.js` is unpinned on guidelines' own buttons
+**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** shared browser layer
+
+`setSubmitButtonLoading` (`app/components/client/submit-button-loading.component.js:64-92`)
+has a fallback branch for a plain `<button type="submit">` with no
+`.submit-button-busy-overlay` markup (clones `#form-spinner-icon` and swaps
+`innerHTML`). The shared `SubmitButton` component's overlay path is covered
+(`catalog-list-filter.browser.ts:120,132`, `catalog-etf-analysis.browser.ts:112`
+assert `aria-busy`), but guidelines' own plain buttons — the save-target
+button and the delete-confirmation button
+(`guidelines-list-fragment.tsx:158-160,219-224`), wired through
+`watchFrameFormSubmissions` (`frame-form-ux.component.js:39-103` via
+`guidelines-list-frame.component.js:20`) — take this fallback branch, and
+`guidelines.browser.ts` asserts form reset, dialog-close, and row
+presence/URL but never `aria-busy`, `disabled`, or the spinner swap on these
+buttons.
+
+**Triage:** genuine gap, and hydration-only (`AGENTS.md`: client behavior
+after hydration is invisible to `npm test`) — needs a `*.browser.ts` case,
+added to `guidelines.browser.ts`: click the save-target or delete button,
+assert `aria-busy="true"`/`disabled` while the request is in flight and that
+both clear afterward, and that the visible label is swapped for the spinner
+and restored.
+
+### GAP-014 — `SectionIntroCard`'s `home-link` variant has no coverage
+**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** `app/components`
+
+`app/components/data-display/section-intro-card.tsx:57-72` (the
+`variant: 'home-link'` branch) is used by exactly one caller,
+`app/features/intro/intro-page.tsx`. That page is one of `GAP-010`'s
+`blocked` page components, but this item is a different question — a shared
+*component's own branch*, not the page route. The two tests that `GET /`
+(`sidebar.test.ts:144-233`, `theme-toggle.test.ts:52-87`) only assert
+document-shell-level markup (import map, entry script, theme toggle), never
+the home page body, so the `home-link` branch's `<a href data-rmx-document>`
+wrapper and nested `Card` are asserted nowhere.
+
+**Triage:** genuine gap, not a re-raise of `GAP-010` (that item stays
+`blocked` on its own question). Plain server-render component test:
+`renderToString(jsx(SectionIntroCard, { variant: 'home-link', … }))`,
+asserting the anchor wrapper, `data-rmx-document`, and the nested `Card`. No
+browser test needed.
+
+### GAP-015 — `busy-control-overlay.ts`'s root/spinner classes are unpinned
+**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** `app/components`
+
+`app/components/forms/busy-control-overlay.ts` — no test names it directly.
+`busyControlOverlayClass`/`busyControlLabelClass` get indirect substring
+coverage via `submit-button.test.ts:11-12`, but `busyControlRootStateClasses`
+and `busyControlSpinnerClass` have no assertion anywhere — not in
+`submit-button.test.ts`, not in `document-navigation.browser.ts` (asserts
+`data-navigation-loading` but not the paired `busy-control-root`/`group`
+classes), not for `frame-loading-placeholder.tsx`'s use of
+`busyControlSpinnerClass`.
+
+**Triage:** same shape as `GAP-004`/`OV-002` — a direct unit test of this
+module's four exported class constants (plain string-content assertions)
+closes it in one small test.
+
+### GAP-016 — `getNavLinks()`'s "resolve at render time" rule is unpinned (sibling of `GAP-007`)
+**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** `app/components`
+
+`app/components/layout/sidebar-nav.ts`'s doc comment states the same
+render-time-not-import-time rule `AGENTS.md` documents for
+`getSectionIntro` (`GAP-007`, still `proposed`), but no test switches the
+active UI locale between two `getNavLinks()` calls in one test to prove
+labels aren't resolved once at module load. No test in the repo asserts a
+Polish nav label (`'Portfel'` etc. from `app/locales/pl.ts:33-36`) —
+`sidebar.test.ts` calls `getNavLinks()` fresh each case but never under a
+non-default locale, and `pages.browser.ts`'s live locale-switch test
+(lines 50-76) only asserts `document.documentElement.lang` and the
+`<select>` value, never sidebar link text.
+
+**Triage:** genuine gap, identical rule to `GAP-007` applied to a second
+helper — file as its sibling rather than a wholly new kind of item. Plain
+unit test (server-side, not browser): call `getNavLinks()` under `'pl'`,
+assert `'Portfel'` appears; switch to `'en'`, call again, assert
+`'Portfolio'`.
 
 ---
 
