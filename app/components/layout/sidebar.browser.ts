@@ -13,7 +13,7 @@ import {
 
 /**
  * The mobile sidebar overlay is the highest-risk client code in the app: it
- * lives in `sidebar.component.js`, which `tsconfig.json` does not include, and
+ * lives in `sidebar.component.ts`, which `tsconfig.json` does not include, and
  * it fails only in a browser. `docs/REMIX_RC_MIGRATION_PLAN.md` requires a
  * browser pass over exactly these interactions; the Stage 6 attempt to hand
  * this behavior to `remix/ui/popover` (see §6 of that plan for the measured

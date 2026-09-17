@@ -1,5 +1,5 @@
 import { clientEntry, createElement } from 'remix/ui'
-import { watchFrameFormSubmissions } from '../../components/client/frame-form-ux.component.js'
+import { watchFrameFormSubmissions } from '../../components/client/frame-form-ux.component.ts'
 
 /**
  * UX layer for every `portfolio-list`-targeting form: the trade form

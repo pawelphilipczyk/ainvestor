@@ -16,7 +16,7 @@ function readIsDark() {
 	return document.documentElement.classList.contains(DARK_CLASS)
 }
 
-function applyIsDark(isDark) {
+function applyIsDark(isDark: boolean) {
 	if (typeof document === 'undefined') return
 	document.documentElement.classList.toggle(DARK_CLASS, isDark)
 	try {
@@ -101,7 +101,7 @@ function moonIcon() {
  * around, since the alternative is re-hand-rolling what the mixin owns; it is
  * an upstream limitation of server-rendering this primitive.
  */
-export const ThemeToggle = clientEntry(
+export const ThemeToggle = clientEntry<{ label: string }>(
 	`${import.meta.url}#ThemeToggle`,
 	function ThemeToggle(handle) {
 		let isDark = readIsDark()

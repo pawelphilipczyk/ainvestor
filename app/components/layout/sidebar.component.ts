@@ -1,17 +1,31 @@
 import { clientEntry, createElement } from 'remix/ui'
-import { addEventListeners } from '../../lib/event-listeners.js'
-import { lockScroll } from '../../lib/scroll-lock.js'
+import { addEventListeners } from '../../lib/browser/event-listeners.ts'
+import { lockScroll } from '../../lib/browser/scroll-lock.ts'
 
 /** Matches Tailwind `md:` (tablet / iPad portrait and up). */
 const DESKTOP_MEDIA = '(min-width: 768px)'
 
-function isDesktop(doc) {
+/**
+ * The live scroll-lock hold, boxed so the helpers below can swap it.
+ *
+ * `release` is the disposer `lockScroll()` returned, or a no-op when nothing
+ * is held.
+ */
+type ScrollLockRef = { release: () => void }
+
+function isDesktop(doc: Document) {
 	const defaultView = doc.defaultView
 	if (!defaultView) return false
 	return defaultView.matchMedia(DESKTOP_MEDIA).matches
 }
 
-function openSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef) {
+function openSidebar(
+	sidebar: HTMLElement,
+	backdrop: HTMLElement,
+	sidebarToggle: HTMLElement,
+	doc: Document,
+	scrollLockRef: ScrollLockRef,
+) {
 	if (isDesktop(doc)) return
 	scrollLockRef.release()
 	scrollLockRef.release = lockScroll(doc)
@@ -21,7 +35,13 @@ function openSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef) {
 	sidebarToggle.setAttribute('aria-expanded', 'true')
 }
 
-function closeSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef) {
+function closeSidebar(
+	sidebar: HTMLElement,
+	backdrop: HTMLElement,
+	sidebarToggle: HTMLElement,
+	doc: Document,
+	scrollLockRef: ScrollLockRef,
+) {
 	if (isDesktop(doc)) {
 		scrollLockRef.release()
 		scrollLockRef.release = () => {}
@@ -30,7 +50,12 @@ function closeSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef) {
 	resetMobileOverlay(sidebar, backdrop, sidebarToggle, scrollLockRef)
 }
 
-function resetMobileOverlay(sidebar, backdrop, sidebarToggle, scrollLockRef) {
+function resetMobileOverlay(
+	sidebar: HTMLElement,
+	backdrop: HTMLElement,
+	sidebarToggle: HTMLElement,
+	scrollLockRef: ScrollLockRef,
+) {
 	scrollLockRef.release()
 	scrollLockRef.release = () => {}
 	sidebar.classList.add('-translate-x-full')
@@ -52,7 +77,7 @@ export const SidebarInteractions = clientEntry(
 				backdrop instanceof HTMLElement &&
 				sidebarToggle instanceof HTMLElement
 			) {
-				const scrollLockRef = { release: () => {} }
+				const scrollLockRef: ScrollLockRef = { release: () => {} }
 				const desktopMediaQuery = doc.defaultView?.matchMedia(DESKTOP_MEDIA)
 				const onBreakpoint = () => {
 					if (desktopMediaQuery?.matches) {

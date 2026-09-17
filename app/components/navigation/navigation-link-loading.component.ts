@@ -1,12 +1,12 @@
 import { clientEntry, createElement, navigate } from 'remix/ui'
-import { addEventListeners } from '../../lib/event-listeners.js'
+import { addEventListeners } from '../../lib/browser/event-listeners.ts'
 
 const ATTR = 'data-navigation-loading'
 
 /** Prevents double activation while a navigation is in flight. */
 let isNavigating = false
 
-function isModifiedClick(event) {
+function isModifiedClick(event: MouseEvent) {
 	return (
 		event.defaultPrevented ||
 		event.button !== 0 ||
@@ -17,12 +17,12 @@ function isModifiedClick(event) {
 	)
 }
 
-function clearAnchorNavigationBusy(anchor) {
+function clearAnchorNavigationBusy(anchor: HTMLAnchorElement) {
 	anchor.removeAttribute('data-loading')
 	anchor.removeAttribute('aria-busy')
 }
 
-function clearNavigationLoadingBusyStateFromDocument(documentObject) {
+function clearNavigationLoadingBusyStateFromDocument(documentObject: Document) {
 	for (const element of documentObject.querySelectorAll(
 		`a[${ATTR}][data-loading]`,
 	)) {

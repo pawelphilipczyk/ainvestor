@@ -62,8 +62,8 @@ function assetSourcePath(relativePath: string): string {
 
 /**
  * Serves every browser module this app ships: its own client entries
- * (`app/**\/*.component.js`, their `app/lib/*.js` helpers, `app/entry.js`) and
- * the `remix`/`@remix-run/ui` package files they import.
+ * (`app/**\/*.component.{ts,js}`, their `app/lib/browser/*.ts` helpers,
+ * `app/entry.js`) and the `remix`/`@remix-run/ui` package files they import.
  *
  * Nothing here is a hand-maintained path literal. The document's import map,
  * the bootstrap `<script src>` and every client entry's `href` are all derived
@@ -71,13 +71,24 @@ function assetSourcePath(relativePath: string): string {
  * can drift across an upgrade — the failure the rc.2 migration hit with the
  * old literal, which pointed at a file rc.2 had already removed.
  *
- * `allowFiles` is the security boundary: only these globs are reachable, so
- * server-only `.ts`/`.tsx` sources under `app/` are not served.
+ * `allowFiles` is the security boundary, and it is deliberately narrow now
+ * that TypeScript is served: the `.component.` infix and the `lib/browser/`
+ * directory are what separate a browser module from a server-only one, not the
+ * file extension. `app/**\/*.ts` would expose `session.ts`, `gist.ts` and every
+ * other server module; `app/lib/*.js` (which this replaced) would have served
+ * any stray `.js` later dropped into `app/lib`. Anything reachable here is
+ * public — check that before widening a glob, and see
+ * `docs/REMIX_ASSETS_MIGRATION_PLAN.md` Stage 4.
  */
 export const remixAssetServer = createAssetServer({
 	basePath: '/assets',
 	rootDir,
-	allowFiles: ['app/entry.js', 'app/**/*.component.js', 'app/lib/*.js'],
+	allowFiles: [
+		'app/entry.js',
+		'app/**/*.component.ts',
+		'app/**/*.component.js',
+		'app/lib/browser/*.ts',
+	],
 	allowPackages: ['remix'],
 	// Instrument component modules so an edit can be applied to an open tab
 	// instead of reloading it. Only under HMR: the transform exists to add

@@ -96,7 +96,7 @@ User-visible copy lives in **`app/locales/en.ts`** and **`app/locales/pl.ts`** a
 3. Use Tailwind utility classes as the default styling approach.
 4. Keep JavaScript modular, minimal, and enhancement-only.
 5. Do not introduce React/Vue-style component frameworks unless explicitly requested.
-6. **Partial HTML from forms**: use **`<Frame>`** + **`FrameSubmitEnhancement`** (`data-frame-submit`, etc.). **Primary JSON POSTs from the page**: use **`SubmitButton`** + a **small feature `clientEntry`**; share **`setSubmitButtonLoading`** from `submit-button-loading.component.js`. See **§7** in `docs/UI_ARCHITECTURE_GUIDELINES.md`.
+6. **Partial HTML from forms**: use **`<Frame>`** + **`FrameSubmitEnhancement`** (`data-frame-submit`, etc.). **Primary JSON POSTs from the page**: use **`SubmitButton`** + a **small feature `clientEntry`**; share **`setSubmitButtonLoading`** from `submit-button-loading.component.ts`. See **§7** in `docs/UI_ARCHITECTURE_GUIDELINES.md`.
 
 ## Required defaults for Remix work
 
@@ -119,8 +119,8 @@ User-visible copy lives in **`app/locales/en.ts`** and **`app/locales/pl.ts`** a
 - When a task involves UI implementation, patterns in `docs/UI_ARCHITECTURE_GUIDELINES.md` are the source of truth.
 - When a task involves Remix routing, sessions, middleware, or HTTP utilities, `docs/REMIX_V3_PACKAGES.md` is the reference.
 - For all JS/TS/CSS formatting and lint rules, `docs/BIOME_RULES.md` is the reference. Run `npm run check` before committing.
-- Client behavior that only exists after hydration (`clientEntry` wiring, Remix UI mixins, anything in a `.component.js` file `tsconfig.json` does not include) is invisible to `npm test` and `npm run typecheck`. Cover it with a `*.browser.ts` file and run `npm run test:browser` — Playwright against a real Chromium, one-time setup `npx playwright install chromium`. It is kept out of `npm test` on purpose, so CI never downloads a browser.
-- ClientEntry components that are feature-specific live next to the feature (`.component.js` suffix). Shared clientEntry components live in `app/components/`.
+- Client behavior that only exists after hydration (`clientEntry` wiring, Remix UI mixins) is invisible to `npm test`: nothing runs it without a browser. Cover it with a `*.browser.ts` file and run `npm run test:browser` — Playwright against a real Chromium, one-time setup `npx playwright install chromium`. It is kept out of `npm test` on purpose, so CI never downloads a browser. **`npm run typecheck` does cover a `.component.ts` entry** (the asset server compiles TypeScript, so entries live inside `tsconfig.json`); an unconverted `.component.js` is still invisible to it — see `docs/REMIX_ASSETS_MIGRATION_PLAN.md` Stage 4.
+- ClientEntry components that are feature-specific live next to the feature (`.component.ts` suffix; `.component.js` is the pre-Stage-4 form and still served). Shared clientEntry components live in `app/components/`. Browser-only helpers that are not components live in `app/lib/browser/` — that directory and the `.component.` infix are what `allowFiles` uses to tell a browser module from a server-only one, so a new browser helper belongs there and nowhere else.
 
 ## Pattern capture rule
 

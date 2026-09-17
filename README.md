@@ -69,7 +69,7 @@ App runs on: `http://localhost:44100`
 
 The dev server hot-reloads rather than restarting. Editing a server component
 hot-swaps it in place (`remix/node-hmr` + `remix/ui-hmr/node`); editing a
-client entry (`*.component.js`) patches any open tab without reloading it, over
+client entry (`*.component.ts`) patches any open tab without reloading it, over
 the asset server's browser HMR channel. Both are development-only, keyed on the
 `REMIX_NODE_HMR` flag that `npm run dev` sets — `npm start` serves the same
 assets with no watcher and no HMR client. See
@@ -86,9 +86,11 @@ npm run test
 ### Browser tests
 
 Client behavior that only exists after hydration — `clientEntry` wiring, Remix
-UI mixins, the sidebar overlay — cannot be seen by `npm run test` or by the type
-checker, because it lives in `.component.js` files outside `tsconfig.json`.
-Those are covered by Playwright against a real Chromium:
+UI mixins, the sidebar overlay — cannot be seen by `npm run test`, because
+nothing runs it without a browser. Type checking *does* cover a
+`.component.ts` entry: the asset server compiles TypeScript, so entries sit
+inside `tsconfig.json`. Behavior still needs a browser, and these are covered
+by Playwright against a real Chromium:
 
 ```bash
 npx playwright install chromium   # one time

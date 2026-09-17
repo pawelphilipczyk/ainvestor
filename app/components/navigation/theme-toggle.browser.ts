@@ -43,7 +43,7 @@ describe('theme toggle (browser)', () => {
 			isDark: true,
 			role: 'switch',
 			// Streamed as the bare attribute `aria-checked=""`; hydration rewrites
-			// it to "true". See the note in theme-toggle.component.js.
+			// it to "true". See the note in theme-toggle.component.ts.
 			ariaChecked: 'true',
 			dataState: 'checked',
 			storedTheme: null,

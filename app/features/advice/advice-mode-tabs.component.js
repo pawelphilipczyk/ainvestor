@@ -1,10 +1,10 @@
 import { clientEntry, createElement, ref } from 'remix/ui'
 import { Context, list, root, tab } from 'remix/ui/tabs/primitives'
-import { setSubmitButtonLoading } from '../../components/client/submit-button-loading.component.js'
+import { setSubmitButtonLoading } from '../../components/client/submit-button-loading.component.ts'
 import {
 	tabsListClass as listClass,
 	tabsTabClass as tabClass,
-} from '../../components/client/tabs-classes.component.js'
+} from '../../components/client/tabs-classes.component.ts'
 
 const FRAME_NAME = 'advice-result'
 

@@ -34,22 +34,31 @@
  * the document only once the last holder releases.
  */
 
-/** @type {WeakMap<Document, { count: number, documentOverflow: string, documentScrollbarGutter: string, scrollX: number, scrollY: number }>} */
-const scrollLocks = new WeakMap()
+type ScrollLockState = {
+	count: number
+	documentOverflow: string
+	documentScrollbarGutter: string
+	scrollX: number
+	scrollY: number
+}
+
+const scrollLocks = new WeakMap<Document, ScrollLockState>()
 
 /**
  * Locks scrolling on the given document.
  *
- * @param {Document} [targetDocument] Document to lock. Defaults to `globalThis.document`.
- * @returns {() => void} Releases this hold on the lock. Safe to call more than once.
+ * @param targetDocument Document to lock. Defaults to `globalThis.document`.
+ * @returns Releases this hold on the lock. Safe to call more than once.
  */
-export function lockScroll(targetDocument = globalThis.document) {
-	if (!targetDocument?.body || !targetDocument.defaultView) {
+export function lockScroll(
+	targetDocument: Document | undefined = globalThis.document,
+): () => void {
+	const view = targetDocument?.defaultView
+	if (!targetDocument?.body || !view) {
 		return () => {}
 	}
 	const document = targetDocument
 	const documentElement = document.documentElement
-	const view = document.defaultView
 	let state = scrollLocks.get(document)
 	if (!state) {
 		const scrollX = view.scrollX

@@ -98,8 +98,8 @@ describe('asset server access boundary', () => {
 	it('serves the app modules the browser needs', async () => {
 		for (const source of [
 			'app/entry.js',
-			'app/components/layout/sidebar.component.js',
-			'app/lib/scroll-lock.js',
+			'app/components/layout/sidebar.component.ts',
+			'app/lib/browser/scroll-lock.ts',
 		]) {
 			const response = await router.fetch(
 				new URL(await assetHref(source), 'http://localhost/'),
@@ -139,12 +139,12 @@ describe('asset server access boundary', () => {
 		assert.doesNotMatch(page, /ui-hmr\/runtime\/browser/)
 
 		// Component modules only. `uiHmr()` instruments those and nothing else:
-		// measured against a live supervised dev server, `theme-toggle.component.js`
+		// measured against a live supervised dev server, `theme-toggle.component.ts`
 		// came back with 10 instrumentation markers while `app/entry.js` and
-		// `app/lib/scroll-lock.js` had none. Asserting over a module that is
+		// `app/lib/browser/scroll-lock.ts` had none. Asserting over a module that is
 		// never instrumented either way would pass whatever this gate did.
 		for (const source of [
-			'app/components/navigation/theme-toggle.component.js',
+			'app/components/navigation/theme-toggle.component.ts',
 			'app/features/portfolio/portfolio-list-frame.component.js',
 		]) {
 			const response = await router.fetch(
@@ -160,8 +160,8 @@ describe('asset server access boundary', () => {
 	it('no longer serves client entries from their old static-file paths', async () => {
 		for (const path of [
 			'/entry.js',
-			'/components/layout/sidebar.component.js',
-			'/lib/scroll-lock.js',
+			'/components/layout/sidebar.component.ts',
+			'/lib/browser/scroll-lock.ts',
 		]) {
 			const response = await router.fetch(`http://localhost${path}`)
 			assert.equal(response.status, 404, `GET ${path}`)

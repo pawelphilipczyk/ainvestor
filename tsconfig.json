@@ -1,7 +1,7 @@
 {
 	"include": ["server.ts", "app/**/*.ts", "app/**/*.tsx", "mcp/**/*.ts"],
 	"compilerOptions": {
-		"lib": ["DOM", "ES2022"],
+		"lib": ["DOM", "DOM.Iterable", "ES2022"],
 		"types": ["node"],
 		"target": "ES2022",
 		"module": "NodeNext",
