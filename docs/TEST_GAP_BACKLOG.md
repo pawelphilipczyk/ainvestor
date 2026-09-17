@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 5 — `app/lib`
-**Last swept:** 2026-09-16 (seed pass, whole-suite survey)
+**Next area to sweep:** 6 — `app/components` + shared browser layer
+**Last swept:** 2026-09-16 (app/lib)
 
 ---
 
@@ -48,16 +48,6 @@ a bad day, so nobody exercises it by hand.
 **Triage:** does any catalog import test POST a body over the limit? The
 valuable case is the *rejection* — correct status, the flash reaching the next
 render, no partial import.
-
-### GAP-003 — guest session state
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
-
-`app/lib/guest-session-state.ts` — no direct coverage. Signed-out behaviour is
-the easiest thing to break while working on signed-in features, and the whole
-suite signs in first (`signInAs(...)`).
-
-**Triage:** confirm which pages a guest can reach and what they should see.
-Worth a test even if partly covered — this is a security-adjacent boundary.
 
 ### GAP-004 — shared form-control classes
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/components`
@@ -142,6 +132,33 @@ manufacture overlap.
 their route. Until then, runs should leave this alone. If the answer is no,
 reject it and stop re-surfacing page components as gaps.
 
+### GAP-011 — `formatValue`'s currency-fallback branch is untested
+**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+
+`app/lib/format.ts:1-10` — no test file imports `format.ts` or names
+`formatValue`/`formatPortfolioValueForInput`. `formatValue` is used in
+`app/features/catalog/catalog-list-fragment.tsx:3,82` and
+`app/features/portfolio/portfolio-operation-form/list-fragment.tsx:3,77`, and
+`app/features/portfolio/portfolio.test.ts:151-224` renders those fragments
+with `currency: 'PLN'`/`'USD'` and asserts the formatted string — but that
+only exercises the `Intl.NumberFormat` success path.
+
+The `catch` fallback (`` `${value} ${currency}` ``) is untested and reachable
+in production: `app/lib/portfolio-operations.ts:22` validates `currency` as a
+bare `string()` with no enum restriction (unlike `app/lib/currencies.ts`'s
+`CURRENCIES` enum used only in the advice/add-ETF forms), so a hand-crafted
+POST or an externally-edited gist can store a non-ISO-4217 currency string
+that later reaches `formatValue` and would otherwise throw inside
+`Intl.NumberFormat`.
+
+**Triage:** genuine gap — write a unit test asserting
+`formatValue(100, 'NOTACURRENCY')` (or similar) falls back to
+`'100 NOTACURRENCY'` instead of throwing.
+
+**Note:** `formatPortfolioValueForInput` in the same file appears to have no
+production caller left (only its own definition matches a repo-wide grep) —
+worth a look for removal rather than a test, separately from this item.
+
 ---
 
 ## Uncovered routes to check
@@ -167,4 +184,21 @@ _Nothing yet._
 
 ## Done
 
-_Nothing yet._
+### GAP-003 — guest session state
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-16 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/203
+
+`app/lib/guest-session-state.ts` had no direct coverage. Route-level tests
+sign in first and only exercise the happy path for guests (seeding a guest
+catalog/ETF list), so the module's own internal logic — the JSON-corruption
+fallback, the guidelines LRU cache keyed by a session-held ref, and
+per-session isolation — was unpinned.
+
+**Action taken:** added `app/lib/guest-session-state.test.ts` (8 cases) using
+a real `Session` from `sessionStorage.read(null)` (matching `session.test.ts`'s
+convention): round-trips for guest ETFs/catalog/guidelines, that setting one
+field doesn't clobber another already in the session, that a corrupted
+stored value falls back to empty state instead of throwing (verified this
+case fails if the `try/catch` in `readState` is removed), that the
+guidelines ref is reused across writes in one session, that clearing the
+server-side store empties previously-cached guidelines, and that two
+sessions don't share a guidelines cache entry.

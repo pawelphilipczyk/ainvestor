@@ -4,34 +4,42 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 1 — `app/features/advice`
-**Last swept:** 2026-09-16 (seed pass, whole-suite survey)
+**Next area to sweep:** 2 — `app/features/catalog`
+**Last swept:** 2026-09-16 (advice)
 
 ---
 
 ## Open items
 
-### OV-001 — `parseAdviceCashAmount` tests re-test `parseLocaleDecimalString`
-**Status:** `approved` · **Proposed:** 2026-09-16 · **Area:** advice
+### OV-006 — guideline formatting asserted twice with the same input/output
+**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** advice
 
-`app/features/advice/advice-openai.ts:301` is
-`export const parseAdviceCashAmount = parseLocaleDecimalString` — a plain
-re-export alias, no wrapping logic. Its two tests in
-`app/features/advice/advice-openai.test.ts:688` and `:696` assert the same
-behaviour as `app/lib/locale-decimal-input.test.ts:9` and `:20`, with the same
-input vectors (`'2000'`, `' 2000 '`, `'2,000'`, `'2000.50'`, `'2.000,50'` /
-`''`, `'abc'`, `'-1'`) — a strict subset: the lib test also covers `'12,5'`
-and malformed separators.
+`app/features/advice/advice.test.ts:277-323` ("passes guidelines into the
+advice prompt when they exist (gist-backed)") builds a guideline
+`{ etfName: 'VTI', targetPct: 60, etfType: 'equity' }` via the private-gist
+overlay and asserts `capturedUserMessage` matches `/VTI.*60%/` and
+`/equity/`. `app/features/advice/advice-openai.test.ts:252-301` ("includes
+guidelines as target allocation in the user message") uses the identical
+guideline shape (VTI/60%/equity, plus BND/30%/bond) fed directly to
+`getInvestmentAdvice`, and asserts the same `/VTI.*60%/`-style output plus
+more (`/BND.*30%/`, `/bond/`, `/split of the new cash alone/i`,
+`/whole ETF portfolio/i`). The route test's assertions are a strict subset of
+the unit test's over the same input→output mapping (`formatGuidelineLine`'s
+"name target%" rendering), not just "same module touched."
 
-**Action:** delete both cases from `advice-openai.test.ts`. Replace with one
-assertion that the alias is the same function reference
-(`assert.equal(parseAdviceCashAmount, parseLocaleDecimalString)`), so the day
-someone gives the advice path its own parsing rules, the alias test fails and
-the behaviour tests get written where they belong.
+**Triage question:** should `advice.test.ts:277-323` be thinned to assert
+only that *some* guideline text made it into the prompt (e.g. `/VTI/` and one
+target-pct digit, proving the gist→route wiring), leaving the detailed
+phrasing assertions solely to `advice-openai.test.ts`? If the team considers
+proving the literal percentage round-trips through the gist→prompt path a
+distinct, valuable guarantee (catching a serialization bug in the
+overlay/session layer a pure unit test can't reach), reject this as
+intentional layered coverage instead.
 
-**Evidence is conclusive — verified at seed time; safe for the first run to act on.**
-
----
+Note: `formatGuidelineLine` (`advice-openai.ts:249`) itself has no direct
+unit test — only exercised indirectly via these two prompt-content tests.
+That's a gap, not overlap; logged for a future gap sweep rather than acted on
+here.
 
 ### OV-002 — compact-height classes asserted through two components
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** components
@@ -129,4 +137,19 @@ error, rejected writes). Same domain, disjoint assertions.
 
 ## Done
 
-_Nothing yet._
+### OV-001 — `parseAdviceCashAmount` tests re-test `parseLocaleDecimalString`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-16 · **Area:** advice · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/203
+
+`app/features/advice/advice-openai.ts:301` is
+`export const parseAdviceCashAmount = parseLocaleDecimalString` — a plain
+re-export alias, no wrapping logic. Its two tests in
+`app/features/advice/advice-openai.test.ts:688` and `:696` asserted the same
+behaviour as `app/lib/locale-decimal-input.test.ts:9` and `:20`, with the same
+input vectors — a strict subset: the lib test also covers `'12,5'` and
+malformed separators.
+
+**Action taken:** deleted both cases from `advice-openai.test.ts`; replaced
+with one assertion that the alias is the same function reference
+(`assert.equal(parseAdviceCashAmount, parseLocaleDecimalString)`), so the day
+someone gives the advice path its own parsing rules, the alias test fails and
+the behaviour tests get written where they belong.
