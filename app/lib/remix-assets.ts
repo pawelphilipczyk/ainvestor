@@ -1,8 +1,29 @@
 import * as path from 'node:path'
 import { createAssetServer } from 'remix/assets'
 import type { RenderToStreamOptions } from 'remix/ui/server'
+import { uiHmr } from 'remix/ui-hmr/assets'
 
 const rootDir = path.resolve(import.meta.dirname, '..', '..')
+
+/**
+ * Whether this process can serve browser HMR.
+ *
+ * `hmr.ts` (`remix/node-hmr`) sets `REMIX_NODE_HMR=1` in the child it
+ * supervises, and it owns the EventSource server the browser client connects
+ * to — so only that child can open a channel. `npm start`, `node --test` and a
+ * bare `node server.ts` all run without it and get a plain asset server.
+ */
+const browserHmrAvailable = process.env.REMIX_NODE_HMR === '1'
+
+/**
+ * Whether to watch source files for changes.
+ *
+ * Derived from {@link browserHmrAvailable} rather than set beside it: the
+ * asset server rejects `hmr` without `watch`, and deriving it means no future
+ * edit can turn one on and leave the other off.
+ */
+const watchSources =
+	browserHmrAvailable || process.env.NODE_ENV === 'development'
 
 /** Absolute path of a repo file, the form `remixAssetServer` takes. */
 function assetSourcePath(relativePath: string): string {
@@ -28,21 +49,33 @@ export const remixAssetServer = createAssetServer({
 	rootDir,
 	allowFiles: ['app/entry.js', 'app/**/*.component.js', 'app/lib/*.js'],
 	allowPackages: ['remix'],
-	// Watch in development only, and only there because the alternative is
-	// serving stale JavaScript: this server caches each module's *compiled*
-	// output, where `staticFiles()` used to read the file per request.
-	// `hmr.ts` does not save us — `remix/ui-hmr/node` hot-swaps a
-	// `.component.js` edit in place, with no process restart to rebuild this
-	// cache with it (confirmed live: `hmr update …` logged, edited export
-	// still absent from the served module). Off everywhere else, so
+	// Instrument component modules so an edit can be applied to an open tab
+	// instead of reloading it. Only under HMR: the transform exists to add
+	// `import.meta.hot` boundaries, which nothing consumes otherwise.
+	scripts: browserHmrAvailable ? { loaders: [uiHmr()] } : undefined,
+	// The browser HMR channel. `remix/node-hmr/runtime` throws if imported by
+	// a process `node-hmr` is not supervising, hence the dynamic import behind
+	// the flag rather than a top-level one — `server.ts` is the same entry
+	// module under `npm start`, where that import would fail.
+	hmr: browserHmrAvailable
+		? async () => {
+				const { createBrowserHmrChannel } = await import(
+					'remix/node-hmr/runtime'
+				)
+				return createBrowserHmrChannel()
+			}
+		: undefined,
+	// Watching is what keeps development honest, with or without HMR: this
+	// server caches each module's *compiled* output, where `staticFiles()`
+	// used to read the file per request, so without a watcher an edit is
+	// served stale. `hmr.ts` alone does not save us — `remix/ui-hmr/node`
+	// hot-swaps a `.component.js` edit in place, with no process restart to
+	// rebuild this cache with it (measured). Off everywhere else, so
 	// `node --test`'s process-isolated test files do not each start a
 	// filesystem watcher, and so production never pays for one. Stage 3's
 	// `fingerprint` also requires it off; see
 	// `docs/REMIX_ASSETS_MIGRATION_PLAN.md`.
-	watch:
-		process.env.NODE_ENV === 'development'
-			? { ignore: ['**/node_modules/**'] }
-			: false,
+	watch: watchSources ? { ignore: ['**/node_modules/**'] } : false,
 })
 
 /**

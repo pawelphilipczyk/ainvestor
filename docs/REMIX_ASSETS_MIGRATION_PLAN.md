@@ -18,12 +18,13 @@ around the scoping.
 
 ## Where we are
 
-- **Stage 1 (the architecture switch) is done**, on branch
+- **Stage 1 (the architecture switch) is done and merged on `main`** (PR #202).
+- **Stage 2 (browser HMR) is done**, on branch
   `claude/remix-assets-migration-rz1392`.
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (600) and
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (601) and
   `npm run test:browser` (40, real Chromium).
-- **Next:** Stage 2. Nothing in Stage 1 is a prerequisite anybody still has to
-  finish; Stages 2–4 are independent of each other.
+- **Next:** Stage 3 or Stage 4, in either order — they are independent. Stage 4
+  is the larger win of the two.
 
 ## Stage 1 — serve client entries from the asset server. **Done.**
 
@@ -73,23 +74,56 @@ It stays off under `node --test` (each test file is its own process and would
 start its own watcher) and in production (nothing changes on disk, and
 Stage 3's `fingerprint` requires it off).
 
-## Stage 2 — browser HMR (`remix/ui/dev/refresh`)
+## Stage 2 — browser HMR. **Done.**
 
-The follow-up this migration was blocking, carried over from
-`docs/REMIX_RC_MIGRATION_STATUS.md`'s backlog: patch an already-open tab on a
-client-entry edit instead of reloading it. Needs `watch: true` plus an `hmr`
-channel factory on the asset server (`BrowserHmrChannelFactory`, typed in
-`@remix-run/assets`), and the browser-side client wired into `app/entry.js`.
+Editing a client entry now patches an already-open tab instead of reloading
+it. Confirmed live with Playwright against the real dev server: the edited
+`aria-label` reached the DOM, a `window` sentinel set before the edit survived
+it (so the document was never reloaded), and the console logged
+`[remix] HMR accepted update /assets/app/…/theme-toggle.component.js`.
 
-Two things to settle first, neither of them measured yet:
+Four wires, all in `app/lib/remix-assets.ts` and `server.ts`:
 
-- The `NODE_ENV === 'development'` gate on `watch` (Stage 1) is what keeps the
-  watcher out of `node --test`. HMR needs `watch` on, so it inherits that gate
-  — fine for `npm run dev`, but it has not been proven against the HMR path.
-- `remix/ui-hmr/node` already hot-swaps a `.component.js` edit server-side
-  without restarting. Stage 1 measured that the asset server does not follow
-  it (hence the watcher); whether the watcher's rebuild and that hot-swap can
-  race the browser patch is the open question.
+| Piece | What it does |
+|---|---|
+| `scripts: { loaders: [uiHmr()] }` (`remix/ui-hmr/assets`) | Instruments component modules with `import.meta.hot` boundaries |
+| `hmr: () => createBrowserHmrChannel()` (`remix/node-hmr/runtime`) | Connects this child process to the EventSource server `hmr.ts` owns |
+| `watch` | Already on in development from Stage 1; HMR is rejected without it |
+| `emitServerReady()` after `listen` | Stops `node-hmr` publishing `server:update` before the restarted server accepts requests |
+
+Nothing was needed in `app/entry.js`, which the Stage-1 plan expected. The
+asset server generates the browser HMR client itself and injects an import of
+it into any module the loader gave an `import.meta.hot` boundary, so the
+client arrives with the entry that needs it.
+
+**`remix/ui/dev/refresh` is still not imported by this app** — the export the
+rc.2 status doc named as this follow-up's goal. `reconcileRoots` and
+`setComponentStalenessCheck` are consumed by `@remix-run/ui-hmr`'s own browser
+runtime, which the asset server serves; reaching for them directly is not part
+of wiring HMR up. The goal behind the name — patching an open tab — is met.
+
+Both questions this stage opened are now answered:
+
+- **The watcher stays out of `node --test`.** Everything is keyed on
+  `REMIX_NODE_HMR`, which only the `hmr.ts` child has, and `watch` is
+  *derived* from that flag rather than set beside it, so no later edit can
+  enable HMR with watching off (the asset server rejects that pairing).
+  `npm test` runs in ~8 s with no hang, and a test asserts no served module
+  carries HMR instrumentation.
+- **The server-side hot-swap and the browser patch do not race.** Both fired
+  on the same edit in the measurement above and the tab still patched
+  correctly.
+
+**Not covered by CI, deliberately.** The HMR path needs a process supervised
+by `node-hmr`; the browser-test harness boots the router in-process. Standing
+up supervision there would be a harness rewrite for dev-only tooling — the
+same call Stage 7 of the rc.2 migration made for `remix/node-hmr` itself. What
+CI *does* pin is the direction that would hurt in production: that no HMR
+instrumentation reaches a served module when the flag is off.
+
+One consequence worth knowing: the asset server's watcher and HMR channel hold
+the event loop open, so `server.ts`'s shutdown handler now closes it. Without
+that, Ctrl-C would not stop the dev server.
 
 ## Stage 3 — fingerprinting and cache headers
 
@@ -129,6 +163,11 @@ server-only module, so audit it deliberately rather than widening it to
   for `app/entry.js` alone costs ~55 ms — about what the six `getHref()` calls
   it replaced cost — and the renderer merges each page's own entries into the
   `<head>` map from there.
+- **Browser HMR is gated on `REMIX_NODE_HMR`, not `NODE_ENV`.** It is the flag
+  that actually describes the requirement — `remix/node-hmr/runtime` throws if
+  imported by a process `node-hmr` is not supervising, and `server.ts` is the
+  same entry module under `npm start`. Hence the dynamic import behind the
+  flag in both files rather than a top-level one.
 - **`assetHref()` is the only way to name a browser module's URL.** Nothing
   hard-codes an `/assets/...` path, tests included. The mount layout and any
   future fingerprinting (Stage 3) are the asset server's to decide.

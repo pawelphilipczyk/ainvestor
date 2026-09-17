@@ -124,6 +124,34 @@ describe('asset server access boundary', () => {
 		}
 	})
 
+	it('ships no HMR instrumentation when browser HMR is off', async () => {
+		// `REMIX_NODE_HMR` is unset in this process, as it is under `npm start`
+		// and `node --test`, so the `uiHmr` loader and the HMR channel are both
+		// off. Dev tooling reaching production is the regression this guards:
+		// the client is pulled in by `import.meta.hot` boundaries the loader
+		// adds, so a served module carrying either means it was instrumented.
+		assert.notEqual(
+			process.env.REMIX_NODE_HMR,
+			'1',
+			'this test is meaningless under HMR supervision',
+		)
+		const page = await fetchPage('/')
+		assert.doesNotMatch(page, /ui-hmr\/runtime\/browser/)
+
+		for (const source of [
+			'app/entry.js',
+			'app/components/navigation/theme-toggle.component.js',
+		]) {
+			const response = await router.fetch(
+				new URL(await assetHref(source), 'http://localhost/'),
+			)
+			const body = await response.text()
+			assert.doesNotMatch(body, /import\.meta\.hot/, source)
+			assert.doesNotMatch(body, /__remixCreateHotContext/, source)
+			assert.doesNotMatch(body, /__uiHmrBrowserRuntime__/, source)
+		}
+	})
+
 	it('no longer serves client entries from their old static-file paths', async () => {
 		for (const path of [
 			'/entry.js',
