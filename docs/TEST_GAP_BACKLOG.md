@@ -50,7 +50,7 @@ valuable case is the *rejection* — correct status, the flash reaching the next
 render, no partial import.
 
 ### GAP-004 — shared form-control classes
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-17 · **Area:** `app/components` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/PENDING
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-17 · **Area:** `app/components` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/205
 
 `app/components/forms/form-control-classes.ts` — no direct coverage, while at
 least two component tests assert its output indirectly (see `OV-002` in the
