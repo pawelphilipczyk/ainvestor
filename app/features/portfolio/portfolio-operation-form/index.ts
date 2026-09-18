@@ -3,6 +3,7 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
+import { renderFragmentToStream } from '../../../components/render.ts'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
 import {
 	requestAcceptsApplicationJson,
@@ -22,7 +23,6 @@ import { getSessionData } from '../../../lib/session.ts'
 import { flashBanner } from '../../../lib/session-flash.ts'
 import { routes } from '../../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../../catalog/lib.ts'
-import { renderFragmentToStream } from '../../../components/render.ts'
 import { ListFragment } from './list-fragment.tsx'
 import { PortfolioOperationForm } from './operation-form.tsx'
 
