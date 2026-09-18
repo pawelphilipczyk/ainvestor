@@ -12,8 +12,12 @@ const rootDir = path.resolve(import.meta.dirname, '..', '..')
  * supervises, and it owns the EventSource server the browser client connects
  * to — so only that child can open a channel. `npm start`, `node --test` and a
  * bare `node server.ts` all run without it and get a plain asset server.
+ *
+ * A *request*, not a fact: the variable is inherited and settable by hand.
+ * {@link browserHmrAvailable} is the resolved answer, and it is what the
+ * server is configured from.
  */
-const browserHmrAvailable = process.env.REMIX_NODE_HMR === '1'
+const browserHmrRequested = process.env.REMIX_NODE_HMR === '1'
 
 /**
  * `remix/node-hmr/runtime`, or `null` when this process is not really
@@ -44,6 +48,24 @@ export function loadNodeHmrRuntime(): Promise<
 	})
 	return nodeHmrRuntime
 }
+
+/**
+ * Whether browser HMR is really available — resolved once, before the asset
+ * server is configured, because two of its options have to agree.
+ *
+ * Asking at construction time rather than from the channel factory is the
+ * whole point. `scripts.loaders` instruments every component module with an
+ * import of the HMR client, and that decision is fixed when the server is
+ * created; a factory that later returns `undefined` cannot take it back. Gated
+ * on the bare flag, `REMIX_NODE_HMR=1` without supervision served every entry
+ * importing `/assets/__remix_hmr/client.js`, which 500s — so every module
+ * failed to load and the whole app silently lost hydration while the server
+ * logged that it was running. Measured on exactly that command.
+ */
+const browserHmrRuntime = browserHmrRequested
+	? await loadNodeHmrRuntime()
+	: null
+const browserHmrAvailable = browserHmrRuntime !== null
 
 /**
  * Whether to watch source files for changes.
@@ -91,9 +113,11 @@ export const remixAssetServer = createAssetServer({
 	// Nothing named like a test, ever. `allowFiles` admits a directory, and a
 	// `scroll-lock.test.ts` sitting next to `scroll-lock.ts` would otherwise be
 	// served to the public — measured `reachable` before this line existed.
-	// Keep this as a deny rather than a narrower allow: it holds for every glob
-	// above, including ones added later.
-	denyFiles: ['**/*.test.*'],
+	// `*.browser.*` is the same hole: this repo's Playwright specs use that
+	// suffix precisely so `npm test` skips them, and the first deny glob does
+	// not match it. Keep both as denies rather than a narrower allow: they hold
+	// for every glob above, including ones added later.
+	denyFiles: ['**/*.test.*', '**/*.browser.*'],
 	allowPackages: ['remix'],
 	// Instrument component modules so an edit can be applied to an open tab
 	// instead of reloading it. Only under HMR: the transform exists to add
@@ -103,13 +127,8 @@ export const remixAssetServer = createAssetServer({
 	// a process `node-hmr` is not supervising, hence the dynamic import behind
 	// the flag rather than a top-level one — `server.ts` is the same entry
 	// module under `npm start`, where that import would fail.
-	hmr: browserHmrAvailable
-		? async () => {
-				// Returning `undefined` leaves HMR inactive, which is the right
-				// outcome when the flag is set without real supervision.
-				const runtime = await loadNodeHmrRuntime()
-				return runtime?.createBrowserHmrChannel()
-			}
+	hmr: browserHmrRuntime
+		? () => browserHmrRuntime.createBrowserHmrChannel()
 		: undefined,
 	// Watching is what keeps development honest, with or without HMR: this
 	// server caches each module's *compiled* output, where `staticFiles()`

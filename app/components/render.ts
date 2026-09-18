@@ -31,6 +31,23 @@ export type RenderOptions = {
 	resolveFrame?: RenderToStreamOptions['resolveFrame']
 }
 
+/**
+ * Renders a `<Frame>` fragment to a stream.
+ *
+ * Use this instead of `renderToStream()` directly. Entry IDs are `file:` URLs
+ * since the assets migration, so a bare `renderToStream()` resolves a client
+ * entry through the renderer's default resolver and emits the *filesystem
+ * path* as a script `src` — unfetchable, and a path leak. No fragment renders
+ * a client entry today; this is what stops the first one that does from
+ * shipping broken. Same reason `render()` below passes the resolver on its
+ * `resolveFrame` branch.
+ */
+export function renderFragmentToStream(
+	node: RemixNode,
+): ReadableStream<Uint8Array> {
+	return renderToStream(node, { resolveClientEntry })
+}
+
 /** Renders a page with the document shell and returns an HTML response. */
 export async function render(
 	context: AppRequestContext,

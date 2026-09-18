@@ -6,8 +6,7 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
-import { renderToStream } from 'remix/ui/server'
-import { render } from '../../components/render.ts'
+import { render, renderFragmentToStream } from '../../components/render.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import {
 	requestAcceptsApplicationJson,
@@ -113,7 +112,7 @@ async function guidelinesListFragmentHtmlResponse(params: {
 	status?: number
 }) {
 	return createHtmlResponse(
-		renderToStream(
+		renderFragmentToStream(
 			jsx(GuidelinesListFragment, {
 				guidelines: params.guidelines,
 				...(params.inlineError !== undefined && params.inlineError.length > 0
@@ -685,7 +684,7 @@ export const guidelinesController = {
 					? await fetchGuidelines(session.token, session.gistId)
 					: getGuestGuidelines(context.get(Session))
 			return createHtmlResponse(
-				renderToStream(jsx(GuidelinesListFragment, { guidelines })),
+				renderFragmentToStream(jsx(GuidelinesListFragment, { guidelines })),
 				{ headers: { 'Cache-Control': 'no-store' } },
 			)
 		},
@@ -722,7 +721,9 @@ async function renderGuidelinesPage(
 		flashBanner,
 		resolveFrame(source) {
 			if (source === routes.guidelines.fragmentList.href()) {
-				return renderToStream(jsx(GuidelinesListFragment, { guidelines }))
+				return renderFragmentToStream(
+					jsx(GuidelinesListFragment, { guidelines }),
+				)
 			}
 			return ''
 		},

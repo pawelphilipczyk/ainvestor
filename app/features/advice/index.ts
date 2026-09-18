@@ -3,8 +3,7 @@ import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
 import { createHtmlResponse } from 'remix/response/html'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
-import { renderToStream } from 'remix/ui/server'
-import { render } from '../../components/render.ts'
+import { render, renderFragmentToStream } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import { requestAcceptsFrameSubmitHtml } from '../../lib/frame-submit-request.ts'
@@ -153,10 +152,13 @@ function renderAdviceModePanelHtml(
 	panelProps: AdviceModePanelProps,
 	init?: ResponseInit,
 ) {
-	return createHtmlResponse(renderToStream(jsx(AdviceModePanel, panelProps)), {
-		status: init?.status ?? 200,
-		headers: { 'Cache-Control': 'no-store' },
-	})
+	return createHtmlResponse(
+		renderFragmentToStream(jsx(AdviceModePanel, panelProps)),
+		{
+			status: init?.status ?? 200,
+			headers: { 'Cache-Control': 'no-store' },
+		},
+	)
 }
 
 function resolveAdviceResultFrame(
@@ -168,7 +170,7 @@ function resolveAdviceResultFrame(
 	},
 ) {
 	if (source !== options.frameSrc) return ''
-	return renderToStream(
+	return renderFragmentToStream(
 		jsx(
 			AdviceModePanel,
 			adviceModePanelPropsFromPage(options.activeTab, options.props),

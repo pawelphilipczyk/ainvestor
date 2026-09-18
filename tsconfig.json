@@ -1,5 +1,11 @@
 {
-	"include": ["server.ts", "app/**/*.ts", "app/**/*.tsx", "mcp/**/*.ts"],
+	"include": [
+		"server.ts",
+		"hmr.ts",
+		"app/**/*.ts",
+		"app/**/*.tsx",
+		"mcp/**/*.ts"
+	],
 	"compilerOptions": {
 		"lib": ["DOM", "DOM.Iterable", "ES2022"],
 		"types": ["node"],

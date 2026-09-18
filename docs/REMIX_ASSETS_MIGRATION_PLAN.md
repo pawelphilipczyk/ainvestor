@@ -253,6 +253,36 @@ Chromium that global is the real platform object, and all this file asks is
 whether it is absent, so a hand-written interface would have described the
 stub accurately and the browser's own object falsely.
 
+Review of this stage found a **severe bug carried in from Stage 2**, worth
+recording because the shape of the mistake generalises. Stage 2 gated both
+`scripts: { loaders: [uiHmr()] }` and the `hmr` channel on `REMIX_NODE_HMR`.
+Stage 2's own review then made the *channel* degrade gracefully when the flag
+is set without real supervision — but a channel factory returning `undefined`
+cannot undo a `scripts.loaders` decision, which is fixed when the server is
+constructed. So `REMIX_NODE_HMR=1 node server.ts` served every component
+module importing `/assets/__remix_hmr/client.js`, which 500s: every module
+failed to load, the whole app silently lost hydration, and the server logged
+that it was running. Measured before and after.
+
+The fix resolves the runtime *once, before* `createAssetServer()`, and
+configures both options from that one answer. The lesson: when two options
+must agree, derive them from a single resolved fact rather than from a shared
+input — the same reasoning `watch` already followed.
+
+Two more from the same review:
+
+- **`denyFiles` did not cover `*.browser.*`.** This repo's Playwright specs
+  use that suffix precisely so `npm test` skips them, and a spec in
+  `app/lib/browser/` would have been served publicly — the identical hole
+  Stage 4a's deny rule was added to close, one glob short.
+- **13 fragment renders had no `resolveClientEntry`.** Not live (no fragment
+  renders a client entry today), but since Stage 1 made entry IDs `file:`
+  URLs, the first one that did would have emitted a filesystem path as a
+  script `src`. All 13 now go through `renderFragmentToStream()`.
+
+`hmr.ts` also joined `tsconfig.json`'s `include` — it was the one file this
+stage's "no untyped code left" claim did not actually cover.
+
 One duplication left alone: `'instrument' | 'bucket'` is now declared in three
 places (`guidelines-tabs.component.ts`, `guidelines-page.tsx`,
 `guidelines/index.ts`). The entry cannot import either of the others — both
