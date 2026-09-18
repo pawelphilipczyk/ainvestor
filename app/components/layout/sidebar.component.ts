@@ -13,19 +13,30 @@ const DESKTOP_MEDIA = '(min-width: 768px)'
  */
 type ScrollLockRef = { release: () => void }
 
+/**
+ * Everything the overlay helpers act on, resolved once when the entry mounts.
+ *
+ * One parameter rather than five positional ones, per AGENTS.md's signature
+ * rule: every call site passed the same bundle in the same order, which is
+ * exactly the argument-transposition bug that rule exists to prevent — all
+ * three elements are `HTMLElement`, so swapping two of them type-checks.
+ */
+type SidebarOverlay = {
+	sidebar: HTMLElement
+	backdrop: HTMLElement
+	sidebarToggle: HTMLElement
+	doc: Document
+	scrollLockRef: ScrollLockRef
+}
+
 function isDesktop(doc: Document) {
 	const defaultView = doc.defaultView
 	if (!defaultView) return false
 	return defaultView.matchMedia(DESKTOP_MEDIA).matches
 }
 
-function openSidebar(
-	sidebar: HTMLElement,
-	backdrop: HTMLElement,
-	sidebarToggle: HTMLElement,
-	doc: Document,
-	scrollLockRef: ScrollLockRef,
-) {
+function openSidebar(overlay: SidebarOverlay) {
+	const { sidebar, backdrop, sidebarToggle, doc, scrollLockRef } = overlay
 	if (isDesktop(doc)) return
 	scrollLockRef.release()
 	scrollLockRef.release = lockScroll(doc)
@@ -35,27 +46,18 @@ function openSidebar(
 	sidebarToggle.setAttribute('aria-expanded', 'true')
 }
 
-function closeSidebar(
-	sidebar: HTMLElement,
-	backdrop: HTMLElement,
-	sidebarToggle: HTMLElement,
-	doc: Document,
-	scrollLockRef: ScrollLockRef,
-) {
+function closeSidebar(overlay: SidebarOverlay) {
+	const { doc, scrollLockRef } = overlay
 	if (isDesktop(doc)) {
 		scrollLockRef.release()
 		scrollLockRef.release = () => {}
 		return
 	}
-	resetMobileOverlay(sidebar, backdrop, sidebarToggle, scrollLockRef)
+	resetMobileOverlay(overlay)
 }
 
-function resetMobileOverlay(
-	sidebar: HTMLElement,
-	backdrop: HTMLElement,
-	sidebarToggle: HTMLElement,
-	scrollLockRef: ScrollLockRef,
-) {
+function resetMobileOverlay(overlay: SidebarOverlay) {
+	const { sidebar, backdrop, sidebarToggle, scrollLockRef } = overlay
 	scrollLockRef.release()
 	scrollLockRef.release = () => {}
 	sidebar.classList.add('-translate-x-full')
@@ -78,10 +80,17 @@ export const SidebarInteractions = clientEntry(
 				sidebarToggle instanceof HTMLElement
 			) {
 				const scrollLockRef: ScrollLockRef = { release: () => {} }
+				const overlay: SidebarOverlay = {
+					sidebar,
+					backdrop,
+					sidebarToggle,
+					doc,
+					scrollLockRef,
+				}
 				const desktopMediaQuery = doc.defaultView?.matchMedia(DESKTOP_MEDIA)
 				const onBreakpoint = () => {
 					if (desktopMediaQuery?.matches) {
-						resetMobileOverlay(sidebar, backdrop, sidebarToggle, scrollLockRef)
+						resetMobileOverlay(overlay)
 					}
 				}
 				desktopMediaQuery?.addEventListener('change', onBreakpoint)
@@ -93,7 +102,7 @@ export const SidebarInteractions = clientEntry(
 						if (!(target instanceof Element)) return
 
 						if (target.closest('[data-sidebar-toggle]')) {
-							openSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef)
+							openSidebar(overlay)
 							return
 						}
 
@@ -101,12 +110,12 @@ export const SidebarInteractions = clientEntry(
 							target.closest('[data-sidebar-close]') ||
 							target.closest('#sidebar-backdrop')
 						) {
-							closeSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef)
+							closeSidebar(overlay)
 						}
 					},
 					keydown(event) {
 						if (event.key === 'Escape' && !isDesktop(doc)) {
-							closeSidebar(sidebar, backdrop, sidebarToggle, doc, scrollLockRef)
+							closeSidebar(overlay)
 						}
 					},
 				})
