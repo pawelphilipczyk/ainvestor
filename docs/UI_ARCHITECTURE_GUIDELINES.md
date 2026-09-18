@@ -161,10 +161,10 @@ Adopting a primitive therefore means folding the markup into the `clientEntry`:
   are then checked against the real signature. It still builds its markup with
   `createElement`, not JSX, because the browser loads the compiled output
   directly.
-- **`.component.js` still works and is still served**; entries not yet
-  converted are being moved over in Stage 4b of
-  `docs/REMIX_ASSETS_MIGRATION_PLAN.md`. Both extensions are allowed at once,
-  so a conversion never has to be a big-bang.
+- **`.component.js` is no longer served.** Every entry is `.component.ts` as
+  of Stage 4b, and `allowFiles` dropped the `.js` glob with the last one, so a
+  new entry written as `.js` would 404 in the browser rather than fail
+  loudly.
 - **Importers must name the `.ts` file.** TypeScript resolves a `.js`
   specifier to a `.ts` source, so `npm run typecheck` stays green while Node
   fails at runtime — the one trap in converting an entry.

@@ -17,10 +17,9 @@ import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-// @ts-expect-error Runtime-only JS client entry module
-import { GuidelinesDeleteDialogInteractions } from './guidelines-list.component.js'
-import { GuidelinesListFrame } from './guidelines-list-frame.component.js'
-import { GuidelinesTabs } from './guidelines-tabs.component.js'
+import { GuidelinesDeleteDialogInteractions } from './guidelines-list.component.ts'
+import { GuidelinesListFrame } from './guidelines-list-frame.component.ts'
+import { GuidelinesTabs } from './guidelines-tabs.component.ts'
 
 type GuidelinesAddTabId = 'instrument' | 'bucket'
 

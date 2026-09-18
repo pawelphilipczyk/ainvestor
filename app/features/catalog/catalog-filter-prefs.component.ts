@@ -10,7 +10,7 @@ const FORM_SELECTOR = 'form[data-catalog-filter-form]'
 const CLEAR_SELECTOR = 'a[data-catalog-filter-clear]'
 const PREF_FIELDS = ['type', 'risk', 'q']
 
-function isModifiedClick(event) {
+function isModifiedClick(event: MouseEvent) {
 	return (
 		event.defaultPrevented ||
 		event.button !== 0 ||
@@ -52,10 +52,10 @@ function readStoredSearchParams() {
 	}
 }
 
-function writeStoredSearchParams(formData) {
+function writeStoredSearchParams(formData: FormData) {
 	if (typeof localStorage === 'undefined') return
 	try {
-		const prefs = {}
+		const prefs: Record<string, string> = {}
 		let hasAnyFilter = false
 		for (const field of PREF_FIELDS) {
 			const value = formData.get(field)
@@ -83,7 +83,7 @@ function clearStoredSearchParams() {
 	}
 }
 
-function restoreFiltersIfNeeded(catalogIndexHref) {
+function restoreFiltersIfNeeded(catalogIndexHref: string) {
 	if (typeof catalogIndexHref !== 'string' || catalogIndexHref.length === 0) {
 		return
 	}
@@ -114,7 +114,9 @@ function restoreFiltersIfNeeded(catalogIndexHref) {
  * redirect when `/catalog` loads with no filter params, and clears storage when
  * the user hits Clear.
  */
-export const CatalogFilterPrefsEnhancement = clientEntry(
+export const CatalogFilterPrefsEnhancement = clientEntry<{
+	'data-catalog-index-href': string
+}>(
 	`${import.meta.url}#CatalogFilterPrefsEnhancement`,
 	function CatalogFilterPrefsEnhancement(handle) {
 		if (typeof document !== 'undefined') {

@@ -5,9 +5,8 @@ import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-p
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
-import { CatalogEtfAnalysisFrame } from './catalog-etf-analysis-frame.component.js'
-// @ts-expect-error Runtime-only remix clientEntry (scoped to this page)
-import { CatalogEtfBackEnhancement } from './catalog-etf-back.component.js'
+import { CatalogEtfAnalysisFrame } from './catalog-etf-analysis-frame.component.ts'
+import { CatalogEtfBackEnhancement } from './catalog-etf-back.component.ts'
 import type { CatalogEntry } from './lib.ts'
 
 export type CatalogEtfPageProps = {

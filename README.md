@@ -87,10 +87,10 @@ npm run test
 
 Client behavior that only exists after hydration — `clientEntry` wiring, Remix
 UI mixins, the sidebar overlay — cannot be seen by `npm run test`, because
-nothing runs it without a browser. Type checking *does* cover a
-`.component.ts` entry: the asset server compiles TypeScript, so entries sit
-inside `tsconfig.json`. Behavior still needs a browser, and these are covered
-by Playwright against a real Chromium:
+nothing runs it without a browser. Type checking covers every client entry:
+the asset server compiles TypeScript, so they sit inside `tsconfig.json`.
+Behavior still needs a browser, and these are covered by Playwright against a
+real Chromium:
 
 ```bash
 npx playwright install chromium   # one time

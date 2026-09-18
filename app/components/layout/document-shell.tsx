@@ -1,6 +1,6 @@
 import type { Handle, RemixNode } from 'remix/ui'
 import { ImportMap } from 'remix/ui/server'
-import { PortfolioTradeFocus } from '../../features/portfolio/portfolio-trade-focus.component.js'
+import { PortfolioTradeFocus } from '../../features/portfolio/portfolio-trade-focus.component.ts'
 import type { AppPage } from '../../lib/app-page.ts'
 import { baseCss } from '../../lib/document-styles.ts'
 import { t } from '../../lib/i18n.ts'

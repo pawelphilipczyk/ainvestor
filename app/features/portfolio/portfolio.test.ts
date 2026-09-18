@@ -452,7 +452,7 @@ IBTA LN ETF;GBR-LSE;4087.48;PLN`
 		const componentScriptResponse = await testSessionFetch(
 			new URL(
 				await assetHref(
-					'app/features/portfolio/portfolio-list-frame.component.js',
+					'app/features/portfolio/portfolio-list-frame.component.ts',
 				),
 				'http://localhost/',
 			).href,

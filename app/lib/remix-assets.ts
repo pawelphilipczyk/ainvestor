@@ -62,8 +62,8 @@ function assetSourcePath(relativePath: string): string {
 
 /**
  * Serves every browser module this app ships: its own client entries
- * (`app/**\/*.component.{ts,js}`, their `app/lib/browser/*.ts` helpers,
- * `app/entry.js`) and the `remix`/`@remix-run/ui` package files they import.
+ * (`app/**\/*.component.ts`, their `app/lib/browser/**\/*.ts` helpers,
+ * `app/entry.ts`) and the `remix`/`@remix-run/ui` package files they import.
  *
  * Nothing here is a hand-maintained path literal. The document's import map,
  * the bootstrap `<script src>` and every client entry's `href` are all derived
@@ -84,9 +84,8 @@ export const remixAssetServer = createAssetServer({
 	basePath: '/assets',
 	rootDir,
 	allowFiles: [
-		'app/entry.js',
+		'app/entry.ts',
 		'app/**/*.component.ts',
-		'app/**/*.component.js',
 		'app/lib/browser/**/*.ts',
 	],
 	// Nothing named like a test, ever. `allowFiles` admits a directory, and a
@@ -126,7 +125,7 @@ export const remixAssetServer = createAssetServer({
 })
 
 /**
- * Served URL of one repo file, e.g. `assetHref('app/entry.js')`.
+ * Served URL of one repo file, e.g. `assetHref('app/entry.ts')`.
  *
  * The one way to name a browser module's URL. Nothing should hard-code an
  * `/assets/...` path: the mount layout and any future fingerprinting are the
@@ -137,7 +136,7 @@ export function assetHref(relativePath: string): Promise<string> {
 }
 
 /**
- * The browser bootstrap: `app/entry.js`'s served URL and the import map that
+ * The browser bootstrap: `app/entry.ts`'s served URL and the import map that
  * resolves its bare specifiers.
  *
  * Its map is scoped to `/assets/app/`, so it covers every app module served
@@ -147,7 +146,7 @@ export function assetHref(relativePath: string): Promise<string> {
  * the floor, not the whole map.
  */
 export const remixBootstrapEntry = await remixAssetServer.getScriptEntry(
-	assetSourcePath('app/entry.js'),
+	assetSourcePath('app/entry.ts'),
 )
 
 /**

@@ -20,12 +20,13 @@ around the scoping.
 
 - **Stage 1 (the architecture switch) is done and merged on `main`** (PR #202).
 - **Stage 2 (browser HMR) is done and merged on `main`** (PR #204).
-- **Stage 4a (typed shared entries) is done**, on branch
-  `claude/remix-assets-migration-rz1392`.
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (610) and
+- **Stage 4a (typed shared entries) is done and merged on `main`** (PR #206).
+- **Stage 4b (typed feature entries) is done**, on branch
+  `claude/remix-assets-migration-rz1392`. **Stage 4 is complete: there is no
+  untyped client code left in this app.**
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (613) and
   `npm run test:browser` (40, real Chromium).
-- **Next:** Stage 4b (the 11 feature entries), or Stage 3 — independent of
-  each other.
+- **Next:** Stage 3, the last one.
 
 ## Stage 1 — serve client entries from the asset server. **Done.**
 
@@ -218,13 +219,45 @@ that AGENTS.md's signature rule says should take one object. Annotating them
 was in scope; restructuring them and their call sites is a refactor, and
 mixing it into a conversion would obscure both.
 
-### Stage 4b — the 11 feature entries
+### Stage 4b — the 11 feature entries, `app/entry.ts`, and the glob. **Done.**
 
-The remainder, under `app/features/**`: catalog (4), guidelines (3),
-portfolio (2), advice (2). Same recipe, and the measurement from the bulk
-trial says to expect roughly five type errors each, mostly implicit-any
-parameters and untyped props. Nothing structural is left to decide — 4a
-established the conventions, the directory and the boundary.
+The remainder under `app/features/**` converted (37 type errors, as the bulk
+trial predicted), the last 9 sidecars deleted, and `app/entry.js` converted
+too. **No `.component.js` and no `.component.d.ts` remain anywhere.**
+
+That emptied two allowances, so the boundary narrowed again: `allowFiles` no
+longer lists `app/**/*.component.js` at all. What the browser can reach is now
+exactly `app/**/*.component.ts`, `app/lib/browser/**/*.ts` and `app/entry.ts`,
+minus `denyFiles`.
+
+What the types caught here:
+
+- **Two `@ts-expect-error` directives were suppressing the untyped imports**
+  (`catalog-etf-page.tsx`, `guidelines-page.tsx`). Both are gone — TypeScript
+  reports an unused directive, so the compiler tells you when a suppression
+  stops being needed. That is the clearest possible sign this stage was worth
+  doing: the pages had been lying to the compiler about their own imports.
+- **Two sidecars were looser than the truth.** `AdviceModeTabs.activeTab` was
+  typed `string`; the call site has always passed
+  `'buy_next' | 'portfolio_review'`. Same for `GuidelinesTabs.activeAddTab`.
+  A hand-written sidecar can be wrong in this direction indefinitely; the real
+  signature cannot.
+- **`ref()` hands back `Element`, not `HTMLElement`.** Advice's tab nodes feed
+  `setSubmitButtonLoading`, which takes `HTMLElement`. Narrowed at the ref
+  rather than widening that shared helper for one caller — the same call 4a
+  made for `querySelector`.
+
+`app/entry.ts` needed one thing: a `declare global` for `navigation`, which
+TypeScript's DOM lib does not carry. It is declared `unknown` on purpose — in
+Chromium that global is the real platform object, and all this file asks is
+whether it is absent, so a hand-written interface would have described the
+stub accurately and the browser's own object falsely.
+
+One duplication left alone: `'instrument' | 'bucket'` is now declared in three
+places (`guidelines-tabs.component.ts`, `guidelines-page.tsx`,
+`guidelines/index.ts`). The entry cannot import either of the others — both
+are server-only, and the asset server does not serve `.tsx`. Collapsing it
+is its own change.
 
 ## Decisions taken — do not relitigate
 

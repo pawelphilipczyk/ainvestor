@@ -13,7 +13,7 @@ import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
 /**
  * Browser coverage for the portfolio trade form and CSV import, both
  * `data-rmx-target="portfolio-list"` forms driven by `PortfolioListFrame`
- * (`app/features/portfolio/portfolio-list-frame.component.js`) — see
+ * (`app/features/portfolio/portfolio-list-frame.component.ts`) — see
  * `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 and
  * `docs/REMIX_RC_MIGRATION_STATUS.md`.
  *
