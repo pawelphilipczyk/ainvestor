@@ -8,10 +8,11 @@ import { router } from '../router.ts'
 /**
  * Boots the app on an ephemeral port and drives it with a real Chromium.
  *
- * The client runtime lives in `.component.js` / `entry.js` files that
- * `tsconfig.json` does not include, so neither `tsc` nor the server-render
- * tests see it: hydration, event wiring and mixin behavior fail only in a
- * browser. `docs/REMIX_RC_MIGRATION_PLAN.md` calls a browser pass
+ * Hydration, event wiring and mixin behavior fail only in a browser: nothing
+ * else runs them. `tsc` covers a `.component.ts` entry's types since Stage 4
+ * of `docs/REMIX_ASSETS_MIGRATION_PLAN.md` (and sees nothing of an
+ * unconverted `.component.js` or of `entry.js`), but types are not behavior
+ * and the server-render tests never execute either. `docs/REMIX_RC_MIGRATION_PLAN.md` calls a browser pass
  * non-negotiable for exactly that reason.
  *
  * These files are named `*.browser.ts`, not `*.test.ts`, so `npm test` never

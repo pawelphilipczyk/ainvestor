@@ -3,7 +3,12 @@
 const SPINNER_ICON_ID = 'form-spinner-icon'
 const CLIENT_MESSAGES_ID = 'ui-client-messages'
 
-function readClientMessages() {
+type ClientMessages = {
+	submitLoadingLabel?: unknown
+	genericFormError?: unknown
+}
+
+function readClientMessages(): ClientMessages | null {
 	if (typeof document === 'undefined') return null
 	const messagesElement = document.getElementById(CLIENT_MESSAGES_ID)
 	if (!messagesElement?.textContent) return null
@@ -14,11 +19,10 @@ function readClientMessages() {
 	}
 }
 
-/**
- * @param {HTMLElement | null | undefined} control
- * @param {boolean} loading
- */
-export function setSubmitButtonLoading(control, loading) {
+export function setSubmitButtonLoading(
+	control: HTMLElement | null | undefined,
+	loading: boolean,
+): void {
 	if (!(control instanceof HTMLElement)) return
 
 	if (control instanceof HTMLInputElement && control.type === 'submit') {

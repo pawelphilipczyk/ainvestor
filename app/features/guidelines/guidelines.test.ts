@@ -847,13 +847,15 @@ describe('Guidelines page', () => {
 		const body = await componentScriptResponse.text()
 		assert.match(body, /clientEntry/)
 		assert.match(body, /openDialogForTrigger/)
-		assert.match(body, /dialog-trigger\.js/)
+		assert.match(body, /dialog-trigger\.ts/)
 		// Compiled output, not the source file: quoting is the asset server's choice.
 		assert.match(body, /closest\(['"]\[data-dialog-id\]['"]\)/)
 
 		const dialogTriggerResponse = await testSessionFetch(
-			new URL(await assetHref('app/lib/dialog-trigger.js'), 'http://localhost/')
-				.href,
+			new URL(
+				await assetHref('app/lib/browser/dialog-trigger.ts'),
+				'http://localhost/',
+			).href,
 		)
 		assert.equal(dialogTriggerResponse.status, 200)
 		const dialogTriggerBody = await dialogTriggerResponse.text()

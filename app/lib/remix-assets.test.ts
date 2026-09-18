@@ -98,14 +98,50 @@ describe('asset server access boundary', () => {
 	it('serves the app modules the browser needs', async () => {
 		for (const source of [
 			'app/entry.js',
-			'app/components/layout/sidebar.component.js',
-			'app/lib/scroll-lock.js',
+			'app/components/layout/sidebar.component.ts',
+			'app/lib/browser/scroll-lock.ts',
 		]) {
 			const response = await router.fetch(
 				new URL(await assetHref(source), 'http://localhost/'),
 			)
 			assert.equal(response.status, 200, source)
 		}
+	})
+
+	// These two assert on `access` — the rule that fired — rather than on
+	// `status`. `status` is `missing` for any path with no file behind it,
+	// whatever the globs say, so a `status` assertion over a hypothetical path
+	// passes no matter what the config does. `access` is decided from the globs
+	// alone, so it answers the question without planting files in the repo.
+	it('denies a test file even inside a served browser directory', async () => {
+		// `app/lib/browser/**` is an allowed *directory*, so a test sitting next
+		// to the helper it covers would be public on the strength of its path
+		// alone — measured `reachable` before `denyFiles` existed.
+		const { access } = await remixAssetServer.getAssetDetails(
+			'app/lib/browser/scroll-lock.test.ts',
+		)
+		assert.equal(access?.allowed, false)
+		assert.equal(
+			access?.deniedBy,
+			'**/*.test.*',
+			'the deny rule, not a missing allow, must be what refuses it',
+		)
+	})
+
+	it('allows a nested browser helper, not just the directory root', async () => {
+		// Recursive on purpose: non-recursive, a helper one level down
+		// typechecks and imports fine on the server, then 404s in the browser.
+		const nested = await remixAssetServer.getAssetDetails(
+			'app/lib/browser/nested/helper.ts',
+		)
+		assert.equal(nested.access?.allowed, true)
+
+		// Control, so the assertion above cannot pass by accident: the same
+		// shape of path outside the allowed globs is not allowed.
+		const outside = await remixAssetServer.getAssetDetails(
+			'app/lib/nowhere/helper.ts',
+		)
+		assert.equal(outside.access?.allowed, false)
 	})
 
 	it('refuses server-only sources, which allowFiles does not cover', async () => {
@@ -139,12 +175,12 @@ describe('asset server access boundary', () => {
 		assert.doesNotMatch(page, /ui-hmr\/runtime\/browser/)
 
 		// Component modules only. `uiHmr()` instruments those and nothing else:
-		// measured against a live supervised dev server, `theme-toggle.component.js`
+		// measured against a live supervised dev server, `theme-toggle.component.ts`
 		// came back with 10 instrumentation markers while `app/entry.js` and
-		// `app/lib/scroll-lock.js` had none. Asserting over a module that is
+		// `app/lib/browser/scroll-lock.ts` had none. Asserting over a module that is
 		// never instrumented either way would pass whatever this gate did.
 		for (const source of [
-			'app/components/navigation/theme-toggle.component.js',
+			'app/components/navigation/theme-toggle.component.ts',
 			'app/features/portfolio/portfolio-list-frame.component.js',
 		]) {
 			const response = await router.fetch(
@@ -160,8 +196,8 @@ describe('asset server access boundary', () => {
 	it('no longer serves client entries from their old static-file paths', async () => {
 		for (const path of [
 			'/entry.js',
-			'/components/layout/sidebar.component.js',
-			'/lib/scroll-lock.js',
+			'/components/layout/sidebar.component.ts',
+			'/lib/browser/scroll-lock.ts',
 		]) {
 			const response = await router.fetch(`http://localhost${path}`)
 			assert.equal(response.status, 404, `GET ${path}`)

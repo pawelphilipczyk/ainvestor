@@ -19,12 +19,13 @@ around the scoping.
 ## Where we are
 
 - **Stage 1 (the architecture switch) is done and merged on `main`** (PR #202).
-- **Stage 2 (browser HMR) is done**, on branch
+- **Stage 2 (browser HMR) is done and merged on `main`** (PR #204).
+- **Stage 4a (typed shared entries) is done**, on branch
   `claude/remix-assets-migration-rz1392`.
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (601) and
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (610) and
   `npm run test:browser` (40, real Chromium).
-- **Next:** Stage 3 or Stage 4, in either order — they are independent. Stage 4
-  is the larger win of the two.
+- **Next:** Stage 4b (the 11 feature entries), or Stage 3 — independent of
+  each other.
 
 ## Stage 1 — serve client entries from the asset server. **Done.**
 
@@ -138,18 +139,92 @@ naturally after Stage 2 has made the dev/prod split explicit.
 
 ## Stage 4 — typed client entries (`.component.ts`)
 
-The largest win available, and the one that closes the standing top risk in
-`docs/REMIX_RC_MIGRATION_PLAN.md` ("untyped client code"). The asset server
-compiles TypeScript on demand, so a client entry can be a `.ts` file inside
-`tsconfig.json`: `npm run typecheck` would cover it, and the 13
-`.component.d.ts` sidecars that exist only to describe it to TypeScript would
-go away.
+Closes the standing top risk in `docs/REMIX_RC_MIGRATION_PLAN.md` ("untyped
+client code"). The asset server compiles TypeScript on demand, so an entry can
+be a `.ts` file inside `tsconfig.json`: `npm run typecheck` covers it, and the
+`.component.d.ts` sidecars that existed only to describe it to TypeScript go
+away — along with the chance of one drifting from the implementation it
+claimed to describe.
 
-Scope check before starting: `allowFiles` currently lists `app/**/*.component.js`
-precisely so no `.ts` under `app/` is reachable. Admitting `.component.ts` means
-the glob is the only thing standing between a browser request and a
-server-only module, so audit it deliberately rather than widening it to
-`app/**/*.ts`.
+Split in two because the type errors are real work, not a rename, and because
+both extensions are served at once so a partial state is coherent:
+
+### Stage 4a — plumbing, browser helpers, the 7 shared entries. **Done.**
+
+7 entries under `app/components/**` converted and the three browser-only
+helpers moved to a typed `app/lib/browser/`. That deletes 4 of the 13
+`.component.d.ts` sidecars — the other 3 shared entries never had one, which
+is its own argument for this stage: nothing was checking their exports at all.
+The remaining 9 belong to the feature entries and go in 4b.
+
+**The security boundary got tighter, not looser** — but only after review
+caught that the first cut of it leaked. `app/lib/*.js` (which would have
+served any stray `.js` later dropped into `app/lib`) is gone, replaced by
+`app/lib/browser/**/*.ts`. What separates a browser module from a server-only
+one is now the `.component.` infix and that one directory — never the file
+extension. `app/router.ts`, `app/lib/session.ts`, `app/lib/gist.ts`,
+`document-shell.tsx` and `remix-assets.test.ts` all report `not-allowed`.
+
+Two things about that glob are load-bearing, and both are now pinned by tests
+that were checked to fail when the guard is removed:
+
+- **`denyFiles: ['**\/*.test.*']`.** `allowFiles` admits a *directory*, so a
+  `scroll-lock.test.ts` sitting next to the helper it covers was `reachable` —
+  measured. A deny, rather than a narrower allow, so it also covers globs
+  added later.
+- **The glob is recursive.** Non-recursive, a helper one level down
+  typechecks and imports fine on the server and then 404s in the browser.
+
+Those tests assert on `getAssetDetails().access` — the rule that fired — not
+on `status`, which is `missing` for any path with no file behind it whatever
+the globs say. A `status` assertion over a hypothetical path proves nothing;
+this is the second time in this migration that shape of vacuous assertion got
+written, so prefer `access` when the question is about configuration.
+
+Four things the conversion surfaced that a rename would not have:
+
+0. **The shared `frame-form-ux` helper was uncallable from a typed entry.**
+   `handle: Handle<never>` typechecked only because all five of its callers
+   were still untyped `.component.js`; a converted entry's `Handle<{…}>` is
+   not assignable to it, so Stage 4b would have hit
+   `TS2345` immediately. Now `Pick<Handle<never>, 'frames' | 'signal'>` — name
+   what the helper touches, not a props shape it never reads. Review caught
+   this; it is the cost of converting callers and callees in separate stages,
+   and worth watching for again in 4b.
+1. **`event.submitter` was read off a bare `Event`.** `addEventListeners`
+   typed every handler's event as `Event`, so `frame-form-ux` was reading a
+   property only `SubmitEvent` has. The helper now maps each event name to its
+   real type (`DocumentEventMap & WindowEventMap`, because `pageshow` is only
+   on the window), which is what upstream had before the generics were dropped
+   for being "plain JS outside `tsconfig.json`".
+2. **`tsconfig.json` was missing `DOM.Iterable`**, so iterating a
+   `NodeListOf<HTMLDialogElement>` was a type error even though every browser
+   does it. Added.
+3. **A `control` typed `Element | null` was passed where `HTMLElement` was
+   required.** Safe at runtime behind an `instanceof` guard, but the old
+   JSDoc was simply imprecise; the selector only ever yields `HTMLElement`.
+4. **`lockScroll` could not narrow `defaultView`** because the guard tested
+   one binding and the body read another. Fixed by binding it in the guard.
+
+**The one trap when converting an entry:** its importers must name the `.ts`
+file. TypeScript resolves a `.js` specifier to the `.ts` source, so
+`npm run typecheck` stays green while Node fails at runtime.
+
+Browser HMR (Stage 2) works unchanged on `.component.ts` — re-measured, the
+tab patches in place with no reload.
+
+**Not done here:** `sidebar.component.ts` has three five-argument functions
+that AGENTS.md's signature rule says should take one object. Annotating them
+was in scope; restructuring them and their call sites is a refactor, and
+mixing it into a conversion would obscure both.
+
+### Stage 4b — the 11 feature entries
+
+The remainder, under `app/features/**`: catalog (4), guidelines (3),
+portfolio (2), advice (2). Same recipe, and the measurement from the bulk
+trial says to expect roughly five type errors each, mostly implicit-any
+parameters and untyped props. Nothing structural is left to decide — 4a
+established the conventions, the directory and the boundary.
 
 ## Decisions taken — do not relitigate
 

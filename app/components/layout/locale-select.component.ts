@@ -1,5 +1,5 @@
 import { clientEntry, createElement } from 'remix/ui'
-import { addEventListeners } from '../../lib/event-listeners.js'
+import { addEventListeners } from '../../lib/browser/event-listeners.ts'
 
 export const LocaleSelectSubmit = clientEntry(
 	`${import.meta.url}#LocaleSelectSubmit`,

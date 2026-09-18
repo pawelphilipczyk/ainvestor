@@ -6,7 +6,7 @@ import { Link } from '../navigation/link.tsx'
 import { AppBranding } from './app-branding.tsx'
 import type { SessionContext } from './session-provider.tsx'
 import { SessionProvider } from './session-provider.tsx'
-import { SidebarInteractions } from './sidebar.component.js'
+import { SidebarInteractions } from './sidebar.component.ts'
 import type { NavLink } from './sidebar-nav.ts'
 
 type SidebarProps = {

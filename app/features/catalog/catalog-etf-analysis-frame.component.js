@@ -1,5 +1,5 @@
 import { clientEntry, createElement } from 'remix/ui'
-import { watchFrameFormSubmissions } from '../../components/client/frame-form-ux.component.js'
+import { watchFrameFormSubmissions } from '../../components/client/frame-form-ux.component.ts'
 
 /**
  * UX layer for the ETF detail page's `data-rmx-target="catalog-etf-analysis"`

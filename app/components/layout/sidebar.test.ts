@@ -173,15 +173,18 @@ describe('remix ui runtime in document', () => {
 		)
 
 		// rc.2 removed the `remix/ui/scroll-lock` and `@remix-run/ui/scroll-lock`
-		// subpaths; lockScroll is now vendored in app/lib/scroll-lock.js instead
-		// of resolved through the import map. See app/lib/scroll-lock.js.
+		// subpaths; lockScroll is now vendored in app/lib/browser/scroll-lock.ts instead
+		// of resolved through the import map. See app/lib/browser/scroll-lock.ts.
 		assert.doesNotMatch(body, /remix\/ui\/scroll-lock/)
 		assert.doesNotMatch(body, /@remix-run\/ui\/scroll-lock/)
 	})
 
 	it('the vendored lockScroll helper is served for the browser', async () => {
 		const response = await router.fetch(
-			new URL(await assetHref('app/lib/scroll-lock.js'), 'http://localhost/'),
+			new URL(
+				await assetHref('app/lib/browser/scroll-lock.ts'),
+				'http://localhost/',
+			),
 		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
@@ -192,7 +195,7 @@ describe('remix ui runtime in document', () => {
 	it('the vendored addEventListeners helper is served for the browser', async () => {
 		const response = await router.fetch(
 			new URL(
-				await assetHref('app/lib/event-listeners.js'),
+				await assetHref('app/lib/browser/event-listeners.ts'),
 				'http://localhost/',
 			),
 		)
@@ -238,7 +241,7 @@ describe('sidebar component entry asset', () => {
 	it('the sidebar component entry is served with a javascript content-type', async () => {
 		const response = await router.fetch(
 			new URL(
-				await assetHref('app/components/layout/sidebar.component.js'),
+				await assetHref('app/components/layout/sidebar.component.ts'),
 				'http://localhost/',
 			),
 		)
@@ -256,7 +259,7 @@ describe('sidebar component entry asset', () => {
 	it('sidebar component entry wires document listeners via handle.signal', async () => {
 		const response = await router.fetch(
 			new URL(
-				await assetHref('app/components/layout/sidebar.component.js'),
+				await assetHref('app/components/layout/sidebar.component.ts'),
 				'http://localhost/',
 			),
 		)
@@ -271,13 +274,13 @@ describe('sidebar component entry asset', () => {
 	it('sidebar component entry uses the vendored scroll lock for mobile overlay', async () => {
 		const response = await router.fetch(
 			new URL(
-				await assetHref('app/components/layout/sidebar.component.js'),
+				await assetHref('app/components/layout/sidebar.component.ts'),
 				'http://localhost/',
 			),
 		)
 		const body = await response.text()
-		// rc.2 removed the `remix/ui/scroll-lock` subpath; see app/lib/scroll-lock.js.
-		assert.match(body, /from ['"]\.\.\/\.\.\/lib\/scroll-lock\.js['"]/)
+		// rc.2 removed the `remix/ui/scroll-lock` subpath; see app/lib/browser/scroll-lock.ts.
+		assert.match(body, /from ['"]\.\.\/\.\.\/lib\/browser\/scroll-lock\.ts['"]/)
 		assert.match(body, /lockScroll/)
 	})
 })

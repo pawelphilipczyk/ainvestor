@@ -1,5 +1,6 @@
-import { addEventListeners } from '../../lib/event-listeners.js'
-import { setSubmitButtonLoading } from './submit-button-loading.component.js'
+import type { Handle } from 'remix/ui'
+import { addEventListeners } from '../../lib/browser/event-listeners.ts'
+import { setSubmitButtonLoading } from './submit-button-loading.component.ts'
 
 /**
  * UX layer shared by every page that ported a `data-rmx-target="<frame>"` form
@@ -24,10 +25,7 @@ import { setSubmitButtonLoading } from './submit-button-loading.component.js'
  * `submit` event of a matching form first, so an unrelated reload never
  * touches a button or clears unsaved input.
  *
- * @param {import('remix/ui').Handle} handle
- * @param {string} frameName
- * @param {{ closeDialogsOnReload?: boolean }} [options]
- *   `closeDialogsOnReload`: close every open `<dialog>` before the frame's
+ * @param options `closeDialogsOnReload`: close every open `<dialog>` before the frame's
  *   content is patched. The rc.2 diff applies `<dialog>`'s `open` attribute as
  *   live state it preserves across a patch (`shouldPreserveLiveAttribute` in
  *   `@remix-run/ui`'s `diff-dom`, same as `<input>` `value`/`checked`), so a
@@ -36,13 +34,19 @@ import { setSubmitButtonLoading } from './submit-button-loading.component.js'
  *   Only needed when a tracked form can leave a dialog open — portfolio's
  *   trade form doesn't use one, so it leaves this off.
  */
-export function watchFrameFormSubmissions(handle, frameName, options = {}) {
+export function watchFrameFormSubmissions(
+	handle: Pick<Handle<never>, 'frames' | 'signal'>,
+	frameName: string,
+	options: { closeDialogsOnReload?: boolean } = {},
+) {
 	const { closeDialogsOnReload = false } = options
 	const frameHandle = handle.frames.get(frameName)
 	if (typeof document === 'undefined' || !frameHandle) return
 
-	/** @type {{ form: HTMLFormElement, control: Element | null } | null} */
-	let pendingSubmit = null
+	let pendingSubmit: {
+		form: HTMLFormElement
+		control: HTMLElement | null
+	} | null = null
 
 	addEventListeners(document, handle.signal, {
 		submit(event) {
@@ -58,7 +62,9 @@ export function watchFrameFormSubmissions(handle, frameName, options = {}) {
 				submitter instanceof HTMLButtonElement ||
 				(submitter instanceof HTMLInputElement && submitter.type === 'submit')
 					? submitter
-					: form.querySelector('button[type="submit"], input[type="submit"]')
+					: form.querySelector<HTMLElement>(
+							'button[type="submit"], input[type="submit"]',
+						)
 			pendingSubmit = { form, control }
 		},
 	})

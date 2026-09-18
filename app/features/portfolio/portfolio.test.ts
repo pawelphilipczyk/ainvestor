@@ -468,7 +468,7 @@ IBTA LN ETF;GBR-LSE;4087.48;PLN`
 		const response = await testSessionFetch(
 			new URL(
 				await assetHref(
-					'app/components/navigation/navigation-link-loading.component.js',
+					'app/components/navigation/navigation-link-loading.component.ts',
 				),
 				'http://localhost/',
 			).href,

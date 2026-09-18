@@ -153,10 +153,21 @@ holds the markup, a `clientEntry` renders a hidden `<span>` and delegates
 
 Adopting a primitive therefore means folding the markup into the `clientEntry`:
 
-- The entry module stays plain `.js` — the browser loads it as-is, so it builds
-  its markup with `createElement`, not JSX, and keeps a `.component.d.ts`
-  sidecar for the TypeScript side. It is served (and compiled) by the asset
-  server in `app/lib/remix-assets.ts`, not by `staticFiles()`.
+- **Write the entry as `.component.ts`.** The asset server compiles TypeScript
+  on demand, so the entry sits inside `tsconfig.json` and `npm run typecheck`
+  covers it — no `.component.d.ts` sidecar, and no chance of one drifting from
+  the implementation it claims to describe. Type the props on the call:
+  `clientEntry<{ label: string }>(…)`, and the server components that mount it
+  are then checked against the real signature. It still builds its markup with
+  `createElement`, not JSX, because the browser loads the compiled output
+  directly.
+- **`.component.js` still works and is still served**; entries not yet
+  converted are being moved over in Stage 4b of
+  `docs/REMIX_ASSETS_MIGRATION_PLAN.md`. Both extensions are allowed at once,
+  so a conversion never has to be a big-bang.
+- **Importers must name the `.ts` file.** TypeScript resolves a `.js`
+  specifier to a `.ts` source, so `npm run typecheck` stays green while Node
+  fails at runtime — the one trap in converting an entry.
 - Anything the render function needs must arrive as **serializable props**, and
   that includes translated copy: the render function runs in the browser too,
   where `t()` (request-scoped, server-only) does not exist. Pass
@@ -173,7 +184,7 @@ Adopting a primitive therefore means folding the markup into the `clientEntry`:
   A root-relative literal like `'/components/…/x.component.js#Name'` is served
   by nothing now and would be emitted verbatim as a broken script `src`.
 
-**Reference implementation:** `app/components/navigation/theme-toggle.component.js`
+**Reference implementation:** `app/components/navigation/theme-toggle.component.ts`
 (`toggle.control`). Keep the delegated-listener island shape for behavior that
 is genuinely document-wide and not attached to one element.
 
@@ -363,8 +374,9 @@ already awaited before calling `render()`, no new I/O. Check again before
 any other page moves visitor-facing, no-JS-required content inside an
 existing fallback-carrying Frame.
 
-A `.component.js` can't import a `.tsx` file (no build step, served to the
-browser as-is), so a shared presentational helper like `Card`'s
+A client entry can't import a `.tsx` file — the asset server does not serve
+`.tsx` (server components use request-scoped things like `t()` that do not
+exist in a browser), so a shared presentational helper like `Card`'s
 `getCardClassNames()` has to be inlined as a literal Tailwind class string
 in the entry rather than imported — see `guidelines-tabs.component.js`
 for the worked example, including the active/inactive tab styling via

@@ -7,7 +7,7 @@ import { jsx } from 'remix/ui/jsx-runtime'
 import { renderToString } from 'remix/ui/server'
 import { assetHref } from '../../lib/remix-assets.ts'
 import { router } from '../../router.ts'
-import { ThemeToggle } from './theme-toggle.component.js'
+import { ThemeToggle } from './theme-toggle.component.ts'
 
 const componentsDir = join(dirname(fileURLToPath(import.meta.url)))
 
@@ -16,13 +16,13 @@ function renderThemeToggle() {
 }
 
 function themeToggleHref() {
-	return assetHref('app/components/navigation/theme-toggle.component.js')
+	return assetHref('app/components/navigation/theme-toggle.component.ts')
 }
 
 describe('theme-toggle component', () => {
-	it('theme-toggle.component.js exists in app/components/navigation/', () => {
-		const filePath = join(componentsDir, 'theme-toggle.component.js')
-		assert.ok(existsSync(filePath), 'theme-toggle.component.js must exist')
+	it('theme-toggle.component.ts exists in app/components/navigation/', () => {
+		const filePath = join(componentsDir, 'theme-toggle.component.ts')
+		assert.ok(existsSync(filePath), 'theme-toggle.component.ts must exist')
 	})
 
 	it('ThemeToggle renders output with data-theme-toggle and button (JSX)', async () => {

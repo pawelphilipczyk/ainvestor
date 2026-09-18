@@ -3,7 +3,7 @@ import { Context, list, panel, root, tab } from 'remix/ui/tabs/primitives'
 import {
 	tabsListClass as listClass,
 	tabsTabClass as tabClass,
-} from '../../components/client/tabs-classes.component.js'
+} from '../../components/client/tabs-classes.component.ts'
 
 // Card's "muted" variant classes, inlined — a `.component.js` can't import a `.tsx` component.
 const panelClass =
