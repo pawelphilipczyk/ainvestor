@@ -25,10 +25,7 @@ import { setSubmitButtonLoading } from './submit-button-loading.component.ts'
  * `submit` event of a matching form first, so an unrelated reload never
  * touches a button or clears unsaved input.
  *
- * @param {import('remix/ui').Handle} handle
- * @param {string} frameName
- * @param {{ closeDialogsOnReload?: boolean }} [options]
- *   `closeDialogsOnReload`: close every open `<dialog>` before the frame's
+ * @param options `closeDialogsOnReload`: close every open `<dialog>` before the frame's
  *   content is patched. The rc.2 diff applies `<dialog>`'s `open` attribute as
  *   live state it preserves across a patch (`shouldPreserveLiveAttribute` in
  *   `@remix-run/ui`'s `diff-dom`, same as `<input>` `value`/`checked`), so a
@@ -38,7 +35,7 @@ import { setSubmitButtonLoading } from './submit-button-loading.component.ts'
  *   trade form doesn't use one, so it leaves this off.
  */
 export function watchFrameFormSubmissions(
-	handle: Handle<never>,
+	handle: Pick<Handle<never>, 'frames' | 'signal'>,
 	frameName: string,
 	options: { closeDialogsOnReload?: boolean } = {},
 ) {

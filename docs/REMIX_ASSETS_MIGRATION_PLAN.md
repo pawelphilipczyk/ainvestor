@@ -22,7 +22,7 @@ around the scoping.
 - **Stage 2 (browser HMR) is done and merged on `main`** (PR #204).
 - **Stage 4a (typed shared entries) is done**, on branch
   `claude/remix-assets-migration-rz1392`.
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (608) and
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (610) and
   `npm run test:browser` (40, real Chromium).
 - **Next:** Stage 4b (the 11 feature entries), or Stage 3 — independent of
   each other.
@@ -157,17 +157,40 @@ helpers moved to a typed `app/lib/browser/`. That deletes 4 of the 13
 is its own argument for this stage: nothing was checking their exports at all.
 The remaining 9 belong to the feature entries and go in 4b.
 
-**The security boundary got tighter, not looser.** The worry going in was that
-admitting `.ts` would widen what the browser can reach. It did the opposite:
-`app/lib/*.js` (which would have served any stray `.js` later dropped into
-`app/lib`) is gone, replaced by `app/lib/browser/*.ts`. What separates a
-browser module from a server-only one is now the `.component.` infix and that
-one directory — never the file extension. Verified per conversion:
-`app/router.ts`, `app/lib/session.ts`, `app/lib/gist.ts`, `document-shell.tsx`
-and `remix-assets.test.ts` all report `not-allowed`.
+**The security boundary got tighter, not looser** — but only after review
+caught that the first cut of it leaked. `app/lib/*.js` (which would have
+served any stray `.js` later dropped into `app/lib`) is gone, replaced by
+`app/lib/browser/**/*.ts`. What separates a browser module from a server-only
+one is now the `.component.` infix and that one directory — never the file
+extension. `app/router.ts`, `app/lib/session.ts`, `app/lib/gist.ts`,
+`document-shell.tsx` and `remix-assets.test.ts` all report `not-allowed`.
+
+Two things about that glob are load-bearing, and both are now pinned by tests
+that were checked to fail when the guard is removed:
+
+- **`denyFiles: ['**\/*.test.*']`.** `allowFiles` admits a *directory*, so a
+  `scroll-lock.test.ts` sitting next to the helper it covers was `reachable` —
+  measured. A deny, rather than a narrower allow, so it also covers globs
+  added later.
+- **The glob is recursive.** Non-recursive, a helper one level down
+  typechecks and imports fine on the server and then 404s in the browser.
+
+Those tests assert on `getAssetDetails().access` — the rule that fired — not
+on `status`, which is `missing` for any path with no file behind it whatever
+the globs say. A `status` assertion over a hypothetical path proves nothing;
+this is the second time in this migration that shape of vacuous assertion got
+written, so prefer `access` when the question is about configuration.
 
 Four things the conversion surfaced that a rename would not have:
 
+0. **The shared `frame-form-ux` helper was uncallable from a typed entry.**
+   `handle: Handle<never>` typechecked only because all five of its callers
+   were still untyped `.component.js`; a converted entry's `Handle<{…}>` is
+   not assignable to it, so Stage 4b would have hit
+   `TS2345` immediately. Now `Pick<Handle<never>, 'frames' | 'signal'>` — name
+   what the helper touches, not a props shape it never reads. Review caught
+   this; it is the cost of converting callers and callees in separate stages,
+   and worth watching for again in 4b.
 1. **`event.submitter` was read off a bare `Event`.** `addEventListeners`
    typed every handler's event as `Event`, so `frame-form-ux` was reading a
    property only `SubmitEvent` has. The helper now maps each event name to its

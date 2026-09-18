@@ -108,6 +108,42 @@ describe('asset server access boundary', () => {
 		}
 	})
 
+	// These two assert on `access` — the rule that fired — rather than on
+	// `status`. `status` is `missing` for any path with no file behind it,
+	// whatever the globs say, so a `status` assertion over a hypothetical path
+	// passes no matter what the config does. `access` is decided from the globs
+	// alone, so it answers the question without planting files in the repo.
+	it('denies a test file even inside a served browser directory', async () => {
+		// `app/lib/browser/**` is an allowed *directory*, so a test sitting next
+		// to the helper it covers would be public on the strength of its path
+		// alone — measured `reachable` before `denyFiles` existed.
+		const { access } = await remixAssetServer.getAssetDetails(
+			'app/lib/browser/scroll-lock.test.ts',
+		)
+		assert.equal(access?.allowed, false)
+		assert.equal(
+			access?.deniedBy,
+			'**/*.test.*',
+			'the deny rule, not a missing allow, must be what refuses it',
+		)
+	})
+
+	it('allows a nested browser helper, not just the directory root', async () => {
+		// Recursive on purpose: non-recursive, a helper one level down
+		// typechecks and imports fine on the server, then 404s in the browser.
+		const nested = await remixAssetServer.getAssetDetails(
+			'app/lib/browser/nested/helper.ts',
+		)
+		assert.equal(nested.access?.allowed, true)
+
+		// Control, so the assertion above cannot pass by accident: the same
+		// shape of path outside the allowed globs is not allowed.
+		const outside = await remixAssetServer.getAssetDetails(
+			'app/lib/nowhere/helper.ts',
+		)
+		assert.equal(outside.access?.allowed, false)
+	})
+
 	it('refuses server-only sources, which allowFiles does not cover', async () => {
 		for (const source of [
 			'app/router.ts',

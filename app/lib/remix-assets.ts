@@ -87,8 +87,14 @@ export const remixAssetServer = createAssetServer({
 		'app/entry.js',
 		'app/**/*.component.ts',
 		'app/**/*.component.js',
-		'app/lib/browser/*.ts',
+		'app/lib/browser/**/*.ts',
 	],
+	// Nothing named like a test, ever. `allowFiles` admits a directory, and a
+	// `scroll-lock.test.ts` sitting next to `scroll-lock.ts` would otherwise be
+	// served to the public — measured `reachable` before this line existed.
+	// Keep this as a deny rather than a narrower allow: it holds for every glob
+	// above, including ones added later.
+	denyFiles: ['**/*.test.*'],
 	allowPackages: ['remix'],
 	// Instrument component modules so an edit can be applied to an open tab
 	// instead of reloading it. Only under HMR: the transform exists to add
