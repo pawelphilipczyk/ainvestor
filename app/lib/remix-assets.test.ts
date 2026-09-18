@@ -94,6 +94,60 @@ describe('client entries are served through the asset server', () => {
 	})
 })
 
+describe("a served entry's own imports", () => {
+	it('can every one be resolved by the browser', async () => {
+		// The guard for a type-only module like
+		// `app/features/guidelines/tab-id.ts`: a browser entry may import a
+		// *type* from a file the asset server does not serve, because
+		// `verbatimModuleSyntax` erases `import type` outright. Turn one of
+		// those into a value import and the compiled entry gains a relative
+		// specifier that resolves to nothing — which is this assertion.
+		// Verified by doing it. Note it takes a *runtime* use to trip: an
+		// import used only under `typeof` is still a type position, so it is
+		// erased too and nothing breaks.
+		//
+		// Resolution is two steps, and checking only the first is misleading:
+		// a relative specifier in compiled output is *not* fingerprinted, so
+		// fetching it directly 404s under fingerprinting. The browser resolves
+		// it against the importing module's URL and then rewrites it through
+		// the document import map, whose top-level `imports` maps each plain
+		// asset path to its hashed URL. So the real question is whether the
+		// resolved path is a key in that map.
+		const body = await fetchPage('/guidelines')
+		const { imports } = importMapOf(body)
+
+		const moduleUrls = [
+			...new Set(
+				[...body.matchAll(/"moduleUrl":"([^"]+)"/g)].map((match) => match[1]),
+			),
+		]
+		assert.ok(moduleUrls.length > 0, 'page rendered no client entries')
+
+		for (const moduleUrl of moduleUrls) {
+			const source = await (
+				await router.fetch(`http://localhost${moduleUrl}`)
+			).text()
+			const relativeSpecifiers = [
+				...source.matchAll(/from\s+['"](\.[^'"]+)['"]/g),
+			].map((match) => match[1])
+
+			for (const specifier of relativeSpecifiers) {
+				const resolved = new URL(
+					specifier,
+					new URL(moduleUrl, 'http://localhost/'),
+				).pathname
+				const mapped = imports[resolved]
+				assert.ok(
+					mapped,
+					`${moduleUrl} imports "${specifier}" (${resolved}), which the document import map does not resolve`,
+				)
+				const response = await router.fetch(`http://localhost${mapped}`)
+				assert.equal(response.status, 200, mapped)
+			}
+		}
+	})
+})
+
 describe('fingerprinted asset URLs', () => {
 	// This process does not watch (no NODE_ENV=development, no REMIX_NODE_HMR),
 	// so it fingerprints — the same configuration production runs, which is why

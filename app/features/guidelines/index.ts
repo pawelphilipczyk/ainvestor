@@ -50,8 +50,7 @@ import {
 } from '../catalog/lib.ts'
 import { GuidelinesListFragment } from './guidelines-list-fragment.tsx'
 import { GuidelinesPage } from './guidelines-page.tsx'
-
-type GuidelinesAddTabId = 'instrument' | 'bucket'
+import type { GuidelinesAddTabId } from './tab-id.ts'
 
 function normalizeGuidelinesAddTab(tab: string | null): GuidelinesAddTabId {
 	if (tab === 'instrument') return 'instrument'

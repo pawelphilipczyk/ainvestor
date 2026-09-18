@@ -20,8 +20,7 @@ import { routes } from '../../routes.ts'
 import { GuidelinesDeleteDialogInteractions } from './guidelines-list.component.ts'
 import { GuidelinesListFrame } from './guidelines-list-frame.component.ts'
 import { GuidelinesTabs } from './guidelines-tabs.component.ts'
-
-type GuidelinesAddTabId = 'instrument' | 'bucket'
+import type { GuidelinesAddTabId } from './tab-id.ts'
 
 type GuidelinesPageProps = {
 	assetClassOptions: { value: EtfType; label: string }[]
