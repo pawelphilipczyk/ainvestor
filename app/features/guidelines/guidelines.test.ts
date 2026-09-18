@@ -104,7 +104,12 @@ describe('Guidelines page', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Guidelines/)
-		assert.match(body, /guidelines-list\.component\.ts/)
+		assert.ok(
+			body.includes(
+				await assetHref('app/features/guidelines/guidelines-list.component.ts'),
+			),
+			'page does not mount the guidelines-list client entry',
+		)
 		assert.match(body, /role="tablist"/)
 		assert.match(body, /role="tab"/)
 		assert.match(body, /action="\/guidelines"/)

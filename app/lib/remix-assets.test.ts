@@ -94,6 +94,36 @@ describe('client entries are served through the asset server', () => {
 	})
 })
 
+describe('fingerprinted asset URLs', () => {
+	// This process does not watch (no NODE_ENV=development, no REMIX_NODE_HMR),
+	// so it fingerprints — the same configuration production runs, which is why
+	// the suite exercises it rather than a dev-only one.
+	it('serves content-hashed URLs with immutable caching', async () => {
+		const href = await assetHref('app/entry.ts')
+		assert.match(
+			href,
+			/entry\.@[\w-]+\.ts$/,
+			`expected a fingerprinted URL, got ${href}`,
+		)
+
+		const response = await router.fetch(new URL(href, 'http://localhost/'))
+		assert.equal(response.status, 200)
+		assert.equal(
+			response.headers.get('cache-control'),
+			'public, max-age=31536000, immutable',
+		)
+	})
+
+	it('does not serve the un-hashed path at all', async () => {
+		// Stricter than "serves it with no-cache": in fingerprint mode the plain
+		// path is simply not a route. That is what makes `assetHref()` the only
+		// safe way to name an asset — a hard-coded `/assets/...` string works in
+		// development and 404s in production.
+		const response = await router.fetch('http://localhost/assets/app/entry.ts')
+		assert.equal(response.status, 404)
+	})
+})
+
 describe('asset server access boundary', () => {
 	it('serves the app modules the browser needs', async () => {
 		for (const source of [
