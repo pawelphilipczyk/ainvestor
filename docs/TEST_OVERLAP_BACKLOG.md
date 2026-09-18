@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-16 (advice)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-09-17 (catalog)
 
 ---
 
@@ -42,7 +42,7 @@ That's a gap, not overlap; logged for a future gap sweep rather than acted on
 here.
 
 ### OV-002 — compact-height classes asserted through two components
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** components
+**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-17 · **Area:** components
 
 `applies compact height classes when compact is true` exists identically in
 `app/components/forms/submit-button.test.ts` and
@@ -56,6 +56,26 @@ helper directly once and have each component test assert only that it *uses*
 it. If the latter, this is not overlap — reject it.
 
 **Pairs with `GAP-004`.** Do them in the same run if they turn out to be one change.
+
+**Re-checked 2026-09-17** (while sweeping `GAP-004` in the gap backlog's area-6
+run, since the two are the same underlying fact): confirmed. Read
+`app/components/forms/form-control-classes.ts` — it is pure string
+composition with no branching; the `compact` decision lives in each
+component as a one-line ternary (`submit-button.tsx:39-41`,
+`select-input.tsx:43-45`). Both `it('applies compact height classes when
+compact is true', …)` cases (`submit-button.test.ts:16-22`,
+`select-input.test.ts:44-55`) assert the exact same regexes
+(`/\bh-9\b/`, `/\bmin-h-9\b/`) against the literal content of the shared
+`formControlHeightCompact` constant, routed through that ternary — a real,
+if small, duplicate of the constant's own value at two extra sites.
+Promoted to `approved`: closing this needs a component test that only
+proves the `compact` prop switches to the compact constant (e.g. that the
+rendered output differs from the default-prop render), leaving the literal
+`h-9`/`min-h-9` value pinned solely by the new
+`app/components/forms/form-control-classes.test.ts` added in this run's
+gap action (`GAP-004`). Left for a future run to act on, since only
+already-approved items are eligible for this run's one overlap action and
+this item became `approved` during this run, not before it started.
 
 ---
 
@@ -71,24 +91,6 @@ browser tests are the most expensive thing in the suite.
 **Triage question:** do advice and guidelines resolve the initial tab through
 the same code path? If yes, keep one (guidelines has the denser tab coverage)
 and drop the other. If each page resolves `?tab=` itself, keep both and reject.
-
----
-
-### OV-004 — `catalog.test.ts` may re-assert parse rules already unit-tested
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** catalog
-
-`app/features/catalog/catalog.test.ts` is 39 cases / 1,219 lines in a single
-flat `describe('ETF Catalog page')`, driving the feature over HTTP. Alongside
-it, `app/features/catalog/lib.test.ts` has 36 unit cases over the same module's
-pure functions (`parseBankJsonToCatalog`, `mergeBankIntoCatalog`,
-`catalogMergeKey`, …).
-
-**Triage question:** how many of the 39 HTTP cases differ from each other only
-in *parsed input*, rather than in *route behaviour*? Those belong in
-`lib.test.ts` (where they may already exist) and the HTTP layer needs only one
-case proving the route reaches the parser. Note this is the largest test file
-in the repo — sample it, list the specific case numbers, and propose them
-individually rather than as one bulk deletion.
 
 ---
 
@@ -132,6 +134,43 @@ The `app/lib` file tests pure functions (`parseGuidelinesFromGist`,
 `buildGuidelinesGistPatch`). The `mcp/tools` file tests tool contracts
 (argument validation, catalog cross-checks, the 100% cap surfaced as a tool
 error, rejected writes). Same domain, disjoint assertions.
+
+### RJ-003 — `OV-004`, `catalog.test.ts` vs. `lib.test.ts`
+**Rejected:** 2026-09-17 · **Reason:** re-verified against a full read of both
+files and the claim doesn't hold.
+
+Re-checked every one of `catalog.test.ts`'s 39 HTTP cases against all 36
+`lib.test.ts` unit cases, focused on the ~15 import-flow cases
+(`catalog.test.ts:347-938`) that most resemble the pure
+`parseBankJsonToCatalog`/`mergeBankIntoCatalog`/`catalogMergeKey` tests
+(`lib.test.ts:250-712`). Found zero genuine strict-subset duplicate pairs:
+
+- The JSON-parse try/catch, empty-paste-after-trim check, and the
+  "0 rows extracted" branch (`catalog.test.ts:606,642,676`) all live inline
+  in `app/features/catalog/index.ts`, not in `lib.ts` — `lib.test.ts` has no
+  counterpart for any of them.
+- `formatCatalogImportOutcomeFlash` (`index.ts:109`), the function that turns
+  parse diagnostics into the flash text the HTTP cases actually assert
+  (`catalog.test.ts:710,757,807,857,905`), has no direct unit test anywhere —
+  even where a case's *input* shape matches a `lib.test.ts` scenario, the
+  HTTP case's *assertions* are about the rendered strings, while
+  `lib.test.ts`'s assertions are about the structural parse result. Different
+  rule, different function, no existing pin for the former.
+- The Accept:`application/json` vs. Accept:`text/html` cases
+  (`catalog.test.ts:347,399` vs. `:565,606`) reuse the same input but assert a
+  different response format — a distinct route branch, not overlap.
+- The filter/search/risk-band HTTP cases (`catalog.test.ts:1096,1117,1156,1192`)
+  look adjacent to `lib.test.ts`'s pure `riskBandFromRiskKid`/
+  `parseCatalogRiskFilterParam`, but the actual "filter entries by band" logic
+  lives inline in `catalog-list-fragment.tsx`, which `lib.test.ts` never
+  exercises — not a duplicate.
+
+The original proposal was speculative ("likely differ … only in parsed
+input") and doesn't survive a full read. Note:
+`formatCatalogImportOutcomeFlash`'s total lack of direct unit coverage is a
+**gap**, not overlap — worth a future gap-backlog item, since right now it's
+only exercised indirectly through ~8 expensive HTTP round-trips in
+`catalog.test.ts`.
 
 ---
 
