@@ -260,23 +260,31 @@ return createHtmlResponse(html`
 | Aspect | Our App | Remix Examples |
 |--------|---------|----------------|
 | **Rendering** | JSX document + page bodies with clientEntry hydration | Bookstore: full JSX with `renderToStream`; fetch-router demos: html templates |
-| **Data validation** | `parseSafe` + `Object.fromEntries(formData)` | Bookstore: `s.parse` + `f.object()` (FormData-native) |
+| **Data validation** | `parseSafe` + `objectFromFormData()`, which wraps the `Object.fromEntries` conversion so app-specific normalization can run before `parseSafe` | Bookstore: `s.parse` + `f.object()` (FormData-native) |
 | **Session storage** | `createCookieSessionStorage` | Bookstore: `createFsSessionStorage`; demos: `createCookieSessionStorage` |
 | **Context access** | `context.get(Session)`, `context.get(FormData)` — rc.2 replaced the `context.session` / `context.formData` properties this row used to describe | Bookstore: `get(Session)`, `get(FormData)` via asyncContext |
 | **Components** | JSX page components + `clientEntry` islands as `*.component.ts`, typechecked and compiled on demand; shared in `app/components/`, feature-specific in `app/features/`, browser-only helpers in `app/lib/browser/` | Bookstore: full JSX; fetch-router demos: minimal/no components |
 | **Form shorthand** | `form('guidelines')` | Same; bookstore also uses `form('settings', { formMethod: 'PUT', names: { action: 'update' } })` |
 | **Resources** | Not used | Bookstore: `resources('orders')`, `resources('books')`, etc. |
-| **File uploads** | CSV import for portfolio holdings and the catalog: `formData()` with `maxFileSize` / `maxTotalSize`, plus a `multipartLimitFlash` middleware that turns an over-limit upload into a flash message. No file *storage* — the CSV is parsed and discarded | Bookstore: `uploadHandler` + `createFsFileStorage` |
-| **Middleware order** | `remixAssets`, `compression`, `logger`, `uiLocale`, `session`, `multipartLimitFlash`, `formData`, `methodOverride`, `enforceGithubApproval`, `render` — one unconditional chain, since rc.2 types the context from it (see `docs/REMIX_RC_MIGRATION_PLAN.md`) | Bookstore adds asyncContext, compression, loadDatabase |
+| **File uploads** | Two, in different formats: CSV for portfolio holdings (`accept=".csv,text/csv"`) and a HAR / JSON capture for the catalog (`accept=".har,application/json"`, via `extractBankApiJsonFromHar`). Both use `formData()` with `maxFileSize` / `maxTotalSize` plus a `multipartLimitFlash` middleware that turns an over-limit upload into a flash message. No file *storage* — each upload is parsed and discarded | Bookstore: `uploadHandler` + `createFsFileStorage` |
+| **Middleware order** | `remixAssets`, `compression`, `logger`, `uiLocale`, `session`, `multipartLimitFlash`, `formData`, `methodOverride`, `enforceGithubApproval`, `render` — one unconditional chain, since rc.2 types the context from it (see `docs/REMIX_RC_MIGRATION_PLAN.md`) | Bookstore adds asyncContext and loadDatabase; it also runs compression, which this app now does too |
 | **Static files** | None — browser modules are compiled and served by `remix/assets`' `createAssetServer` instead (see `docs/REMIX_ASSETS_MIGRATION_PLAN.md`) | Bookstore: `./public`; demos: `staticFiles('.')` for component demos |
 
-*Left column re-checked against the code on 2026-09-18.* Four rows had drifted
+*Left column re-checked against the code on 2026-09-18.* Five rows had drifted
 since this analysis was written: context access (rc.2 replaced the
 `context.session` / `context.formData` properties), middleware order (four
-entries listed, ten in the chain), file uploads (listed as none, but CSV
-import has existed for both portfolio and catalog), and components (entries
-are typed `.component.ts` now). The right column describes the upstream repo
-at the time of the analysis and was not re-checked.
+entries listed, ten in the chain), file uploads (listed as none, though the
+app takes two), data validation (named the raw conversion rather than the
+helper that wraps it), and components (entries are typed `.component.ts`
+now). The right column describes the upstream repo at the time of the
+analysis and was **not** re-checked.
+
+A caution for whoever updates this next: the first attempt at the file-uploads
+row called the catalog import a CSV. It is a HAR / JSON capture; only the
+portfolio import is CSV. Review caught it, but the dated line above had
+already been written, so the error was being stamped as verified. A
+re-check note is worth less than nothing if the re-check is done from memory
+— open the file.
 
 ---
 
