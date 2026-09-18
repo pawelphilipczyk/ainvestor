@@ -99,6 +99,17 @@ describe('fingerprinted asset URLs', () => {
 	// so it fingerprints — the same configuration production runs, which is why
 	// the suite exercises it rather than a dev-only one.
 	it('serves content-hashed URLs with immutable caching', async () => {
+		// Assert the precondition rather than relying on it, the way the HMR
+		// test below does. With `NODE_ENV=development` inherited, the server
+		// watches instead of fingerprinting: these two tests would fail
+		// confusingly, and the suite would quietly stop covering the production
+		// asset configuration at all.
+		assert.notEqual(
+			process.env.NODE_ENV,
+			'development',
+			'this suite must run the non-watching (production) asset configuration',
+		)
+
 		const href = await assetHref('app/entry.ts')
 		assert.match(
 			href,

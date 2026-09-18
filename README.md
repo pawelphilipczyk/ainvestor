@@ -71,9 +71,12 @@ The dev server hot-reloads rather than restarting. Editing a server component
 hot-swaps it in place (`remix/node-hmr` + `remix/ui-hmr/node`); editing a
 client entry (`*.component.ts`) patches any open tab without reloading it, over
 the asset server's browser HMR channel. Both are development-only, keyed on the
-`REMIX_NODE_HMR` flag that `npm run dev` sets — `npm start` serves the same
-assets with no watcher and no HMR client. See
-`docs/REMIX_ASSETS_MIGRATION_PLAN.md`.
+`REMIX_NODE_HMR` flag that `npm run dev` sets.
+
+`npm start` serves the same modules a different way: no watcher, no HMR
+client, and content-hashed URLs cached `immutable` for a year. The un-hashed
+path is not served in production at all, so never hard-code an `/assets/...`
+string — use `assetHref()`. See `docs/REMIX_ASSETS_MIGRATION_PLAN.md`.
 
 ## Run tests
 
