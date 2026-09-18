@@ -141,14 +141,28 @@ export const remixAssetServer = createAssetServer({
 	// `fingerprint` also requires it off; see
 	// `docs/REMIX_ASSETS_MIGRATION_PLAN.md`.
 	watch: watchSources ? { ignore: ['**/node_modules/**'] } : false,
+	// Content-hashed URLs, and with them `Cache-Control: public, max-age=
+	// 31536000, immutable` instead of `no-cache` on every asset. The hash is
+	// part of the URL, so a changed file is a different URL and the old one can
+	// be cached forever — there is nothing to revalidate.
+	//
+	// Derived from `watchSources`, not set beside it, for the same reason `hmr`
+	// is: the asset server rejects fingerprinting together with an active
+	// watcher, so one fact decides both and no later edit can enable a
+	// combination it refuses. In practice that means development watches and
+	// does not fingerprint, while production and `node --test` fingerprint and
+	// do not watch — so CI exercises the production configuration rather than a
+	// dev-only one.
+	fingerprint: !watchSources,
 })
 
 /**
  * Served URL of one repo file, e.g. `assetHref('app/entry.ts')`.
  *
- * The one way to name a browser module's URL. Nothing should hard-code an
- * `/assets/...` path: the mount layout and any future fingerprinting are the
- * asset server's to decide.
+ * The one way to name a browser module's URL, and since Stage 3 not merely a
+ * tidiness rule: production fingerprints, and the un-hashed path is not served
+ * there at all. A hard-coded `/assets/...` string therefore works in
+ * development and 404s in production.
  */
 export function assetHref(relativePath: string): Promise<string> {
 	return remixAssetServer.getHref(assetSourcePath(relativePath))

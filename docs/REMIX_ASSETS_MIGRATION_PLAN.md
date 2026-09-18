@@ -21,12 +21,14 @@ around the scoping.
 - **Stage 1 (the architecture switch) is done and merged on `main`** (PR #202).
 - **Stage 2 (browser HMR) is done and merged on `main`** (PR #204).
 - **Stage 4a (typed shared entries) is done and merged on `main`** (PR #206).
-- **Stage 4b (typed feature entries) is done**, on branch
-  `claude/remix-assets-migration-rz1392`. **Stage 4 is complete: there is no
-  untyped client code left in this app.**
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (613) and
+- **Stage 4b is done and merged on `main`** (PR #207). Stage 4 is complete:
+  there is no untyped client code left in this app.
+- **Stage 3 (fingerprinting and cache headers) is done**, on branch
+  `claude/remix-assets-migration-rz1392`.
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (615) and
   `npm run test:browser` (40, real Chromium).
-- **Next:** Stage 3, the last one.
+- **Next: nothing. The staged migration is complete** — see *Done, and what is
+  deliberately not here* at the end.
 
 ## Stage 1 — serve client entries from the asset server. **Done.**
 
@@ -131,12 +133,61 @@ One consequence worth knowing: the asset server's watcher and HMR channel hold
 the event loop open, so `server.ts`'s shutdown handler now closes it. Without
 that, Ctrl-C would not stop the dev server.
 
-## Stage 3 — fingerprinting and cache headers
+## Stage 3 — fingerprinting and cache headers. **Done.**
 
-`createAssetServer({ fingerprint: true })` gives content-hashed URLs and
-immutable caching; today every asset is served `Cache-Control: no-cache`.
-Mutually exclusive with `watch`, so it is a production-only setting and lands
-naturally after Stage 2 has made the dev/prod split explicit.
+Assets are served from content-hashed URLs with
+`Cache-Control: public, max-age=31536000, immutable`, replacing `no-cache` on
+every asset. One line: `fingerprint: !watchSources`.
+
+**Derived from `watchSources`, not set beside it** — the third option to
+follow that rule, after `watch` and `hmr`. The asset server rejects
+fingerprinting together with an active watcher, so one fact decides both and
+no later edit can produce a combination it refuses. Stage 4b's review showed
+what the alternative costs: two options keyed to the same *input* rather than
+one resolved *fact* silently broke every page.
+
+What that means per environment, measured on both:
+
+| | URL | `Cache-Control` |
+|---|---|---|
+| `npm start` (production) | `/assets/app/entry.@ypajE0.ts` | `public, max-age=31536000, immutable` |
+| `npm run dev` | `/assets/app/entry.ts` | `no-cache` (and HMR alive) |
+
+`node --test` does not watch, so **the suite runs the production
+configuration** rather than a dev-only one — which is how the three remaining
+hand-written path assertions were caught.
+
+Two things worth knowing:
+
+- **The un-hashed path is not served at all** in fingerprint mode; it 404s.
+  Not "served with `no-cache`", as the option's own docs might suggest. So a
+  hard-coded `/assets/...` string works in development and 404s in
+  production — which is what makes `assetHref()` load-bearing rather than
+  merely tidy. Both facts are pinned by tests, checked to fail when
+  fingerprinting is off.
+- **The hash tracks content.** Measured: edit a component and its URL changes;
+  revert it and the original URL comes back. That is what makes a one-year
+  `immutable` safe — a changed file is a different URL, so there is nothing to
+  revalidate.
+
+## Done, and what is deliberately not here
+
+All five stages are merged or ready: 1 (serve client entries from the asset
+server), 2 (browser HMR), 4a and 4b (typed client entries), 3 (fingerprinting).
+
+Left undone on purpose, none of them migration stages:
+
+- `sidebar.component.ts` has three five-argument functions that AGENTS.md's
+  signature rule says should take one object.
+- `docs/REMIX_REPO_ANALYSIS.md` has rows that drifted in earlier migrations
+  (its "Context access" row still describes pre-rc.2 context).
+- `'instrument' | 'bucket'` is declared in three places; the entry cannot
+  import the other two, so collapsing it needs its own change.
+- `NODE_ENV=development` in the `dev` script is POSIX-only, so `npm run dev`
+  fails on Windows `cmd.exe`. Fixing it means adding `cross-env`.
+- The HMR channel omits the `moduleImporter` polyfill Remix's own template
+  sets; without it, a hot update that needs a newly-added bare specifier
+  requires Chrome 133+. Dev-only.
 
 ## Stage 4 — typed client entries (`.component.ts`)
 

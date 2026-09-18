@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
+import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
@@ -114,7 +115,12 @@ describe('ETF Catalog page', () => {
 			/<a\b[^>]*\bhref="\/catalog"[^>]*\bdata-catalog-etf-back\b/,
 			'Back uses catalog as no-JS fallback; JS prefers history.back()',
 		)
-		assert.match(body, /catalog-etf-back\.component\.ts/)
+		assert.ok(
+			body.includes(
+				await assetHref('app/features/catalog/catalog-etf-back.component.ts'),
+			),
+			'page does not mount the catalog-etf-back client entry',
+		)
 	})
 
 	it('GET /catalog/fragments/etf-analysis/:id returns empty fragment when signed in', async () => {
@@ -1032,7 +1038,14 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /name="type"/)
 		assert.match(body, /name="risk"/)
 		assert.match(body, /data-catalog-filter-form/)
-		assert.match(body, /catalog-filter-prefs\.component\.ts/)
+		assert.ok(
+			body.includes(
+				await assetHref(
+					'app/features/catalog/catalog-filter-prefs.component.ts',
+				),
+			),
+			'page does not mount the catalog-filter-prefs client entry',
+		)
 		assert.match(body, /1 ETF in catalog/)
 	})
 
