@@ -3,7 +3,7 @@ import { addEventListeners } from '../../lib/browser/event-listeners.ts'
 
 const ATTR = 'data-catalog-etf-back'
 
-function isModifiedClick(event) {
+function isModifiedClick(event: MouseEvent) {
 	return (
 		event.defaultPrevented ||
 		event.button !== 0 ||

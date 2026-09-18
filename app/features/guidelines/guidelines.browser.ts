@@ -15,7 +15,7 @@ import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
  * forms (add-instrument, add-bucket, per-row update-target, per-row delete), all
  * POSTing to the single `guidelines.action` route (`/guidelines`) and discriminated
  * by a hidden `guidelineIntent` field — see `docs/UI_ARCHITECTURE_GUIDELINES.md` §10
- * and `docs/REMIX_RC_MIGRATION_STATUS.md`. `guidelines-list-frame.component.js` is
+ * and `docs/REMIX_RC_MIGRATION_STATUS.md`. `guidelines-list-frame.component.ts` is
  * the shared client entry driving their UX.
  *
  * Row presence/absence is asserted via `li:has-text(...)` selectors, not a
@@ -229,7 +229,7 @@ describe('guidelines forms (browser)', () => {
 })
 
 /**
- * `guidelines-tabs.component.js`: real, client-side `remix/ui/tabs/primitives`
+ * `guidelines-tabs.component.ts`: real, client-side `remix/ui/tabs/primitives`
  * usage (`Context`/`root`/`list`/`tab`/`panel`, `<button>` hosts), per the
  * Remix team's own documented intent (`node_modules/remix/src/ui/tabs/README.md`)
  * rather than `tabs-nav.tsx`'s page-navigation pattern — see

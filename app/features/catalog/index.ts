@@ -2,8 +2,7 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
-import { renderToStream } from 'remix/ui/server'
-import { render } from '../../components/render.ts'
+import { render, renderFragmentToStream } from '../../components/render.ts'
 import {
 	requestAcceptsApplicationJson,
 	requestAcceptsFrameSubmitHtml,
@@ -232,7 +231,7 @@ function renderCatalogEtfAnalysisFragmentHtml(
 	const headers = new Headers(init?.headers)
 	headers.set('Cache-Control', 'no-store')
 	return createHtmlResponse(
-		renderToStream(jsx(CatalogEtfAnalysisFragment, props)),
+		renderFragmentToStream(jsx(CatalogEtfAnalysisFragment, props)),
 		{
 			...init,
 			headers,
@@ -246,10 +245,13 @@ function renderCatalogListFragmentHtml(
 ): Response {
 	const headers = new Headers(init?.headers)
 	headers.set('Cache-Control', 'no-store')
-	return createHtmlResponse(renderToStream(jsx(CatalogListFragment, props)), {
-		...init,
-		headers,
-	})
+	return createHtmlResponse(
+		renderFragmentToStream(jsx(CatalogListFragment, props)),
+		{
+			...init,
+			headers,
+		},
+	)
 }
 
 /**
@@ -376,7 +378,7 @@ export const catalogController = {
 			}
 
 			return createHtmlResponse(
-				renderToStream(jsx(CatalogEtfAnalysisFragment, {})),
+				renderFragmentToStream(jsx(CatalogEtfAnalysisFragment, {})),
 				{ headers: { 'Cache-Control': 'no-store' } },
 			)
 		},
@@ -597,7 +599,7 @@ export const catalogEtfController = {
 				init: { headers: { 'Cache-Control': 'no-store' } },
 				resolveFrame(source) {
 					if (samePathAndSearch(source, analysisFrameSrc)) {
-						return renderToStream(jsx(CatalogEtfAnalysisFragment, {}))
+						return renderFragmentToStream(jsx(CatalogEtfAnalysisFragment, {}))
 					}
 					return ''
 				},
@@ -738,7 +740,7 @@ async function renderCatalogPage(
 		flashBanner,
 		resolveFrame(source) {
 			if (source === frameSrc) {
-				return renderToStream(
+				return renderFragmentToStream(
 					jsx(CatalogListFragment, {
 						catalog,
 						holdings: entries,

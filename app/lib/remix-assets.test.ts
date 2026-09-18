@@ -97,7 +97,7 @@ describe('client entries are served through the asset server', () => {
 describe('asset server access boundary', () => {
 	it('serves the app modules the browser needs', async () => {
 		for (const source of [
-			'app/entry.js',
+			'app/entry.ts',
 			'app/components/layout/sidebar.component.ts',
 			'app/lib/browser/scroll-lock.ts',
 		]) {
@@ -176,12 +176,12 @@ describe('asset server access boundary', () => {
 
 		// Component modules only. `uiHmr()` instruments those and nothing else:
 		// measured against a live supervised dev server, `theme-toggle.component.ts`
-		// came back with 10 instrumentation markers while `app/entry.js` and
+		// came back with 10 instrumentation markers while `app/entry.ts` and
 		// `app/lib/browser/scroll-lock.ts` had none. Asserting over a module that is
 		// never instrumented either way would pass whatever this gate did.
 		for (const source of [
 			'app/components/navigation/theme-toggle.component.ts',
-			'app/features/portfolio/portfolio-list-frame.component.js',
+			'app/features/portfolio/portfolio-list-frame.component.ts',
 		]) {
 			const response = await router.fetch(
 				new URL(await assetHref(source), 'http://localhost/'),

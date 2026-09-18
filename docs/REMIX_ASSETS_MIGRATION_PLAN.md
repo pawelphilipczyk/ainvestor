@@ -20,12 +20,13 @@ around the scoping.
 
 - **Stage 1 (the architecture switch) is done and merged on `main`** (PR #202).
 - **Stage 2 (browser HMR) is done and merged on `main`** (PR #204).
-- **Stage 4a (typed shared entries) is done**, on branch
-  `claude/remix-assets-migration-rz1392`.
-- **Green:** `npm run check`, `npm run typecheck`, `npm test` (610) and
+- **Stage 4a (typed shared entries) is done and merged on `main`** (PR #206).
+- **Stage 4b (typed feature entries) is done**, on branch
+  `claude/remix-assets-migration-rz1392`. **Stage 4 is complete: there is no
+  untyped client code left in this app.**
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (613) and
   `npm run test:browser` (40, real Chromium).
-- **Next:** Stage 4b (the 11 feature entries), or Stage 3 — independent of
-  each other.
+- **Next:** Stage 3, the last one.
 
 ## Stage 1 — serve client entries from the asset server. **Done.**
 
@@ -218,13 +219,75 @@ that AGENTS.md's signature rule says should take one object. Annotating them
 was in scope; restructuring them and their call sites is a refactor, and
 mixing it into a conversion would obscure both.
 
-### Stage 4b — the 11 feature entries
+### Stage 4b — the 11 feature entries, `app/entry.ts`, and the glob. **Done.**
 
-The remainder, under `app/features/**`: catalog (4), guidelines (3),
-portfolio (2), advice (2). Same recipe, and the measurement from the bulk
-trial says to expect roughly five type errors each, mostly implicit-any
-parameters and untyped props. Nothing structural is left to decide — 4a
-established the conventions, the directory and the boundary.
+The remainder under `app/features/**` converted (37 type errors, as the bulk
+trial predicted), the last 9 sidecars deleted, and `app/entry.js` converted
+too. **No `.component.js` and no `.component.d.ts` remain anywhere.**
+
+That emptied two allowances, so the boundary narrowed again: `allowFiles` no
+longer lists `app/**/*.component.js` at all. What the browser can reach is now
+exactly `app/**/*.component.ts`, `app/lib/browser/**/*.ts` and `app/entry.ts`,
+minus `denyFiles`.
+
+What the types caught here:
+
+- **Two `@ts-expect-error` directives were suppressing the untyped imports**
+  (`catalog-etf-page.tsx`, `guidelines-page.tsx`). Both are gone — TypeScript
+  reports an unused directive, so the compiler tells you when a suppression
+  stops being needed. That is the clearest possible sign this stage was worth
+  doing: the pages had been lying to the compiler about their own imports.
+- **Two sidecars were looser than the truth.** `AdviceModeTabs.activeTab` was
+  typed `string`; the call site has always passed
+  `'buy_next' | 'portfolio_review'`. Same for `GuidelinesTabs.activeAddTab`.
+  A hand-written sidecar can be wrong in this direction indefinitely; the real
+  signature cannot.
+- **`ref()` hands back `Element`, not `HTMLElement`.** Advice's tab nodes feed
+  `setSubmitButtonLoading`, which takes `HTMLElement`. Narrowed at the ref
+  rather than widening that shared helper for one caller — the same call 4a
+  made for `querySelector`.
+
+`app/entry.ts` needed one thing: a `declare global` for `navigation`, which
+TypeScript's DOM lib does not carry. It is declared `unknown` on purpose — in
+Chromium that global is the real platform object, and all this file asks is
+whether it is absent, so a hand-written interface would have described the
+stub accurately and the browser's own object falsely.
+
+Review of this stage found a **severe bug carried in from Stage 2**, worth
+recording because the shape of the mistake generalises. Stage 2 gated both
+`scripts: { loaders: [uiHmr()] }` and the `hmr` channel on `REMIX_NODE_HMR`.
+Stage 2's own review then made the *channel* degrade gracefully when the flag
+is set without real supervision — but a channel factory returning `undefined`
+cannot undo a `scripts.loaders` decision, which is fixed when the server is
+constructed. So `REMIX_NODE_HMR=1 node server.ts` served every component
+module importing `/assets/__remix_hmr/client.js`, which 500s: every module
+failed to load, the whole app silently lost hydration, and the server logged
+that it was running. Measured before and after.
+
+The fix resolves the runtime *once, before* `createAssetServer()`, and
+configures both options from that one answer. The lesson: when two options
+must agree, derive them from a single resolved fact rather than from a shared
+input — the same reasoning `watch` already followed.
+
+Two more from the same review:
+
+- **`denyFiles` did not cover `*.browser.*`.** This repo's Playwright specs
+  use that suffix precisely so `npm test` skips them, and a spec in
+  `app/lib/browser/` would have been served publicly — the identical hole
+  Stage 4a's deny rule was added to close, one glob short.
+- **13 fragment renders had no `resolveClientEntry`.** Not live (no fragment
+  renders a client entry today), but since Stage 1 made entry IDs `file:`
+  URLs, the first one that did would have emitted a filesystem path as a
+  script `src`. All 13 now go through `renderFragmentToStream()`.
+
+`hmr.ts` also joined `tsconfig.json`'s `include` — it was the one file this
+stage's "no untyped code left" claim did not actually cover.
+
+One duplication left alone: `'instrument' | 'bucket'` is now declared in three
+places (`guidelines-tabs.component.ts`, `guidelines-page.tsx`,
+`guidelines/index.ts`). The entry cannot import either of the others — both
+are server-only, and the asset server does not serve `.tsx`. Collapsing it
+is its own change.
 
 ## Decisions taken — do not relitigate
 

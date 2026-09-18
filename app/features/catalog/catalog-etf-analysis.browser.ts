@@ -12,7 +12,7 @@ import { setAdviceClient } from '../advice/advice-client.ts'
  * Browser coverage for the catalog ETF detail page's
  * `data-rmx-target="catalog-etf-analysis"` "load analysis" form — see
  * `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 and `docs/REMIX_RC_MIGRATION_STATUS.md`.
- * `catalog-etf-analysis-frame.component.js` is the client entry driving its UX,
+ * `catalog-etf-analysis-frame.component.ts` is the client entry driving its UX,
  * including `data-frame-hide-form-on-success` — the one option neither prior
  * port (`PortfolioListFrame`, `GuidelinesListFrame`) needed.
  */

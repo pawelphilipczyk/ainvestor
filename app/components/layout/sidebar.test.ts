@@ -208,7 +208,7 @@ describe('remix ui runtime in document', () => {
 	it('document loads the bootstrap entry to boot remix ui runtime', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		const entryHref = await assetHref('app/entry.js')
+		const entryHref = await assetHref('app/entry.ts')
 		assert.match(
 			body,
 			new RegExp(`<script[^>]*type="module"[^>]*src="${entryHref}"`),
@@ -222,7 +222,7 @@ describe('remix ui runtime in document', () => {
 	})
 	it('the bootstrap entry is served with run({ loadModule }) and no custom resolveFrame', async () => {
 		const response = await router.fetch(
-			new URL(await assetHref('app/entry.js'), 'http://localhost/'),
+			new URL(await assetHref('app/entry.ts'), 'http://localhost/'),
 		)
 		assert.equal(response.status, 200)
 		const body = await response.text()
@@ -232,7 +232,7 @@ describe('remix ui runtime in document', () => {
 		assert.match(body, /run\(\{/)
 		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
 		// rc.2's default resolveFrame is a strict superset of the app's old
-		// custom implementation (adds form-submission support); see app/entry.js.
+		// custom implementation (adds form-submission support); see app/entry.ts.
 		assert.doesNotMatch(body, /resolveFrame/)
 	})
 })

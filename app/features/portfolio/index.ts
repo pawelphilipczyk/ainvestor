@@ -2,8 +2,7 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
-import { renderToStream } from 'remix/ui/server'
-import { render } from '../../components/render.ts'
+import { render, renderFragmentToStream } from '../../components/render.ts'
 import { requestAcceptsFrameSubmitHtml } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, fetchPortfolioSnapshot, saveEtfs } from '../../lib/gist.ts'
@@ -191,7 +190,7 @@ export const portfolioController = {
 				catalog = await fetchCatalog()
 			}
 			return createHtmlResponse(
-				renderToStream(
+				renderFragmentToStream(
 					jsx(ListFragment, {
 						entries,
 						catalog,
@@ -276,7 +275,7 @@ async function renderPage(
 		init: { headers: { 'Cache-Control': 'no-store' } },
 		resolveFrame(source) {
 			if (source === routes.portfolio.fragmentList.href()) {
-				return renderToStream(
+				return renderFragmentToStream(
 					jsx(ListFragment, { entries, catalog: params.catalog }),
 				)
 			}

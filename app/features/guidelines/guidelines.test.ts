@@ -75,7 +75,7 @@ function addAssetClass(assetClassType: string, targetPct: string) {
 }
 
 /**
- * `guidelines-tabs.component.js` renders both add-tab panels into the
+ * `guidelines-tabs.component.ts` renders both add-tab panels into the
  * DOM on every load (`remix/ui/tabs/primitives`' `panel()` toggles which one
  * is visible client-side, not server-side conditional rendering) — so the
  * inactive panel's own opening `<div mix={[panel(...)]}>` tag is what carries
@@ -104,7 +104,7 @@ describe('Guidelines page', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Guidelines/)
-		assert.match(body, /guidelines-list\.component\.js/)
+		assert.match(body, /guidelines-list\.component\.ts/)
 		assert.match(body, /role="tablist"/)
 		assert.match(body, /role="tab"/)
 		assert.match(body, /action="\/guidelines"/)
@@ -834,7 +834,7 @@ describe('Guidelines page', () => {
 	it('serves guidelines-list component entry for delete dialog', async () => {
 		const componentScriptResponse = await testSessionFetch(
 			new URL(
-				await assetHref('app/features/guidelines/guidelines-list.component.js'),
+				await assetHref('app/features/guidelines/guidelines-list.component.ts'),
 				'http://localhost/',
 			).href,
 		)

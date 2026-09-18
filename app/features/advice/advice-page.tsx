@@ -21,7 +21,7 @@ import type {
 	AdviceDocument,
 	AdviceEtfProposalRow,
 } from './advice-document.ts'
-import { AdviceModeTabs } from './advice-mode-tabs.component.js'
+import { AdviceModeTabs } from './advice-mode-tabs.component.ts'
 import {
 	ADVICE_MODEL_IDS,
 	type AdviceAnalysisMode,
@@ -31,7 +31,7 @@ import {
 	DEFAULT_CATALOG_ETF_MODEL,
 	normalizeAdviceAnalysisTab,
 } from './advice-openai.ts'
-import { AdviceResultFrame } from './advice-result-frame.component.js'
+import { AdviceResultFrame } from './advice-result-frame.component.ts'
 
 /** Same max-width tokens as catalog list tables (`catalog-list-fragment.tsx`) for apples-to-apples layout. */
 const adviceTableTextColMax = 'max-w-48 sm:max-w-56 md:max-w-xs lg:max-w-sm'

@@ -17,7 +17,7 @@ import { setAdviceClient } from './advice-client.ts'
  * portfolio-review clear) ported from `data-frame-submit`/`FrameSubmitEnhancement`
  * to native `data-rmx-target="advice-result"` — see
  * `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 and `docs/REMIX_RC_MIGRATION_STATUS.md`.
- * `advice-result-frame.component.js` is the client entry driving its UX; unlike
+ * `advice-result-frame.component.ts` is the client entry driving its UX; unlike
  * the trade/guidelines/catalog ports, the `advice-result` Frame is now
  * unconditionally rendered (even before any analysis exists) so a submission
  * always has a named frame to target instead of falling back to a full
@@ -185,8 +185,8 @@ describe('advice forms (browser)', () => {
 })
 
 /**
- * `advice-mode-tabs.component.js`: real, client-side `remix/ui/tabs/primitives`
- * usage, same shape as `guidelines-tabs.component.js` but pointing the
+ * `advice-mode-tabs.component.ts`: real, client-side `remix/ui/tabs/primitives`
+ * usage, same shape as `guidelines-tabs.component.ts` but pointing the
  * shared `advice-result` Frame at the other mode's own fragment URL and
  * reloading it on switch, instead of toggling a `hidden` panel — each mode's
  * form defaults are gist-backed and mode-specific, so they're fetched fresh

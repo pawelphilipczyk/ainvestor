@@ -11,7 +11,7 @@ import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { ImportEtfForm } from './import-etf-form/import-etf-form.tsx'
-import { PortfolioListFrame } from './portfolio-list-frame.component.js'
+import { PortfolioListFrame } from './portfolio-list-frame.component.ts'
 import { PortfolioOperationForm } from './portfolio-operation-form/index.ts'
 
 type PortfolioPageProps = {

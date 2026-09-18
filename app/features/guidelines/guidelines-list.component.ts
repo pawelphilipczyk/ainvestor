@@ -2,16 +2,16 @@ import { clientEntry, createElement } from 'remix/ui'
 import { openDialogForTrigger } from '../../lib/browser/dialog-trigger.ts'
 import { addEventListeners } from '../../lib/browser/event-listeners.ts'
 
-function guidelineIdFromDataset(element, attributeName) {
+function guidelineIdFromDataset(element: HTMLElement, attributeName: string) {
 	const raw = element.dataset?.[attributeName]
 	return typeof raw === 'string' && raw.length > 0 ? raw : null
 }
 
-function guidelineEditFormIsVisible(form) {
+function guidelineEditFormIsVisible(form: Element | null) {
 	return form instanceof HTMLFormElement && !form.classList.contains('hidden')
 }
 
-function showGuidelineTargetEdit(document, guidelineId) {
+function showGuidelineTargetEdit(document: Document, guidelineId: string) {
 	for (const openForm of document.querySelectorAll(
 		'[data-guideline-edit-form]',
 	)) {
@@ -42,7 +42,7 @@ function showGuidelineTargetEdit(document, guidelineId) {
 	}
 }
 
-function hideGuidelineTargetEdit(document, guidelineId) {
+function hideGuidelineTargetEdit(document: Document, guidelineId: string) {
 	const read = document.querySelector(`[data-guideline-read="${guidelineId}"]`)
 	const form = document.querySelector(
 		`[data-guideline-edit-form="${guidelineId}"]`,

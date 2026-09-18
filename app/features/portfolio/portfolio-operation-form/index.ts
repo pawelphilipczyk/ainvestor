@@ -3,7 +3,7 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
-import { renderToStream } from 'remix/ui/server'
+import { renderFragmentToStream } from '../../../components/render.ts'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
 import {
 	requestAcceptsApplicationJson,
@@ -54,7 +54,7 @@ async function portfolioListFragmentHtmlResponse(
 ) {
 	const catalog = await loadCatalogForPortfolioList(context)
 	return createHtmlResponse(
-		renderToStream(
+		renderFragmentToStream(
 			jsx(ListFragment, {
 				entries: params.entries,
 				catalog,
