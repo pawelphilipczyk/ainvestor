@@ -113,38 +113,55 @@ describe("a served entry's own imports", () => {
 		// the document import map, whose top-level `imports` maps each plain
 		// asset path to its hashed URL. So the real question is whether the
 		// resolved path is a key in that map.
-		const body = await fetchPage('/guidelines')
-		const { imports } = importMapOf(body)
+		let relativeSpecifiersSeen = 0
 
-		const moduleUrls = [
-			...new Set(
-				[...body.matchAll(/"moduleUrl":"([^"]+)"/g)].map((match) => match[1]),
-			),
-		]
-		assert.ok(moduleUrls.length > 0, 'page rendered no client entries')
+		for (const path of PAGES) {
+			const body = await fetchPage(path)
+			const { imports } = importMapOf(body)
+			const moduleUrls = [
+				...new Set(
+					[...body.matchAll(/"moduleUrl":"([^"]+)"/g)].map((match) => match[1]),
+				),
+			]
+			assert.ok(moduleUrls.length > 0, `${path} rendered no client entries`)
 
-		for (const moduleUrl of moduleUrls) {
-			const source = await (
-				await router.fetch(`http://localhost${moduleUrl}`)
-			).text()
-			const relativeSpecifiers = [
-				...source.matchAll(/from\s+['"](\.[^'"]+)['"]/g),
-			].map((match) => match[1])
+			for (const moduleUrl of moduleUrls) {
+				const entry = await router.fetch(`http://localhost${moduleUrl}`)
+				assert.equal(entry.status, 200, moduleUrl)
+				const source = await entry.text()
 
-			for (const specifier of relativeSpecifiers) {
-				const resolved = new URL(
-					specifier,
-					new URL(moduleUrl, 'http://localhost/'),
-				).pathname
-				const mapped = imports[resolved]
-				assert.ok(
-					mapped,
-					`${moduleUrl} imports "${specifier}" (${resolved}), which the document import map does not resolve`,
-				)
-				const response = await router.fetch(`http://localhost${mapped}`)
-				assert.equal(response.status, 200, mapped)
+				// Anchored to a real import statement. Unanchored, this also
+				// matches a string literal that happens to contain `from
+				// './…'`, which survives compilation and would fail the test
+				// over a specifier no module imports. (Comments would not —
+				// the asset server strips them.)
+				const relativeSpecifiers = [
+					...source.matchAll(/^import[^'"]*from\s*['"](\.[^'"]+)['"]/gm),
+				].map((match) => match[1])
+				relativeSpecifiersSeen += relativeSpecifiers.length
+
+				for (const specifier of relativeSpecifiers) {
+					const resolved = new URL(
+						specifier,
+						new URL(moduleUrl, 'http://localhost/'),
+					).pathname
+					const mapped = imports[resolved]
+					assert.ok(
+						mapped,
+						`${moduleUrl} imports "${specifier}" (${resolved}), which the document import map does not resolve`,
+					)
+					const response = await router.fetch(`http://localhost${mapped}`)
+					assert.equal(response.status, 200, mapped)
+				}
 			}
 		}
+
+		// Without this the loop that *is* the test could run zero times and
+		// still pass — the third time this suite needed such a guard.
+		assert.ok(
+			relativeSpecifiersSeen > 0,
+			'no client entry imported anything relative; the assertions above never ran',
+		)
 	})
 })
 
