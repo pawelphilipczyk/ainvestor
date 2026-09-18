@@ -94,6 +94,77 @@ describe('client entries are served through the asset server', () => {
 	})
 })
 
+describe("a served entry's own imports", () => {
+	it('can every one be resolved by the browser', async () => {
+		// The guard for a type-only module like
+		// `app/features/guidelines/tab-id.ts`: a browser entry may import a
+		// *type* from a file the asset server does not serve, because
+		// `verbatimModuleSyntax` erases `import type` outright. Turn one of
+		// those into a value import and the compiled entry gains a relative
+		// specifier that resolves to nothing — which is this assertion.
+		// Verified by doing it. Note it takes a *runtime* use to trip: an
+		// import used only under `typeof` is still a type position, so it is
+		// erased too and nothing breaks.
+		//
+		// Resolution is two steps, and checking only the first is misleading:
+		// a relative specifier in compiled output is *not* fingerprinted, so
+		// fetching it directly 404s under fingerprinting. The browser resolves
+		// it against the importing module's URL and then rewrites it through
+		// the document import map, whose top-level `imports` maps each plain
+		// asset path to its hashed URL. So the real question is whether the
+		// resolved path is a key in that map.
+		let relativeSpecifiersSeen = 0
+
+		for (const path of PAGES) {
+			const body = await fetchPage(path)
+			const { imports } = importMapOf(body)
+			const moduleUrls = [
+				...new Set(
+					[...body.matchAll(/"moduleUrl":"([^"]+)"/g)].map((match) => match[1]),
+				),
+			]
+			assert.ok(moduleUrls.length > 0, `${path} rendered no client entries`)
+
+			for (const moduleUrl of moduleUrls) {
+				const entry = await router.fetch(`http://localhost${moduleUrl}`)
+				assert.equal(entry.status, 200, moduleUrl)
+				const source = await entry.text()
+
+				// Anchored to a real import statement. Unanchored, this also
+				// matches a string literal that happens to contain `from
+				// './…'`, which survives compilation and would fail the test
+				// over a specifier no module imports. (Comments would not —
+				// the asset server strips them.)
+				const relativeSpecifiers = [
+					...source.matchAll(/^import[^'"]*from\s*['"](\.[^'"]+)['"]/gm),
+				].map((match) => match[1])
+				relativeSpecifiersSeen += relativeSpecifiers.length
+
+				for (const specifier of relativeSpecifiers) {
+					const resolved = new URL(
+						specifier,
+						new URL(moduleUrl, 'http://localhost/'),
+					).pathname
+					const mapped = imports[resolved]
+					assert.ok(
+						mapped,
+						`${moduleUrl} imports "${specifier}" (${resolved}), which the document import map does not resolve`,
+					)
+					const response = await router.fetch(`http://localhost${mapped}`)
+					assert.equal(response.status, 200, mapped)
+				}
+			}
+		}
+
+		// Without this the loop that *is* the test could run zero times and
+		// still pass — the third time this suite needed such a guard.
+		assert.ok(
+			relativeSpecifiersSeen > 0,
+			'no client entry imported anything relative; the assertions above never ran',
+		)
+	})
+})
+
 describe('fingerprinted asset URLs', () => {
 	// This process does not watch (no NODE_ENV=development, no REMIX_NODE_HMR),
 	// so it fingerprints — the same configuration production runs, which is why
