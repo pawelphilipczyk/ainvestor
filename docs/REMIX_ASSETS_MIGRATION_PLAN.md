@@ -187,7 +187,50 @@ Left undone on purpose, none of them migration stages:
   fails on Windows `cmd.exe`. Fixing it means adding `cross-env`.
 - The HMR channel omits the `moduleImporter` polyfill Remix's own template
   sets; without it, a hot update that needs a newly-added bare specifier
-  requires Chrome 133+. Dev-only.
+  requires Chrome 133+. Dev-only. **This one was tried and reverted, not
+  merely skipped** — see below.
+
+### Why `hmr.moduleImporter` stays off
+
+Setting it the way Remix's template does —
+
+```ts
+hmr: { channel: ..., moduleImporter: 'remix/multiple-import-maps-polyfill' }
+```
+
+— wires up correctly and still breaks dev hydration completely. The HMR client
+at `/assets/__remix_hmr/client.js` then opens with
+
+```js
+import { importModule as __remixImport } from "/assets/npm/remix/dist/multiple-import-maps-polyfill.js"
+```
+
+and that URL really does serve 200. The failure is one level down: that dist
+file is a one-line re-export,
+
+```js
+export * from '@remix-run/multiple-import-maps-polyfill';
+```
+
+and the browser cannot resolve that bare specifier, so **every** client entry
+fails to load — the symptom is total loss of hydration, nowhere near the line
+that caused it.
+
+The reason it cannot resolve is worth stating, because it is not obvious even
+once the symptom is known. The document import map is built from the *client
+entries'* module graphs. The HMR client is not a client entry, so nothing it
+imports is in the map. Feeding all 19 entries to `getImportMap()` returns 55
+specifiers and **not one of them is bare** — the map is entirely URL-rewritten.
+The polyfill is served as an npm passthrough rather than compiled through an
+entry graph, which is exactly why it is the one module still carrying an
+unrewritten bare specifier.
+
+The available fix — hand-adding an import-map entry for it — puts back the
+`remix/*` ↔ `@remix-run/*` pair-maintenance that Stage 1 existed to delete. So
+the polyfill stays off until there is a wiring that does not cost that. What is
+lost meanwhile is narrow and dev-only: a hot update that pulls in a *newly
+added* bare specifier falls back to a second `<script type="importmap">`, which
+needs Chrome 133+.
 
 ## Stage 4 — typed client entries (`.component.ts`)
 
