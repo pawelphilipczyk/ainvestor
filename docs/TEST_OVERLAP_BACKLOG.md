@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-09-17 (catalog)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-09-19 (guidelines)
 
 ---
 
@@ -41,44 +41,6 @@ unit test — only exercised indirectly via these two prompt-content tests.
 That's a gap, not overlap; logged for a future gap sweep rather than acted on
 here.
 
-### OV-002 — compact-height classes asserted through two components
-**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-17 · **Area:** components
-
-`applies compact height classes when compact is true` exists identically in
-`app/components/forms/submit-button.test.ts` and
-`app/components/forms/select-input.test.ts`. Both appear to be asserting the
-output of the shared helper in `app/components/forms/form-control-classes.ts`,
-which has **no direct test of its own** (see `GAP-004`).
-
-**Triage question:** are both assertions really about the shared helper, or
-does each component apply its own compact rules? If the former, test the
-helper directly once and have each component test assert only that it *uses*
-it. If the latter, this is not overlap — reject it.
-
-**Pairs with `GAP-004`.** Do them in the same run if they turn out to be one change.
-
-**Re-checked 2026-09-17** (while sweeping `GAP-004` in the gap backlog's area-6
-run, since the two are the same underlying fact): confirmed. Read
-`app/components/forms/form-control-classes.ts` — it is pure string
-composition with no branching; the `compact` decision lives in each
-component as a one-line ternary (`submit-button.tsx:39-41`,
-`select-input.tsx:43-45`). Both `it('applies compact height classes when
-compact is true', …)` cases (`submit-button.test.ts:16-22`,
-`select-input.test.ts:44-55`) assert the exact same regexes
-(`/\bh-9\b/`, `/\bmin-h-9\b/`) against the literal content of the shared
-`formControlHeightCompact` constant, routed through that ternary — a real,
-if small, duplicate of the constant's own value at two extra sites.
-Promoted to `approved`: closing this needs a component test that only
-proves the `compact` prop switches to the compact constant (e.g. that the
-rendered output differs from the default-prop render), leaving the literal
-`h-9`/`min-h-9` value pinned solely by the new
-`app/components/forms/form-control-classes.test.ts` added in this run's
-gap action (`GAP-004`). Left for a future run to act on, since only
-already-approved items are eligible for this run's one overlap action and
-this item became `approved` during this run, not before it started.
-
----
-
 ### OV-003 — the `?tab=` no-JS browser test runs twice
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** browser layer
 
@@ -91,6 +53,19 @@ browser tests are the most expensive thing in the suite.
 **Triage question:** do advice and guidelines resolve the initial tab through
 the same code path? If yes, keep one (guidelines has the denser tab coverage)
 and drop the other. If each page resolves `?tab=` itself, keep both and reject.
+
+**Note added 2026-09-19** (while sweeping `app/features/guidelines` — this is
+the only overlap candidate touching that area, and it was already open here,
+so not re-proposed): guidelines' tabs use the client-side
+`remix/ui/tabs/primitives` pattern (mouse-click/keyboard switching with no
+reload), while advice's tabs use a page-navigation/frame-reload pattern per
+`guidelines.browser.ts:230-238`'s own doc comment — so the mouse-click and
+keyboard-navigation cases in the two files are **not** duplicates of each
+other (different mechanisms). Only the no-JS `?tab=` initial-render case is a
+candidate duplicate, since both ultimately just assert the server-rendered
+tab-panel markup for a given `?tab=` query param, which may share the same
+underlying render helper. Whoever triages this next should check whether that
+render helper is in fact shared before deciding.
 
 ---
 
@@ -192,3 +167,27 @@ with one assertion that the alias is the same function reference
 (`assert.equal(parseAdviceCashAmount, parseLocaleDecimalString)`), so the day
 someone gives the advice path its own parsing rules, the alias test fails and
 the behaviour tests get written where they belong.
+
+### OV-002 — compact-height classes asserted through two components
+**Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-17 ·
+**Acted:** 2026-09-19 · **Area:** components · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/215
+
+`applies compact height classes when compact is true` existed identically in
+`app/components/forms/submit-button.test.ts` and
+`app/components/forms/select-input.test.ts`, both asserting the literal
+`h-9`/`min-h-9` content of the shared `formControlHeightCompact` constant
+(`app/components/forms/form-control-classes.ts`) through each component's
+one-line `compact` ternary (`submit-button.tsx:39-41`,
+`select-input.tsx:43-45`) — a real, if small, duplicate of the constant's
+value at two extra sites, on top of the direct pin added in
+`app/components/forms/form-control-classes.test.ts` by `GAP-004`.
+
+**Action taken:** rewrote both `it('applies compact height classes when
+compact is true', …)` cases as `it('switches from the default to the compact
+height tier when compact is true', …)`: each now renders both the
+default-prop and `compact: true` variants and asserts, via the imported
+`formControlHeightDefault`/`formControlHeightCompact` constants (not
+hardcoded `h-9`/`h-10` literals), that the rendered classes flip from one
+tier to the other. The literal height values stay pinned solely in
+`form-control-classes.test.ts`; these two tests now only prove each
+component *uses* the shared helper and reacts to `compact`.
