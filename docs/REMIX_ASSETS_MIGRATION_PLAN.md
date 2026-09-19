@@ -227,7 +227,9 @@ unrewritten bare specifier.
 
 The available fix — hand-adding an import-map entry for it — puts back the
 `remix/*` ↔ `@remix-run/*` pair-maintenance that Stage 1 existed to delete. So
-the polyfill stays off until there is a wiring that does not cost that. What is
+the polyfill stays off until there is a wiring that does not cost that; it is
+tracked for re-measurement on the next Remix release in
+`docs/REMIX_UPGRADE_WATCHLIST.md`. What is
 lost meanwhile is narrow and dev-only: a hot update that pulls in a *newly
 added* bare specifier falls back to a second `<script type="importmap">`, which
 needs Chrome 133+.

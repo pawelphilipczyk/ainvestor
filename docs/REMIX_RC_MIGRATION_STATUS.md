@@ -87,6 +87,10 @@ already equals its own page's route before wiring the attribute.
 
 ## Backlog — migration follow-ups, neither actionable today
 
+Both entries below are gated on a future Remix release, and both are tracked
+with their re-measurement steps in **`docs/REMIX_UPGRADE_WATCHLIST.md`** —
+read that when bumping the version, rather than re-deriving them from here.
+
 1. **`remix/ui/button` / `remix/ui/input`:** revisit if/when Remix ships
    `button/primitives` and `input/primitives` — the headless tier every other
    primitive adopted in this migration (tabs, toggle, select) already has.

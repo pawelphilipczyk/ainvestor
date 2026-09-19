@@ -20,6 +20,7 @@ This repository uses a server-first UI architecture. Before making UI-related ch
 Before making Remix framework changes, read:
 
 - `docs/REMIX_V3_PACKAGES.md`
+- `docs/REMIX_UPGRADE_WATCHLIST.md` **first** when bumping the Remix version — it lists the decisions this app took because of how the framework behaves today, so a release that changes that behaviour does not go unnoticed
 - `docs/REMIX_RC_MIGRATION_STATUS.md` **first** when resuming the `beta.0` → `3.0.0-rc.2` upgrade — it says which stage is in flight, what landed most recently, and what the next step is
 - `docs/REMIX_RC_MIGRATION_PLAN.md` for the plan itself, and for the measurements behind every decision the status file references
 - `docs/REMIX_ASSETS_MIGRATION_PLAN.md` when the work touches how browser modules are served, compiled or resolved (client entries, the document import map, HMR, asset caching) — it is the live plan that follows the rc.2 one
