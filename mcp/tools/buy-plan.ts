@@ -1,6 +1,7 @@
 import type {
 	AdviceBucketDiagnostic,
 	AdviceCashDeploymentRow,
+	AdviceInstrumentDiagnostic,
 	AllocationDiagnosticsBlocker,
 	BlockedAllocationDiagnostics,
 } from '../../app/features/advice/advice-openai.ts'
@@ -33,9 +34,11 @@ const DESCRIPTION = `Work out what to buy with a given amount of cash. For each 
 
 Use this whenever the question is where to put a sum of money. It is the app's own arithmetic — the same figures the web app treats as authoritative — so prefer it over working the gaps out from get_portfolio and get_guidelines by hand.
 
-It returns **numbers only**: no tickers, no fund picks, no written analysis. Choosing specific funds is your job, from list_catalog. It is also **buy-only** by design — it assumes nothing is sold, so a class already above target simply stays there and receives nothing. Never present its output as a reason to sell.
+It returns **numbers only**: no fund picks, no written analysis. Choosing which fund fills a bucket is your job, from list_catalog. It is also **buy-only** by design — it assumes nothing is sold, so a class already above target simply stays there and receives nothing. Never present its output as a reason to sell.
 
 Targets come from the guidelines, folded per asset class (a named-fund row counts toward its own class). When they do not sum to 100% they are scaled to it, and both the raw and the normalized percentage are reported.
+
+When the guidelines name specific funds, \`instruments\` reports each one's target, what is held in it, and its \`buyHeadroom\` — what it may still receive before it reaches that target. These are **caps on which fund a bucket's deployCash goes to**, not extra money: the bucket targets already contain every fund target of their class, so never add a headroom to a bucket figure. A fund whose headroom is 0 is at or above its target and must receive none of the cash — put that bucket's money in other catalog funds of the same class instead. It is still buy-only: a capped fund is never a reason to sell.
 
 The maths needs one currency: the app performs no FX conversion, so holdings in several currencies, or cash in a currency the holdings are not in, yield no numbers at all rather than a guess. In that case the answer says so and why — report that reason rather than estimating the figures yourself.`
 
@@ -88,6 +91,25 @@ export type BuyPlanBucket = {
 	deployCash: number
 }
 
+/**
+ * A fund the user set their own target for. These say **which** fund a bucket's
+ * `deployCash` may go to, never how much: the bucket target already contains every
+ * fund target of its type, so spending the headrooms on top of the bucket figures
+ * would push the class past its target whenever a named fund is overweight.
+ */
+export type BuyPlanInstrument = {
+	ticker: string
+	etfType: EtfType
+	/** The guideline row's target, as written. */
+	targetPct: number
+	/** The same target as a share of all targets — what the amounts below use. */
+	normalizedTargetPct: number
+	currentValue: number
+	targetValueAfterInvesting: number
+	/** What may still be bought before it reaches its target; 0 means buy none of it. */
+	buyHeadroom: number
+}
+
 type CashSummary = {
 	amount: number
 	currency: string
@@ -112,6 +134,8 @@ export type BuyPlanSummary =
 			postInvestmentTotal: number
 			targetPctSum: number
 			buckets: BuyPlanBucket[]
+			/** Omitted when no guideline names a specific fund. */
+			instruments?: BuyPlanInstrument[]
 			minimumBuysTotal: number
 			cashCoversAllMinimumBuys: boolean
 			/**
@@ -139,6 +163,26 @@ function bucketRow(params: {
 		targetValueAfterInvesting: roundToTwoDecimals(diagnostic.targetAmtPost),
 		minimumBuy: roundToTwoDecimals(diagnostic.idealBuyMin),
 		deployCash: roundToTwoDecimals(deployment?.amount ?? 0),
+	}
+}
+
+function instrumentRow(params: {
+	diagnostic: AdviceInstrumentDiagnostic
+	targetPctSum: number
+}): BuyPlanInstrument {
+	const { diagnostic, targetPctSum } = params
+	return {
+		ticker: diagnostic.ticker,
+		etfType: diagnostic.etfType,
+		targetPct: roundToTwoDecimals(diagnostic.targetPct),
+		normalizedTargetPct: roundToTwoDecimals(
+			(diagnostic.targetPct / targetPctSum) * 100,
+		),
+		currentValue: roundToTwoDecimals(diagnostic.currentValue),
+		targetValueAfterInvesting: roundToTwoDecimals(
+			diagnostic.targetValueAfterInvesting,
+		),
+		buyHeadroom: roundToTwoDecimals(diagnostic.buyHeadroom),
 	}
 }
 
@@ -220,6 +264,16 @@ export function summarizeBuyPlan(params: {
 				targetPctSum: diagnostics.targetPctSum,
 			}),
 		),
+		...(diagnostics.instrumentRows.length === 0
+			? {}
+			: {
+					instruments: diagnostics.instrumentRows.map((diagnostic) =>
+						instrumentRow({
+							diagnostic,
+							targetPctSum: diagnostics.targetPctSum,
+						}),
+					),
+				}),
 		minimumBuysTotal: roundToTwoDecimals(diagnostics.sumIdealBuyMin),
 		cashCoversAllMinimumBuys: deployment.coversAllMinimumBuys,
 		...(roundToTwoDecimals(deployment.remainder) === 0

@@ -64,7 +64,22 @@ bucket** (from the server). Use those figures to guide your "Current state analy
 (reference gaps by name, not by restating the same numbers). Then map buckets to catalog ETFs;
 **etf_proposals** amounts must match the deployment line items (± rounding).
 
+If **"Named-fund limits"** is present, the user set a target for those specific funds. Each line is a
+**cap** under buy-only: a fund marked **buy 0** must receive nothing — never propose a purchase of it,
+not even a small one, and not because it is already held. A fund with headroom may receive at most the
+stated amount. These caps decide **which** fund a bucket's cash goes to; they are never extra money to
+deploy, and the bucket figures already account for them, so do not add the two together. When a bucket
+has cash to place and its named funds are capped out, put that cash in **other catalog funds of the same
+asset class** rather than topping up a capped fund — the diagnostics say how much those unnamed funds can
+absorb. A fund sitting above its cap is not a reason to sell: it stays put and simply receives nothing.
+
 Base every specific ETF pick on the catalog; do not invent performance, risk, or cost figures.
+
+**Catalog type vs real exposure:** a catalog row's **type** does not always describe what a fund is
+economically — a physical commodity ETC, for one, is commonly filed under equity. When a fund's
+description points to a different exposure from its type, treat it as its own sleeve when you describe
+risk and say so in one short clause. Do not silently fold it into the class it is filed under, and do not
+call a portfolio "mostly equities" on the strength of a type field that a commodity holding inflates.
 
 You MUST respond with a single JSON object only (no markdown code fences, no extra text). Shape:
 {
@@ -119,8 +134,8 @@ Cover this substance across your blocks (paragraph text can use headings and bul
 - **One short line** under each pick: what this buy does for the portfolio in beginner terms (e.g. "Adds
   more bonds so you are closer to your target mix"). Only mention a catalog stat if it helps that one
   idea; skip stat dumps.
-- Prefer adds to held tickers when that hits a target; otherwise new catalog funds. Order by impact on
-  guideline alignment.
+- Prefer adds to held tickers when that hits a target **and the fund is not capped by a named-fund
+  limit**; otherwise new catalog funds. Order by impact on guideline alignment.
 
 **etf_proposals (use when targets or cash deployment should be concrete):** rows should **fully deploy**
 the user's cash (same currency; say so if FX mixing forces approximation). Sums are **only this inflow**
@@ -167,13 +182,21 @@ and optional target-allocation guidelines. The catalog is the only source for ti
    catalog fields (volatility, return/risk, risk score) only as light support; do not invent numbers.
 3. **Vs guidelines** — if targets exist, say in a few bullets whether they are roughly on track or not
    (by bucket), without repeating a full percentage table. If there are no guidelines, say the review is
-   based on holdings and catalog only.
+   based on holdings and catalog only. When **"Named-fund targets vs current weight"** is present, the
+   user has set a target for those specific funds: name the ones sitting well above target, since a
+   single fund far over its own target is the concentration worth flagging — an asset-class total can
+   look on track while one fund inside it dominates.
 4. **What could improve** — a **short numbered or bulleted list** of practical ideas (e.g. spread out
    more, add a missing type of fund, move toward targets). You may mention rebalancing or trimming **as
    general portfolio practice**; this is not a trade order.
 
 **Rules:**
 - Base every specific fund reference on the catalog; do not invent performance, risk, or cost figures.
+- **Catalog type vs real exposure:** a catalog row's **type** does not always describe what a fund is
+  economically — a physical commodity ETC, for one, is commonly filed under equity. When a fund's
+  description points to a different exposure from its type, treat it as its own sleeve and say so in one
+  short clause. Never call a portfolio "mostly equities" on the strength of a type field that a
+  commodity holding inflates; separate that holding out before you describe the risk posture.
 - Be clear this is educational commentary, not personalized investment advice.
 - Do not provide legal or tax advice.
 
@@ -438,6 +461,31 @@ function findInstrumentGuidelineEtfType(
 	return undefined
 }
 
+/**
+ * Value held in the fund a named-instrument guideline points at, matched on ticker
+ * then on name — the same two rules `findCatalogMatch` uses, read the other way
+ * round, so a holding and its guideline pair up under either spelling.
+ */
+function sumHoldingsMatchingGuidelineTicker(
+	guidelineTicker: string,
+	holdings: EtfEntry[],
+): number {
+	const normalizedTicker = guidelineTicker.trim().toUpperCase()
+	if (normalizedTicker.length === 0) return 0
+	let total = 0
+	for (const holding of holdings) {
+		const holdingTicker = holding.ticker?.trim().toUpperCase()
+		const holdingName = holding.name.trim().toUpperCase()
+		if (
+			holdingTicker === normalizedTicker ||
+			holdingName === normalizedTicker
+		) {
+			total += holding.value
+		}
+	}
+	return total
+}
+
 function resolveHoldingEtfTypeForAdviceDiagnostics(
 	holding: EtfEntry,
 	catalog: CatalogEntry[],
@@ -458,12 +506,38 @@ export type AdviceBucketDiagnostic = {
 	targetAmtPost: number
 	/** max(0, targetAmtPost - currentAmt); buy-only, no sells. */
 	idealBuyMin: number
+	/** Part of `currentAmt` sitting in funds a named-instrument guideline covers. */
+	namedInstrumentCurrentValue: number
+	/** The class's own `asset_class` guideline target; 0 when every row of this type names a fund. */
+	assetClassRowTargetPct: number
+}
+
+/**
+ * One named-fund guideline measured against what is held in it.
+ *
+ * These constrain **which** fund a bucket's cash may go to, never how much cash a
+ * bucket gets: the bucket target already contains every fund target of its type, so
+ * summing `buyHeadroom` and deploying that would push the class past its own target
+ * whenever a named fund is overweight.
+ */
+export type AdviceInstrumentDiagnostic = {
+	/** The guideline's ticker, as written. */
+	ticker: string
+	etfType: EtfType
+	targetPct: number
+	/** Value held in this fund; 0 when it is not held yet. */
+	currentValue: number
+	/** Target currency value after full cash deployment (post-total × normalized target %). */
+	targetValueAfterInvesting: number
+	/** Buyable before this fund reaches its own target; 0 means it must receive nothing. */
+	buyHeadroom: number
 }
 
 export type AdviceAllocationDiagnostics = {
 	postTotal: number
 	currency: string
 	rows: AdviceBucketDiagnostic[]
+	instrumentRows: AdviceInstrumentDiagnostic[]
 	sumIdealBuyMin: number
 	targetPctSum: number
 }
@@ -567,6 +641,48 @@ export function computeAdviceAllocationDiagnosticsOutcome(params: {
 	}
 
 	const postTotal = holdingsTotal + cashNum
+
+	const instrumentRows: AdviceInstrumentDiagnostic[] = params.guidelines
+		.filter(
+			(guideline) => guideline.kind === 'instrument' && guideline.targetPct > 0,
+		)
+		.map((guideline) => {
+			const currentValue = sumHoldingsMatchingGuidelineTicker(
+				guideline.etfName,
+				params.holdings,
+			)
+			const targetValueAfterInvesting =
+				postTotal * (guideline.targetPct / targetPctSum)
+			return {
+				ticker: guideline.etfName,
+				etfType: guideline.etfType,
+				targetPct: guideline.targetPct,
+				currentValue,
+				targetValueAfterInvesting,
+				buyHeadroom: Math.max(0, targetValueAfterInvesting - currentValue),
+			}
+		})
+		.sort((a, b) => b.targetPct - a.targetPct)
+
+	const namedInstrumentValueByType = new Map<EtfType, number>()
+	for (const instrumentRow of instrumentRows) {
+		namedInstrumentValueByType.set(
+			instrumentRow.etfType,
+			(namedInstrumentValueByType.get(instrumentRow.etfType) ?? 0) +
+				instrumentRow.currentValue,
+		)
+	}
+
+	const assetClassRowPctByType = new Map<EtfType, number>()
+	for (const guideline of params.guidelines) {
+		if (guideline.kind !== 'asset_class') continue
+		assetClassRowPctByType.set(
+			guideline.etfType,
+			(assetClassRowPctByType.get(guideline.etfType) ?? 0) +
+				guideline.targetPct,
+		)
+	}
+
 	const rows: AdviceBucketDiagnostic[] = [...targetPctByType.entries()]
 		.filter(([, pct]) => pct > 0)
 		.sort((a, b) => b[1] - a[1])
@@ -582,6 +698,9 @@ export function computeAdviceAllocationDiagnosticsOutcome(params: {
 				currentAmt,
 				targetAmtPost,
 				idealBuyMin,
+				namedInstrumentCurrentValue:
+					namedInstrumentValueByType.get(etfType) ?? 0,
+				assetClassRowTargetPct: assetClassRowPctByType.get(etfType) ?? 0,
 			}
 		})
 
@@ -592,6 +711,7 @@ export function computeAdviceAllocationDiagnosticsOutcome(params: {
 			postTotal,
 			currency: params.cashCurrency,
 			rows,
+			instrumentRows,
 			sumIdealBuyMin,
 			targetPctSum,
 		},
@@ -708,8 +828,17 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 	const diagnostics = computeAdviceAllocationDiagnostics(params)
 	if (!diagnostics) return null
 
-	const { postTotal, currency, rows, sumIdealBuyMin, targetPctSum } =
-		diagnostics
+	const {
+		postTotal,
+		currency,
+		rows,
+		instrumentRows,
+		sumIdealBuyMin,
+		targetPctSum,
+	} = diagnostics
+	const typesWithNamedFunds = new Set(
+		instrumentRows.map((instrumentRow) => instrumentRow.etfType),
+	)
 	const lines: string[] = [
 		'---',
 		'Server allocation diagnostics (authoritative numbers — interpret these in "Current state analysis" by referencing gaps, not restating the numbers; do not contradict):',
@@ -727,6 +856,13 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 				: `${normalizedPct.toFixed(2)}% (${row.targetPct}/${targetPctSum})`
 		lines.push(
 			`- ${row.label}: target ${targetPctLabel} → ${row.targetAmtPost.toFixed(2)} ${currency} at post-total; currently ${row.currentAmt.toFixed(2)} ${currency}; minimum buy (if underweight) ${row.idealBuyMin.toFixed(2)} ${currency}`,
+		)
+		if (!typesWithNamedFunds.has(row.etfType)) continue
+		const unnamedTarget =
+			postTotal * (row.assetClassRowTargetPct / targetPctSum)
+		const unnamedCurrent = row.currentAmt - row.namedInstrumentCurrentValue
+		lines.push(
+			`  - Inside this class, the named funds listed below hold ${row.namedInstrumentCurrentValue.toFixed(2)} ${currency}; every other ${row.label} fund holds ${unnamedCurrent.toFixed(2)} ${currency} against the class's own ${row.assetClassRowTargetPct}% row → ${unnamedTarget.toFixed(2)} ${currency} at post-total, so unnamed ${row.label} funds can absorb ${Math.max(0, unnamedTarget - unnamedCurrent).toFixed(2)} ${currency}.`,
 		)
 	}
 
@@ -762,10 +898,69 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 		}
 	}
 
+	if (instrumentRows.length > 0) {
+		lines.push(
+			"Named-fund limits (the user set a target for these specific funds). These decide **which** fund a bucket's cash may go to; they are **not** extra money to deploy, and the bucket figures above already account for them — never add them together:",
+		)
+		for (const instrumentRow of instrumentRows) {
+			const heldAgainstTarget = `holds ${instrumentRow.currentValue.toFixed(2)} ${currency} against a target of ${instrumentRow.targetValueAfterInvesting.toFixed(2)} ${currency}`
+			lines.push(
+				instrumentRow.buyHeadroom <= CASH_DEPLOYMENT_EPSILON
+					? `- ${instrumentRow.ticker} (${formatEtfTypeLabel(instrumentRow.etfType)}, target ${instrumentRow.targetPct}%): ${heldAgainstTarget} — **at or above target: buy 0**. Do not propose any purchase of this fund.`
+					: `- ${instrumentRow.ticker} (${formatEtfTypeLabel(instrumentRow.etfType)}, target ${instrumentRow.targetPct}%): ${heldAgainstTarget} — may receive at most ${instrumentRow.buyHeadroom.toFixed(2)} ${currency}.`,
+			)
+		}
+	}
+
 	lines.push(
 		'Map these buckets to specific ETFs from the catalog (same asset type). etf_proposals row amounts should align with the deployment figures above.',
 	)
 
+	return lines.join('\n')
+}
+
+/**
+ * Named-fund targets against what is held in them, as whole-portfolio percentages.
+ *
+ * The review mode has no cash amount, so it cannot use the allocation diagnostics;
+ * without this it would see only class totals, and a class can sit on target while
+ * one fund inside it holds most of the weight.
+ */
+export function formatInstrumentGuidelineWeightsBlock(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+}): string | null {
+	const instrumentGuidelines = params.guidelines.filter(
+		(guideline) => guideline.kind === 'instrument' && guideline.targetPct > 0,
+	)
+	if (instrumentGuidelines.length === 0) return null
+
+	const { total, mixed } = sumHoldingsValues(params.holdings)
+	if (mixed || total <= 0) return null
+
+	const { sumAll } = aggregateGuidelineTargetsByEtfType(params.guidelines)
+	if (sumAll <= 0) return null
+
+	const lines = [
+		'---',
+		'**Named-fund targets vs current weight** (both as % of the ETF portfolio; target % normalized against the guideline total):',
+	]
+	for (const guideline of instrumentGuidelines) {
+		const currentValue = sumHoldingsMatchingGuidelineTicker(
+			guideline.etfName,
+			params.holdings,
+		)
+		const currentPct = (currentValue / total) * 100
+		const targetPct = (guideline.targetPct / sumAll) * 100
+		const gap = currentPct - targetPct
+		const verdict =
+			gap > 0
+				? `**${gap.toFixed(2)}pp above target**`
+				: `${Math.abs(gap).toFixed(2)}pp below target`
+		lines.push(
+			`- ${guideline.etfName}: target ${targetPct.toFixed(2)}%, currently ${currentPct.toFixed(2)}% — ${verdict}.`,
+		)
+	}
 	return lines.join('\n')
 }
 
@@ -857,10 +1052,15 @@ function buildPortfolioReviewUserMessage(params: {
 
 	const allocationBlock = formatAllocationContext(holdings, catalog)
 	const catalogBlock = formatCatalogForAdvice(catalog)
+	const instrumentWeightsBlock = formatInstrumentGuidelineWeightsBlock({
+		holdings,
+		guidelines,
+	})
 
 	return (
 		`${guidelinesSection}` +
 		`---\nAllocation context (current ETF weights by asset type; do not invent percentages beyond this summary):\n${allocationBlock}\n\n` +
+		`${instrumentWeightsBlock ? `${instrumentWeightsBlock}\n\n` : ''}` +
 		`---\nETF catalog (cite only tickers and stats from this list):\n${catalogBlock}\n\n` +
 		`---\nMy current holdings (line items):\n${holdingsList}\n\n` +
 		`Give the portfolio health review described in your system instructions. Respond using the JSON block structure there (paragraph blocks only; no etf_proposals).`

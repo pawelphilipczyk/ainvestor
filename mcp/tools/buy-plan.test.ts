@@ -483,3 +483,62 @@ describe('get_buy_plan tool', () => {
 		await assert.rejects(async () => tool.handler({ cashAmount: '100' }))
 	})
 })
+
+describe('get_buy_plan named-fund limits', () => {
+	const catalog = [
+		catalogEntry({ id: 't:A', ticker: 'A', name: 'A', type: 'equity' }),
+		catalogEntry({ id: 't:D', ticker: 'D', name: 'D', type: 'equity' }),
+		catalogEntry({ id: 't:B', ticker: 'B', name: 'B', type: 'bond' }),
+	]
+	const guidelines = [
+		guideline({ id: 'g1', targetPct: 50, etfType: 'equity' }),
+		guideline({
+			id: 'g2',
+			kind: 'instrument',
+			etfName: 'A',
+			targetPct: 20,
+			etfType: 'equity',
+		}),
+		guideline({ id: 'g3', targetPct: 30, etfType: 'bond' }),
+	]
+	const holdings = [
+		holding({ id: 'h1', name: 'A', ticker: 'A', value: 6000 }),
+		holding({ id: 'h2', name: 'D', ticker: 'D', value: 1000 }),
+		holding({ id: 'h3', name: 'B', ticker: 'B', value: 1000 }),
+	]
+
+	it('reports a named fund that is already past its target as unbuyable', () => {
+		const summary = withDiagnostics(
+			summarize({ holdings, guidelines, catalog, cashAmountText: '2000' }),
+		)
+		assert.equal(summary.postInvestmentTotal, 10000)
+		assert.deepEqual(summary.instruments, [
+			{
+				ticker: 'A',
+				etfType: 'equity',
+				targetPct: 20,
+				normalizedTargetPct: 20,
+				currentValue: 6000,
+				targetValueAfterInvesting: 2000,
+				buyHeadroom: 0,
+			},
+		])
+	})
+
+	it('keeps the cash on the buckets, which the fund limits never add to', () => {
+		const summary = withDiagnostics(
+			summarize({ holdings, guidelines, catalog, cashAmountText: '2000' }),
+		)
+		const equity = summary.buckets.find((bucket) => bucket.etfType === 'equity')
+		const bond = summary.buckets.find((bucket) => bucket.etfType === 'bond')
+		assert.equal(equity?.minimumBuy, 0)
+		assert.equal(equity?.deployCash, 0)
+		assert.equal(bond?.deployCash, 2000)
+		assert.equal(summary.minimumBuysTotal, 2000)
+	})
+
+	it('omits instruments entirely when every guideline is a bucket', () => {
+		const summary = withDiagnostics(summarize())
+		assert.equal(summary.instruments, undefined)
+	})
+})
