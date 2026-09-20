@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 4 — `app/features/portfolio`
-**Last swept:** 2026-09-19 (guidelines)
+**Next area to sweep:** 5 — `app/lib`
+**Last swept:** 2026-09-20 (portfolio)
 
 ---
 
@@ -18,7 +18,7 @@ run must obey: `docs/TEST_HEALTH.md`.
 advice prompt when they exist (gist-backed)") builds a guideline
 `{ etfName: 'VTI', targetPct: 60, etfType: 'equity' }` via the private-gist
 overlay and asserts `capturedUserMessage` matches `/VTI.*60%/` and
-`/equity/`. `app/features/advice/advice-openai.test.ts:252-301` ("includes
+`/equity/`. `app/features/advice/advice-openai.test.ts:253-302` ("includes
 guidelines as target allocation in the user message") uses the identical
 guideline shape (VTI/60%/equity, plus BND/30%/bond) fed directly to
 `getInvestmentAdvice`, and asserts the same `/VTI.*60%/`-style output plus
@@ -26,6 +26,17 @@ more (`/BND.*30%/`, `/bond/`, `/split of the new cash alone/i`,
 `/whole ETF portfolio/i`). The route test's assertions are a strict subset of
 the unit test's over the same input→output mapping (`formatGuidelineLine`'s
 "name target%" rendering), not just "same module touched."
+
+**Re-verified 2026-09-20** (while sweeping `app/features/portfolio` — this
+was the only open item worth re-checking during that pass): both tests still
+exist exactly as described; only a one-line drift on the unit-test side —
+the `advice-openai.test.ts` case actually runs lines 253-302, not 252-301
+(corrected above). `formatGuidelineLine` (`advice-openai.ts:249`) still has
+no direct test, called only at `advice-openai.ts:864` and `:932`. Evidence
+holds, but the triage question below is a values judgment, not a factual
+one, so this stays at `proposed` rather than being promoted — it needs a
+human call on whether the gist→prompt round-trip guarantee is worth keeping
+separately pinned.
 
 **Triage question:** should `advice.test.ts:277-323` be thinned to assert
 only that *some* guideline text made it into the prompt (e.g. `/VTI/` and one
@@ -41,36 +52,8 @@ unit test — only exercised indirectly via these two prompt-content tests.
 That's a gap, not overlap; logged for a future gap sweep rather than acted on
 here.
 
-### OV-003 — the `?tab=` no-JS browser test runs twice
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** browser layer
-
-`no-JS: the initial tab from ?tab= still renders correctly server-side` appears
-in both `app/features/advice/advice.browser.ts` and
-`app/features/guidelines/guidelines.browser.ts`. If both are exercising the same
-shared tabs primitive, this is a real Chromium launch spent twice on one rule —
-browser tests are the most expensive thing in the suite.
-
-**Triage question:** do advice and guidelines resolve the initial tab through
-the same code path? If yes, keep one (guidelines has the denser tab coverage)
-and drop the other. If each page resolves `?tab=` itself, keep both and reject.
-
-**Note added 2026-09-19** (while sweeping `app/features/guidelines` — this is
-the only overlap candidate touching that area, and it was already open here,
-so not re-proposed): guidelines' tabs use the client-side
-`remix/ui/tabs/primitives` pattern (mouse-click/keyboard switching with no
-reload), while advice's tabs use a page-navigation/frame-reload pattern per
-`guidelines.browser.ts:230-238`'s own doc comment — so the mouse-click and
-keyboard-navigation cases in the two files are **not** duplicates of each
-other (different mechanisms). Only the no-JS `?tab=` initial-render case is a
-candidate duplicate, since both ultimately just assert the server-rendered
-tab-panel markup for a given `?tab=` query param, which may share the same
-underlying render helper. Whoever triages this next should check whether that
-render helper is in fact shared before deciding.
-
----
-
 ### OV-005 — colliding test names across MCP tools
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** mcp/tools · **Priority:** low
+**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-20 · **Area:** mcp/tools · **Priority:** low
 
 `reads the pinned gist and returns the summary as JSON text` names a case in
 both `mcp/tools/portfolio.test.ts` and `mcp/tools/guidelines.test.ts`. These
@@ -81,12 +64,53 @@ make a failure report ambiguous about which tool broke.
 Cosmetic; do it as a rider on a run that is already touching these files, not
 as a run's one change.
 
+**Re-verified 2026-09-20:** confirmed, no drift. The exact name still appears
+verbatim at `mcp/tools/portfolio.test.ts:237` and
+`mcp/tools/guidelines.test.ts:178`. Promoted to `approved`; still not acted on
+this run since this run doesn't otherwise touch either file (this run's own
+gap-filling test adds a new file, `mcp/tools/tool-arguments.test.ts`, rather
+than editing these two) — leave for a run that is.
+
 ---
 
 ## Rejected
 
 Runs **must** read this list before proposing, and must never re-propose an
 item that appears here.
+
+### RJ-004 — the `?tab=` no-JS browser test in advice vs. guidelines
+**Rejected:** 2026-09-20 · **Reason:** re-verified against a full read of both
+pages' render paths; each resolves `?tab=` through a completely separate
+mechanism, so this was never overlap.
+
+Previously `OV-003`: `no-JS: the initial tab from ?tab= still renders
+correctly server-side` appears in both `app/features/advice/advice.browser.ts:273-303`
+and `app/features/guidelines/guidelines.browser.ts:324-341`. Traced both:
+
+- **Advice:** `?tab=` is parsed by `parseAdviceTabParam`
+  (`app/features/advice/index.ts:61-64`) →
+  `renderAdvicePageResponse` (`:181-216`) wires a `Frame` whose `resolveFrame`
+  calls `resolveAdviceResultFrame` (`:164-179`), which server-renders the
+  `AdviceModePanel` component (`advice-page.tsx:640`, containing
+  `#adviceModel-review` at `:737-741`) via
+  `renderFragmentToStream(jsx(AdviceModePanel, …))`.
+- **Guidelines:** `?tab=` is parsed by `normalizeGuidelinesAddTab`
+  (`app/features/guidelines/index.ts:642-644`) → `renderGuidelinesPage`
+  (`:696-730`) passes `activeAddTab` straight into `GuidelinesPage`'s body
+  props (`:709-713`) — **not** through `resolveFrame` (guidelines'
+  `resolveFrame` at `:721-728` only handles the unrelated guidelines-list
+  Frame). Tab-content visibility instead comes from `GuidelinesTabs`
+  (`guidelines-tabs.component.ts`), which sets `defaultActiveTab` on the
+  shared `remix/ui/tabs/primitives` `Context` (`:22-26`); both panels render
+  into the SSR'd HTML and the primitives library marks the inactive one
+  hidden at render time.
+
+Two structurally different mechanisms (Frame/fragment-stream indirection vs.
+dual-render-with-hidden-attribute). The only shared import is the
+framework-level `remix/ui/tabs/primitives`, and even that's used differently
+(advice never calls its `panel()`; guidelines does). Per this item's own
+stated triage fork ("if each page resolves `?tab=` itself, keep both and
+reject"), the evidence lands on reject.
 
 ### RJ-001 — catalog TTL cache vs. MCP private-gist cache
 **Rejected:** 2026-09-16 · **Reason:** deliberate parallel coverage, not overlap.

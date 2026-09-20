@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 8 — `mcp/tools`
-**Last swept:** 2026-09-19 (`mcp` core)
+**Next area to sweep:** 1 — `app/features/advice`
+**Last swept:** 2026-09-20 (`mcp/tools`)
 
 ---
 
@@ -105,7 +105,7 @@ switch. That rule is testable and currently unpinned.
 would pin the documented rule. Low priority, small payoff, cheap.
 
 ### GAP-008 — MCP tool argument and result helpers
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `mcp/tools`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-20 · **Area:** `mcp/tools` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/216
 
 `mcp/tools/tool-arguments.ts` and `mcp/tools/tool-result.ts` — no direct
 coverage, though all six `mcp/tools/*.test.ts` files (116 cases) exercise them
@@ -114,6 +114,40 @@ on every call.
 **Triage:** almost certainly covered in effect. The only gap worth closing is a
 malformed-arguments edge the tool tests do not reach (wrong JSON types, missing
 required fields, extra fields). If the tool tests already cover those, reject.
+
+**Re-verified 2026-09-20** (while sweeping `mcp/tools`, area 8): sharper than
+originally framed. `jsonResult` (`tool-result.ts:4-8`) is pure and exercised
+on all 116 cases via each file's `payloadOf()` helper — no gap. `readStringArgument`
+(`tool-arguments.ts:8-16`) has its wrong-type/whitespace-only branches
+directly asserted, but only through the `mode` argument
+(`saved-advice.test.ts:191-202`, via `readAdviceAnalysisModeArgument`) — no
+other call site (`ticker`, `id`, `query`, …) ever sends a non-string value
+(confirmed by grep across `mcp/tools/*.test.ts` for `ticker: 0`/`null`/`true`
+and equivalents — zero hits). But `readUiLocaleArgument`
+(`tool-arguments.ts:23-34`) has **zero exercise, direct or indirect, in any
+of the 116 cases** — `grep -ni "locale" mcp/tools/generate-advice.test.ts`
+(its only caller, `generate-advice.ts:96`) returns no matches at all, so
+neither its default branch, its valid-non-default branch (`'pl'`), nor its
+invalid-value throw is asserted anywhere in the repo.
+
+**Action taken:** added `mcp/tools/tool-arguments.test.ts` (9 cases), matching
+the plain synchronous `describe`/`it` style already used for
+`summarizeCatalogSearch` in `catalog.test.ts:87-154` (no gist stubbing needed
+since both functions are pure). Covers `readStringArgument`'s trim/missing/
+whitespace-only/wrong-type branches and `readUiLocaleArgument`'s
+default-when-absent, default-when-null, valid-locale, invalid-string-locale
+and wrong-type-locale branches — the last two asserting the exact
+`"locale" must be one of: en, pl; got …` message the source throws. Verified
+the throw-path assertions were sound by direct inspection of
+`tool-arguments.ts:26-33` after a sandbox-classifier block prevented running
+the suite against a locally-broken copy of the source (attempted twice —
+first blocked as a shared-resource modification, then, after reverting and
+retrying, blocked outright as a security-test-removal pattern, which is a
+reasonable guard against exactly this kind of edit); each assertion encodes
+the exact branch condition and error string from the source, so a regression
+in any branch necessarily fails its assertion. Production code was not
+modified in the final diff — confirmed via `git diff` showing no change to
+`tool-arguments.ts`.
 
 ### GAP-009 — MCP stdout guard
 **Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-19 ·
@@ -290,6 +324,102 @@ helper — file as its sibling rather than a wholly new kind of item. Plain
 unit test (server-side, not browser): call `getNavLinks()` under `'pl'`,
 assert `'Portfel'` appears; switch to `'en'`, call again, assert
 `'Portfolio'`.
+
+### GAP-017 — `import_catalog_from_bank_file`'s own error branches are untested
+**Status:** `proposed` · **Proposed:** 2026-09-20 · **Area:** `mcp/tools`
+
+`mcp/tools/catalog-import.ts` is exercised via `catalog.test.ts:386-473`
+(`describe('import_catalog_from_bank_file tool')`, preview vs. apply,
+ownership refusal, missing file, no-`data`-array, not-an-object), but three
+of the module's own error branches are reached nowhere in the repo:
+
+- Oversized-file rejection (`catalog-import.ts:62-66`,
+  `stats.size > MULTIPART_MAX_FILE_BYTES`) — no test writes a file over the
+  limit.
+- Invalid-JSON-content rejection (`catalog-import.ts:69-75`, the `JSON.parse`
+  catch) — every test builds its fixture via `writeExport()`
+  (`catalog.test.ts:388-393`), which always produces valid JSON.
+- The "None of the N row(s) … could be imported" branch
+  (`catalog-import.ts:109-113`, taken when `structuralIssue === null` but
+  every row was skipped) — the one skip-only-row fixture
+  (`{ fund_name: 'Missing ticker' }`, `catalog.test.ts:404`) is mixed with a
+  valid row, so `parseResult.entries.length` is 1, never 0.
+
+Confirmed via repo-wide grep for the distinguishing message fragments (`the
+importer accepts up to`, `is not valid JSON`, `could be imported`) — zero
+hits outside `catalog-import.ts` itself. This is a stdio-only local-file tool
+with no other caller, so nothing exercises these indirectly.
+
+**Triage:** genuine gap. A test would write an oversized temp file, an
+invalid-JSON temp file, and an all-rows-invalid temp file, and assert each
+produces the specific tool error.
+
+### GAP-018 — `readOptionalEntryFields`'s wrong-type branch is untested
+**Status:** `proposed` · **Proposed:** 2026-09-20 · **Area:** `mcp/tools`
+
+`mcp/tools/catalog.ts:256`'s `` `"${name}" must be a number.` `` fires when
+`risk_kid`/`rate_of_return` is present but not a number (e.g.
+`risk_kid: 'abc'`). The only numeric-validation case sent
+(`catalog.test.ts:344-357`, `risk_kid: 9`) is a valid *number* merely
+out-of-range, which exercises the separate `validateCatalogEntry` →
+`"risk_kid" must be a whole number from 1 to 7` path (`catalog.ts:307-308`)
+instead. No test anywhere sends a wrong-type `risk_kid`/`rate_of_return`.
+
+**Triage:** genuine gap — a test calling `upsert_catalog_entry` with
+`risk_kid: 'abc'` (or similar) asserting the `"risk_kid" must be a number.`
+error.
+
+### GAP-019 — instrument guideline with no `ticker` is untested
+**Status:** `proposed` · **Proposed:** 2026-09-20 · **Area:** `mcp/tools`
+
+`mcp/tools/guidelines.ts:197-200`'s `buildGuidelineEntry` throws `'An
+instrument guideline needs "ticker".'` when `kind === 'instrument'` and
+`ticker` is absent. Every `kind: 'instrument'` call in `guidelines.test.ts`
+(lines 129, 163, 242, 259, 274, 283) always supplies a ticker. `set_guideline`
+is called only from `guidelines.test.ts` and merely named (not called) in
+`mcp/http.test.ts:251` (a tool-listing assertion). No indirect coverage.
+
+**Triage:** genuine gap — a `set_guideline` call with `kind: 'instrument'`
+and no `ticker`, asserting the specific error text.
+
+### GAP-020 — `generate_advice`'s `save` wrong-type branch is untested
+**Status:** `proposed` · **Proposed:** 2026-09-20 · **Area:** `mcp/tools`
+
+`mcp/tools/generate-advice.ts:78-85`'s `` `"save" must be a boolean; got …` ``
+error is unreached — `generate-advice.test.ts` only ever passes `save: false`
+(line 131) or omits the field entirely; no case passes a non-boolean like
+`save: 'yes'`.
+
+**Triage:** genuine gap — a `generate_advice` call with `save: 'yes'` (or
+similar), asserting the specific error text.
+
+### GAP-021 — `record_operation`'s own message-building branches are only partly covered
+**Status:** `proposed` · **Proposed:** 2026-09-20 · **Area:** `mcp/tools` · **Priority:** low
+
+Two branches in `mcp/tools/portfolio.ts`, lower-confidence than GAP-017–020
+since the underlying logic they wrap is already pinned elsewhere — flagging
+as a triage question rather than a firm claim:
+
+- `explainOperationBlocker`'s `'sell_no_holding'` case (`portfolio.ts:139-140`,
+  `"No holding matches … Call get_portfolio …"`) is never reached in
+  `portfolio.test.ts` (the only sell-refusal case there is
+  `sell_exceeds_holdings`, `portfolio.test.ts:434-452`). The `blocker:
+  'sell_no_holding'` *value* is pinned directly in
+  `app/lib/portfolio-operations.test.ts:182`, but that only asserts the
+  structural enum from `applyPortfolioOperation`, never the MCP tool's own
+  model-facing message text built in `portfolio.ts` — so the wrapping itself
+  has no assertion anywhere.
+- The `"Invalid operation: …"` wrapper (`portfolio.ts:154-163`, joining
+  `parsePortfolioOperationInput`'s issues) is likewise never triggered in
+  `portfolio.test.ts`. The underlying parse-failure *logic* is pinned in
+  `app/lib/portfolio-operations.test.ts:42-58`, but the tool's own
+  message-joining format is not.
+
+**Triage question:** is the MCP tool's own message-formatting layer (as
+opposed to the `app/lib` logic it wraps) worth a direct pin, the way
+`GAP-017`–`GAP-020` are, or does pinning the underlying `app/lib` behavior
+already cover what matters (the model gets *some* correctly-shaped error,
+exact wording aside)? Lower priority than the other four either way.
 
 ---
 
