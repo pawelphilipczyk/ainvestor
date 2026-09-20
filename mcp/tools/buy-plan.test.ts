@@ -542,3 +542,35 @@ describe('get_buy_plan named-fund limits', () => {
 		assert.equal(summary.instruments, undefined)
 	})
 })
+
+describe('get_buy_plan guideline and catalog type drift', () => {
+	it('refuses numbers and names the row to re-save', () => {
+		const summary = withoutDiagnostics(
+			summarize({
+				catalog: [
+					catalogEntry({
+						id: 't:A',
+						ticker: 'A',
+						name: 'A',
+						type: 'commodity',
+					}),
+				],
+				guidelines: [
+					guideline({
+						id: 'g1',
+						kind: 'instrument',
+						etfName: 'A',
+						targetPct: 50,
+						etfType: 'equity',
+					}),
+					guideline({ id: 'g2', targetPct: 50, etfType: 'commodity' }),
+				],
+				holdings: [holding({ id: 'h1', name: 'A', ticker: 'A', value: 1000 })],
+			}),
+		)
+		assert.equal(summary.blocker, 'instrument_type_mismatch')
+		assert.match(summary.reason, /"A"/)
+		assert.match(summary.reason, /set_guideline/)
+		assert.match(summary.reason, /reason to sell/)
+	})
+})

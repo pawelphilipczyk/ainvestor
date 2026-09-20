@@ -462,24 +462,30 @@ function findInstrumentGuidelineEtfType(
 }
 
 /**
- * Value held in the fund a named-instrument guideline points at, matched on ticker
- * then on name — the same two rules `findCatalogMatch` uses, read the other way
- * round, so a holding and its guideline pair up under either spelling.
+ * Whether a holding is the fund a named-instrument guideline points at, matched on
+ * ticker then on name — the same two rules `findCatalogMatch` uses, read the other
+ * way round, so a holding and its guideline pair up under either spelling.
  */
+function holdingMatchesGuidelineTicker(
+	holding: EtfEntry,
+	guidelineTicker: string,
+): boolean {
+	const normalizedTicker = guidelineTicker.trim().toUpperCase()
+	if (normalizedTicker.length === 0) return false
+	return (
+		holding.ticker?.trim().toUpperCase() === normalizedTicker ||
+		holding.name.trim().toUpperCase() === normalizedTicker
+	)
+}
+
+/** Value held in the fund a named-instrument guideline points at. */
 function sumHoldingsMatchingGuidelineTicker(
 	guidelineTicker: string,
 	holdings: EtfEntry[],
 ): number {
-	const normalizedTicker = guidelineTicker.trim().toUpperCase()
-	if (normalizedTicker.length === 0) return 0
 	let total = 0
 	for (const holding of holdings) {
-		const holdingTicker = holding.ticker?.trim().toUpperCase()
-		const holdingName = holding.name.trim().toUpperCase()
-		if (
-			holdingTicker === normalizedTicker ||
-			holdingName === normalizedTicker
-		) {
+		if (holdingMatchesGuidelineTicker(holding, guidelineTicker)) {
 			total += holding.value
 		}
 	}
@@ -494,6 +500,50 @@ function resolveHoldingEtfTypeForAdviceDiagnostics(
 	const matchedEntry = findCatalogMatch(holding, catalog)
 	if (matchedEntry) return matchedEntry.type
 	return findInstrumentGuidelineEtfType(holding, guidelines) ?? 'mixed'
+}
+
+export type InstrumentTypeMismatch = {
+	ticker: string
+	/** The class the guideline row was saved against. */
+	guidelineEtfType: EtfType
+	/** The class the holding resolves to today. */
+	holdingEtfType: EtfType
+}
+
+/**
+ * A named fund whose guideline and catalog disagree about its asset class.
+ *
+ * `set_guideline` copies the type from the catalog once, when the row is written,
+ * while a holding is typed from the catalog on every read. Re-typing a fund in the
+ * catalog therefore splits the two: the target keeps counting toward the class the
+ * fund left while its value counts toward the one it joined, so the class it moved
+ * to reads as empty and a buy plan sets out to fill it. Re-saving the row is what
+ * clears it.
+ */
+function findInstrumentTypeMismatch(params: {
+	holdings: EtfEntry[]
+	guidelines: EtfGuideline[]
+	catalog: CatalogEntry[]
+}): InstrumentTypeMismatch | null {
+	for (const guideline of params.guidelines) {
+		if (guideline.kind !== 'instrument') continue
+		for (const holding of params.holdings) {
+			if (holding.value <= 0) continue
+			if (!holdingMatchesGuidelineTicker(holding, guideline.etfName)) continue
+			const holdingEtfType = resolveHoldingEtfTypeForAdviceDiagnostics(
+				holding,
+				params.catalog,
+				params.guidelines,
+			)
+			if (holdingEtfType === guideline.etfType) continue
+			return {
+				ticker: guideline.etfName,
+				guidelineEtfType: guideline.etfType,
+				holdingEtfType,
+			}
+		}
+	}
+	return null
 }
 
 export type AdviceBucketDiagnostic = {
@@ -553,6 +603,7 @@ export type AllocationDiagnosticsBlocker =
 	| 'cash_currency_mismatch'
 	| 'no_guidelines'
 	| 'no_positive_targets'
+	| 'instrument_type_mismatch'
 	| 'unclassified_holding'
 
 export type BlockedAllocationDiagnostics = {
@@ -562,6 +613,8 @@ export type BlockedAllocationDiagnostics = {
 	holdingsCurrency?: string
 	/** The holding that falls outside every targeted bucket. */
 	unclassifiedHolding?: { name: string; etfType: EtfType }
+	/** The named fund whose guideline row and catalog row disagree on its class. */
+	instrumentTypeMismatch?: InstrumentTypeMismatch
 }
 
 export type AdviceAllocationDiagnosticsOutcome =
@@ -575,6 +628,10 @@ export type AdviceAllocationDiagnosticsOutcome =
  * The guard order matters and is the reported order: cash is parsed first
  * because nothing else is worth checking against an amount that is not a
  * number, and a holding's bucket is resolved last because it needs the targets.
+ * A guideline that disagrees with the catalog about a fund's class is caught
+ * just before that, because it is the more precise diagnosis of the two — left
+ * to run on, it does not necessarily strand a holding, it quietly moves one
+ * class's value away from the target still counting it.
  */
 export function computeAdviceAllocationDiagnosticsOutcome(params: {
 	holdings: EtfEntry[]
@@ -612,6 +669,15 @@ export function computeAdviceAllocationDiagnosticsOutcome(params: {
 		aggregateGuidelineTargetsByEtfType(params.guidelines)
 	if (targetPctSum <= 0) {
 		return { blocker: 'no_positive_targets', diagnostics: null }
+	}
+
+	const instrumentTypeMismatch = findInstrumentTypeMismatch(params)
+	if (instrumentTypeMismatch !== null) {
+		return {
+			blocker: 'instrument_type_mismatch',
+			diagnostics: null,
+			instrumentTypeMismatch,
+		}
 	}
 
 	const currentByType = new Map<EtfType, number>()
@@ -825,7 +891,23 @@ export function formatAdviceAllocationDiagnosticsBlock(params: {
 	cashCurrency: string
 	catalog: CatalogEntry[]
 }): string | null {
-	const diagnostics = computeAdviceAllocationDiagnostics(params)
+	const outcome = computeAdviceAllocationDiagnosticsOutcome(params)
+	// Every other blocker leaves the model with a coherent, if thinner, picture.
+	// This one does not: the guidelines and the catalog contradict each other, so
+	// staying silent would let it allocate against a class that only looks empty.
+	if (
+		outcome.blocker === 'instrument_type_mismatch' &&
+		outcome.instrumentTypeMismatch !== undefined
+	) {
+		const { ticker, guidelineEtfType, holdingEtfType } =
+			outcome.instrumentTypeMismatch
+		return [
+			'---',
+			`**Stale guideline — propose no purchases in this reply.** The target for ${ticker} is recorded against ${formatEtfTypeLabel(guidelineEtfType)}, but the catalog now classifies that fund as ${formatEtfTypeLabel(holdingEtfType)}. Its target and its value would be counted in different asset classes, leaving one class looking emptier than it is, so the server computed no figures at all.`,
+			`Say plainly that the ${ticker} guideline has to be re-saved before any allocation can be worked out. Give no purchase rows, no percentages and no deployment amounts.`,
+		].join('\n')
+	}
+	const diagnostics = outcome.diagnostics
 	if (!diagnostics) return null
 
 	const {

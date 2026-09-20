@@ -1380,3 +1380,111 @@ describe('named-fund guideline diagnostics', () => {
 		)
 	})
 })
+
+describe('guideline and catalog disagreeing on a fund class', () => {
+	const catalog: CatalogEntry[] = [
+		{
+			id: 'c1',
+			ticker: 'CORE',
+			name: 'Core World',
+			type: 'equity',
+			description: '',
+		},
+		// Re-typed in the catalog after the guideline below was saved.
+		{
+			id: 'c2',
+			ticker: 'GOLD',
+			name: 'Physical Gold',
+			type: 'commodity',
+			description: '',
+		},
+	]
+	const staleGuidelines: EtfGuideline[] = [
+		{
+			id: 'g1',
+			kind: 'asset_class',
+			etfName: '',
+			targetPct: 60,
+			etfType: 'equity',
+		},
+		{
+			id: 'g2',
+			kind: 'instrument',
+			etfName: 'GOLD',
+			targetPct: 10,
+			etfType: 'equity',
+		},
+		{
+			id: 'g3',
+			kind: 'asset_class',
+			etfName: '',
+			targetPct: 30,
+			etfType: 'commodity',
+		},
+	]
+	const holdings: EtfEntry[] = [
+		{
+			id: 'h1',
+			name: 'Core World',
+			ticker: 'CORE',
+			value: 5000,
+			currency: 'PLN',
+		},
+		{
+			id: 'h2',
+			name: 'Physical Gold',
+			ticker: 'GOLD',
+			value: 5000,
+			currency: 'PLN',
+		},
+	]
+	const params = {
+		holdings,
+		guidelines: staleGuidelines,
+		catalog,
+		cashAmount: '1000',
+		cashCurrency: 'PLN',
+	}
+
+	it('produces no numbers at all, naming both classes', () => {
+		const outcome = computeAdviceAllocationDiagnosticsOutcome(params)
+		if (outcome.blocker !== 'instrument_type_mismatch') {
+			assert.fail(`expected a type mismatch, got ${outcome.blocker}`)
+		}
+		assert.equal(outcome.diagnostics, null)
+		assert.deepEqual(outcome.instrumentTypeMismatch, {
+			ticker: 'GOLD',
+			guidelineEtfType: 'equity',
+			holdingEtfType: 'commodity',
+		})
+	})
+
+	it('clears once the guideline row is re-saved against the new class', () => {
+		const outcome = computeAdviceAllocationDiagnosticsOutcome({
+			...params,
+			guidelines: staleGuidelines.map((guideline) =>
+				guideline.etfName === 'GOLD'
+					? { ...guideline, etfType: 'commodity' as const }
+					: guideline,
+			),
+		})
+		assert.equal(outcome.blocker, null)
+	})
+
+	it('ignores a stale row for a fund that is not held', () => {
+		const outcome = computeAdviceAllocationDiagnosticsOutcome({
+			...params,
+			holdings: holdings.filter((holding) => holding.ticker !== 'GOLD'),
+		})
+		assert.equal(outcome.blocker, null)
+	})
+
+	it('warns the model rather than going silent', () => {
+		const block = formatAdviceAllocationDiagnosticsBlock(params)
+		assert.ok(block)
+		assert.match(block, /Stale guideline/)
+		assert.match(block, /propose no purchases/)
+		assert.match(block, /GOLD/)
+		assert.doesNotMatch(block, /Server allocation diagnostics/)
+	})
+})

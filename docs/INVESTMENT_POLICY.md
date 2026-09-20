@@ -135,9 +135,15 @@ buy plan will recommend filling it.
 
 This was observed live: right after SGLN was reclassified, `get_buy_plan` reported
 `commodity currentValue: 0` and proposed buying 7 502 PLN of gold against a position
-already 40% above target. **Re-save every guideline row naming a ticker whose catalog
-type changes**, and distrust any plan whose class current values do not sum to the
-portfolio total.
+already 40% above target.
+
+The allocation diagnostics now refuse to produce figures in this state
+(`instrument_type_mismatch`): when a guideline names a ticker that is held and the
+two disagree about its class, `get_buy_plan` returns the reason instead of numbers,
+and the advice prompt is told to propose no purchases. The remedy it names is the
+one that works — **re-save the guideline row**, which re-reads the type from the
+catalog. That guard ships on this branch, so it only protects the live tools once
+the branch is deployed.
 
 ## Drawdown
 

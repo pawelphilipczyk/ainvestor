@@ -61,6 +61,13 @@ function explainBlocker(params: {
 			return 'No guidelines are set, so there is no target allocation to compare the portfolio against. Add targets with set_guideline first.'
 		case 'no_positive_targets':
 			return 'Every guideline target is 0%, so no asset class is being aimed at. Raise at least one with set_guideline.'
+		case 'instrument_type_mismatch': {
+			const mismatch = outcome.instrumentTypeMismatch
+			if (mismatch === undefined) {
+				return 'A guideline names a fund the catalog no longer puts in the same asset class, so its target and its value would be counted in different buckets.'
+			}
+			return `The guideline for "${mismatch.ticker}" was saved while the catalog called that fund ${mismatch.guidelineEtfType}; the catalog now calls it ${mismatch.holdingEtfType}. Its target would count toward ${mismatch.guidelineEtfType} while the holding itself counts toward ${mismatch.holdingEtfType}, so ${mismatch.holdingEtfType} would read as emptier than it is and this tool would tell you to buy into it. No figures are given until that is fixed: call set_guideline again for ticker "${mismatch.ticker}" with its current target, which re-reads the type from the catalog. Never present this as a reason to sell.`
+		}
 		case 'unclassified_holding': {
 			const holding = outcome.unclassifiedHolding
 			if (holding === undefined) {
