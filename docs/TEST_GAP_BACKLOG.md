@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
-**Last swept:** 2026-09-17 (app/components + shared browser layer)
+**Next area to sweep:** 8 — `mcp/tools`
+**Last swept:** 2026-09-19 (`mcp` core)
 
 ---
 
@@ -116,14 +116,33 @@ malformed-arguments edge the tool tests do not reach (wrong JSON types, missing
 required fields, extra fields). If the tool tests already cover those, reject.
 
 ### GAP-009 — MCP stdout guard
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `mcp` core
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-19 ·
+**Area:** `mcp` core · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/215
 
 `mcp/stdout-guard.ts` — no direct coverage. On a stdio MCP transport, a stray
 `console.log` corrupts the JSON-RPC stream, and the symptom is a client that
 mysteriously disconnects. That is precisely a guard worth a test.
 
-**Triage:** genuine gap unless `mcp/protocol.test.ts` covers it. Assert that a
-write outside the protocol is intercepted rather than reaching stdout.
+**Re-checked 2026-09-19:** confirmed still a genuine gap. Grepped the whole
+repo for `stdout-guard`/`stdoutGuard` — the only hits are `mcp/server.ts`'s
+import and doc comment and `docs/MCP_SERVER_PLAN.md`'s layout listing, no test
+file anywhere. No test imports `mcp/server.ts` (the only importer of the
+guard), so there is no indirect path either — `mcp/protocol.test.ts` and
+`mcp/http.test.ts` both drive `protocol.ts`/`http.ts` directly.
+
+**Action taken:** added `mcp/stdout-guard.test.ts`. The module is
+side-effect-only (`console.log = console.error` etc., no exports), so the
+test installs spies on `process.stdout.write`/`process.stderr.write`, then
+dynamically `import()`s the guard module (reproducing the "must be imported
+first" ordering its own doc comment requires), asserts each patched
+`console.*` method now === `console.error` by identity, then calls
+`console.log`/`info`/`debug`/`dir`/`table` and asserts none of the five
+reached `process.stdout.write` while all five reached
+`process.stderr.write`. Verified the test fails for the right reason by
+temporarily disabling the `console.log = console.error` line in
+`mcp/stdout-guard.ts` locally (not committed) and confirming the identity
+assertion fails, then restored the file untouched — production code was not
+modified.
 
 ### GAP-010 — untested page components
 **Status:** `blocked` · **Proposed:** 2026-09-16 · **Area:** all features
@@ -291,7 +310,52 @@ Flagged during the seed survey; each needs the same triage before becoming an it
 Runs **must** read this list before proposing, and must never re-propose an
 item that appears here.
 
-_Nothing yet._
+### RJ-001 — `mcp/data-gist.ts`
+**Rejected:** 2026-09-19 · **Reason:** covered in effect, no direct test
+needed.
+
+No `mcp/data-gist.test.ts` exists, but `resolveDataGistId`'s full contract is
+pinned in `mcp/tools/portfolio.test.ts:173-223`
+(`describe('data gist resolution')`): discovery-by-description, concurrent
+caller dedup (only one upstream fetch for two simultaneous calls), the
+"no gist found" error and that no gist gets created, and that a failed lookup
+is not cached so a retry after signing in succeeds. `mcp/http.test.ts:290-324`
+additionally pins per-token isolation for the header-pinned branch. The
+"no direct coverage ≠ no coverage" case the top of this file warns about.
+
+### RJ-002 — `mcp/ainvestor-server.ts`
+**Rejected:** 2026-09-19 · **Reason:** covered in effect, no direct test
+needed.
+
+`createAinvestorMcpServer` is called directly in `mcp/resources.test.ts:147`
+and indirectly through every `mcp/http.test.ts` case via
+`handleMcpHttpRequest`. Its one server-specific branch, `allowLocalFileTools`,
+is pinned at `mcp/http.test.ts:246` ("lists every tool except the one that
+reads a local file").
+
+### RJ-003 — `mcp/jsonrpc.ts`
+**Rejected:** 2026-09-19 · **Reason:** covered in effect, no direct test
+needed.
+
+`serializeJsonRpcMessage` and `JSON_RPC_ERROR_CODES` are imported and
+asserted directly in `mcp/protocol.test.ts:1,4,336-344`. `isJsonRpcIncoming`'s
+branches are pinned indirectly through `protocol.test.ts`'s malformed-envelope
+and unusable-id cases, which exercise `handleMessage`'s envelope validation
+that calls it. `successResponse`/`errorResponse` shape is asserted on
+effectively every case in both `protocol.test.ts` and `http.test.ts`.
+
+### RJ-004 — `mcp/server.ts`
+**Rejected:** 2026-09-19 · **Reason:** deliberately untested by design, not
+an oversight.
+
+`docs/MCP_SERVER_PLAN.md:179-188` states `createMcpServer()` in `protocol.ts`
+does no I/O so tests can drive the protocol directly, `server.ts` is the only
+module that touches stdin/stdout, and tests must not import it. The design
+keeps all testable logic in `protocol.ts` (tested) and leaves `server.ts` as
+an intentionally-untested thin stdio-loop wrapper — the same shape as
+`GAP-010`'s page-component/route split. Never re-propose this one; the
+"blocked, needs a decision" treatment `GAP-010` gets doesn't apply here since
+the decision is already made and documented.
 
 ---
 
