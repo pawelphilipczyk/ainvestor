@@ -105,7 +105,7 @@ switch. That rule is testable and currently unpinned.
 would pin the documented rule. Low priority, small payoff, cheap.
 
 ### GAP-008 — MCP tool argument and result helpers
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-20 · **Area:** `mcp/tools` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/216
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-20 · **Area:** `mcp/tools` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/217
 
 `mcp/tools/tool-arguments.ts` and `mcp/tools/tool-result.ts` — no direct
 coverage, though all six `mcp/tools/*.test.ts` files (116 cases) exercise them
