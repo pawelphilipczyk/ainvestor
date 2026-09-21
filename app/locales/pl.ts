@@ -14,6 +14,7 @@ export const ETF_TYPE_LABELS_PL: Record<EtfType, string> = {
 	commodity: 'Towary',
 	mixed: 'Mieszany',
 	money_market: 'Rynek pieniężny',
+	unknown: 'Niesklasyfikowany',
 }
 
 export const pl = {
@@ -303,6 +304,10 @@ export const pl = {
 		'Katalog zapisano. Scalono {appliedCount} wiersz(y) z tej wklejki.',
 	'errors.catalog.import.diagnostic.nothingSavedLead':
 		'Nic nie zapisano z tej wklejki.',
+	'errors.catalog.import.diagnostic.unclassifiedHeading':
+		'Niesklasyfikowane — {count} wierszy nie ma klasy aktywów od banku; ustaw ich typ ręcznie:',
+	'errors.catalog.import.diagnostic.typeChangesHeading':
+		'Zmieniony typ w {count} istniejących wierszach (zapisz ponownie wytyczne wskazujące te fundusze):',
 	'errors.catalog.import.diagnostic.skippedHeading': 'Pominięte wiersze:',
 	'errors.catalog.import.diagnostic.notesHeading': 'Uwagi:',
 	'errors.catalog.import.diagnostic.notesSummaryMany':
@@ -352,6 +357,8 @@ export const pl = {
 		'Sprawdź fundusz lub wiadro, cel procentowy i spróbuj ponownie.',
 	'errors.guidelines.catalogEntryStale':
 		'Ten fundusz nie jest już w katalogu. Odśwież stronę i wybierz fundusz z listy.',
+	'errors.guidelines.catalogEntryUnclassified':
+		'Katalog nie ma jeszcze klasy aktywów dla {ticker}. Najpierw ustaw jej typ w katalogu, potem dodaj wytyczną.',
 	'errors.guidelines.assetClassStale':
 		'Ta klasa aktywów nie jest już dostępna. Odśwież stronę i wybierz z listy.',
 	'errors.advice.formRead':

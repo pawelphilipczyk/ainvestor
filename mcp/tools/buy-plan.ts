@@ -63,6 +63,9 @@ function explainBlocker(params: {
 			if (holding === undefined) {
 				return 'A holding falls outside every asset class that has a target, so the buckets would not account for the whole portfolio.'
 			}
+			if (holding.etfType === 'unknown') {
+				return `Holding "${holding.name}" is typed "unknown" in the catalog — the bank import could not tell what asset class it is, so this tool cannot place it in a bucket. Set its type with upsert_catalog_entry (check get_catalog_entry for the fund's description first), then retry.`
+			}
 			if (holding.etfType === 'mixed') {
 				if (catalogSize === 0) {
 					return `Holding "${holding.name}" could not be placed in an asset class, and the shared catalog came back with no entries at all — it is either not configured or temporarily unreachable, so nothing could be classified from it. Retry before changing any data; list_catalog shows whether the catalog is readable.`

@@ -12,6 +12,7 @@ export const ETF_TYPE_LABELS: Record<EtfType, string> = {
 	commodity: 'commodity',
 	mixed: 'mixed',
 	money_market: 'money market',
+	unknown: 'unclassified',
 }
 
 export const en = {
@@ -309,6 +310,10 @@ export const en = {
 		'Catalog saved. Merged {appliedCount} row(s) from this paste.',
 	'errors.catalog.import.diagnostic.nothingSavedLead':
 		'Nothing was saved from this paste.',
+	'errors.catalog.import.diagnostic.unclassifiedHeading':
+		'Unclassified — {count} rows have no asset class from the bank; set their type by hand:',
+	'errors.catalog.import.diagnostic.typeChangesHeading':
+		'Type changed on {count} existing rows (re-save any guideline naming these funds):',
 	'errors.catalog.import.diagnostic.skippedHeading': 'Skipped rows:',
 	'errors.catalog.import.diagnostic.notesHeading': 'Notes:',
 	'errors.catalog.import.diagnostic.notesSummaryMany':
@@ -359,6 +364,8 @@ export const en = {
 		'Check the fund or bucket, target percentage, and try again.',
 	'errors.guidelines.catalogEntryStale':
 		'That fund is no longer in your catalog. Refresh the page and choose a fund from the list.',
+	'errors.guidelines.catalogEntryUnclassified':
+		'The catalog has no asset class for {ticker} yet. Set its type in the catalog first, then add the guideline.',
 	'errors.guidelines.assetClassStale':
 		'That asset class is no longer available. Refresh the page and choose from the list.',
 
