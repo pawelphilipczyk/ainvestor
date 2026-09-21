@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 1 — `app/features/advice`
-**Last swept:** 2026-09-20 (`mcp/tools`)
+**Next area to sweep:** 2 — `app/features/catalog`
+**Last swept:** 2026-09-21 (`app/features/advice`)
 
 ---
 
@@ -27,7 +27,7 @@ backlog just feeds the overlap backlog.
 ## Open items
 
 ### GAP-001 — session flash messages
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-21 · **Area:** `app/lib`
 
 `app/lib/session-flash.ts` — no direct coverage. Flash messages are a
 read-once-then-clear contract, and the failure mode (a message that survives
@@ -36,6 +36,30 @@ test catches and an integration test misses.
 
 **Triage:** check whether any feature test asserts a flash surviving one
 redirect and then being gone. If not, this is a genuine gap — start here.
+
+**Re-checked 2026-09-21** (this run's gap-filling test; this run swept
+`app/features/advice` for new candidates, but per the process this run's one
+gap-filling test is picked oldest-and-highest-value across the whole
+backlog, not restricted to the area just swept): grepped the whole repo for
+`flashBanner`/`readFlashedBanner`/`session.flash(` inside any `*.test.ts` —
+zero hits anywhere, confirming still no direct or indirect coverage. Chosen
+over the newer `app/features/advice` candidates proposed this same run
+(`GAP-022`–`GAP-024`) because those are new this run and per the rules
+aren't eligible until a future run re-checks them; among items already open
+before this run started, `GAP-001` is the oldest and was already flagged
+"start here" by its own original triage.
+
+**Action taken:** added `app/lib/session-flash.test.ts` (8 cases): reads
+back a banner via a real save→serialize→parse→read round trip (matching
+`session.test.ts`'s convention with `sessionStorage`/`sessionCookie`,
+necessary because `Session.flash()` only becomes readable after exactly one
+such round trip, not on the same in-memory instance — confirmed by writing
+the naive same-instance version first and watching it fail for the right
+reason before fixing it), asserts the banner is gone on the request after
+that, the legacy `error` session key takes priority over a flashed banner,
+an empty legacy `error` value counts as no banner, an unrecognised flashed
+tone falls back to `'info'`, and an empty flashed message counts as no
+banner. Production code was not modified.
 
 ### GAP-002 — upload limits and the multipart flash middleware
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
@@ -420,6 +444,129 @@ opposed to the `app/lib` logic it wraps) worth a direct pin, the way
 `GAP-017`–`GAP-020` are, or does pinning the underlying `app/lib` behavior
 already cover what matters (the model gets *some* correctly-shaped error,
 exact wording aside)? Lower priority than the other four either way.
+
+### GAP-022 — the `connect_gist` access banner and disabled-form state on `/advice` has zero coverage
+**Status:** `proposed` · **Proposed:** 2026-09-21 · **Area:** `app/features/advice`
+
+`app/features/advice/index.ts:328-337` (`adviceGistGateProps`, the
+`layoutSession !== null && !sessionUsesGithubGist(fullSession)` →
+`'connect_gist'` branch) and its render in `advice-page.tsx:815-833` (the
+banner text + `routes.portfolio.index` link), plus the disabled-state wiring
+it drives at `advice-page.tsx:602,613,645,681,693,705,709`.
+
+This is the actual screen a GitHub-approved user sees on `/advice` before
+they've linked their private data gist on the Portfolio page — a normal
+onboarding step, not an edge case. Confirmed reachable in production:
+`app/lib/require-approved-session-middleware.ts:17-23`'s
+`PROTECTED_PATH_PREFIXES` (pinned by
+`app/lib/require-approved-session.test.ts:16-27,60-67`) only requires a
+session with `login` to reach `/advice` — `token`/`gistId` are not required,
+so `getSessionData` returns non-null with `gistId: null`,
+`sessionUsesGithubGist` is false, and `adviceGistGateProps` lands on
+`'connect_gist'`.
+
+**Confirmed zero coverage:** grepped the whole repo for
+`requiresGist.bodyConnectGist`, `'connect_gist'`, `adviceGistGate` — every
+hit is in `index.ts`/`advice-page.tsx`/the two locale files, no test
+anywhere. Every `GET /advice` case in `advice.test.ts` either signs in with a
+gist (`signInWithGist()`) or uses the pending-approval session, which forces
+`adviceGistGate: {}` instead (`index.ts:333`). The one session built without
+a `gistId` (`advice.test.ts:333-367`, `'no-gist-user'`) is a **POST**
+asserting only the action's own form-error text
+(`errors.advice.requiresGithubGist`, a different code path at
+`index.ts:613-635`), not this page-level render. `advice.browser.ts` and
+every other repo test touching `/advice` also only ever use a fully-linked
+gist session.
+
+**What a test would assert:** HTTP-route-level, same style as
+`advice.test.ts`'s existing `GET /advice` cases — a session with
+`login`+`token` but no `gistId`, `GET /advice`, assert the `connect_gist`
+banner text and `routes.portfolio.index.href()` link render, and that
+`#cashAmount-buy-next`, the currency/model selects, and the submit button
+all carry `disabled`.
+
+**Related, out of scope:** the sibling `'sign_in'` gate (`index.ts:335`) and
+its `sign_in_for_gist` banner (`advice-page.tsx:797-814`) appear to be
+unreachable dead code in production — `requireApprovedSession` already
+redirects any request with no `login` at all away from every `/advice*` path
+before the controller runs, so `layoutSession === null` can't occur here.
+Not a test gap; a separate cleanup question (remove it, or is it defensive
+for a future non-HTTP caller?) — not filed as a backlog item since there is
+nothing to test.
+
+### GAP-023 — the advice-clear GitHub-error branches are untested, unlike their save-side sibling
+**Status:** `proposed` · **Proposed:** 2026-09-21 · **Area:** `app/features/advice`
+
+`app/features/advice/advice-gist.ts:359-363`
+(`clearStoredAdviceAnalysisForTab`'s `if (!response.ok) throw new
+Error('GitHub API error clearing advice snapshot: ...')`) and `:379-383`
+(`clearLegacyUnifiedAdviceAnalysis`'s identical throw). Both are called only
+from the portfolio-review "clear" branch of the route action
+(`index.ts:576-591`), each wrapped in its own silent
+`try { … } catch (err) { console.warn(...) }` — a real GitHub failure here
+returns a normal 200 "cleared" response while the stale snapshot may still
+sit in the gist, unlike save's `adviceGistPersistFailed` flag.
+
+**Confirmed zero coverage anywhere:** grepped the whole repo for both
+function names — the only call sites are `index.ts:576,588`. Every "clear"
+case in `advice.test.ts` runs under `setAdviceGistTestOverlay`, whose
+no-op clear branch (`advice-gist.ts:349-352,371-373`) short-circuits before
+any real `fetch` — the real GitHub-error throw is dead in every existing
+test run.
+
+**Contrast with the sibling that *is* covered:** `saveStoredAdviceAnalysisForTab`'s
+equivalent throw (`advice-gist.ts:321-325`) is exercised end-to-end by
+`mcp/tools/generate-advice.test.ts:236-266` (mocks `fetch` → PATCH 500,
+asserts `payload.savePersistFailed` matches `/500/`). Nothing analogous
+exists for either clear function, because the only caller (the web route)
+never disables the overlay for the clear branches, and no MCP tool calls
+them at all. `advice-gist.test.ts` already uses the mocked-`fetch` technique
+for the *read* path (`fetchStoredAdviceAnalysisOutcomeForTab separates
+missing, malformed and unreadable`, lines 86-132) — the write/clear side of
+the same file never got it.
+
+**What a test would assert:** plain unit tests in `advice-gist.test.ts`,
+same pattern as the existing outcome test — call
+`resetAdviceGistTestOverlay()`, reassign `globalThis.fetch` to return a
+non-2xx `Response`, call `clearStoredAdviceAnalysisForTab`/
+`clearLegacyUnifiedAdviceAnalysis` directly, and
+`assert.rejects(..., /GitHub API error clearing advice snapshot: 500/)` for
+each.
+
+**Worth a product look, separately from the test gap:** a real GitHub
+failure on clear is silently swallowed with no `...PersistFailed` flag
+surfaced to the user, unlike save's equivalent failure. Flagging for a human
+call; not this backlog's decision.
+
+### GAP-024 — `formatPostInvestmentTotalsBlock`'s unparseable-cash branch is untested
+**Status:** `proposed` · **Proposed:** 2026-09-21 · **Area:** `app/features/advice` · **Priority:** low
+
+`app/features/advice/advice-openai.ts:344-349` — the `cashNum === null`
+branch of `formatPostInvestmentTotalsBlock`, which emits `Could not parse
+deployable cash "${...}" as a non-negative number; do not state a numeric
+post-investment total until the user fixes the amount.` into the LLM prompt
+instead of a computed total.
+
+**Confirmed no direct or indirect coverage:** grepped every `cashAmount:`
+literal across `advice-openai.test.ts` and `advice.test.ts` — every one is a
+valid numeric string. Do not confuse this with
+`computeAdviceAllocationDiagnosticsOutcome`'s own `unparseable_cash` blocker,
+which *is* directly tested (`advice-openai.test.ts:914-918`,
+`cashAmount: 'x'`) — that's a sibling function with its own separate
+handling and output text; being covered does not cover this one.
+
+**Reachable in production, not purely theoretical:** `AdviceSchema`
+(`index.ts:50-59`) validates `cashAmount` as a bare `string()` with no
+numeric coercion or server-side format check; the only guard is the
+client-side HTML `pattern`/`inputMode="decimal"` (cosmetic, bypassable by
+any direct POST).
+
+**What a test would assert:** plain unit test —
+`formatPostInvestmentTotalsBlock({ holdings: [...], cashAmount: 'not-a-number',
+cashCurrency: 'PLN' })` returns text matching `/Could not parse deployable
+cash/` and does not contain a computed `= ... PLN` total line. Lower
+priority than `GAP-022`/`GAP-023` — informational prompt text, not
+user-facing UI, and no branching risk beyond the string template itself.
 
 ---
 
