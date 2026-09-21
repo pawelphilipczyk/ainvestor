@@ -37,7 +37,10 @@ export const pl = {
 	'nav.guidelines': 'Wytyczne inwestycyjne',
 	'nav.admin': 'Admin',
 	'intro.tagline':
-		'Wybierz, dokąd chcesz przejść. Wszystko działa w przeglądarce; zaloguj się przez GitHuba, gdy chcesz zapisywać portfel i katalog między sesjami.',
+		'Śledź swój portfel ETF, ustaw wytyczne inwestycyjne i otrzymuj spersonalizowane porady zakupowe.',
+	'intro.signInPrompt.title': 'Zaloguj się, aby korzystać z AI Investor',
+	'intro.signInPrompt.body':
+		'Każda strona wymaga logowania przez GitHub. Twój portfel i wytyczne są przechowywane prywatnie na Twoim koncie GitHub — ta aplikacja nie prowadzi własnej bazy danych, więc nic nie jest zapisywane nigdzie indziej.',
 	'section.portfolio.title': 'Portfel',
 	'section.portfolio.description':
 		'Wklej lub prześlij plik CSV z brokera, aby dodać to, co już posiadasz lub chcesz kupić.',
