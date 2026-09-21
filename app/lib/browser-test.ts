@@ -54,6 +54,37 @@ export const MOBILE_VIEWPORT: Viewport = { width: 390, height: 844 }
  */
 const TAILWIND_STUB = 'globalThis.tailwind = { config: {} }'
 
+/**
+ * Waits for a `data-rmx-target` form's submit to finish settling, after a test
+ * has already waited for the reloaded frame content to appear.
+ *
+ * Content showing up is not the end of the submit: `watchFrameFormSubmissions`
+ * clears the busy state, applies `data-reset-form` and
+ * `data-frame-hide-form-on-success` in its `reloadComplete` handler, which runs
+ * after the frame is patched. An assertion on any of those made straight after
+ * the content wait races that handler and fails on a slow runner. All three
+ * happen in the same synchronous handler, so the submit control losing
+ * `aria-busy` means every one of them has landed.
+ *
+ * `state: 'attached'` because a `data-frame-hide-form-on-success` form is
+ * hidden by then.
+ */
+export async function waitForFrameFormSettled(
+	page: Page,
+	formSelector: string,
+) {
+	try {
+		await page.waitForSelector(
+			`${formSelector} :is(button, input)[type="submit"]:not([aria-busy])`,
+			{ state: 'attached', timeout: 5000 },
+		)
+	} catch {
+		throw new Error(
+			`the submit control in ${formSelector} was still aria-busy 5s after the frame reloaded — reloadComplete never settled the form`,
+		)
+	}
+}
+
 function launchOptions() {
 	// Environments that ship a pinned browser build, rather than the one
 	// `npx playwright install` fetches, can point at it directly.
