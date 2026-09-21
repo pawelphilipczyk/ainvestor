@@ -39,7 +39,10 @@ export const en = {
 	'nav.admin': 'Admin',
 
 	'intro.tagline':
-		'Choose where to go next. Everything works in the browser; sign in with GitHub when you want your portfolio and catalog saved across sessions.',
+		'Track your ETF portfolio, set investment guidelines, and get personalized buy advice.',
+	'intro.signInPrompt.title': 'Sign in to use AI Investor',
+	'intro.signInPrompt.body':
+		"Every page here needs a GitHub sign-in. Your portfolio and guidelines are kept privately in your own GitHub account — this app doesn't run a database of its own, so nothing is stored anywhere else.",
 
 	'section.portfolio.title': 'Portfolio',
 	'section.portfolio.description':

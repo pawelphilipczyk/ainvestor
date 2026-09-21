@@ -93,6 +93,31 @@ describe('Intro page', () => {
 		assert.match(body, /ETF Catalog/)
 		assert.match(body, /Investment Guidelines/)
 	})
+
+	it('does not show the sign-in prompt to an already-approved session', async () => {
+		// This suite's beforeEach signs in an approved session; the prompt is
+		// for the signed-out case only.
+		const response = await testSessionFetch('http://localhost/')
+		const body = await response.text()
+
+		assert.doesNotMatch(body, /Sign in to use AI Investor/)
+	})
+
+	it('shows a sign-in prompt with a non-technical storage explanation when signed out', async () => {
+		// Drop the approved session this suite seeds: the intro page is the one
+		// page a signed-out visitor still reaches, and it must explain why every
+		// section bounces back here without one.
+		resetTestSessionCookieJar()
+		const response = await testSessionFetch('http://localhost/')
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Sign in to use AI Investor/)
+		assert.match(body, /your own GitHub account/)
+		assert.match(body, /Sign in with GitHub/)
+		assert.match(body, /href="\/auth\/github"/)
+		assert.match(body, /data-navigation-loading/)
+	})
 })
 
 describe('Portfolio page', () => {
@@ -737,19 +762,6 @@ IBTA LN ETF;GBR-LSE;4087.48;PLN`
 		const body = await htmlOkResponse.text()
 		assert.match(body, /VTI/)
 		assert.match(body, /900/)
-	})
-
-	it('shows sign-in link when not authenticated', async () => {
-		// Drop the approved session this suite seeds: the intro page is the one
-		// page a signed-out visitor still reaches, and it must offer sign-in.
-		resetTestSessionCookieJar()
-		const response = await testSessionFetch('http://localhost/')
-		const body = await response.text()
-
-		assert.equal(response.status, 200)
-		assert.match(body, /Sign in with GitHub/)
-		assert.match(body, /href="\/auth\/github"/)
-		assert.match(body, /data-navigation-loading/)
 	})
 
 	it('GET /fragments/portfolio-list returns ETF list HTML fragment', async () => {
