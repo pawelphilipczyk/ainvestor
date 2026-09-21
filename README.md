@@ -187,7 +187,8 @@ tickers — a fund it does not list is one you may not be able to buy:
 - **`delete_catalog_entry`** — remove one fund.
 - **`import_catalog_from_bank_file`** — refresh the catalog from a bank API
   response or a DevTools HAR **saved on the machine running the server**. Take
-  `dryRun: true` first to see what would change. Available **only over stdio**:
+  `dryRun: true` first to see what would change, including rows it would
+  re-type and rows the bank gives no asset class (typed `unknown`). Available **only over stdio**:
   the deployed server cannot read your disk, and a HAR is far larger than the
   256 KB an MCP request body may carry.
 

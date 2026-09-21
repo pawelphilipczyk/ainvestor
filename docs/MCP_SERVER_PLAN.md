@@ -136,7 +136,15 @@ the MCP layer; if one of these matters, fix the model in the app first.
   `computeAdviceAllocationDiagnostics()` both return `null`. Tools must say so
   plainly rather than guessing a rate.
 - **The catalog is a snapshot**, imported from a bank API — not live quotes.
-- **`mixed` is both an asset class and a sentinel.** It is one of the six
+- **`unknown` is a catalog to-do, not an asset class.** The bank import
+  derives `type` from the bank's `assets` field (`deriveEtfTypeFromBank`) and
+  types anything that field does not name as `unknown` instead of guessing. No
+  guideline may target it (`GUIDELINE_ETF_TYPES`), so a held fund typed
+  `unknown` blocks the allocation maths until its row is fixed with
+  `upsert_catalog_entry`; a later import keeps that hand-set type. Every raw
+  bank row is kept in `catalog-source.json` beside `catalog.json`, so a
+  derivation fix is a re-run rather than a new capture.
+- **`mixed` is both an asset class and a sentinel.** It is one of the seven
   persisted `EtfType` values, and it is also what
   `resolveHoldingEtfTypeForAdviceDiagnostics` falls back to when neither the
   catalog nor an instrument guideline matches a holding. The allocation maths
