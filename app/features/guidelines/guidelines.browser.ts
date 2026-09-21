@@ -7,6 +7,7 @@ import type {
 import {
 	DESKTOP_VIEWPORT,
 	startBrowserTestSession,
+	waitForFrameFormSettled,
 } from '../../lib/browser-test.ts'
 import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
 
@@ -64,6 +65,7 @@ describe('guidelines forms (browser)', () => {
 
 		await addInstrument(opened, 'BTEQ', '40')
 		await page.waitForSelector('li:has-text("BTEQ")', { timeout: 5000 })
+		await waitForFrameFormSettled(page, '#guidelines-add-form-instrument')
 
 		assert.equal(
 			new URL(page.url()).pathname,
@@ -99,6 +101,7 @@ describe('guidelines forms (browser)', () => {
 			undefined,
 			{ timeout: 5000 },
 		)
+		await waitForFrameFormSettled(page, '#guidelines-add-form-bucket')
 
 		assert.match(
 			await pageText(opened),
