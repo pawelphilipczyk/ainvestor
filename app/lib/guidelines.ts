@@ -1,7 +1,7 @@
 import { ETF_TYPE_LABELS } from '../locales/en.ts'
 import { ETF_TYPE_LABELS_PL } from '../locales/pl.ts'
 import type { EtfType } from './etf-type.ts'
-import { ETF_TYPES } from './etf-type.ts'
+import { ETF_TYPES, GUIDELINE_ETF_TYPES } from './etf-type.ts'
 import { t } from './i18n.ts'
 import { takePrivateGistFetchTestGuidelines } from './private-gist-fetch-test-overlay.ts'
 import { getUiLocale } from './ui-locale.ts'
@@ -9,7 +9,7 @@ import { getUiLocale } from './ui-locale.ts'
 export const GUIDELINES_FILENAME = 'guidelines.json'
 
 export type { EtfType } from './etf-type.ts'
-export { ETF_TYPES } from './etf-type.ts'
+export { ETF_TYPES, GUIDELINE_ETF_TYPES } from './etf-type.ts'
 /** Human-readable ETF category label for persisted `EtfType` keys (UI locale, not broker data). */
 export function formatEtfTypeLabel(etfType: EtfType): string {
 	const labels = getUiLocale() === 'pl' ? ETF_TYPE_LABELS_PL : ETF_TYPE_LABELS
@@ -113,6 +113,14 @@ export function isEtfType(value: unknown): value is EtfType {
 	return (
 		typeof value === 'string' &&
 		(ETF_TYPES as readonly string[]).includes(value)
+	)
+}
+
+/** A type a guideline may target — every `EtfType` except `unknown`. */
+export function isGuidelineEtfType(value: unknown): value is EtfType {
+	return (
+		typeof value === 'string' &&
+		(GUIDELINE_ETF_TYPES as readonly string[]).includes(value)
 	)
 }
 

@@ -479,6 +479,19 @@ async function handleAddInstrument(context: AppRequestContext, form: FormData) {
 		}
 		return createRedirectResponse(guidelinesIndexHref('instrument'))
 	}
+	if (match.type === 'unknown') {
+		if (requestAcceptsFrameSubmitHtml(context.request)) {
+			const guidelines = await loadGuidelinesForSession(context)
+			return guidelinesListFragmentHtmlResponse({
+				guidelines,
+				inlineError: format(t('errors.guidelines.catalogEntryUnclassified'), {
+					ticker: match.ticker,
+				}),
+				status: 422,
+			})
+		}
+		return createRedirectResponse(guidelinesIndexHref('instrument'))
+	}
 
 	const { targetPct } = result.value
 	const entry: EtfGuideline = {

@@ -5,6 +5,8 @@ import {
 	buildCatalogGistPatch,
 	CATALOG_FILENAME,
 	catalogMergeKey,
+	deriveEtfTypeFromBank,
+	fetchCatalogSourceRows,
 	fetchSharedCatalogSnapshot,
 	mergeBankIntoCatalog,
 	normalizeCatalogTickerLookupKey,
@@ -15,6 +17,7 @@ import {
 	resetSharedCatalogForTests,
 	riskBandFromRiskKid,
 	saveCatalog,
+	setSharedCatalogForTests,
 } from './lib.ts'
 
 describe('riskBandFromRiskKid', () => {
@@ -708,5 +711,154 @@ describe('mergeBankIntoCatalog', () => {
 		]
 		const merged = mergeBankIntoCatalog(existing, incoming)
 		assert.equal(merged.length, 2)
+	})
+})
+
+describe('deriveEtfTypeFromBank', () => {
+	it('reads what a fund is from assets, not what it invests in from sector', () => {
+		// SGLN LN — physical gold ETC.
+		assert.equal(
+			deriveEtfTypeFromBank({ assets: 'surowce', sector: 'metale' }),
+			'commodity',
+		)
+		// IS0E GR / GDX LN — gold-miner equity funds.
+		assert.equal(
+			deriveEtfTypeFromBank({ assets: 'akcje', sector: 'surowce i towary' }),
+			'equity',
+		)
+		assert.equal(
+			deriveEtfTypeFromBank({ assets: 'surowce', sector: 'produkty rolne' }),
+			'commodity',
+		)
+	})
+
+	it('narrows equity to real estate and bonds to money market by sector', () => {
+		assert.equal(
+			deriveEtfTypeFromBank({ assets: 'akcje', sector: 'nieruchomości' }),
+			'real_estate',
+		)
+		// L8I3 GR — EUR overnight return.
+		assert.equal(
+			deriveEtfTypeFromBank({ assets: 'obligacje', sector: 'rynek pieniężny' }),
+			'money_market',
+		)
+		assert.equal(
+			deriveEtfTypeFromBank({
+				assets: 'obligacje',
+				sector: 'obligacje skarbowe',
+			}),
+			'bond',
+		)
+		assert.equal(
+			deriveEtfTypeFromBank({ assets: 'mieszany', sector: '' }),
+			'mixed',
+		)
+	})
+
+	it('returns unknown instead of guessing when assets names no class', () => {
+		assert.equal(
+			deriveEtfTypeFromBank({ assets: null, sector: null }),
+			'unknown',
+		)
+		assert.equal(deriveEtfTypeFromBank({ assets: '', sector: '' }), 'unknown')
+		assert.equal(
+			deriveEtfTypeFromBank({ assets: 'kryptowaluty', sector: null }),
+			'unknown',
+		)
+		// A commodity-sounding sector alone does not decide the class.
+		assert.equal(
+			deriveEtfTypeFromBank({ assets: undefined, sector: 'metale' }),
+			'unknown',
+		)
+	})
+})
+
+describe('parseBankJsonForImport keeps the bank fields and reports types', () => {
+	const goldRow = {
+		isin: 'IE00B4ND3602',
+		fund_name: 'iShares Physical Gold ETC',
+		ticker: 'SGLN LN',
+		id: 'IE00B4ND3602_SGLN.LN',
+		assets: 'surowce',
+		sector: 'metale',
+		market: 'GBR-LSE',
+		currency: 'USD',
+		fund_currency: 'USD',
+		replication: null,
+		country: 'Irlandia',
+		investment_subject: null,
+		tags: [{ tag: 'złoto' }, { tag: 'surowce' }],
+		price: 71.3,
+	}
+
+	it('persists assets and the other stable bank fields on the entry', () => {
+		const { entries } = parseBankJsonForImport({ data: [goldRow] }, [])
+		const entry = entries[0]
+		assert.equal(entry?.type, 'commodity')
+		assert.equal(entry?.assets, 'surowce')
+		assert.equal(entry?.market, 'GBR-LSE')
+		assert.equal(entry?.country, 'Irlandia')
+		assert.deepEqual(entry?.tags, ['złoto', 'surowce'])
+		assert.equal(entry?.replication, undefined)
+		assert.equal(entry?.investment_subject, undefined)
+	})
+
+	it('keeps the raw row, keyed by the id the merged catalog will carry', () => {
+		const existing = {
+			id: 'legacy-id',
+			isin: 'IE00B4ND3602',
+			ticker: 'SGLN LN',
+			name: 'Gold',
+			type: 'equity' as const,
+			description: '',
+		}
+		const result = parseBankJsonForImport({ data: [goldRow] }, [existing])
+		assert.deepEqual(Object.keys(result.sourceRowsById), ['legacy-id'])
+		assert.deepEqual(result.sourceRowsById['legacy-id'], goldRow)
+		assert.deepEqual(result.typeChanges, [
+			{
+				label: 'SGLN LN — iShares Physical Gold ETC',
+				from: 'equity',
+				to: 'commodity',
+			},
+		])
+	})
+
+	it('lists rows it could not classify', () => {
+		const result = parseBankJsonForImport(
+			{
+				data: [
+					goldRow,
+					{
+						fund_name: 'Bitcoin FIZ',
+						ticker: 'ETFBTCPL',
+						assets: 'kryptowaluty',
+					},
+				],
+			},
+			[],
+		)
+		assert.equal(result.entries[1]?.type, 'unknown')
+		assert.deepEqual(result.unclassifiedRows, [
+			{ index: 2, label: 'ETFBTCPL — Bitcoin FIZ' },
+		])
+		assert.deepEqual(result.typeChanges, [])
+	})
+
+	it('saveCatalog stores source rows alongside the catalog', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: 'owner' })
+		try {
+			assert.deepEqual(await fetchCatalogSourceRows(), {})
+			await saveCatalog({
+				token: 'tkn',
+				entries: [],
+				sourceRowsById: { a: { ticker: 'A' } },
+			})
+			assert.deepEqual(await fetchCatalogSourceRows(), { a: { ticker: 'A' } })
+			await saveCatalog({ token: 'tkn', entries: [] })
+			assert.deepEqual(await fetchCatalogSourceRows(), { a: { ticker: 'A' } })
+		} finally {
+			resetSharedCatalogForTests()
+		}
 	})
 })

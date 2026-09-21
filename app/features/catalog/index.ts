@@ -8,6 +8,7 @@ import {
 	requestAcceptsFrameSubmitHtml,
 } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
+import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { MULTIPART_MAX_FILE_BYTES } from '../../lib/multipart-upload-limits.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
@@ -49,6 +50,7 @@ import type { CatalogEntry, CatalogRiskBand } from './lib.ts'
 import {
 	type BankJsonImportRowIssue,
 	type BankJsonParseForImportResult,
+	fetchCatalogSourceRows,
 	fetchSharedCatalogSnapshot,
 	isSharedCatalogAdmin,
 	mergeBankIntoCatalog,
@@ -126,6 +128,34 @@ function formatCatalogImportOutcomeFlash(params: {
 		lines.push(t('errors.catalog.import.diagnostic.nothingSavedLead'))
 	}
 
+	// Unclassified rows first: they are the ones that need a decision, and the
+	// flash may be truncated from the end.
+	if (parseResult.unclassifiedRows.length > 0) {
+		lines.push('')
+		lines.push(
+			format(t('errors.catalog.import.diagnostic.unclassifiedHeading'), {
+				count: parseResult.unclassifiedRows.length,
+			}),
+		)
+		for (const row of parseResult.unclassifiedRows) {
+			lines.push(`  • ${row.label}`)
+		}
+	}
+
+	if (parseResult.typeChanges.length > 0) {
+		lines.push('')
+		lines.push(
+			format(t('errors.catalog.import.diagnostic.typeChangesHeading'), {
+				count: parseResult.typeChanges.length,
+			}),
+		)
+		for (const change of parseResult.typeChanges) {
+			lines.push(
+				`  • ${change.label}: ${formatEtfTypeLabel(change.from)} → ${formatEtfTypeLabel(change.to)}`,
+			)
+		}
+	}
+
 	if (skippedRowDiagnostics.length > 0) {
 		lines.push('')
 		lines.push(t('errors.catalog.import.diagnostic.skippedHeading'))
@@ -164,7 +194,9 @@ function catalogImportOutcomeTone(
 ): 'error' | 'info' | 'success' {
 	if (
 		parseResult.skippedRowDiagnostics.length > 0 ||
-		parseResult.noteRowDiagnostics.length > 0
+		parseResult.noteRowDiagnostics.length > 0 ||
+		parseResult.unclassifiedRows.length > 0 ||
+		parseResult.typeChanges.length > 0
 	) {
 		return 'info'
 	}
@@ -483,7 +515,16 @@ export const catalogController = {
 
 			const merged = mergeBankIntoCatalog(entries, imported)
 			try {
-				await saveCatalog({ token: sessionData.token, entries: merged })
+				// Rows from earlier imports stay; this import's rows replace theirs.
+				const storedSourceRows = await fetchCatalogSourceRows()
+				await saveCatalog({
+					token: sessionData.token,
+					entries: merged,
+					sourceRowsById: {
+						...storedSourceRows,
+						...parseResult.sourceRowsById,
+					},
+				})
 			} catch (error) {
 				console.error('[catalog] import save failed', error)
 				return importFailureResponse(t('errors.catalog.import.saveFailed'))
