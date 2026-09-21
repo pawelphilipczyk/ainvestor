@@ -1,7 +1,7 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phase 0 done. Phases 1+ are designed but not yet detailed to the
-commit level.
+**Status:** Phases 0–1 done. Phase 2 (repo backend) is next; Phases 3+ are
+designed but not yet detailed to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -249,27 +249,123 @@ file.
 
 Each phase ships green on its own.
 
-### Phase 1 — extract the storage port, still on gists
+### Phase 1 — extract the storage port, still on gists ✅
 
-A pure refactor, no behaviour change. There are **four copies of
-`githubHeaders`** (`app/lib/gist.ts`, `app/lib/guidelines.ts`,
-`app/features/advice/advice-gist.ts`, `app/features/catalog/lib.ts`) and four
-near-identical `GistPayload` shapes. Per the pattern-capture rule in
-`AGENTS.md`, that repetition is collapsed into one module *before* the backend
-is swapped, or the migration becomes four parallel rewrites.
+**Done.** There were **four copies of `githubHeaders`** (`app/lib/gist.ts`,
+`app/lib/guidelines.ts`, `app/features/advice/advice-gist.ts`,
+`app/features/catalog/lib.ts`) and four near-identical `GistPayload` shapes.
+Per the pattern-capture rule in `AGENTS.md`, that repetition is now collapsed
+into `app/lib/store/github-store.ts`, and all four modules delegate their real
+HTTP calls to it. Every exported function signature in those four modules is
+unchanged — the ~40 call sites across `app/` and `mcp/` needed zero edits.
+
+**The actual shape differs from this section's original sketch**, once reading
+every call site made the requirements concrete:
 
 ```ts
 // app/lib/store/github-store.ts
-type StoredDocument<T> = { value: T; version: string | null } // version = blob sha
+type StoredFile = { content: string; version: string | null }
 
-readDocument({ token, location, path })
-writeDocument({ token, location, path, value, expectedVersion })
-writeDocuments({ token, location, files, expectedCommit })
+readFile({ token, location, path })       // token: null reads anonymously
+readFiles({ token, location, paths })     // one round trip for several paths
+writeFile({ token, location, path, content, expectedVersion? })   // content: null deletes
+writeFiles({ token, location, files, expectedVersion? })          // atomic multi-file write
 ```
 
-`version` is `null` throughout this phase. Tests stay green. **This is where the
-risk is actually removed** — it is worth landing as its own PR regardless of
-what follows.
+- **`content: string`, not a parsed `value: T`.** `advice-gist.ts`'s outcome
+  read needs to know whether a file had *any* raw content, separately from
+  whether that content parsed — collapsing that into "parsed value or null"
+  would have lost the distinction between "not found" and "malformed" it
+  reports today. Parsing, schema validation and normalization stay exactly
+  where they were, in each domain module.
+- **`readFiles` (plural) exists because one caller needs it.**
+  `fetchStoredAdviceAnalysisOutcomeForTab` reads a mode-specific file with a
+  fallback to a legacy shared one, and did that as **one** GET today. Modeling
+  the port as single-path-only would have silently doubled that call's GitHub
+  API cost. `readFile` is `readFiles` with one path.
+- **`token: string | null`, not always required.** The shared catalog reads
+  anonymously today (problem #4) — Phase 1 doesn't fix that, so the port has
+  to carry the anonymous case rather than force every caller to authenticate.
+- **A rejected `writeFiles` carries the raw `Response`.** `saveEtfs` read the
+  failure body for extra error-message detail before this module existed;
+  dropping that would have been a real, if small, regression. Every other
+  caller ignores it and just checks `status`.
+- **Every request shares one 5-second timeout**, previously applied only to
+  catalog's calls (`gist.ts`/`guidelines.ts`/`advice-gist.ts` had none). This
+  is the one deliberate behavior change in this phase: a hung request used to
+  hang the page render; now it aborts. Flagged rather than hidden inside
+  "pure refactor."
+- **Truncated-content handling moved into the port entirely** — every reader
+  benefits, not just the catalog. `readFullGistFileContent` is gone from
+  `catalog/lib.ts`.
+
+`version` is `null` from every read, and `expectedVersion` is accepted but
+unenforced on every write, exactly as planned — no caller relies on it yet.
+
+**Left alone, on purpose:** three separate test-double mechanisms still exist
+for "this call is a test, don't hit GitHub" — `private-gist-test-store.ts`
+(shared by `gist.ts`/`guidelines.ts`), `advice-gist.ts`'s own `gistTestState`,
+and catalog's `sharedCatalogTestSnapshot`. Unifying them touches
+`advice.test.ts`/`advice.browser.ts` directly and was judged separate work
+from the transport extraction; noted here rather than done by accident.
+`app/lib/portfolio-review-gist.ts` was checked and confirmed to have **no**
+network calls left (only its own test imports it) — out of scope, and a
+candidate for deletion in an unrelated cleanup.
+
+New direct coverage: `app/lib/store/github-store.test.ts` (16 cases) for the
+port itself, and 5 new cases in `app/features/advice/advice-gist.test.ts` for
+`saveStoredAdviceAnalysisForTab`/the three clear functions — their real-network
+paths had **no** prior coverage at all (every existing test in that file ran
+through `gistTestState.enabled`); this phase's rewrite would otherwise have
+shipped unverified.
+
+Tests stay green: 684/684 unit (was 662; +16 port, +5 advice-gist, +1 net from
+a Phase-0-era duplicate removed earlier), 40/40 browser. **This was worth
+landing as its own PR** — it is a pure internal refactor with no behavior
+surface for Phase 2+ to depend on yet.
+
+**Code review round, once CI was green, found five real issues and one worth
+disclosing rather than fixing** — all in `app/lib/store/github-store.ts` unless
+noted:
+
+- **The truncation-fallback contract genuinely diverged**, and the obvious fix
+  was the wrong one. Catalog's old code fell through to `raw_url` whenever a
+  present file's content was `null`, even without `truncated: true` — the
+  other three modules never had that check and always treated null/missing
+  content as empty. The first fix attempt (restore catalog's exact old branch)
+  broke a passing test pinning the other three modules' behavior. Kept the
+  safer unified contract instead (null content never triggers a `raw_url`
+  attempt) and documented it as a deliberate normalization, with a test
+  proving each direction.
+- `readFiles` downloaded more than one truncated file's `raw_url` content in
+  sequence rather than in parallel — a latency regression specifically for the
+  two-file legacy-fallback read this phase introduced. Fixed with
+  `Promise.all`; the added test fails against the sequential version (checked
+  by temporarily reverting it).
+- `buildAdviceAnalysisGistPatchForFile` (`advice-gist.ts`) ended up fully dead
+  — no caller, no test — once the save path moved to
+  `buildAdviceAnalysisPayload` + `writeFile`. Deleted.
+- `buildGuidelinesGistPatch`/`buildCatalogGistPatch` were still independently
+  tested but no longer exercised by the real save path, which had started
+  building its PATCH content inline instead — meaning their tests no longer
+  said anything about production behavior. Routed both save functions back
+  through the build-patch functions rather than duplicating the
+  `JSON.stringify`.
+- Catalog's local `GistFile`/`GistPayload` types still carried `truncated`/
+  `raw_url`/`owner`, vestigial now that the port resolves those upstream.
+  Trimmed to the same minimal shape `gist.ts`/`guidelines.ts` use — **not**
+  unified into one shared type across all three, since their minimal
+  "resolved content" shape is a genuinely different concept from the port's
+  raw-wire type, not an accidental duplicate of it.
+- **Disclosed, not fixed:** `saveEtfs`'s PATCH body now sends `files` only.
+  The old code sent `buildGistBody(entries)` — `description` + `public` +
+  `files` — re-asserting a fixed description and `public: false` on every
+  save. Restoring that would mean leaking a gist-only concept into the port's
+  write signature, which a repository backend has no equivalent for. The
+  observable effect is identical unless a user changed the gist's description
+  or visibility from GitHub's own UI, in which case the new code no longer
+  overwrites that on the next save — flagged rather than silently dropped,
+  since "no behaviour change" was this phase's own stated bar.
 
 ### Phase 2 — repo backend behind the same port
 
