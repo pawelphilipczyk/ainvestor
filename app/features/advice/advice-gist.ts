@@ -275,21 +275,6 @@ function buildAdviceAnalysisPayload(stored: StoredAdviceAnalysis): unknown {
 	}
 }
 
-export function buildAdviceAnalysisGistPatchForFile(
-	filename: string,
-	stored: StoredAdviceAnalysis,
-): {
-	files: Record<string, { content: string }>
-} {
-	return {
-		files: {
-			[filename]: {
-				content: JSON.stringify(buildAdviceAnalysisPayload(stored), null, 2),
-			},
-		},
-	}
-}
-
 export async function saveStoredAdviceAnalysisForTab(
 	token: string,
 	gistId: string,

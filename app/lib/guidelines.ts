@@ -266,11 +266,12 @@ async function writeGuidelinesGist(params: {
 	) {
 		return { ok: true }
 	}
+	const patch = buildGuidelinesGistPatch(params.guidelines)
 	const result = await writeFile({
 		token: params.token,
 		location: params.gistId,
 		path: GUIDELINES_FILENAME,
-		content: JSON.stringify(params.guidelines, null, 2),
+		content: patch.files[GUIDELINES_FILENAME].content,
 	})
 	return result.ok ? { ok: true } : { ok: false, status: result.status }
 }

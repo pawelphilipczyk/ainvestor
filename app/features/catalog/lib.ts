@@ -801,23 +801,18 @@ export function mergeBankIntoCatalog(
 
 type GistFile = {
 	content: string | null
-	/**
-	 * The gist API truncates file content once the *whole response* grows past
-	 * about 1 MB — so a large file beside `catalog.json` truncates it too. The
-	 * full file is always at `raw_url`.
-	 */
-	truncated?: boolean
-	raw_url?: string
 }
 
 type GistPayload = {
 	files: Record<string, GistFile>
-	owner?: {
-		login?: string
-	}
 }
 
-/** Parse catalog entries from a raw GitHub Gist API response object. */
+/**
+ * Parse catalog entries from a gist payload whose truncation has already been
+ * resolved — the caller reads through `readFile`/`readFiles` in
+ * `app/lib/store/github-store.ts`, so `truncated`/`raw_url`/`owner` never
+ * reach this function; that module owns the raw wire shape.
+ */
 export function parseCatalogFromGist(gist: GistPayload): CatalogEntry[] {
 	const file = gist.files[CATALOG_FILENAME]
 	if (!file || !file.content) return []
@@ -1051,15 +1046,13 @@ export async function saveCatalog(params: {
 		throw new Error('Shared catalog gist is not configured')
 	}
 
+	const patch = buildCatalogGistPatch(entries, sourceRowsById)
 	const result = await writeFiles({
 		token,
 		location: gistId,
-		files: {
-			[CATALOG_FILENAME]: JSON.stringify(entries, null, 2),
-			...(sourceRowsById !== undefined
-				? { [CATALOG_SOURCE_FILENAME]: JSON.stringify(sourceRowsById) }
-				: {}),
-		},
+		files: Object.fromEntries(
+			Object.entries(patch.files).map(([path, file]) => [path, file.content]),
+		),
 	})
 	if (!result.ok) {
 		throw new Error(

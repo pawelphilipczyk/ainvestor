@@ -74,6 +74,17 @@ function readHeaders(token: string | null): HeadersInit {
  * A gist file's full content: `content` when the API sent all of it,
  * otherwise downloaded from `raw_url`. Throws when that download fails, so a
  * caller never mistakes half a file for the whole one.
+ *
+ * `null` content with `truncated` not set is treated as "no content" here,
+ * never as a reason to attempt `raw_url` — this is a deliberate normalization
+ * across the four modules this port replaces. Before it existed,
+ * `catalog/lib.ts`'s own copy of this helper *did* attempt `raw_url` in that
+ * case (and threw if none was present), while `gist.ts`/`guidelines.ts`/
+ * `advice-gist.ts` never ran any equivalent check and always treated a
+ * missing/null file as empty. Keeping catalog's stricter branch would have
+ * made the other three throw on an input they used to handle gracefully;
+ * dropping it is the smaller and safer change, and the real gist API never
+ * sends `content: null` on a present file from this endpoint regardless.
  */
 async function readFullFileContent(file: GistFile): Promise<string | null> {
 	if (file.truncated !== true) return file.content
@@ -122,16 +133,17 @@ export async function readFiles(params: {
 	if (!response.ok) return { ok: false, status: response.status }
 	const payload = (await response.json()) as GistPayload
 
-	const files: Record<string, StoredFile | null> = {}
-	for (const path of params.paths) {
-		const file = payload.files[path]
-		if (!file) {
-			files[path] = null
-			continue
-		}
-		const content = await readFullFileContent(file)
-		files[path] = content === null ? null : { content, version: null }
-	}
+	// In parallel: a gist with more than one requested file truncated would
+	// otherwise pay for each raw_url download's round trip in sequence.
+	const entries = await Promise.all(
+		params.paths.map(async (path): Promise<[string, StoredFile | null]> => {
+			const file = payload.files[path]
+			if (!file) return [path, null]
+			const content = await readFullFileContent(file)
+			return [path, content === null ? null : { content, version: null }]
+		}),
+	)
+	const files = Object.fromEntries(entries)
 	const ownerLogin = payload.owner?.login
 	const owner =
 		typeof ownerLogin === 'string' && ownerLogin.length > 0 ? ownerLogin : null

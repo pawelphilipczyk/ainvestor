@@ -147,6 +147,36 @@ describe('readFile', () => {
 		})
 	})
 
+	it('treats null content with no truncated flag as no content, even when raw_url is present', async () => {
+		// Pins the deliberate normalization documented on readFullFileContent:
+		// null content alone is never a reason to fetch raw_url, or every reader
+		// that used to treat "no file" as empty (not an error) would start
+		// throwing whenever raw_url happens to be present.
+		let rawUrlFetched = false
+		stubFetch((input) => {
+			const url = String(input)
+			if (url.includes('raw_url_host')) {
+				rawUrlFetched = true
+				return new Response('should not be fetched')
+			}
+			return Response.json({
+				files: {
+					'x.json': {
+						content: null,
+						raw_url: 'https://raw_url_host/x.json',
+					},
+				},
+			})
+		})
+		const result = await readFile({
+			token: null,
+			location: 'gist-1',
+			path: 'x.json',
+		})
+		assert.deepEqual(result, { ok: true, file: null, owner: null })
+		assert.equal(rawUrlFetched, false)
+	})
+
 	it('throws when a truncated file has no raw_url', async () => {
 		stubFetch(() =>
 			Response.json({
@@ -206,6 +236,50 @@ describe('readFiles', () => {
 				'a.json': { content: '{"a":1}', version: null },
 				'b.json': { content: '{"b":2}', version: null },
 				'missing.json': null,
+			},
+		})
+	})
+
+	it('resolves several truncated files concurrently, not one after another', async () => {
+		let inFlight = 0
+		let maxInFlight = 0
+		stubFetch(async (input) => {
+			const url = String(input)
+			if (!url.includes('raw_url_host')) {
+				return Response.json({
+					files: {
+						'a.json': {
+							content: 'truncated-a',
+							truncated: true,
+							raw_url: 'https://raw_url_host/a.json',
+						},
+						'b.json': {
+							content: 'truncated-b',
+							truncated: true,
+							raw_url: 'https://raw_url_host/b.json',
+						},
+					},
+				})
+			}
+			inFlight += 1
+			maxInFlight = Math.max(maxInFlight, inFlight)
+			// Yield so a sequential implementation could not fake concurrency.
+			await new Promise((resolve) => setTimeout(resolve, 5))
+			inFlight -= 1
+			return new Response(url.endsWith('a.json') ? 'full-a' : 'full-b')
+		})
+		const result = await readFiles({
+			token: null,
+			location: 'gist-1',
+			paths: ['a.json', 'b.json'],
+		})
+		assert.equal(maxInFlight, 2, 'both raw_url downloads should overlap')
+		assert.deepEqual(result, {
+			ok: true,
+			owner: null,
+			files: {
+				'a.json': { content: 'full-a', version: null },
+				'b.json': { content: 'full-b', version: null },
 			},
 		})
 	})

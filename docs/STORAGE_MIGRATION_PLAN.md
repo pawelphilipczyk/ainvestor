@@ -324,6 +324,49 @@ a Phase-0-era duplicate removed earlier), 40/40 browser. **This was worth
 landing as its own PR** — it is a pure internal refactor with no behavior
 surface for Phase 2+ to depend on yet.
 
+**Code review round, once CI was green, found five real issues and one worth
+disclosing rather than fixing** — all in `app/lib/store/github-store.ts` unless
+noted:
+
+- **The truncation-fallback contract genuinely diverged**, and the obvious fix
+  was the wrong one. Catalog's old code fell through to `raw_url` whenever a
+  present file's content was `null`, even without `truncated: true` — the
+  other three modules never had that check and always treated null/missing
+  content as empty. The first fix attempt (restore catalog's exact old branch)
+  broke a passing test pinning the other three modules' behavior. Kept the
+  safer unified contract instead (null content never triggers a `raw_url`
+  attempt) and documented it as a deliberate normalization, with a test
+  proving each direction.
+- `readFiles` downloaded more than one truncated file's `raw_url` content in
+  sequence rather than in parallel — a latency regression specifically for the
+  two-file legacy-fallback read this phase introduced. Fixed with
+  `Promise.all`; the added test fails against the sequential version (checked
+  by temporarily reverting it).
+- `buildAdviceAnalysisGistPatchForFile` (`advice-gist.ts`) ended up fully dead
+  — no caller, no test — once the save path moved to
+  `buildAdviceAnalysisPayload` + `writeFile`. Deleted.
+- `buildGuidelinesGistPatch`/`buildCatalogGistPatch` were still independently
+  tested but no longer exercised by the real save path, which had started
+  building its PATCH content inline instead — meaning their tests no longer
+  said anything about production behavior. Routed both save functions back
+  through the build-patch functions rather than duplicating the
+  `JSON.stringify`.
+- Catalog's local `GistFile`/`GistPayload` types still carried `truncated`/
+  `raw_url`/`owner`, vestigial now that the port resolves those upstream.
+  Trimmed to the same minimal shape `gist.ts`/`guidelines.ts` use — **not**
+  unified into one shared type across all three, since their minimal
+  "resolved content" shape is a genuinely different concept from the port's
+  raw-wire type, not an accidental duplicate of it.
+- **Disclosed, not fixed:** `saveEtfs`'s PATCH body now sends `files` only.
+  The old code sent `buildGistBody(entries)` — `description` + `public` +
+  `files` — re-asserting a fixed description and `public: false` on every
+  save. Restoring that would mean leaking a gist-only concept into the port's
+  write signature, which a repository backend has no equivalent for. The
+  observable effect is identical unless a user changed the gist's description
+  or visibility from GitHub's own UI, in which case the new code no longer
+  overwrites that on the next save — flagged rather than silently dropped,
+  since "no behaviour change" was this phase's own stated bar.
+
 ### Phase 2 — repo backend behind the same port
 
 Implemented alongside the gist backend, selected by env var. Both coexist.
