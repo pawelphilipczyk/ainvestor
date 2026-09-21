@@ -4,6 +4,7 @@ import type { BrowserTestSession } from '../../lib/browser-test.ts'
 import {
 	DESKTOP_VIEWPORT,
 	startBrowserTestSession,
+	waitForFrameFormSettled,
 } from '../../lib/browser-test.ts'
 import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
 
@@ -125,15 +126,9 @@ describe('catalog list filter form (browser)', () => {
 			undefined,
 			{ timeout: 5000 },
 		)
-		assert.equal(
-			await page.evaluate(() =>
-				document
-					.querySelector('form[data-rmx-target="catalog-list"] button')
-					?.hasAttribute('aria-busy'),
-			),
-			false,
-			'busy state clears once the reload completes',
-		)
+		// Busy state clears once the reload completes, a beat after the rows are
+		// patched in — wait for it rather than asserting it straight away.
+		await waitForFrameFormSettled(page, 'form[data-rmx-target="catalog-list"]')
 		assert.deepEqual(opened.problems, [])
 	})
 })

@@ -4,6 +4,7 @@ import type { BrowserTestSession } from '../../lib/browser-test.ts'
 import {
 	DESKTOP_VIEWPORT,
 	startBrowserTestSession,
+	waitForFrameFormSettled,
 } from '../../lib/browser-test.ts'
 import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
@@ -54,6 +55,10 @@ describe('catalog ETF analysis form (browser)', () => {
 			undefined,
 			{ timeout: 5000 },
 		)
+		await waitForFrameFormSettled(
+			page,
+			'form[data-rmx-target="catalog-etf-analysis"]',
+		)
 
 		assert.equal(
 			new URL(page.url()).pathname,
@@ -94,6 +99,13 @@ describe('catalog ETF analysis form (browser)', () => {
 			'form[data-rmx-target="catalog-etf-analysis"] button[type="submit"]',
 		)
 		await page.waitForSelector('[role="alert"]', { timeout: 5000 })
+		// Busy state clears after the failed submit. Waiting for it first also
+		// makes the "still visible" check below mean something: before
+		// `reloadComplete` the form is visible whatever the outcome.
+		await waitForFrameFormSettled(
+			page,
+			'form[data-rmx-target="catalog-etf-analysis"]',
+		)
 
 		assert.equal(
 			await page.evaluate(
@@ -104,15 +116,6 @@ describe('catalog ETF analysis form (browser)', () => {
 			),
 			false,
 			'a failed analysis leaves the form visible so the user can retry',
-		)
-		assert.equal(
-			await page.evaluate(() =>
-				document
-					.querySelector('form[data-rmx-target="catalog-etf-analysis"] button')
-					?.hasAttribute('aria-busy'),
-			),
-			false,
-			'busy state clears after the failed submit',
 		)
 		assert.deepEqual(opened.problems, [])
 	})

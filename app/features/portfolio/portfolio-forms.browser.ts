@@ -7,6 +7,7 @@ import type {
 import {
 	DESKTOP_VIEWPORT,
 	startBrowserTestSession,
+	waitForFrameFormSettled,
 } from '../../lib/browser-test.ts'
 import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
 import { setPrivateGistTestStore } from '../../lib/private-gist-test-store.ts'
@@ -86,6 +87,7 @@ describe('portfolio forms (browser)', () => {
 			undefined,
 			{ timeout: 5000 },
 		)
+		await waitForFrameFormSettled(page, '#portfolio-trade-form')
 
 		assert.match(
 			await holdingsText(opened),
@@ -128,6 +130,7 @@ describe('portfolio forms (browser)', () => {
 			undefined,
 			{ timeout: 5000 },
 		)
+		await waitForFrameFormSettled(page, '#portfolio-trade-form')
 
 		assert.match(
 			await pageText(opened),
