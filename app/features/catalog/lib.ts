@@ -4,6 +4,7 @@ import {
 	formatEtfTypeLabel,
 	GUIDELINE_ETF_TYPES,
 } from '../../lib/guidelines.ts'
+import { readFile, writeFiles } from '../../lib/store/github-store.ts'
 
 export const CATALOG_FILENAME = 'catalog.json'
 /**
@@ -13,8 +14,6 @@ export const CATALOG_FILENAME = 'catalog.json'
  * Only the import reads it; catalog reads ignore it.
  */
 export const CATALOG_SOURCE_FILENAME = 'catalog-source.json'
-const GITHUB_API = 'https://api.github.com'
-const GITHUB_REQUEST_TIMEOUT_MS = 5_000
 /** In-process TTL for {@link fetchSharedCatalogSnapshot} (ms). Override with `SHARED_CATALOG_CACHE_TTL_MS`; use `0` to disable. */
 const DEFAULT_SHARED_CATALOG_CACHE_TTL_MS = 60_000
 
@@ -818,25 +817,6 @@ type GistPayload = {
 	}
 }
 
-/**
- * A gist file's full content: `content` when the API sent all of it, otherwise
- * downloaded from `raw_url`. Throws when that download fails, so a caller
- * never mistakes half a file for the whole one.
- */
-async function readFullGistFileContent(file: GistFile): Promise<string | null> {
-	if (file.truncated !== true && file.content !== null) return file.content
-	if (!file.raw_url) {
-		throw new Error('Gist file is truncated and has no raw_url')
-	}
-	const response = await fetch(file.raw_url, {
-		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
-	})
-	if (!response.ok) {
-		throw new Error(`Could not download gist file: ${response.status}`)
-	}
-	return response.text()
-}
-
 /** Parse catalog entries from a raw GitHub Gist API response object. */
 export function parseCatalogFromGist(gist: GistPayload): CatalogEntry[] {
 	const file = gist.files[CATALOG_FILENAME]
@@ -927,15 +907,6 @@ export function resetSharedCatalogForTests(): void {
 	sharedCatalogTtlCache = null
 }
 
-function githubHeaders(token: string): HeadersInit {
-	return {
-		Authorization: `Bearer ${token}`,
-		Accept: 'application/vnd.github+json',
-		'Content-Type': 'application/json',
-		'X-GitHub-Api-Version': '2022-11-28',
-	}
-}
-
 export function isSharedCatalogAdmin(params: {
 	sessionLogin: string | null | undefined
 	ownerLogin: string | null | undefined
@@ -967,28 +938,19 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 	}
 
 	try {
-		const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-			signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
-			headers: {
-				Accept: 'application/vnd.github+json',
-				'X-GitHub-Api-Version': '2022-11-28',
-			},
+		const result = await readFile({
+			token: null,
+			location: gistId,
+			path: CATALOG_FILENAME,
 		})
-		if (!response.ok) return { entries: [], ownerLogin: null }
-		const gist = (await response.json()) as GistPayload
-		const catalogFile = gist.files[CATALOG_FILENAME]
-		if (catalogFile?.truncated === true) {
-			gist.files[CATALOG_FILENAME] = {
-				content: await readFullGistFileContent(catalogFile),
-			}
-		}
-		const ownerLogin =
-			typeof gist.owner?.login === 'string' && gist.owner.login.length > 0
-				? gist.owner.login
-				: null
+		if (!result.ok) return { entries: [], ownerLogin: null }
 		const snapshot: SharedCatalogSnapshot = {
-			entries: parseCatalogFromGist(gist),
-			ownerLogin,
+			entries: parseCatalogFromGist({
+				files: result.file
+					? { [CATALOG_FILENAME]: { content: result.file.content } }
+					: {},
+			}),
+			ownerLogin: result.owner,
 		}
 		if (ttlMs > 0) {
 			sharedCatalogTtlCache = {
@@ -1019,24 +981,20 @@ export async function fetchCatalogSourceRows(): Promise<
 	const gistId = getSharedCatalogGistId()
 	if (!gistId) return {}
 
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
-		headers: {
-			Accept: 'application/vnd.github+json',
-			'X-GitHub-Api-Version': '2022-11-28',
-		},
+	const result = await readFile({
+		token: null,
+		location: gistId,
+		path: CATALOG_SOURCE_FILENAME,
 	})
-	if (!response.ok) {
+	if (!result.ok) {
 		throw new Error(
-			`GitHub API error reading catalog source rows: ${response.status}`,
+			`GitHub API error reading catalog source rows: ${result.status}`,
 		)
 	}
-	const gist = (await response.json()) as GistPayload
-	const file = gist.files[CATALOG_SOURCE_FILENAME]
-	if (!file) return {}
+	if (!result.file) return {}
 
-	const content = await readFullGistFileContent(file)
-	if (content === null || content.trim().length === 0) return {}
+	const content = result.file.content
+	if (content.trim().length === 0) return {}
 
 	const parsed: unknown = JSON.parse(content)
 	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -1093,15 +1051,19 @@ export async function saveCatalog(params: {
 		throw new Error('Shared catalog gist is not configured')
 	}
 
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		method: 'PATCH',
-		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
-		headers: githubHeaders(token),
-		body: JSON.stringify(buildCatalogGistPatch(entries, sourceRowsById)),
+	const result = await writeFiles({
+		token,
+		location: gistId,
+		files: {
+			[CATALOG_FILENAME]: JSON.stringify(entries, null, 2),
+			...(sourceRowsById !== undefined
+				? { [CATALOG_SOURCE_FILENAME]: JSON.stringify(sourceRowsById) }
+				: {}),
+		},
 	})
-	if (!response.ok) {
+	if (!result.ok) {
 		throw new Error(
-			`GitHub API error updating shared catalog gist: ${response.status}`,
+			`GitHub API error updating shared catalog gist: ${result.status}`,
 		)
 	}
 

@@ -6,6 +6,11 @@ import {
 	parseSafe,
 	string,
 } from 'remix/data-schema'
+import {
+	readFiles,
+	writeFile,
+	writeFiles,
+} from '../../lib/store/github-store.ts'
 import { type AdviceDocument, AdviceDocumentSchema } from './advice-document.ts'
 import {
 	ADVICE_ANALYSIS_MODES,
@@ -95,25 +100,6 @@ export function setAdviceGistTestSaveShouldFail(shouldFail: boolean): void {
 
 export function getAdviceGistLastSavedInTest(): StoredAdviceAnalysis | null {
 	return gistTestState.lastSaved
-}
-
-type GistFile = {
-	content: string | null
-}
-
-type GistPayload = {
-	files: Record<string, GistFile>
-}
-
-const GITHUB_API = 'https://api.github.com'
-
-function githubHeaders(token: string): HeadersInit {
-	return {
-		Authorization: `Bearer ${token}`,
-		Accept: 'application/vnd.github+json',
-		'Content-Type': 'application/json',
-		'X-GitHub-Api-Version': '2022-11-28',
-	}
 }
 
 function normalizeAnalysisMode(raw: string): AdviceAnalysisMode | null {
@@ -211,20 +197,23 @@ export async function fetchStoredAdviceAnalysisOutcomeForTab(
 			? { status: 'not_found' }
 			: { status: 'found', stored }
 	}
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		headers: githubHeaders(token),
+	const modeFilename = ADVICE_GIST_FILENAME_BY_MODE[tab]
+	// One request for both files: the legacy fallback below must not cost a
+	// second round trip on every read.
+	const result = await readFiles({
+		token,
+		location: gistId,
+		paths: [modeFilename, ADVICE_STORAGE_FILENAME],
 	})
-	if (!response.ok) {
-		return { status: 'unreadable', httpStatus: response.status }
+	if (!result.ok) {
+		return { status: 'unreadable', httpStatus: result.status }
 	}
-	const gist = (await response.json()) as GistPayload
-	const primaryContent =
-		gist.files[ADVICE_GIST_FILENAME_BY_MODE[tab]]?.content ?? null
+	const primaryContent = result.files[modeFilename]?.content ?? null
 	const primary = parseStoredAdviceAnalysisFromGistFile(primaryContent)
 	if (primary !== null && storedMatchesTab(primary, tab)) {
 		return { status: 'found', stored: primary }
 	}
-	const legacyContent = gist.files[ADVICE_STORAGE_FILENAME]?.content ?? null
+	const legacyContent = result.files[ADVICE_STORAGE_FILENAME]?.content ?? null
 	const legacy = parseStoredAdviceAnalysisFromGistFile(legacyContent)
 	if (legacy !== null && storedMatchesTab(legacy, tab)) {
 		return { status: 'found', stored: legacy }
@@ -271,13 +260,8 @@ export async function fetchStoredAdviceAnalysis(
 	)
 }
 
-export function buildAdviceAnalysisGistPatchForFile(
-	filename: string,
-	stored: StoredAdviceAnalysis,
-): {
-	files: Record<string, { content: string }>
-} {
-	const payload = {
+function buildAdviceAnalysisPayload(stored: StoredAdviceAnalysis): unknown {
+	return {
 		version: stored.version,
 		savedAt: stored.savedAt,
 		lastAnalysisMode: stored.lastAnalysisMode,
@@ -289,10 +273,18 @@ export function buildAdviceAnalysisGistPatchForFile(
 		...(stored.activeTab !== undefined ? { activeTab: stored.activeTab } : {}),
 		document: stored.document,
 	}
+}
+
+export function buildAdviceAnalysisGistPatchForFile(
+	filename: string,
+	stored: StoredAdviceAnalysis,
+): {
+	files: Record<string, { content: string }>
+} {
 	return {
 		files: {
 			[filename]: {
-				content: JSON.stringify(payload, null, 2),
+				content: JSON.stringify(buildAdviceAnalysisPayload(stored), null, 2),
 			},
 		},
 	}
@@ -313,15 +305,14 @@ export async function saveStoredAdviceAnalysisForTab(
 		return
 	}
 	const filename = ADVICE_GIST_FILENAME_BY_MODE[tab]
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		method: 'PATCH',
-		headers: githubHeaders(token),
-		body: JSON.stringify(buildAdviceAnalysisGistPatchForFile(filename, stored)),
+	const result = await writeFile({
+		token,
+		location: gistId,
+		path: filename,
+		content: JSON.stringify(buildAdviceAnalysisPayload(stored), null, 2),
 	})
-	if (!response.ok) {
-		throw new Error(
-			`GitHub API error saving advice snapshot: ${response.status}`,
-		)
+	if (!result.ok) {
+		throw new Error(`GitHub API error saving advice snapshot: ${result.status}`)
 	}
 }
 
@@ -335,12 +326,6 @@ export async function saveStoredAdviceAnalysis(
 	return saveStoredAdviceAnalysisForTab(token, gistId, tab, stored)
 }
 
-function buildClearAdviceFilePatch(filename: string): {
-	files: Record<string, null>
-} {
-	return { files: { [filename]: null } }
-}
-
 export async function clearStoredAdviceAnalysisForTab(
 	token: string,
 	gistId: string,
@@ -351,14 +336,15 @@ export async function clearStoredAdviceAnalysisForTab(
 		return
 	}
 	const filename = ADVICE_GIST_FILENAME_BY_MODE[tab]
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		method: 'PATCH',
-		headers: githubHeaders(token),
-		body: JSON.stringify(buildClearAdviceFilePatch(filename)),
+	const result = await writeFile({
+		token,
+		location: gistId,
+		path: filename,
+		content: null,
 	})
-	if (!response.ok) {
+	if (!result.ok) {
 		throw new Error(
-			`GitHub API error clearing advice snapshot: ${response.status}`,
+			`GitHub API error clearing advice snapshot: ${result.status}`,
 		)
 	}
 }
@@ -371,14 +357,15 @@ export async function clearLegacyUnifiedAdviceAnalysis(
 	if (gistTestState.enabled) {
 		return
 	}
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		method: 'PATCH',
-		headers: githubHeaders(token),
-		body: JSON.stringify(buildClearAdviceFilePatch(ADVICE_STORAGE_FILENAME)),
+	const result = await writeFile({
+		token,
+		location: gistId,
+		path: ADVICE_STORAGE_FILENAME,
+		content: null,
 	})
-	if (!response.ok) {
+	if (!result.ok) {
 		throw new Error(
-			`GitHub API error clearing legacy advice snapshot: ${response.status}`,
+			`GitHub API error clearing legacy advice snapshot: ${result.status}`,
 		)
 	}
 }
@@ -393,20 +380,18 @@ export async function clearStoredAdviceAnalysis(
 		gistTestState.lastSaved = null
 		return
 	}
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		method: 'PATCH',
-		headers: githubHeaders(token),
-		body: JSON.stringify({
-			files: {
-				[ADVICE_STORAGE_FILENAME]: null,
-				[ADVICE_BUY_NEXT_STORAGE_FILENAME]: null,
-				[ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME]: null,
-			},
-		}),
+	const result = await writeFiles({
+		token,
+		location: gistId,
+		files: {
+			[ADVICE_STORAGE_FILENAME]: null,
+			[ADVICE_BUY_NEXT_STORAGE_FILENAME]: null,
+			[ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME]: null,
+		},
 	})
-	if (!response.ok) {
+	if (!result.ok) {
 		throw new Error(
-			`GitHub API error clearing advice snapshot: ${response.status}`,
+			`GitHub API error clearing advice snapshot: ${result.status}`,
 		)
 	}
 }
