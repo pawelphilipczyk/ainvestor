@@ -58,9 +58,7 @@ export function GuidelinesPage(
 						<p class="mt-1 text-sm text-muted-foreground">
 							{sessionUsesGithubGist(session)
 								? t('guidelines.subtitle.savedGist')
-								: session?.approvalStatus === 'pending'
-									? t('guidelines.subtitle.pending')
-									: t('guidelines.subtitle.signIn')}
+								: t('guidelines.subtitle.pending')}
 						</p>
 					</SectionIntroCard>
 

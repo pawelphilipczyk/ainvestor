@@ -14,7 +14,10 @@ repository using the `remix` package (`remix@next`).
 - **GitHub OAuth login** — sign in with your GitHub account
 - **GitHub Gist database** — your ETF list is stored in a private Gist in your own GitHub account (no external DB required)
 - **Shared ETF catalog** — the catalog is loaded from one public GitHub Gist shared by all users
-- Unauthenticated guests can still add ETFs (stored in memory for the session)
+- **Sign-in required** — every page but the intro is behind GitHub sign-in; a
+  signed-out visitor is sent back to the intro page. A login awaiting allowlist
+  approval can open the pages and sees a pending notice on each, but has no
+  store to read or write until it is approved
 - Simple mobile-friendly HTML/CSS
 - Test coverage for session helpers, Gist utilities, and all route handlers
 

@@ -30,6 +30,13 @@ Before working on the MCP server, read:
 
 - `docs/MCP_SERVER_PLAN.md`
 
+Before touching storage — gists, the shared catalog, guest mode, or the
+OAuth scope — read:
+
+- `docs/STORAGE_MIGRATION_PLAN.md` — the move from gists to GitHub
+  repositories, the decisions behind it (and the ones it reversed), and the
+  guest-mode removal that comes first
+
 Before writing any JS/TS/CSS code, read:
 
 - `docs/BIOME_RULES.md`

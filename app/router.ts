@@ -21,14 +21,13 @@ import { authController } from './features/auth/index.ts'
 import {
 	catalogController,
 	catalogEtfController,
-	resetGuestCatalog,
 } from './features/catalog/index.ts'
 import { guidelinesController } from './features/guidelines/index.ts'
 import { homeController } from './features/intro/index.ts'
 import { localeController } from './features/locale/index.ts'
 import {
 	portfolioController,
-	resetEtfEntries,
+	resetTestSessionCookieJar,
 } from './features/portfolio/index.ts'
 import { stripGithubTokenIfUnapproved } from './lib/approved-users.ts'
 import { multipartLimitFlashOnError } from './lib/multipart-limit-flash-middleware.ts'
@@ -38,11 +37,12 @@ import {
 } from './lib/multipart-upload-limits.ts'
 import { remixAssetServer } from './lib/remix-assets.ts'
 import type { AppRequestContext } from './lib/request-context.ts'
+import { requireApprovedSession } from './lib/require-approved-session-middleware.ts'
 import { sessionCookie, sessionStorage } from './lib/session.ts'
 import { uiLocaleMiddleware } from './lib/ui-locale-middleware.ts'
 import { routes } from './routes.ts'
 
-export { resetEtfEntries, resetGuestCatalog, setAdviceClient }
+export { resetTestSessionCookieJar, setAdviceClient }
 
 /**
  * Serves every browser module — this app's own client entries and the
@@ -96,6 +96,7 @@ export const appMiddleware = createMiddleware(
 	}),
 	methodOverride(),
 	enforceGithubApproval(),
+	requireApprovedSession(),
 	render({ assets: remixAssetServer }),
 )
 

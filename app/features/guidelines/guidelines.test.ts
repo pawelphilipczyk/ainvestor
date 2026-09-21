@@ -1,7 +1,8 @@
 import * as assert from 'node:assert/strict'
-import { afterEach, describe, it } from 'node:test'
+import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 import {
+	approvedSessionCookie,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
@@ -30,6 +31,12 @@ async function seedGuestCatalog() {
 		ownerLogin: 'catalog-admin',
 	})
 }
+
+// Every page under test sits behind the sign-in gate; this seeds the sticky
+// cookie jar with an approved session and an empty private gist.
+beforeEach(async () => {
+	await approvedSessionCookie()
+})
 
 afterEach(() => {
 	resetTestSessionCookieJar()

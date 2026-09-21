@@ -6,12 +6,15 @@ import { render, renderFragmentToStream } from '../../components/render.ts'
 import { requestAcceptsFrameSubmitHtml } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs, fetchPortfolioSnapshot, saveEtfs } from '../../lib/gist.ts'
-import { getGuestEtfs, setGuestEtfs } from '../../lib/guest-session-state.ts'
 import { t } from '../../lib/i18n.ts'
 import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
-import { getLayoutSession, getSessionData } from '../../lib/session.ts'
+import {
+	getLayoutSession,
+	getSessionData,
+	sessionUsesGithubGist,
+} from '../../lib/session.ts'
 import {
 	type FlashedBanner,
 	flashBanner,
@@ -33,7 +36,7 @@ import {
 } from './portfolio-operation-form/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
 
-export { resetEtfEntries, resetTestSessionCookieJar } from './state.ts'
+export { resetTestSessionCookieJar } from './state.ts'
 
 /**
  * Discriminates the two actions the single `portfolio.action` route handles,
@@ -72,15 +75,18 @@ async function handleImport(context: AppRequestContext, form: FormData) {
 	}
 
 	const session = getSessionData(context.get(Session))
+	if (!sessionUsesGithubGist(session)) {
+		return portfolioValidationFailureResponse(
+			context,
+			t('errors.portfolio.requiresApproval'),
+		)
+	}
+
 	let current: EtfEntry[]
-	if (session?.gistId && session.token) {
-		try {
-			current = await fetchEtfs(session.token, session.gistId)
-		} catch {
-			return portfolioPersistenceFailureResponse(context)
-		}
-	} else {
-		current = getGuestEtfs(context.get(Session))
+	try {
+		current = await fetchEtfs(session.token, session.gistId)
+	} catch {
+		return portfolioPersistenceFailureResponse(context)
 	}
 
 	// Merge imported with existing (same name+currency: add values)
@@ -103,14 +109,10 @@ async function handleImport(context: AppRequestContext, form: FormData) {
 	}
 	const updated = Array.from(byKey.values())
 
-	if (session?.gistId && session.token) {
-		try {
-			await saveEtfs(session.token, session.gistId, updated)
-		} catch {
-			return portfolioPersistenceFailureResponse(context)
-		}
-	} else {
-		setGuestEtfs(context.get(Session), updated)
+	try {
+		await saveEtfs(session.token, session.gistId, updated)
+	} catch {
+		return portfolioPersistenceFailureResponse(context)
 	}
 
 	if (requestAcceptsFrameSubmitHtml(context.request)) {
@@ -128,65 +130,67 @@ export const portfolioController = {
 			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
 			const flashedBanner = readFlashedBanner(context.get(Session))
-			if (session?.gistId && session.token) {
-				try {
-					const { entries, catalog } = await fetchPortfolioSnapshot(
-						session.token,
-						session.gistId,
-					)
-					return renderPage(context, {
-						entries,
-						session: layoutSession,
-						flashBanner: flashedBanner,
-						catalog,
-					})
-				} catch {
-					const catalog = await fetchCatalog()
-					return renderPage(context, {
-						entries: [],
-						session: layoutSession,
-						flashBanner: {
-							text: t('errors.portfolio.persistence'),
-							tone: 'error',
-						},
-						catalog,
-					})
-				}
+			// Pending approval: the page renders with its own notice and no rows,
+			// because there is no store to read until the login is approved.
+			if (!sessionUsesGithubGist(session)) {
+				return renderPage(context, {
+					entries: [],
+					session: layoutSession,
+					flashBanner: flashedBanner,
+					catalog: await fetchCatalog(),
+				})
 			}
-			return renderPage(context, {
-				entries: getGuestEtfs(context.get(Session)),
-				session: layoutSession,
-				flashBanner: flashedBanner,
-				catalog: await fetchCatalog(),
-			})
+			try {
+				const { entries, catalog } = await fetchPortfolioSnapshot(
+					session.token,
+					session.gistId,
+				)
+				return renderPage(context, {
+					entries,
+					session: layoutSession,
+					flashBanner: flashedBanner,
+					catalog,
+				})
+			} catch {
+				const catalog = await fetchCatalog()
+				return renderPage(context, {
+					entries: [],
+					session: layoutSession,
+					flashBanner: {
+						text: t('errors.portfolio.persistence'),
+						tone: 'error',
+					},
+					catalog,
+				})
+			}
 		},
 
 		async fragmentList(context: AppRequestContext) {
 			const session = getSessionData(context.get(Session))
+			if (!sessionUsesGithubGist(session)) {
+				return createHtmlResponse(
+					renderFragmentToStream(
+						jsx(ListFragment, { entries: [], catalog: await fetchCatalog() }),
+					),
+					{ headers: { 'Cache-Control': 'no-store' } },
+				)
+			}
 			let entries: EtfEntry[]
 			let inlineError: string | undefined
-			if (session?.gistId && session.token) {
-				try {
-					entries = await fetchEtfs(session.token, session.gistId)
-				} catch {
-					entries = []
-					inlineError = t('errors.portfolio.persistence')
-				}
-			} else {
-				entries = getGuestEtfs(context.get(Session))
+			try {
+				entries = await fetchEtfs(session.token, session.gistId)
+			} catch {
+				entries = []
+				inlineError = t('errors.portfolio.persistence')
 			}
 			let catalog: CatalogEntry[]
-			if (session?.gistId && session.token) {
-				try {
-					const snapshot = await fetchPortfolioSnapshot(
-						session.token,
-						session.gistId,
-					)
-					catalog = snapshot.catalog
-				} catch {
-					catalog = await fetchCatalog()
-				}
-			} else {
+			try {
+				const snapshot = await fetchPortfolioSnapshot(
+					session.token,
+					session.gistId,
+				)
+				catalog = snapshot.catalog
+			} catch {
 				catalog = await fetchCatalog()
 			}
 			return createHtmlResponse(
@@ -221,26 +225,22 @@ export const portfolioController = {
 			if (!id) return createRedirectResponse(routes.portfolio.index.href())
 
 			const session = getSessionData(context.get(Session))
+			if (!sessionUsesGithubGist(session)) {
+				return createRedirectResponse(routes.portfolio.index.href())
+			}
 
-			if (session?.gistId && session.token) {
-				try {
-					const current = await fetchEtfs(session.token, session.gistId)
-					await saveEtfs(
-						session.token,
-						session.gistId,
-						current.filter((entry) => entry.id !== id),
-					)
-				} catch {
-					flashBanner(context.get(Session), {
-						text: t('errors.portfolio.persistence'),
-						tone: 'error',
-					})
-				}
-			} else {
-				const filtered = getGuestEtfs(context.get(Session)).filter(
-					(entry) => entry.id !== id,
+			try {
+				const current = await fetchEtfs(session.token, session.gistId)
+				await saveEtfs(
+					session.token,
+					session.gistId,
+					current.filter((entry) => entry.id !== id),
 				)
-				setGuestEtfs(context.get(Session), filtered)
+			} catch {
+				flashBanner(context.get(Session), {
+					text: t('errors.portfolio.persistence'),
+					tone: 'error',
+				})
 			}
 
 			return createRedirectResponse(routes.portfolio.index.href())

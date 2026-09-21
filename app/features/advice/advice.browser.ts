@@ -8,7 +8,7 @@ import {
 	DESKTOP_VIEWPORT,
 	startBrowserTestSession,
 } from '../../lib/browser-test.ts'
-import { setPrivateGistFetchTestOverlay } from '../../lib/private-gist-fetch-test-overlay.ts'
+import { setPrivateGistTestStore } from '../../lib/private-gist-test-store.ts'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import { setAdviceClient } from './advice-client.ts'
 
@@ -33,7 +33,7 @@ describe('advice forms (browser)', () => {
 
 	after(async () => {
 		setAdviceClient(null)
-		setPrivateGistFetchTestOverlay(null)
+		setPrivateGistTestStore(null)
 		if (originalApprovedGithubLogins === undefined) {
 			delete process.env.APPROVED_GITHUB_LOGINS
 		} else {
@@ -45,13 +45,13 @@ describe('advice forms (browser)', () => {
 	/** Opens `/advice` in a fresh, isolated browser context signed in with a linked gist. */
 	async function openSignedIn(login: string): Promise<BrowserTestPage> {
 		process.env.APPROVED_GITHUB_LOGINS = login
-		setPrivateGistFetchTestOverlay({ etfs: [], guidelines: [] })
+		setPrivateGistTestStore({ etfs: [], guidelines: [] })
 		const remixSession = await sessionStorage.read(null)
 		remixSession.set('login', login)
 		remixSession.set('token', 'test-token')
 		// The private-gist test overlay (avoids real GitHub calls) matches this
 		// exact token/gistId pair regardless of login — see
-		// `private-gist-fetch-test-overlay.ts`.
+		// `private-gist-test-store.ts`.
 		remixSession.set('gistId', 'gist-advice-test')
 		const value = await sessionStorage.save(remixSession)
 		if (value == null) throw new Error('expected session save value')
@@ -202,7 +202,7 @@ describe('advice mode tabs (browser)', () => {
 	})
 
 	after(async () => {
-		setPrivateGistFetchTestOverlay(null)
+		setPrivateGistTestStore(null)
 		if (originalApprovedGithubLogins === undefined) {
 			delete process.env.APPROVED_GITHUB_LOGINS
 		} else {
@@ -213,7 +213,7 @@ describe('advice mode tabs (browser)', () => {
 
 	async function openAdvice() {
 		process.env.APPROVED_GITHUB_LOGINS = 'advice-browser-tabs'
-		setPrivateGistFetchTestOverlay({ etfs: [], guidelines: [] })
+		setPrivateGistTestStore({ etfs: [], guidelines: [] })
 		const remixSession = await sessionStorage.read(null)
 		remixSession.set('login', 'advice-browser-tabs')
 		remixSession.set('token', 'test-token')
@@ -276,7 +276,7 @@ describe('advice mode tabs (browser)', () => {
 		})
 		const page = await context.newPage()
 		process.env.APPROVED_GITHUB_LOGINS = 'advice-browser-tabs-nojs'
-		setPrivateGistFetchTestOverlay({ etfs: [], guidelines: [] })
+		setPrivateGistTestStore({ etfs: [], guidelines: [] })
 		const remixSession = await sessionStorage.read(null)
 		remixSession.set('login', 'advice-browser-tabs-nojs')
 		remixSession.set('token', 'test-token')

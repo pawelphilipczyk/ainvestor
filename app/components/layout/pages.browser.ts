@@ -36,6 +36,14 @@ describe('every page loads and hydrates (browser)', () => {
 			})
 
 			assert.equal(response?.status(), 200)
+			// `goto` follows redirects, so a signed-out context would land on the
+			// intro page and every assertion below would pass against the wrong
+			// document. Pin the page we actually ended up on.
+			assert.equal(
+				new URL(opened.page.url()).pathname,
+				path,
+				`${path} redirected instead of rendering`,
+			)
 			assert.equal(
 				await opened.page.evaluate(() =>
 					document.querySelector('[data-theme-toggle]')?.getAttribute('role'),

@@ -1,14 +1,15 @@
 import * as assert from 'node:assert/strict'
-import { afterEach, describe, it } from 'node:test'
+import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
+	approvedSessionCookie,
 	resetTestSessionCookieJar,
+	seedTestSessionCookie,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
-import { resetEtfEntries } from '../portfolio/index.ts'
 import {
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
@@ -17,9 +18,14 @@ import {
 
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
 
+// Every page under test sits behind the sign-in gate; this seeds the sticky
+// cookie jar with an approved session and an empty private gist.
+beforeEach(async () => {
+	await approvedSessionCookie()
+})
+
 afterEach(() => {
 	setAdviceClient(null)
-	resetEtfEntries()
 	resetSharedCatalogForTests()
 	resetTestSessionCookieJar()
 	if (originalApprovedGithubLogins === undefined) {
@@ -46,7 +52,11 @@ async function signInAs(login: string, params: { isAdmin?: boolean } = {}) {
 	const value = await sessionStorage.save(session)
 	if (value == null) throw new Error('expected session save value')
 	const cookieHeader = await sessionCookie.serialize(value)
-	return cookieHeader.split(';')[0]
+	const cookie = cookieHeader.split(';')[0] ?? ''
+	// Take over the sticky jar, which `beforeEach` seeded with a plain approved
+	// user; the jar is what carries flash messages between this test's requests.
+	seedTestSessionCookie(cookie)
+	return cookie
 }
 
 describe('ETF Catalog page', () => {
@@ -513,7 +523,9 @@ describe('ETF Catalog page', () => {
 		assert.equal(importResponse.status, 302)
 		assert.equal(importResponse.headers.get('location'), '/admin/etf-import')
 
+		// Drop the flash, then sign back in: /catalog is behind the sign-in gate.
 		resetTestSessionCookieJar()
+		await approvedSessionCookie()
 		const catalogResponse = await testSessionFetch('http://localhost/catalog')
 		const body = await catalogResponse.text()
 

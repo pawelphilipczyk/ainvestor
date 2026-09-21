@@ -1,7 +1,15 @@
 import * as assert from 'node:assert/strict'
-import { describe, it } from 'node:test'
+import { afterEach, describe, it } from 'node:test'
 import { router } from '../router.ts'
 import { assetHref, remixAssetServer } from './remix-assets.ts'
+import {
+	approvedSessionCookie,
+	resetTestSessionCookieJar,
+} from './test-session-fetch.ts'
+
+afterEach(() => {
+	resetTestSessionCookieJar()
+})
 
 /** Pages whose renders cover both paths to a client entry's browser URL. */
 const PAGES = [
@@ -17,8 +25,11 @@ const PAGES = [
 	'/advice',
 ]
 
+/** Every page but `/` sits behind the sign-in gate, so each fetch carries one. */
 async function fetchPage(path: string): Promise<string> {
-	const response = await router.fetch(`http://localhost${path}`)
+	const response = await router.fetch(`http://localhost${path}`, {
+		headers: { Cookie: await approvedSessionCookie() },
+	})
 	assert.equal(response.status, 200, `GET ${path}`)
 	return response.text()
 }

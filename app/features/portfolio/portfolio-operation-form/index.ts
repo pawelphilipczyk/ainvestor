@@ -11,7 +11,6 @@ import {
 } from '../../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
 import { fetchPortfolioSnapshot, saveEtfs } from '../../../lib/gist.ts'
-import { getGuestEtfs, setGuestEtfs } from '../../../lib/guest-session-state.ts'
 import { t } from '../../../lib/i18n.ts'
 import {
 	applyPortfolioOperation,
@@ -19,7 +18,7 @@ import {
 	PortfolioOperationSchema,
 } from '../../../lib/portfolio-operations.ts'
 import type { AppRequestContext } from '../../../lib/request-context.ts'
-import { getSessionData } from '../../../lib/session.ts'
+import { getSessionData, sessionUsesGithubGist } from '../../../lib/session.ts'
 import { flashBanner } from '../../../lib/session-flash.ts'
 import { routes } from '../../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../../catalog/lib.ts'
@@ -30,18 +29,13 @@ async function loadCatalogForPortfolioList(
 	context: AppRequestContext,
 ): Promise<CatalogEntry[]> {
 	const session = getSessionData(context.get(Session))
-	if (session?.gistId && session.token) {
-		try {
-			const snapshot = await fetchPortfolioSnapshot(
-				session.token,
-				session.gistId,
-			)
-			return snapshot.catalog
-		} catch {
-			return fetchCatalog()
-		}
+	if (!sessionUsesGithubGist(session)) return fetchCatalog()
+	try {
+		const snapshot = await fetchPortfolioSnapshot(session.token, session.gistId)
+		return snapshot.catalog
+	} catch {
+		return fetchCatalog()
 	}
-	return fetchCatalog()
 }
 
 async function portfolioListFragmentHtmlResponse(
@@ -78,18 +72,14 @@ async function loadPortfolioEntries(
 	context: AppRequestContext,
 ): Promise<EtfEntry[] | null> {
 	const session = getSessionData(context.get(Session))
-	if (session?.gistId && session.token) {
-		try {
-			const snapshot = await fetchPortfolioSnapshot(
-				session.token,
-				session.gistId,
-			)
-			return snapshot.entries
-		} catch {
-			return null
-		}
+	// Pending approval: no store to read, so no rows — not a read failure.
+	if (!sessionUsesGithubGist(session)) return []
+	try {
+		const snapshot = await fetchPortfolioSnapshot(session.token, session.gistId)
+		return snapshot.entries
+	} catch {
+		return null
 	}
-	return getGuestEtfs(context.get(Session))
 }
 
 async function portfolioPersistenceFailureResponse(
@@ -179,22 +169,24 @@ export const portfolioOperationFormHandlers = {
 
 			const operation = result.value
 			const session = getSessionData(context.get(Session))
+			if (!sessionUsesGithubGist(session)) {
+				return portfolioValidationFailureResponse(
+					context,
+					t('errors.portfolio.requiresApproval'),
+				)
+			}
+
 			let catalog: CatalogEntry[]
 			let current: EtfEntry[]
-			if (session?.gistId && session.token) {
-				try {
-					const snapshot = await fetchPortfolioSnapshot(
-						session.token,
-						session.gistId,
-					)
-					catalog = snapshot.catalog
-					current = snapshot.entries
-				} catch {
-					return portfolioPersistenceFailureResponse(context)
-				}
-			} else {
-				catalog = await fetchCatalog()
-				current = getGuestEtfs(context.get(Session))
+			try {
+				const snapshot = await fetchPortfolioSnapshot(
+					session.token,
+					session.gistId,
+				)
+				catalog = snapshot.catalog
+				current = snapshot.entries
+			} catch {
+				return portfolioPersistenceFailureResponse(context)
 			}
 
 			const { instrumentTicker, value, currency } = operation
@@ -224,9 +216,7 @@ export const portfolioOperationFormHandlers = {
 							...(outcome.blocker === 'catalog_entry_missing'
 								? {
 										instrumentTicker: instrumentTicker.trim(),
-										...(session?.gistId && session.token
-											? { gistId: session.gistId }
-											: {}),
+										gistId: session.gistId,
 									}
 								: {}),
 						}),
@@ -249,14 +239,10 @@ export const portfolioOperationFormHandlers = {
 
 			const updated = outcome.holdings
 
-			if (session?.gistId && session.token) {
-				try {
-					await saveEtfs(session.token, session.gistId, updated)
-				} catch {
-					return portfolioPersistenceFailureResponse(context)
-				}
-			} else {
-				setGuestEtfs(context.get(Session), updated)
+			try {
+				await saveEtfs(session.token, session.gistId, updated)
+			} catch {
+				return portfolioPersistenceFailureResponse(context)
 			}
 
 			if (requestAcceptsFrameSubmitHtml(context.request)) {

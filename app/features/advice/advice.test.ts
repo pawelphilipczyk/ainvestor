@@ -1,10 +1,11 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
-import { setPrivateGistFetchTestOverlay } from '../../lib/private-gist-fetch-test-overlay.ts'
+import { setPrivateGistTestStore } from '../../lib/private-gist-test-store.ts'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
 	resetTestSessionCookieJar,
+	seedTestSessionCookie,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
@@ -50,8 +51,12 @@ async function signInWithGist(login = 'advice-test-user') {
 	if (value == null) throw new Error('expected session save value')
 	const cookieHeader = await sessionCookie.serialize(value)
 	// Avoid real GitHub fetches: fetchEtfs throws on non-2xx unless overlay supplies data.
-	setPrivateGistFetchTestOverlay({ etfs: [], guidelines: [] })
-	return cookieHeader.split(';')[0]
+	setPrivateGistTestStore({ etfs: [], guidelines: [] })
+	const cookie = cookieHeader.split(';')[0] ?? ''
+	// Seed the sticky jar: /advice is behind the sign-in gate, so plain
+	// `testSessionFetch` calls in the same test need this session too.
+	seedTestSessionCookie(cookie)
+	return cookie
 }
 
 function makeMockClient(responseText: string): AdviceClient {
@@ -83,7 +88,7 @@ afterEach(() => {
 	resetTestSessionCookieJar()
 	resetSharedCatalogForTests()
 	resetAdviceGistTestOverlay()
-	setPrivateGistFetchTestOverlay(null)
+	setPrivateGistTestStore(null)
 	setAdviceClient(null)
 	if (originalApprovedGithubLogins === undefined) {
 		delete process.env.APPROVED_GITHUB_LOGINS
@@ -94,12 +99,12 @@ afterEach(() => {
 
 describe('Advice', () => {
 	it('GET /advice renders the Get Advice form page', async () => {
+		await signInWithGist()
 		const response = await testSessionFetch('http://localhost/advice')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Get Advice/)
-		assert.match(body, /Sign in to run AI advice/)
 		const cashInput = body.match(
 			/<input\b[^>]*\bid="cashAmount-buy-next"[^>]*>/,
 		)
@@ -182,6 +187,7 @@ describe('Advice', () => {
 	})
 
 	it('returns 400 with AdvicePage HTML when buy_next has empty cashAmount', async () => {
+		await signInWithGist()
 		setAdviceClient(makeMockClient('irrelevant'))
 
 		const form = new FormData()
@@ -226,7 +232,7 @@ describe('Advice', () => {
 	it('includes current ETF holdings in the advice prompt for gist-backed sessions', async () => {
 		const cookie = await signInWithGist()
 		let capturedUserMessage = ''
-		setPrivateGistFetchTestOverlay({
+		setPrivateGistTestStore({
 			etfs: [
 				{
 					id: 'h1',
@@ -277,7 +283,7 @@ describe('Advice', () => {
 	it('passes guidelines into the advice prompt when they exist (gist-backed)', async () => {
 		const cookie = await signInWithGist()
 		let capturedUserMessage = ''
-		setPrivateGistFetchTestOverlay({
+		setPrivateGistTestStore({
 			etfs: [],
 			guidelines: [
 				{
@@ -322,12 +328,21 @@ describe('Advice', () => {
 		assert.match(capturedUserMessage, /equity/)
 	})
 
-	it('POST /advice returns 403 for guest without GitHub gist when running analysis', async () => {
+	// Distinct from the pending-approval 403 above: this login IS approved and
+	// holds a token, but its session carries no gist to read or write.
+	it('POST /advice returns 403 for an approved session with no private gist', async () => {
+		process.env.APPROVED_GITHUB_LOGINS = 'no-gist-user'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'no-gist-user')
+		session.set('token', 'test-token')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookie = (await sessionCookie.serialize(value)).split(';')[0] ?? ''
 		setAdviceClient({
 			chat: {
 				completions: {
 					create: async () => {
-						throw new Error('advice client must not run for guests')
+						throw new Error('advice client must not run without a gist')
 					},
 				},
 			},
@@ -339,7 +354,11 @@ describe('Advice', () => {
 		form.set('adviceIntent', 'run')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
@@ -920,12 +939,11 @@ describe('Advice', () => {
 		const cookie = await signInWithGist()
 
 		const localeCookie = (await uiLocaleCookie.serialize('pl')).split(';')[0]
+		// The jar overrides a request's own Cookie header, so both cookies have
+		// to travel through it — session for the gate, locale for the copy.
+		seedTestSessionCookie(`${cookie}; ${localeCookie}`)
 
-		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), {
-				headers: { Cookie: `${cookie}; ${localeCookie}` },
-			}),
-		)
+		const response = await testSessionFetch(new Request(adviceUrl('buy_next')))
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
@@ -1064,6 +1082,7 @@ describe('Advice', () => {
 	})
 
 	it('advice-result Frame is always present, even before any analysis exists', async () => {
+		await signInWithGist()
 		const response = await testSessionFetch('http://localhost/advice')
 		const body = await response.text()
 

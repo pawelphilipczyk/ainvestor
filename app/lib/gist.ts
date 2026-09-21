@@ -1,5 +1,8 @@
 import { type CatalogEntry, fetchCatalog } from '../features/catalog/lib.ts'
-import { takePrivateGistFetchTestEtfs } from './private-gist-fetch-test-overlay.ts'
+import {
+	putPrivateGistTestEtfs,
+	takePrivateGistTestEtfs,
+} from './private-gist-test-store.ts'
 
 export const GIST_FILENAME = 'etfs.json'
 
@@ -183,7 +186,7 @@ export async function fetchEtfs(
 	token: string,
 	gistId: string,
 ): Promise<EtfEntry[]> {
-	const testEtfs = takePrivateGistFetchTestEtfs(token, gistId)
+	const testEtfs = takePrivateGistTestEtfs(token, gistId)
 	if (testEtfs !== null) return testEtfs
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		headers: githubHeaders(token),
@@ -220,6 +223,7 @@ export async function saveEtfs(
 	gistId: string,
 	entries: EtfEntry[],
 ): Promise<void> {
+	if (putPrivateGistTestEtfs(token, gistId, entries)) return
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		method: 'PATCH',
 		headers: githubHeaders(token),
