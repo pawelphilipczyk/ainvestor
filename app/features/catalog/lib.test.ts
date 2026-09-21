@@ -114,6 +114,46 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 		assert.equal(second.entries[0]?.ticker, 'ABC')
 	})
 
+	it('downloads catalog.json from raw_url when the gist API truncated it', async () => {
+		const fullCatalog = JSON.stringify([
+			{
+				id: '1',
+				ticker: 'ABC',
+				name: 'Alpha',
+				type: 'equity',
+				description: '',
+			},
+		])
+		const requested: string[] = []
+		globalThis.fetch = async (input: string | URL | Request) => {
+			const url = String(input)
+			requested.push(url)
+			if (url === 'https://gist.example/raw/catalog.json') {
+				return new Response(fullCatalog, { status: 200 })
+			}
+			return new Response(
+				JSON.stringify({
+					files: {
+						[CATALOG_FILENAME]: {
+							content: fullCatalog.slice(0, 20),
+							truncated: true,
+							raw_url: 'https://gist.example/raw/catalog.json',
+						},
+					},
+					owner: { login: 'owner' },
+				}),
+				{ status: 200 },
+			)
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-truncated'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+
+		const snapshot = await fetchSharedCatalogSnapshot()
+		assert.equal(snapshot.entries[0]?.ticker, 'ABC')
+		assert.equal(snapshot.ownerLogin, 'owner')
+		assert.equal(requested.length, 2)
+	})
+
 	it('does not cache when ttl is 0', async () => {
 		let fetchCount = 0
 		globalThis.fetch = async () => {
