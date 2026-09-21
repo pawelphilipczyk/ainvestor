@@ -1,8 +1,9 @@
 import * as assert from 'node:assert/strict'
-import { afterEach, describe, it } from 'node:test'
+import { afterEach, beforeEach, describe, it } from 'node:test'
 
 import { assetHref } from '../../lib/remix-assets.ts'
 import {
+	approvedSessionCookie,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
@@ -11,11 +12,15 @@ import {
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
 } from '../catalog/lib.ts'
-import { resetEtfEntries } from './index.ts'
+
+// Every page under test sits behind the sign-in gate; this seeds the sticky
+// cookie jar with an approved session and an empty private gist.
+beforeEach(async () => {
+	await approvedSessionCookie()
+})
 
 afterEach(() => {
 	resetTestSessionCookieJar()
-	resetEtfEntries()
 	resetSharedCatalogForTests()
 })
 
@@ -735,6 +740,9 @@ IBTA LN ETF;GBR-LSE;4087.48;PLN`
 	})
 
 	it('shows sign-in link when not authenticated', async () => {
+		// Drop the approved session this suite seeds: the intro page is the one
+		// page a signed-out visitor still reaches, and it must offer sign-in.
+		resetTestSessionCookieJar()
 		const response = await testSessionFetch('http://localhost/')
 		const body = await response.text()
 

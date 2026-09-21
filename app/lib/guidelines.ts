@@ -3,7 +3,10 @@ import { ETF_TYPE_LABELS_PL } from '../locales/pl.ts'
 import type { EtfType } from './etf-type.ts'
 import { ETF_TYPES, GUIDELINE_ETF_TYPES } from './etf-type.ts'
 import { t } from './i18n.ts'
-import { takePrivateGistFetchTestGuidelines } from './private-gist-fetch-test-overlay.ts'
+import {
+	putPrivateGistTestGuidelines,
+	takePrivateGistTestGuidelines,
+} from './private-gist-test-store.ts'
 import { getUiLocale } from './ui-locale.ts'
 
 export const GUIDELINES_FILENAME = 'guidelines.json'
@@ -210,7 +213,7 @@ async function readGuidelinesGist(
 	token: string,
 	gistId: string,
 ): Promise<GuidelinesGistReadResult> {
-	const testRows = takePrivateGistFetchTestGuidelines(token, gistId)
+	const testRows = takePrivateGistTestGuidelines(token, gistId)
 	if (testRows !== null) return { ok: true, guidelines: testRows }
 	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
 		headers: githubHeaders(token),
@@ -258,6 +261,11 @@ async function writeGuidelinesGist(params: {
 	gistId: string
 	guidelines: EtfGuideline[]
 }): Promise<Response> {
+	if (
+		putPrivateGistTestGuidelines(params.token, params.gistId, params.guidelines)
+	) {
+		return new Response(null, { status: 200 })
+	}
 	return fetch(`${GITHUB_API}/gists/${params.gistId}`, {
 		method: 'PATCH',
 		headers: githubHeaders(params.token),

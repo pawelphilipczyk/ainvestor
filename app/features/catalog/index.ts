@@ -57,8 +57,6 @@ import {
 	saveCatalogImport,
 } from './lib.ts'
 
-export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-session-fetch.ts'
-
 /** Cookie session storage (~4KB total); keep flash small so login + flash still fit. */
 const MAX_IMPORT_FLASH_UTF16_UNITS = 2_400
 const NOTE_ROW_DETAIL_LIMIT = 10

@@ -12,10 +12,6 @@ import {
 	requestAcceptsApplicationJson,
 	requestAcceptsFrameSubmitHtml,
 } from '../../lib/frame-submit-request.ts'
-import {
-	getGuestGuidelines,
-	setGuestGuidelines,
-} from '../../lib/guest-session-state.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import {
 	fetchGuidelines,
@@ -33,7 +29,11 @@ import { format, t } from '../../lib/i18n.ts'
 import { parseLocaleDecimalString } from '../../lib/locale-decimal-input.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
-import { getLayoutSession, getSessionData } from '../../lib/session.ts'
+import {
+	getLayoutSession,
+	getSessionData,
+	sessionUsesGithubGist,
+} from '../../lib/session.ts'
 import {
 	type FlashedBanner,
 	flashBanner,
@@ -99,10 +99,9 @@ async function loadGuidelinesForSession(
 	context: AppRequestContext,
 ): Promise<EtfGuideline[]> {
 	const session = getSessionData(context.get(Session))
-	if (session?.gistId && session.token) {
-		return fetchGuidelines(session.token, session.gistId)
-	}
-	return getGuestGuidelines(context.get(Session))
+	// Pending approval: no store to read, so no rows.
+	if (!sessionUsesGithubGist(session)) return []
+	return fetchGuidelines(session.token, session.gistId)
 }
 
 async function guidelinesListFragmentHtmlResponse(params: {
@@ -239,6 +238,35 @@ async function guidelinesUpdateSchemaValidationResponse(params: {
 	return createRedirectResponse(guidelinesIndexHref())
 }
 
+/**
+ * Refuses a write from a session that has no store to write to — a login still
+ * pending allowlist approval. The page disables these forms, so reaching this
+ * means a request built by hand; it answers in the same three shapes as every
+ * other guideline failure rather than redirecting silently.
+ */
+async function guidelinesRequiresApprovalResponse(params: {
+	context: AppRequestContext
+	request: Request
+	session: Session
+}): Promise<Response> {
+	const message = t('errors.guidelines.requiresApproval')
+	if (requestAcceptsApplicationJson(params.request)) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	if (requestAcceptsFrameSubmitHtml(params.request)) {
+		return guidelinesListFragmentHtmlResponse({
+			guidelines: [],
+			inlineError: message,
+			status: 422,
+		})
+	}
+	flashBanner(params.session, { text: message, tone: 'error' })
+	return createRedirectResponse(guidelinesIndexHref())
+}
+
 async function guidelinesUpdateCapErrorResponse(params: {
 	context: AppRequestContext
 	request: Request
@@ -284,37 +312,15 @@ async function persistGuideline(params: {
 	addTab: GuidelinesAddTabId
 }): Promise<Response | null> {
 	const { entry, session, remixSession, request, context, addTab } = params
-	if (session?.gistId && session.token) {
-		const current = await fetchGuidelines(session.token, session.gistId)
-		if (findGuidelineDuplicateOf(current, entry)) {
-			return guidelinesDuplicateErrorResponse({
-				context,
-				request,
-				session: remixSession,
-				entry,
-				addTab,
-			})
-		}
-		if (
-			wouldGuidelineTotalExceedCap({
-				existing: current,
-				additionalPercent: entry.targetPct,
-			})
-		) {
-			return guidelinesTotalCapErrorResponse({
-				context,
-				request,
-				session: remixSession,
-				currentTotal: sumGuidelineTargetPercent(current),
-				addedPercent: entry.targetPct,
-				addTab,
-			})
-		}
-		await saveGuidelines(session.token, session.gistId, [entry, ...current])
-		return null
+	if (!sessionUsesGithubGist(session)) {
+		return guidelinesRequiresApprovalResponse({
+			context,
+			request,
+			session: remixSession,
+		})
 	}
 
-	const current = getGuestGuidelines(remixSession)
+	const current = await fetchGuidelines(session.token, session.gistId)
 	if (findGuidelineDuplicateOf(current, entry)) {
 		return guidelinesDuplicateErrorResponse({
 			context,
@@ -339,7 +345,7 @@ async function persistGuideline(params: {
 			addTab,
 		})
 	}
-	setGuestGuidelines(remixSession, [entry, ...current])
+	await saveGuidelines(session.token, session.gistId, [entry, ...current])
 	return null
 }
 
@@ -358,39 +364,15 @@ async function updateGuidelineTarget(params: {
 	const { id, newTargetPercent, session, remixSession, request, context } =
 		params
 
-	if (session?.gistId && session.token) {
-		const current = await fetchGuidelines(session.token, session.gistId)
-		const existing = current.find((g) => g.id === id)
-		if (!existing) {
-			return createRedirectResponse(routes.guidelines.index.href())
-		}
-		const others = current.filter((g) => g.id !== id)
-		const resultingTotal = sumGuidelineTargetPercent(others) + newTargetPercent
-		if (
-			wouldGuidelineTotalExceedCap({
-				existing: others,
-				additionalPercent: newTargetPercent,
-			})
-		) {
-			return guidelinesUpdateCapErrorResponse({
-				context,
-				request,
-				session: remixSession,
-				newTargetPercent,
-				resultingTotal,
-			})
-		}
-		await saveGuidelines(
-			session.token,
-			session.gistId,
-			current.map((g) =>
-				g.id === id ? { ...g, targetPct: newTargetPercent } : g,
-			),
-		)
-		return null
+	if (!sessionUsesGithubGist(session)) {
+		return guidelinesRequiresApprovalResponse({
+			context,
+			request,
+			session: remixSession,
+		})
 	}
 
-	const current = getGuestGuidelines(remixSession)
+	const current = await fetchGuidelines(session.token, session.gistId)
 	const existing = current.find((g) => g.id === id)
 	if (!existing) {
 		return createRedirectResponse(routes.guidelines.index.href())
@@ -411,8 +393,9 @@ async function updateGuidelineTarget(params: {
 			resultingTotal,
 		})
 	}
-	setGuestGuidelines(
-		remixSession,
+	await saveGuidelines(
+		session.token,
+		session.gistId,
 		current.map((g) =>
 			g.id === id ? { ...g, targetPct: newTargetPercent } : g,
 		),
@@ -621,20 +604,16 @@ async function handleDelete(context: AppRequestContext, form: FormData) {
 	}
 
 	const session = getSessionData(context.get(Session))
-
-	if (session?.gistId && session.token) {
-		const current = await fetchGuidelines(session.token, session.gistId)
-		await saveGuidelines(
-			session.token,
-			session.gistId,
-			current.filter((g) => g.id !== id),
-		)
-	} else {
-		setGuestGuidelines(
-			context.get(Session),
-			getGuestGuidelines(context.get(Session)).filter((g) => g.id !== id),
-		)
+	if (!sessionUsesGithubGist(session)) {
+		return createRedirectResponse(routes.guidelines.index.href())
 	}
+
+	const current = await fetchGuidelines(session.token, session.gistId)
+	await saveGuidelines(
+		session.token,
+		session.gistId,
+		current.filter((g) => g.id !== id),
+	)
 
 	if (requestAcceptsFrameSubmitHtml(context.request)) {
 		const guidelines = await loadGuidelinesForSession(context)
@@ -649,16 +628,13 @@ async function handleDelete(context: AppRequestContext, form: FormData) {
 export const guidelinesController = {
 	actions: {
 		async index(context: AppRequestContext) {
-			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
 			const flashBanner = readFlashedBanner(context.get(Session))
 			const activeAddTab = normalizeGuidelinesAddTab(
 				new URL(context.request.url).searchParams.get('tab'),
 			)
 			const [guidelines, catalog] = await Promise.all([
-				session?.gistId && session.token
-					? fetchGuidelines(session.token, session.gistId)
-					: getGuestGuidelines(context.get(Session)),
+				loadGuidelinesForSession(context),
 				fetchCatalog(),
 			])
 			return renderGuidelinesPage(context, {
@@ -690,11 +666,7 @@ export const guidelinesController = {
 		},
 
 		async fragmentList(context: AppRequestContext) {
-			const session = getSessionData(context.get(Session))
-			const guidelines =
-				session?.gistId && session.token
-					? await fetchGuidelines(session.token, session.gistId)
-					: getGuestGuidelines(context.get(Session))
+			const guidelines = await loadGuidelinesForSession(context)
 			return createHtmlResponse(
 				renderFragmentToStream(jsx(GuidelinesListFragment, { guidelines })),
 				{ headers: { 'Cache-Control': 'no-store' } },

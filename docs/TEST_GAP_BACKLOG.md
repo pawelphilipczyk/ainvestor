@@ -509,3 +509,8 @@ case fails if the `try/catch` in `readState` is removed), that the
 guidelines ref is reused across writes in one session, that clearing the
 server-side store empties previously-cached guidelines, and that two
 sessions don't share a guidelines cache entry.
+
+**Superseded:** guest mode was removed in Phase 0 of
+`docs/STORAGE_MIGRATION_PLAN.md`, taking `app/lib/guest-session-state.ts` and
+this test file with it. The sign-in gate that replaced it is covered by
+`app/lib/require-approved-session.test.ts`.

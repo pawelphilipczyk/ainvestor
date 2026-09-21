@@ -1,9 +1,10 @@
 import * as http from 'node:http'
 import type { AddressInfo } from 'node:net'
-import type { Browser, ConsoleMessage, Page } from 'playwright'
+import type { Browser, BrowserContext, ConsoleMessage, Page } from 'playwright'
 import { chromium } from 'playwright'
 import { createRequestListener } from 'remix/node-fetch-server'
 import { router } from '../router.ts'
+import { approvedSessionCookie } from './test-session-fetch.ts'
 
 /**
  * Boots the app on an ephemeral port and drives it with a real Chromium.
@@ -32,7 +33,12 @@ export type BrowserTestSession = {
 	/** Origin the app is served from, e.g. `http://127.0.0.1:45213`. */
 	baseUrl: string
 	browser: Browser
-	/** Fresh page, Tailwind stubbed, console and page errors already collected. */
+	/**
+	 * Fresh page, Tailwind stubbed, console and page errors already collected,
+	 * and **signed in**: every page but `/` sits behind the sign-in gate, so a
+	 * signed-out context would silently be redirected to the intro page and the
+	 * test would assert against the wrong document.
+	 */
 	openPage: (viewport?: Viewport) => Promise<BrowserTestPage>
 	close: () => Promise<void>
 }
@@ -53,6 +59,21 @@ export const MOBILE_VIEWPORT: Viewport = { width: 390, height: 844 }
  * behavior, and reaching for it makes every run depend on the network.
  */
 const TAILWIND_STUB = 'globalThis.tailwind = { config: {} }'
+
+/**
+ * Signs a browser context in. Every page but `/` sits behind the sign-in gate,
+ * so a signed-out context is redirected to the intro page and a test would
+ * assert against the wrong document. `openPage` does this for you; call it
+ * directly only when building a context by hand (a no-JS context, say).
+ */
+export async function signInBrowserContext(
+	context: BrowserContext,
+): Promise<void> {
+	const [name = '', ...value] = (await approvedSessionCookie()).split('=')
+	await context.addCookies([
+		{ name, value: value.join('='), domain: '127.0.0.1', path: '/' },
+	])
+}
 
 function launchOptions() {
 	// Environments that ship a pinned browser build, rather than the one
@@ -92,6 +113,7 @@ export async function startBrowserTestSession(): Promise<BrowserTestSession> {
 		browser,
 		async openPage(viewport = MOBILE_VIEWPORT) {
 			const page = await browser.newPage({ viewport })
+			await signInBrowserContext(page.context())
 			await page.route('https://cdn.tailwindcss.com/**', (route) =>
 				route.fulfill({
 					status: 200,

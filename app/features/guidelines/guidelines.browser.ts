@@ -1,14 +1,16 @@
 import * as assert from 'node:assert/strict'
-import { after, before, describe, it } from 'node:test'
+import { after, before, beforeEach, describe, it } from 'node:test'
 import type {
 	BrowserTestPage,
 	BrowserTestSession,
 } from '../../lib/browser-test.ts'
 import {
 	DESKTOP_VIEWPORT,
+	signInBrowserContext,
 	startBrowserTestSession,
 } from '../../lib/browser-test.ts'
 import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
+import { setPrivateGistTestStore } from '../../lib/private-gist-test-store.ts'
 
 /**
  * Browser coverage for the guidelines page's four `data-rmx-target="guidelines-list"`
@@ -35,6 +37,12 @@ describe('guidelines forms (browser)', () => {
 
 	after(async () => {
 		await session.close()
+	})
+
+	// Each page shares one signed-in session and so one private-gist store;
+	// reset it per test, or rows added by one leak into the next.
+	beforeEach(() => {
+		setPrivateGistTestStore({ etfs: [], guidelines: [] })
 	})
 
 	async function open(path: string) {
@@ -248,6 +256,12 @@ describe('guidelines add-tabs (browser)', () => {
 		await session.close()
 	})
 
+	// Each page shares one signed-in session and so one private-gist store;
+	// reset it per test, or rows added by one leak into the next.
+	beforeEach(() => {
+		setPrivateGistTestStore({ etfs: [], guidelines: [] })
+	})
+
 	async function openGuidelines() {
 		const opened = await session.openPage(DESKTOP_VIEWPORT)
 		await opened.page.goto(`${session.baseUrl}/guidelines`, {
@@ -325,6 +339,7 @@ describe('guidelines add-tabs (browser)', () => {
 		const context = await session.browser.newContext({
 			javaScriptEnabled: false,
 		})
+		await signInBrowserContext(context)
 		const page = await context.newPage()
 		await page.goto(`${session.baseUrl}/guidelines?tab=instrument`, {
 			waitUntil: 'load',

@@ -1,10 +1,13 @@
 import { Session } from 'remix/session'
 import type { EtfEntry } from '../../lib/gist.ts'
 import { fetchEtfs } from '../../lib/gist.ts'
-import { getGuestEtfs } from '../../lib/guest-session-state.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
-import { getLayoutSession, getSessionData } from '../../lib/session.ts'
+import {
+	getLayoutSession,
+	getSessionData,
+	sessionUsesGithubGist,
+} from '../../lib/session.ts'
 import type { CatalogEntry } from './lib.ts'
 import { fetchSharedCatalogSnapshot, isSharedCatalogAdmin } from './lib.ts'
 
@@ -35,7 +38,8 @@ export async function loadCatalogEtfDetailContext(
 }
 
 /**
- * Catalog list page: shared gist snapshot + user holdings (guest or gist).
+ * Catalog list page: shared gist snapshot + user holdings. A session pending
+ * approval has no store to read, so it gets no holdings rather than an error.
  */
 export async function loadCatalogPageContext(
 	context: AppRequestContext,
@@ -45,9 +49,7 @@ export async function loadCatalogPageContext(
 	const [catalogSnapshot, entries] = await Promise.all([
 		fetchSharedCatalogSnapshot(),
 		(async (): Promise<EtfEntry[]> => {
-			if (!session?.gistId || !session.token) {
-				return getGuestEtfs(context.get(Session))
-			}
+			if (!sessionUsesGithubGist(session)) return []
 			try {
 				return await fetchEtfs(session.token, session.gistId)
 			} catch {

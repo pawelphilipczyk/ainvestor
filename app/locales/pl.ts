@@ -71,8 +71,7 @@ export const pl = {
 	'chrome.pendingShort': '(oczekuje)',
 	'portfolio.savedGist': 'Zapisano w prywatnym gicie GitHub Gist',
 	'portfolio.pendingNotSaved':
-		'Konto oczekuje na akceptację — portfel nie jest jeszcze zapisany w GitHubie',
-	'portfolio.signInPersist': 'Zaloguj się, aby zachować dane między sesjami',
+		'Konto oczekuje na akceptację — nie można jeszcze zapisać portfela',
 	'portfolio.import.title': 'Import z pliku CSV',
 	'portfolio.import.formatsHint':
 		'Eksporty eMAKLER/mBank i podobne. Przykładowe kolumny:',
@@ -180,9 +179,7 @@ export const pl = {
 	'catalog.section.available': 'Dostępne ETF',
 	'guidelines.subtitle.savedGist': 'Zapisano w prywatnym gicie GitHub Gist.',
 	'guidelines.subtitle.pending':
-		'Konto oczekuje na akceptację — wytyczne nie są jeszcze zapisane w GitHubie.',
-	'guidelines.subtitle.signIn':
-		'Zaloguj się, aby zachować dane między sesjami.',
+		'Konto oczekuje na akceptację — nie można jeszcze zapisać wytycznych.',
 	'guidelines.tabs.navAria': 'Formularze dodawania wytycznych',
 	'guidelines.etfCard.title': 'Cel dla konkretnego ETF',
 	'guidelines.etfCard.hint':
@@ -284,6 +281,8 @@ export const pl = {
 		'Podaj kwotę większą od zera przy sprzedaży.',
 	'errors.portfolio.persistence':
 		'Nie udało się zapisać portfela. Spróbuj ponownie za chwilę.',
+	'errors.portfolio.requiresApproval':
+		'Konto oczekuje na akceptację — nie można jeszcze zapisać portfela.',
 	'errors.portfolio.importInvalid':
 		'Nie znaleziono żadnych pozycji w tym pliku CSV. Sprawdź format i spróbuj ponownie.',
 	'errors.upload.fileTooLarge':
@@ -343,6 +342,8 @@ export const pl = {
 	'errors.catalog.etfDetail.notFound': 'Nie znaleziono tego wpisu katalogu.',
 	'errors.catalog.etfDetail.pendingAnalysis':
 		'Analiza ETF jest dostępna po akceptacji konta.',
+	'errors.guidelines.requiresApproval':
+		'Konto oczekuje na akceptację — nie można jeszcze zapisać wytycznych.',
 	'errors.guidelines.totalExceeds100':
 		'Suma celów wytycznych nie może przekraczać 100%. Masz już przydzielone {current}%; dodanie {added}% przekroczyłoby limit.',
 	'errors.guidelines.updateTotalExceeds100':

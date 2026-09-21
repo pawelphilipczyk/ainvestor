@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict'
-import { after, before, describe, it } from 'node:test'
+import { after, before, beforeEach, describe, it } from 'node:test'
 import type {
 	BrowserTestPage,
 	BrowserTestSession,
@@ -9,6 +9,7 @@ import {
 	startBrowserTestSession,
 } from '../../lib/browser-test.ts'
 import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
+import { setPrivateGistTestStore } from '../../lib/private-gist-test-store.ts'
 
 /**
  * Browser coverage for the portfolio trade form and CSV import, both
@@ -37,6 +38,12 @@ describe('portfolio forms (browser)', () => {
 
 	after(async () => {
 		await session.close()
+	})
+
+	// Each page shares one signed-in session and so one private-gist store;
+	// reset it per test, or rows added by one leak into the next.
+	beforeEach(() => {
+		setPrivateGistTestStore({ etfs: [], guidelines: [] })
 	})
 
 	async function open(path: string) {

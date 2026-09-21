@@ -76,8 +76,7 @@ export const en = {
 
 	'portfolio.savedGist': 'Saved to your private GitHub Gist',
 	'portfolio.pendingNotSaved':
-		'Account pending approval — portfolio is not saved to GitHub yet',
-	'portfolio.signInPersist': 'Sign in to persist your data across sessions',
+		'Account pending approval — a portfolio cannot be saved yet',
 	'portfolio.import.title': 'Import from CSV',
 	'portfolio.import.formatsHint':
 		'eMAKLER/mBank exports and similar. Example columns:',
@@ -185,8 +184,7 @@ export const en = {
 
 	'guidelines.subtitle.savedGist': 'Saved to your private GitHub Gist.',
 	'guidelines.subtitle.pending':
-		'Account pending approval — guidelines are not saved to GitHub yet.',
-	'guidelines.subtitle.signIn': 'Sign in to persist across sessions.',
+		'Account pending approval — guidelines cannot be saved yet.',
 	'guidelines.tabs.navAria': 'Add guideline forms',
 	'guidelines.etfCard.title': 'Specific ETF target',
 	'guidelines.etfCard.hint':
@@ -290,6 +288,8 @@ export const en = {
 		'Enter an amount greater than zero to sell.',
 	'errors.portfolio.persistence':
 		'Could not save your portfolio. Please try again in a moment.',
+	'errors.portfolio.requiresApproval':
+		'Account pending approval — a portfolio cannot be saved yet.',
 	'errors.portfolio.importInvalid':
 		'No holdings found in that CSV. Check the format and try again.',
 	'errors.upload.fileTooLarge':
@@ -350,6 +350,8 @@ export const en = {
 	'errors.catalog.etfDetail.pendingAnalysis':
 		'ETF analysis is available after your account is approved.',
 
+	'errors.guidelines.requiresApproval':
+		'Account pending approval — guidelines cannot be saved yet.',
 	'errors.guidelines.totalExceeds100':
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',
 	'errors.guidelines.updateTotalExceeds100':

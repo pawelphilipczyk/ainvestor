@@ -40,13 +40,9 @@ export function PortfolioPage(
 						<p class="mt-1 text-xs text-muted-foreground">
 							{t('portfolio.savedGist')}
 						</p>
-					) : session?.approvalStatus === 'pending' ? (
-						<p class="mt-1 text-xs text-muted-foreground">
-							{t('portfolio.pendingNotSaved')}
-						</p>
 					) : (
 						<p class="mt-1 text-xs text-muted-foreground">
-							{t('portfolio.signInPersist')}
+							{t('portfolio.pendingNotSaved')}
 						</p>
 					)}
 				</SectionIntroCard>

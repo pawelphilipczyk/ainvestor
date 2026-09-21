@@ -1,7 +1,7 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** planned, not started. Phase 0 is cleared to begin; Phases 1+ are
-designed but not yet detailed to the commit level.
+**Status:** Phase 0 done. Phases 1+ are designed but not yet detailed to the
+commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -106,7 +106,10 @@ the repo, add them, no code change.
 
 ---
 
-# Phase 0 — remove guest mode
+# Phase 0 — remove guest mode ✅
+
+**Done.** What the work changed against what this section planned is recorded
+under [Phase 0 outcome](#phase-0-outcome) below.
 
 **Goal:** an unauthenticated visitor can reach the home page and sign in, and
 nothing else. This is a prerequisite: it removes the anonymous catalog read that
@@ -181,6 +184,64 @@ more code than it adds.
 - `npm run check`, `npm test`, `npm run typecheck` pass; `npm run test:browser`
   passes for any touched client entry
 - `README.md` no longer advertises guest ETF entry
+
+## Phase 0 outcome
+
+All of the above holds. Three things went differently from the plan, and one
+piece of work the plan did not anticipate turned out to be the bulk of it.
+
+**The gate lists what it protects, rather than protecting everything.** The
+plan said "redirect anything that is not public". Built that way, an unknown
+URL answers `302` instead of `404`, which hides every genuine miss — a
+`theme-toggle` test that pins a removed asset path at `404` caught it.
+`requireApprovedSession` now matches `PROTECTED_PATH_PREFIXES`, and
+`require-approved-session.test.ts` pins both halves so a route added later
+cannot quietly default to public without the listing test noticing.
+
+**Signed-out visitors go to the intro page, not to `routes.auth.login`.** The
+OAuth flow has no return-to, so a bounce to GitHub lands them on the intro page
+anyway — one off-site round trip later, having lost the URL they asked for.
+
+**Pending-approval sessions lost their ephemeral store, by design.** They
+previously shared guest state, which is how "portfolio is not saved to GitHub
+yet" worked: rows lived in the session. With guest state gone they read and
+write nothing until approved, and the copy in both locales now says so
+(`portfolio.pendingNotSaved`, `guidelines.subtitle.pending`). Writes they
+should not be able to reach answer `errors.*.requiresApproval` in all three
+response shapes rather than redirecting silently.
+
+**The unplanned work: a gist double that can write.** Route tests exercised
+add, sell, import and delete flows *through guest state*. Signed in, those
+paths go to `saveEtfs` / `saveGuidelines`, which called GitHub for real — so
+removing guest mode broke every mutation test at once, not just the guest
+ones. `private-gist-fetch-test-overlay.ts` (read-only) therefore became
+`private-gist-test-store.ts`, an in-memory double that serves reads *and*
+absorbs writes. Phase 1 needs the same seam for the storage port, so this is
+groundwork rather than a detour.
+
+Shared sign-in helpers now live in `test-session-fetch.ts`
+(`approvedSessionCookie`, `pendingSessionCookie`, `seedTestSessionCookie`),
+replacing the sign-in block each suite had copied. They are deliberately
+**additive** — they add a login to `APPROVED_GITHUB_LOGINS` and install a store
+only when none exists — because `browser-test.ts` calls them for every page it
+opens, and a suite that approved its own login or seeded its own rows first
+must not have either wiped out from under it.
+
+**The browser suites needed the same gate treatment, and one of them was
+lying.** `openPage` now signs its context in (`signInBrowserContext`, exported
+for tests that build a context by hand, such as the no-JS one). Without it
+`pages.browser.ts` still **passed**: `page.goto` follows redirects, so all five
+pages answered `200` — from the intro page, five times over. It now pins
+`page.url()` against the path it asked for. Two suites also needed a per-test
+`setPrivateGistTestStore` reset: every context shares one signed-in session and
+therefore one store, where guest state used to isolate them per cookie.
+
+**Known leftover:** `adviceGistGateProps` in `app/features/advice/index.ts`
+still has a `'sign_in'` branch for `layoutSession === null`, which the gate now
+makes unreachable on `/advice`, along with the `advice.requiresGist.*` copy it
+renders. Left in place as defence in depth rather than unpicked from the
+`withAdviceGate` plumbing mid-phase; worth removing on the next change to that
+file.
 
 ---
 
