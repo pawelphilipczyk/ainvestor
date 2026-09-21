@@ -824,6 +824,41 @@ describe('parseBankJsonForImport keeps the bank fields and reports types', () =>
 		])
 	})
 
+	it('keeps a hand-set type when the bank still names no class', () => {
+		const existing = {
+			id: 'IE00B4ND3602_SGLN.LN',
+			isin: 'IE00B4ND3602',
+			ticker: 'SGLN LN',
+			name: 'Gold',
+			type: 'commodity' as const,
+			description: '',
+		}
+		const result = parseBankJsonForImport(
+			{ data: [{ ...goldRow, assets: null }] },
+			[existing],
+		)
+		assert.equal(result.entries[0]?.type, 'commodity')
+		assert.deepEqual(result.unclassifiedRows, [])
+		assert.deepEqual(result.typeChanges, [])
+	})
+
+	it('clears bank fields a re-import no longer sends', () => {
+		const [first] = parseBankJsonForImport({ data: [goldRow] }, []).entries
+		assert.ok(first)
+		const withHandNote = { ...first, type: 'commodity' as const }
+		const reimport = parseBankJsonForImport(
+			{ data: [{ ...goldRow, assets: null, tags: [], market: '' }] },
+			[withHandNote],
+		)
+		const [merged] = mergeBankIntoCatalog([withHandNote], reimport.entries)
+		assert.equal(merged?.assets, undefined)
+		assert.equal(merged?.tags, undefined)
+		assert.equal(merged?.market, undefined)
+		assert.equal(merged?.country, 'Irlandia')
+		assert.equal(merged?.type, 'commodity')
+		assert.equal(merged?.id, first.id)
+	})
+
 	it('lists rows it could not classify', () => {
 		const result = parseBankJsonForImport(
 			{

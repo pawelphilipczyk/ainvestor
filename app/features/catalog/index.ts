@@ -50,12 +50,11 @@ import type { CatalogEntry, CatalogRiskBand } from './lib.ts'
 import {
 	type BankJsonImportRowIssue,
 	type BankJsonParseForImportResult,
-	fetchCatalogSourceRows,
 	fetchSharedCatalogSnapshot,
 	isSharedCatalogAdmin,
 	mergeBankIntoCatalog,
 	parseBankJsonForImport,
-	saveCatalog,
+	saveCatalogImport,
 } from './lib.ts'
 
 export { resetTestSessionCookieJar as resetGuestCatalog } from '../../lib/test-session-fetch.ts'
@@ -515,15 +514,10 @@ export const catalogController = {
 
 			const merged = mergeBankIntoCatalog(entries, imported)
 			try {
-				// Rows from earlier imports stay; this import's rows replace theirs.
-				const storedSourceRows = await fetchCatalogSourceRows()
-				await saveCatalog({
+				await saveCatalogImport({
 					token: sessionData.token,
-					entries: merged,
-					sourceRowsById: {
-						...storedSourceRows,
-						...parseResult.sourceRowsById,
-					},
+					mergedEntries: merged,
+					sourceRowsById: parseResult.sourceRowsById,
 				})
 			} catch (error) {
 				console.error('[catalog] import save failed', error)

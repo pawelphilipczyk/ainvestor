@@ -372,6 +372,26 @@ const BANK_PASSTHROUGH_STRING_FIELDS = [
 	'country',
 ] as const satisfies readonly (keyof CatalogEntry & keyof BankEtfItem)[]
 
+/**
+ * Optional fields the bank import owns. A re-import clears any of them the
+ * bank no longer sends, so a stored row never mixes this import's values with
+ * a previous import's (e.g. an old `assets` next to a `type` derived without
+ * it). `isin` is left out: it is part of the merge key.
+ */
+const BANK_OWNED_OPTIONAL_FIELDS = [
+	...BANK_PASSTHROUGH_STRING_FIELDS,
+	'tags',
+	'expense_ratio',
+	'risk_kid',
+	'region',
+	'sector',
+	'rate_of_return',
+	'volatility',
+	'return_risk',
+	'fund_size',
+	'esg',
+] as const satisfies readonly (keyof CatalogEntry)[]
+
 /** Per-row problems detected while reading bank JSON (formatted in the catalog controller). */
 export type BankJsonImportRowIssue =
 	| { kind: 'rowNotObject' }
@@ -634,6 +654,11 @@ export function parseBankJsonForImport(
 		const existingRow = existingByMergeKey.get(mergeKey)
 		if (existingRow !== undefined) {
 			issues.push({ kind: 'alreadyInCatalog' })
+			// The bank still names no class, but someone already gave this row
+			// one by hand — the import has nothing better to offer, so keep it.
+			if (entry.type === 'unknown' && existingRow.type !== 'unknown') {
+				entry.type = existingRow.type
+			}
 		}
 
 		const blockingIssues = issues.filter(
@@ -729,10 +754,23 @@ function mergeCatalogRow(
 	return { ...existingRow, ...incomingRow, id: existingRow.id }
 }
 
+/** Like {@link mergeCatalogRow}, but bank-owned fields the import omits are cleared. */
+function mergeImportedRow(
+	existingRow: CatalogEntry,
+	incomingRow: CatalogEntry,
+): CatalogEntry {
+	const bankOwned = new Set<string>(BANK_OWNED_OPTIONAL_FIELDS)
+	const base = Object.fromEntries(
+		Object.entries(existingRow).filter(([field]) => !bankOwned.has(field)),
+	) as CatalogEntry
+	return mergeCatalogRow(base, incomingRow)
+}
+
 /**
  * Merge imported rows into the catalog. Rows with the same merge key (same ISIN
  * and same normalised ticker when ISIN is present) update the existing row
- * (incoming fields win; `id` is kept from the first).
+ * (incoming fields win, bank-owned fields the import omits are cleared; `id`
+ * is kept from the first).
  */
 export function mergeBankIntoCatalog(
 	existing: CatalogEntry[],
@@ -752,7 +790,7 @@ export function mergeBankIntoCatalog(
 		const existingAtKey = byKey.get(mergeKey)
 		byKey.set(
 			mergeKey,
-			existingAtKey ? mergeCatalogRow(existingAtKey, entry) : entry,
+			existingAtKey ? mergeImportedRow(existingAtKey, entry) : entry,
 		)
 	}
 	return [...byKey.values()]
@@ -987,6 +1025,24 @@ export async function fetchCatalogSourceRows(): Promise<
 		throw new Error(`${CATALOG_SOURCE_FILENAME} is not a JSON object`)
 	}
 	return parsed as Record<string, unknown>
+}
+
+/**
+ * Save a bank import: the merged catalog plus this import's source rows added
+ * to those stored by earlier imports (a fund re-imported replaces its row).
+ * Shared by the web import card and the MCP import tool.
+ */
+export async function saveCatalogImport(params: {
+	token: string
+	mergedEntries: CatalogEntry[]
+	sourceRowsById: Record<string, unknown>
+}): Promise<void> {
+	const storedSourceRows = await fetchCatalogSourceRows()
+	await saveCatalog({
+		token: params.token,
+		entries: params.mergedEntries,
+		sourceRowsById: { ...storedSourceRows, ...params.sourceRowsById },
+	})
 }
 
 /** Fetch catalog entries from the shared public gist. */
