@@ -802,7 +802,11 @@ export function mergeBankIntoCatalog(
 
 type GistFile = {
 	content: string | null
-	/** The gist API cuts file content off at 1 MB; the full file is at `raw_url`. */
+	/**
+	 * The gist API truncates file content once the *whole response* grows past
+	 * about 1 MB — so a large file beside `catalog.json` truncates it too. The
+	 * full file is always at `raw_url`.
+	 */
 	truncated?: boolean
 	raw_url?: string
 }
@@ -812,6 +816,25 @@ type GistPayload = {
 	owner?: {
 		login?: string
 	}
+}
+
+/**
+ * A gist file's full content: `content` when the API sent all of it, otherwise
+ * downloaded from `raw_url`. Throws when that download fails, so a caller
+ * never mistakes half a file for the whole one.
+ */
+async function readFullGistFileContent(file: GistFile): Promise<string | null> {
+	if (file.truncated !== true && file.content !== null) return file.content
+	if (!file.raw_url) {
+		throw new Error('Gist file is truncated and has no raw_url')
+	}
+	const response = await fetch(file.raw_url, {
+		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+	})
+	if (!response.ok) {
+		throw new Error(`Could not download gist file: ${response.status}`)
+	}
+	return response.text()
 }
 
 /** Parse catalog entries from a raw GitHub Gist API response object. */
@@ -953,6 +976,12 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 		})
 		if (!response.ok) return { entries: [], ownerLogin: null }
 		const gist = (await response.json()) as GistPayload
+		const catalogFile = gist.files[CATALOG_FILENAME]
+		if (catalogFile?.truncated === true) {
+			gist.files[CATALOG_FILENAME] = {
+				content: await readFullGistFileContent(catalogFile),
+			}
+		}
 		const ownerLogin =
 			typeof gist.owner?.login === 'string' && gist.owner.login.length > 0
 				? gist.owner.login
@@ -1006,18 +1035,7 @@ export async function fetchCatalogSourceRows(): Promise<
 	const file = gist.files[CATALOG_SOURCE_FILENAME]
 	if (!file) return {}
 
-	let content = file.content
-	if ((file.truncated === true || content === null) && file.raw_url) {
-		const rawResponse = await fetch(file.raw_url, {
-			signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
-		})
-		if (!rawResponse.ok) {
-			throw new Error(
-				`Could not download catalog source rows: ${rawResponse.status}`,
-			)
-		}
-		content = await rawResponse.text()
-	}
+	const content = await readFullGistFileContent(file)
 	if (content === null || content.trim().length === 0) return {}
 
 	const parsed: unknown = JSON.parse(content)
