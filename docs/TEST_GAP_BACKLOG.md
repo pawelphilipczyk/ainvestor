@@ -27,7 +27,7 @@ backlog just feeds the overlap backlog.
 ## Open items
 
 ### GAP-001 — session flash messages
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-21 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-21 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/224
 
 `app/lib/session-flash.ts` — no direct coverage. Flash messages are a
 read-once-then-clear contract, and the failure mode (a message that survives
