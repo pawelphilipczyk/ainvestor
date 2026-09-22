@@ -22,8 +22,9 @@
  * Phase 5 in the migration plan.
  */
 
-const GITHUB_API = 'https://api.github.com'
-const GITHUB_REQUEST_TIMEOUT_MS = 5_000
+/** Shared with `github-repo-store.ts` — one GitHub REST API root, one timeout policy. */
+export const GITHUB_API = 'https://api.github.com'
+export const GITHUB_REQUEST_TIMEOUT_MS = 5_000
 
 export type GistFile = {
 	content: string | null
