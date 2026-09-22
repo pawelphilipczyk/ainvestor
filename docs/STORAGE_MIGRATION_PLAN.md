@@ -46,11 +46,11 @@ That is the property the chosen design is built around.
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| User data location | `<login>/ainvestor-data`, **private** | Per-user, per-token, preserves the credential-free model |
-| Catalog location | `<owner>/ainvestor-catalog`, **private** | See below |
+| User data location | `<login>/ainvestor-data`, **private**, personal account | Per-user, per-token, preserves the credential-free model |
+| Catalog location | `ainvestor-shared/ainvestor-catalog`, **private**, under a GitHub **organization** | See below |
 | Catalog read credential | the **caller's** token | No server-side credential; possible only because guests lose catalog access |
 | Auth mechanism | OAuth App, scope `gist` → `repo` | See below |
-| Organization | **not now** | See below |
+| Organization | **yes**, free tier, for the catalog only | See below |
 | Concurrency | Contents API `sha` as compare-and-swap | Returns `409` on mismatch — the actual payoff of this migration |
 | Multi-file atomicity | Git Data API (blobs → tree → commit) | Catalog writes two files in one gist `PATCH` today; a commit preserves that and adds a parent-sha CAS |
 
@@ -89,20 +89,44 @@ A GitHub App is the only way to get true least privilege (per-repo
   too, consolidating credentials. That argument died when the catalog moved to
   caller-token reads.
 
-**Revisit when:** the approved-user count grows past a handful, or the catalog
-repo moves to an organization.
+**Revisit when:** the approved-user count grows past a handful. Moving the
+catalog repo to an organization (below) does not revive the App question —
+an org's Read role changes who can read the repo, not how the server
+authenticates, and the server still authenticates as nobody: every request
+carries the caller's own token, App or no App.
 
-### Why no organization yet
+### Why an organization for the catalog
 
 Option "collaborators read with their own token" nominally needs an org,
-because personal-repo collaborators always get **write** access and only orgs
-offer a Read role. But `APPROVED_GITHUB_LOGINS`
-(`app/lib/approved-github-logins.ts`) currently holds one login — the catalog
-owner — so today the owner's own token reads it and no collaborator exists.
+because **personal-repo collaborators always get write access** — a personal
+repo has no read-only role. Only a GitHub organization's Team feature offers
+one: a Team can be given the **Read** role on a specific repo, which lets its
+members clone and read but never push.
 
-The read path is identical whether the reader is the owner or a Read-role
-collaborator, so the org can wait until a second approved user appears: transfer
-the repo, add them, no code change.
+This was checked against GitHub's own docs rather than assumed, because the
+pricing page's own summary of team permissions is easy to misread as
+paid-gated. It isn't: **GitHub Free** already includes unlimited private
+repositories and Team-based repository roles (Read/Triage/Write/
+Maintain/Admin) for organizations of any size. The paid Team ($4/user/mo) and
+Enterprise ($21/user/mo) tiers add SSO/SCIM, enforced required reviewers,
+mandatory code owners, and audit logs — not role-based access itself.
+
+Decision: the organization is **`ainvestor-shared`**, free tier, holding the
+catalog repo only (`ainvestor-shared/ainvestor-catalog`, private), with a
+**Read**-role team (`ainvestor-users`) that approved users are added to for
+catalog access. Per-user data repos stay under each user's own personal
+account (`<login>/ainvestor-data`) — the organization is scoped to the
+catalog, not the whole migration. Adding or removing a catalog reader
+becomes a team-membership change, no code or infrastructure change.
+
+`ainvestor-users` is set as the organization's **default repository
+permission** (Read on all repos in `ainvestor-shared`), not a grant scoped to
+`ainvestor-catalog` alone. Today those are equivalent — the org holds one
+repo — but it means a repo added to this org later (another catalog
+"location," say) is readable by the same team automatically, with no
+membership change. That fits an org named for what it holds — shared,
+readable data — so it is left as configured rather than narrowed to a
+single-repo grant.
 
 ---
 
