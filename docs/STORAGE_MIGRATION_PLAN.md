@@ -1,7 +1,8 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–1 done. Phase 2 (repo backend) is next; Phases 3+ are
-designed but not yet detailed to the commit level.
+**Status:** Phases 0–2 done. Phase 3 (auth scope + wiring the repo backend
+into session/MCP) is next; Phases 4+ are designed but not yet detailed to the
+commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -369,10 +370,96 @@ noted:
 
 ### Phase 2 — repo backend behind the same port
 
-Implemented alongside the gist backend, selected by env var. Both coexist.
-Create repos with `auto_init: true`: an empty repo has no default branch and the
-Contents API 404s on it. Detect an existing-but-foreign repo by an ownership
-marker file, not by name alone.
+**Scope for this phase, decided going in:** a fully-tested, standalone backend
+module — not wired into `github-store.ts`'s dispatch, `session.gistId`, or MCP
+config yet. With the OAuth scope still `gist` until Phase 3, nobody in
+production has a token that can touch a private repo, so wiring it in now
+would be dead code pretending to be live. The env-var dispatch this section's
+first draft described belongs to Phase 3, alongside the session/MCP wiring —
+built together, since a dispatcher with nothing real to select between is
+premature machinery, and touching Phase 1's now-shipped code path for it would
+add risk to this phase for no live benefit.
+
+Two design decisions taken up front:
+
+- **Name-collision behavior:** if `<login>/ainvestor-data` already exists but
+  lacks the ownership marker file, **refuse with a clear error** naming the
+  conflict, rather than silently falling back to an auto-suffixed name. A
+  repo the app didn't create is never touched, and where a user's data ends up
+  living is never decided without them noticing.
+- **`location` stays one string** across both backends: a gist id for the gist
+  backend, `"owner/repo"` for the repo backend (repo names and logins can't
+  contain `/`, so this is unambiguous) — avoids a discriminated union for a
+  distinction only the backend implementation needs to care about.
+
+The two backends' native write contracts don't match, which is most of why
+this phase is bigger than Phase 1's:
+
+- A gist PATCH has no version concept; GitHub silently overwrites. A repo file
+  update always requires the blob's current `sha` — there is no "just
+  overwrite" option on the Contents API. When a caller doesn't supply
+  `expectedVersion` (every caller today; Phase 5 is what starts threading it
+  through), the repo backend reads the current `sha` itself first, matching
+  gists' last-write-wins behavior. Once a caller does supply one, GitHub's own
+  rejection on a stale `sha` **is** the compare-and-swap signal Phase 5 wants —
+  no extra logic needed here, just wiring that rejection through later.
+- A multi-file atomic write has no PATCH equivalent: it is a five-request Git
+  Data sequence (read the branch ref → read its commit → create a blob per
+  changed file → create a tree with those blobs layered on the current one →
+  create a commit → update the ref, non-fast-forward, which is where the
+  atomicity actually comes from). Only `saveCatalog` needs this today; every
+  other write in the app touches one file.
+- A multi-file **read** has no bundled-response shortcut either: gists return
+  every file in one payload, so reading N files costs one request regardless
+  of N. Repos have no such endpoint for arbitrary paths — reading N files
+  costs N requests (parallelized via `Promise.all`, but still N against the
+  rate limit). A real, if minor, cost regression for `advice-gist.ts`'s
+  two-file legacy-fallback read once this backend is live.
+
+Every {@link StoredFile}'s `version` is populated with the real blob `sha`
+from day one, even though nothing consumes it until Phase 5 — forward
+compatible by construction, same as the port's original design intent.
+
+Repos are created with `auto_init: true` (an empty repo has no default branch
+and 404s on the Contents API otherwise), named `ainvestor-data` /
+`ainvestor-preview-data` mirroring `getGistDescription()`'s existing
+`isPreview()` branch, and stamped with a `.ainvestor.json` marker file
+(`{"app":"ainvestor-data","version":1}`) right after creation — the same file
+the collision check reads before trusting an existing repo.
+
+## Phase 2 outcome
+
+**Done.** `app/lib/store/github-repo-store.ts` implements `readFile`/
+`readFiles`/`writeFile`/`writeFiles`/`findOrCreateDataRepo` against the
+Contents and Git Data APIs, exactly as scoped: standalone, not wired into
+`github-store.ts`'s dispatch or anything in `app/`/`mcp/`. 30 new unit tests
+(716 total, up from 686), each checked against a broken version of the code it
+guards to confirm it fails without the fix — same discipline as Phase 1's
+review round.
+
+Two things worth recording that the plan's original two-paragraph sketch
+didn't anticipate:
+
+- **A repo write's `sha` requirement reaches further than "pass
+  `expectedVersion` through."** `writeFile` needs the current file's `sha` to
+  update *or delete* it — there is no bare "PATCH with new content" the way a
+  gist has. When the caller has no `expectedVersion` (every caller today),
+  the function reads the file first purely to learn its `sha`, and that read
+  can itself fail for a reason unrelated to CAS (a 403, a timeout) — which
+  must surface as the write's own failure, not be silently swallowed into "no
+  sha, must be a new file." Caught by a test that intentionally breaks this
+  guard and confirms the suite then fails.
+- **A Git tree's deletion entries still need `mode` and `type`.** Deleting a
+  path from a tree via a partial update is `{path, mode, type, sha: null}` —
+  omitting `mode`/`type` on the theory that a deletion doesn't need them is a
+  documented but easy-to-miss requirement of the Git Data API, not an
+  invention of this module.
+
+Deferred to Phase 3 on purpose, not overlooked: the branch-level compare-and-
+swap on `writeFiles`'s ref update is real today (a moved ref rejects a
+non-force update), but nothing surfaces that rejection as anything other than
+a generic write failure yet — that's what "turn on compare-and-swap" in
+Phase 5 means. Phase 2 only had to make the mechanism exist and be correct.
 
 ### Phase 3 — auth
 
