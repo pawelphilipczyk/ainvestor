@@ -231,6 +231,20 @@ pinned in `app/components/navigation/document-navigation.browser.ts`; the
 `data-rmx-document` on those links is redundant. Don't "fix" one of the two
 attributes without deciding which behavior the link should actually have.
 
+**Known rough edge, not yet root-caused: `data-rmx-target` saves scroll to
+top.** Observed manually on the deployed preview (not yet reproduced in a
+`*.browser.ts` test) on both the portfolio trade form and guidelines' add
+forms — a successful submit patches the named frame correctly (no full-page
+reload) but the viewport jumps to the top of the page, which reads as a
+reload even though it isn't one. `data-rmx-reset-scroll`, named above, is the
+runtime's own knob for this and no form in this app sets it, so the most
+likely cause is the framework's default rather than anything these forms do
+— but that's a hypothesis, not a confirmed trace, and worth checking against
+what `data-rmx-target` (§9) and the Navigation API's own scroll handling
+actually default to before assuming which side owns the fix. Low priority
+(cosmetic, not the URL/405 class of bug in §10), but a candidate for the
+next UI-focused pass.
+
 ### 10. A `data-rmx-target` form must post back to its own page — one action route per feature, dispatched by a hidden intent field
 
 `data-rmx-target="<frame name>"` (§9) still goes through the Navigation API:
