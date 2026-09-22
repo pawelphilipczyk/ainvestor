@@ -47,7 +47,7 @@ That is the property the chosen design is built around.
 | Decision | Choice | Rationale |
 |---|---|---|
 | User data location | `<login>/ainvestor-data`, **private**, personal account | Per-user, per-token, preserves the credential-free model |
-| Catalog location | `<org>/ainvestor-catalog`, **private**, under a GitHub **organization** | See below |
+| Catalog location | `ainvestor-shared/ainvestor-catalog`, **private**, under a GitHub **organization** | See below |
 | Catalog read credential | the **caller's** token | No server-side credential; possible only because guests lose catalog access |
 | Auth mechanism | OAuth App, scope `gist` → `repo` | See below |
 | Organization | **yes**, free tier, for the catalog only | See below |
@@ -111,12 +111,13 @@ Maintain/Admin) for organizations of any size. The paid Team ($4/user/mo) and
 Enterprise ($21/user/mo) tiers add SSO/SCIM, enforced required reviewers,
 mandatory code owners, and audit logs — not role-based access itself.
 
-Decision: create a free GitHub organization to hold the catalog repo only
-(`<org>/ainvestor-catalog`, private), with a **Read**-role team that approved
-users are added to for catalog access. Per-user data repos stay under each
-user's own personal account (`<login>/ainvestor-data`) — the organization is
-scoped to the catalog, not the whole migration. Adding or removing a catalog
-reader becomes a team-membership change, no code or infrastructure change.
+Decision: the organization is **`ainvestor-shared`**, free tier, holding the
+catalog repo only (`ainvestor-shared/ainvestor-catalog`, private), with a
+**Read**-role team that approved users are added to for catalog access.
+Per-user data repos stay under each user's own personal account
+(`<login>/ainvestor-data`) — the organization is scoped to the catalog, not
+the whole migration. Adding or removing a catalog reader becomes a
+team-membership change, no code or infrastructure change.
 
 ---
 
