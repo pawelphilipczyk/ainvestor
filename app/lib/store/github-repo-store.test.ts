@@ -108,6 +108,35 @@ describe('readFile', () => {
 		assert.equal(result.ok && result.file?.content, long)
 	})
 
+	it('falls back to the git blob when the Contents API omits inline content for a large file', async () => {
+		let sawBlobRequest = false
+		stubFetch((input) => {
+			const url = String(input)
+			if (url.endsWith('/contents/catalog.json')) {
+				return Response.json({ content: '', encoding: 'none', sha: 'big-sha' })
+			}
+			if (url.endsWith('/git/blobs/big-sha')) {
+				sawBlobRequest = true
+				return Response.json({
+					content: base64('[]'),
+					encoding: 'base64',
+					sha: 'big-sha',
+				})
+			}
+			throw new Error(`unexpected request: ${url}`)
+		})
+		const result = await readFile({
+			token: 'token',
+			location: 'octocat/ainvestor-catalog',
+			path: 'catalog.json',
+		})
+		assert.equal(sawBlobRequest, true)
+		assert.deepEqual(result, {
+			ok: true,
+			file: { content: '[]', version: 'big-sha' },
+		})
+	})
+
 	it('returns file: null for a 404 (absent file)', async () => {
 		stubFetch(() => new Response(null, { status: 404 }))
 		const result = await readFile({
@@ -389,6 +418,27 @@ describe('findOrCreateDataRepo', () => {
 		await assert.rejects(
 			findOrCreateDataRepo({ token: 'token', login: 'octocat' }),
 			ForeignRepoError,
+		)
+	})
+
+	it('does not report a foreign repo when the marker check merely fails transiently', async () => {
+		stubFetch((input) => {
+			const url = String(input)
+			if (url.endsWith('/repos/octocat/ainvestor-data')) {
+				return Response.json({ default_branch: 'main' })
+			}
+			if (url.endsWith(`/contents/${REPO_MARKER_PATH}`)) {
+				return new Response(null, { status: 503 })
+			}
+			throw new Error(`unexpected request: ${url}`)
+		})
+		await assert.rejects(
+			findOrCreateDataRepo({ token: 'token', login: 'octocat' }),
+			(error: unknown) => {
+				assert.ok(!(error instanceof ForeignRepoError))
+				assert.match(String(error), /503/)
+				return true
+			},
 		)
 	})
 

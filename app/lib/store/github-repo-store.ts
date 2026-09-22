@@ -43,6 +43,7 @@
  * day one, even though nothing consumes it until Phase 5.
  */
 
+import { isPreview } from '../gist.ts'
 import {
 	GITHUB_API,
 	GITHUB_REQUEST_TIMEOUT_MS,
@@ -52,9 +53,7 @@ import {
 
 /** The private data repo's fixed name, mirroring `getGistDescription()`'s preview split. */
 export function getDataRepoName(): string {
-	return process.env.FLY_APP_NAME === 'ainvestor-preview'
-		? 'ainvestor-preview-data'
-		: 'ainvestor-data'
+	return isPreview() ? 'ainvestor-preview-data' : 'ainvestor-data'
 }
 
 export const REPO_MARKER_PATH = '.ainvestor.json'
@@ -130,15 +129,19 @@ async function getRepoMetadata(params: {
 }
 
 /**
- * True when the repo carries this app's ownership marker file. A repo that
- * exists but lacks it is never treated as ours — see
- * {@link findOrCreateDataRepo}.
+ * Whether the repo carries this app's ownership marker file. A repo that
+ * exists but confirms it lacks the marker (`found: false`, a 404) is never
+ * treated as ours — see {@link findOrCreateDataRepo}. A request that fails
+ * for another reason (rate limit, timeout, a 5xx) is reported as `ok: false`
+ * rather than folded into "lacks the marker" — a transient GitHub failure on
+ * the *owner's own* already-marked repo must not be misreported as someone
+ * else's repo blocking sign-in.
  */
 async function hasOwnershipMarker(params: {
 	token: string
 	owner: string
 	repo: string
-}): Promise<boolean> {
+}): Promise<{ found: boolean } | { ok: false; status: number }> {
 	const response = await fetch(
 		contentsUrl({ ...params, path: REPO_MARKER_PATH }),
 		{
@@ -146,7 +149,9 @@ async function hasOwnershipMarker(params: {
 			headers: githubHeaders(params.token),
 		},
 	)
-	return response.ok
+	if (response.status === 404) return { found: false }
+	if (!response.ok) return { ok: false, status: response.status }
+	return { found: true }
 }
 
 /**
@@ -188,12 +193,17 @@ export async function findOrCreateDataRepo(params: {
 	})
 
 	if (existing.found) {
-		const isOurs = await hasOwnershipMarker({
+		const marker = await hasOwnershipMarker({
 			token,
 			owner: login,
 			repo: repoName,
 		})
-		if (!isOurs) throw new ForeignRepoError(login, repoName)
+		if ('ok' in marker) {
+			throw new Error(
+				`GitHub API error checking ownership marker: ${marker.status}`,
+			)
+		}
+		if (!marker.found) throw new ForeignRepoError(login, repoName)
 		return `${login}/${repoName}`
 	}
 
@@ -235,6 +245,43 @@ export async function findOrCreateDataRepo(params: {
 
 type ContentsFile = { content: string; sha: string }
 
+/**
+ * Fetches a blob's content directly by sha. The Contents API omits inline
+ * content for a file over ~1MB (`content: ''`, `encoding: 'none'`) — the same
+ * truncation problem `github-store.ts`'s `readFullFileContent` works around
+ * for gists via `raw_url`. The Git Data blob endpoint has no such limit until
+ * 100MB, and every {@link getContentsFile} response already carries the sha
+ * this needs, so no extra lookup is required.
+ */
+async function getBlobContent(params: {
+	token: string
+	owner: string
+	repo: string
+	path: string
+	sha: string
+}): Promise<
+	{ found: true; file: ContentsFile } | { ok: false; status: number }
+> {
+	const response = await fetch(
+		`${GITHUB_API}/repos/${params.owner}/${params.repo}/git/blobs/${params.sha}`,
+		{
+			signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+			headers: githubHeaders(params.token),
+		},
+	)
+	if (!response.ok) return { ok: false, status: response.status }
+	const blob = (await response.json()) as { content: string; encoding: string }
+	if (blob.encoding !== 'base64') {
+		throw new Error(
+			`${params.path} blob has unexpected encoding: ${blob.encoding}`,
+		)
+	}
+	return {
+		found: true,
+		file: { content: decodeBase64Content(blob.content), sha: params.sha },
+	}
+}
+
 async function getContentsFile(params: {
 	token: string
 	owner: string
@@ -261,6 +308,9 @@ async function getContentsFile(params: {
 		throw new Error(
 			`${params.path} is not a file in ${params.owner}/${params.repo}`,
 		)
+	}
+	if (body.content === '' && body.encoding === 'none') {
+		return getBlobContent({ ...params, sha: body.sha })
 	}
 	return {
 		found: true,
