@@ -113,11 +113,20 @@ mandatory code owners, and audit logs — not role-based access itself.
 
 Decision: the organization is **`ainvestor-shared`**, free tier, holding the
 catalog repo only (`ainvestor-shared/ainvestor-catalog`, private), with a
-**Read**-role team that approved users are added to for catalog access.
-Per-user data repos stay under each user's own personal account
-(`<login>/ainvestor-data`) — the organization is scoped to the catalog, not
-the whole migration. Adding or removing a catalog reader becomes a
-team-membership change, no code or infrastructure change.
+**Read**-role team (`ainvestor-users`) that approved users are added to for
+catalog access. Per-user data repos stay under each user's own personal
+account (`<login>/ainvestor-data`) — the organization is scoped to the
+catalog, not the whole migration. Adding or removing a catalog reader
+becomes a team-membership change, no code or infrastructure change.
+
+`ainvestor-users` is set as the organization's **default repository
+permission** (Read on all repos in `ainvestor-shared`), not a grant scoped to
+`ainvestor-catalog` alone. Today those are equivalent — the org holds one
+repo — but it means a repo added to this org later (another catalog
+"location," say) is readable by the same team automatically, with no
+membership change. That fits an org named for what it holds — shared,
+readable data — so it is left as configured rather than narrowed to a
+single-repo grant.
 
 ---
 
