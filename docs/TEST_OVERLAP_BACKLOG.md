@@ -4,12 +4,41 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 5 — `app/lib`
-**Last swept:** 2026-09-20 (portfolio)
+**Next area to sweep:** 6 — `app/components` + shared browser layer
+**Last swept:** 2026-09-21 (`app/lib`)
 
 ---
 
 ## Open items
+
+### OV-007 — `formatEtfTypeLabel`'s Polish output pinned twice, verbatim
+**Status:** `proposed` · **Proposed:** 2026-09-21 · **Area:** `app/lib`
+
+`app/lib/guidelines.test.ts:24-30` ("formatEtfTypeLabel uses Polish labels
+when UI locale is pl") and `app/lib/ui-locale.test.ts:16-26` ("formatEtfTypeLabel
+uses Polish asset-class labels when UI is Polish") both call
+`formatEtfTypeLabel` (`app/lib/guidelines.ts:17-24`, a single-branch dictionary
+lookup: `getUiLocale() === 'pl' ? ETF_TYPE_LABELS_PL : ETF_TYPE_LABELS`) inside
+the identical `runWithUiCopyContext({ locale: 'pl' })` setup, and assert the
+identical two input→output pairs: `formatEtfTypeLabel('equity')` →
+`'Akcje'` and `formatEtfTypeLabel('real_estate')` → `'Nieruchomości'`.
+`formatEtfTypeLabel` is directly unit-tested only in these two files (all
+other repo-wide hits are production call sites). `ui-locale.test.ts`'s two
+assertions are a strict subset of `guidelines.test.ts`'s three (the latter
+additionally covers `'bond'` → `'Obligacje'`).
+
+**Triage question:** `ui-locale.test.ts`'s actual job looks like proving
+`runWithUiCopyContext` propagates to *multiple different consumers at once*
+(`formatEtfTypeLabel`, `t()`, `format()`) as one integration smoke test — not
+re-pinning `formatEtfTypeLabel`'s translation table, which is
+`guidelines.test.ts`'s job. If the team agrees, thin `ui-locale.test.ts`'s
+`formatEtfTypeLabel` line to a non-redundant proof of propagation (e.g.
+assert the Polish value differs from the English one, rather than repeating
+`guidelines.test.ts`'s exact literal pairs) while leaving its untouched `t()`/
+`format()` assertions alone. Alternatively, reject as intentional: an
+integration test proving cross-consumer context propagation is allowed to
+restate a couple of already-pinned values as fixtures, the same shape as
+OV-006's open question.
 
 ### OV-006 — guideline formatting asserted twice with the same input/output
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** advice
@@ -70,6 +99,13 @@ verbatim at `mcp/tools/portfolio.test.ts:237` and
 this run since this run doesn't otherwise touch either file (this run's own
 gap-filling test adds a new file, `mcp/tools/tool-arguments.test.ts`, rather
 than editing these two) — leave for a run that is.
+
+**Re-verified 2026-09-21:** confirmed again, no drift (`mcp/tools/portfolio.test.ts:237`,
+`mcp/tools/guidelines.test.ts:178`). Still deferred — this run's own sweep
+(`app/lib`) and gap-filling test (`app/lib/session-flash.test.ts`) don't touch
+either `mcp/tools` file, and this item's own note says it's a cosmetic rider
+rather than worth being the run's one overlap action on its own. Leave
+`approved` for a run that is already touching one of those two files.
 
 ---
 
@@ -133,6 +169,17 @@ The `app/lib` file tests pure functions (`parseGuidelinesFromGist`,
 `buildGuidelinesGistPatch`). The `mcp/tools` file tests tool contracts
 (argument validation, catalog cross-checks, the 100% cap surfaced as a tool
 error, rejected writes). Same domain, disjoint assertions.
+
+**Checked again 2026-09-21** (while sweeping `app/lib`): the same shape
+recurs between `app/lib/portfolio-operations.test.ts` (`applyPortfolioOperation`)
+and `mcp/tools/portfolio.test.ts` (`record_operation`, lines 267-470) — several
+scenario names and numeric fixtures are near-identical (e.g. both use
+value:1000/sell:400→600). Read the MCP test in full: its assertions are all
+on the tool surface (JSON response shape, the gist PATCH round-trip,
+MCP-specific rejected-promise error text) and never on
+`applyPortfolioOperation`'s own return shape the way `portfolio-operations.test.ts`
+is — the identical RJ-002 pattern. Not proposed as a new item; noted here so
+a future sweep doesn't re-spend time on the same numeric coincidence.
 
 ### RJ-003 — `OV-004`, `catalog.test.ts` vs. `lib.test.ts`
 **Rejected:** 2026-09-17 · **Reason:** re-verified against a full read of both
