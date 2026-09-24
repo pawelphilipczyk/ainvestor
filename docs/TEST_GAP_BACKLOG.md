@@ -88,7 +88,7 @@ may be dead code worth removing rather than covering, a question outside
 this run's "test files only" limit.
 
 ### GAP-001 — session flash messages
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-24 · **Area:** `app/lib` · **PR:** PENDING
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-24 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/228
 
 `app/lib/session-flash.ts` had no direct coverage. Flash messages are a
 read-once-then-clear contract, and the failure mode (a message that survives
