@@ -4,12 +4,54 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 5 — `app/lib`
-**Last swept:** 2026-09-20 (portfolio)
+**Next area to sweep:** 6 — `app/components` + shared browser layer
+**Last swept:** 2026-09-24 (`app/lib`)
 
 ---
 
 ## Open items
+
+### OV-007 — `formatEtfTypeLabel`'s Polish labels asserted twice with identical inputs
+**Status:** `proposed` · **Proposed:** 2026-09-24 · **Area:** `app/lib`
+
+`app/lib/guidelines.test.ts:24-30` (`'formatEtfTypeLabel uses Polish labels when
+UI locale is pl'`) asserts, inside `runWithUiCopyContext({ locale: 'pl',
+shellReturnPath: '/' }, …)`: `formatEtfTypeLabel('equity') === 'Akcje'`,
+`formatEtfTypeLabel('bond') === 'Obligacje'`, and
+`formatEtfTypeLabel('real_estate') === 'Nieruchomości'`.
+`app/lib/ui-locale.test.ts:16-26` (`'formatEtfTypeLabel uses Polish
+asset-class labels when UI is Polish'`) asserts, inside the same
+`runWithUiCopyContext({ locale: 'pl', shellReturnPath: '/catalog' }, …)`:
+`formatEtfTypeLabel('equity') === 'Akcje'` and
+`formatEtfTypeLabel('real_estate') === 'Nieruchomości'` — byte-identical to
+two of the three assertions in `guidelines.test.ts`, same function, same
+locale context, same expected strings. `ui-locale.test.ts`'s pair is a strict
+subset of `guidelines.test.ts`'s (which additionally covers `'bond'`); the
+rest of that test (`t('catalog.table.name')`,
+`format(t('guidelines.list.deleteAria.instrument'), …)`) is not duplicated
+elsewhere.
+
+**Triage question / suggested action:** thin `ui-locale.test.ts:16-26` to
+drop the two `formatEtfTypeLabel` lines and keep only the `t()`/`format()`
+propagation assertions that are genuinely its own, leaving
+`guidelines.test.ts` as the sole place that pins `formatEtfTypeLabel`'s
+locale behavior. Left at `proposed` for a human/later-run sanity check before
+anyone edits `ui-locale.test.ts`.
+
+### OV-008 — colliding test names in `app/lib/store/github-store.test.ts` vs `github-repo-store.test.ts`
+**Status:** `proposed` · **Proposed:** 2026-09-24 · **Area:** `app/lib` · **Priority:** low
+
+`'returns ok: false with the status on a rejected read'`
+(`github-store.test.ts:91`, `github-repo-store.test.ts:150`) and `'returns
+ok: false with the status and response on a rejected write'`
+(`:327`, `:340`) share names across the two files. Checked both pairs
+line-by-line: gist-backed `readFile`/`writeFile` (plain PATCH, no version) vs.
+repo-backed `readFile`/`writeFile` (blob-sha versioning, `expectedVersion`/
+409-conflict handling, directory-vs-file guard) exercise completely different
+HTTP mechanics behind a matching result-shape interface — deliberate parallel
+implementations, same reasoning as the already-rejected `RJ-001`. **Not** a
+duplication; this is an `OV-005`-shaped naming-ambiguity note only, same
+disposition (rename to name which store, not for action on its own).
 
 ### OV-006 — guideline formatting asserted twice with the same input/output
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** advice
@@ -51,25 +93,6 @@ Note: `formatGuidelineLine` (`advice-openai.ts:249`) itself has no direct
 unit test — only exercised indirectly via these two prompt-content tests.
 That's a gap, not overlap; logged for a future gap sweep rather than acted on
 here.
-
-### OV-005 — colliding test names across MCP tools
-**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-20 · **Area:** mcp/tools · **Priority:** low
-
-`reads the pinned gist and returns the summary as JSON text` names a case in
-both `mcp/tools/portfolio.test.ts` and `mcp/tools/guidelines.test.ts`. These
-test different tools, so it is **not** duplicated coverage — but identical names
-make a failure report ambiguous about which tool broke.
-
-**Action:** rename to name the tool (`get_portfolio reads the pinned gist …`).
-Cosmetic; do it as a rider on a run that is already touching these files, not
-as a run's one change.
-
-**Re-verified 2026-09-20:** confirmed, no drift. The exact name still appears
-verbatim at `mcp/tools/portfolio.test.ts:237` and
-`mcp/tools/guidelines.test.ts:178`. Promoted to `approved`; still not acted on
-this run since this run doesn't otherwise touch either file (this run's own
-gap-filling test adds a new file, `mcp/tools/tool-arguments.test.ts`, rather
-than editing these two) — leave for a run that is.
 
 ---
 
@@ -174,6 +197,19 @@ only exercised indirectly through ~8 expensive HTTP round-trips in
 ---
 
 ## Done
+
+### OV-005 — colliding test names across MCP tools
+**Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-20 ·
+**Acted:** 2026-09-24 · **Area:** mcp/tools · **Priority:** low · **PR:** PENDING
+
+`reads the pinned gist and returns the summary as JSON text` named a case in
+both `mcp/tools/portfolio.test.ts` and `mcp/tools/guidelines.test.ts`. Not
+duplicated coverage (different tools) — but identical names made a failure
+report ambiguous about which tool broke.
+
+**Action taken:** renamed to `get_guidelines reads the pinned gist …`
+(`mcp/tools/guidelines.test.ts:178`) and `get_portfolio reads the pinned
+gist …` (`mcp/tools/portfolio.test.ts:237`).
 
 ### OV-001 — `parseAdviceCashAmount` tests re-test `parseLocaleDecimalString`
 **Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-16 · **Area:** advice · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/203
