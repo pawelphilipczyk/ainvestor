@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 1 — `app/features/advice`
-**Last swept:** 2026-09-20 (`mcp/tools`)
+**Next area to sweep:** 2 — `app/features/catalog`
+**Last swept:** 2026-09-24 (`app/features/advice`)
 
 ---
 
@@ -26,16 +26,101 @@ backlog just feeds the overlap backlog.
 
 ## Open items
 
-### GAP-001 — session flash messages
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+### GAP-022 — `parseAdviceDocument`'s schema-validation-failure fallback is never reached
+**Status:** `proposed` · **Proposed:** 2026-09-24 · **Area:** `app/features/advice`
 
-`app/lib/session-flash.ts` — no direct coverage. Flash messages are a
+`app/features/advice/advice-document.ts:166-169`:
+```
+const result = parseSafe(AdviceDocumentSchema, parsed)
+if (!result.success) {
+    return { blocks: [{ type: 'paragraph', text: raw }] }
+}
+```
+`parseAdviceDocument` is named nowhere in any test file (only its own
+definition and its two call sites, `advice-openai.ts:915,977`). Its other two
+branches are exercised — null/empty content directly
+(`advice-openai.test.ts:199-230`) and non-JSON plain-text content (the
+`JSON.parse` throw) end-to-end via `advice.browser.ts:76-107` — but the
+**schema-refine-failure** path (syntactically valid JSON that fails
+`AdviceDocumentSchema`, e.g. `{"blocks": []}` failing the "at least one
+block" refine) is constructed by no test (`grep -n "blocks: \[\]"` across
+`*.test.ts` → 0 hits). This is a real upstream-failure mode: the model
+returning malformed-but-parseable JSON.
+
+**Triage:** genuine gap — feed `getInvestmentAdvice` a mock client returning
+`JSON.stringify({ blocks: [] })` (or a block missing a required field) and
+assert the result falls back to a single paragraph block containing the raw
+JSON string.
+
+### GAP-023 — the advice gist sign-in/connect-gist access banner is unreached
+**Status:** `proposed` · **Proposed:** 2026-09-24 · **Area:** `app/features/advice`
+
+`app/features/advice/index.ts:328-337` (`adviceGistGateProps`) and
+`app/features/advice/advice-page.tsx:88-95` (`adviceAccessBannerFromProps` +
+its render branch) — every test in `advice.test.ts`/`advice.browser.ts`
+signs in via `signInWithGist()`/`openSignedIn()`, which always sets a
+`gistId`, so `sessionUsesGithubGist` is always `true` and
+`adviceGistGateProps` only ever hits its `return {}` early exit. Grepped
+repo-wide: `adviceGistGateProps`/`adviceAccessBannerFromProps` appear nowhere
+but their own definitions/call sites, and `'connect_gist'` appears in zero
+`*.test.ts`/`*.browser.ts` files. The closest existing case,
+`advice.test.ts:333` ("POST /advice returns 403 for an approved session with
+no private gist"), asserts the *action*'s own 403 `formError` text, a
+different branch, not the banner `AdvicePage` renders. Both
+`advice.requiresGist.*` i18n keys exist in `en.ts:387-393` and
+`pl.ts:379-385` but are rendered in no test.
+
+**Triage:** genuine gap — a route-level test signed in with no `gistId`
+(and one with no session at all, for the `sign_in` variant) asserting
+`t('advice.requiresGist.title')`/`bodySignIn`/`bodyConnectGist` render;
+worth one variant under the `pl` locale cookie too, per the i18n rule in
+`AGENTS.md`.
+
+### GAP-024 — deprecated non-"ForTab" advice-gist accessors have no reference anywhere
+**Status:** `proposed` · **Proposed:** 2026-09-24 · **Area:** `app/features/advice` · **Priority:** low
+
+`fetchStoredAdviceAnalysis`/`saveStoredAdviceAnalysis`
+(`app/features/advice/advice-gist.ts:252-261,305-312`, both `@deprecated`) —
+zero references anywhere outside their own definitions; thin one-branch
+delegations to the heavily-tested `...ForTab` versions. Flagging for
+completeness rather than as a test gap — the `@deprecated` tag suggests these
+may be dead code worth removing rather than covering, a question outside
+this run's "test files only" limit.
+
+### GAP-001 — session flash messages
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-24 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/228
+
+`app/lib/session-flash.ts` had no direct coverage. Flash messages are a
 read-once-then-clear contract, and the failure mode (a message that survives
 into the next request, or vanishes before it renders) is exactly what a unit
 test catches and an integration test misses.
 
-**Triage:** check whether any feature test asserts a flash surviving one
-redirect and then being gone. If not, this is a genuine gap — start here.
+**Re-verified 2026-09-24:** confirmed still uncovered — no `*.test.ts`/
+`*.browser.ts` file names `flashBanner`/`readFlashedBanner`/`session-flash`
+outside the module's own imports. Three feature test files
+(`app/features/catalog/catalog.test.ts`, `guidelines.test.ts`,
+`portfolio.test.ts`) flash on request N and assert the render on request
+N+1, but none does a third request to assert the message is gone by N+2 —
+the specific failure mode this item names was untested anywhere, direct or
+indirect. Traced the actual clearing mechanism into
+`node_modules/@remix-run/session/src/lib/session.ts`: `flash()` writes into a
+private `#nextMap`, `get()` reads `#valueMap ?? #flashMap` (not `#nextMap`),
+and a session's serialized `data` emits `[valueMap, #nextMap]` — so a flashed
+value is invisible on the same request that flashed it, visible exactly once
+on the following request, and gone on the request after that, enforced
+entirely by the session library, not by `session-flash.ts` itself.
+
+**Action taken:** added `app/lib/session-flash.test.ts` (7 cases): not
+readable on the same instance before save/reread; readable on the next
+request for each of the three tones; **gone by the request after the one
+that reads it** (the core rule this item names); the legacy `error`-key
+fallback; `undefined` when nothing was flashed; an empty flashed message
+treated as no banner; and the default-to-`'info'`-tone branch when no tone
+was flashed. Verified the "gone by N+2" and "not readable before save" cases
+fail for the right reason by temporarily changing `flashBanner` to
+`session.set(MESSAGE_KEY, …)` instead of `session.flash(…)` locally (not
+committed) — 2 of 7 cases failed as expected, then reverted the source file
+untouched (confirmed via `git diff` showing no change to `session-flash.ts`).
 
 ### GAP-002 — upload limits and the multipart flash middleware
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`

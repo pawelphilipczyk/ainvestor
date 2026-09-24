@@ -175,7 +175,7 @@ describe('get_guidelines tool', () => {
 		assert.match(tool.description, /count toward their own asset class/)
 	})
 
-	it('reads the pinned gist and returns the summary as JSON text', async () => {
+	it('get_guidelines reads the pinned gist and returns the summary as JSON text', async () => {
 		const exchange = stubGist([guideline({ targetPct: 60 })])
 		const payload = payloadOf(
 			await createGetGuidelinesTool(credentials).handler({}),
