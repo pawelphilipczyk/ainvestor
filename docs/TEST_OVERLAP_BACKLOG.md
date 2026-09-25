@@ -4,12 +4,42 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 5 — `app/lib`
-**Last swept:** 2026-09-20 (portfolio)
+**Next area to sweep:** 6 — `app/components` + shared browser layer
+**Last swept:** 2026-09-25 (`app/lib`)
 
 ---
 
 ## Open items
+
+### OV-007 — `formatEtfTypeLabel`'s Polish labels pinned twice
+**Status:** `proposed` · **Proposed:** 2026-09-25 · **Area:** `app/lib`
+
+`formatEtfTypeLabel` is defined once, at `app/lib/guidelines.ts:18-25`.
+`app/lib/guidelines.test.ts:24-30` ("formatEtfTypeLabel uses Polish labels
+when UI locale is pl") asserts, inside `runWithUiCopyContext({ locale: 'pl',
+… })`, `formatEtfTypeLabel('equity') === 'Akcje'`,
+`formatEtfTypeLabel('bond') === 'Obligacje'`, and
+`formatEtfTypeLabel('real_estate') === 'Nieruchomości'`.
+`app/lib/ui-locale.test.ts:16-19` ("formatEtfTypeLabel uses Polish
+asset-class labels when UI is Polish") re-runs the identical function under
+the identical locale context and asserts two of the same three pairs
+(`'equity'→'Akcje'`, `'real_estate'→'Nieruchomości'`) — a strict subset of
+`guidelines.test.ts`'s coverage over the same input→output mapping. This is
+the OV-001/OV-002 shape (same function, same literal outputs, no wrapping
+logic), not the RJ-001-style "two implementations, matching design" case.
+
+The rest of `ui-locale.test.ts`'s case (lines 20-24: `t('catalog.table.name')`
+and `format(t('guidelines.list.deleteAria.instrument'), …)`) is not
+duplicated — those exercise different `i18n` keys than anything in
+`i18n.test.ts`, proving `runWithUiCopyContext` plumbs through to other `t()`
+call sites too. Only the two `formatEtfTypeLabel` assertions are redundant.
+
+**Suggested resolution:** drop the two `formatEtfTypeLabel` assertions from
+`ui-locale.test.ts:18-19` (or replace with a single non-literal check, e.g.
+asserting the pl output differs from the en output), leaving the literal
+translated strings pinned once in `guidelines.test.ts` — the file that owns
+the function — while `ui-locale.test.ts` keeps proving context-propagation
+via its own `t()`/`format()` keys.
 
 ### OV-006 — guideline formatting asserted twice with the same input/output
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** advice
@@ -52,24 +82,25 @@ unit test — only exercised indirectly via these two prompt-content tests.
 That's a gap, not overlap; logged for a future gap sweep rather than acted on
 here.
 
-### OV-005 — colliding test names across MCP tools
-**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-20 · **Area:** mcp/tools · **Priority:** low
-
-`reads the pinned gist and returns the summary as JSON text` names a case in
-both `mcp/tools/portfolio.test.ts` and `mcp/tools/guidelines.test.ts`. These
-test different tools, so it is **not** duplicated coverage — but identical names
-make a failure report ambiguous about which tool broke.
-
-**Action:** rename to name the tool (`get_portfolio reads the pinned gist …`).
-Cosmetic; do it as a rider on a run that is already touching these files, not
-as a run's one change.
-
-**Re-verified 2026-09-20:** confirmed, no drift. The exact name still appears
-verbatim at `mcp/tools/portfolio.test.ts:237` and
-`mcp/tools/guidelines.test.ts:178`. Promoted to `approved`; still not acted on
-this run since this run doesn't otherwise touch either file (this run's own
-gap-filling test adds a new file, `mcp/tools/tool-arguments.test.ts`, rather
-than editing these two) — leave for a run that is.
+**Investigated during the 2026-09-25 gap sweep of `app/features/advice`:**
+confirmed still no *direct* test, but the "logged for a future gap sweep"
+framing above doesn't hold up — a second existing test,
+`advice-openai.test.ts:334-382` ("formats hybrid asset-class and instrument
+lines in the user message"), not cited in this item's original write-up,
+already pins the literal suffix text of *both* of `formatGuidelineLine`'s
+branches in one assertion each (`/Asset class equity.*bucket/` for the
+`asset_class` branch, `/VTI.*specific fund/` for the `instrument` branch).
+Between that test and `:253-302` above, both branches' full literal shape —
+target-pct interpolation, type-label interpolation, and each branch's
+distinguishing suffix — is already pinned through `getInvestmentAdvice`. The
+function itself is two straight-line template-string branches with no error
+path and no branching of its own beyond that, so a direct unit test would
+exercise exactly the same two branches with the same assertions, adding
+nothing a caller-level test doesn't already reach. **No new gap item seeded
+for this** — this item's own thinning question above (whether
+`advice.test.ts:277-323`'s detailed assertions are redundant, not whether
+`formatGuidelineLine` needs its own test) remains the only open question
+here.
 
 ---
 
@@ -174,6 +205,25 @@ only exercised indirectly through ~8 expensive HTTP round-trips in
 ---
 
 ## Done
+
+### OV-005 — colliding test names across MCP tools
+**Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-20 ·
+**Acted:** 2026-09-25 · **Area:** mcp/tools · **Priority:** low ·
+**PR:** https://github.com/pawelphilipczyk/ainvestor/pull/231
+
+`reads the pinned gist and returns the summary as JSON text` named a case in
+both `mcp/tools/portfolio.test.ts` and `mcp/tools/guidelines.test.ts`. These
+test different tools, so it was **not** duplicated coverage — but identical
+names made a failure report ambiguous about which tool broke.
+
+**Re-verified 2026-09-25:** confirmed, no drift — the exact name still
+appeared verbatim at `mcp/tools/portfolio.test.ts:237` and
+`mcp/tools/guidelines.test.ts:178`.
+
+**Action taken:** renamed to `get_portfolio reads the pinned gist and
+returns the summary as JSON text` and `get_guidelines reads the pinned gist
+and returns the summary as JSON text` respectively. Both files' suites still
+pass (48/48 in `portfolio.test.ts` + `guidelines.test.ts` combined).
 
 ### OV-001 — `parseAdviceCashAmount` tests re-test `parseLocaleDecimalString`
 **Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-16 · **Area:** advice · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/203
