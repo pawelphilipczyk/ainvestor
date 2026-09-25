@@ -1,8 +1,8 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–2 done. Phase 3 (a one-off migration script) is next,
-then Phase 4 (the cutover deploy). Phases 5+ are designed but not yet detailed
-to the commit level.
+**Status:** Phases 0–2 done. Phase 3's migration script is built and awaiting
+its real runs against preview and prod; Phase 4 (the cutover deploy) is next.
+Phases 5+ are designed but not yet detailed to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -509,14 +509,18 @@ Phase 7.
 
 ### Phase 3 — migration script
 
-`scripts/migrate-gist-to-repo.ts`, run on the owner's laptop:
+`scripts/migrate-gist-to-repo.ts` (a thin command-line wrapper over
+`scripts/gist-to-repo-migration.ts`), run on the owner's laptop:
 
 ```
-node --import remix/node-tsx scripts/migrate-gist-to-repo.ts --env prod|preview [--apply] [--force]
+GH_TOKEN=$(gh auth token) npm run migrate:gist-to-repo -- --env preview
+GH_TOKEN=$(gh auth token) npm run migrate:gist-to-repo -- --env preview --apply
 ```
 
-It reads `GH_TOKEN`, which needs both `gist` and `repo` (a classic PAT). It
-never logs the token.
+`GH_TOKEN` needs both `gist` and `repo`. The GitHub CLI's own token has both
+by default; a classic PAT with those two scopes works too. The script checks
+the token's scopes before doing anything (a fine-grained token reports none,
+so there GitHub's own errors speak instead), and never logs the token.
 
 1. **Find the gist** by description (`ai-investor-data` for prod,
    `ai-investor-preview-data` for preview) with `findGistIdByDescription`. Stop
@@ -527,25 +531,42 @@ never logs the token.
    `advice-*.json` today), so a forgotten file can't be silently left behind.
 3. **Find or create the repo** with `findOrCreateDataRepo`: `ainvestor-data`
    for prod, `ainvestor-preview-data` for preview. The name comes from `--env`,
-   not from `FLY_APP_NAME`, which doesn't exist on a laptop. So
-   `findOrCreateDataRepo` gains an optional explicit repo name. A dry run only
-   looks the repo up and reports "would create"; it never creates it.
-4. **Refuse to overwrite** a repo that already holds any of those files, unless
-   `--force` is given. A rerun then deliberately replaces the first copy; the
-   gist stays the source of truth until the cutover.
+   not from `FLY_APP_NAME`, which doesn't exist on a laptop, so both
+   `getDataRepoName` and `getGistDescription` take an optional `preview`
+   override and `findOrCreateDataRepo` an optional `repoName`. A dry run only
+   looks the repo up, with the new find-only `findDataRepo` (Phase 4's MCP
+   lookup needs the same thing, since MCP never creates), and never creates
+   it.
+4. **Plan each file** as `create`, `unchanged` (already identical in the repo)
+   or `overwrite` (present but different). Any `overwrite` makes the run
+   refuse unless `--force` is given, so a rerun can't silently replace a copy
+   made earlier. Identical files are skipped, which makes a rerun after a
+   successful copy a harmless re-verification.
 5. **Dry run by default.** It prints the source gist, target repo, and each
-   file with its size. `--apply` writes them all in one `writeFiles` commit.
+   file's plan and size. `--apply` writes the `create` and `overwrite` files in
+   one `writeFiles` commit.
 6. **Verify**: read every file back from the repo and compare it byte for byte
    with the gist. Any mismatch exits non-zero.
 
 The script **never writes to or deletes the gist**. The gist stays as the
 backup until Phase 7.
 
-The pure parts (argument parsing, environment → names, comparison) get unit
-tests with a stubbed `fetch`, like the store tests. The real run is the actual
-test: it is the first time `github-repo-store.ts` meets real GitHub rather than
-stubs. Anything it gets wrong against the live API is fixed and recorded in a
-Phase 3 outcome.
+`scripts/gist-to-repo-migration.test.ts` runs the whole flow against an
+in-memory fake of the GitHub endpoints it touches. The tests cover:
+
+- a dry run changing nothing, not even creating the repo;
+- one commit per `--apply`;
+- the gist never being written;
+- a file nobody listed still being copied;
+- refusal without `--force`, and `--force` writing only the changed files;
+- a corrupted write failing verification;
+- a foreign repo, a missing scope, and a missing gist.
+
+Each guard was broken on purpose to confirm its test fails.
+
+The real run is still the actual test: it is the first time
+`github-repo-store.ts` meets real GitHub rather than stubs. Anything it gets
+wrong against the live API is fixed and recorded in a Phase 3 outcome.
 
 The copy step (read the gist → one commit → verify) is reused for the catalog
 in Phase 6. Repo creation is not, because `ainvestor-shared/ainvestor-catalog`

@@ -47,9 +47,14 @@ import {
 	type StoredFile,
 } from './github-store.ts'
 
-/** The private data repo's fixed name, mirroring `getGistDescription()`'s preview split. */
-export function getDataRepoName(): string {
-	return isPreview() ? 'ainvestor-preview-data' : 'ainvestor-data'
+/**
+ * The private data repo's fixed name, mirroring `getGistDescription()`'s
+ * preview split. `preview` defaults to the running deployment; the migration
+ * script names an environment explicitly, since a laptop has no `FLY_APP_NAME`.
+ */
+export function getDataRepoName(options: { preview?: boolean } = {}): string {
+	const preview = options.preview ?? isPreview()
+	return preview ? 'ainvestor-preview-data' : 'ainvestor-data'
 }
 
 export const REPO_MARKER_PATH = '.ainvestor.json'
@@ -168,40 +173,56 @@ export class ForeignRepoError extends Error {
 }
 
 /**
- * Finds the caller's data repo, or creates it. Returns its `location`
- * (`"owner/repo"`). Never returns a repo without the ownership marker —
- * throws {@link ForeignRepoError} instead.
+ * Finds the caller's data repo without creating it. Returns its `location`
+ * (`"owner/repo"`), or `null` when no repo by that name exists. A repo that
+ * exists without the ownership marker throws {@link ForeignRepoError}.
  *
- * Unlike `findOrCreateGist`, this never pages a list looking for a match:
- * the repo name is fixed and deterministic, so one `GET` on the known
+ * Unlike gist discovery, this never pages a list looking for a match: the
+ * repo name is fixed and deterministic, so one `GET` on the known
  * `owner/name` either finds it or doesn't.
  */
-export async function findOrCreateDataRepo(params: {
+export async function findDataRepo(params: {
 	token: string
 	login: string
-}): Promise<string> {
+	repoName?: string
+}): Promise<string | null> {
 	const { token, login } = params
-	const repoName = getDataRepoName()
+	const repoName = params.repoName ?? getDataRepoName()
 	const existing = await getRepoMetadata({
 		token,
 		owner: login,
 		repo: repoName,
 	})
+	if (!existing.found) return null
 
-	if (existing.found) {
-		const marker = await hasOwnershipMarker({
-			token,
-			owner: login,
-			repo: repoName,
-		})
-		if ('ok' in marker) {
-			throw new Error(
-				`GitHub API error checking ownership marker: ${marker.status}`,
-			)
-		}
-		if (!marker.found) throw new ForeignRepoError(login, repoName)
-		return `${login}/${repoName}`
+	const marker = await hasOwnershipMarker({
+		token,
+		owner: login,
+		repo: repoName,
+	})
+	if ('ok' in marker) {
+		throw new Error(
+			`GitHub API error checking ownership marker: ${marker.status}`,
+		)
 	}
+	if (!marker.found) throw new ForeignRepoError(login, repoName)
+	return `${login}/${repoName}`
+}
+
+/**
+ * Finds the caller's data repo, or creates it. Returns its `location`
+ * (`"owner/repo"`). Never returns a repo without the ownership marker —
+ * throws {@link ForeignRepoError} instead.
+ */
+export async function findOrCreateDataRepo(params: {
+	token: string
+	login: string
+	repoName?: string
+}): Promise<string> {
+	const { token, login } = params
+	const repoName = params.repoName ?? getDataRepoName()
+	const existing = await findDataRepo({ token, login, repoName })
+	if (existing !== null) return existing
 
 	const createResponse = await fetch(`${GITHUB_API}/user/repos`, {
 		method: 'POST',
@@ -227,8 +248,11 @@ export async function findOrCreateDataRepo(params: {
 		content: REPO_MARKER_CONTENT,
 	})
 	if (!markerWrite.ok) {
+		// Without the marker, every later lookup refuses this repo as foreign —
+		// so say plainly that the half-made repo is ours and safe to delete.
 		throw new Error(
-			`GitHub API error writing ownership marker: ${markerWrite.status}`,
+			`Created ${login}/${repoName} but could not write its ownership marker ` +
+				`(GitHub API error ${markerWrite.status}). It is empty: delete it and try again.`,
 		)
 	}
 

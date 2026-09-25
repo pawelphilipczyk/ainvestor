@@ -4,7 +4,8 @@
 		"hmr.ts",
 		"app/**/*.ts",
 		"app/**/*.tsx",
-		"mcp/**/*.ts"
+		"mcp/**/*.ts",
+		"scripts/**/*.ts"
 	],
 	"compilerOptions": {
 		"lib": ["DOM", "DOM.Iterable", "ES2022"],
