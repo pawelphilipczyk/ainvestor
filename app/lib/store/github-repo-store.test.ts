@@ -2,6 +2,7 @@ import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import {
 	ForeignRepoError,
+	findDataRepo,
 	findOrCreateDataRepo,
 	getDataRepoName,
 	parseRepoLocation,
@@ -74,6 +75,19 @@ describe('getDataRepoName', () => {
 			assert.equal(getDataRepoName(), 'ainvestor-data')
 			delete process.env.FLY_APP_NAME
 			assert.equal(getDataRepoName(), 'ainvestor-data')
+		} finally {
+			if (previous === undefined) delete process.env.FLY_APP_NAME
+			else process.env.FLY_APP_NAME = previous
+		}
+	})
+
+	it('lets a caller name the environment instead of reading FLY_APP_NAME', () => {
+		const previous = process.env.FLY_APP_NAME
+		try {
+			process.env.FLY_APP_NAME = 'ainvestor'
+			assert.equal(getDataRepoName({ preview: true }), 'ainvestor-preview-data')
+			process.env.FLY_APP_NAME = 'ainvestor-preview'
+			assert.equal(getDataRepoName({ preview: false }), 'ainvestor-data')
 		} finally {
 			if (previous === undefined) delete process.env.FLY_APP_NAME
 			else process.env.FLY_APP_NAME = previous
@@ -379,6 +393,54 @@ describe('writeFile', () => {
 	})
 })
 
+describe('findDataRepo', () => {
+	it('returns null for an absent repo and never creates one', async () => {
+		const requests: string[] = []
+		stubFetch((input, init) => {
+			requests.push(`${init?.method ?? 'GET'} ${String(input)}`)
+			return new Response(null, { status: 404 })
+		})
+		const location = await findDataRepo({ token: 'token', login: 'octocat' })
+		assert.equal(location, null)
+		assert.deepEqual(requests, [
+			'GET https://api.github.com/repos/octocat/ainvestor-data',
+		])
+	})
+
+	it('returns the location of a repo carrying the marker', async () => {
+		stubFetch((input) => {
+			const url = String(input)
+			if (url.endsWith('/repos/octocat/ainvestor-preview-data')) {
+				return Response.json({ default_branch: 'main' })
+			}
+			if (url.endsWith(`/contents/${REPO_MARKER_PATH}`)) {
+				return Response.json({ content: base64(REPO_MARKER_CONTENT), sha: 's' })
+			}
+			throw new Error(`unexpected request: ${url}`)
+		})
+		const location = await findDataRepo({
+			token: 'token',
+			login: 'octocat',
+			repoName: 'ainvestor-preview-data',
+		})
+		assert.equal(location, 'octocat/ainvestor-preview-data')
+	})
+
+	it('refuses an unmarked repo just as findOrCreateDataRepo does', async () => {
+		stubFetch((input) => {
+			const url = String(input)
+			if (url.endsWith('/repos/octocat/ainvestor-data')) {
+				return Response.json({ default_branch: 'main' })
+			}
+			return new Response(null, { status: 404 })
+		})
+		await assert.rejects(
+			findDataRepo({ token: 'token', login: 'octocat' }),
+			ForeignRepoError,
+		)
+	})
+})
+
 describe('findOrCreateDataRepo', () => {
 	it('returns the existing repo location when it carries the ownership marker', async () => {
 		let createRequested = false
@@ -496,6 +558,43 @@ describe('findOrCreateDataRepo', () => {
 		await assert.rejects(
 			findOrCreateDataRepo({ token: 'token', login: 'octocat' }),
 			/422/,
+		)
+	})
+
+	it('creates the repo under an explicitly named repoName', async () => {
+		let createBody: { name?: string } | undefined
+		stubFetch((input, init) => {
+			const url = String(input)
+			const method = init?.method ?? 'GET'
+			if (method === 'POST' && url.endsWith('/user/repos')) {
+				createBody = jsonBody(init) as { name?: string }
+				return Response.json({}, { status: 201 })
+			}
+			if (method === 'PUT') return Response.json({ content: { sha: 'm' } })
+			return new Response(null, { status: 404 })
+		})
+		const location = await findOrCreateDataRepo({
+			token: 'token',
+			login: 'octocat',
+			repoName: 'ainvestor-preview-data',
+		})
+		assert.equal(location, 'octocat/ainvestor-preview-data')
+		assert.equal(createBody?.name, 'ainvestor-preview-data')
+	})
+
+	it('says the new repo is safe to delete when its marker cannot be written', async () => {
+		stubFetch((input, init) => {
+			const url = String(input)
+			const method = init?.method ?? 'GET'
+			if (method === 'POST' && url.endsWith('/user/repos')) {
+				return Response.json({}, { status: 201 })
+			}
+			if (method === 'PUT') return new Response(null, { status: 409 })
+			return new Response(null, { status: 404 })
+		})
+		await assert.rejects(
+			findOrCreateDataRepo({ token: 'token', login: 'octocat' }),
+			/Created octocat\/ainvestor-data but could not write its ownership marker.*409.*delete it/,
 		)
 	})
 })
