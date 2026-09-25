@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 1 — `app/features/advice`
-**Last swept:** 2026-09-20 (`mcp/tools`)
+**Next area to sweep:** 2 — `app/features/catalog`
+**Last swept:** 2026-09-25 (`app/features/advice`)
 
 ---
 
@@ -26,16 +26,107 @@ backlog just feeds the overlap backlog.
 
 ## Open items
 
-### GAP-001 — session flash messages
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+### GAP-022 — `parseAdviceDocument`'s malformed-response fallbacks are unasserted
+**Status:** `proposed` · **Proposed:** 2026-09-25 · **Area:** `app/features/advice`
 
-`app/lib/session-flash.ts` — no direct coverage. Flash messages are a
+`app/features/advice/advice-document.ts:160-169` (`parseAdviceDocument`) has
+three branches. The empty/null-input fallback is tested
+(`advice-openai.test.ts:199-224`, `:226-251`). The other two are not, despite
+being reachable in production whenever the model doesn't return the
+requested JSON shape:
+
+- `JSON.parse` throws → falls back to `{ blocks: [{ type: 'paragraph', text:
+  raw }] }`. Several `advice-openai.test.ts` cases return non-JSON mock
+  content as a side effect (e.g. `'ok'` at lines 391/437/463/601/627), but
+  none of those capture or assert `getInvestmentAdvice`'s return value — only
+  the outgoing request message — so the fallback's own correctness (raw text
+  preserved verbatim) is unpinned.
+- `parseSafe(AdviceDocumentSchema, parsed)` fails (valid JSON, wrong shape —
+  e.g. duplicate `capital_snapshot` segment roles) → same raw-text fallback.
+  Never reached by any test; every `advice.test.ts` JSON fixture is
+  schema-valid.
+
+No test file names `advice-document.ts`, `AdviceDocumentSchema`, or
+`parseAdviceDocument` at all (repo-wide grep, zero hits). This is the exact
+failure mode a real LLM hits when it ignores the "respond with JSON only"
+instruction, or the model's output shape drifts — what the user actually
+sees on a bad response is currently unverified in isolation.
+
+**Sketch:** a new `app/features/advice/advice-document.test.ts` (the function
+is pure — no client/mock needed). Assert a non-JSON string input produces a
+single paragraph block containing that exact string; assert a schema-invalid
+JSON object (e.g. two `capital_snapshot` segments both with `role: 'cash'`,
+violating the schema's uniqueness `refine`) falls back to a raw-text
+paragraph containing the original JSON string. Same style as
+`advice-gist.test.ts:57-61`'s null/invalid-JSON cases for the sibling
+`parseStoredAdviceAnalysisFromGistFile`.
+
+### GAP-023 — the "no linked GitHub gist" gate is entirely untested
+**Status:** `proposed` · **Proposed:** 2026-09-25 · **Area:** `app/features/advice`
+
+Every test in `advice.test.ts` and `advice.browser.ts` signs in via
+`signInWithGist()`, which always sets `gistId`. No test ever signs in
+without a gist, and no test issues a request with no session cookie at all.
+As a result, none of the following — the entire "not connected yet"
+onboarding path, arguably the first screen a new user sees before ever
+running advice — has any coverage:
+
+- `adviceGistGateProps` (`app/features/advice/index.ts:328-337`) returns
+  `{ adviceGistGate: 'sign_in' }` with no session and
+  `{ adviceGistGate: 'connect_gist' }` when signed in but
+  `sessionUsesGithubGist` is false. Neither branch is exercised anywhere.
+- The GET-page banners this drives — `advice.requiresGist.title` /
+  `bodySignIn` / `bodyConnectGist` / `linkSignIn` / `linkPortfolio`
+  (`advice-page.tsx:797-829`) — are never rendered in any test (repo-wide
+  grep for `requiresGist` and `"Sign in to run AI advice"` returns zero hits
+  outside the locale files and `advice-page.tsx` itself).
+- The POST-action's `errors.advice.requiresGithubGist` 403
+  (`index.ts:565`, `:626`, hit for a `portfolio_review`+`clear` submission
+  and a normal `run` submission respectively when the session lacks a gist)
+  is likewise never asserted (zero hits for `requiresGithubGist` in any
+  `.test.ts`/`.browser.ts` file).
+
+Checked whether a sibling feature covers the same `sessionUsesGithubGist`
+gate (portfolio/guidelines controllers have the identical gate) — no test
+anywhere in the repo covers the signed-in-without-gist case for any feature,
+so this is not "covered in effect" from elsewhere either.
+
+**Sketch:** extend `advice.test.ts`. Add a `signInWithoutGist()` helper
+(same as the existing `signInWithGist()` but omitting
+`session.set('gistId', ...)`). Cases: (a) `GET /advice` with no cookie at
+all → asserts `advice.requiresGist.title` and the sign-in link; (b)
+`signInWithoutGist()` then `GET /advice` → asserts the connect-gist copy and
+link; (c) a `run` POST while signed in without a gist → 403 +
+`errors.advice.requiresGithubGist`; (d) a `portfolio_review`+`clear` POST in
+the same state → the same 403 at its own call site.
+
+### GAP-001 — session flash messages
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-25 · **Area:** `app/lib`
+
+`app/lib/session-flash.ts` had no direct coverage. Flash messages are a
 read-once-then-clear contract, and the failure mode (a message that survives
 into the next request, or vanishes before it renders) is exactly what a unit
 test catches and an integration test misses.
 
-**Triage:** check whether any feature test asserts a flash surviving one
-redirect and then being gone. If not, this is a genuine gap — start here.
+**Re-verified 2026-09-25:** grepped every banner assertion in
+`catalog.test.ts`, `guidelines.test.ts`, `portfolio.test.ts`, `advice.test.ts`
+— every one POSTs to set a flash, then does exactly one follow-up GET to
+assert the banner is present (e.g. `catalog.test.ts:583-622`,
+`guidelines.test.ts:194-210`). None does a second follow-up GET to confirm
+the banner is then gone, so the "clear" half of the contract was genuinely
+unpinned anywhere, direct or indirect.
+
+**Action taken:** added `app/lib/session-flash.test.ts` (3 cases), matching
+`session.test.ts`'s convention of round-tripping through the real
+`sessionStorage`/`sessionCookie` (no mocks) to simulate request boundaries:
+a flashed banner is present exactly one request after `flashBanner()` and
+gone the request after that; `readFlashedBanner` returns `undefined` when
+nothing was flashed; a flashed message with no tone defaults to `'info'`.
+Verified the first case fails for the right reason by temporarily changing
+`flashBanner`'s two `session.flash(...)` calls to `session.set(...)` locally
+(not committed) — the "survives one request, gone after" case failed as
+expected while the round-trip mechanics still passed; reverted before
+committing. Production code was not modified in the final diff.
 
 ### GAP-002 — upload limits and the multipart flash middleware
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
@@ -48,6 +139,15 @@ a bad day, so nobody exercises it by hand.
 **Triage:** does any catalog import test POST a body over the limit? The
 valuable case is the *rejection* — correct status, the flash reaching the next
 render, no partial import.
+
+**Re-verified 2026-09-25:** confirmed still a genuine gap, not this run's
+action. `router.ts:92-95` wires `multipartLimitFlashOnError()` before
+Remix's `formData({ maxFileSize, maxTotalSize })`, so an oversized multipart
+body throws from the parser and is caught by the middleware. Grepped
+`catalog.test.ts` (the only file posting to `/catalog/import`) for
+`MULTIPART_MAX_FILE_BYTES`, `MaxFileSizeExceededError`, `new File`, `new
+Blob`, `Buffer.alloc` — zero hits beyond one assertion that the file input
+exists in the form markup. No test constructs an oversized upload.
 
 ### GAP-004 — shared form-control classes
 **Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-17 · **Area:** `app/components` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/205
@@ -92,6 +192,23 @@ test files reference `/locale`, so the *route* is well exercised.
 **Triage:** the gap, if any, is in resolution order — cookie vs. session vs.
 `Accept-Language` vs. default — and in context isolation between concurrent
 requests. Check `ui-locale.test.ts` before writing anything.
+
+**Re-verified 2026-09-25:** confirmed a genuine gap, with a correction to
+this item's own framing above. `ui-locale-middleware.ts:23-59` has **no
+session-based locale and no `Accept-Language` handling at all** — the actual
+resolution order is narrower: `?locale=` query param (wins, sets the cookie,
+302-redirects stripping the param) → `ui_locale` cookie → default `'en'`; an
+invalid `?locale=` value 302-redirects stripping it without changing the
+cookie. `request-context.ts` is a pure type alias with no runtime logic to
+test. `ui-locale.test.ts`'s 2 cases cover `localeQueryToUiLocale` (the pure
+parser) and `formatEtfTypeLabel` under a manually-constructed
+`runWithUiCopyContext` — neither touches `uiLocaleMiddleware` itself. None of
+{query-overrides-cookie, cookie-alone, invalid-query-redirect,
+query-equal-to-cookie-doesn't-re-set-`Set-Cookie`} is asserted anywhere, and
+nothing proves two concurrent requests with different locales don't bleed
+into each other via the `AsyncLocalStorage`-backed context. Not acted on
+this run (only one gap-filling test per run); a future run should retarget
+this item's triage note at the corrected, narrower resolution order above.
 
 ### GAP-007 — section intros and ETF type helpers
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib` · **Priority:** low
@@ -218,6 +335,18 @@ that later reaches `formatValue` and would otherwise throw inside
 **Triage:** genuine gap — write a unit test asserting
 `formatValue(100, 'NOTACURRENCY')` (or similar) falls back to
 `'100 NOTACURRENCY'` instead of throwing.
+
+**Re-verified 2026-09-25:** confirmed still a genuine gap, not this run's
+action. No test file references `formatValue`/`formatPortfolioValueForInput`
+except indirectly via fragment rendering in `portfolio.test.ts:151-224`,
+which only exercises the `Intl.NumberFormat` success path (`'PLN'`/`'USD'`).
+Confirmed `portfolio-operations.ts:22` validates `currency` as a bare
+`string()` with no enum, so a malformed value can reach `formatValue` in
+production. Verified in a Node REPL that `Intl.NumberFormat` only checks the
+currency string is syntactically 3 letters — a well-formed-but-fake code
+like `'ZZZ'` does not throw, but a non-3-letter string like `'NOTACURRENCY'`
+throws `RangeError: Invalid currency code`, confirming the catch branch
+(`format.ts:8-9`) is real, reachable, and exercised nowhere.
 
 **Note:** `formatPortfolioValueForInput` in the same file appears to have no
 production caller left (only its own definition matches a repo-wide grep) —

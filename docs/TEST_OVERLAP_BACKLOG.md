@@ -82,6 +82,26 @@ unit test — only exercised indirectly via these two prompt-content tests.
 That's a gap, not overlap; logged for a future gap sweep rather than acted on
 here.
 
+**Investigated during the 2026-09-25 gap sweep of `app/features/advice`:**
+confirmed still no *direct* test, but the "logged for a future gap sweep"
+framing above doesn't hold up — a second existing test,
+`advice-openai.test.ts:334-382` ("formats hybrid asset-class and instrument
+lines in the user message"), not cited in this item's original write-up,
+already pins the literal suffix text of *both* of `formatGuidelineLine`'s
+branches in one assertion each (`/Asset class equity.*bucket/` for the
+`asset_class` branch, `/VTI.*specific fund/` for the `instrument` branch).
+Between that test and `:253-302` above, both branches' full literal shape —
+target-pct interpolation, type-label interpolation, and each branch's
+distinguishing suffix — is already pinned through `getInvestmentAdvice`. The
+function itself is two straight-line template-string branches with no error
+path and no branching of its own beyond that, so a direct unit test would
+exercise exactly the same two branches with the same assertions, adding
+nothing a caller-level test doesn't already reach. **No new gap item seeded
+for this** — this item's own thinning question above (whether
+`advice.test.ts:277-323`'s detailed assertions are redundant, not whether
+`formatGuidelineLine` needs its own test) remains the only open question
+here.
+
 ---
 
 ## Rejected
