@@ -101,7 +101,7 @@ link; (c) a `run` POST while signed in without a gist → 403 +
 the same state → the same 403 at its own call site.
 
 ### GAP-001 — session flash messages
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-25 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-25 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/231
 
 `app/lib/session-flash.ts` had no direct coverage. Flash messages are a
 read-once-then-clear contract, and the failure mode (a message that survives
