@@ -252,7 +252,7 @@ export async function findOrCreateDataRepo(params: {
 		// so say plainly that the half-made repo is ours and safe to delete.
 		throw new Error(
 			`Created ${login}/${repoName} but could not write its ownership marker ` +
-				`(GitHub API error ${markerWrite.status}). It is empty: delete it and try again.`,
+				`(GitHub API error ${markerWrite.status}). It holds only GitHub's initial README: delete it and try again.`,
 		)
 	}
 

@@ -44,6 +44,8 @@ type FakeGithub = {
 	mutations: string[]
 	/** Simulates a write that lands wrong, to exercise verification. */
 	corruptOnWrite?: boolean
+	/** Runs before each `GET /gists/{id}`, with how many came before it. */
+	beforeGistRead?: (previousReads: number) => void
 }
 
 /**
@@ -54,6 +56,7 @@ type FakeGithub = {
 function installFakeGithub(state: FakeGithub) {
 	const blobs = new Map<string, string>()
 	let pendingTree: Array<{ path: string; sha: string | null }> = []
+	let gistReads = 0
 	previousFetch = globalThis.fetch
 	globalThis.fetch = async (input, init) => {
 		const url = new URL(String(input))
@@ -83,6 +86,8 @@ function installFakeGithub(state: FakeGithub) {
 			)
 		}
 		if (method === 'GET' && state.gist && path === `/gists/${state.gist.id}`) {
+			state.beforeGistRead?.(gistReads)
+			gistReads += 1
 			return Response.json({
 				files: Object.fromEntries(
 					Object.entries(state.gist.files).map(([name, content]) => [
@@ -100,6 +105,16 @@ function installFakeGithub(state: FakeGithub) {
 		if (method === 'POST' && path === '/user/repos') {
 			state.repoFiles = new Map([['README.md', '# ainvestor-data\n']])
 			return Response.json({}, { status: 201 })
+		}
+		if (method === 'GET' && path === `${repoPrefix}/contents/`) {
+			if (!state.repoFiles) return notFound()
+			return Response.json(
+				[...state.repoFiles.keys()].map((name) => ({
+					type: 'file',
+					name,
+					path: name,
+				})),
+			)
 		}
 		if (path.startsWith(`${repoPrefix}/contents/`)) {
 			const filePath = path.slice(`${repoPrefix}/contents/`.length)
@@ -178,6 +193,7 @@ function fakeGithub(overrides: Partial<FakeGithub> = {}): FakeGithub {
 
 function markedRepo(files: Record<string, string>): Map<string, string> {
 	return new Map([
+		['README.md', '# ainvestor-data\n'],
 		[REPO_MARKER_PATH, REPO_MARKER_CONTENT],
 		...Object.entries(files),
 	])
@@ -257,16 +273,17 @@ describe('missingScopes', () => {
 })
 
 describe('planFileCopies', () => {
-	it('marks each file create, unchanged or overwrite, sized in UTF-8 bytes', () => {
+	it('marks each file create, unchanged, overwrite or delete, sized in UTF-8 bytes', () => {
 		assert.deepEqual(
 			planFileCopies({
 				gistFiles: { 'a.json': 'zł', 'b.json': 'same', 'c.json': 'new' },
-				repoFiles: { 'a.json': null, 'b.json': 'same', 'c.json': 'old' },
+				repoFiles: { 'b.json': 'same', 'c.json': 'old', 'd.json': 'gone' },
 			}),
 			[
 				{ path: 'a.json', bytes: 3, action: 'create' },
 				{ path: 'b.json', bytes: 4, action: 'unchanged' },
 				{ path: 'c.json', bytes: 3, action: 'overwrite' },
+				{ path: 'd.json', bytes: 4, action: 'delete' },
 			],
 		)
 	})
@@ -281,7 +298,7 @@ describe('runMigration', () => {
 		assert.equal(state.repoFiles, null)
 		assert.match(output, /octocat\/ainvestor-data \(does not exist yet\)/)
 		assert.match(output, /create {4}etfs\.json/)
-		assert.match(output, /Rerun with --apply to copy 3 file/)
+		assert.match(output, /Rerun with --apply to write 3 change/)
 	})
 
 	it('apply: creates the repo, copies every file in one commit, and verifies', async () => {
@@ -293,7 +310,7 @@ describe('runMigration', () => {
 			assert.equal(state.repoFiles?.get(path), content, path)
 		}
 		assert.equal(commitCount(state), 1)
-		assert.match(output, /Verified: all 3 file\(s\)/)
+		assert.match(output, /Verified: the 3 data file\(s\)/)
 	})
 
 	it('never writes to the gist', async () => {
@@ -345,6 +362,58 @@ describe('runMigration', () => {
 				.length,
 			1,
 		)
+	})
+
+	it("never plans the ownership marker or GitHub's README as leftover data", async () => {
+		const state = fakeGithub({ repoFiles: markedRepo(GIST_FILES) })
+		const { output } = await migrate(state)
+		assert.doesNotMatch(output, /README\.md|\.ainvestor\.json/)
+	})
+
+	it('refuses to delete a repo file the gist no longer has, without --force', async () => {
+		const state = fakeGithub({
+			repoFiles: markedRepo({
+				...GIST_FILES,
+				'advice-analysis.json': '{"cleared":"since"}',
+			}),
+		})
+		const { succeeded, output } = await migrate(state, { apply: true })
+		assert.equal(succeeded, false)
+		assert.deepEqual(state.mutations, [])
+		assert.match(output, /delete {4}advice-analysis\.json/)
+	})
+
+	it('--force deletes a repo file the gist no longer has, then verifies the full set', async () => {
+		const state = fakeGithub({
+			repoFiles: markedRepo({
+				...GIST_FILES,
+				'advice-analysis.json': '{"cleared":"since"}',
+			}),
+		})
+		const { succeeded, output } = await migrate(state, {
+			apply: true,
+			force: true,
+		})
+		assert.equal(succeeded, true)
+		assert.equal(state.repoFiles?.has('advice-analysis.json'), false)
+		assert.equal(state.repoFiles?.get(REPO_MARKER_PATH), REPO_MARKER_CONTENT)
+		assert.equal(commitCount(state), 1)
+		assert.match(output, /Verified/)
+	})
+
+	it('fails when the gist changes during the run, instead of claiming a match', async () => {
+		const state = fakeGithub({
+			beforeGistRead: (previousReads) => {
+				// Reads 0 and 1 are the initial listing and read; anything later is
+				// the end-of-run re-check, by which time someone has edited.
+				if (previousReads >= 2 && state.gist) {
+					state.gist.files['guidelines.json'] = '[{"edited":"mid-run"}]'
+				}
+			},
+		})
+		const { succeeded, output } = await migrate(state, { apply: true })
+		assert.equal(succeeded, false)
+		assert.match(output, /gist changed during this run \(guidelines\.json\)/)
 	})
 
 	it('reports failure when a copied file does not read back identically', async () => {

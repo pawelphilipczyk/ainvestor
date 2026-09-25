@@ -537,16 +537,29 @@ so there GitHub's own errors speak instead), and never logs the token.
    looks the repo up, with the new find-only `findDataRepo` (Phase 4's MCP
    lookup needs the same thing, since MCP never creates), and never creates
    it.
-4. **Plan each file** as `create`, `unchanged` (already identical in the repo)
-   or `overwrite` (present but different). Any `overwrite` makes the run
-   refuse unless `--force` is given, so a rerun can't silently replace a copy
-   made earlier. Identical files are skipped, which makes a rerun after a
-   successful copy a harmless re-verification.
+4. **Plan each file** against every data file in the repo, not just the
+   gist's names. Each file is one of:
+   - `create`: in the gist, not yet in the repo.
+   - `unchanged`: already identical in the repo.
+   - `overwrite`: in both, but different.
+   - `delete`: in the repo but no longer in the gist. Clearing saved advice
+     deletes gist files, so this happens.
+
+   The repo's data files are everything at its root except the ownership
+   marker and GitHub's initial README. Any `overwrite` or `delete` makes the
+   run refuse unless `--force` is given, so a rerun can't silently replace or
+   remove an earlier copy. Identical files are skipped, which makes a rerun
+   after a successful copy a harmless re-verification.
 5. **Dry run by default.** It prints the source gist, target repo, and each
-   file's plan and size. `--apply` writes the `create` and `overwrite` files in
-   one `writeFiles` commit.
-6. **Verify**: read every file back from the repo and compare it byte for byte
-   with the gist. Any mismatch exits non-zero.
+   file's plan and size. `--apply` writes every change in one `writeFiles`
+   commit.
+6. **Verify**:
+   - List and read the repo's data files again, and require exactly the
+     gist's set of files with identical content.
+   - Then re-read the gist. The gist is still the live store, so an edit made
+     during the run would otherwise leave the repo holding the earlier
+     version while the run claimed a match.
+   - Either check failing exits non-zero.
 
 The script **never writes to or deletes the gist**. The gist stays as the
 backup until Phase 7.
@@ -558,7 +571,9 @@ in-memory fake of the GitHub endpoints it touches. The tests cover:
 - one commit per `--apply`;
 - the gist never being written;
 - a file nobody listed still being copied;
-- refusal without `--force`, and `--force` writing only the changed files;
+- refusal without `--force` for an overwrite or a delete, and `--force` writing only the changed files;
+- the ownership marker and README never counted as data;
+- a gist edited mid-run failing instead of claiming a match;
 - a corrupted write failing verification;
 - a foreign repo, a missing scope, and a missing gist.
 
