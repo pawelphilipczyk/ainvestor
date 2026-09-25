@@ -3,14 +3,10 @@
  * four operations `github-store.ts` provides over gists, over a private
  * GitHub repository instead. See Phase 2 in `docs/STORAGE_MIGRATION_PLAN.md`.
  *
- * **Not wired into anything yet.** This module is deliberately standalone: no
- * caller in `app/` or `mcp/` reaches it, and `github-store.ts`'s own
- * `readFile`/`readFiles`/`writeFile`/`writeFiles` are untouched. Wiring a
- * dispatch between the two backends belongs to Phase 3, alongside the OAuth
- * scope change that is the only thing that gives a real user's token access
- * to a private repo — until then a dispatcher would have nothing real to
- * select between, so building one now would only add risk to Phase 1's
- * already-shipped, already-relied-on gist path for no live benefit.
+ * **Not wired into anything yet.** No caller in `app/` or `mcp/` reaches it.
+ * The Phase 3 migration script is its first user; the Phase 4 cutover then
+ * points the per-user data modules at it directly, replacing the gist backend
+ * for them in one deploy — there is no dispatcher between the two.
  *
  * `location` is `"owner/repo"` here (a gist id in the gist backend) — one
  * string works for both because a GitHub login or repo name can never

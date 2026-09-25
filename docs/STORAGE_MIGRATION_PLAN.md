@@ -1,8 +1,8 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–2 done. Phase 3 (auth scope + wiring the repo backend
-into session/MCP) is next; Phases 4+ are designed but not yet detailed to the
-commit level.
+**Status:** Phases 0–2 done. Phase 3 (a one-off migration script) is next,
+then Phase 4 (the cutover deploy). Phases 5+ are designed but not yet detailed
+to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -50,7 +50,8 @@ That is the property the chosen design is built around.
 | User data location | `<login>/ainvestor-data`, **private**, personal account | Per-user, per-token, preserves the credential-free model |
 | Catalog location | `ainvestor-shared/ainvestor-catalog`, **private**, under a GitHub **organization** | See below |
 | Catalog read credential | the **caller's** token | No server-side credential; possible only because guests lose catalog access |
-| Auth mechanism | OAuth App, scope `gist` → `repo` | See below |
+| Auth mechanism | OAuth App, scope `gist` → `gist repo` (Phase 4) → `repo` (Phase 7) | See below; `repo` does not cover gists, so `gist` stays while the catalog is one |
+| Data migration | a script run by hand, once per environment | One user, two environments — see Phase 3 |
 | Organization | **yes**, free tier, for the catalog only | See below |
 | Concurrency | Contents API `sha` as compare-and-swap | Returns `409` on mismatch — the actual payoff of this migration |
 | Multi-file atomicity | Git Data API (blobs → tree → commit) | Catalog writes two files in one gist `PATCH` today; a commit preserves that and adds a parent-sha CAS |
@@ -83,8 +84,8 @@ A GitHub App is the only way to get true least privilege (per-repo
   on the account — broader in blast radius than `gist`, and **this is a
   regression that belongs in the README honestly, not glossed over.**
 - Against a one-to-few-user app with a "don't advertise" threat model, that
-  regression is acceptable in exchange for Phase 2 being a scope string plus a
-  re-auth rather than a new auth architecture (installation flow, user-to-server
+  regression is acceptable in exchange for the auth change being a scope string
+  plus a re-auth rather than a new auth architecture (installation flow, user-to-server
   tokens, ~8h expiry and refresh, and changes to the MCP discovery metadata).
 - An earlier draft of this plan argued the App could hold catalog read access
   too, consolidating credentials. That argument died when the catalog moved to
@@ -402,7 +403,9 @@ would be dead code pretending to be live. The env-var dispatch this section's
 first draft described belongs to Phase 3, alongside the session/MCP wiring —
 built together, since a dispatcher with nothing real to select between is
 premature machinery, and touching Phase 1's now-shipped code path for it would
-add risk to this phase for no live benefit.
+add risk to this phase for no live benefit. *(Later superseded: with one user,
+Phases 3–4 replace the dispatcher with a scripted copy and a single cutover
+deploy, so no dispatcher is built at all.)*
 
 Two design decisions taken up front:
 
@@ -479,21 +482,149 @@ didn't anticipate:
   documented but easy-to-miss requirement of the Git Data API, not an
   invention of this module.
 
-Deferred to Phase 3 on purpose, not overlooked: the branch-level compare-and-
+Deferred on purpose, not overlooked: the branch-level compare-and-
 swap on `writeFiles`'s ref update is real today (a moved ref rejects a
 non-force update), but nothing surfaces that rejection as anything other than
 a generic write failure yet — that's what "turn on compare-and-swap" in
 Phase 5 means. Phase 2 only had to make the mechanism exist and be correct.
 
-### Phase 3 — auth
+### Why Phases 3–4 changed shape
 
-`scope: 'gist'` → `'repo'` in `app/features/auth/index.ts`. Forces every user to
-re-authorize. README security section updated per the decision above.
+The earlier design copied gist → repo inside the app on each user's first
+login after the switch, with a dispatcher routing each user to whichever
+backend held their data. That machinery serves many users migrating on their
+own schedule. This app has **one** approved, active user (the owner) in two
+environments — prod (`ai-investor-data` gist) and preview
+(`ai-investor-preview-data` gist). For that, in-app migration is code that runs
+twice and then has to be maintained and tested forever, and the dispatcher
+exists only to support a mixed state nobody is ever in.
 
-### Phase 4 — data migration
+So the migration becomes a script run by hand, and the switch becomes one
+deploy per environment. No dispatcher is built.
 
-On first login after the switch, copy gist → repo. **Leave the gists intact and
-read-only** as a backstop for a release or two; do not delete on migrate.
+The earlier Phase 3 also said `scope: 'gist'` → `'repo'`. That would have broken
+every save: `repo` does not cover gists, and the catalog stays on a gist until
+Phase 6. The scope grows to `gist repo` instead, and `gist` is dropped in
+Phase 7.
+
+### Phase 3 — migration script
+
+`scripts/migrate-gist-to-repo.ts`, run on the owner's laptop:
+
+```
+node --import remix/node-tsx scripts/migrate-gist-to-repo.ts --env prod|preview [--apply] [--force]
+```
+
+It reads `GH_TOKEN`, which needs both `gist` and `repo` (a classic PAT). It
+never logs the token.
+
+1. **Find the gist** by description (`ai-investor-data` for prod,
+   `ai-investor-preview-data` for preview) with `findGistIdByDescription`. Stop
+   if there isn't one.
+2. **Read every file in it**: list the gist's files, then read them with the
+   gist backend's `readFiles`, which handles truncation. It copies whatever is
+   there rather than a hard-coded list (`etfs.json`, `guidelines.json`,
+   `advice-*.json` today), so a forgotten file can't be silently left behind.
+3. **Find or create the repo** with `findOrCreateDataRepo`: `ainvestor-data`
+   for prod, `ainvestor-preview-data` for preview. The name comes from `--env`,
+   not from `FLY_APP_NAME`, which doesn't exist on a laptop. So
+   `findOrCreateDataRepo` gains an optional explicit repo name. A dry run only
+   looks the repo up and reports "would create"; it never creates it.
+4. **Refuse to overwrite** a repo that already holds any of those files, unless
+   `--force` is given. A rerun then deliberately replaces the first copy; the
+   gist stays the source of truth until the cutover.
+5. **Dry run by default.** It prints the source gist, target repo, and each
+   file with its size. `--apply` writes them all in one `writeFiles` commit.
+6. **Verify**: read every file back from the repo and compare it byte for byte
+   with the gist. Any mismatch exits non-zero.
+
+The script **never writes to or deletes the gist**. The gist stays as the
+backup until Phase 7.
+
+The pure parts (argument parsing, environment → names, comparison) get unit
+tests with a stubbed `fetch`, like the store tests. The real run is the actual
+test: it is the first time `github-repo-store.ts` meets real GitHub rather than
+stubs. Anything it gets wrong against the live API is fixed and recorded in a
+Phase 3 outcome.
+
+The copy step (read the gist → one commit → verify) is reused for the catalog
+in Phase 6. Repo creation is not, because `ainvestor-shared/ainvestor-catalog`
+already exists.
+
+### Phase 4 — cutover: the app reads and writes repos
+
+One PR switches all per-user data from gists to the repo. At no point is some
+of it on each backend: the script copies, the deploy switches.
+
+**Auth** (`app/features/auth/index.ts`):
+- Scope becomes `gist repo`. Everyone sees GitHub's consent screen once more,
+  for the added scope.
+- Sign-in resolves the data repo with `findOrCreateDataRepo` instead of
+  `findOrCreateGist`. A failure, including `ForeignRepoError`, becomes the same
+  error banner the gist failure shows today, not a 500.
+
+**Session** (`app/lib/session.ts`):
+- `gistId` becomes `dataRepo`, holding `owner/repo`. `sessionUsesGithubGist`
+  and `SessionWithGithubGist` are renamed to match.
+- A cookie from before the cutover has `gistId` and a token without `repo`,
+  which cannot read a private repo. It must lead back to sign-in, not to a
+  storage error page. The simplest way is to treat a session with no
+  `dataRepo` as signed out.
+
+**Storage callers**:
+- `app/lib/gist.ts` (portfolio), `app/lib/guidelines.ts`, and
+  `app/features/advice/advice-gist.ts` import from `github-repo-store.ts`.
+- `app/features/catalog/lib.ts` stays on `github-store.ts` until Phase 6.
+- The test doubles (`private-gist-test-store.ts`, the advice test overlay)
+  step in before storage is called, so they carry over. Renaming them can
+  follow.
+- `isPreview` moves out of `gist.ts` into a small module of its own.
+  `github-repo-store.ts` already imports it from `gist.ts`, so once `gist.ts`
+  imports the repo store the two would import each other. The current import
+  also drags `catalog/lib.ts` into the repo store for no reason.
+
+**MCP**:
+- `REQUIRED_GITHUB_SCOPE` becomes `gist repo`. It feeds the discovery
+  metadata's `scopes_supported` and the `WWW-Authenticate` challenge; the error
+  and hint text in `mcp/http.ts` and `mcp/config.ts` change with it.
+- Finding the gist by description is replaced by the fixed repo name:
+  `<login>/ainvestor-data`, with the login from `GET /user`, cached per token
+  like the gist id is today. MCP never creates the repo, the same rule as
+  never creating the gist.
+- The `AINVESTOR_GIST_ID` env var becomes `AINVESTOR_DATA_REPO`, and the
+  `X-Ainvestor-Gist-Id` header becomes `X-Ainvestor-Data-Repo`. Both take
+  `owner/repo`.
+- A client still holding a gist-only token gets a `404` for the private repo
+  (see Traps). That must reach the model as "reconnect to grant repository
+  access", not as an empty portfolio.
+
+**Docs**:
+- `README.md`: the scope sections, including the honest note on `repo`'s
+  wider reach that the decision above requires.
+- `docs/MCP_SERVER_PLAN.md`: its mentions of the `gist` scope.
+- This plan.
+
+**Order.** Every PR deploys to the one shared preview app, and merging deploys
+to prod. The cutover PR's own preview deploy is therefore the rehearsal:
+
+1. Make no edits in either environment from here until step 6.
+2. Run the script against preview with `--apply`, and confirm it verifies.
+3. Open the cutover PR; its preview deploy is the new code. Don't push other
+   PRs in the meantime, because their preview deploys would put the gist code
+   back.
+4. On preview: sign in (re-consent), then check that portfolio, guidelines and
+   saved advice all match. Make one edit and confirm it lands as a commit in
+   `ainvestor-preview-data`.
+5. Run the script against prod with `--apply`, and confirm it verifies.
+6. Merge. Then repeat step 4's checks on prod against `ainvestor-data`.
+7. Reconnect MCP clients so they pick up the new scope.
+
+**Rollback**: redeploy the previous build. It reads the untouched gist, which
+is missing anything saved after the cutover.
+
+**Done when** both environments read and write their repos and pass the
+checks above, the gists are untouched, CI (lint, types, tests, browser tests)
+is green, and the docs are updated.
 
 ### Phase 5 — turn on compare-and-swap
 
@@ -522,10 +653,16 @@ have no token to pass.
 The two-file catalog write (`catalog.json` + `catalog-source.json`, one `PATCH`
 today) becomes one Git Data commit — same atomicity, plus CAS on the parent.
 
+The data moves the Phase 3 way: the script's copy-and-verify step, pointed at
+the catalog gist and the existing `ainvestor-shared/ainvestor-catalog`, then a
+cutover deploy.
+
 ### Phase 7 — remove the gist backend
 
 Delete the gist implementation, the env vars, and the gist language throughout
-`README.md` and `docs/MCP_SERVER_PLAN.md`.
+`README.md` and `docs/MCP_SERVER_PLAN.md`. Drop `gist` from the OAuth scope and
+the MCP `REQUIRED_GITHUB_SCOPE`: nothing needs it once the catalog is a repo.
+Delete the gists themselves, which were the backup since Phase 4, by hand.
 
 ## Traps
 
@@ -536,18 +673,19 @@ Delete the gist implementation, the env vars, and the gist language throughout
   and must not break the login. Needs a deliberate branch and a test.
 - The Contents API is base64 and keeps a 1 MB ceiling on the JSON response —
   catalog reads use the raw media type or Git Data blobs.
-- `AINVESTOR_GIST_ID`, the `x-ainvestor-gist-id` header, and the approved-logins
-  allowlist all need repo equivalents (`mcp/config.ts`, `mcp/data-gist.ts`).
+- `AINVESTOR_GIST_ID` and the `x-ainvestor-gist-id` header need repo
+  equivalents (`mcp/config.ts`, `mcp/data-gist.ts`) — named in Phase 4.
+- **`repo` does not include gist access.** Swapping `gist` for `repo` while any
+  data still lives on a gist breaks every write to it. `gist` is only dropped
+  in Phase 7.
 - Test seams assume gist shapes: `app/lib/private-gist-fetch-test-overlay.ts`,
   `setSharedCatalogForTests`, `app/lib/test-session-fetch.ts`. 27 test files
   mention gists.
 
 ## Open questions
 
-1. Repo naming — `ainvestor-data` per user is assumed; preview currently
-   separates by gist description (`ai-investor-preview-data`), so preview needs
-   its own repo name.
-2. Whether Phase 4 migration is silent on login or an explicit "move my data"
-   action.
-3. Whether the `catalog-source.json` bank-import history should move at all, or
+1. Whether the `catalog-source.json` bank-import history should move at all, or
    be archived — it is the largest file and is read by code, never by people.
+
+Resolved: preview's repo is `ainvestor-preview-data` (`getDataRepoName`), and
+the data moves by a script rather than on login (Phase 3).
