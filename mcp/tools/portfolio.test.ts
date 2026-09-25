@@ -234,7 +234,7 @@ describe('get_portfolio tool', () => {
 		assert.match(tool.description, /no quantities, prices, or dates/)
 	})
 
-	it('reads the pinned gist and returns the summary as JSON text', async () => {
+	it('get_portfolio reads the pinned gist and returns the summary as JSON text', async () => {
 		const requestedUrls = stubGist([entry({ value: 2500 })])
 		const tool = createGetPortfolioTool(config)
 
