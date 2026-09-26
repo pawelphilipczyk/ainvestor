@@ -107,7 +107,7 @@ the body. Optionally extend the existing `:333` test with an assertion on
 second test for that half.
 
 ### GAP-001 — session flash messages
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-26 · **Area:** `app/lib` · **PR:** (this PR)
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-26 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/232
 
 `app/lib/session-flash.ts` — no direct coverage. Flash messages are a
 read-once-then-clear contract, and the failure mode (a message that survives

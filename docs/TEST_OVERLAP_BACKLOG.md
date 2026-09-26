@@ -192,7 +192,7 @@ only exercised indirectly through ~8 expensive HTTP round-trips in
 
 ### OV-005 — colliding test names across MCP tools
 **Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-20 ·
-**Acted:** 2026-09-26 · **Area:** mcp/tools · **PR:** (this PR)
+**Acted:** 2026-09-26 · **Area:** mcp/tools · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/232
 
 `reads the pinned gist and returns the summary as JSON text` named a case in
 both `mcp/tools/portfolio.test.ts:237` and `mcp/tools/guidelines.test.ts:178`.
