@@ -4,12 +4,46 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 5 — `app/lib`
-**Last swept:** 2026-09-20 (portfolio)
+**Next area to sweep:** 6 — `app/components` + shared browser layer
+**Last swept:** 2026-09-26 (`app/lib`)
 
 ---
 
 ## Open items
+
+### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
+**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/lib`
+
+`app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
+UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
+uses Polish asset-class labels when UI is Polish") both call the same
+`formatEtfTypeLabel` (imported from `guidelines.ts`) inside
+`runWithUiCopyContext({ locale: 'pl', ... })` and assert the identical
+input→output pairs: `formatEtfTypeLabel('equity') === 'Akcje'` and
+`formatEtfTypeLabel('real_estate') === 'Nieruchomości'`
+(`guidelines.test.ts:26,28`; `ui-locale.test.ts:18-19`). `guidelines.test.ts`'s
+version is the more complete pin — it also covers `'bond'` → `'Obligacje'`
+and the English-default case. `ui-locale.test.ts`'s own distinct value is its
+other two assertions in the same case (`t('catalog.table.name')`,
+`format(t('guidelines.list.deleteAria.instrument'), { name: 'VWCE' })`),
+which use `formatEtfTypeLabel` as one example consumer of
+`runWithUiCopyContext` alongside two unrelated ones — those two lines add no
+new coverage on top of `guidelines.test.ts`.
+
+**Triage question:** is `ui-locale.test.ts`'s job to prove
+`runWithUiCopyContext` propagates locale into *any* locale-aware consumer (in
+which case the `formatEtfTypeLabel`-specific lines are redundant with
+`guidelines.test.ts` and could be dropped, since the `t()`/`format()`
+assertions in the same case already prove propagation), or is it
+intentionally re-checking `formatEtfTypeLabel` specifically because it's
+imported from another module (`guidelines.ts`) rather than `i18n.ts` itself —
+i.e. deliberate cross-module propagation coverage? If the latter, reject as
+intentional.
+
+**Note:** the sweep found 14 test files under `app/lib/*.test.ts`, two more
+than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
+— that doc states baseline counts are a drift signal, not something to
+maintain every run.
 
 ### OV-006 — guideline formatting asserted twice with the same input/output
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** advice
@@ -51,25 +85,6 @@ Note: `formatGuidelineLine` (`advice-openai.ts:249`) itself has no direct
 unit test — only exercised indirectly via these two prompt-content tests.
 That's a gap, not overlap; logged for a future gap sweep rather than acted on
 here.
-
-### OV-005 — colliding test names across MCP tools
-**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-20 · **Area:** mcp/tools · **Priority:** low
-
-`reads the pinned gist and returns the summary as JSON text` names a case in
-both `mcp/tools/portfolio.test.ts` and `mcp/tools/guidelines.test.ts`. These
-test different tools, so it is **not** duplicated coverage — but identical names
-make a failure report ambiguous about which tool broke.
-
-**Action:** rename to name the tool (`get_portfolio reads the pinned gist …`).
-Cosmetic; do it as a rider on a run that is already touching these files, not
-as a run's one change.
-
-**Re-verified 2026-09-20:** confirmed, no drift. The exact name still appears
-verbatim at `mcp/tools/portfolio.test.ts:237` and
-`mcp/tools/guidelines.test.ts:178`. Promoted to `approved`; still not acted on
-this run since this run doesn't otherwise touch either file (this run's own
-gap-filling test adds a new file, `mcp/tools/tool-arguments.test.ts`, rather
-than editing these two) — leave for a run that is.
 
 ---
 
@@ -174,6 +189,24 @@ only exercised indirectly through ~8 expensive HTTP round-trips in
 ---
 
 ## Done
+
+### OV-005 — colliding test names across MCP tools
+**Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-09-20 ·
+**Acted:** 2026-09-26 · **Area:** mcp/tools · **PR:** (this PR)
+
+`reads the pinned gist and returns the summary as JSON text` named a case in
+both `mcp/tools/portfolio.test.ts:237` and `mcp/tools/guidelines.test.ts:178`.
+These test different tools, so it was **not** duplicated coverage — but
+identical names made a failure report ambiguous about which tool broke.
+
+**Re-verified 2026-09-26:** confirmed, no drift; the exact name still appeared
+verbatim at both locations.
+
+**Action taken:** renamed to name the tool —
+`get_portfolio reads the pinned gist and returns the summary as JSON text`
+(`mcp/tools/portfolio.test.ts:237`) and
+`get_guidelines reads the pinned gist and returns the summary as JSON text`
+(`mcp/tools/guidelines.test.ts:178`). No assertion changes.
 
 ### OV-001 — `parseAdviceCashAmount` tests re-test `parseLocaleDecimalString`
 **Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-16 · **Area:** advice · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/203
