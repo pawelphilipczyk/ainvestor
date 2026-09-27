@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 1 — `app/features/advice`
-**Last swept:** 2026-09-20 (`mcp/tools`)
+**Next area to sweep:** 2 — `app/features/catalog`
+**Last swept:** 2026-09-26 (`app/features/advice`)
 
 ---
 
@@ -26,16 +26,118 @@ backlog just feeds the overlap backlog.
 
 ## Open items
 
+### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
+**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
+
+`OV-006` (overlap backlog) flagged `formatGuidelineLine`
+(`app/features/advice/advice-openai.ts:249-254`) as having "no direct unit
+test." Investigated concretely: the `if (kind === 'asset_class')` branch
+itself is **not** a gap — a third indirect test not cited in `OV-006`,
+`advice-openai.test.ts:334-381` ("formats hybrid asset-class and instrument
+lines in the user message"), already exercises both branches.
+
+What remains genuinely uncovered:
+- **Fractional `targetPct`.** `GUIDELINE_TARGET_PERCENT_MIN = 0.001`
+  (`app/lib/guidelines.ts:48`, no upper-bound-below-100 integer constraint)
+  and the write-side valibot schema (`app/features/guidelines/index.ts:71-87`)
+  legitimately accept decimals (e.g. `33.5`), but `formatGuidelineLine`
+  interpolates `targetPct` raw with no rounding. Every guideline object across
+  all three indirect tests (`advice.test.ts`, `advice-openai.test.ts`) uses a
+  whole-number percentage — grepped every `targetPct:` value that flows
+  through `formatGuidelineLine`/`getInvestmentAdvice`, none is fractional. A
+  bug that mis-renders a fractional percentage (floating-point noise, silent
+  truncation) would ship undetected.
+- **Exact-string pinning.** All three indirect tests use `assert.match` with
+  partial regexes (`/VTI.*60%/`, `/Asset class equity.*bucket/`), never the
+  full literal line. A phrasing edit that keeps the ticker and percent in
+  relative order would pass all three undetected.
+
+**Triage:** genuine gap, narrower than `OV-006`'s framing. A direct
+`describe('formatGuidelineLine', ...)` unit test importing the function,
+asserting the exact returned string (`assert.equal`, not regex) for an
+`instrument` row, an `asset_class` row, and a fractional `targetPct` (e.g.
+`33.5` → `...33.5%...` verbatim, not rounded/truncated). Leave the two
+`OV-006` prompt-content tests as they are — that item's own triage question
+is unrelated and still open.
+
+### GAP-023 — `parseAdviceDocument`'s schema-validation-failure branch is untested
+**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
+
+`app/features/advice/advice-document.ts:154-171` has three failure paths.
+Two are tested: `raw == null`/empty content falls back to a paragraph
+(`advice-openai.test.ts:199-224`, `:226-249`), and non-JSON text falls back to
+a paragraph (`advice-openai.test.ts:113-128`). The third is not: JSON that
+parses but fails `parseSafe(AdviceDocumentSchema, parsed)`
+(`advice-document.ts:166-169`) — e.g. `{"blocks":[]}` (fails the "at least one
+block" refine) or a block missing a required field — also falls back to a
+paragraph, but no test anywhere feeds structurally-valid-but-schema-invalid
+JSON through either call site (`advice-openai.ts:915,977`). Confirmed via a
+repo-wide grep for `AdviceDocumentSchema`/`parseAdviceDocument`/`parseSafe` —
+no other caller and no test exercises this specific branch.
+
+**Triage:** genuine gap. Feed a mock OpenAI response of
+`JSON.stringify({ blocks: [] })` (or a block missing a required field)
+through `getInvestmentAdvice`, and assert the result falls back to
+`{ type: 'paragraph', text: <the raw JSON string> }` rather than throwing or
+silently accepting the invalid structure.
+
+### GAP-024 — the unauthenticated `adviceGistGate: 'sign_in'` banner is never reached by any test
+**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
+
+`app/features/advice/index.ts:328-337` (`adviceGistGateProps`) returns
+`{ adviceGistGate: 'sign_in' }` when there is no session cookie at all — this
+is the plain signed-out path, not guest mode (guest mode is confirmed fully
+removed per `docs/STORAGE_MIGRATION_PLAN.md`, Phase 0). `advice-page.tsx:797-814`
+renders this as a distinct banner (`t('advice.requiresGist.title')`/`bodySignIn`/
+`linkSignIn` → `routes.auth.login.href()`). Every one of the 28 requests in
+`advice.test.ts` signs in first via `signInWithGist()` or a pre-seeded cookie
+jar — none hits `/advice` with zero session, so this banner's copy and link
+are never rendered in any test.
+
+The sibling `'connect_gist'` banner (signed in, no gist) *is* reached
+(`advice.test.ts:333-365`), but that test only asserts the unrelated
+form-level error string (`/private GitHub gist/`), never the banner's own
+copy (`bodyConnectGist`/`linkPortfolio`) — a softer, secondary gap.
+
+**Triage:** genuine gap, user-visible (the copy every signed-out visitor to
+`/advice` sees). A `GET /advice` request with no session cookie, asserting
+`t('advice.requiresGist.title')`/`bodySignIn`/the sign-in link href appear in
+the body. Optionally extend the existing `:333` test with an assertion on
+`bodyConnectGist`/`linkPortfolio` in the same pass, rather than adding a
+second test for that half.
+
 ### GAP-001 — session flash messages
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-26 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/232
 
 `app/lib/session-flash.ts` — no direct coverage. Flash messages are a
 read-once-then-clear contract, and the failure mode (a message that survives
 into the next request, or vanishes before it renders) is exactly what a unit
 test catches and an integration test misses.
 
-**Triage:** check whether any feature test asserts a flash surviving one
-redirect and then being gone. If not, this is a genuine gap — start here.
+**Re-checked 2026-09-26:** grepped every feature test file for
+`flashBanner`/`readFlashedBanner`/`flash` usage — several route tests
+(`catalog.test.ts:583-622` etc.) flash a banner via a `POST` and confirm it
+renders on the immediately-following `GET`, but none does a *second*
+follow-up request to confirm the banner is then gone, and none exercises the
+legacy `error`-key fallback or the invalid-tone default branch (both dead in
+production call sites, live in the function). Confirmed genuine gap, not
+already covered in effect.
+
+**Action taken:** added `app/lib/session-flash.test.ts` (6 cases), following
+`session.test.ts`'s convention of round-tripping a real `Session` through
+`sessionStorage.save()`/`sessionCookie.serialize()`/`parse()`/`read()` rather
+than mocking. Covers: no-flash returns `undefined`; a flashed banner is
+unreadable on the same request, readable on the next, and gone on the one
+after that (pins the two-key `text`+`tone` composite surviving one hop
+together, on top of the framework's own single-key flash guarantee); an
+unrecognized flashed tone value falls back to `'info'`; a legacy `error`
+flash takes priority over the modern keys; an empty flashed message is
+treated as absent. Verified each assertion pins its exact branch by direct
+inspection after the sandbox blocked running the suite against a
+locally-modified copy of the source (same guard `GAP-008` hit) — inspected
+`session-flash.ts:24-35` line by line against each assertion, then confirmed
+via `git diff` that the temporary edit was fully reverted before this PR.
+Production code was not modified in the final diff.
 
 ### GAP-002 — upload limits and the multipart flash middleware
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
