@@ -4,15 +4,26 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 6 — `app/components` + shared browser layer
-**Last swept:** 2026-09-26 (`app/lib`)
+**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
+**Last swept:** 2026-09-27 (`app/components` + shared browser layer — nothing found; see PR for what was checked)
 
 ---
 
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/lib`
+**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-09-27 · **Area:** `app/lib`
+
+**Re-verified 2026-09-27:** re-read both files. `guidelines.test.ts:24-29` and
+`ui-locale.test.ts:16-26` still assert the identical
+`formatEtfTypeLabel('equity') === 'Akcje'` /
+`formatEtfTypeLabel('real_estate') === 'Nieruchomości'` pair inside
+`runWithUiCopyContext({ locale: 'pl', ... })`, exactly as described. Evidence
+holds; promoted to `approved` per the routine's rule to promote a prior run's
+still-valid proposals. Not acted on this run (it was not `approved` before
+this run started, so the one-overlap-action limit doesn't cover it yet) —
+eligible for a future run's action step. The triage question below is still
+unresolved and worth a human answer either way.
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel

@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-09-27 (`app/features/catalog`)
 
 ---
 
@@ -25,6 +25,78 @@ backlog just feeds the overlap backlog.
 ---
 
 ## Open items
+
+### GAP-025 — `GET /catalog/fragments/list` route is never invoked by any test
+**Status:** `proposed` · **Proposed:** 2026-09-27 · **Area:** `app/features/catalog`
+
+Resolves the "Uncovered routes to check" table's open question below.
+`app/routes.ts:48` wires `GET /catalog/fragments/list` to
+`app/features/catalog/index.ts:558-560`, but no test invokes it directly.
+`catalog-list-filter.browser.ts` does **not** reach it either — the filter
+form's `action` is `routes.catalog.index.href()` = `/catalog`
+(`catalog-page.tsx:63,66`), so both the browser filter-submit flow and
+`catalog.test.ts:1095` ("GET /catalog with Accept: text/html…") exercise the
+shared `catalogListFragmentResponse` only through the `index` action's
+frame-submit branch, never through `fragmentList` itself. The sibling
+portfolio route has direct coverage (`portfolio.test.ts:767`,
+`GET /fragments/portfolio-list`); catalog's does not. It's also absent from
+`require-approved-session.test.ts`'s literal `PROTECTED_PATHS` list, though
+auth is still covered incidentally via the `/catalog` prefix in
+`requiresSignIn`.
+
+**Triage:** genuine gap — a route-wiring regression (wrong method/path/
+controller binding) would go undetected today. A test would `GET
+/catalog/fragments/list?type=bond` directly and assert 200 + fragment HTML.
+
+### GAP-026 — `formatCatalogImportOutcomeFlash` and its cookie-truncation sibling have no direct coverage
+**Status:** `proposed` · **Proposed:** 2026-09-27 · **Area:** `app/features/catalog`
+
+Confirms the overlap backlog's `RJ-003` note is still current:
+`formatCatalogImportOutcomeFlash` (`app/features/catalog/index.ts:107-187`)
+is only exercised indirectly through ~8 expensive HTTP round-trips in
+`catalog.test.ts`, with no direct unit test of its section composition
+(applied-count lead, unclassified/type-change/skipped/notes sections, in
+order). Beyond that: `truncateImportFlashForCookieSession`'s truncation
+branch (`index.ts:64-71`, fires above 2400 UTF-16 units) is unexercised even
+indirectly — grepped the repo for `flashTruncated`/`2_400`/`2400`, zero test
+hits; no fixture produces a message anywhere near that length.
+
+**Triage:** genuine gap. A direct unit test would assert the untruncated
+composed message for a representative outcome, plus a separate case feeding
+enough skipped rows to force truncation, asserting the exact suffix and that
+truncation doesn't split mid-line-break.
+
+### GAP-027 — AI-model selection for the ETF deep-dive is entirely untested
+**Status:** `proposed` · **Proposed:** 2026-09-27 · **Area:** `app/features/catalog`
+
+`parseAdviceModelFromJsonBody` (`index.ts:203-212`),
+`parseOptionalAdviceModelFromUrl` (`index.ts:236-242`), and
+`catalogEtfAnalysisFrameSrc`'s non-default branch (`index.ts:244-254`) have
+zero coverage, direct or indirect — a repo-wide grep for all three names
+matches only `index.ts` itself, and the string `"model"` never appears in
+`catalog.test.ts`. Only the implicit default (`DEFAULT_CATALOG_ETF_MODEL`) is
+ever exercised.
+
+**Triage:** genuine gap, and user-facing (a model picker on the ETF detail
+page). A test posting `model` via form field, via JSON body, and via
+`?model=` on the GET — each with a valid non-default id and an invalid one —
+would close it.
+
+### GAP-028 — the OpenAI-failure path on the ETF analysis POST is untested
+**Status:** `proposed` · **Proposed:** 2026-09-27 · **Area:** `app/features/catalog`
+
+Only the success path of the ETF deep-dive is tested
+(`catalog.test.ts:162-199`, mocked `AdviceClient` returning content).
+`getCatalogEtfDeepDiveText`'s empty-content throw
+(`catalog-etf-openai.ts:44-47`) and `index.ts:691-711`'s catch — which maps
+any failure to `errors.catalog.etfDetail.service` and deliberately returns
+status 200 (a documented RC-frame quirk) — are never reached: no test makes
+the stub client throw or return empty `content`.
+
+**Triage:** genuine gap. A test stubbing `AdviceClient` to throw (and,
+separately, to return empty content) on the ETF analysis POST, asserting the
+response is still 200 with the `errors.catalog.etfDetail.service` message in
+the fragment body.
 
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
 **Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
@@ -531,7 +603,7 @@ Flagged during the seed survey; each needs the same triage before becoming an it
 
 | Route | Test files naming it | Note |
 |---|---|---|
-| `/catalog/fragments/list` | 0 | but `catalog-list-filter.browser.ts` exists — may reach it by another path |
+| `/catalog/fragments/list` | 0 | resolved 2026-09-27: confirmed truly 0-coverage, `catalog-list-filter.browser.ts` submits through `/catalog` instead — tracked as `GAP-025` |
 | `/admin/etf-import` | 1 | admin-only page, thin coverage |
 | `/health` | 2 | probably fine |
 
