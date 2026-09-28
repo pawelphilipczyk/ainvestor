@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-09-28 (`app/features/catalog`)
 
 ---
 
@@ -25,6 +25,54 @@ backlog just feeds the overlap backlog.
 ---
 
 ## Open items
+
+### GAP-025 — `POST /catalog/import` HAR upload (`bankApiHar`) has no route test
+**Status:** `proposed` · **Proposed:** 2026-09-28 · **Area:** `app/features/catalog`
+
+`app/features/catalog/index.ts:450-472` (the `harUpload instanceof File`
+branch: `JSON.parse` failure, `extractBankApiJsonFromHar` `!ok`, ok payload
+feeding the merge) is only touched by `catalog.test.ts:305`, which asserts the
+form has `name="bankApiHar"`. `har-bank-json-adapter.test.ts` covers the
+extractor alone; every import route test uses the paste field `bankApiJson`.
+
+**A test would assert:** (a) a valid minimal HAR (one `etf-screener-v3` entry,
+fixture shape in `har-bank-json-adapter.test.ts:5-21`) as owner returns 200
+`{ok:true}` and the row shows on `GET /catalog`; (b) garbage HAR with
+`Accept: application/json` returns 422 matching `/not a valid HAR export/`.
+Mirror `catalog.test.ts:363-413` and `:415-444`.
+
+### GAP-026 — over-limit HAR upload path (narrow form of `GAP-002`)
+**Status:** `proposed` · **Proposed:** 2026-09-28 · **Area:** `app/features/catalog`
+
+`index.ts:454-456` (`harUpload.size > MULTIPART_MAX_FILE_BYTES`) and
+`app/lib/multipart-limit-flash-middleware.ts` (302 to referer or
+`/admin/etf-import` plus flash on `MaxFileSizeExceededError`) are tested
+nowhere. A test would POST a >5 MiB `bankApiHar` as owner and assert a 302 to
+`/admin/etf-import`, the `errors.upload.fileTooLarge` flash on the next GET,
+an unchanged catalog, and a cross-origin Referer falling back to the admin URL.
+Unverified: whether `testSessionFetch` runs `multipartLimitFlashOnError`
+(`app/router.ts:92`). Mirror `catalog.test.ts:624-660`. Fold with `GAP-002`.
+
+### GAP-027 — import `saveFailed` branch is untested
+**Status:** `proposed` · **Proposed:** 2026-09-28 · **Area:** `app/features/catalog` · **Priority:** low
+
+`index.ts:515-523` (`saveCatalogImport` throws → `errors.catalog.import.saveFailed`,
+no success flash). `saveCatalog` (`lib.ts:1033`) short-circuits under
+`setSharedCatalogForTests`, so the throw needs a gist `writeFiles` stub
+(see `lib.test.ts:177-223`). Medium effort; may need a seam (`blocked` if
+production code must change).
+
+### GAP-028 — small catalog route branches
+**Status:** `proposed` · **Proposed:** 2026-09-28 · **Area:** `app/features/catalog` · **Priority:** low
+
+- `GET /catalog/fragments/etf-analysis/:id`: only the signed-in 200 is tested
+  (`catalog.test.ts:136`); unknown-id 404 (`index.ts:365-371`) and
+  pending-approval 403 (`:357-362`) are untested for the GET fragment.
+- `POST /catalog/etf/:id` unknown id → 404 (`index.ts:685-689`) and over-long
+  or blank id → 404 (`:217-224`) untested (only GET page 404, `:240`).
+- Model selection (`index.ts:200-211`, `:647-665`): no catalog test sets a
+  `model`; assert unknown `?model=` falls back to default and a valid one
+  reaches `analysisFrameSrc`.
 
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
 **Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
@@ -299,7 +347,7 @@ their route. Until then, runs should leave this alone. If the answer is no,
 reject it and stop re-surfacing page components as gaps.
 
 ### GAP-011 — `formatValue`'s currency-fallback branch is untested
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-28 · **Area:** `app/lib` · **PR:** (this sweep's PR)
 
 `app/lib/format.ts:1-10` — no test file imports `format.ts` or names
 `formatValue`/`formatPortfolioValueForInput`. `formatValue` is used in
@@ -320,6 +368,8 @@ that later reaches `formatValue` and would otherwise throw inside
 **Triage:** genuine gap — write a unit test asserting
 `formatValue(100, 'NOTACURRENCY')` (or similar) falls back to
 `'100 NOTACURRENCY'` instead of throwing.
+
+**Action taken:** added `app/lib/format.test.ts` (valid-currency formatting plus the `'100 NOTACURRENCY'` fallback). Verified it fails for the right reason by temporarily replacing the fallback with a throw locally (not committed), then restored; production code untouched.
 
 **Note:** `formatPortfolioValueForInput` in the same file appears to have no
 production caller left (only its own definition matches a repo-wide grep) —

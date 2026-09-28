@@ -4,15 +4,38 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 6 — `app/components` + shared browser layer
-**Last swept:** 2026-09-26 (`app/lib`)
+**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
+**Last swept:** 2026-09-28 (`app/components` + shared browser layer)
 
 ---
 
 ## Open items
 
+### OV-008 — "old `*.island.js` route is gone" 404 pinned once per component
+**Status:** `proposed` · **Proposed:** 2026-09-28 · **Area:** `app/components`
+
+`app/components/navigation/theme-toggle.test.ts:78-84` fetches
+`/components/theme-toggle.island.js` and asserts 404;
+`app/components/layout/sidebar.test.ts:252-258` fetches
+`/components/sidebar.island.js` and asserts 404. Identical except the file
+name; both exercise the same router fall-through, not per-component logic.
+(`app/lib/require-approved-session.test.ts:68-74` hits the theme-toggle URL to
+prove the sign-in gate 404s instead of redirecting — a different rule, keep.)
+
+**Triage question:** collapse into one table-driven "no `*.island.js` route
+survives" test, or keep one per component as a migration receipt?
+
+Smaller, certain: `sidebar.test.ts:266-267` (`/addEventListeners/`,
+`/handle\.signal/`) are implied by line 268
+(`/addEventListeners\(doc, handle\.signal/`) and could be dropped.
+
+Checked and judged NOT overlap: SSR vs hydrated theme-toggle attributes
+(`theme-toggle.test.ts:41-47` vs `theme-toggle.browser.ts:46-60`), the
+per-asset JS content-type checks (each hits a different asset), and
+`sidebar.browser.ts` vs `sidebar.test.ts`.
+
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/lib`
+**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-09-28 (evidence re-checked, lines unchanged) · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
