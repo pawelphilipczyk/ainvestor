@@ -347,7 +347,7 @@ their route. Until then, runs should leave this alone. If the answer is no,
 reject it and stop re-surfacing page components as gaps.
 
 ### GAP-011 — `formatValue`'s currency-fallback branch is untested
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-28 · **Area:** `app/lib` · **PR:** (this sweep's PR)
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-09-28 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/234
 
 `app/lib/format.ts:1-10` — no test file imports `format.ts` or names
 `formatValue`/`formatPortfolioValueForInput`. `formatValue` is used in
