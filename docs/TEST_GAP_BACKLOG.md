@@ -387,7 +387,7 @@ production caller left (only its own definition matches a repo-wide grep) —
 worth a look for removal rather than a test, separately from this item.
 
 ### GAP-012 — `NumberInput`'s no-`inputMode` and `numeric` branches are unreached
-**Status:** `done` · **Proposed:** 2026-09-17 · **Acted:** 2026-09-29 · **PR:** PR_LINK (`app/components/forms/number-input.test.ts`) · **Area:** `app/components`
+**Status:** `done` · **Proposed:** 2026-09-17 · **Acted:** 2026-09-29 · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/235 (`app/components/forms/number-input.test.ts`) · **Area:** `app/components`
 
 `app/components/forms/number-input.tsx` — no test file names it. All four
 production call sites (`portfolio-operation-form/operation-form.tsx:79-86`,
