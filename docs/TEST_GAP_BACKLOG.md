@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-09-29 (`app/features/catalog`)
 
 ---
 
@@ -25,6 +25,67 @@ backlog just feeds the overlap backlog.
 ---
 
 ## Open items
+
+### GAP-025 — signed-out `POST /catalog/import` is untested
+**Status:** `proposed` · **Proposed:** 2026-09-29 · **Area:** `app/features/catalog`
+
+`app/features/catalog/index.ts:435-438` rejects a request with no
+`token`/`login` via `importFailureResponse(importNotAllowed)`. The only
+not-allowed test is a signed-in non-owner (`catalog.test.ts:491`); nothing
+posts without a session. **Test:** valid bank JSON with no cookie → 302 to
+`/admin/etf-import` with the `importNotAllowed` flash (422 `{error}` with
+`Accept: application/json`), and the catalog gist is never written.
+Security-adjacent.
+
+### GAP-026 — gist write refused during catalog import (`saveFailed`) is untested
+**Status:** `proposed` · **Proposed:** 2026-09-29 · **Area:** `app/features/catalog`
+
+`index.ts:514-523`: `saveCatalogImport` throws → `console.error` →
+`errors.catalog.import.saveFailed`. No test stubs a failed gist PATCH for this
+route. **Test:** stub the PATCH to 403/500, assert the saveFailed flash (or 422
+JSON) and no "saved N" success banner.
+
+### GAP-027 — HAR upload and structural-import branches lack route-level tests
+**Status:** `proposed` · **Proposed:** 2026-09-29 · **Area:** `app/features/catalog`
+
+`index.ts:448-467` (`bankApiHar` file: `JSON.parse` failure,
+`extractBankApiJsonFromHar` `!ok` → `invalidHar`) is pinned only at the
+extractor (`har-bank-json-adapter.test.ts`); `catalog.test.ts:305` merely
+checks the field exists. `index.ts:469-472` (`fieldMissing`), `485-494`
+(`notObject`/`dataNotArray`) and `495-500` (`dataArrayEmpty`) are reached only
+via the parse helper (`lib.test.ts:300`), not the flash text. Oversize HAR is
+`GAP-002`. **Tests:** valid HAR multipart → success flash; non-JSON HAR / HAR
+with no bank response → invalidHar; `[]`, `"x"`, `{"data":{}}`, `{"data":[]}`,
+missing field → each its own message.
+
+### GAP-028 — ETF analysis fragment/POST guards and model selection are untested
+**Status:** `proposed` · **Proposed:** 2026-09-29 · **Area:** `app/features/catalog`
+
+`index.ts:386-407` (`fragmentEtfAnalysis`: pending-approval 403, unknown id
+404, id over `CATALOG_ENTRY_ID_PARAM_MAX` = 128 → 404), `646-651`/`684-689`
+(POST bad/unknown id → 404). Existing: `catalog.test.ts:136` (200) and `:202`
+(POST 403 pending). Also `203-212`, `236`, `244-254`, `661-680`: `model` from
+JSON body/form/`?model=`, falling back to `DEFAULT_CATALOG_ETF_MODEL` — the
+word "model" never appears in `catalog.test.ts`. **Tests:** the 403/404
+cases with the OpenAI stub asserted uncalled; valid model reaches the stub
+request, invalid/non-string uses the default; `?model=X` lands in the frame
+src.
+
+### GAP-029 — catalog page survives a holdings-load failure; filter-pref restore has no browser test
+**Status:** `proposed` · **Proposed:** 2026-09-29 · **Area:** `app/features/catalog` · **Priority:** low
+
+`catalog-load-context.ts:56-63`: if `fetchEtfs` throws, `entries` falls back to
+`[]` (only the success path is tested, `catalog.test.ts:958`). **Test:** 500 on
+the holdings gist → `GET /catalog` 200 without "Your Holdings". Client-only:
+`catalog-filter-prefs.component.ts:26-71` (localStorage restore, legacy-key
+migration, clear when empty) and `catalog-etf-back.component.ts:32`
+(`history.back()` only when `history.length > 1`) are covered only by the pure
+helpers (`catalog-filter-prefs.test.ts`); `catalog-list-filter.browser.ts`
+never touches localStorage or back. Needs a `*.browser.ts` case.
+
+**Also noted:** the "`/catalog/fragments/list`" row in *Uncovered routes to
+check* is stale — it is exercised by `catalog-list-filter.browser.ts` and
+`catalog.test.ts:1095`.
 
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
 **Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
@@ -326,7 +387,7 @@ production caller left (only its own definition matches a repo-wide grep) —
 worth a look for removal rather than a test, separately from this item.
 
 ### GAP-012 — `NumberInput`'s no-`inputMode` and `numeric` branches are unreached
-**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** `app/components`
+**Status:** `done` · **Proposed:** 2026-09-17 · **Acted:** 2026-09-29 · **PR:** PR_LINK (`app/components/forms/number-input.test.ts`) · **Area:** `app/components`
 
 `app/components/forms/number-input.tsx` — no test file names it. All four
 production call sites (`portfolio-operation-form/operation-form.tsx:79-86`,
