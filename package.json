@@ -10,6 +10,7 @@
 		"dev": "cross-env NODE_ENV=development node --import remix/node-tsx hmr.ts",
 		"start": "node --import remix/node-tsx server.ts",
 		"mcp": "node --import remix/node-tsx mcp/server.ts",
+		"migrate:gist-to-repo": "node --import remix/node-tsx scripts/migrate-gist-to-repo.ts",
 		"typecheck": "tsc --noEmit",
 		"test": "npm run -s ensure-deps && node --import remix/node-tsx --test",
 		"test:browser": "npm run -s ensure-deps && node --import remix/node-tsx --test \"app/**/*.browser.ts\"",

@@ -12,9 +12,12 @@ export function isPreview(): boolean {
 	return process.env.FLY_APP_NAME === 'ainvestor-preview'
 }
 
-/** Gist description for the current deployment environment. Preview uses separate gists from production. */
-export function getGistDescription(): string {
-	return isPreview() ? 'ai-investor-preview-data' : 'ai-investor-data'
+/** Gist description for a deployment environment (the running one by default). Preview uses separate gists from production. */
+export function getGistDescription(
+	options: { preview?: boolean } = {},
+): string {
+	const preview = options.preview ?? isPreview()
+	return preview ? 'ai-investor-preview-data' : 'ai-investor-data'
 }
 
 export type EtfEntry = {

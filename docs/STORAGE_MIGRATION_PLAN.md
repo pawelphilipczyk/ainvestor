@@ -1,8 +1,8 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–2 done. Phase 3 (a one-off migration script) is next,
-then Phase 4 (the cutover deploy). Phases 5+ are designed but not yet detailed
-to the commit level.
+**Status:** Phases 0–2 done. Phase 3's migration script is built and has
+copied preview; prod is copied during the Phase 4 cutover, which is next.
+Phases 5+ are designed but not yet detailed to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -509,14 +509,18 @@ Phase 7.
 
 ### Phase 3 — migration script
 
-`scripts/migrate-gist-to-repo.ts`, run on the owner's laptop:
+`scripts/migrate-gist-to-repo.ts` (a thin command-line wrapper over
+`scripts/gist-to-repo-migration.ts`), run on the owner's laptop:
 
 ```
-node --import remix/node-tsx scripts/migrate-gist-to-repo.ts --env prod|preview [--apply] [--force]
+GH_TOKEN=$(gh auth token) npm run migrate:gist-to-repo -- --env preview
+GH_TOKEN=$(gh auth token) npm run migrate:gist-to-repo -- --env preview --apply
 ```
 
-It reads `GH_TOKEN`, which needs both `gist` and `repo` (a classic PAT). It
-never logs the token.
+`GH_TOKEN` needs both `gist` and `repo`. The GitHub CLI's own token has both
+by default; a classic PAT with those two scopes works too. The script checks
+the token's scopes before doing anything (a fine-grained token reports none,
+so there GitHub's own errors speak instead), and never logs the token.
 
 1. **Find the gist** by description (`ai-investor-data` for prod,
    `ai-investor-preview-data` for preview) with `findGistIdByDescription`. Stop
@@ -527,29 +531,83 @@ never logs the token.
    `advice-*.json` today), so a forgotten file can't be silently left behind.
 3. **Find or create the repo** with `findOrCreateDataRepo`: `ainvestor-data`
    for prod, `ainvestor-preview-data` for preview. The name comes from `--env`,
-   not from `FLY_APP_NAME`, which doesn't exist on a laptop. So
-   `findOrCreateDataRepo` gains an optional explicit repo name. A dry run only
-   looks the repo up and reports "would create"; it never creates it.
-4. **Refuse to overwrite** a repo that already holds any of those files, unless
-   `--force` is given. A rerun then deliberately replaces the first copy; the
-   gist stays the source of truth until the cutover.
+   not from `FLY_APP_NAME`, which doesn't exist on a laptop, so both
+   `getDataRepoName` and `getGistDescription` take an optional `preview`
+   override and `findOrCreateDataRepo` an optional `repoName`. A dry run only
+   looks the repo up, with the new find-only `findDataRepo` (Phase 4's MCP
+   lookup needs the same thing, since MCP never creates), and never creates
+   it.
+4. **Plan each file** against every data file in the repo, not just the
+   gist's names. Each file is one of:
+   - `create`: in the gist, not yet in the repo.
+   - `unchanged`: already identical in the repo.
+   - `overwrite`: in both, but different.
+   - `delete`: in the repo but no longer in the gist. Clearing saved advice
+     deletes gist files, so this happens.
+
+   The repo's data files are everything at its root except the ownership
+   marker and GitHub's initial README. Any `overwrite` or `delete` makes the
+   run refuse unless `--force` is given, so a rerun can't silently replace or
+   remove an earlier copy. Identical files are skipped, which makes a rerun
+   after a successful copy a harmless re-verification.
 5. **Dry run by default.** It prints the source gist, target repo, and each
-   file with its size. `--apply` writes them all in one `writeFiles` commit.
-6. **Verify**: read every file back from the repo and compare it byte for byte
-   with the gist. Any mismatch exits non-zero.
+   file's plan and size. `--apply` writes every change in one `writeFiles`
+   commit.
+6. **Verify**:
+   - List and read the repo's data files again, and require exactly the
+     gist's set of files with identical content.
+   - Then re-read the gist. The gist is still the live store, so an edit made
+     during the run would otherwise leave the repo holding the earlier
+     version while the run claimed a match.
+   - Either check failing exits non-zero.
 
 The script **never writes to or deletes the gist**. The gist stays as the
 backup until Phase 7.
 
-The pure parts (argument parsing, environment → names, comparison) get unit
-tests with a stubbed `fetch`, like the store tests. The real run is the actual
-test: it is the first time `github-repo-store.ts` meets real GitHub rather than
-stubs. Anything it gets wrong against the live API is fixed and recorded in a
-Phase 3 outcome.
+`scripts/gist-to-repo-migration.test.ts` runs the whole flow against an
+in-memory fake of the GitHub endpoints it touches. The tests cover:
+
+- a dry run changing nothing, not even creating the repo;
+- one commit per `--apply`;
+- the gist never being written;
+- a file nobody listed still being copied;
+- refusal without `--force` for an overwrite or a delete, and `--force` writing only the changed files;
+- the ownership marker and README never counted as data;
+- a gist edited mid-run failing instead of claiming a match;
+- a corrupted write failing verification;
+- a foreign repo, a missing scope, and a missing gist.
+
+Each guard was broken on purpose to confirm its test fails.
+
+The real run is still the actual test: it is the first time
+`github-repo-store.ts` meets real GitHub rather than stubs. Anything it gets
+wrong against the live API is fixed and recorded in a Phase 3 outcome.
 
 The copy step (read the gist → one commit → verify) is reused for the catalog
 in Phase 6. Repo creation is not, because `ainvestor-shared/ainvestor-catalog`
 already exists.
+
+### Phase 3 outcome
+
+**Preview copied.** The first run against real GitHub, on 2026-09-30, went
+dry run → `--apply` with no surprises:
+
+- The token check passed.
+- Gist discovery found `ai-investor-preview-data`.
+- `pawelphilipczyk/ainvestor-preview-data` was created, and the ownership
+  marker was written right after creation. `auto_init` made that immediate
+  write safe; no retry was needed.
+- All 5 gist files went across in one Git Data commit, and every one read
+  back identical to the gist.
+
+The gist held `advice-analysis.json`, the legacy unified advice file, next to
+the four current files. That is the case listing the gist's files, rather than
+naming them, was for.
+
+**Prod is deliberately not copied yet.** It is copied as step 5 of the
+cutover order below. A preview edit made before the cutover is safe as well:
+rerunning the script shows it as `overwrite` or `delete`, which `--force`
+applies.
 
 ### Phase 4 — cutover: the app reads and writes repos
 
