@@ -56,7 +56,7 @@ describe('sidebar component', () => {
 			{
 				login: 'catalog-admin',
 				token: 'tok',
-				gistId: 'gist-1',
+				dataRepo: 'gist-1',
 				isAdmin: true,
 			},
 		)
@@ -75,7 +75,7 @@ describe('sidebar component', () => {
 			{
 				login: 'alice',
 				token: 'tok',
-				gistId: 'gist-1',
+				dataRepo: 'gist-1',
 			},
 		)
 
@@ -132,7 +132,7 @@ describe('sidebar component', () => {
 		const result = await renderSidebarWithSession(getNavLinks(), 'portfolio', {
 			login: 'alice',
 			token: 'tok',
-			gistId: null,
+			dataRepo: null,
 		})
 		assert.match(result, /Sign out/)
 		assert.match(result, /@alice/)

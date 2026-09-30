@@ -2,7 +2,7 @@ import { router } from '../router.ts'
 import {
 	ensurePrivateGistTestStore,
 	setPrivateGistTestStore,
-	TEST_GIST_ID,
+	TEST_DATA_REPO,
 	TEST_TOKEN,
 } from './private-gist-test-store.ts'
 import { sessionCookie, sessionStorage } from './session.ts'
@@ -69,7 +69,7 @@ export async function approvedSessionCookie(
 	return seedSessionCookie((session) => {
 		session.set('login', login)
 		session.set('token', TEST_TOKEN)
-		session.set('gistId', TEST_GIST_ID)
+		session.set('dataRepo', TEST_DATA_REPO)
 	})
 }
 
@@ -85,7 +85,7 @@ export async function pendingSessionCookie(
 	return seedSessionCookie((session) => {
 		session.set('login', login)
 		session.set('token', TEST_TOKEN)
-		session.set('gistId', TEST_GIST_ID)
+		session.set('dataRepo', TEST_DATA_REPO)
 	})
 }
 

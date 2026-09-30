@@ -602,6 +602,8 @@ describe('findOrCreateDataRepo', () => {
 describe('writeFiles', () => {
 	function stubGitDataSequence(params: {
 		defaultBranch?: string
+		/** Paths in the parent tree; a deletion of any other path is dropped. */
+		existingPaths?: string[]
 		onBlobCreated?: (content: string) => void
 		onTreeRequested?: (body: {
 			base_tree: string
@@ -620,6 +622,17 @@ describe('writeFiles', () => {
 			}
 			if (method === 'GET' && url.endsWith('/git/commits/parent-commit-sha')) {
 				return Response.json({ tree: { sha: 'parent-tree-sha' } })
+			}
+			if (
+				method === 'GET' &&
+				url.endsWith('/git/trees/parent-tree-sha?recursive=1')
+			) {
+				return Response.json({
+					tree: (params.existingPaths ?? []).map((path) => ({
+						path,
+						type: 'blob',
+					})),
+				})
 			}
 			if (method === 'POST' && url.endsWith('/git/blobs')) {
 				const body = jsonBody(init) as { content: string }
@@ -672,6 +685,11 @@ describe('writeFiles', () => {
 			| { tree: Array<{ path: string; sha: string | null }> }
 			| undefined
 		stubGitDataSequence({
+			existingPaths: [
+				'advice-analysis.json',
+				'advice-buy-next.json',
+				'advice-portfolio-review.json',
+			],
 			onTreeRequested: (body) => {
 				treeBody = body
 			},
@@ -688,6 +706,49 @@ describe('writeFiles', () => {
 		assert.deepEqual(result, { ok: true })
 		assert.equal(treeBody?.tree.length, 3)
 		assert.ok(treeBody?.tree.every((entry) => entry.sha === null))
+	})
+
+	it('leaves a deletion of an absent path out of the tree, like writeFile', async () => {
+		let treeBody:
+			| { tree: Array<{ path: string; sha: string | null }> }
+			| undefined
+		stubGitDataSequence({
+			existingPaths: ['advice-buy-next.json', 'etfs.json'],
+			onTreeRequested: (body) => {
+				treeBody = body
+			},
+		})
+		const result = await writeFiles({
+			token: 'token',
+			location: 'octocat/ainvestor-data',
+			files: {
+				'advice-analysis.json': null,
+				'advice-buy-next.json': null,
+				'etfs.json': '[]',
+			},
+		})
+		assert.deepEqual(result, { ok: true })
+		assert.deepEqual(
+			treeBody?.tree.map((entry) => entry.path),
+			['advice-buy-next.json', 'etfs.json'],
+		)
+	})
+
+	it('commits nothing when every deletion targets an absent path', async () => {
+		let treeRequested = false
+		stubGitDataSequence({
+			existingPaths: ['etfs.json'],
+			onTreeRequested: () => {
+				treeRequested = true
+			},
+		})
+		const result = await writeFiles({
+			token: 'token',
+			location: 'octocat/ainvestor-data',
+			files: { 'advice-analysis.json': null },
+		})
+		assert.deepEqual(result, { ok: true })
+		assert.equal(treeRequested, false)
 	})
 
 	it('respects a non-default branch name', async () => {

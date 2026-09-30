@@ -7,8 +7,9 @@ import {
 } from '../../app/features/catalog/lib.ts'
 import type { EtfGuideline } from '../../app/lib/guidelines.ts'
 import { GUIDELINES_FILENAME } from '../../app/lib/guidelines.ts'
-import type { GistCredentials } from '../data-gist.ts'
-import { resetDataGistIdCache } from '../data-gist.ts'
+import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
+import { resetDataRepoCache } from '../data-repo.ts'
 import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
 import {
 	createDeleteGuidelineTool,
@@ -17,9 +18,9 @@ import {
 	summarizeGuidelines,
 } from './guidelines.ts'
 
-const credentials: GistCredentials = {
+const credentials: DataRepoCredentials = {
 	githubToken: 'token-value',
-	dataGistId: 'pinned-gist',
+	dataRepo: 'octocat/ainvestor-data',
 }
 
 function guideline(overrides: Partial<EtfGuideline> = {}): EtfGuideline {
@@ -34,32 +35,31 @@ function guideline(overrides: Partial<EtfGuideline> = {}): EtfGuideline {
 }
 
 type GistExchange = {
-	/** Bodies of every PATCH the tool sent, parsed back into guideline rows. */
+	/** Guideline rows as stored after each write the tool made. */
 	saved: EtfGuideline[][]
 	requests: { method: string; url: string }[]
 }
 
-/** Serve one guidelines gist, recording the writes the tool performs against it. */
+/** Serve guidelines from a fake data repo, recording the writes the tool performs. */
 function stubGist(rows: EtfGuideline[], saveStatus = 200): GistExchange {
+	const repo = installFakeDataRepo({
+		files: { [GUIDELINES_FILENAME]: JSON.stringify(rows) },
+		...(saveStatus === 200 ? {} : { failWritesWith: saveStatus }),
+	})
+	const repoFetch = globalThis.fetch
 	const exchange: GistExchange = { saved: [], requests: [] }
-	globalThis.fetch = async (
-		input: Parameters<typeof fetch>[0],
-		init?: Parameters<typeof fetch>[1],
-	) => {
+	globalThis.fetch = async (input, init) => {
 		const method = init?.method ?? 'GET'
 		exchange.requests.push({ method, url: String(input) })
-		if (method === 'PATCH') {
-			const body = JSON.parse(String(init?.body)) as {
-				files: Record<string, { content: string }>
-			}
+		const response = await repoFetch(input, init)
+		if (method === 'PUT' && response.ok) {
 			exchange.saved.push(
-				JSON.parse(body.files[GUIDELINES_FILENAME].content) as EtfGuideline[],
+				JSON.parse(
+					repo.files.get(GUIDELINES_FILENAME) ?? '[]',
+				) as EtfGuideline[],
 			)
-			return new Response(null, { status: saveStatus })
 		}
-		return Response.json({
-			files: { [GUIDELINES_FILENAME]: { content: JSON.stringify(rows) } },
-		})
+		return response
 	}
 	return exchange
 }
@@ -68,7 +68,7 @@ const originalFetch = globalThis.fetch
 
 afterEach(() => {
 	globalThis.fetch = originalFetch
-	resetDataGistIdCache()
+	resetDataRepoCache()
 	resetSharedCatalogForTests()
 	resetPrivateGistCacheForTests()
 })
@@ -175,23 +175,28 @@ describe('get_guidelines tool', () => {
 		assert.match(tool.description, /count toward their own asset class/)
 	})
 
-	it('get_guidelines reads the pinned gist and returns the summary as JSON text', async () => {
+	it('get_guidelines reads the pinned repo and returns the summary as JSON text', async () => {
 		const exchange = stubGist([guideline({ targetPct: 60 })])
 		const payload = payloadOf(
 			await createGetGuidelinesTool(credentials).handler({}),
 		)
 
-		assert.equal(exchange.requests.length, 1)
-		assert.match(exchange.requests[0].url, /\/gists\/pinned-gist$/)
+		assert.ok(
+			exchange.requests.some((request) =>
+				request.url.endsWith(
+					`/repos/octocat/ainvestor-data/contents/${GUIDELINES_FILENAME}`,
+				),
+			),
+		)
 		assert.equal(payload.totalTargetPct, 60)
 		assert.equal(payload.guidelines[0].etfType, 'equity')
 	})
 
 	it('reports a rejected read as an error instead of an empty target allocation', async () => {
-		globalThis.fetch = async () => new Response(null, { status: 401 })
+		installFakeDataRepo({ failContentReadsWith: 401 })
 		await assert.rejects(
 			async () => createGetGuidelinesTool(credentials).handler({}),
-			/GitHub API error fetching guidelines gist: 401/,
+			/GitHub API error fetching guidelines: 401/,
 		)
 	})
 })
@@ -393,7 +398,7 @@ describe('set_guideline tool', () => {
 					etfType: 'bond',
 					targetPct: 10,
 				}),
-			/GitHub API error saving guidelines gist: 403/,
+			/GitHub API error saving guidelines: 403/,
 		)
 	})
 })

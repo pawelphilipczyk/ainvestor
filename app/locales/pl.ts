@@ -72,7 +72,7 @@ export const pl = {
 	'chrome.signInGithub': 'Zaloguj przez GitHuba',
 	'chrome.signIn': 'Zaloguj',
 	'chrome.pendingShort': '(oczekuje)',
-	'portfolio.savedGist': 'Zapisano w prywatnym gicie GitHub Gist',
+	'portfolio.savedGist': 'Zapisano w prywatnym repozytorium GitHub',
 	'portfolio.pendingNotSaved':
 		'Konto oczekuje na akceptację — nie można jeszcze zapisać portfela',
 	'portfolio.import.title': 'Import z pliku CSV',
@@ -180,7 +180,7 @@ export const pl = {
 	'catalog.noMatch': 'Żaden ETF nie pasuje do wyszukiwania.',
 	'catalog.section.otherAvailable': 'Inne dostępne ETF',
 	'catalog.section.available': 'Dostępne ETF',
-	'guidelines.subtitle.savedGist': 'Zapisano w prywatnym gicie GitHub Gist.',
+	'guidelines.subtitle.savedGist': 'Zapisano w prywatnym repozytorium GitHub.',
 	'guidelines.subtitle.pending':
 		'Konto oczekuje na akceptację — nie można jeszcze zapisać wytycznych.',
 	'guidelines.tabs.navAria': 'Formularze dodawania wytycznych',
@@ -242,9 +242,9 @@ export const pl = {
 	'advice.result.subtitleReviewGuidelinesOnly':
 		'Na podstawie bieżących pozycji ETF, katalogu i wytycznych.',
 	'advice.restore.fromGistNotice':
-		'Pokazuję ostatnio zapisaną analizę z gistu danych (zapis {savedAt}). Uruchom „Zapytaj AI” ponownie po zmianie pozycji lub gotówki.',
+		'Pokazuję ostatnio zapisaną analizę (zapis {savedAt}). Uruchom „Zapytaj AI” ponownie po zmianie pozycji lub gotówki.',
 	'advice.persistFailed.notice':
-		'Nie udało się zapisać tej analizy w gicie danych. Wynik poniżej dotyczy tylko tej wizyty; odświeżenie może go utracić, dopóki zapis nie zadziała ponownie.',
+		'Nie udało się zapisać tej analizy. Wynik poniżej dotyczy tylko tej wizyty; odświeżenie może go utracić, dopóki zapis nie zadziała ponownie.',
 	'advice.table.empty': 'Brak konkretnych propozycji ETF w tej odpowiedzi.',
 	'advice.table.caption': 'Proponowane inwestycje w ETF',
 	'advice.table.fund': 'Fundusz',
@@ -284,6 +284,8 @@ export const pl = {
 		'Podaj kwotę większą od zera przy sprzedaży.',
 	'errors.portfolio.persistence':
 		'Nie udało się zapisać portfela. Spróbuj ponownie za chwilę.',
+	'errors.storage.foreignRepo':
+		'Na Twoim koncie GitHub jest już repozytorium {repo}, którego nie utworzyła ta aplikacja, więc nie można w nim zapisać Twoich danych. Zmień jego nazwę lub je usuń, a potem zaloguj się ponownie.',
 	'errors.portfolio.requiresApproval':
 		'Konto oczekuje na akceptację — nie można jeszcze zapisać portfela.',
 	'errors.portfolio.importInvalid':
@@ -375,12 +377,12 @@ export const pl = {
 	'errors.advice.notApproved':
 		'Twoje konto nie jest jeszcze zaakceptowane. Nie możesz prosić o porady, dopóki nazwa użytkownika GitHuba nie zostanie dodana do app/lib/approved-github-logins.ts i wdrożona.',
 	'errors.advice.requiresGithubGist':
-		'Porady AI korzystają z portfela i wytycznych z prywatnego gistu GitHub. Zaloguj się przez GitHuba i skonfiguruj gist danych na stronie Portfel przed uruchomieniem analizy.',
+		'Porady AI korzystają z portfela i wytycznych z prywatnego repozytorium GitHub, które powstaje przy logowaniu. Wyloguj się i zaloguj ponownie przez GitHuba przed uruchomieniem analizy.',
 	'advice.requiresGist.title': 'Zaloguj się, aby uruchomić porady AI',
 	'advice.requiresGist.bodySignIn':
-		'Porady są generowane z zapisanego portfela i wytycznych. Użyj „Zaloguj przez GitHuba” w nagłówku, potem otwórz Portfel, aby utworzyć lub połączyć prywatny gist.',
+		'Porady są generowane z zapisanego portfela i wytycznych. Użyj „Zaloguj przez GitHuba” w nagłówku; prywatne repozytorium danych powstaje przy logowaniu.',
 	'advice.requiresGist.bodyConnectGist':
-		'Otwórz stronę Portfel, aby utworzyć lub połączyć prywatny gist danych. Potem możesz uruchomić przegląd portfela i analizę „co kupić” tutaj.',
+		'Nie udało się przygotować prywatnego repozytorium danych przy logowaniu. Wyloguj się i zaloguj ponownie, aby spróbować jeszcze raz; potem możesz uruchomić przegląd portfela i analizę „co kupić” tutaj.',
 	'advice.requiresGist.linkSignIn': 'Zaloguj przez GitHuba',
 	'advice.requiresGist.linkPortfolio': 'Otwórz Portfel',
 	'errors.advice.service':

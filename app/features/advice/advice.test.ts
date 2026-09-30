@@ -46,7 +46,7 @@ async function signInWithGist(login = 'advice-test-user') {
 	const session = await sessionStorage.read(null)
 	session.set('login', login)
 	session.set('token', 'test-token')
-	session.set('gistId', 'gist-advice-test')
+	session.set('dataRepo', 'octocat/ainvestor-data')
 	const value = await sessionStorage.save(session)
 	if (value == null) throw new Error('expected session save value')
 	const cookieHeader = await sessionCookie.serialize(value)
@@ -330,7 +330,7 @@ describe('Advice', () => {
 
 	// Distinct from the pending-approval 403 above: this login IS approved and
 	// holds a token, but its session carries no gist to read or write.
-	it('POST /advice returns 403 for an approved session with no private gist', async () => {
+	it('POST /advice returns 403 for an approved session with no data repo', async () => {
 		process.env.APPROVED_GITHUB_LOGINS = 'no-gist-user'
 		const session = await sessionStorage.read(null)
 		session.set('login', 'no-gist-user')
@@ -363,7 +363,10 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 403)
-		assert.match(body, /private GitHub gist/)
+		assert.match(
+			body,
+			/private GitHub repository, which is set up when you sign in/,
+		)
 	})
 
 	it('returns 503 with AdvicePage HTML when the advice client throws', async () => {
@@ -488,7 +491,7 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Shown despite gist save failure\./)
-		assert.match(body, /Could not save this analysis to your data gist/)
+		assert.match(body, /Could not save this analysis\. The result below/)
 	})
 
 	it('GET /advice shows last analysis from gist when tab matches snapshot', async () => {
@@ -528,7 +531,7 @@ describe('Advice', () => {
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Cached gist paragraph\./)
-		assert.match(body, /Showing your last saved analysis from your data gist/)
+		assert.match(body, /Showing your last saved analysis \(saved/)
 		assert.match(body, /"name":"advice-result"/)
 		assert.match(body, /\/fragments\/advice-result\?tab=buy_next/)
 	})

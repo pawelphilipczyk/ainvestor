@@ -12,7 +12,7 @@ import {
 	setSharedCatalogForTests,
 } from '../../app/features/catalog/lib.ts'
 import { resetApprovedCallerCache } from '../approved-caller.ts'
-import type { GistCredentials } from '../data-gist.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
 import {
 	createDeleteCatalogEntryTool,
 	createGetCatalogEntryTool,
@@ -24,9 +24,9 @@ import { createImportCatalogFromBankFileTool } from './catalog-import.ts'
 
 const OWNER = 'catalog-owner'
 
-const credentials: GistCredentials = {
+const credentials: DataRepoCredentials = {
 	githubToken: 'owner-token',
-	dataGistId: 'pinned-gist',
+	dataRepo: 'pinned-gist',
 }
 
 function entry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {

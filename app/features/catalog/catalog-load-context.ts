@@ -6,7 +6,7 @@ import type { SessionData } from '../../lib/session.ts'
 import {
 	getLayoutSession,
 	getSessionData,
-	sessionUsesGithubGist,
+	sessionHasDataRepo,
 } from '../../lib/session.ts'
 import type { CatalogEntry } from './lib.ts'
 import { fetchSharedCatalogSnapshot, isSharedCatalogAdmin } from './lib.ts'
@@ -49,9 +49,9 @@ export async function loadCatalogPageContext(
 	const [catalogSnapshot, entries] = await Promise.all([
 		fetchSharedCatalogSnapshot(),
 		(async (): Promise<EtfEntry[]> => {
-			if (!sessionUsesGithubGist(session)) return []
+			if (!sessionHasDataRepo(session)) return []
 			try {
-				return await fetchEtfs(session.token, session.gistId)
+				return await fetchEtfs(session.token, session.dataRepo)
 			} catch {
 				return []
 			}

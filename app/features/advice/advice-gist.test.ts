@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
+import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
 	ADVICE_BUY_NEXT_STORAGE_FILENAME,
 	ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME,
@@ -17,8 +18,13 @@ import {
 } from './advice-gist.ts'
 import { DEFAULT_ADVICE_MODEL } from './advice-openai.ts'
 
+const originalFetch = globalThis.fetch
+const TOKEN = 'token'
+const REPO = 'octocat/ainvestor-data'
+
 afterEach(() => {
 	resetAdviceGistTestOverlay()
+	globalThis.fetch = originalFetch
 })
 
 const sampleStoredAnalysis: StoredAdviceAnalysis = {
@@ -30,27 +36,6 @@ const sampleStoredAnalysis: StoredAdviceAnalysis = {
 	selectedModel: 'gpt-5.6-sol',
 	activeTab: 'buy_next',
 	document: { blocks: [{ type: 'paragraph', text: 'Buy VTI.' }] },
-}
-
-type FetchInput = Parameters<typeof fetch>[0]
-type FetchInit = Parameters<typeof fetch>[1]
-
-/** Runs `run` with `globalThis.fetch` stubbed, real-network path only (no test overlay). */
-async function withStubbedFetch(
-	handler: (
-		input: FetchInput,
-		init?: FetchInit,
-	) => Response | Promise<Response>,
-	run: () => Promise<void>,
-): Promise<void> {
-	const originalFetch = globalThis.fetch
-	globalThis.fetch = async (input: FetchInput, init?: FetchInit) =>
-		handler(input, init)
-	try {
-		await run()
-	} finally {
-		globalThis.fetch = originalFetch
-	}
 }
 
 describe('advice gist storage', () => {
@@ -122,152 +107,118 @@ describe('advice gist storage', () => {
 	})
 
 	it('fetchStoredAdviceAnalysisOutcomeForTab separates missing, malformed and unreadable', async () => {
-		const originalFetch = globalThis.fetch
-		try {
-			globalThis.fetch = async () =>
-				Response.json({
-					files: {
-						[ADVICE_BUY_NEXT_STORAGE_FILENAME]: { content: '{"version": 1,' },
-					},
-				})
-			const malformed = await fetchStoredAdviceAnalysisOutcomeForTab(
-				't',
-				'g',
-				'buy_next',
-			)
-			assert.deepEqual(malformed, { status: 'malformed', file: 'mode' })
+		installFakeDataRepo({
+			files: { [ADVICE_BUY_NEXT_STORAGE_FILENAME]: '{"version": 1,' },
+		})
+		assert.deepEqual(
+			await fetchStoredAdviceAnalysisOutcomeForTab(TOKEN, REPO, 'buy_next'),
+			{ status: 'malformed', file: 'mode' },
+		)
 
-			// The same gist holds nothing at all for the other tab, which is a
-			// different answer from "there is something here I cannot read".
-			const missing = await fetchStoredAdviceAnalysisOutcomeForTab(
-				't',
-				'g',
-				'portfolio_review',
-			)
-			assert.equal(missing.status, 'not_found')
+		// The same repo holds nothing at all for the other tab, which is a
+		// different answer from "there is something here I cannot read".
+		const missing = await fetchStoredAdviceAnalysisOutcomeForTab(
+			TOKEN,
+			REPO,
+			'portfolio_review',
+		)
+		assert.equal(missing.status, 'not_found')
 
-			// The legacy file is shared by both modes, so a corrupt one is named as
-			// such: it may hold either mode's analysis, or neither.
-			globalThis.fetch = async () =>
-				Response.json({
-					files: { [ADVICE_STORAGE_FILENAME]: { content: '{"version": 1,' } },
-				})
-			assert.deepEqual(
-				await fetchStoredAdviceAnalysisOutcomeForTab('t', 'g', 'buy_next'),
-				{ status: 'malformed', file: 'legacy' },
-			)
+		// The legacy file is shared by both modes, so a corrupt one is named as
+		// such: it may hold either mode's analysis, or neither.
+		installFakeDataRepo({
+			files: { [ADVICE_STORAGE_FILENAME]: '{"version": 1,' },
+		})
+		assert.deepEqual(
+			await fetchStoredAdviceAnalysisOutcomeForTab(TOKEN, REPO, 'buy_next'),
+			{ status: 'malformed', file: 'legacy' },
+		)
 
-			globalThis.fetch = async () => new Response(null, { status: 401 })
-			const unreadable = await fetchStoredAdviceAnalysisOutcomeForTab(
-				't',
-				'g',
-				'buy_next',
-			)
-			assert.deepEqual(unreadable, { status: 'unreadable', httpStatus: 401 })
-		} finally {
-			globalThis.fetch = originalFetch
-		}
+		installFakeDataRepo({ failWith: 401 })
+		assert.deepEqual(
+			await fetchStoredAdviceAnalysisOutcomeForTab(TOKEN, REPO, 'buy_next'),
+			{ status: 'unreadable', httpStatus: 401 },
+		)
 	})
 
-	it('saveStoredAdviceAnalysisForTab PATCHes the mode-specific file', async () => {
-		let capturedMethod: string | undefined
-		let capturedBody: unknown
-		await withStubbedFetch(
-			(_input, init) => {
-				capturedMethod = init?.method
-				capturedBody = JSON.parse(String(init?.body))
-				return new Response(null, { status: 200 })
-			},
-			async () => {
-				await saveStoredAdviceAnalysisForTab(
-					't',
-					'g',
-					'buy_next',
-					sampleStoredAnalysis,
-				)
-			},
+	it('saveStoredAdviceAnalysisForTab writes the mode-specific file', async () => {
+		const repo = installFakeDataRepo()
+		await saveStoredAdviceAnalysisForTab(
+			TOKEN,
+			REPO,
+			'buy_next',
+			sampleStoredAnalysis,
 		)
-		assert.equal(capturedMethod, 'PATCH')
-		const files = (
-			capturedBody as { files: Record<string, { content: string }> }
-		).files
-		assert.ok(files[ADVICE_BUY_NEXT_STORAGE_FILENAME])
-		const savedPayload = JSON.parse(
-			files[ADVICE_BUY_NEXT_STORAGE_FILENAME].content,
+		const saved = JSON.parse(
+			repo.files.get(ADVICE_BUY_NEXT_STORAGE_FILENAME) ?? 'null',
 		)
-		assert.equal(savedPayload.lastAnalysisMode, 'buy_next')
-		assert.equal(savedPayload.document.blocks[0].text, 'Buy VTI.')
+		assert.equal(saved.lastAnalysisMode, 'buy_next')
+		assert.equal(saved.document.blocks[0].text, 'Buy VTI.')
+		assert.equal(
+			repo.files.has(ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME),
+			false,
+		)
 	})
 
 	it('saveStoredAdviceAnalysisForTab throws with the status on a rejected write', async () => {
-		await withStubbedFetch(
-			() => new Response(null, { status: 422 }),
-			async () => {
-				await assert.rejects(
-					saveStoredAdviceAnalysisForTab(
-						't',
-						'g',
-						'buy_next',
-						sampleStoredAnalysis,
-					),
-					/422/,
-				)
-			},
+		installFakeDataRepo({ failWritesWith: 422 })
+		await assert.rejects(
+			saveStoredAdviceAnalysisForTab(
+				TOKEN,
+				REPO,
+				'buy_next',
+				sampleStoredAnalysis,
+			),
+			/422/,
 		)
 	})
 
-	it('clearStoredAdviceAnalysisForTab nulls only the mode-specific file', async () => {
-		let capturedBody: unknown
-		await withStubbedFetch(
-			(_input, init) => {
-				capturedBody = JSON.parse(String(init?.body))
-				return new Response(null, { status: 200 })
-			},
-			async () => {
-				await clearStoredAdviceAnalysisForTab('t', 'g', 'portfolio_review')
-			},
-		)
-		assert.deepEqual(capturedBody, {
-			files: { [ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME]: null },
-		})
-	})
-
-	it('clearLegacyUnifiedAdviceAnalysis nulls only the legacy file', async () => {
-		let capturedBody: unknown
-		await withStubbedFetch(
-			(_input, init) => {
-				capturedBody = JSON.parse(String(init?.body))
-				return new Response(null, { status: 200 })
-			},
-			async () => {
-				await clearLegacyUnifiedAdviceAnalysis('t', 'g')
-			},
-		)
-		assert.deepEqual(capturedBody, {
-			files: { [ADVICE_STORAGE_FILENAME]: null },
-		})
-	})
-
-	it('clearStoredAdviceAnalysis nulls all three files in one request', async () => {
-		let capturedBody: unknown
-		let requestCount = 0
-		await withStubbedFetch(
-			(_input, init) => {
-				requestCount += 1
-				capturedBody = JSON.parse(String(init?.body))
-				return new Response(null, { status: 200 })
-			},
-			async () => {
-				await clearStoredAdviceAnalysis('t', 'g')
-			},
-		)
-		assert.equal(requestCount, 1)
-		assert.deepEqual(capturedBody, {
+	it('clearStoredAdviceAnalysisForTab removes only the mode-specific file', async () => {
+		const repo = installFakeDataRepo({
 			files: {
-				[ADVICE_STORAGE_FILENAME]: null,
-				[ADVICE_BUY_NEXT_STORAGE_FILENAME]: null,
-				[ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME]: null,
+				[ADVICE_BUY_NEXT_STORAGE_FILENAME]: '{}',
+				[ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME]: '{}',
 			},
 		})
+		await clearStoredAdviceAnalysisForTab(TOKEN, REPO, 'portfolio_review')
+		assert.equal(
+			repo.files.has(ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME),
+			false,
+		)
+		assert.equal(repo.files.has(ADVICE_BUY_NEXT_STORAGE_FILENAME), true)
+	})
+
+	it('clearLegacyUnifiedAdviceAnalysis removes only the legacy file', async () => {
+		const repo = installFakeDataRepo({
+			files: {
+				[ADVICE_STORAGE_FILENAME]: '{}',
+				[ADVICE_BUY_NEXT_STORAGE_FILENAME]: '{}',
+			},
+		})
+		await clearLegacyUnifiedAdviceAnalysis(TOKEN, REPO)
+		assert.equal(repo.files.has(ADVICE_STORAGE_FILENAME), false)
+		assert.equal(repo.files.has(ADVICE_BUY_NEXT_STORAGE_FILENAME), true)
+	})
+
+	it('clearStoredAdviceAnalysis removes all three files in one commit', async () => {
+		const repo = installFakeDataRepo({
+			files: {
+				[ADVICE_STORAGE_FILENAME]: '{}',
+				[ADVICE_BUY_NEXT_STORAGE_FILENAME]: '{}',
+				[ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME]: '{}',
+			},
+		})
+		await clearStoredAdviceAnalysis(TOKEN, REPO)
+		for (const file of [
+			ADVICE_STORAGE_FILENAME,
+			ADVICE_BUY_NEXT_STORAGE_FILENAME,
+			ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME,
+		]) {
+			assert.equal(repo.files.has(file), false, file)
+		}
+		assert.equal(
+			repo.requests.filter((request) => request.startsWith('PATCH ')).length,
+			1,
+		)
 	})
 })

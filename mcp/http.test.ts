@@ -4,7 +4,7 @@ import { APPROVED_GITHUB_LOGINS } from '../app/lib/approved-github-logins.ts'
 import type { EtfEntry } from '../app/lib/gist.ts'
 import { GIST_FILENAME } from '../app/lib/gist.ts'
 import { resetApprovedCallerCache } from './approved-caller.ts'
-import { resetDataGistIdCache } from './data-gist.ts'
+import { resetDataRepoCache } from './data-repo.ts'
 import { handleMcpHttpRequest } from './http.ts'
 import { resetPrivateGistCacheForTests } from './private-gist-cache.ts'
 import { LATEST_PROTOCOL_VERSION } from './protocol.ts'
@@ -13,16 +13,16 @@ const ENDPOINT = 'https://ainvestor.fly.dev/mcp'
 const TOKEN = 'ghp_test_token'
 
 const originalFetch = globalThis.fetch
-const originalGistId = process.env.AINVESTOR_GIST_ID
+const originalDataRepo = process.env.AINVESTOR_DATA_REPO
 const originalPublicOrigin = process.env.AINVESTOR_PUBLIC_ORIGIN
 
 afterEach(() => {
 	globalThis.fetch = originalFetch
-	resetDataGistIdCache()
+	resetDataRepoCache()
 	resetApprovedCallerCache()
 	resetPrivateGistCacheForTests()
-	if (originalGistId === undefined) delete process.env.AINVESTOR_GIST_ID
-	else process.env.AINVESTOR_GIST_ID = originalGistId
+	if (originalDataRepo === undefined) delete process.env.AINVESTOR_DATA_REPO
+	else process.env.AINVESTOR_DATA_REPO = originalDataRepo
 	if (originalPublicOrigin === undefined) {
 		delete process.env.AINVESTOR_PUBLIC_ORIGIN
 	} else {
@@ -66,16 +66,36 @@ function request(id: number, method: string, params?: Record<string, unknown>) {
 	}
 }
 
-/** Serve one holdings payload per gist id, recording which gists were fetched. */
-function stubGist(entriesByGistId: Record<string, EtfEntry[]>): string[] {
+/**
+ * A fake GitHub serving one holdings file per data repo (`owner/repo`), plus
+ * `GET /user` for the token's login and scopes. Records every URL requested.
+ */
+function stubGist(
+	entriesByRepo: Record<string, EtfEntry[]>,
+	user: { login?: string; scopes?: string } = {},
+): string[] {
 	const requestedUrls: string[] = []
 	globalThis.fetch = async (input: Parameters<typeof fetch>[0]) => {
 		const url = String(input)
 		requestedUrls.push(url)
-		const gistId = url.split('/gists/')[1] ?? ''
-		const entries = entriesByGistId[gistId] ?? []
+		const path = new URL(url).pathname
+		if (path === '/user') {
+			return Response.json(
+				{ login: user.login ?? 'octocat' },
+				user.scopes === undefined
+					? {}
+					: { headers: { 'x-oauth-scopes': user.scopes } },
+			)
+		}
+		const match = /^\/repos\/([^/]+\/[^/]+)\/contents\/(.+)$/.exec(path)
+		const entries = match ? entriesByRepo[match[1]] : undefined
+		if (match?.[2] !== GIST_FILENAME || entries === undefined) {
+			return new Response(null, { status: 404 })
+		}
 		return Response.json({
-			files: { [GIST_FILENAME]: { content: JSON.stringify(entries) } },
+			content: Buffer.from(JSON.stringify(entries), 'utf-8').toString('base64'),
+			encoding: 'base64',
+			sha: 'sha',
 		})
 	}
 	return requestedUrls
@@ -102,7 +122,7 @@ describe('mcp over http', () => {
 		)
 		assert.equal(response.status, 401)
 		const body = (await response.json()) as { error: { message: string } }
-		assert.match(body.error.message, /gist scope/)
+		assert.match(body.error.message, /gist and repo scopes/)
 	})
 
 	it('points an unauthenticated client at its OAuth metadata and scope', async () => {
@@ -122,10 +142,10 @@ describe('mcp over http', () => {
 			challenge,
 			/resource_metadata="https:\/\/ainvestor\.fly\.dev\/\.well-known\/oauth-protected-resource"/,
 		)
-		assert.match(challenge, /scope="gist"/)
+		assert.match(challenge, /scope="gist repo"/)
 	})
 
-	it('rejects a gist id that could redirect the GitHub request', async () => {
+	it('rejects a data repo pin that could redirect the GitHub request', async () => {
 		// `../user/repos` collapses during URL parsing and would point the
 		// server's authenticated call at a different GitHub endpoint.
 		const response = await handleMcpHttpRequest(
@@ -134,7 +154,7 @@ describe('mcp over http', () => {
 					name: 'get_portfolio',
 					arguments: {},
 				}),
-				headers: { 'X-Ainvestor-Gist-Id': '../user/repos' },
+				headers: { 'X-Ainvestor-Data-Repo': '../user/repos' },
 			}),
 		)
 		assert.equal(response.status, 400)
@@ -265,9 +285,11 @@ describe('mcp over http', () => {
 		assert.equal(names.includes('import_catalog_from_bank_file'), false)
 	})
 
-	it('reads the portfolio of the gist pinned by header', async () => {
+	it('reads the portfolio of the repo pinned by header', async () => {
 		stubGist({
-			gista: [{ id: '1', name: 'VWCE', value: 1000, currency: 'PLN' }],
+			'octocat/data-a': [
+				{ id: '1', name: 'VWCE', value: 1000, currency: 'PLN' },
+			],
 		})
 		const response = await handleMcpHttpRequest(
 			post({
@@ -275,7 +297,7 @@ describe('mcp over http', () => {
 					name: 'get_portfolio',
 					arguments: {},
 				}),
-				headers: { 'X-Ainvestor-Gist-Id': 'gista' },
+				headers: { 'X-Ainvestor-Data-Repo': 'octocat/data-a' },
 			}),
 		)
 		const body = (await response.json()) as {
@@ -287,21 +309,25 @@ describe('mcp over http', () => {
 		assert.equal(payload.totalValue, 1000)
 	})
 
-	it('serves each token its own gist, never another one', async () => {
+	it('serves each token its own repo, never another one', async () => {
 		// The endpoint is multi-user: a cache keyed by anything but the token
 		// would hand one caller someone else's holdings.
 		stubGist({
-			gista: [{ id: '1', name: 'VWCE', value: 1000, currency: 'PLN' }],
-			gistb: [{ id: '2', name: 'IWDA', value: 7777, currency: 'PLN' }],
+			'octocat/data-a': [
+				{ id: '1', name: 'VWCE', value: 1000, currency: 'PLN' },
+			],
+			'octocat/data-b': [
+				{ id: '2', name: 'IWDA', value: 7777, currency: 'PLN' },
+			],
 		})
 
-		async function totalFor(token: string, gistId: string): Promise<number> {
+		async function totalFor(token: string, dataRepo: string): Promise<number> {
 			const response = await handleMcpHttpRequest(
 				new Request(ENDPOINT, {
 					method: 'POST',
 					headers: {
 						Authorization: `Bearer ${token}`,
-						'X-Ainvestor-Gist-Id': gistId,
+						'X-Ainvestor-Data-Repo': dataRepo,
 					},
 					body: JSON.stringify(
 						request(1, 'tools/call', {
@@ -318,16 +344,16 @@ describe('mcp over http', () => {
 				.totalValue
 		}
 
-		assert.equal(await totalFor('token-one', 'gista'), 1000)
-		assert.equal(await totalFor('token-two', 'gistb'), 7777)
-		assert.equal(await totalFor('token-one', 'gista'), 1000)
+		assert.equal(await totalFor('token-one', 'octocat/data-a'), 1000)
+		assert.equal(await totalFor('token-two', 'octocat/data-b'), 7777)
+		assert.equal(await totalFor('token-one', 'octocat/data-a'), 1000)
 	})
 
-	it('refuses the pinned gist to a caller who is not on the allowlist', async () => {
-		// AINVESTOR_GIST_ID names one specific gist. Serving it to anyone with any
-		// GitHub token would hand a stranger the owner's holdings, because secret
-		// gists are unlisted rather than access-controlled.
-		process.env.AINVESTOR_GIST_ID = 'ownergist'
+	it('refuses the pinned repo to a caller who is not on the allowlist', async () => {
+		// AINVESTOR_DATA_REPO names the deployment's own data. It is served only to
+		// approved callers, as the pinned gist was: a private repo is
+		// access-controlled, but the allowlist stays the deployment's own gate.
+		process.env.AINVESTOR_DATA_REPO = 'owner/ainvestor-data'
 		const requestedUrls: string[] = []
 		globalThis.fetch = async (input: Parameters<typeof fetch>[0]) => {
 			requestedUrls.push(String(input))
@@ -345,29 +371,22 @@ describe('mcp over http', () => {
 
 		assert.equal(response.status, 403)
 		assert.equal(
-			requestedUrls.some((url) => url.includes('ownergist')),
+			requestedUrls.some((url) => url.includes('/repos/owner/ainvestor-data')),
 			false,
-			"the owner's gist must never be read on a stranger's behalf",
+			"the owner's repo must never be read on a stranger's behalf",
 		)
 	})
 
-	it('serves the pinned gist to an approved caller', async () => {
-		process.env.AINVESTOR_GIST_ID = 'ownergist'
-		globalThis.fetch = async (input: Parameters<typeof fetch>[0]) => {
-			const url = String(input)
-			if (url.endsWith('/user')) {
-				return Response.json({ login: APPROVED_GITHUB_LOGINS[0] })
-			}
-			return Response.json({
-				files: {
-					[GIST_FILENAME]: {
-						content: JSON.stringify([
-							{ id: '1', name: 'VWCE', value: 42, currency: 'PLN' },
-						]),
-					},
-				},
-			})
-		}
+	it('serves the pinned repo to an approved caller', async () => {
+		process.env.AINVESTOR_DATA_REPO = 'owner/ainvestor-data'
+		stubGist(
+			{
+				'owner/ainvestor-data': [
+					{ id: '1', name: 'VWCE', value: 42, currency: 'PLN' },
+				],
+			},
+			{ login: APPROVED_GITHUB_LOGINS[0] },
+		)
 
 		const response = await handleMcpHttpRequest(
 			post({
@@ -399,21 +418,51 @@ describe('mcp over http', () => {
 					name: 'get_portfolio',
 					arguments: {},
 				}),
-				headers: { 'X-Ainvestor-Gist-Id': 'gista' },
+				headers: { 'X-Ainvestor-Data-Repo': 'octocat/data-a' },
 			}),
 		)
 		assert.equal(response.status, 401)
 		assert.match(response.headers.get('WWW-Authenticate') ?? '', /^Bearer/)
 	})
 
+	it('asks a client whose token lacks repo to reconnect, instead of serving nothing', async () => {
+		// A token granted only `gist` (every client connected before the storage
+		// cutover) sees the private repo as a 404, which would read as an empty
+		// portfolio. It must get the challenge that sends it back through sign-in
+		// for the new scope.
+		stubGist(
+			{
+				'octocat/data-a': [
+					{ id: '1', name: 'VWCE', value: 1, currency: 'PLN' },
+				],
+			},
+			{ scopes: 'gist' },
+		)
+		const response = await handleMcpHttpRequest(
+			post({
+				body: request(1, 'tools/call', {
+					name: 'get_portfolio',
+					arguments: {},
+				}),
+			}),
+		)
+		assert.equal(response.status, 401)
+		assert.match(
+			response.headers.get('WWW-Authenticate') ?? '',
+			/scope="gist repo"/,
+		)
+	})
+
 	it('reads a resource over the same transport', async () => {
 		stubGist({
-			gista: [{ id: 'a', name: 'VWCE', value: 100, currency: 'PLN' }],
+			'octocat/data-a': [
+				{ id: 'a', name: 'VWCE', value: 100, currency: 'PLN' },
+			],
 		})
 		const response = await handleMcpHttpRequest(
 			post({
 				body: request(1, 'resources/read', { uri: 'ainvestor://portfolio' }),
-				headers: { 'X-Ainvestor-Gist-Id': 'gista' },
+				headers: { 'X-Ainvestor-Data-Repo': 'octocat/data-a' },
 			}),
 		)
 		assert.equal(response.status, 200)
@@ -434,7 +483,7 @@ describe('mcp over http', () => {
 		const response = await handleMcpHttpRequest(
 			post({
 				body: request(1, 'resources/read', { uri: 'ainvestor://guidelines' }),
-				headers: { 'X-Ainvestor-Gist-Id': 'gista' },
+				headers: { 'X-Ainvestor-Data-Repo': 'octocat/data-a' },
 			}),
 		)
 		assert.equal(response.status, 401)
@@ -458,7 +507,7 @@ describe('mcp over http', () => {
 					name: 'get_portfolio',
 					arguments: {},
 				}),
-				headers: { 'X-Ainvestor-Gist-Id': 'gista' },
+				headers: { 'X-Ainvestor-Data-Repo': 'octocat/data-a' },
 			}),
 		)
 		assert.equal(

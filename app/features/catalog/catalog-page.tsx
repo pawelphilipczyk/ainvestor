@@ -15,7 +15,7 @@ import {
 import { ETF_TYPES, formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import { getSectionIntro } from '../../lib/section-intros.ts'
-import { sessionUsesGithubGist } from '../../lib/session.ts'
+import { sessionHasDataRepo } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { CatalogFilterPrefsEnhancement } from './catalog-filter-prefs.component.ts'
 import { CatalogListFrame } from './catalog-list-frame.component.ts'
@@ -49,7 +49,7 @@ export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
 					<p class="mt-0.5 text-xs text-muted-foreground">
 						{t('catalog.sharedSource')}
 					</p>
-					{sessionUsesGithubGist(session) ? (
+					{sessionHasDataRepo(session) ? (
 						<p class="mt-0.5 text-xs text-muted-foreground">
 							{t('catalog.savedGist')}
 						</p>

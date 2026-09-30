@@ -322,7 +322,7 @@ describe('mcp protocol', () => {
 		const server = newServerWithResources([
 			testResource({
 				read: async () => {
-					throw new Error('GitHub API error fetching guidelines gist: 401')
+					throw new Error('GitHub API error fetching guidelines: 401')
 				},
 			}),
 		])

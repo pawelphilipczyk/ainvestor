@@ -12,13 +12,13 @@ describe('mcp config', () => {
 	it('resolves the required variables', () => {
 		const config = resolveMcpConfig(validEnv)
 		assert.equal(config.githubToken, 'token-value')
-		assert.equal(config.dataGistId, null)
+		assert.equal(config.dataRepo, null)
 	})
 
 	it('throws an actionable error when GH_TOKEN is missing', () => {
 		assert.throws(
 			() => resolveMcpConfig({ SHARED_CATALOG_GIST_ID: 'catalog-gist' }),
-			/GH_TOKEN is not set.*gist. scope/s,
+			/GH_TOKEN is not set.*`gist` and `repo` scopes/s,
 		)
 	})
 
@@ -37,18 +37,18 @@ describe('mcp config', () => {
 		)
 	})
 
-	it('picks up an explicitly pinned data gist id', () => {
+	it('picks up an explicitly pinned data repo', () => {
 		const config = resolveMcpConfig({
 			...validEnv,
-			AINVESTOR_GIST_ID: 'pinned',
+			AINVESTOR_DATA_REPO: 'octocat/ainvestor-data',
 		})
-		assert.equal(config.dataGistId, 'pinned')
+		assert.equal(config.dataRepo, 'octocat/ainvestor-data')
 	})
 
 	it('never exposes the token in the config summary', () => {
 		const summary = describeMcpConfig(resolveMcpConfig(validEnv))
 		assert.equal(JSON.stringify(summary).includes('token-value'), false)
 		assert.equal(summary.githubTokenPresent, true)
-		assert.equal(summary.dataGistSource, 'discovered')
+		assert.equal(summary.dataRepoSource, 'token owner')
 	})
 })

@@ -1,7 +1,13 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import { sessionCookie, sessionStorage } from './session.ts'
+import {
+	getSessionData,
+	getSessionIdentity,
+	sessionCookie,
+	sessionStorage,
+	signOutPreCutoverSession,
+} from './session.ts'
 
 describe('session', () => {
 	it('session cookie must be signed (has secrets)', async () => {
@@ -11,7 +17,7 @@ describe('session', () => {
 	it('round-trips session data through a signed cookie', async () => {
 		const session = await sessionStorage.read(null)
 		session.set('token', 'ghp_test')
-		session.set('gistId', 'gist456')
+		session.set('dataRepo', 'octocat/ainvestor-data')
 		session.set('login', 'octocat')
 
 		const value = await sessionStorage.save(session)
@@ -23,7 +29,7 @@ describe('session', () => {
 		const session2 = await sessionStorage.read(parsed)
 
 		assert.equal(session2.get('token'), 'ghp_test')
-		assert.equal(session2.get('gistId'), 'gist456')
+		assert.equal(session2.get('dataRepo'), 'octocat/ainvestor-data')
 		assert.equal(session2.get('login'), 'octocat')
 	})
 
@@ -101,5 +107,33 @@ describe('session', () => {
 		} finally {
 			process.env.SESSION_SECRET = restore
 		}
+	})
+})
+
+describe('signOutPreCutoverSession', () => {
+	it('signs out a cookie still holding the pre-cutover gistId', async () => {
+		const session = await sessionStorage.read(null)
+		session.set('token', 'gist-only-token')
+		session.set('gistId', 'abc123')
+		session.set('login', 'octocat')
+		session.set('isAdmin', true)
+		signOutPreCutoverSession(session)
+		assert.equal(getSessionIdentity(session), null)
+		assert.equal(session.get('token'), undefined)
+		assert.equal(session.get('gistId'), undefined)
+		assert.equal(session.get('isAdmin'), undefined)
+	})
+
+	it('leaves a current session alone', async () => {
+		const session = await sessionStorage.read(null)
+		session.set('token', 'token')
+		session.set('dataRepo', 'octocat/ainvestor-data')
+		session.set('login', 'octocat')
+		signOutPreCutoverSession(session)
+		assert.deepEqual(getSessionData(session), {
+			token: 'token',
+			dataRepo: 'octocat/ainvestor-data',
+			login: 'octocat',
+		})
 	})
 })

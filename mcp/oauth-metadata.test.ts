@@ -4,7 +4,7 @@ import { afterEach, describe, it } from 'node:test'
 import {
 	buildAuthorizationServerMetadata,
 	buildProtectedResourceMetadata,
-	REQUIRED_GITHUB_SCOPE,
+	REQUIRED_GITHUB_SCOPES,
 	resolvePublicOrigin,
 	resourceMetadataUrl,
 } from './oauth-metadata.ts'
@@ -99,10 +99,10 @@ describe('protected resource metadata', () => {
 		)
 	})
 
-	it('asks for the gist scope and nothing more', () => {
+	it('asks for the gist and repo scopes and nothing more', () => {
 		const metadata = buildProtectedResourceMetadata(origin)
-		assert.deepEqual(metadata.scopes_supported, ['gist'])
-		assert.equal(REQUIRED_GITHUB_SCOPE, 'gist')
+		assert.deepEqual(metadata.scopes_supported, ['gist', 'repo'])
+		assert.deepEqual(REQUIRED_GITHUB_SCOPES, ['gist', 'repo'])
 	})
 
 	it('accepts the token in the header only, never the query string', () => {

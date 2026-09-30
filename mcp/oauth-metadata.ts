@@ -8,8 +8,12 @@
 const GITHUB_AUTHORIZATION_ENDPOINT = 'https://github.com/login/oauth/authorize'
 const GITHUB_TOKEN_ENDPOINT = 'https://github.com/login/oauth/access_token'
 
-/** The only GitHub scope these tools need. */
-export const REQUIRED_GITHUB_SCOPE = 'gist'
+/**
+ * The GitHub scopes these tools need: `repo` for the private data repo, and
+ * `gist` for the shared catalog until it moves to its own repo (Phase 6 of
+ * docs/STORAGE_MIGRATION_PLAN.md drops it).
+ */
+export const REQUIRED_GITHUB_SCOPES = ['gist', 'repo'] as const
 
 /** Path of the MCP endpoint, relative to the public origin. */
 const MCP_ENDPOINT_PATH = '/mcp'
@@ -70,7 +74,7 @@ export function buildProtectedResourceMetadata(origin: string) {
 	return {
 		resource: mcpResourceUri(origin),
 		authorization_servers: [origin],
-		scopes_supported: [REQUIRED_GITHUB_SCOPE],
+		scopes_supported: [...REQUIRED_GITHUB_SCOPES],
 		bearer_methods_supported: ['header'],
 		resource_name: 'AI Investor',
 	}
@@ -96,7 +100,7 @@ export function buildAuthorizationServerMetadata(origin: string) {
 		// Advertising `client_secret_basic` would invite a client to send them as
 		// a Basic header, which GitHub answers with incorrect_client_credentials.
 		token_endpoint_auth_methods_supported: ['client_secret_post'],
-		scopes_supported: [REQUIRED_GITHUB_SCOPE],
+		scopes_supported: [...REQUIRED_GITHUB_SCOPES],
 	}
 }
 

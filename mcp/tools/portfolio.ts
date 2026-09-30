@@ -7,8 +7,8 @@ import {
 	applyPortfolioOperation,
 	parsePortfolioOperationInput,
 } from '../../app/lib/portfolio-operations.ts'
-import type { GistCredentials } from '../data-gist.ts'
-import { resolveDataGistId } from '../data-gist.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
+import { resolveDataRepo } from '../data-repo.ts'
 import { fetchEtfsCached, invalidateEtfsCache } from '../private-gist-cache.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
@@ -25,11 +25,11 @@ A row is matched by ticker (or name, for a legacy row with no ticker) **and** cu
 
 The ticker must be in the shared catalog (list_catalog / get_catalog_entry); this tool does not accept an arbitrary name. A sell greater than the matching holding's value is refused rather than going negative.
 
-Read, change, and save happen inside this one call. The gist API offers no conditional write, so an edit made elsewhere in between is overwritten rather than merged — the gist keeps it in its revision history, so tell the user to restore it there if that happens.`
+Read, change, and save happen inside this one call. Nothing here checks for a concurrent write yet, so an edit made elsewhere in between is overwritten rather than merged — the data repo keeps every save as a commit, so tell the user to restore it from the repo's history if that happens.`
 
 const REMOVE_HOLDING_DESCRIPTION = `Delete one holding by its id, as reported by get_portfolio — regardless of its value. Unlike record_operation's sell, this does not require knowing the exact value to zero it out, so it is the right tool for removing a holding entered by mistake.
 
-Read and save happen inside this one call. The gist API offers no conditional write, so an edit made elsewhere in between is overwritten rather than merged — the gist keeps it in its revision history, so tell the user to restore it there if that happens.`
+Read and save happen inside this one call. Nothing here checks for a concurrent write yet, so an edit made elsewhere in between is overwritten rather than merged — the data repo keeps every save as a commit, so tell the user to restore it from the repo's history if that happens.`
 
 /**
  * Share of the portfolio total.
@@ -110,11 +110,11 @@ export function summarizePortfolio(entries: EtfEntry[]) {
 }
 
 export function createGetPortfolioTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(): Promise<McpToolResult> {
-		const gistId = await resolveDataGistId(credentials)
-		const entries = await fetchEtfsCached(credentials.githubToken, gistId)
+		const dataRepo = await resolveDataRepo(credentials)
+		const entries = await fetchEtfsCached(credentials.githubToken, dataRepo)
 		return jsonResult(summarizePortfolio(entries))
 	}
 
@@ -144,7 +144,7 @@ function explainOperationBlocker(params: {
 }
 
 export function createRecordOperationTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
@@ -169,13 +169,13 @@ export function createRecordOperationTool(
 			)
 		}
 
-		const gistId = await resolveDataGistId(credentials)
+		const dataRepo = await resolveDataRepo(credentials)
 		// Uncached, like set_guideline/delete_guideline: this read feeds a
 		// same-call overwrite of the whole file, so a cached copy up to the TTL
 		// old would let a concurrent edit made elsewhere be silently discarded
 		// rather than merely raced against, the way an uncached read already is.
 		const [current, catalog] = await Promise.all([
-			fetchEtfs(credentials.githubToken, gistId),
+			fetchEtfs(credentials.githubToken, dataRepo),
 			fetchCatalog(),
 		])
 
@@ -199,8 +199,8 @@ export function createRecordOperationTool(
 			)
 		}
 
-		await saveEtfs(credentials.githubToken, gistId, outcome.holdings)
-		invalidateEtfsCache(credentials.githubToken, gistId)
+		await saveEtfs(credentials.githubToken, dataRepo, outcome.holdings)
+		invalidateEtfsCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({
 			action: outcome.action,
@@ -244,7 +244,7 @@ export function createRecordOperationTool(
 }
 
 export function createRemoveHoldingTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
@@ -254,9 +254,9 @@ export function createRemoveHoldingTool(
 			throw new Error('"id" is required; get_portfolio reports the ids.')
 		}
 
-		const gistId = await resolveDataGistId(credentials)
+		const dataRepo = await resolveDataRepo(credentials)
 		// Uncached — see the same note in record_operation.
-		const current = await fetchEtfs(credentials.githubToken, gistId)
+		const current = await fetchEtfs(credentials.githubToken, dataRepo)
 		const existing = current.find((entry) => entry.id === id)
 		if (existing === undefined) {
 			throw new Error(
@@ -265,8 +265,8 @@ export function createRemoveHoldingTool(
 		}
 
 		const next = current.filter((entry) => entry.id !== id)
-		await saveEtfs(credentials.githubToken, gistId, next)
-		invalidateEtfsCache(credentials.githubToken, gistId)
+		await saveEtfs(credentials.githubToken, dataRepo, next)
+		invalidateEtfsCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({
 			action: 'removed',

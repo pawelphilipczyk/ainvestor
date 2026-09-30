@@ -15,7 +15,7 @@ import {
 import type { EtfType } from '../../app/lib/guidelines.ts'
 import { ETF_TYPES, isEtfType } from '../../app/lib/guidelines.ts'
 import { resolveCallerLogin } from '../approved-caller.ts'
-import type { GistCredentials } from '../data-gist.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { readStringArgument } from './tool-arguments.ts'
 import { jsonResult } from './tool-result.ts'
@@ -159,7 +159,7 @@ function requireTickerOrId(toolArguments: Record<string, unknown>): {
  * that owner.
  */
 export async function loadCatalogForWrite(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): Promise<CatalogEntry[]> {
 	const [{ entries, ownerLogin }, callerLogin] = await Promise.all([
 		fetchSharedCatalogSnapshot(),
@@ -310,7 +310,7 @@ function describeCatalogEntryValidationIssue(
 }
 
 export function createUpsertCatalogEntryTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
@@ -426,7 +426,7 @@ export function createUpsertCatalogEntryTool(
 }
 
 export function createDeleteCatalogEntryTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,

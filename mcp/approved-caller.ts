@@ -2,7 +2,7 @@ import { isGithubLoginApproved } from '../app/lib/approved-users.ts'
 import { createTokenCache } from './token-cache.ts'
 
 /**
- * Whether a caller may be served the deployment's **own** pinned gist. See
+ * Whether a caller may be served the deployment's **own** pinned data repo. See
  * decision D3 and the Stage 10 security note in docs/MCP_SERVER_PLAN.md.
  */
 

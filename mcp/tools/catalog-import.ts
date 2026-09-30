@@ -17,7 +17,7 @@ import {
 	saveCatalogImport,
 } from '../../app/features/catalog/lib.ts'
 import { MULTIPART_MAX_FILE_BYTES } from '../../app/lib/multipart-upload-limits.ts'
-import type { GistCredentials } from '../data-gist.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { loadCatalogForWrite } from './catalog.ts'
 import { jsonResult } from './tool-result.ts'
@@ -83,7 +83,7 @@ function structuralIssueMessage(issue: 'notObject' | 'dataNotArray'): string {
 }
 
 export function createImportCatalogFromBankFileTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,

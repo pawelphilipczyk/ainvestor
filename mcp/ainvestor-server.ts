@@ -1,4 +1,4 @@
-import type { GistCredentials } from './data-gist.ts'
+import type { DataRepoCredentials } from './data-repo.ts'
 import type { McpServerInfo } from './protocol.ts'
 import { createMcpServer } from './protocol.ts'
 import { createAinvestorResources } from './resources.ts'
@@ -28,7 +28,7 @@ export const SERVER_INFO: McpServerInfo = {
 	version: '0.7.0',
 }
 
-export const INSTRUCTIONS = `Access to the user's AI Investor data, stored in their own private GitHub gist.
+export const INSTRUCTIONS = `Access to the user's AI Investor data, stored in their own private GitHub repository.
 
 The data model has no time dimension: holdings carry a monetary value but no quantity, price, or date, and there is no transaction history. Do not infer returns, performance, or purchase timing from it.
 
@@ -50,7 +50,7 @@ The portfolio, the guidelines and the catalog are also readable as the resources
  * the one sanctioned exception (decision D8 in docs/MCP_SERVER_PLAN.md).
  */
 export function createAinvestorMcpServer(params: {
-	credentials: GistCredentials
+	credentials: DataRepoCredentials
 	allowLocalFileTools: boolean
 }) {
 	const { credentials, allowLocalFileTools } = params

@@ -38,7 +38,11 @@ import {
 import { remixAssetServer } from './lib/remix-assets.ts'
 import type { AppRequestContext } from './lib/request-context.ts'
 import { requireApprovedSession } from './lib/require-approved-session-middleware.ts'
-import { sessionCookie, sessionStorage } from './lib/session.ts'
+import {
+	sessionCookie,
+	sessionStorage,
+	signOutPreCutoverSession,
+} from './lib/session.ts'
 import { uiLocaleMiddleware } from './lib/ui-locale-middleware.ts'
 import { routes } from './routes.ts'
 
@@ -68,7 +72,10 @@ function remixAssets(): Middleware {
 function enforceGithubApproval(): Middleware {
 	return async (context, next) => {
 		const session = context.get(Session)
-		if (session) stripGithubTokenIfUnapproved(session)
+		if (session) {
+			signOutPreCutoverSession(session)
+			stripGithubTokenIfUnapproved(session)
+		}
 		return next()
 	}
 }

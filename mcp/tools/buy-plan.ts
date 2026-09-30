@@ -15,8 +15,8 @@ import { fetchCatalog } from '../../app/features/catalog/lib.ts'
 import { CURRENCIES } from '../../app/lib/currencies.ts'
 import type { EtfEntry } from '../../app/lib/gist.ts'
 import type { EtfGuideline, EtfType } from '../../app/lib/guidelines.ts'
-import type { GistCredentials } from '../data-gist.ts'
-import { resolveDataGistId } from '../data-gist.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
+import { resolveDataRepo } from '../data-repo.ts'
 import {
 	fetchEtfsCached,
 	fetchGuidelinesOrThrowCached,
@@ -352,17 +352,17 @@ export function resolveCashCurrency(params: {
 }
 
 export function createGetBuyPlanTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
 		const cashAmountText = readCashAmountText(toolArguments)
-		const gistId = await resolveDataGistId(credentials)
+		const dataRepo = await resolveDataRepo(credentials)
 		const [entries, catalog, guidelines] = await Promise.all([
-			fetchEtfsCached(credentials.githubToken, gistId),
+			fetchEtfsCached(credentials.githubToken, dataRepo),
 			fetchCatalog(),
-			fetchGuidelinesOrThrowCached(credentials.githubToken, gistId),
+			fetchGuidelinesOrThrowCached(credentials.githubToken, dataRepo),
 		])
 
 		// summarizePortfolio already separates "one currency" from "mixed" and

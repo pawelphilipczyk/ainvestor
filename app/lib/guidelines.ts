@@ -7,7 +7,7 @@ import {
 	putPrivateGistTestGuidelines,
 	takePrivateGistTestGuidelines,
 } from './private-gist-test-store.ts'
-import { readFile, writeFile } from './store/github-store.ts'
+import { readFile, writeFile } from './store/github-repo-store.ts'
 import { getUiLocale } from './ui-locale.ts'
 
 export const GUIDELINES_FILENAME = 'guidelines.json'
@@ -201,13 +201,13 @@ type GuidelinesGistReadResult =
 
 async function readGuidelinesGist(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 ): Promise<GuidelinesGistReadResult> {
-	const testRows = takePrivateGistTestGuidelines(token, gistId)
+	const testRows = takePrivateGistTestGuidelines(token, dataRepo)
 	if (testRows !== null) return { ok: true, guidelines: testRows }
 	const result = await readFile({
 		token,
-		location: gistId,
+		location: dataRepo,
 		path: GUIDELINES_FILENAME,
 	})
 	if (!result.ok) return { ok: false, status: result.status }
@@ -231,13 +231,11 @@ async function readGuidelinesGist(
  */
 export async function fetchGuidelinesOrThrow(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 ): Promise<EtfGuideline[]> {
-	const result = await readGuidelinesGist(token, gistId)
+	const result = await readGuidelinesGist(token, dataRepo)
 	if (!result.ok) {
-		throw new Error(
-			`GitHub API error fetching guidelines gist: ${result.status}`,
-		)
+		throw new Error(`GitHub API error fetching guidelines: ${result.status}`)
 	}
 	return result.guidelines
 }
@@ -248,9 +246,9 @@ export async function fetchGuidelinesOrThrow(
  */
 export async function fetchGuidelines(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 ): Promise<EtfGuideline[]> {
-	const result = await readGuidelinesGist(token, gistId)
+	const result = await readGuidelinesGist(token, dataRepo)
 	return result.ok ? result.guidelines : []
 }
 
@@ -258,18 +256,22 @@ type GuidelinesGistWriteResult = { ok: true } | { ok: false; status: number }
 
 async function writeGuidelinesGist(params: {
 	token: string
-	gistId: string
+	dataRepo: string
 	guidelines: EtfGuideline[]
 }): Promise<GuidelinesGistWriteResult> {
 	if (
-		putPrivateGistTestGuidelines(params.token, params.gistId, params.guidelines)
+		putPrivateGistTestGuidelines(
+			params.token,
+			params.dataRepo,
+			params.guidelines,
+		)
 	) {
 		return { ok: true }
 	}
 	const patch = buildGuidelinesGistPatch(params.guidelines)
 	const result = await writeFile({
 		token: params.token,
-		location: params.gistId,
+		location: params.dataRepo,
 		path: GUIDELINES_FILENAME,
 		content: patch.files[GUIDELINES_FILENAME].content,
 	})
@@ -279,20 +281,20 @@ async function writeGuidelinesGist(params: {
 /** Save guidelines to an existing gist by ID, failing loudly when GitHub rejects the write. */
 export async function saveGuidelinesOrThrow(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 	guidelines: EtfGuideline[],
 ): Promise<void> {
-	const result = await writeGuidelinesGist({ token, gistId, guidelines })
+	const result = await writeGuidelinesGist({ token, dataRepo, guidelines })
 	if (!result.ok) {
-		throw new Error(`GitHub API error saving guidelines gist: ${result.status}`)
+		throw new Error(`GitHub API error saving guidelines: ${result.status}`)
 	}
 }
 
 /** Save guidelines, ignoring a rejected write (the web app's long-standing behaviour). */
 export async function saveGuidelines(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 	guidelines: EtfGuideline[],
 ): Promise<void> {
-	await writeGuidelinesGist({ token, gistId, guidelines })
+	await writeGuidelinesGist({ token, dataRepo, guidelines })
 }

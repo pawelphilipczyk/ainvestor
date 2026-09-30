@@ -18,10 +18,10 @@ type PrivateGistTestStore = {
 let store: PrivateGistTestStore | null = null
 
 export const TEST_TOKEN = 'test-token'
-export const TEST_GIST_ID = 'gist-advice-test'
+export const TEST_DATA_REPO = 'octocat/ainvestor-data'
 
-function handles(token: string, gistId: string): boolean {
-	return store !== null && token === TEST_TOKEN && gistId === TEST_GIST_ID
+function handles(token: string, dataRepo: string): boolean {
+	return store !== null && token === TEST_TOKEN && dataRepo === TEST_DATA_REPO
 }
 
 export function setPrivateGistTestStore(
@@ -40,27 +40,27 @@ export function ensurePrivateGistTestStore(): void {
 
 export function takePrivateGistTestEtfs(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 ): EtfEntry[] | null {
-	if (!handles(token, gistId) || store === null) return null
+	if (!handles(token, dataRepo) || store === null) return null
 	return store.etfs
 }
 
 export function takePrivateGistTestGuidelines(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 ): EtfGuideline[] | null {
-	if (!handles(token, gistId) || store === null) return null
+	if (!handles(token, dataRepo) || store === null) return null
 	return store.guidelines
 }
 
 /** True when the write landed here, so the caller must not reach GitHub. */
 export function putPrivateGistTestEtfs(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 	etfs: EtfEntry[],
 ): boolean {
-	if (!handles(token, gistId) || store === null) return false
+	if (!handles(token, dataRepo) || store === null) return false
 	store.etfs = etfs
 	return true
 }
@@ -68,10 +68,10 @@ export function putPrivateGistTestEtfs(
 /** True when the write landed here, so the caller must not reach GitHub. */
 export function putPrivateGistTestGuidelines(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 	guidelines: EtfGuideline[],
 ): boolean {
-	if (!handles(token, gistId) || store === null) return false
+	if (!handles(token, dataRepo) || store === null) return false
 	store.guidelines = guidelines
 	return true
 }

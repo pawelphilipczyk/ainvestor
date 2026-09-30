@@ -3,10 +3,14 @@ import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { isGithubLoginApproved } from '../../lib/approved-users.ts'
 import { getClientId, getClientSecret } from '../../lib/auth.ts'
-import { findOrCreateGist } from '../../lib/gist.ts'
-import { t } from '../../lib/i18n.ts'
+import { format, t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import { flashBanner } from '../../lib/session-flash.ts'
+import {
+	ForeignRepoError,
+	findOrCreateDataRepo,
+	getDataRepoName,
+} from '../../lib/store/github-repo-store.ts'
 import { DEFAULT_UI_LOCALE } from '../../lib/ui-locale.ts'
 import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
 import { routes } from '../../routes.ts'
@@ -44,7 +48,9 @@ export const authController = {
 			context.get(Session).set(OAUTH_STATE_SESSION_KEY, state)
 			const params = new URLSearchParams({
 				client_id: clientId,
-				scope: 'gist',
+				// `repo` for the private data repo; `gist` while the shared catalog
+				// is still a gist (dropped with the gist backend, Phase 7).
+				scope: 'gist repo',
 				state,
 			})
 			return createRedirectResponse(
@@ -119,7 +125,7 @@ export const authController = {
 				)
 				context.get(Session).regenerateId()
 				context.get(Session).unset('token')
-				context.get(Session).unset('gistId')
+				context.get(Session).unset('dataRepo')
 				context.get(Session).unset('login')
 				context.get(Session).unset('approvalStatus')
 				return createRedirectResponse(routes.home.index.href())
@@ -140,31 +146,38 @@ export const authController = {
 
 			if (!isAdmin && !isGithubLoginApproved(login)) {
 				context.get(Session).unset('token')
-				context.get(Session).unset('gistId')
+				context.get(Session).unset('dataRepo')
 				context.get(Session).set('approvalStatus', 'pending')
 				return createRedirectResponse(routes.home.index.href())
 			}
 
 			context.get(Session).set('isAdmin', isAdmin)
 
-			// Resolving the gist now sweeps every page of the user's gists and can
-			// fail on a huge account or a GitHub hiccup. An unhandled rejection
-			// here would end a successful sign-in on a bare 500, so sign the user
-			// in regardless and let the page report the storage problem.
-			let gistId: string | null = null
+			// Finding or creating the data repo can fail on a GitHub hiccup, or on a
+			// same-named repo this app did not create. An unhandled rejection here
+			// would end a successful sign-in on a bare 500, so sign the user in
+			// regardless and let the banner say what went wrong.
+			let dataRepo: string | null = null
+			let storageError: string | null = null
 			try {
-				gistId = await findOrCreateGist(token)
+				dataRepo = await findOrCreateDataRepo({ token, login })
 			} catch (error) {
-				console.error('[auth] Could not resolve the data gist', error)
+				console.error('[auth] Could not resolve the data repo', error)
+				storageError =
+					error instanceof ForeignRepoError
+						? format(t('errors.storage.foreignRepo'), {
+								repo: `${login}/${getDataRepoName()}`,
+							})
+						: t('errors.portfolio.persistence')
 			}
 
 			context.get(Session).set('token', token)
-			if (gistId !== null) context.get(Session).set('gistId', gistId)
+			if (dataRepo !== null) context.get(Session).set('dataRepo', dataRepo)
 			context.get(Session).unset('approvalStatus')
 
-			if (gistId === null) {
+			if (storageError !== null) {
 				flashBanner(context.get(Session), {
-					text: t('errors.portfolio.persistence'),
+					text: storageError,
 					tone: 'error',
 				})
 			}

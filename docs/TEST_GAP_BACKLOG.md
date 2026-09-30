@@ -542,18 +542,20 @@ Flagged during the seed survey; each needs the same triage before becoming an it
 Runs **must** read this list before proposing, and must never re-propose an
 item that appears here.
 
-### RJ-001 — `mcp/data-gist.ts`
+### RJ-001 — `mcp/data-repo.ts` (was `mcp/data-gist.ts`)
 **Rejected:** 2026-09-19 · **Reason:** covered in effect, no direct test
-needed.
+needed. *(Still holds after the storage cutover renamed it.)*
 
-No `mcp/data-gist.test.ts` exists, but `resolveDataGistId`'s full contract is
-pinned in `mcp/tools/portfolio.test.ts:173-223`
-(`describe('data gist resolution')`): discovery-by-description, concurrent
-caller dedup (only one upstream fetch for two simultaneous calls), the
-"no gist found" error and that no gist gets created, and that a failed lookup
-is not cached so a retry after signing in succeeds. `mcp/http.test.ts:290-324`
-additionally pins per-token isolation for the header-pinned branch. The
-"no direct coverage ≠ no coverage" case the top of this file warns about.
+No `mcp/data-repo.test.ts` exists, but `resolveDataRepo`'s full contract is
+pinned in `mcp/tools/portfolio.test.ts` (`describe('data repo resolution')`):
+the token owner's own repo, a pinned repo served without the owner lookup,
+concurrent caller dedup (one `GET /user` for two simultaneous calls), the
+"does not exist yet" error and that no repo gets created, a token without the
+`repo` scope refused with the 403 the transport maps to a challenge, and that a
+failed lookup is not cached so a retry after signing in succeeds.
+`mcp/http.test.ts` additionally pins per-token isolation for the header-pinned
+branch and the reconnect challenge end to end. The "no direct coverage ≠ no
+coverage" case the top of this file warns about.
 
 ### RJ-002 — `mcp/ainvestor-server.ts`
 **Rejected:** 2026-09-19 · **Reason:** covered in effect, no direct test

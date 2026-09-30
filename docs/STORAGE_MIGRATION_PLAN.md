@@ -1,7 +1,7 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–2 done. Phase 3's migration script is built and has
-copied preview; prod is copied during the Phase 4 cutover, which is next.
+**Status:** Phases 0–3 done (preview copied). Phase 4's cutover PR is built
+and awaits the cutover order below: preview rehearsal, prod copy, merge.
 Phases 5+ are designed but not yet detailed to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
@@ -683,6 +683,34 @@ is missing anything saved after the cutover.
 **Done when** both environments read and write their repos and pass the
 checks above, the gists are untouched, CI (lint, types, tests, browser tests)
 is green, and the docs are updated.
+
+#### What the cutover PR built, where it differs from the above
+
+- **Pre-cutover cookies** are recognised by their old `gistId` key rather than
+  by a missing `dataRepo`, and signed out in the same middleware step that
+  strips unapproved tokens (`signOutPreCutoverSession`, `app/lib/session.ts`).
+  A missing `dataRepo` also means "sign-in could not resolve the repo", which
+  must keep the user signed in with the banner rather than bounce them.
+- **A same-named foreign repo** gets its own banner in both locales
+  (`errors.storage.foreignRepo`), naming the repo and the fix. The generic
+  persistence banner said nothing about what to do.
+- **`writeFiles` drops a deletion of an absent path** instead of sending a
+  `sha: null` tree entry for it, matching `writeFile`'s no-op. Clearing saved
+  advice deletes three files at once, and some may not exist.
+- **The tool descriptions stop pointing at gist Revisions.** Recovery is the
+  repo's commit history now; the "overwrite rather than merge" warning stays
+  until Phase 5.
+- **User-facing copy** that said "private GitHub Gist" now says repository. The
+  catalog copy keeps "gist": it still is one.
+- **`findOrCreateGist` and `buildGistBody` are gone.** `findGistIdByDescription`
+  stays for the migration script until Phase 7.
+- **A shared test fake,** `app/lib/store/github-repo-test-fake.ts`, serves an
+  in-memory data repo. Tests assert on the files that land rather than on
+  request bodies.
+
+Names still to follow, each a mechanical rename: `gist.ts`, `advice-gist.ts`,
+`private-gist-cache.ts`, `private-gist-test-store.ts`, and the `*Gist` i18n
+keys.
 
 ### Phase 5 — turn on compare-and-swap
 

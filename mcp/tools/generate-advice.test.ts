@@ -13,14 +13,15 @@ import {
 } from '../../app/features/catalog/lib.ts'
 import { GIST_FILENAME } from '../../app/lib/gist.ts'
 import { GUIDELINES_FILENAME } from '../../app/lib/guidelines.ts'
-import type { GistCredentials } from '../data-gist.ts'
-import { resetDataGistIdCache } from '../data-gist.ts'
+import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
+import { resetDataRepoCache } from '../data-repo.ts'
 import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
 import { createGenerateAdviceTool } from './generate-advice.ts'
 
-const credentials: GistCredentials = {
+const credentials: DataRepoCredentials = {
 	githubToken: 'token-value',
-	dataGistId: 'pinned-gist',
+	dataRepo: 'octocat/ainvestor-data',
 }
 
 const HOLDINGS = [{ id: 'h1', name: 'A', value: 1000, currency: 'PLN' }]
@@ -38,20 +39,36 @@ function adviceJson(text: string): string {
 	return JSON.stringify({ blocks: [{ type: 'paragraph', text }] })
 }
 
-/** Records every completion request and every gist PATCH, serving one fixed portfolio. */
+type FileWrite = { path: string; content: string }
+
+/** Serve one fixed portfolio from a fake data repo; record each file written after it lands. */
+function stubRepo(options: { failWritesWith?: number } = {}): FileWrite[] {
+	const repo = installFakeDataRepo({
+		files: {
+			[GIST_FILENAME]: JSON.stringify(HOLDINGS),
+			[GUIDELINES_FILENAME]: JSON.stringify(GUIDELINES),
+		},
+		...options,
+	})
+	const repoFetch = globalThis.fetch
+	const writes: FileWrite[] = []
+	globalThis.fetch = async (input, init) => {
+		const response = await repoFetch(input, init)
+		if ((init?.method ?? 'GET') === 'PUT' && response.ok) {
+			const path = new URL(String(input)).pathname.split('/contents/')[1] ?? ''
+			writes.push({ path, content: repo.files.get(path) ?? '' })
+		}
+		return response
+	}
+	return writes
+}
+
+/** Records every completion request and every file written, serving one fixed portfolio. */
 function stubServer(): {
 	completions: { model: string }[]
-	patches: {
-		url: string
-		body: { files: Record<string, { content: string }> }
-	}[]
+	writes: FileWrite[]
 } {
 	const completions: { model: string }[] = []
-	const patches: {
-		url: string
-		body: { files: Record<string, { content: string }> }
-	}[] = []
-
 	setAdviceClient({
 		chat: {
 			completions: {
@@ -62,28 +79,7 @@ function stubServer(): {
 			},
 		},
 	} satisfies AdviceClient)
-
-	globalThis.fetch = async (
-		input: Parameters<typeof fetch>[0],
-		init?: Parameters<typeof fetch>[1],
-	) => {
-		const method = init?.method ?? 'GET'
-		if (method === 'PATCH') {
-			const body = JSON.parse(String(init?.body)) as {
-				files: Record<string, { content: string }>
-			}
-			patches.push({ url: String(input), body })
-			return new Response(null, { status: 200 })
-		}
-		return Response.json({
-			files: {
-				[GIST_FILENAME]: { content: JSON.stringify(HOLDINGS) },
-				[GUIDELINES_FILENAME]: { content: JSON.stringify(GUIDELINES) },
-			},
-		})
-	}
-
-	return { completions, patches }
+	return { completions, writes: stubRepo() }
 }
 
 async function callTool(
@@ -99,7 +95,7 @@ const originalFetch = globalThis.fetch
 afterEach(() => {
 	globalThis.fetch = originalFetch
 	setAdviceClient(null)
-	resetDataGistIdCache()
+	resetDataRepoCache()
 	resetSharedCatalogForTests()
 	resetPrivateGistCacheForTests()
 })
@@ -107,7 +103,7 @@ afterEach(() => {
 describe('generate_advice', () => {
 	it('generates buy_next advice and saves it by default, like the web app Generate button', async () => {
 		setSharedCatalogForTests({ entries: [], ownerLogin: null })
-		const { completions, patches } = stubServer()
+		const { completions, writes } = stubServer()
 
 		const payload = await callTool({ cashAmount: '500' })
 
@@ -121,18 +117,18 @@ describe('generate_advice', () => {
 		assert.equal(typeof payload.savedAt, 'number')
 		assert.equal(completions.length, 1)
 		assert.equal(completions[0].model, 'gpt-5.6-terra')
-		assert.equal(patches.length, 1)
+		assert.equal(writes.length, 1)
 	})
 
 	it('skips saving when save: false is passed', async () => {
 		setSharedCatalogForTests({ entries: [], ownerLogin: null })
-		const { patches } = stubServer()
+		const { writes } = stubServer()
 
 		const payload = await callTool({ cashAmount: '500', save: false })
 
 		assert.equal(payload.saved, false)
 		assert.equal('savedAt' in payload, false)
-		assert.equal(patches.length, 0)
+		assert.equal(writes.length, 0)
 	})
 
 	it('requires cashAmount for buy_next', async () => {
@@ -199,15 +195,16 @@ describe('generate_advice', () => {
 
 	it('saves to the mode-specific file', async () => {
 		setSharedCatalogForTests({ entries: [], ownerLogin: null })
-		const { patches } = stubServer()
+		const { writes } = stubServer()
 
 		const payload = await callTool({ cashAmount: '500' })
 
 		assert.equal(payload.saved, true)
 		assert.equal(typeof payload.savedAt, 'number')
-		assert.equal(patches.length, 1)
-		assert.match(patches[0].url, /\/gists\/pinned-gist$/)
-		const savedFile = patches[0].body.files[ADVICE_BUY_NEXT_STORAGE_FILENAME]
+		assert.equal(writes.length, 1)
+		const savedFile = writes.find(
+			(write) => write.path === ADVICE_BUY_NEXT_STORAGE_FILENAME,
+		)
 		assert.ok(savedFile, 'expected the buy_next advice file to be written')
 		const saved = JSON.parse(savedFile.content) as Record<string, unknown>
 		assert.equal(saved.lastAnalysisMode, 'buy_next')
@@ -219,12 +216,13 @@ describe('generate_advice', () => {
 
 	it('saves portfolio_review under its own file, without a cashAmount field', async () => {
 		setSharedCatalogForTests({ entries: [], ownerLogin: null })
-		const { patches } = stubServer()
+		const { writes } = stubServer()
 
 		await callTool({ mode: 'portfolio_review' })
 
-		const savedFile =
-			patches[0].body.files[ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME]
+		const savedFile = writes.find(
+			(write) => write.path === ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME,
+		)
 		assert.ok(
 			savedFile,
 			'expected the portfolio_review advice file to be written',
@@ -244,19 +242,7 @@ describe('generate_advice', () => {
 				},
 			},
 		})
-		globalThis.fetch = async (
-			_input: Parameters<typeof fetch>[0],
-			init?: Parameters<typeof fetch>[1],
-		) => {
-			const method = init?.method ?? 'GET'
-			if (method === 'PATCH') return new Response('nope', { status: 500 })
-			return Response.json({
-				files: {
-					[GIST_FILENAME]: { content: JSON.stringify(HOLDINGS) },
-					[GUIDELINES_FILENAME]: { content: JSON.stringify(GUIDELINES) },
-				},
-			})
-		}
+		stubRepo({ failWritesWith: 500 })
 
 		const payload = await callTool({ cashAmount: '500' })
 

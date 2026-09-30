@@ -12,14 +12,14 @@ repository using the `remix` package (`remix@next`).
 - Home page with app name
 - ETF form (ETF name + status: **Have** or **Want to Buy**)
 - **GitHub OAuth login** — sign in with your GitHub account
-- **GitHub Gist database** — your ETF list is stored in a private Gist in your own GitHub account (no external DB required)
+- **Your own GitHub repository as the database** — your portfolio, guidelines and saved advice live in a private repository (`ainvestor-data`) in your own GitHub account, created on first sign-in (no external DB required)
 - **Shared ETF catalog** — the catalog is loaded from one public GitHub Gist shared by all users
 - **Sign-in required** — every page but the intro is behind GitHub sign-in; a
   signed-out visitor is sent back to the intro page. A login awaiting allowlist
   approval can open the pages and sees a pending notice on each, but has no
   store to read or write until it is approved
 - Simple mobile-friendly HTML/CSS
-- Test coverage for session helpers, Gist utilities, and all route handlers
+- Test coverage for session helpers, GitHub storage, and all route handlers
 
 ## Environment variables
 
@@ -31,7 +31,7 @@ repository using the `remix` package (`remix@next`).
 | `SESSION_SECRET` | Recommended | Random string used to sign session cookies (defaults to a weak dev value) |
 | `APPROVED_GITHUB_LOGINS` | No | Extra GitHub logins allowed in, on top of `app/lib/approved-github-logins.ts` |
 | `AINVESTOR_PUBLIC_ORIGIN` | For MCP off Fly | Origin the deployment is reached on; becomes the OAuth issuer in MCP discovery |
-| `AINVESTOR_GIST_ID` | No | Pins the data gist the MCP server reads, for approved logins only (see [MCP server](#mcp-server-use-your-data-from-an-ai-client)) |
+| `AINVESTOR_DATA_REPO` | No | Pins the data repository (`owner/repo`) the MCP server reads, for approved logins only (see [MCP server](#mcp-server-use-your-data-from-an-ai-client)) |
 | `SHARED_CATALOG_GIST_ID` | Yes (MCP too) | Also required by the stdio MCP server, which refuses to start without it |
 
 ### Shared catalog gist
@@ -116,8 +116,8 @@ npm run typecheck
 `npm run check` also auto-installs dependencies with `npm ci` when needed.
 ## MCP server (use your data from an AI client)
 
-Exposes your AI Investor data to MCP clients, from the same private GitHub Gist
-the web app uses. Your own data, no extra configuration:
+Exposes your AI Investor data to MCP clients, from the same private GitHub
+repository the web app uses. Your own data, no extra configuration:
 
 - **`get_portfolio`** — every holding with its value and currency, the portfolio
   total, and each holding's share of it.
@@ -162,7 +162,7 @@ the web app uses. Your own data, no extra configuration:
   charged to this server's own `OPENAI_API_KEY` — reach for it only when you
   explicitly want new written analysis, not for a routine "what should I buy"
   (`get_buy_plan`) or "what did it last say" (`get_saved_advice`, which is free).
-  By default it also **saves** the result to the gist, exactly as the advice
+  By default it also **saves** the result to your data repository, exactly as the advice
   page's own Generate button does — overwriting whatever was saved there
   before for that mode. Pass `save: false` to only get the text back without
   persisting it. A failed save is reported alongside the generated text
@@ -208,15 +208,15 @@ the whole list rather than one page of search results.
 
 A guideline write is a read-modify-write of the whole `guidelines.json` file,
 and a holdings write (`record_operation`, `remove_holding`) the same for
-`etfs.json`; the gist API has no conditional write, so an edit you make in a
+`etfs.json`. Nothing checks for a concurrent write yet, so an edit you make in a
 browser tab between the read and the save is overwritten rather than merged.
-Nothing is lost, though: every write is a gist revision, so the previous
-content is still under **Revisions** on the gist page and can be restored from
-there.
+Nothing is lost, though: every save is a commit in your data repository, so the
+previous content is in its history and can be restored from there.
 
 There are two ways to reach it. Both need a **classic** GitHub personal access
-token with the **`gist`** scope and nothing else — fine-grained tokens cannot
-access gists. Create one at
+token with the **`gist`** and **`repo`** scopes: `repo` for your private data
+repository, and `gist` for the shared catalog, which is still a gist.
+Fine-grained tokens cannot access gists. Create one at
 [Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens).
 ### Remote — works from any client, including mobile
 
@@ -235,7 +235,7 @@ preregistered credentials — dynamic client registration is not offered.
 2. Add the connector in your Claude client: give it the URL
    `https://ainvestor.fly.dev/mcp`, turn **Requires sign-in** on, and paste the
    OAuth App's **Client ID** and **Client secret**.
-3. The client will send you to GitHub to authorize the `gist` scope, then start
+3. The client will send you to GitHub to authorize the `gist` and `repo` scopes, then start
    using the connector.
 
 **The redirect URI is the usual stumbling block.** Set **Authorization callback
@@ -271,29 +271,38 @@ machine's environment), otherwise a loopback host so local runs work. Anywhere
 else, set `AINVESTOR_PUBLIC_ORIGIN`; until you do, the discovery endpoints answer
 `500` rather than guess.
 
-By default every caller reads **their own** data gist, found from the token they
-present, so the server can serve anyone. Setting `AINVESTOR_GIST_ID` on the
-deployment pins one specific gist instead — and since a secret gist is unlisted
-rather than access-controlled, holding its id is enough to read it. A pinned gist
-is therefore served only to a caller whose GitHub login is on the same allowlist
-the web app uses (`APPROVED_GITHUB_LOGINS`, in
-`app/lib/approved-github-logins.ts` or the environment); anyone else gets `403`
-and the gist is never fetched on their behalf.
+By default every caller reads **their own** data repository
+(`<login>/ainvestor-data`), found from the token they present, so the server can
+serve anyone. Setting `AINVESTOR_DATA_REPO` (`owner/repo`) on the deployment pins
+one specific repository instead. A pinned repository is served only to a caller
+whose GitHub login is on the same allowlist the web app uses
+(`APPROVED_GITHUB_LOGINS`, in `app/lib/approved-github-logins.ts` or the
+environment); anyone else gets `403` and the repository is never read on their
+behalf.
 
-A caller can still name a gist per request with the `x-ainvestor-gist-id` header.
-That needs no allowlist: it reads only what the caller's own token can already
-reach.
+A caller can still name a repository per request with the
+`x-ainvestor-data-repo` header. That needs no allowlist: it reads only what the
+caller's own token can already reach.
+
+A token without the `repo` scope — any connector set up before the storage
+moved from gists — is answered with `401` and a challenge for `gist repo`, so
+the client asks you to sign in again rather than showing an empty portfolio.
 
 Two things to weigh before relying on this:
 
-- The `gist` scope is all-or-nothing — it reads and writes **every** gist on your
-  account. Fine-grained tokens cannot access gists at all, so this is the only
-  option GitHub offers.
+- Both scopes are all-or-nothing. `gist` reads and writes **every** gist on your
+  account, and `repo` reads and writes **every repository** your account can
+  reach, private ones included — a real widening from `gist` alone. It is
+  accepted for an app with a handful of users, rather than building a GitHub App
+  for per-repository access; see "Why `repo` scope and not a GitHub App" in
+  `docs/STORAGE_MIGRATION_PLAN.md`. Fine-grained tokens cannot access gists at
+  all, so there is no narrower option while the catalog is a gist.
 - A GitHub token is not bound to this server as its audience, which the MCP
   security guidance would otherwise prefer. In practice the server is your own,
   but the token it receives is valid at GitHub generally, not just here.
 - Guideline and holdings writes are open to every caller, each one writing only
-  the gist their own token reaches — a stranger's token never touches your data.
+  the repository their own token reaches — a stranger's token never touches your
+  data.
 
 ### Local — stdio, via Claude Desktop
 
@@ -321,7 +330,7 @@ Then edit `claude_desktop_config.json` — macOS
       "cwd": "/absolute/path/to/ainvestor",
       "env": {
         "GH_TOKEN": "ghp_your_token_here",
-        "AINVESTOR_GIST_ID": "your_private_data_gist_id",
+        "AINVESTOR_DATA_REPO": "your-login/ainvestor-data",
         "SHARED_CATALOG_GIST_ID": "shared_catalog_gist_id"
       }
     }
@@ -330,7 +339,8 @@ Then edit `claude_desktop_config.json` — macOS
 ```
 
 Restart Claude Desktop and ask what is in your portfolio. The token sits in that
-file in plain text, so keep its scope to `gist`.
+file in plain text, so keep its scopes to `gist` and `repo`. `AINVESTOR_DATA_REPO`
+is optional: without it the server reads the token owner's own repository.
 
 `SHARED_CATALOG_GIST_ID` is **required**: the catalog tools read it, and
 `set_guideline` uses it to resolve a fund's ticker and asset class exactly as the
@@ -344,21 +354,16 @@ instead of the server refusing to start.
 Running `npm run mcp` yourself is not useful: the process waits for JSON-RPC on
 stdin and prints only a `[mcp] ready` line on stderr. That is correct, not broken.
 
-### Finding your data gist id
+### Your data repository
 
-Secret gists are matched by **description** (`ai-investor-data`, or
-`ai-investor-preview-data` on the preview app), not by filename, which is why
-they can be hard to spot in the GitHub UI:
+The web app creates `<login>/ainvestor-data` (`ainvestor-preview-data` on the
+preview app) the first time you sign in, as a private repository in your own
+account. A `.ainvestor.json` file in it marks it as the app's; a same-named
+repository without that file is never used, and sign-in says so.
 
-```bash
-curl -s -H "Authorization: Bearer $GH_TOKEN" \
-     -H "Accept: application/vnd.github+json" \
-     "https://api.github.com/gists?per_page=100" \
-| jq -r '.[] | select(.description | test("ai-investor")) | "\(.id)  \(.description)"'
-```
-
-The server never creates a gist. If none is found it says so and points you at
-signing in to the web app once, or pinning an id.
+The MCP server never creates the repository. If it does not exist yet, the
+server says so and points you at signing in to the web app once, or pinning a
+repository.
 
 ### Protocol
 

@@ -1,4 +1,4 @@
-import { isPreview } from './gist.ts'
+import { isPreview } from './deployment.ts'
 import { format, t } from './i18n.ts'
 
 export type PreviewBuildChrome = {

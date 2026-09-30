@@ -15,8 +15,8 @@ import {
 	getLayoutSession,
 	getSessionData,
 	type SessionData,
-	type SessionWithGithubGist,
-	sessionUsesGithubGist,
+	type SessionWithDataRepo,
+	sessionHasDataRepo,
 } from '../../lib/session.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
@@ -267,7 +267,7 @@ function cannotLoadAdviceGistSnapshot(options: {
 		pendingApproval ||
 		session == null ||
 		session.approvalStatus === 'pending' ||
-		!sessionUsesGithubGist(session)
+		!sessionHasDataRepo(session)
 	)
 }
 
@@ -287,15 +287,15 @@ async function loadAdvicePageState(options: {
 		return baseProps
 	}
 	// Type guard: `cannotLoadAdviceGistSnapshot` already implies this; TS needs the call to narrow `session`.
-	if (!sessionUsesGithubGist(session)) {
+	if (!sessionHasDataRepo(session)) {
 		return baseProps
 	}
-	const gistSession: SessionWithGithubGist = session
+	const dataSession: SessionWithDataRepo = session
 
 	try {
 		const stored = await fetchStoredAdviceAnalysisForTab(
-			gistSession.token,
-			gistSession.gistId,
+			dataSession.token,
+			dataSession.dataRepo,
 			activeTab,
 		)
 		if (stored !== null) {
@@ -331,7 +331,7 @@ function adviceGistGateProps(
 	pendingApproval: boolean,
 ): { adviceGistGate?: 'sign_in' | 'connect_gist' } {
 	if (pendingApproval) return {}
-	if (sessionUsesGithubGist(fullSession)) return {}
+	if (sessionHasDataRepo(fullSession)) return {}
 	if (layoutSession === null) return { adviceGistGate: 'sign_in' }
 	return { adviceGistGate: 'connect_gist' }
 }
@@ -552,7 +552,7 @@ export const adviceController = {
 			}
 
 			if (analysisMode === 'portfolio_review' && adviceIntent === 'clear') {
-				if (!sessionUsesGithubGist(session)) {
+				if (!sessionHasDataRepo(session)) {
 					return renderAdviceActionResponse(context, {
 						session: layoutSession,
 						props: withAdviceGate(
@@ -575,7 +575,7 @@ export const adviceController = {
 				try {
 					await clearStoredAdviceAnalysisForTab(
 						session.token,
-						session.gistId,
+						session.dataRepo,
 						'portfolio_review',
 					)
 				} catch (err) {
@@ -585,7 +585,10 @@ export const adviceController = {
 					)
 				}
 				try {
-					await clearLegacyUnifiedAdviceAnalysis(session.token, session.gistId)
+					await clearLegacyUnifiedAdviceAnalysis(
+						session.token,
+						session.dataRepo,
+					)
 				} catch (err) {
 					console.warn('[advice] could not clear legacy advice snapshot', err)
 				}
@@ -610,7 +613,7 @@ export const adviceController = {
 				})
 			}
 
-			if (!sessionUsesGithubGist(session)) {
+			if (!sessionHasDataRepo(session)) {
 				return renderAdviceActionResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
@@ -637,9 +640,12 @@ export const adviceController = {
 			try {
 				const { catalog, entries } = await fetchPortfolioSnapshot(
 					session.token,
-					session.gistId,
+					session.dataRepo,
 				)
-				const guidelines = await fetchGuidelines(session.token, session.gistId)
+				const guidelines = await fetchGuidelines(
+					session.token,
+					session.dataRepo,
+				)
 
 				const client = getOrCreateAdviceClient()
 				const advice = await getInvestmentAdvice({
@@ -656,7 +662,7 @@ export const adviceController = {
 				try {
 					await saveStoredAdviceAnalysisForTab(
 						session.token,
-						session.gistId,
+						session.dataRepo,
 						analysisMode,
 						{
 							version: 1,

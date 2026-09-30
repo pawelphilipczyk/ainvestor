@@ -1,16 +1,13 @@
 import { type CatalogEntry, fetchCatalog } from '../features/catalog/lib.ts'
+import { isPreview } from './deployment.ts'
 import {
 	putPrivateGistTestEtfs,
 	takePrivateGistTestEtfs,
 } from './private-gist-test-store.ts'
-import { githubHeaders, readFile, writeFile } from './store/github-store.ts'
+import { readFile, writeFile } from './store/github-repo-store.ts'
+import { githubHeaders } from './store/github-store.ts'
 
 export const GIST_FILENAME = 'etfs.json'
-
-/** Whether the app is running in the preview deployment (ainvestor-preview.fly.dev). */
-export function isPreview(): boolean {
-	return process.env.FLY_APP_NAME === 'ainvestor-preview'
-}
 
 /** Gist description for a deployment environment (the running one by default). Preview uses separate gists from production. */
 export function getGistDescription(
@@ -68,12 +65,6 @@ type GistPayload = {
 	files: Record<string, GistFile>
 }
 
-export type GistBody = {
-	description: string
-	public: boolean
-	files: Record<string, { content: string }>
-}
-
 /** Parse ETF entries from a raw GitHub Gist API response object. */
 export function parseEtfsFromGist(gist: GistPayload): EtfEntry[] {
 	const file = gist.files[GIST_FILENAME]
@@ -83,19 +74,6 @@ export function parseEtfsFromGist(gist: GistPayload): EtfEntry[] {
 		return normalizeStoredEtfEntries(parsed)
 	} catch {
 		return []
-	}
-}
-
-/** Build the request body for creating or updating a gist. */
-export function buildGistBody(entries: EtfEntry[]): GistBody {
-	return {
-		description: getGistDescription(),
-		public: false,
-		files: {
-			[GIST_FILENAME]: {
-				content: JSON.stringify(entries, null, 2),
-			},
-		},
 	}
 }
 
@@ -115,9 +93,9 @@ type GistListItem = {
 /**
  * Find the ai-investor gist by description, paging through every gist the token
  * can see. Without pagination GitHub returns only the 30 most recently updated
- * gists, so an account with more than that could hide an existing gist and get
- * a duplicate empty one created on the next login. When duplicates already
- * exist, the most recently updated one wins (GitHub's default list order).
+ * gists, so an account with more than that could hide the gist. When
+ * duplicates exist, the most recently updated one wins (GitHub's default list
+ * order). Used by the migration script until the gists are retired.
  */
 export async function findGistIdByDescription(
 	token: string,
@@ -134,8 +112,8 @@ export async function findGistIdByDescription(
 		}
 
 		const gists = (await response.json()) as GistListItem[]
-		// Not a miss — an answer we cannot read. Returning null here would let
-		// `findOrCreateGist` create a duplicate, the very thing this pages to avoid.
+		// Not a miss — an answer we cannot read. Returning null here would tell
+		// the caller the gist does not exist, when nothing was proven.
 		if (!Array.isArray(gists)) {
 			throw new Error('GitHub API returned a non-array gist listing')
 		}
@@ -147,51 +125,26 @@ export async function findGistIdByDescription(
 		if (gists.length < GISTS_PER_PAGE) return null
 	}
 	// Distinct from `null`: we ran out of pages without proving anything, and a
-	// caller must not read that as "no such gist" and create a duplicate.
+	// caller must not read that as "no such gist".
 	throw new Error(
 		`GitHub API returned more than ${MAX_GIST_LIST_PAGES * GISTS_PER_PAGE} gists without matching "${description}"`,
 	)
 }
 
-/**
- * Find an existing ai-investor gist or create a new one.
- * Returns the gist ID.
- */
-export async function findOrCreateGist(token: string): Promise<string> {
-	const existingId = await findGistIdByDescription(token, getGistDescription())
-	if (existingId !== null) return existingId
-
-	// Create a new private gist with an empty ETF list
-	const createResponse = await fetch(`${GITHUB_API}/gists`, {
-		method: 'POST',
-		headers: githubHeaders(token),
-		body: JSON.stringify(buildGistBody([])),
-	})
-
-	if (!createResponse.ok) {
-		throw new Error(`GitHub API error creating gist: ${createResponse.status}`)
-	}
-
-	const created = (await createResponse.json()) as { id: string }
-	return created.id
-}
-
 /** Fetch ETF entries from a gist by ID. */
 export async function fetchEtfs(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 ): Promise<EtfEntry[]> {
-	const testEtfs = takePrivateGistTestEtfs(token, gistId)
+	const testEtfs = takePrivateGistTestEtfs(token, dataRepo)
 	if (testEtfs !== null) return testEtfs
 	const result = await readFile({
 		token,
-		location: gistId,
+		location: dataRepo,
 		path: GIST_FILENAME,
 	})
 	if (!result.ok) {
-		throw new Error(
-			`GitHub API error fetching portfolio gist: ${result.status}`,
-		)
+		throw new Error(`GitHub API error fetching the portfolio: ${result.status}`)
 	}
 	return parseEtfsFromGist({
 		files: result.file
@@ -205,10 +158,10 @@ export async function fetchEtfs(
  */
 export async function fetchPortfolioSnapshot(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 ): Promise<{ entries: EtfEntry[]; catalog: CatalogEntry[] }> {
 	const [entries, catalog] = await Promise.all([
-		fetchEtfs(token, gistId),
+		fetchEtfs(token, dataRepo),
 		fetchCatalog(),
 	])
 	return {
@@ -220,20 +173,20 @@ export async function fetchPortfolioSnapshot(
 /** Save ETF entries to a gist by ID. */
 export async function saveEtfs(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 	entries: EtfEntry[],
 ): Promise<void> {
-	if (putPrivateGistTestEtfs(token, gistId, entries)) return
+	if (putPrivateGistTestEtfs(token, dataRepo, entries)) return
 	const result = await writeFile({
 		token,
-		location: gistId,
+		location: dataRepo,
 		path: GIST_FILENAME,
 		content: JSON.stringify(entries, null, 2),
 	})
 	if (!result.ok) {
 		const detail = await result.response.text().catch(() => '')
 		throw new Error(
-			`GitHub API error saving portfolio gist: ${result.status}${detail ? ` ${detail}` : ''}`,
+			`GitHub API error saving the portfolio: ${result.status}${detail ? ` ${detail}` : ''}`,
 		)
 	}
 }

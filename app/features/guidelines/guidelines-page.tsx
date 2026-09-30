@@ -15,7 +15,7 @@ import type { EtfType } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { getSectionIntro } from '../../lib/section-intros.ts'
-import { sessionUsesGithubGist } from '../../lib/session.ts'
+import { sessionHasDataRepo } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { GuidelinesDeleteDialogInteractions } from './guidelines-list.component.ts'
 import { GuidelinesListFrame } from './guidelines-list-frame.component.ts'
@@ -56,7 +56,7 @@ export function GuidelinesPage(
 						description={guidelinesIntro.description}
 					>
 						<p class="mt-1 text-sm text-muted-foreground">
-							{sessionUsesGithubGist(session)
+							{sessionHasDataRepo(session)
 								? t('guidelines.subtitle.savedGist')
 								: t('guidelines.subtitle.pending')}
 						</p>

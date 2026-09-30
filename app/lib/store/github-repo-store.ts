@@ -39,7 +39,7 @@
  * day one, even though nothing consumes it until Phase 5.
  */
 
-import { isPreview } from '../gist.ts'
+import { isPreview } from '../deployment.ts'
 import {
 	GITHUB_API,
 	GITHUB_REQUEST_TIMEOUT_MS,
@@ -103,6 +103,39 @@ function encodeBase64Content(text: string): string {
 // ---------------------------------------------------------------------------
 // Repo discovery / creation
 // ---------------------------------------------------------------------------
+
+/**
+ * The login a token belongs to, and the scopes it was granted. A classic or
+ * OAuth token reports its scopes in `X-OAuth-Scopes`; a fine-grained token
+ * sends no such header, so `scopes` is `null` there — "unknown", not "none".
+ * Throws on a rejected token, with the status in the message.
+ */
+export async function fetchAuthenticatedUser(
+	token: string,
+): Promise<{ login: string; scopes: string[] | null }> {
+	const response = await fetch(`${GITHUB_API}/user`, {
+		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+		headers: githubHeaders(token),
+	})
+	if (!response.ok) {
+		throw new Error(
+			`GitHub API error reading the token's user: ${response.status}`,
+		)
+	}
+	const body = (await response.json()) as { login?: unknown }
+	if (typeof body.login !== 'string' || body.login.length === 0) {
+		throw new Error('GitHub did not report a login for this token')
+	}
+	const scopesHeader = response.headers.get('x-oauth-scopes')
+	const scopes =
+		scopesHeader === null
+			? null
+			: scopesHeader
+					.split(',')
+					.map((scope) => scope.trim())
+					.filter((scope) => scope.length > 0)
+	return { login: body.login, scopes }
+}
 
 type RepoMetadata = { defaultBranch: string }
 
@@ -558,8 +591,34 @@ export async function writeFiles(params: {
 		tree: { sha: string }
 	}
 
+	// A deletion only goes into the tree for a path that exists, matching
+	// writeFile's no-op on an absent file: a null entry for a missing path is
+	// not something to hand GitHub and hope.
+	let paths = Object.entries(params.files)
+	if (paths.some(([, content]) => content === null)) {
+		const treeResponse = await gitDataRequest({
+			token,
+			owner,
+			repo,
+			path: `trees/${parentCommit.tree.sha}?recursive=1`,
+		})
+		if (!treeResponse.ok) {
+			return { ok: false, status: treeResponse.status, response: treeResponse }
+		}
+		const baseTree = (await treeResponse.json()) as {
+			tree: Array<{ path: string }>
+			truncated?: boolean
+		}
+		if (baseTree.truncated !== true) {
+			const existing = new Set(baseTree.tree.map((entry) => entry.path))
+			paths = paths.filter(
+				([path, content]) => content !== null || existing.has(path),
+			)
+		}
+		if (paths.length === 0) return { ok: true }
+	}
+
 	// One blob per written (non-deleted) file, in parallel — deletions need no blob.
-	const paths = Object.entries(params.files)
 	const blobShaByPath = new Map<string, string>()
 	const blobFailures = await Promise.all(
 		paths.map(async ([path, content]) => {
