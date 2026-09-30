@@ -102,28 +102,29 @@ diagnostics report zero room for it.
 Considered and rejected: IS3C GR (EM debt — credit risk, not ballast, 0.50% TER),
 IBGL LN (15–30yr — excessive rate risk, KID 5), 18M1 GR (0–6 months — cash, not bonds).
 
-## Catalog classification caveat
+## Catalog classification, and how it was wrong
 
-The shared catalog's `type` field is systematically wrong for commodities. This is an
-import defect, not a handful of typos: **every** physical and futures-based commodity
-product found so far is filed under `equity` — gold, silver, platinum, palladium,
-copper, nickel, wheat, corn, sugar, coffee, cocoa, WTI and Brent crude, natural gas,
-uranium, battery metals, every broad commodity basket, and the leveraged ETCs. Filed
-under `commodity`, meanwhile, are **equity** funds: gold miners (GDX, IS0E, G2XJ,
-CD91) and agribusiness (ISAG).
+The catalog's `type` field was systematically wrong for commodities, and the cause was
+a single line of reasoning in the import: it inferred what a fund **is** from what the
+fund **invests in**. Physical gold carries `sector: "metale"`, matched nothing, and fell
+through a silent `return 'equity'`; a gold-miners *equity* fund carries
+`sector: "surowce i towary"`, matched, and was filed as `commodity`. Every physical and
+futures commodity product went to `equity` — metals, grains, softs, crude, natural gas,
+uranium, the broad baskets, the leveraged ETCs — while equity funds sat under
+`commodity`: GDX, IS0E, G2XJ, CD91 and ISAG.
 
-A keyword survey found 45+ affected rows out of 620 and cannot prove it found them
-all — `list_catalog` has no offset and caps at 100 rows per query, so the catalog
-cannot be enumerated through the MCP tools.
+This is fixed at the source. `deriveEtfTypeFromBank` takes the class from the bank's
+`assets` field, the one that answers "what is it", and lets `sector` only narrow what
+`assets` already decided. Anything `assets` does not name is `unknown` and surfaces in
+the import report rather than being guessed, and the raw bank fields — `assets` among
+them — are now persisted, so re-deriving is a re-run rather than a re-import.
 
-**SGLN LN has been corrected to `commodity`** and its guideline row re-saved so the
-new type took effect. Nothing else has been touched: a catalog corrected in 45 places
-out of an unknown total is worse than one that is uniformly wrong, because it stops
-being possible to tell which rows can be trusted. Correcting the rest needs the whole
-file enumerated — `SHARED_CATALOG_GIST_ID` gives read access to do that properly.
+`SGLN LN` had been corrected by hand to `commodity` before that landed; the import now
+reaches the same answer on its own.
 
-Until then, treat any `commodity`/`equity` reading of a fund outside this portfolio as
-unverified.
+**The lesson worth keeping:** a derived field is safe only while it is reproducible.
+Discarding the input that produced it turns a wrong guess into something that cannot be
+recomputed, only re-imported.
 
 ### Guideline rows store the type they were written with
 
@@ -138,12 +139,18 @@ This was observed live: right after SGLN was reclassified, `get_buy_plan` report
 already 40% above target.
 
 The allocation diagnostics now refuse to produce figures in this state
-(`instrument_type_mismatch`): when a guideline names a ticker that is held and the
-two disagree about its class, `get_buy_plan` returns the reason instead of numbers,
-and the advice prompt is told to propose no purchases. The remedy it names is the
-one that works — **re-save the guideline row**, which re-reads the type from the
-catalog. That guard ships on this branch, so it only protects the live tools once
-the branch is deployed.
+(`instrument_type_mismatch`): when a guideline names a ticker that is held and the two
+disagree about its class, `get_buy_plan` returns the reason instead of numbers, and the
+advice prompt is told to propose no purchases. The remedy it names is to **re-save the
+guideline row**, which re-reads the type from the catalog.
+
+Two guards now cover this from both ends. `set_guideline` refuses a named-fund row whose
+type disagrees with the catalog, and refuses one whose catalog type is `unknown`, naming
+`upsert_catalog_entry` as the fix — so drift cannot be introduced at write time. The
+`instrument_type_mismatch` blocker covers what that cannot: drift that appears *after* a
+row is written, when a catalog row is re-typed later. In the `unknown` case the two
+compose into a two-step — the blocker says re-save, and the re-save refuses and points
+at the catalog row, which is the real fix.
 
 ## Drawdown
 
