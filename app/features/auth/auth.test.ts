@@ -108,3 +108,31 @@ describe('GitHub OAuth routes', () => {
 		assert.match(banner?.text ?? '', /Rename or delete it/)
 	})
 })
+
+describe('storage cutover', () => {
+	it('signs out a cookie from before the cutover instead of serving its pages', async () => {
+		process.env.APPROVED_GITHUB_LOGINS = 'octocat'
+		const seeded = await sessionStorage.read(null)
+		seeded.set('login', 'octocat')
+		seeded.set('token', 'gist-only-token')
+		seeded.set('gistId', 'abc123')
+		const value = await sessionStorage.save(seeded)
+		if (value == null) throw new Error('expected session save value')
+		const cookie = (await sessionCookie.serialize(value)).split(';')[0] ?? ''
+
+		const response = await router.fetch(
+			new Request('http://localhost/portfolio', { headers: { cookie } }),
+		)
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/')
+		const after = await sessionStorage.read(
+			await sessionCookie.parse(
+				(response.headers.get('set-cookie') ?? '').split(';')[0] ?? '',
+			),
+		)
+		assert.equal(after.get('token'), undefined)
+		assert.equal(after.get('gistId'), undefined)
+		assert.equal(after.get('login'), undefined)
+	})
+})
