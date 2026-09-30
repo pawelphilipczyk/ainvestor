@@ -43,12 +43,12 @@ export function PortfolioOperationForm(
 				<form
 					id="portfolio-trade-form"
 					method="post"
-					action={routes.portfolio.create.href()}
+					action={routes.portfolio.index.href()}
 					class="mt-4 grid gap-4"
-					data-frame-submit="portfolio-list"
-					data-frame-replace-from-response="1"
+					data-rmx-target="portfolio-list"
 					data-reset-form
 				>
+					<input type="hidden" name="portfolioIntent" value="trade" />
 					<div class="grid gap-2">
 						<FieldLabel fieldId="portfolioOperation">
 							{t('portfolio.operation.field.operation')}
@@ -102,7 +102,7 @@ export function PortfolioOperationForm(
 					{t('portfolio.operation.footer.beforeLink')}{' '}
 					<a
 						href={routes.catalog.index.href()}
-						rmx-document
+						data-rmx-document
 						class="font-medium text-primary underline underline-offset-2"
 					>
 						{t('portfolio.operation.footer.link')}

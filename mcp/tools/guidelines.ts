@@ -9,13 +9,13 @@ import type {
 	GuidelineKind,
 } from '../../app/lib/guidelines.ts'
 import {
-	ETF_TYPES,
 	fetchGuidelinesOrThrow,
 	findGuidelineDuplicateOf,
+	GUIDELINE_ETF_TYPES,
 	GUIDELINE_KINDS,
 	GUIDELINE_TARGET_PERCENT_MAX,
 	GUIDELINE_TARGET_PERCENT_MIN,
-	isEtfType,
+	isGuidelineEtfType,
 	saveGuidelinesOrThrow,
 	sumGuidelineTargetPercent,
 	wouldGuidelineTotalExceedCap,
@@ -126,9 +126,9 @@ function readTargetPercent(toolArguments: Record<string, unknown>): number {
 function readEtfType(toolArguments: Record<string, unknown>): EtfType | null {
 	const raw = readStringArgument(toolArguments, 'etfType')
 	if (raw === null) return null
-	if (!isEtfType(raw)) {
+	if (!isGuidelineEtfType(raw)) {
 		throw new Error(
-			`"etfType" must be one of: ${ETF_TYPES.join(', ')}; got "${raw}".`,
+			`"etfType" must be one of: ${GUIDELINE_ETF_TYPES.join(', ')}; got "${raw}".`,
 		)
 	}
 	return raw
@@ -154,6 +154,11 @@ async function resolveInstrument(params: {
 	const match = findCatalogEntryByTicker(catalog, ticker)
 
 	if (match !== undefined) {
+		if (match.type === 'unknown') {
+			throw new Error(
+				`The catalog has no asset class for ${match.ticker} yet (type "unknown"). Set it with upsert_catalog_entry first, then save the guideline.`,
+			)
+		}
 		if (requestedEtfType !== null && requestedEtfType !== match.type) {
 			throw new Error(
 				`The catalog classifies ${match.ticker} as "${match.type}", not "${requestedEtfType}". Omit "etfType" to use the catalog's, or fix it.`,
@@ -164,7 +169,7 @@ async function resolveInstrument(params: {
 
 	if (requestedEtfType === null) {
 		throw new Error(
-			`Ticker "${ticker}" is not in the shared catalog, so its asset class is unknown. Pass "etfType" (one of: ${ETF_TYPES.join(', ')}) to set it anyway, or use list_catalog to find the right ticker.`,
+			`Ticker "${ticker}" is not in the shared catalog, so its asset class is unknown. Pass "etfType" (one of: ${GUIDELINE_ETF_TYPES.join(', ')}) to set it anyway, or use list_catalog to find the right ticker.`,
 		)
 	}
 	return { ticker, etfType: requestedEtfType, catalogVerified: false }
@@ -180,7 +185,7 @@ async function buildGuidelineEntry(
 	if (kind === 'asset_class') {
 		if (requestedEtfType === null) {
 			throw new Error(
-				`An asset-class guideline needs "etfType" (one of: ${ETF_TYPES.join(', ')}).`,
+				`An asset-class guideline needs "etfType" (one of: ${GUIDELINE_ETF_TYPES.join(', ')}).`,
 			)
 		}
 		return {
@@ -325,7 +330,7 @@ export function createSetGuidelineTool(
 				},
 				etfType: {
 					type: 'string',
-					enum: [...ETF_TYPES],
+					enum: [...GUIDELINE_ETF_TYPES],
 					description:
 						'Asset class. Required for kind "asset_class"; for an instrument it is taken from the catalog unless the ticker is unlisted.',
 				},

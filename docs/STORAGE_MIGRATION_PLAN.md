@@ -1,0 +1,691 @@
+# Storage Migration Plan — gists → GitHub repositories
+
+**Status:** Phases 0–2 done. Phase 3 (a one-off migration script) is next,
+then Phase 4 (the cutover deploy). Phases 5+ are designed but not yet detailed
+to the commit level.
+
+This plan replaces gist-backed storage with repository-backed storage, and
+removes guest mode first because it shrinks the surface the migration has to
+carry.
+
+## Why move off gists
+
+Four problems, all hit in practice:
+
+1. **No conditional write.** Every write is a read-modify-write of a whole file
+   with no compare-and-swap. A browser tab and an MCP client racing means the
+   later write silently wins. Documented today in `README.md` and in the
+   `record_operation` tool description (`mcp/ainvestor-server.ts`).
+2. **Truncation.** Gist files over 1 MB come back truncated from the API. The
+   catalog already crossed it; `readFullGistFileContent`
+   (`app/features/catalog/lib.ts`) exists solely to re-fetch from `raw_url`.
+3. **Discovery by brute force.** `findGistIdByDescription` (`app/lib/gist.ts`)
+   pages through up to 5000 gists to find one file, with duplicate-creation
+   guards layered on top.
+4. **Unauthenticated catalog reads.** `fetchSharedCatalogSnapshot`
+   (`app/features/catalog/lib.ts`) sends no `Authorization` header, so catalog
+   reads share the 60-requests/hour-per-IP anonymous bucket for the whole Fly
+   app, propped up by a 60s in-process TTL cache.
+
+What is **not** a reason: size, query complexity, or write volume. The data is
+a handful of small JSON documents per user. No database engine is needed, and
+none is proposed.
+
+## What must survive
+
+The gist is not only storage — it is the authorization model:
+
+- The server holds **no credential that can read user data**. Data lives in the
+  user's own GitHub account, reached with the user's own token.
+- `/mcp` is a pure token pass-through; GitHub is the authorization server and
+  the app never becomes one.
+
+Any design that moves user data into infrastructure the app owns gives this up.
+That is the property the chosen design is built around.
+
+## Decisions taken
+
+| Decision | Choice | Rationale |
+|---|---|---|
+| User data location | `<login>/ainvestor-data`, **private**, personal account | Per-user, per-token, preserves the credential-free model |
+| Catalog location | `ainvestor-shared/ainvestor-catalog`, **private**, under a GitHub **organization** | See below |
+| Catalog read credential | the **caller's** token | No server-side credential; possible only because guests lose catalog access |
+| Auth mechanism | OAuth App, scope `gist` → `gist repo` (Phase 4) → `repo` (Phase 7) | See below; `repo` does not cover gists, so `gist` stays while the catalog is one |
+| Data migration | a script run by hand, once per environment | One user, two environments — see Phase 3 |
+| Organization | **yes**, free tier, for the catalog only | See below |
+| Concurrency | Contents API `sha` as compare-and-swap | Returns `409` on mismatch — the actual payoff of this migration |
+| Multi-file atomicity | Git Data API (blobs → tree → commit) | Catalog writes two files in one gist `PATCH` today; a commit preserves that and adds a parent-sha CAS |
+
+### Why the catalog stays private
+
+A public repo is indexed and searchable — strictly worse than today. A secret
+gist is *unlisted*, not access-controlled (`README.md` says so), and its id
+already travels through Fly config, GitHub Actions secrets, and every user's
+plaintext `claude_desktop_config.json`. A private repo is the first time the
+catalog is genuinely access-controlled.
+
+The threat model is **"don't advertise,"** not "must never leak." That is why a
+rotating server-side read credential is not worth its upkeep here.
+
+### Why the caller's token, and not a server credential
+
+A private repo cannot be read anonymously, so *something* must authenticate.
+The alternative was a fine-grained read-only PAT in Fly secrets. It was
+rejected because its only real advantage was keeping guests working, and guests
+are being removed anyway. Reading with the caller's token keeps the app holding
+zero credentials for both stores.
+
+### Why `repo` scope and not a GitHub App
+
+A GitHub App is the only way to get true least privilege (per-repo
+`contents: write`). It was considered and deferred:
+
+- Classic OAuth App scopes are all-or-nothing. `repo` reaches every repository
+  on the account — broader in blast radius than `gist`, and **this is a
+  regression that belongs in the README honestly, not glossed over.**
+- Against a one-to-few-user app with a "don't advertise" threat model, that
+  regression is acceptable in exchange for the auth change being a scope string
+  plus a re-auth rather than a new auth architecture (installation flow, user-to-server
+  tokens, ~8h expiry and refresh, and changes to the MCP discovery metadata).
+- An earlier draft of this plan argued the App could hold catalog read access
+  too, consolidating credentials. That argument died when the catalog moved to
+  caller-token reads.
+
+**Revisit when:** the approved-user count grows past a handful. Moving the
+catalog repo to an organization (below) does not revive the App question —
+an org's Read role changes who can read the repo, not how the server
+authenticates, and the server still authenticates as nobody: every request
+carries the caller's own token, App or no App.
+
+### Why an organization for the catalog
+
+Option "collaborators read with their own token" nominally needs an org,
+because **personal-repo collaborators always get write access** — a personal
+repo has no read-only role. Only a GitHub organization's Team feature offers
+one: a Team can be given the **Read** role on a specific repo, which lets its
+members clone and read but never push.
+
+This was checked against GitHub's own docs rather than assumed, because the
+pricing page's own summary of team permissions is easy to misread as
+paid-gated. It isn't: **GitHub Free** already includes unlimited private
+repositories and Team-based repository roles (Read/Triage/Write/
+Maintain/Admin) for organizations of any size. The paid Team ($4/user/mo) and
+Enterprise ($21/user/mo) tiers add SSO/SCIM, enforced required reviewers,
+mandatory code owners, and audit logs — not role-based access itself.
+
+Decision: the organization is **`ainvestor-shared`**, free tier, holding the
+catalog repo only (`ainvestor-shared/ainvestor-catalog`, private), with a
+**Read**-role team (`ainvestor-users`) that approved users are added to for
+catalog access. Per-user data repos stay under each user's own personal
+account (`<login>/ainvestor-data`) — the organization is scoped to the
+catalog, not the whole migration. Adding or removing a catalog reader
+becomes a team-membership change, no code or infrastructure change.
+
+`ainvestor-users` is set as the organization's **default repository
+permission** (Read on all repos in `ainvestor-shared`), not a grant scoped to
+`ainvestor-catalog` alone. Today those are equivalent — the org holds one
+repo — but it means a repo added to this org later (another catalog
+"location," say) is readable by the same team automatically, with no
+membership change. That fits an org named for what it holds — shared,
+readable data — so it is left as configured rather than narrowed to a
+single-repo grant.
+
+---
+
+# Phase 0 — remove guest mode ✅
+
+**Done.** What the work changed against what this section planned is recorded
+under [Phase 0 outcome](#phase-0-outcome) below.
+
+**Goal:** an unauthenticated visitor can reach the home page and sign in, and
+nothing else. This is a prerequisite: it removes the anonymous catalog read that
+blocks a private catalog repo, and it collapses a second code path through every
+feature handler.
+
+## There are three session states, and only one is being removed
+
+| State | Identified by | Fate |
+|---|---|---|
+| Guest — no login at all | no `login` in session | **removed** |
+| Signed in, pending approval | `approvalStatus: 'pending'`, token stripped by `stripGithubTokenIfUnapproved` | **stays** |
+| Signed in, approved | `token` + `gistId` present | stays |
+
+This distinction is the main trap in Phase 0. `getSessionIdentity` and
+`getLayoutSession` (`app/lib/session.ts`) exist to serve the *pending* state and
+must not be deleted along with guest handling. Copy that today reads "guest or
+signed-in user without a private gist" — for example the comment on
+`app/features/advice/advice-page.tsx` — narrows to the pending case only.
+
+## Inventory
+
+**Delete outright:**
+- `app/lib/guest-session-state.ts` and `app/lib/guest-session-state.test.ts`
+  (note: `getGuestCatalog` / `setGuestCatalog` in it are **already dead** — only
+  their own test references them)
+
+**Remove the guest branch from:**
+- `app/features/catalog/catalog-load-context.ts` — the `getGuestEtfs` fallback
+  in `loadCatalogPageContext`
+- `app/features/portfolio/index.ts` — six call sites
+- `app/features/portfolio/portfolio-operation-form/index.ts` — four call sites
+- `app/features/guidelines/index.ts` — eight call sites, including the
+  server-side guest guidelines LRU
+
+**Rename, do not delete:**
+- `resetGuestCatalog` (`app/router.ts`, re-exported from
+  `app/features/catalog/index.ts`) is **not guest state** — it is
+  `resetTestSessionCookieJar`, a test helper with a misleading name. A naive
+  grep-and-delete breaks the suite. Rename it to match what it does.
+
+**Copy (both locales, per the i18n rule in `AGENTS.md`):**
+- `portfolio.signInPersist`, `guidelines.subtitle.signIn` and neighbours in
+  `app/locales/en.ts` and `app/locales/pl.ts` — "sign in to persist" stops being
+  true when there is nothing to persist without signing in.
+
+## The opportunity: one auth gate instead of many
+
+There is **no auth middleware today**. `app/router.ts` builds its chain from
+`remix/middleware/*` and ends with `enforceGithubApproval()`, which only strips
+unapproved tokens — every controller then does its own session check and its own
+guest fallback.
+
+Phase 0 should add a `requireApprovedSession()` middleware next to
+`enforceGithubApproval()`, redirecting to `routes.auth.login` for anything that
+is not the home page, the auth routes, the locale route, `/health`, the MCP
+routes, or the asset server. Per the Remix rule in `AGENTS.md`, build it on
+`remix/middleware` and `remix/response/redirect` rather than hand-rolling.
+
+That turns "check the session, else fall back to guest" — repeated across five
+controllers — into one gate, and is the reason Phase 0 is expected to *remove*
+more code than it adds.
+
+## Done when
+
+- No module imports from `guest-session-state.ts`; the file is gone
+- An unauthenticated request to `/portfolio`, `/guidelines`, `/catalog`,
+  `/advice`, `/admin` redirects to login
+- The pending-approval state still renders its own screen (a regression test
+  should pin this specifically — it is the state most likely to be broken by
+  mistake)
+- `npm run check`, `npm test`, `npm run typecheck` pass; `npm run test:browser`
+  passes for any touched client entry
+- `README.md` no longer advertises guest ETF entry
+
+## Phase 0 outcome
+
+All of the above holds. Three things went differently from the plan, and one
+piece of work the plan did not anticipate turned out to be the bulk of it.
+
+**The gate lists what it protects, rather than protecting everything.** The
+plan said "redirect anything that is not public". Built that way, an unknown
+URL answers `302` instead of `404`, which hides every genuine miss — a
+`theme-toggle` test that pins a removed asset path at `404` caught it.
+`requireApprovedSession` now matches `PROTECTED_PATH_PREFIXES`, and
+`require-approved-session.test.ts` pins both halves so a route added later
+cannot quietly default to public without the listing test noticing.
+
+**Signed-out visitors go to the intro page, not to `routes.auth.login`.** The
+OAuth flow has no return-to, so a bounce to GitHub lands them on the intro page
+anyway — one off-site round trip later, having lost the URL they asked for.
+
+**Pending-approval sessions lost their ephemeral store, by design.** They
+previously shared guest state, which is how "portfolio is not saved to GitHub
+yet" worked: rows lived in the session. With guest state gone they read and
+write nothing until approved, and the copy in both locales now says so
+(`portfolio.pendingNotSaved`, `guidelines.subtitle.pending`). Writes they
+should not be able to reach answer `errors.*.requiresApproval` in all three
+response shapes rather than redirecting silently.
+
+**The unplanned work: a gist double that can write.** Route tests exercised
+add, sell, import and delete flows *through guest state*. Signed in, those
+paths go to `saveEtfs` / `saveGuidelines`, which called GitHub for real — so
+removing guest mode broke every mutation test at once, not just the guest
+ones. `private-gist-fetch-test-overlay.ts` (read-only) therefore became
+`private-gist-test-store.ts`, an in-memory double that serves reads *and*
+absorbs writes. Phase 1 needs the same seam for the storage port, so this is
+groundwork rather than a detour.
+
+Shared sign-in helpers now live in `test-session-fetch.ts`
+(`approvedSessionCookie`, `pendingSessionCookie`, `seedTestSessionCookie`),
+replacing the sign-in block each suite had copied. They are deliberately
+**additive** — they add a login to `APPROVED_GITHUB_LOGINS` and install a store
+only when none exists — because `browser-test.ts` calls them for every page it
+opens, and a suite that approved its own login or seeded its own rows first
+must not have either wiped out from under it.
+
+**The browser suites needed the same gate treatment, and one of them was
+lying.** `openPage` now signs its context in (`signInBrowserContext`, exported
+for tests that build a context by hand, such as the no-JS one). Without it
+`pages.browser.ts` still **passed**: `page.goto` follows redirects, so all five
+pages answered `200` — from the intro page, five times over. It now pins
+`page.url()` against the path it asked for. Two suites also needed a per-test
+`setPrivateGistTestStore` reset: every context shares one signed-in session and
+therefore one store, where guest state used to isolate them per cookie.
+
+**Known leftover:** `adviceGistGateProps` in `app/features/advice/index.ts`
+still has a `'sign_in'` branch for `layoutSession === null`, which the gate now
+makes unreachable on `/advice`, along with the `advice.requiresGist.*` copy it
+renders. Left in place as defence in depth rather than unpicked from the
+`withAdviceGate` plumbing mid-phase; worth removing on the next change to that
+file.
+
+---
+
+# Phases 1–6 — the storage migration
+
+Each phase ships green on its own.
+
+### Phase 1 — extract the storage port, still on gists ✅
+
+**Done.** There were **four copies of `githubHeaders`** (`app/lib/gist.ts`,
+`app/lib/guidelines.ts`, `app/features/advice/advice-gist.ts`,
+`app/features/catalog/lib.ts`) and four near-identical `GistPayload` shapes.
+Per the pattern-capture rule in `AGENTS.md`, that repetition is now collapsed
+into `app/lib/store/github-store.ts`, and all four modules delegate their real
+HTTP calls to it. Every exported function signature in those four modules is
+unchanged — the ~40 call sites across `app/` and `mcp/` needed zero edits.
+
+**The actual shape differs from this section's original sketch**, once reading
+every call site made the requirements concrete:
+
+```ts
+// app/lib/store/github-store.ts
+type StoredFile = { content: string; version: string | null }
+
+readFile({ token, location, path })       // token: null reads anonymously
+readFiles({ token, location, paths })     // one round trip for several paths
+writeFile({ token, location, path, content, expectedVersion? })   // content: null deletes
+writeFiles({ token, location, files, expectedVersion? })          // atomic multi-file write
+```
+
+- **`content: string`, not a parsed `value: T`.** `advice-gist.ts`'s outcome
+  read needs to know whether a file had *any* raw content, separately from
+  whether that content parsed — collapsing that into "parsed value or null"
+  would have lost the distinction between "not found" and "malformed" it
+  reports today. Parsing, schema validation and normalization stay exactly
+  where they were, in each domain module.
+- **`readFiles` (plural) exists because one caller needs it.**
+  `fetchStoredAdviceAnalysisOutcomeForTab` reads a mode-specific file with a
+  fallback to a legacy shared one, and did that as **one** GET today. Modeling
+  the port as single-path-only would have silently doubled that call's GitHub
+  API cost. `readFile` is `readFiles` with one path.
+- **`token: string | null`, not always required.** The shared catalog reads
+  anonymously today (problem #4) — Phase 1 doesn't fix that, so the port has
+  to carry the anonymous case rather than force every caller to authenticate.
+- **A rejected `writeFiles` carries the raw `Response`.** `saveEtfs` read the
+  failure body for extra error-message detail before this module existed;
+  dropping that would have been a real, if small, regression. Every other
+  caller ignores it and just checks `status`.
+- **Every request shares one 5-second timeout**, previously applied only to
+  catalog's calls (`gist.ts`/`guidelines.ts`/`advice-gist.ts` had none). This
+  is the one deliberate behavior change in this phase: a hung request used to
+  hang the page render; now it aborts. Flagged rather than hidden inside
+  "pure refactor."
+- **Truncated-content handling moved into the port entirely** — every reader
+  benefits, not just the catalog. `readFullGistFileContent` is gone from
+  `catalog/lib.ts`.
+
+`version` is `null` from every read, and `expectedVersion` is accepted but
+unenforced on every write, exactly as planned — no caller relies on it yet.
+
+**Left alone, on purpose:** three separate test-double mechanisms still exist
+for "this call is a test, don't hit GitHub" — `private-gist-test-store.ts`
+(shared by `gist.ts`/`guidelines.ts`), `advice-gist.ts`'s own `gistTestState`,
+and catalog's `sharedCatalogTestSnapshot`. Unifying them touches
+`advice.test.ts`/`advice.browser.ts` directly and was judged separate work
+from the transport extraction; noted here rather than done by accident.
+`app/lib/portfolio-review-gist.ts` was checked and confirmed to have **no**
+network calls left (only its own test imports it) — out of scope, and a
+candidate for deletion in an unrelated cleanup.
+
+New direct coverage: `app/lib/store/github-store.test.ts` (16 cases) for the
+port itself, and 5 new cases in `app/features/advice/advice-gist.test.ts` for
+`saveStoredAdviceAnalysisForTab`/the three clear functions — their real-network
+paths had **no** prior coverage at all (every existing test in that file ran
+through `gistTestState.enabled`); this phase's rewrite would otherwise have
+shipped unverified.
+
+Tests stay green: 684/684 unit (was 662; +16 port, +5 advice-gist, +1 net from
+a Phase-0-era duplicate removed earlier), 40/40 browser. **This was worth
+landing as its own PR** — it is a pure internal refactor with no behavior
+surface for Phase 2+ to depend on yet.
+
+**Code review round, once CI was green, found five real issues and one worth
+disclosing rather than fixing** — all in `app/lib/store/github-store.ts` unless
+noted:
+
+- **The truncation-fallback contract genuinely diverged**, and the obvious fix
+  was the wrong one. Catalog's old code fell through to `raw_url` whenever a
+  present file's content was `null`, even without `truncated: true` — the
+  other three modules never had that check and always treated null/missing
+  content as empty. The first fix attempt (restore catalog's exact old branch)
+  broke a passing test pinning the other three modules' behavior. Kept the
+  safer unified contract instead (null content never triggers a `raw_url`
+  attempt) and documented it as a deliberate normalization, with a test
+  proving each direction.
+- `readFiles` downloaded more than one truncated file's `raw_url` content in
+  sequence rather than in parallel — a latency regression specifically for the
+  two-file legacy-fallback read this phase introduced. Fixed with
+  `Promise.all`; the added test fails against the sequential version (checked
+  by temporarily reverting it).
+- `buildAdviceAnalysisGistPatchForFile` (`advice-gist.ts`) ended up fully dead
+  — no caller, no test — once the save path moved to
+  `buildAdviceAnalysisPayload` + `writeFile`. Deleted.
+- `buildGuidelinesGistPatch`/`buildCatalogGistPatch` were still independently
+  tested but no longer exercised by the real save path, which had started
+  building its PATCH content inline instead — meaning their tests no longer
+  said anything about production behavior. Routed both save functions back
+  through the build-patch functions rather than duplicating the
+  `JSON.stringify`.
+- Catalog's local `GistFile`/`GistPayload` types still carried `truncated`/
+  `raw_url`/`owner`, vestigial now that the port resolves those upstream.
+  Trimmed to the same minimal shape `gist.ts`/`guidelines.ts` use — **not**
+  unified into one shared type across all three, since their minimal
+  "resolved content" shape is a genuinely different concept from the port's
+  raw-wire type, not an accidental duplicate of it.
+- **Disclosed, not fixed:** `saveEtfs`'s PATCH body now sends `files` only.
+  The old code sent `buildGistBody(entries)` — `description` + `public` +
+  `files` — re-asserting a fixed description and `public: false` on every
+  save. Restoring that would mean leaking a gist-only concept into the port's
+  write signature, which a repository backend has no equivalent for. The
+  observable effect is identical unless a user changed the gist's description
+  or visibility from GitHub's own UI, in which case the new code no longer
+  overwrites that on the next save — flagged rather than silently dropped,
+  since "no behaviour change" was this phase's own stated bar.
+
+### Phase 2 — repo backend behind the same port
+
+**Scope for this phase, decided going in:** a fully-tested, standalone backend
+module — not wired into `github-store.ts`'s dispatch, `session.gistId`, or MCP
+config yet. With the OAuth scope still `gist` until Phase 3, nobody in
+production has a token that can touch a private repo, so wiring it in now
+would be dead code pretending to be live. The env-var dispatch this section's
+first draft described belongs to Phase 3, alongside the session/MCP wiring —
+built together, since a dispatcher with nothing real to select between is
+premature machinery, and touching Phase 1's now-shipped code path for it would
+add risk to this phase for no live benefit. *(Later superseded: with one user,
+Phases 3–4 replace the dispatcher with a scripted copy and a single cutover
+deploy, so no dispatcher is built at all.)*
+
+Two design decisions taken up front:
+
+- **Name-collision behavior:** if `<login>/ainvestor-data` already exists but
+  lacks the ownership marker file, **refuse with a clear error** naming the
+  conflict, rather than silently falling back to an auto-suffixed name. A
+  repo the app didn't create is never touched, and where a user's data ends up
+  living is never decided without them noticing.
+- **`location` stays one string** across both backends: a gist id for the gist
+  backend, `"owner/repo"` for the repo backend (repo names and logins can't
+  contain `/`, so this is unambiguous) — avoids a discriminated union for a
+  distinction only the backend implementation needs to care about.
+
+The two backends' native write contracts don't match, which is most of why
+this phase is bigger than Phase 1's:
+
+- A gist PATCH has no version concept; GitHub silently overwrites. A repo file
+  update always requires the blob's current `sha` — there is no "just
+  overwrite" option on the Contents API. When a caller doesn't supply
+  `expectedVersion` (every caller today; Phase 5 is what starts threading it
+  through), the repo backend reads the current `sha` itself first, matching
+  gists' last-write-wins behavior. Once a caller does supply one, GitHub's own
+  rejection on a stale `sha` **is** the compare-and-swap signal Phase 5 wants —
+  no extra logic needed here, just wiring that rejection through later.
+- A multi-file atomic write has no PATCH equivalent: it is a five-request Git
+  Data sequence (read the branch ref → read its commit → create a blob per
+  changed file → create a tree with those blobs layered on the current one →
+  create a commit → update the ref, non-fast-forward, which is where the
+  atomicity actually comes from). Only `saveCatalog` needs this today; every
+  other write in the app touches one file.
+- A multi-file **read** has no bundled-response shortcut either: gists return
+  every file in one payload, so reading N files costs one request regardless
+  of N. Repos have no such endpoint for arbitrary paths — reading N files
+  costs N requests (parallelized via `Promise.all`, but still N against the
+  rate limit). A real, if minor, cost regression for `advice-gist.ts`'s
+  two-file legacy-fallback read once this backend is live.
+
+Every {@link StoredFile}'s `version` is populated with the real blob `sha`
+from day one, even though nothing consumes it until Phase 5 — forward
+compatible by construction, same as the port's original design intent.
+
+Repos are created with `auto_init: true` (an empty repo has no default branch
+and 404s on the Contents API otherwise), named `ainvestor-data` /
+`ainvestor-preview-data` mirroring `getGistDescription()`'s existing
+`isPreview()` branch, and stamped with a `.ainvestor.json` marker file
+(`{"app":"ainvestor-data","version":1}`) right after creation — the same file
+the collision check reads before trusting an existing repo.
+
+## Phase 2 outcome
+
+**Done.** `app/lib/store/github-repo-store.ts` implements `readFile`/
+`readFiles`/`writeFile`/`writeFiles`/`findOrCreateDataRepo` against the
+Contents and Git Data APIs, exactly as scoped: standalone, not wired into
+`github-store.ts`'s dispatch or anything in `app/`/`mcp/`. 30 new unit tests
+(716 total, up from 686), each checked against a broken version of the code it
+guards to confirm it fails without the fix — same discipline as Phase 1's
+review round.
+
+Two things worth recording that the plan's original two-paragraph sketch
+didn't anticipate:
+
+- **A repo write's `sha` requirement reaches further than "pass
+  `expectedVersion` through."** `writeFile` needs the current file's `sha` to
+  update *or delete* it — there is no bare "PATCH with new content" the way a
+  gist has. When the caller has no `expectedVersion` (every caller today),
+  the function reads the file first purely to learn its `sha`, and that read
+  can itself fail for a reason unrelated to CAS (a 403, a timeout) — which
+  must surface as the write's own failure, not be silently swallowed into "no
+  sha, must be a new file." Caught by a test that intentionally breaks this
+  guard and confirms the suite then fails.
+- **A Git tree's deletion entries still need `mode` and `type`.** Deleting a
+  path from a tree via a partial update is `{path, mode, type, sha: null}` —
+  omitting `mode`/`type` on the theory that a deletion doesn't need them is a
+  documented but easy-to-miss requirement of the Git Data API, not an
+  invention of this module.
+
+Deferred on purpose, not overlooked: the branch-level compare-and-
+swap on `writeFiles`'s ref update is real today (a moved ref rejects a
+non-force update), but nothing surfaces that rejection as anything other than
+a generic write failure yet — that's what "turn on compare-and-swap" in
+Phase 5 means. Phase 2 only had to make the mechanism exist and be correct.
+
+### Why Phases 3–4 changed shape
+
+The earlier design copied gist → repo inside the app on each user's first
+login after the switch, with a dispatcher routing each user to whichever
+backend held their data. That machinery serves many users migrating on their
+own schedule. This app has **one** approved, active user (the owner) in two
+environments — prod (`ai-investor-data` gist) and preview
+(`ai-investor-preview-data` gist). For that, in-app migration is code that runs
+twice and then has to be maintained and tested forever, and the dispatcher
+exists only to support a mixed state nobody is ever in.
+
+So the migration becomes a script run by hand, and the switch becomes one
+deploy per environment. No dispatcher is built.
+
+The earlier Phase 3 also said `scope: 'gist'` → `'repo'`. That would have broken
+every save: `repo` does not cover gists, and the catalog stays on a gist until
+Phase 6. The scope grows to `gist repo` instead, and `gist` is dropped in
+Phase 7.
+
+### Phase 3 — migration script
+
+`scripts/migrate-gist-to-repo.ts`, run on the owner's laptop:
+
+```
+node --import remix/node-tsx scripts/migrate-gist-to-repo.ts --env prod|preview [--apply] [--force]
+```
+
+It reads `GH_TOKEN`, which needs both `gist` and `repo` (a classic PAT). It
+never logs the token.
+
+1. **Find the gist** by description (`ai-investor-data` for prod,
+   `ai-investor-preview-data` for preview) with `findGistIdByDescription`. Stop
+   if there isn't one.
+2. **Read every file in it**: list the gist's files, then read them with the
+   gist backend's `readFiles`, which handles truncation. It copies whatever is
+   there rather than a hard-coded list (`etfs.json`, `guidelines.json`,
+   `advice-*.json` today), so a forgotten file can't be silently left behind.
+3. **Find or create the repo** with `findOrCreateDataRepo`: `ainvestor-data`
+   for prod, `ainvestor-preview-data` for preview. The name comes from `--env`,
+   not from `FLY_APP_NAME`, which doesn't exist on a laptop. So
+   `findOrCreateDataRepo` gains an optional explicit repo name. A dry run only
+   looks the repo up and reports "would create"; it never creates it.
+4. **Refuse to overwrite** a repo that already holds any of those files, unless
+   `--force` is given. A rerun then deliberately replaces the first copy; the
+   gist stays the source of truth until the cutover.
+5. **Dry run by default.** It prints the source gist, target repo, and each
+   file with its size. `--apply` writes them all in one `writeFiles` commit.
+6. **Verify**: read every file back from the repo and compare it byte for byte
+   with the gist. Any mismatch exits non-zero.
+
+The script **never writes to or deletes the gist**. The gist stays as the
+backup until Phase 7.
+
+The pure parts (argument parsing, environment → names, comparison) get unit
+tests with a stubbed `fetch`, like the store tests. The real run is the actual
+test: it is the first time `github-repo-store.ts` meets real GitHub rather than
+stubs. Anything it gets wrong against the live API is fixed and recorded in a
+Phase 3 outcome.
+
+The copy step (read the gist → one commit → verify) is reused for the catalog
+in Phase 6. Repo creation is not, because `ainvestor-shared/ainvestor-catalog`
+already exists.
+
+### Phase 4 — cutover: the app reads and writes repos
+
+One PR switches all per-user data from gists to the repo. At no point is some
+of it on each backend: the script copies, the deploy switches.
+
+**Auth** (`app/features/auth/index.ts`):
+- Scope becomes `gist repo`. Everyone sees GitHub's consent screen once more,
+  for the added scope.
+- Sign-in resolves the data repo with `findOrCreateDataRepo` instead of
+  `findOrCreateGist`. A failure, including `ForeignRepoError`, becomes the same
+  error banner the gist failure shows today, not a 500.
+
+**Session** (`app/lib/session.ts`):
+- `gistId` becomes `dataRepo`, holding `owner/repo`. `sessionUsesGithubGist`
+  and `SessionWithGithubGist` are renamed to match.
+- A cookie from before the cutover has `gistId` and a token without `repo`,
+  which cannot read a private repo. It must lead back to sign-in, not to a
+  storage error page. The simplest way is to treat a session with no
+  `dataRepo` as signed out.
+
+**Storage callers**:
+- `app/lib/gist.ts` (portfolio), `app/lib/guidelines.ts`, and
+  `app/features/advice/advice-gist.ts` import from `github-repo-store.ts`.
+- `app/features/catalog/lib.ts` stays on `github-store.ts` until Phase 6.
+- The test doubles (`private-gist-test-store.ts`, the advice test overlay)
+  step in before storage is called, so they carry over. Renaming them can
+  follow.
+- `isPreview` moves out of `gist.ts` into a small module of its own.
+  `github-repo-store.ts` already imports it from `gist.ts`, so once `gist.ts`
+  imports the repo store the two would import each other. The current import
+  also drags `catalog/lib.ts` into the repo store for no reason.
+
+**MCP**:
+- `REQUIRED_GITHUB_SCOPE` becomes `gist repo`. It feeds the discovery
+  metadata's `scopes_supported` and the `WWW-Authenticate` challenge; the error
+  and hint text in `mcp/http.ts` and `mcp/config.ts` change with it.
+- Finding the gist by description is replaced by the fixed repo name:
+  `<login>/ainvestor-data`, with the login from `GET /user`, cached per token
+  like the gist id is today. MCP never creates the repo, the same rule as
+  never creating the gist.
+- The `AINVESTOR_GIST_ID` env var becomes `AINVESTOR_DATA_REPO`, and the
+  `X-Ainvestor-Gist-Id` header becomes `X-Ainvestor-Data-Repo`. Both take
+  `owner/repo`.
+- A client still holding a gist-only token gets a `404` for the private repo
+  (see Traps). That must reach the model as "reconnect to grant repository
+  access", not as an empty portfolio.
+
+**Docs**:
+- `README.md`: the scope sections, including the honest note on `repo`'s
+  wider reach that the decision above requires.
+- `docs/MCP_SERVER_PLAN.md`: its mentions of the `gist` scope.
+- This plan.
+
+**Order.** Every PR deploys to the one shared preview app, and merging deploys
+to prod. The cutover PR's own preview deploy is therefore the rehearsal:
+
+1. Make no edits in either environment from here until step 6.
+2. Run the script against preview with `--apply`, and confirm it verifies.
+3. Open the cutover PR; its preview deploy is the new code. Don't push other
+   PRs in the meantime, because their preview deploys would put the gist code
+   back.
+4. On preview: sign in (re-consent), then check that portfolio, guidelines and
+   saved advice all match. Make one edit and confirm it lands as a commit in
+   `ainvestor-preview-data`.
+5. Run the script against prod with `--apply`, and confirm it verifies.
+6. Merge. Then repeat step 4's checks on prod against `ainvestor-data`.
+7. Reconnect MCP clients so they pick up the new scope.
+
+**Rollback**: redeploy the previous build. It reads the untouched gist, which
+is missing anything saved after the cutover.
+
+**Done when** both environments read and write their repos and pass the
+checks above, the gists are untouched, CI (lint, types, tests, browser tests)
+is green, and the docs are updated.
+
+### Phase 5 — turn on compare-and-swap
+
+Thread `expectedVersion` through every write and surface `409` as a visible
+"changed elsewhere, reload" instead of a silent overwrite. **This is the payoff;
+everything before it is plumbing.**
+
+Two doc changes fall out: the lost-update warning in `README.md` gets deleted
+rather than reworded, and the `record_operation` tool description in
+`mcp/ainvestor-server.ts` stops telling the model that concurrent writes
+overwrite and stops pointing at gist Revisions for recovery.
+
+### Phase 6 — catalog to its own private repo
+
+`fetchCatalog()` and `fetchSharedCatalogSnapshot()` currently take **no
+arguments** because the read is anonymous. Both gain a token parameter, which
+ripples to roughly twelve call sites across `app/features/catalog/index.ts`,
+`catalog-load-context.ts`, `admin/index.ts`, `auth/index.ts`,
+`guidelines/index.ts`, `portfolio/index.ts` and
+`portfolio/portfolio-operation-form/index.ts`, plus `mcp/tools/catalog.ts`
+(which already has the caller's token).
+
+Phase 0 is what makes this tractable: without it, several of those call sites
+have no token to pass.
+
+The two-file catalog write (`catalog.json` + `catalog-source.json`, one `PATCH`
+today) becomes one Git Data commit — same atomicity, plus CAS on the parent.
+
+The data moves the Phase 3 way: the script's copy-and-verify step, pointed at
+the catalog gist and the existing `ainvestor-shared/ainvestor-catalog`, then a
+cutover deploy.
+
+### Phase 7 — remove the gist backend
+
+Delete the gist implementation, the env vars, and the gist language throughout
+`README.md` and `docs/MCP_SERVER_PLAN.md`. Drop `gist` from the OAuth scope and
+the MCP `REQUIRED_GITHUB_SCOPE`: nothing needs it once the catalog is a repo.
+Delete the gists themselves, which were the backup since Phase 4, by hand.
+
+## Traps
+
+- **GitHub returns `404`, not `403`, for a private repo you cannot see.** "Not a
+  collaborator" and "does not exist" are indistinguishable. This bites hardest
+  at `app/features/auth/index.ts`, which reads the catalog *during login* to
+  decide admin status: a `404` there must mean "not an admin, no catalog access"
+  and must not break the login. Needs a deliberate branch and a test.
+- The Contents API is base64 and keeps a 1 MB ceiling on the JSON response —
+  catalog reads use the raw media type or Git Data blobs.
+- `AINVESTOR_GIST_ID` and the `x-ainvestor-gist-id` header need repo
+  equivalents (`mcp/config.ts`, `mcp/data-gist.ts`) — named in Phase 4.
+- **`repo` does not include gist access.** Swapping `gist` for `repo` while any
+  data still lives on a gist breaks every write to it. `gist` is only dropped
+  in Phase 7.
+- Test seams assume gist shapes: `app/lib/private-gist-fetch-test-overlay.ts`,
+  `setSharedCatalogForTests`, `app/lib/test-session-fetch.ts`. 27 test files
+  mention gists.
+
+## Open questions
+
+1. Whether the `catalog-source.json` bank-import history should move at all, or
+   be archived — it is the largest file and is read by code, never by people.
+
+Resolved: preview's repo is `ainvestor-preview-data` (`getDataRepoName`), and
+the data moves by a script rather than on login (Phase 3).

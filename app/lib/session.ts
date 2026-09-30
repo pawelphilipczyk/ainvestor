@@ -1,6 +1,6 @@
 import { createCookie } from 'remix/cookie'
 import type { Session } from 'remix/session'
-import { createCookieSessionStorage } from 'remix/session/cookie-storage'
+import { createCookieSessionStorage } from 'remix/session-storage/cookie'
 
 export type SessionData = {
 	/** GitHub OAuth token; null when signed in but pending allowlist approval. */

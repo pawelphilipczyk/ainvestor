@@ -1,11 +1,11 @@
-import { compression } from 'remix/compression-middleware'
-import { createRouter, type Middleware } from 'remix/fetch-router'
-import { formData } from 'remix/form-data-middleware'
-import { logger } from 'remix/logger-middleware'
-import { methodOverride } from 'remix/method-override-middleware'
+import { compression } from 'remix/middleware/compression'
+import { formData } from 'remix/middleware/form-data'
+import { logger } from 'remix/middleware/logger'
+import { methodOverride } from 'remix/middleware/method-override'
+import { render } from 'remix/middleware/render'
+import { session } from 'remix/middleware/session'
+import { createMiddleware, createRouter, type Middleware } from 'remix/router'
 import { Session } from 'remix/session'
-import { session } from 'remix/session-middleware'
-import { staticFiles } from 'remix/static-middleware'
 import { handleMcpHttpRequest } from '../mcp/http.ts'
 import {
 	buildAuthorizationServerMetadata,
@@ -20,14 +20,14 @@ import { adviceController } from './features/advice/index.ts'
 import { authController } from './features/auth/index.ts'
 import {
 	catalogController,
-	resetGuestCatalog,
+	catalogEtfController,
 } from './features/catalog/index.ts'
 import { guidelinesController } from './features/guidelines/index.ts'
 import { homeController } from './features/intro/index.ts'
 import { localeController } from './features/locale/index.ts'
 import {
 	portfolioController,
-	resetEtfEntries,
+	resetTestSessionCookieJar,
 } from './features/portfolio/index.ts'
 import { stripGithubTokenIfUnapproved } from './lib/approved-users.ts'
 import { multipartLimitFlashOnError } from './lib/multipart-limit-flash-middleware.ts'
@@ -35,70 +35,72 @@ import {
 	MULTIPART_MAX_FILE_BYTES,
 	MULTIPART_MAX_TOTAL_BYTES,
 } from './lib/multipart-upload-limits.ts'
+import { remixAssetServer } from './lib/remix-assets.ts'
 import type { AppRequestContext } from './lib/request-context.ts'
+import { requireApprovedSession } from './lib/require-approved-session-middleware.ts'
 import { sessionCookie, sessionStorage } from './lib/session.ts'
 import { uiLocaleMiddleware } from './lib/ui-locale-middleware.ts'
 import { routes } from './routes.ts'
 
-export { resetEtfEntries, resetGuestCatalog, setAdviceClient }
+export { resetTestSessionCookieJar, setAdviceClient }
 
-const appStatic = staticFiles('app', {
-	filter: (path) =>
-		path.endsWith('.component.js') ||
-		path === 'entry.js' ||
-		path === 'lib/dialog-trigger.js',
-})
-
-const remixRuntime = staticFiles('node_modules', {
-	filter: (path) =>
-		path === 'remix/dist/ui.js' ||
-		path.startsWith('remix/dist/ui/') ||
-		path.startsWith('@remix-run/ui/dist/'),
-})
-
-function enforceGithubApproval(): Middleware {
-	const handler = async (
-		context: AppRequestContext,
-		next: () => Promise<Response>,
-	) => {
-		stripGithubTokenIfUnapproved(context.get(Session))
-		return next()
+/**
+ * Serves every browser module — this app's own client entries and the
+ * `remix`/`@remix-run/ui` package files they import. See
+ * `app/lib/remix-assets.ts`.
+ */
+function remixAssets(): Middleware {
+	return async (context, next) => {
+		const response = await remixAssetServer.fetch(context.request)
+		return response ?? next()
 	}
-	return handler as unknown as Middleware
 }
 
-export const router = createRouter({
-	middleware:
-		process.env.NODE_ENV === 'development'
-			? [
-					appStatic,
-					remixRuntime,
-					logger(),
-					uiLocaleMiddleware(),
-					session(sessionCookie, sessionStorage),
-					multipartLimitFlashOnError(),
-					formData({
-						maxFileSize: MULTIPART_MAX_FILE_BYTES,
-						maxTotalSize: MULTIPART_MAX_TOTAL_BYTES,
-					}),
-					methodOverride(),
-					enforceGithubApproval(),
-				]
-			: [
-					appStatic,
-					remixRuntime,
-					compression(),
-					uiLocaleMiddleware(),
-					session(sessionCookie, sessionStorage),
-					multipartLimitFlashOnError(),
-					formData({
-						maxFileSize: MULTIPART_MAX_FILE_BYTES,
-						maxTotalSize: MULTIPART_MAX_TOTAL_BYTES,
-					}),
-					methodOverride(),
-					enforceGithubApproval(),
-				],
-})
+/**
+ * Drops a GitHub token from the session when its login is not approved.
+ *
+ * The handler is deliberately typed against the bare `Middleware` contract
+ * rather than {@link AppRequestContext}: this middleware is a member of
+ * `appMiddleware`, and `AppRequestContext` is derived from `appMiddleware`, so
+ * annotating it with the derived type would be circular. It only needs to read
+ * `Session`, which the loose context resolves via the context-key fallback.
+ */
+function enforceGithubApproval(): Middleware {
+	return async (context, next) => {
+		const session = context.get(Session)
+		if (session) stripGithubTokenIfUnapproved(session)
+		return next()
+	}
+}
+
+/**
+ * The global middleware chain, in run order.
+ *
+ * One unconditional tuple for every environment. Since rc.2 each middleware
+ * contributes its own entry to the request-context type, so a dev/prod ternary
+ * would yield two different context types and the router would reject the
+ * union. Running `compression()` in development and `logger()` in production is
+ * the accepted cost; tune each middleware's options rather than reintroducing a
+ * conditional chain.
+ */
+export const appMiddleware = createMiddleware(
+	remixAssets(),
+	compression(),
+	logger(),
+	uiLocaleMiddleware(),
+	session(sessionCookie, sessionStorage),
+	multipartLimitFlashOnError(),
+	formData({
+		maxFileSize: MULTIPART_MAX_FILE_BYTES,
+		maxTotalSize: MULTIPART_MAX_TOTAL_BYTES,
+	}),
+	methodOverride(),
+	enforceGithubApproval(),
+	requireApprovedSession(),
+	render({ assets: remixAssetServer }),
+)
+
+export const router = createRouter({ middleware: appMiddleware })
 
 router.get(routes.health, () => {
 	return new Response('ok', {
@@ -141,5 +143,6 @@ router.map(routes.locale, localeController)
 router.map(routes.auth, authController)
 router.map(routes.guidelines, guidelinesController)
 router.map(routes.catalog, catalogController)
+router.map(routes.catalog.etf, catalogEtfController)
 router.map(routes.advice, adviceController)
 router.map(routes.admin, adminController)

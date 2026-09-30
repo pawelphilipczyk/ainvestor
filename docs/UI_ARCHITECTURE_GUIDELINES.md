@@ -141,6 +141,263 @@ When a **POST** returns **JSON** (not a Frame partial) and you want the **same b
 
 **Note:** Full page loads only hydrate `clientEntry` components that appear in the current response. Prefer **full navigation** or **Frame** boundaries so the server always supplies the markup and scripts a screen needs.
 
+### 8. To use a Remix UI mixin, the `clientEntry` must own the markup
+
+Remix UI primitives (`remix/ui/toggle/primitives`, `.../tabs/primitives`,
+`.../select/primitives`, `remix/ui/popover`) are **element mixins**: you apply
+them through `mix={[…]}` on an element, and the mixin wires itself to the
+component handle that rendered it. A mixin cannot attach to markup some *other*
+component rendered — so the long-standing island shape here (a server component
+holds the markup, a `clientEntry` renders a hidden `<span>` and delegates
+`click` from `document`) has nowhere to put one.
+
+Adopting a primitive therefore means folding the markup into the `clientEntry`:
+
+- **Write the entry as `.component.ts`.** The asset server compiles TypeScript
+  on demand, so the entry sits inside `tsconfig.json` and `npm run typecheck`
+  covers it — no `.component.d.ts` sidecar, and no chance of one drifting from
+  the implementation it claims to describe. Type the props on the call:
+  `clientEntry<{ label: string }>(…)`, and the server components that mount it
+  are then checked against the real signature. It still builds its markup with
+  `createElement`, not JSX, because the browser loads the compiled output
+  directly.
+- **`.component.js` is no longer served.** Every entry is `.component.ts` as
+  of Stage 4b, and `allowFiles` dropped the `.js` glob with the last one, so a
+  new entry written as `.js` would 404 in the browser rather than fail
+  loudly.
+- **Importers must name the `.ts` file.** TypeScript resolves a `.js`
+  specifier to a `.ts` source, so `npm run typecheck` stays green while Node
+  fails at runtime — the one trap in converting an entry.
+- Anything the render function needs must arrive as **serializable props**, and
+  that includes translated copy: the render function runs in the browser too,
+  where `t()` (request-scoped, server-only) does not exist. Pass
+  `label={t('…')}` from the server component that mounts it.
+- Setup runs on the server *and* on the client. Read live DOM state behind a
+  `typeof document === 'undefined'` guard and return the server-rendered
+  default on the server, so the first client render matches the document.
+- Bare specifiers need no registration. The asset server reads them out of the
+  entry's own module graph and the renderer merges the resulting scope into the
+  document import map, so importing a new `remix/ui/*` subpath is just an
+  import. (Before the assets migration this meant hand-editing a
+  `browserModulePaths` table in `app/lib/remix-assets.ts`; that table is gone.)
+- Give the entry its own module URL with ``clientEntry(`${import.meta.url}#Name`, …)``.
+  A root-relative literal like `'/components/…/x.component.js#Name'` is served
+  by nothing now and would be emitted verbatim as a broken script `src`.
+
+**Reference implementation:** `app/components/navigation/theme-toggle.component.ts`
+(`toggle.control`). Keep the delegated-listener island shape for behavior that
+is genuinely document-wide and not attached to one element.
+
+Two limits worth knowing before planning a port:
+
+- **Context does not cross a `clientEntry` boundary on the client.** Each entry
+  hydrates into its own virtual root, so a primitive whose parts talk through a
+  provider (`popover`, `tabs`, `select`) needs every one of its parts inside the
+  *same* entry. A provider in a server component around two separate entries
+  works on the server and silently does nothing in the browser.
+- **Not every primitive fits every widget.** `remix/ui/popover`'s `surface` is a
+  dropdown positioner: it forces `popover="manual"` and writes inline
+  `inset: … auto auto …` from the anchor. The sidebar was measured against it in
+  Stage 6 and kept its hand-rolled overlay for that reason — see §6 of
+  `docs/REMIX_RC_MIGRATION_PLAN.md`. Measure before porting, and record the gap
+  where the code lives when the answer is no.
+
+**Testing a port:** none of this wiring exists before hydration, so a
+server-render assertion cannot see it. Add a `*.browser.ts` file and run
+`npm run test:browser` (see `app/lib/browser-test.ts`).
+
+### 9. Runtime navigation attributes are spelled `data-rmx-*`
+
+The Remix client runtime reads `data-rmx-document`, `data-rmx-target`,
+`data-rmx-src`, `data-rmx-history` and `data-rmx-reset-scroll`. The JSX runtime
+renders attribute names verbatim, so an unprefixed `rmx-document` reaches the
+DOM as `rmx-document` and the runtime never sees it — the link keeps working,
+it just silently does a frame swap instead of the document load you asked for.
+Nothing warns about this: not `tsc`, not a server-render assertion.
+
+Write the `data-` prefix, or apply the `link()` mixin from `remix/ui`, which
+writes the attributes for you. `data-rmx-target="<frame name>"` on a `<form>`
+is also the native replacement for `data-frame-submit` — see §7 and the Stage 6
+notes in `docs/REMIX_RC_MIGRATION_PLAN.md`.
+
+**`data-navigation-loading` wins over `data-rmx-document`.** Links rendered by
+`Link navigationLoading={true}` (and the catalog ETF links) carry both, and the
+two pull in opposite directions. `NavigationLinkLoadingEnhancement` calls
+`preventDefault()` and then Remix `navigate()`, which the runtime treats as a
+programmatic navigation against the top frame — so those links frame-swap and
+the document opt-out never applies. That is the enhancement's deliberate
+trade: a busy state on the link, at the cost of a document load. Measured and
+pinned in `app/components/navigation/document-navigation.browser.ts`; the
+`data-rmx-document` on those links is redundant. Don't "fix" one of the two
+attributes without deciding which behavior the link should actually have.
+
+**Known rough edge, not yet root-caused: `data-rmx-target` saves scroll to
+top.** Observed manually on the deployed preview (not yet reproduced in a
+`*.browser.ts` test) on both the portfolio trade form and guidelines' add
+forms — a successful submit patches the named frame correctly (no full-page
+reload) but the viewport jumps to the top of the page, which reads as a
+reload even though it isn't one. `data-rmx-reset-scroll`, named above, is the
+runtime's own knob for this and no form in this app sets it, so the most
+likely cause is the framework's default rather than anything these forms do
+— but that's a hypothesis, not a confirmed trace, and worth checking against
+what `data-rmx-target` (§9) and the Navigation API's own scroll handling
+actually default to before assuming which side owns the fix. Low priority
+(cosmetic, not the URL/405 class of bug in §10), but a candidate for the
+next UI-focused pass.
+
+### 10. A `data-rmx-target` form must post back to its own page — one action route per feature, dispatched by a hidden intent field
+
+`data-rmx-target="<frame name>"` (§9) still goes through the Navigation API:
+`event.intercept()` commits `event.destination.url` — the form's actual
+`action` — as the document's URL regardless of which frame the submission
+targets (`@remix-run/ui`'s `runtime/navigation.ts`: `topFrame.src =
+event.destination.url`, unconditionally). Nothing in the `data-rmx-*` family
+opts out of that — `data-rmx-history` only chooses push vs. replace, and
+`data-rmx-src` only redirects what the *frame* fetches, not what the address
+bar becomes. So a form whose `action` is a different path from the page it
+lives on leaves the address bar on that action after every submit. Confirmed
+live during the guidelines port: after an add, the URL sat on
+`/guidelines/instrument`, and `GET /guidelines/instrument` — a POST-only
+route — returned 405. A refresh, back/forward, or share/bookmark right after
+submitting broke. Full trace in `docs/REMIX_RC_MIGRATION_PLAN.md`'s Stage 6
+notes.
+
+**The fix: give each feature one route both its page and its forms use.**
+`remix/routes` ships exactly this shape — `form('<pattern>')` (used as
+`...form('guidelines')` in `routes.ts`) generates an `index` (`GET`) +
+`action` (`POST`) pair at the same URL, "suitable for showing a standard
+HTML `<form>` and handling its submit action at the same URL." That is the
+framework's own idiom, not a workaround invented for this migration.
+
+**Telling actions apart under one route: a hidden field, switched on in the
+handler.** `advice` already did this before guidelines needed it — three
+forms (run buy-next, run portfolio-review, clear) all post to the one
+`advice.action` route, each carrying its own
+`<input type="hidden" name="adviceIntent" value="run" />` /
+`value="clear"`, and `guidelinesController`'s `action(context)` reads it
+off the parsed payload and branches. `guidelines` follows the identical
+shape: `guidelineIntent` is `addInstrument` / `addAssetClass` /
+`updateTarget` / `delete`, and `updateTarget`/`delete` carry the row's `id`
+as a second hidden field instead of a path segment
+(`app/features/guidelines/guidelines-list-fragment.tsx`,
+`app/features/guidelines/index.ts`). `remix/data-schema`'s `object()` strips
+unknown keys by default, so the intent/id fields need no entry in each
+sub-action's own validation schema.
+
+**This is the standard for every `data-rmx-target` form going forward, not
+just guidelines and advice.** Before wiring a form's `data-rmx-target`,
+confirm its `action` equals its page's own route — if it doesn't yet,
+consolidate onto `form('<feature>')` and a hidden intent field first.
+Guidelines, portfolio's trade/CSV-import forms, catalog's ETF analysis form,
+advice's 3 forms, and the catalog list's own filter form are done — the
+last of those was a plain GET, and its `action` already equalled its page
+(`/catalog`), so it needed no route consolidation, just the frame-fetch
+dispatcher below. `FrameSubmitEnhancement`/`data-frame-submit` has no
+remaining callers; see `docs/REMIX_RC_MIGRATION_STATUS.md`. A route matching
+this rule is necessary but not sufficient, though — advice's port needed it
+*and* a bigger fix (every response had to stop being a full-page render, and
+the result Frame had to stop being conditional); see
+`docs/REMIX_RC_MIGRATION_STATUS.md`'s decision log before assuming the next
+port is attribute-only.
+
+### 11. `tabs/primitives` is for same-page view switching, not page navigation — and it's the one deliberate exception to "no JS required"
+
+`remix/ui/tabs/primitives` (`Context`/`root`/`list`/`tab`/`panel`) has exactly
+one documented use, straight from the package's own README
+(`node_modules/remix/src/ui/tabs/README.md`): *"Use it when related views
+share the same page space."* Every example there hosts `tab()` on a real
+`<button>` and pairs it with `panel()` — both panels render into the DOM up
+front, and activating a tab is a client-side `hidden`/`inert` toggle with no
+fetch and no URL change. There is no `href`, routing, or navigation concept
+anywhere in it.
+
+**Do not reach for it as a real per-page navigation replacement** (separate
+pages, each with its own bookmarkable URL, `activeId` read from the
+request's own query param) — that was `tabs-nav.tsx`'s job, measured against
+`tabs/primitives` and rejected for it, reason 3; full trace in
+`docs/REMIX_RC_MIGRATION_STATUS.md` and `docs/REMIX_RC_MIGRATION_PLAN.md`
+Stage 6. `tabs-nav.tsx`/`tabs-nav-scroll.component.js` no longer exist —
+every tab set the app has turned out to be genuinely same-page once looked
+at closely (see below), so nothing ever needed that job again; if a future
+page's tabs turn out to be *real* navigation, that's what's being reached
+for again, and the measurement is worth re-reading before re-implementing
+it by hand. Hosting `tab()` on an `<a href>` instead of a `<button>` does
+mechanically work — the mixin doesn't hard-require a particular host — but
+it fights the primitive's own design: its keydown handler unconditionally
+`preventDefault()`s Enter (and Space), which is correct when the host's
+default action is a click you want to suppress, and silently breaks
+keyboard activation when the host's default action is the navigation you
+were trying to keep. Measured live, not assumed: confirmed Enter stopped
+navigating a `tab()`-hosted anchor in Chromium.
+
+**Where the views genuinely share one page**, the primitive is used exactly
+as documented: `<button>` hosts, `defaultActiveTab`/the content's own
+initial source seeded from the page's own `?tab=` query param so the
+*initial* render is still correct with no JS. This gets real ARIA
+(`role="tab"`/`"tablist"`, `aria-selected`, `aria-controls`/
+`aria-labelledby`) and full keyboard support (arrow-key roving focus,
+Home/End, Enter, Space) entirely for free — `<button>` has native Enter/
+Space activation, so unlike the `<a>` case above there is no keydown glue to
+write. Two worked examples, differing in how the *content* per tab reaches
+the client, because the two apps of it are shaped differently:
+
+- **Both tabs' content is small and independent — co-resident, client-side
+  `panel()` toggle.** `guidelines-tabs.component.js`'s two add-forms
+  (asset-class bucket vs. named instrument; switching is choosing an input
+  mode for the same action) — both panels render into the DOM on every
+  load, `panel()` sets `hidden`/`inert` on the inactive one. Confirm this is
+  actually cheap before reaching for it: it costs nothing extra here because
+  neither panel does anything but hold a couple of static-option-list
+  `<select>`s.
+- **A tab's content is gist-backed/mode-specific and expensive to load for
+  a tab nobody's looking at — a shared `<Frame>`, pointed at the new mode's
+  own `src` and reloaded on switch.** `advice-mode-tabs.component.js`: no
+  `panel()` at all (there's nothing to hide client-side — the differing
+  content lives entirely in the Frame, not in two co-resident panels).
+  `FrameHandle.src` (`@remix-run/ui`'s `component.js`) is a plain, live-read
+  property — `resolveAndRenderReload` (`frame.js`) reads `frame.src` at
+  reload time, not a value captured at creation — so `onActiveTabChange` can
+  do `frame.src = otherModeFragmentUrl; frame.reload()` to fetch that mode's
+  state exactly once, on demand, only when the user actually switches to
+  it. `docs/REMIX_RC_MIGRATION_STATUS.md`'s newest *Done* row has the full
+  design trace, including why guidelines' shape didn't carry over
+  (guidelines' panels have no per-tab remembered state to fetch at all).
+
+**The one deliberate, written exception to "must function with little or no
+JavaScript"** (§3): *switching* tabs needs JavaScript — there is no native
+fallback for a client-side `hidden` toggle or a client-triggered `reload()`.
+Accept this only for a widget that is genuinely same-page (per the test
+above, not by assumption), and only because the *initial* tab still renders
+correctly without JS.
+
+**A `<Frame fallback={…}>` never shows its real content without
+JavaScript — confirm this before putting anything a no-JS visitor needs
+inside one.** `@remix-run/ui`'s `server/stream.js` (`buildFrameSegment`):
+`nonBlocking = !!props.fallback` — a fallback-carrying frame streams only
+the fallback synchronously and delivers the real content solely through the
+client hydration patch, regardless of how quickly `resolveFrame` actually
+resolves. Confirmed live, and true of *every* Frame in this app already
+(`guidelines-list`'s Frame, JS disabled, never shows its list either) — it
+was always harmless before because no page put a no-JS-required form inside
+one. Advice's mode-tabs port did exactly that (folded each mode's own form
+into the `advice-result` Frame, per the second bullet above), which would
+have silently broken the form for no-JS visitors had `fallback` stayed;
+fixed by dropping `fallback` from that Frame specifically, which costs
+nothing extra when — as there — `resolveFrame` only reshapes props the page
+already awaited before calling `render()`, no new I/O. Check again before
+any other page moves visitor-facing, no-JS-required content inside an
+existing fallback-carrying Frame.
+
+A client entry can't import a `.tsx` file — the asset server does not serve
+`.tsx` (server components use request-scoped things like `t()` that do not
+exist in a browser), so a shared presentational helper like `Card`'s
+`getCardClassNames()` has to be inlined as a literal Tailwind class string
+in the entry rather than imported — see `guidelines-tabs.component.js`
+for the worked example, including the active/inactive tab styling via
+Tailwind's `[&[data-state=active]]:` arbitrary variant (matching the
+`data-state` attribute `tab()` already writes, not a hand-rolled class
+toggle).
+
 ---
 
 ## Styling Strategy
@@ -447,7 +704,7 @@ This architecture aligns with the packages available in **`remix@3.0.0-beta.0`**
 |---|---|
 | `remix/response/html` | `createHtmlResponse()` — wraps HTML with proper headers |
 | `remix/response/redirect` | `createRedirectResponse()` — post-form redirect |
-| `remix/static-middleware` | Serve CSS, JS islands, and other static assets |
+| `remix/assets` | `createAssetServer()` — compiles and serves every browser module (client entries, their helpers, and the `remix`/`@remix-run/ui` package files they import), and derives the document import map |
 | `remix/ui` | JSX components for page bodies and shared UI; `clientEntry`, `run()`, and event mixins such as `on()` |
 | `remix/ui/server` | `renderToStream()` — full document streamed to response |
 

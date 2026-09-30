@@ -11,7 +11,7 @@ export const homeController = {
 	actions: {
 		async index(context: AppRequestContext) {
 			const layoutSession = getLayoutSession(context.get(Session))
-			return render({
+			return render(context, {
 				title: t('meta.title.home'),
 				htmlLang: htmlLangForCurrentUiLocale(),
 				session: layoutSession,

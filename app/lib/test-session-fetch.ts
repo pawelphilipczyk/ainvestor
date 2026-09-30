@@ -1,5 +1,11 @@
 import { router } from '../router.ts'
-import { clearGuestGuidelinesServerStore } from './guest-session-state.ts'
+import {
+	ensurePrivateGistTestStore,
+	setPrivateGistTestStore,
+	TEST_GIST_ID,
+	TEST_TOKEN,
+} from './private-gist-test-store.ts'
+import { sessionCookie, sessionStorage } from './session.ts'
 
 let testSessionCookie: string | undefined
 
@@ -16,8 +22,71 @@ export function catalogImportFormRequest(bankJson: string): Request {
 /** Clears the in-memory session cookie jar (call from test afterEach). */
 export function resetTestSessionCookieJar(): void {
 	testSessionCookie = undefined
-	/** Test-only teardown; also clears server-side guest guideline map (session holds ref only). */
-	clearGuestGuidelinesServerStore()
+	setPrivateGistTestStore(null)
+}
+
+/** Adds one login to `APPROVED_GITHUB_LOGINS`, keeping any already listed. */
+function addApprovedGithubLogin(login: string): void {
+	const listed = (process.env.APPROVED_GITHUB_LOGINS ?? '')
+		.split(/[\s,]+/)
+		.filter((entry) => entry.length > 0)
+	if (listed.includes(login)) return
+	process.env.APPROVED_GITHUB_LOGINS = [...listed, login].join(',')
+}
+
+/** Test-only: make `testSessionFetch` send this session from now on. */
+export function seedTestSessionCookie(cookie: string): void {
+	testSessionCookie = cookie
+}
+
+async function seedSessionCookie(
+	fill: (session: Awaited<ReturnType<typeof sessionStorage.read>>) => void,
+): Promise<string> {
+	const session = await sessionStorage.read(null)
+	fill(session)
+	const value = await sessionStorage.save(session)
+	if (value == null) throw new Error('expected session save value')
+	const header = await sessionCookie.serialize(value)
+	const cookie = header.split(';')[0] ?? ''
+	// Seed the sticky jar too, so `testSessionFetch` callers need no header.
+	testSessionCookie = cookie
+	return cookie
+}
+
+/**
+ * Test-only: an approved session holding a private gist, with
+ * `fetchEtfs` / `fetchGuidelines` answered from the in-process overlay so no
+ * request reaches GitHub. Every page behind the sign-in gate needs one.
+ */
+export async function approvedSessionCookie(
+	login = 'test-user',
+): Promise<string> {
+	// Both are additive on purpose. `browser-test.ts` calls this for every page
+	// it opens, and a suite that approved its own login or seeded its own rows
+	// beforehand must not have either wiped out from under it.
+	addApprovedGithubLogin(login)
+	ensurePrivateGistTestStore()
+	return seedSessionCookie((session) => {
+		session.set('login', login)
+		session.set('token', TEST_TOKEN)
+		session.set('gistId', TEST_GIST_ID)
+	})
+}
+
+/**
+ * Test-only: signed in with GitHub but **not** on the allowlist, so
+ * `enforceGithubApproval` strips the token and the pending state renders.
+ * Distinct from signed out, which the gate redirects away.
+ */
+export async function pendingSessionCookie(
+	login = 'pending-user',
+): Promise<string> {
+	process.env.APPROVED_GITHUB_LOGINS = 'somebody-else'
+	return seedSessionCookie((session) => {
+		session.set('login', login)
+		session.set('token', TEST_TOKEN)
+		session.set('gistId', TEST_GIST_ID)
+	})
 }
 
 function applySetCookie(response: Response): void {
@@ -44,8 +113,8 @@ function applySetCookie(response: Response): void {
 }
 
 /**
- * `router.fetch` with a sticky session cookie so multi-step guest tests stay on
- * one browser session (isolated from other tests via resetTestSessionCookieJar).
+ * `router.fetch` with a sticky session cookie so multi-step tests stay on one
+ * browser session (isolated from other tests via resetTestSessionCookieJar).
  */
 export async function testSessionFetch(
 	input: RequestInfo | URL,
@@ -53,6 +122,10 @@ export async function testSessionFetch(
 ): Promise<Response> {
 	const incomingRequest = new Request(input, init)
 	const headers = new Headers(incomingRequest.headers)
+	// The jar wins over an explicit Cookie on purpose: it carries session
+	// mutations (flash messages) forward across a test's later requests, which
+	// a cookie captured at sign-in time would not. A test that signs in as
+	// somebody else seeds the jar through `seedTestSessionCookie`.
 	if (testSessionCookie) {
 		headers.set('Cookie', testSessionCookie)
 	}

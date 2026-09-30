@@ -14,7 +14,10 @@ repository using the `remix` package (`remix@next`).
 - **GitHub OAuth login** — sign in with your GitHub account
 - **GitHub Gist database** — your ETF list is stored in a private Gist in your own GitHub account (no external DB required)
 - **Shared ETF catalog** — the catalog is loaded from one public GitHub Gist shared by all users
-- Unauthenticated guests can still add ETFs (stored in memory for the session)
+- **Sign-in required** — every page but the intro is behind GitHub sign-in; a
+  signed-out visitor is sent back to the intro page. A login awaiting allowlist
+  approval can open the pages and sees a pending notice on each, but has no
+  store to read or write until it is approved
 - Simple mobile-friendly HTML/CSS
 - Test coverage for session helpers, Gist utilities, and all route handlers
 
@@ -67,6 +70,17 @@ npm run dev
 
 App runs on: `http://localhost:44100`
 
+The dev server hot-reloads rather than restarting. Editing a server component
+hot-swaps it in place (`remix/node-hmr` + `remix/ui-hmr/node`); editing a
+client entry (`*.component.ts`) patches any open tab without reloading it, over
+the asset server's browser HMR channel. Both are development-only, keyed on the
+`REMIX_NODE_HMR` flag that `npm run dev` sets.
+
+`npm start` serves the same modules a different way: no watcher, no HMR
+client, and content-hashed URLs cached `immutable` for a year. The un-hashed
+path is not served in production at all, so never hard-code an `/assets/...`
+string — use `assetHref()`. See `docs/REMIX_ASSETS_MIGRATION_PLAN.md`.
+
 ## Run tests
 
 ```bash
@@ -74,6 +88,24 @@ npm run test
 ```
 
 `npm run test` auto-installs dependencies with `npm ci` when `node_modules` is missing.
+
+### Browser tests
+
+Client behavior that only exists after hydration — `clientEntry` wiring, Remix
+UI mixins, the sidebar overlay — cannot be seen by `npm run test`, because
+nothing runs it without a browser. Type checking covers every client entry:
+the asset server compiles TypeScript, so they sit inside `tsconfig.json`.
+Behavior still needs a browser, and these are covered by Playwright against a
+real Chromium:
+
+```bash
+npx playwright install chromium   # one time
+npm run test:browser
+```
+
+They are kept out of `npm run test` on purpose, so CI never has to download a
+browser. Files are named `*.browser.ts`; the harness is
+`app/lib/browser-test.ts`.
 
 ## Type check
 
@@ -158,7 +190,8 @@ tickers — a fund it does not list is one you may not be able to buy:
 - **`delete_catalog_entry`** — remove one fund.
 - **`import_catalog_from_bank_file`** — refresh the catalog from a bank API
   response or a DevTools HAR **saved on the machine running the server**. Take
-  `dryRun: true` first to see what would change. Available **only over stdio**:
+  `dryRun: true` first to see what would change, including rows it would
+  re-type and rows the bank gives no asset class (typed `unknown`). Available **only over stdio**:
   the deployed server cannot read your disk, and a HAR is far larger than the
   256 KB an MCP request body may carry.
 
@@ -279,8 +312,13 @@ Then edit `claude_desktop_config.json` — macOS
 {
   "mcpServers": {
     "ainvestor": {
-      "command": "/absolute/path/to/ainvestor/node_modules/.bin/tsx",
-      "args": ["/absolute/path/to/ainvestor/mcp/server.ts"],
+      "command": "node",
+      "args": [
+        "--import",
+        "remix/node-tsx",
+        "/absolute/path/to/ainvestor/mcp/server.ts"
+      ],
+      "cwd": "/absolute/path/to/ainvestor",
       "env": {
         "GH_TOKEN": "ghp_your_token_here",
         "AINVESTOR_GIST_ID": "your_private_data_gist_id",

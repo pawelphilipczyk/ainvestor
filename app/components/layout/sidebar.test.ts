@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { jsx } from 'remix/ui/jsx-runtime'
 import { renderToString } from 'remix/ui/server'
 import type { AppPage } from '../../lib/app-page.ts'
+import { assetHref } from '../../lib/remix-assets.ts'
 import type { SessionData } from '../../lib/session.ts'
 import { router } from '../../router.ts'
 import { SessionProvider } from './session-provider.tsx'
@@ -145,46 +146,73 @@ describe('remix ui runtime in document', () => {
 		assert.doesNotMatch(body, /data-island=/)
 	})
 
-	it('document includes import map for remix ui runtime', async () => {
+	it('document includes import map for remix ui runtime, and both entries are servable', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /"remix\/ui":\s*"\/remix\/dist\/ui\.js"/)
-		assert.match(
-			body,
-			/"remix\/ui\/scroll-lock":\s*"\/remix\/dist\/ui\/scroll-lock\.js"/,
+		const remixUiHref = /"remix\/ui":\s*"([^"]+)"/.exec(body)?.[1]
+		const remixRunUiHref = /"@remix-run\/ui":\s*"([^"]+)"/.exec(body)?.[1]
+		assert.ok(remixUiHref, 'import map is missing a remix/ui entry')
+		assert.ok(remixRunUiHref, 'import map is missing an @remix-run/ui entry')
+
+		const remixUiResponse = await router.fetch(
+			new URL(remixUiHref, 'http://localhost/'),
 		)
+		assert.equal(remixUiResponse.status, 200)
 		assert.match(
-			body,
-			/"@remix-run\/ui":\s*"\/@remix-run\/ui\/dist\/index\.js"/,
+			remixUiResponse.headers.get('content-type') ?? '',
+			/javascript/,
 		)
+
+		const remixRunUiResponse = await router.fetch(
+			new URL(remixRunUiHref, 'http://localhost/'),
+		)
+		assert.equal(remixRunUiResponse.status, 200)
 		assert.match(
-			body,
-			/"@remix-run\/ui\/scroll-lock":\s*"\/@remix-run\/ui\/dist\/utils\/scroll-lock\.js"/,
+			remixRunUiResponse.headers.get('content-type') ?? '',
+			/javascript/,
 		)
+
+		// rc.2 removed the `remix/ui/scroll-lock` and `@remix-run/ui/scroll-lock`
+		// subpaths; lockScroll is now vendored in app/lib/browser/scroll-lock.ts instead
+		// of resolved through the import map. See app/lib/browser/scroll-lock.ts.
+		assert.doesNotMatch(body, /remix\/ui\/scroll-lock/)
+		assert.doesNotMatch(body, /@remix-run\/ui\/scroll-lock/)
 	})
 
-	it('GET /remix/dist/ui/scroll-lock.js is served for client sidebar imports', async () => {
+	it('the vendored lockScroll helper is served for the browser', async () => {
 		const response = await router.fetch(
-			'http://localhost/remix/dist/ui/scroll-lock.js',
+			new URL(
+				await assetHref('app/lib/browser/scroll-lock.ts'),
+				'http://localhost/',
+			),
 		)
 		assert.equal(response.status, 200)
+		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 		const body = await response.text()
-		assert.match(body, /@remix-run\/ui\/scroll-lock/)
+		assert.match(body, /export function lockScroll/)
 	})
 
-	it('GET /@remix-run/ui/dist/utils/scroll-lock.js is served for nested imports', async () => {
+	it('the vendored addEventListeners helper is served for the browser', async () => {
 		const response = await router.fetch(
-			'http://localhost/@remix-run/ui/dist/utils/scroll-lock.js',
+			new URL(
+				await assetHref('app/lib/browser/event-listeners.ts'),
+				'http://localhost/',
+			),
 		)
 		assert.equal(response.status, 200)
+		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 		const body = await response.text()
-		assert.match(body, /lockScroll/)
+		assert.match(body, /export function addEventListeners/)
 	})
 
-	it('document loads entry.js to boot remix ui runtime', async () => {
+	it('document loads the bootstrap entry to boot remix ui runtime', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		assert.match(body, /<script[^>]*type="module"[^>]*src="\/entry\.js"/)
+		const entryHref = await assetHref('app/entry.ts')
+		assert.match(
+			body,
+			new RegExp(`<script[^>]*type="module"[^>]*src="${entryHref}"`),
+		)
 	})
 
 	it('document offsets main column beside fixed sidebar from md breakpoint', async () => {
@@ -192,21 +220,30 @@ describe('remix ui runtime in document', () => {
 		const body = await response.text()
 		assert.match(body, /id="page-content"[^>]*\bmin-w-0\b[^>]*\bmd:ml-64\b/)
 	})
-	it('GET /entry.js returns bootstrap with run({ loadModule, resolveFrame })', async () => {
-		const response = await router.fetch('http://localhost/entry.js')
+	it('the bootstrap entry is served with run({ loadModule }) and no custom resolveFrame', async () => {
+		const response = await router.fetch(
+			new URL(await assetHref('app/entry.ts'), 'http://localhost/'),
+		)
 		assert.equal(response.status, 200)
 		const body = await response.text()
-		assert.match(body, /import \{ run \} from 'remix\/ui'/)
+		// The asset server compiles what it serves, so this is the compiled
+		// module, not the source file: quoting is its choice, not ours.
+		assert.match(body, /import \{ run \} from ['"]remix\/ui['"]/)
 		assert.match(body, /run\(\{/)
-		assert.match(body, /resolveFrame/)
 		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
+		// rc.2's default resolveFrame is a strict superset of the app's old
+		// custom implementation (adds form-submission support); see app/entry.ts.
+		assert.doesNotMatch(body, /resolveFrame/)
 	})
 })
 
-describe('sidebar component entry static file', () => {
-	it('GET /components/layout/sidebar.component.js returns 200 with javascript content-type', async () => {
+describe('sidebar component entry asset', () => {
+	it('the sidebar component entry is served with a javascript content-type', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/layout/sidebar.component.js',
+			new URL(
+				await assetHref('app/components/layout/sidebar.component.ts'),
+				'http://localhost/',
+			),
 		)
 		assert.equal(response.status, 200)
 		assert.match(response.headers.get('content-type') ?? '', /javascript/)
@@ -221,22 +258,29 @@ describe('sidebar component entry static file', () => {
 
 	it('sidebar component entry wires document listeners via handle.signal', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/layout/sidebar.component.js',
+			new URL(
+				await assetHref('app/components/layout/sidebar.component.ts'),
+				'http://localhost/',
+			),
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
-		assert.match(body, /from 'remix\/ui'/)
+		assert.match(body, /from ['"]remix\/ui['"]/)
 		assert.match(body, /addEventListeners/)
 		assert.match(body, /handle\.signal/)
 		assert.match(body, /addEventListeners\(doc, handle\.signal/)
 	})
 
-	it('sidebar component entry uses remix scroll lock for mobile overlay', async () => {
+	it('sidebar component entry uses the vendored scroll lock for mobile overlay', async () => {
 		const response = await router.fetch(
-			'http://localhost/components/layout/sidebar.component.js',
+			new URL(
+				await assetHref('app/components/layout/sidebar.component.ts'),
+				'http://localhost/',
+			),
 		)
 		const body = await response.text()
-		assert.match(body, /from 'remix\/ui\/scroll-lock'/)
+		// rc.2 removed the `remix/ui/scroll-lock` subpath; see app/lib/browser/scroll-lock.ts.
+		assert.match(body, /from ['"]\.\.\/\.\.\/lib\/browser\/scroll-lock\.ts['"]/)
 		assert.match(body, /lockScroll/)
 	})
 })

@@ -3,7 +3,7 @@ import type { Handle } from 'remix/ui'
 export type CatalogEtfAnalysisFragmentProps = {
 	/** Rendered AI overview prose (plain text shown with pre-wrap). */
 	text?: string
-	/** Server error message (403 / 404 / 503 / validation). */
+	/** Server error message (403 / 404 / upstream-service failure / validation). */
 	error?: string
 }
 

@@ -2,8 +2,8 @@ import {
 	MaxFileSizeExceededError,
 	MaxTotalSizeExceededError,
 } from '@remix-run/form-data-parser'
-import type { Middleware } from 'remix/fetch-router'
 import { createRedirectResponse } from 'remix/response/redirect'
+import type { Middleware } from 'remix/router'
 import { Session } from 'remix/session'
 import { routes } from '../routes.ts'
 import { t } from './i18n.ts'
@@ -27,7 +27,11 @@ export function multipartLimitFlashOnError(): Middleware {
 			if (!isMultipartLimit) throw error
 			if (!context.has(Session)) throw error
 
+			// `has()` does not narrow the `get()` return type, which includes
+			// `undefined` for keys without a default value since rc.2.
 			const session = context.get(Session)
+			if (!session) throw error
+
 			flashBanner(session, {
 				text: t('errors.upload.fileTooLarge'),
 				tone: 'error',

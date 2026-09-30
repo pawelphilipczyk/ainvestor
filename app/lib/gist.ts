@@ -1,5 +1,9 @@
 import { type CatalogEntry, fetchCatalog } from '../features/catalog/lib.ts'
-import { takePrivateGistFetchTestEtfs } from './private-gist-fetch-test-overlay.ts'
+import {
+	putPrivateGistTestEtfs,
+	takePrivateGistTestEtfs,
+} from './private-gist-test-store.ts'
+import { githubHeaders, readFile, writeFile } from './store/github-store.ts'
 
 export const GIST_FILENAME = 'etfs.json'
 
@@ -94,15 +98,6 @@ export function buildGistBody(entries: EtfEntry[]): GistBody {
 
 const GITHUB_API = 'https://api.github.com'
 
-function githubHeaders(token: string): HeadersInit {
-	return {
-		Authorization: `Bearer ${token}`,
-		Accept: 'application/vnd.github+json',
-		'Content-Type': 'application/json',
-		'X-GitHub-Api-Version': '2022-11-28',
-	}
-}
-
 /** GitHub caps `per_page` at 100; the default of 30 would hide older gists. */
 const GISTS_PER_PAGE = 100
 
@@ -183,18 +178,23 @@ export async function fetchEtfs(
 	token: string,
 	gistId: string,
 ): Promise<EtfEntry[]> {
-	const testEtfs = takePrivateGistFetchTestEtfs(token, gistId)
+	const testEtfs = takePrivateGistTestEtfs(token, gistId)
 	if (testEtfs !== null) return testEtfs
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		headers: githubHeaders(token),
+	const result = await readFile({
+		token,
+		location: gistId,
+		path: GIST_FILENAME,
 	})
-	if (!response.ok) {
+	if (!result.ok) {
 		throw new Error(
-			`GitHub API error fetching portfolio gist: ${response.status}`,
+			`GitHub API error fetching portfolio gist: ${result.status}`,
 		)
 	}
-	const gist = (await response.json()) as GistPayload
-	return parseEtfsFromGist(gist)
+	return parseEtfsFromGist({
+		files: result.file
+			? { [GIST_FILENAME]: { content: result.file.content } }
+			: {},
+	})
 }
 
 /**
@@ -220,15 +220,17 @@ export async function saveEtfs(
 	gistId: string,
 	entries: EtfEntry[],
 ): Promise<void> {
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		method: 'PATCH',
-		headers: githubHeaders(token),
-		body: JSON.stringify(buildGistBody(entries)),
+	if (putPrivateGistTestEtfs(token, gistId, entries)) return
+	const result = await writeFile({
+		token,
+		location: gistId,
+		path: GIST_FILENAME,
+		content: JSON.stringify(entries, null, 2),
 	})
-	if (!response.ok) {
-		const detail = await response.text().catch(() => '')
+	if (!result.ok) {
+		const detail = await result.response.text().catch(() => '')
 		throw new Error(
-			`GitHub API error saving portfolio gist: ${response.status}${detail ? ` ${detail}` : ''}`,
+			`GitHub API error saving portfolio gist: ${result.status}${detail ? ` ${detail}` : ''}`,
 		)
 	}
 }

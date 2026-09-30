@@ -1,13 +1,10 @@
 import { Frame, type Handle } from 'remix/ui'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import {
-	Card,
 	FieldLabel,
 	NumberInput,
 	SelectInput,
 	SubmitButton,
-	TabLink,
-	TabsNav,
 } from '../../components/index.ts'
 import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-placeholder.tsx'
 import {
@@ -20,10 +17,10 @@ import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
-// @ts-expect-error Runtime-only JS client entry module
-import { GuidelinesDeleteDialogInteractions } from './guidelines-list.component.js'
-
-type GuidelinesAddTabId = 'instrument' | 'bucket'
+import { GuidelinesDeleteDialogInteractions } from './guidelines-list.component.ts'
+import { GuidelinesListFrame } from './guidelines-list-frame.component.ts'
+import { GuidelinesTabs } from './guidelines-tabs.component.ts'
+import type { GuidelinesAddTabId } from './tab-id.ts'
 
 type GuidelinesPageProps = {
 	assetClassOptions: { value: EtfType; label: string }[]
@@ -46,11 +43,6 @@ export function GuidelinesPage(
 			{ value: '', label: instrumentPlaceholder },
 			...props.instrumentOptions,
 		]
-		const bucketTabHref = routes.guidelines.index.href()
-		const instrumentTabHref = routes.guidelines.index.href(
-			{},
-			{ tab: 'instrument' },
-		)
 		const activeAddTab = props.activeAddTab
 		const guidelinesIntro = getSectionIntro('guidelines')
 
@@ -66,122 +58,118 @@ export function GuidelinesPage(
 						<p class="mt-1 text-sm text-muted-foreground">
 							{sessionUsesGithubGist(session)
 								? t('guidelines.subtitle.savedGist')
-								: session?.approvalStatus === 'pending'
-									? t('guidelines.subtitle.pending')
-									: t('guidelines.subtitle.signIn')}
+								: t('guidelines.subtitle.pending')}
 						</p>
 					</SectionIntroCard>
 
-					<div class="flex flex-col">
-						<TabsNav
-							activeId={activeAddTab}
-							aria-label={t('guidelines.tabs.navAria')}
-							scrollGroupId="guidelines-add"
-						>
-							<TabLink id="bucket" href={bucketTabHref}>
-								{t('guidelines.bucket.title')}
-							</TabLink>
-							<TabLink id="instrument" href={instrumentTabHref}>
-								{t('guidelines.etfCard.title')}
-							</TabLink>
-						</TabsNav>
-
-						<Card variant="muted" class="rounded-t-none border-t-0 p-4">
-							{activeAddTab === 'instrument' ? (
-								<section
-									aria-label={t('guidelines.etfCard.title')}
+					<GuidelinesTabs
+						activeAddTab={activeAddTab}
+						navAriaLabel={t('guidelines.tabs.navAria')}
+						bucketLabel={t('guidelines.bucket.title')}
+						instrumentLabel={t('guidelines.etfCard.title')}
+						bucketPanel={
+							<section
+								aria-label={t('guidelines.bucket.title')}
+								class="grid gap-4"
+							>
+								<p class="text-xs text-muted-foreground">
+									{t('guidelines.bucket.hint')}
+								</p>
+								<form
+									id="guidelines-add-form-bucket"
+									method="post"
+									action={routes.guidelines.action.href()}
 									class="grid gap-4"
+									data-rmx-target="guidelines-list"
+									data-reset-form
 								>
-									<p class="text-xs text-muted-foreground">
-										{t('guidelines.etfCard.hint')}
-									</p>
-									<form
-										method="post"
-										action={routes.guidelines.instrument.href()}
-										class="grid gap-4"
-										data-frame-submit="guidelines-list"
-										data-frame-replace-from-response="1"
-										data-reset-form
-									>
-										<div class="grid gap-2">
-											<FieldLabel fieldId="instrumentTicker">
-												{t('guidelines.etfCard.field.fund')}
-											</FieldLabel>
-											<SelectInput
-												id="instrumentTicker"
-												name="instrumentTicker"
-												options={instrumentSelectOptions}
-											/>
-										</div>
-										<div class="grid gap-2">
-											<FieldLabel fieldId="instrumentTargetPct">
-												{t('guidelines.etfCard.field.targetPct')}
-											</FieldLabel>
-											<NumberInput
-												id="instrumentTargetPct"
-												name="targetPct"
-												placeholder={t('forms.targetPct.placeholder')}
-												required={true}
-												inputMode="decimal"
-												pattern={LOCALE_DECIMAL_HTML_PATTERN}
-											/>
-										</div>
-										<SubmitButton>
-											{t('guidelines.etfCard.submit')}
-										</SubmitButton>
-									</form>
-								</section>
-							) : (
-								<section
-									aria-label={t('guidelines.bucket.title')}
+									<input
+										type="hidden"
+										name="guidelineIntent"
+										value="addAssetClass"
+									/>
+									<div class="grid gap-2">
+										<FieldLabel fieldId="assetClassType">
+											{t('guidelines.bucket.field.class')}
+										</FieldLabel>
+										<SelectInput
+											id="assetClassType"
+											name="assetClassType"
+											options={props.assetClassOptions}
+										/>
+									</div>
+									<div class="grid gap-2">
+										<FieldLabel fieldId="assetTargetPct">
+											{t('guidelines.bucket.field.targetPct')}
+										</FieldLabel>
+										<NumberInput
+											id="assetTargetPct"
+											name="targetPct"
+											placeholder={t('forms.targetPct.placeholderAsset')}
+											required={true}
+											inputMode="decimal"
+											pattern={LOCALE_DECIMAL_HTML_PATTERN}
+										/>
+									</div>
+									<SubmitButton>{t('guidelines.bucket.submit')}</SubmitButton>
+								</form>
+							</section>
+						}
+						instrumentPanel={
+							<section
+								aria-label={t('guidelines.etfCard.title')}
+								class="grid gap-4"
+							>
+								<p class="text-xs text-muted-foreground">
+									{t('guidelines.etfCard.hint')}
+								</p>
+								<form
+									id="guidelines-add-form-instrument"
+									method="post"
+									action={routes.guidelines.action.href()}
 									class="grid gap-4"
+									data-rmx-target="guidelines-list"
+									data-reset-form
 								>
-									<p class="text-xs text-muted-foreground">
-										{t('guidelines.bucket.hint')}
-									</p>
-									<form
-										method="post"
-										action={routes.guidelines.assetClass.href()}
-										class="grid gap-4"
-										data-frame-submit="guidelines-list"
-										data-frame-replace-from-response="1"
-										data-reset-form
-									>
-										<div class="grid gap-2">
-											<FieldLabel fieldId="assetClassType">
-												{t('guidelines.bucket.field.class')}
-											</FieldLabel>
-											<SelectInput
-												id="assetClassType"
-												name="assetClassType"
-												options={props.assetClassOptions}
-											/>
-										</div>
-										<div class="grid gap-2">
-											<FieldLabel fieldId="assetTargetPct">
-												{t('guidelines.bucket.field.targetPct')}
-											</FieldLabel>
-											<NumberInput
-												id="assetTargetPct"
-												name="targetPct"
-												placeholder={t('forms.targetPct.placeholderAsset')}
-												required={true}
-												inputMode="decimal"
-												pattern={LOCALE_DECIMAL_HTML_PATTERN}
-											/>
-										</div>
-										<SubmitButton>{t('guidelines.bucket.submit')}</SubmitButton>
-									</form>
-								</section>
-							)}
-						</Card>
-					</div>
+									<input
+										type="hidden"
+										name="guidelineIntent"
+										value="addInstrument"
+									/>
+									<div class="grid gap-2">
+										<FieldLabel fieldId="instrumentTicker">
+											{t('guidelines.etfCard.field.fund')}
+										</FieldLabel>
+										<SelectInput
+											id="instrumentTicker"
+											name="instrumentTicker"
+											options={instrumentSelectOptions}
+										/>
+									</div>
+									<div class="grid gap-2">
+										<FieldLabel fieldId="instrumentTargetPct">
+											{t('guidelines.etfCard.field.targetPct')}
+										</FieldLabel>
+										<NumberInput
+											id="instrumentTargetPct"
+											name="targetPct"
+											placeholder={t('forms.targetPct.placeholder')}
+											required={true}
+											inputMode="decimal"
+											pattern={LOCALE_DECIMAL_HTML_PATTERN}
+										/>
+									</div>
+									<SubmitButton>{t('guidelines.etfCard.submit')}</SubmitButton>
+								</form>
+							</section>
+						}
+					/>
 
 					<p class="text-xs text-muted-foreground">
 						{t('guidelines.footer.beforeLink')}{' '}
 						<a
 							href={routes.catalog.index.href()}
-							rmx-document
+							data-rmx-document
 							class="font-medium text-primary underline underline-offset-2"
 						>
 							{t('guidelines.footer.link')}
@@ -194,6 +182,7 @@ export function GuidelinesPage(
 						src={routes.guidelines.fragmentList.href()}
 						fallback={frameLoadingPlaceholder()}
 					/>
+					<GuidelinesListFrame />
 				</main>
 				<GuidelinesDeleteDialogInteractions />
 			</>

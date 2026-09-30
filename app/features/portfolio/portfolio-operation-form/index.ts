@@ -3,7 +3,7 @@ import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
-import { renderToStream } from 'remix/ui/server'
+import { renderFragmentToStream } from '../../../components/render.ts'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
 import {
 	requestAcceptsApplicationJson,
@@ -11,7 +11,6 @@ import {
 } from '../../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
 import { fetchPortfolioSnapshot, saveEtfs } from '../../../lib/gist.ts'
-import { getGuestEtfs, setGuestEtfs } from '../../../lib/guest-session-state.ts'
 import { t } from '../../../lib/i18n.ts'
 import {
 	applyPortfolioOperation,
@@ -19,7 +18,7 @@ import {
 	PortfolioOperationSchema,
 } from '../../../lib/portfolio-operations.ts'
 import type { AppRequestContext } from '../../../lib/request-context.ts'
-import { getSessionData } from '../../../lib/session.ts'
+import { getSessionData, sessionUsesGithubGist } from '../../../lib/session.ts'
 import { flashBanner } from '../../../lib/session-flash.ts'
 import { routes } from '../../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../../catalog/lib.ts'
@@ -30,18 +29,13 @@ async function loadCatalogForPortfolioList(
 	context: AppRequestContext,
 ): Promise<CatalogEntry[]> {
 	const session = getSessionData(context.get(Session))
-	if (session?.gistId && session.token) {
-		try {
-			const snapshot = await fetchPortfolioSnapshot(
-				session.token,
-				session.gistId,
-			)
-			return snapshot.catalog
-		} catch {
-			return fetchCatalog()
-		}
+	if (!sessionUsesGithubGist(session)) return fetchCatalog()
+	try {
+		const snapshot = await fetchPortfolioSnapshot(session.token, session.gistId)
+		return snapshot.catalog
+	} catch {
+		return fetchCatalog()
 	}
-	return fetchCatalog()
 }
 
 async function portfolioListFragmentHtmlResponse(
@@ -54,7 +48,7 @@ async function portfolioListFragmentHtmlResponse(
 ) {
 	const catalog = await loadCatalogForPortfolioList(context)
 	return createHtmlResponse(
-		renderToStream(
+		renderFragmentToStream(
 			jsx(ListFragment, {
 				entries: params.entries,
 				catalog,
@@ -78,18 +72,14 @@ async function loadPortfolioEntries(
 	context: AppRequestContext,
 ): Promise<EtfEntry[] | null> {
 	const session = getSessionData(context.get(Session))
-	if (session?.gistId && session.token) {
-		try {
-			const snapshot = await fetchPortfolioSnapshot(
-				session.token,
-				session.gistId,
-			)
-			return snapshot.entries
-		} catch {
-			return null
-		}
+	// Pending approval: no store to read, so no rows — not a read failure.
+	if (!sessionUsesGithubGist(session)) return []
+	try {
+		const snapshot = await fetchPortfolioSnapshot(session.token, session.gistId)
+		return snapshot.entries
+	} catch {
+		return null
 	}
-	return getGuestEtfs(context.get(Session))
 }
 
 async function portfolioPersistenceFailureResponse(
@@ -114,7 +104,51 @@ async function portfolioPersistenceFailureResponse(
 	return createRedirectResponse(routes.portfolio.index.href())
 }
 
-export { ListFragment, PortfolioOperationForm }
+/**
+ * JSON/frame-HTML/flash+redirect response for a validation failure that
+ * happens before any holdings snapshot has been loaded for this request —
+ * reloads entries fresh for the frame-HTML branch, falling back to a
+ * persistence-error banner if that reload itself fails. Shared by the trade
+ * form's schema validation and CSV import's "no valid rows" case, so the
+ * three-way `Accept` branching lives in one place.
+ */
+async function portfolioValidationFailureResponse(
+	context: AppRequestContext,
+	message: string,
+): Promise<Response> {
+	if (requestAcceptsApplicationJson(context.request)) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	if (requestAcceptsFrameSubmitHtml(context.request)) {
+		const entries = await loadPortfolioEntries(context)
+		if (entries === null) {
+			return portfolioListFragmentHtmlResponse(context, {
+				entries: [],
+				inlineError: t('errors.portfolio.persistence'),
+				status: 422,
+			})
+		}
+		return portfolioListFragmentHtmlResponse(context, {
+			entries,
+			inlineError: message,
+			status: 422,
+		})
+	}
+	flashBanner(context.get(Session), { text: message, tone: 'error' })
+	return createRedirectResponse(routes.portfolio.index.href())
+}
+
+export {
+	ListFragment,
+	loadPortfolioEntries,
+	PortfolioOperationForm,
+	portfolioListFragmentHtmlResponse,
+	portfolioPersistenceFailureResponse,
+	portfolioValidationFailureResponse,
+}
 
 export const portfolioOperationFormHandlers = {
 	actions: {
@@ -127,50 +161,32 @@ export const portfolioOperationFormHandlers = {
 
 			const result = parseSafe(PortfolioOperationSchema, formPayload)
 			if (!result.success) {
-				const message = t('errors.portfolio.addInvalid')
-				if (requestAcceptsApplicationJson(context.request)) {
-					return new Response(JSON.stringify({ error: message }), {
-						status: 422,
-						headers: { 'Content-Type': 'application/json' },
-					})
-				}
-				if (requestAcceptsFrameSubmitHtml(context.request)) {
-					const entries = await loadPortfolioEntries(context)
-					if (entries === null) {
-						return portfolioListFragmentHtmlResponse(context, {
-							entries: [],
-							inlineError: t('errors.portfolio.persistence'),
-							status: 422,
-						})
-					}
-					return portfolioListFragmentHtmlResponse(context, {
-						entries,
-						inlineError: message,
-						status: 422,
-					})
-				}
-				flashBanner(context.get(Session), { text: message, tone: 'error' })
-				return createRedirectResponse(routes.portfolio.index.href())
+				return portfolioValidationFailureResponse(
+					context,
+					t('errors.portfolio.addInvalid'),
+				)
 			}
 
 			const operation = result.value
 			const session = getSessionData(context.get(Session))
+			if (!sessionUsesGithubGist(session)) {
+				return portfolioValidationFailureResponse(
+					context,
+					t('errors.portfolio.requiresApproval'),
+				)
+			}
+
 			let catalog: CatalogEntry[]
 			let current: EtfEntry[]
-			if (session?.gistId && session.token) {
-				try {
-					const snapshot = await fetchPortfolioSnapshot(
-						session.token,
-						session.gistId,
-					)
-					catalog = snapshot.catalog
-					current = snapshot.entries
-				} catch {
-					return portfolioPersistenceFailureResponse(context)
-				}
-			} else {
-				catalog = await fetchCatalog()
-				current = getGuestEtfs(context.get(Session))
+			try {
+				const snapshot = await fetchPortfolioSnapshot(
+					session.token,
+					session.gistId,
+				)
+				catalog = snapshot.catalog
+				current = snapshot.entries
+			} catch {
+				return portfolioPersistenceFailureResponse(context)
 			}
 
 			const { instrumentTicker, value, currency } = operation
@@ -200,9 +216,7 @@ export const portfolioOperationFormHandlers = {
 							...(outcome.blocker === 'catalog_entry_missing'
 								? {
 										instrumentTicker: instrumentTicker.trim(),
-										...(session?.gistId && session.token
-											? { gistId: session.gistId }
-											: {}),
+										gistId: session.gistId,
 									}
 								: {}),
 						}),
@@ -225,14 +239,10 @@ export const portfolioOperationFormHandlers = {
 
 			const updated = outcome.holdings
 
-			if (session?.gistId && session.token) {
-				try {
-					await saveEtfs(session.token, session.gistId, updated)
-				} catch {
-					return portfolioPersistenceFailureResponse(context)
-				}
-			} else {
-				setGuestEtfs(context.get(Session), updated)
+			try {
+				await saveEtfs(session.token, session.gistId, updated)
+			} catch {
+				return portfolioPersistenceFailureResponse(context)
 			}
 
 			if (requestAcceptsFrameSubmitHtml(context.request)) {

@@ -1,0 +1,51 @@
+import { clientEntry, createElement } from 'remix/ui'
+import { addEventListeners } from '../../lib/browser/event-listeners.ts'
+
+const ATTR = 'data-catalog-etf-back'
+
+function isModifiedClick(event: MouseEvent) {
+	return (
+		event.defaultPrevented ||
+		event.button !== 0 ||
+		event.metaKey ||
+		event.ctrlKey ||
+		event.shiftKey ||
+		event.altKey
+	)
+}
+
+export const CatalogEtfBackEnhancement = clientEntry(
+	`${import.meta.url}#CatalogEtfBackEnhancement`,
+	function CatalogEtfBackEnhancement(handle) {
+		if (typeof document !== 'undefined') {
+			addEventListeners(document, handle.signal, {
+				click(event) {
+					const target = event.target
+					if (!(target instanceof Element)) return
+					const anchor = target.closest(`a[${ATTR}]`)
+					if (!(anchor instanceof HTMLAnchorElement)) {
+						return
+					}
+					if (isModifiedClick(event)) return
+
+					event.preventDefault()
+					if (typeof history !== 'undefined' && history.length > 1) {
+						history.back()
+						return
+					}
+					const href = anchor.getAttribute('href')
+					if (href && !href.startsWith('#')) {
+						window.location.assign(anchor.href)
+					}
+				},
+			})
+		}
+
+		return () =>
+			createElement('span', {
+				hidden: true,
+				'aria-hidden': 'true',
+				'data-component': 'catalog-etf-back-enhancement',
+			})
+	},
+)

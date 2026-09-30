@@ -1,13 +1,15 @@
 import * as assert from 'node:assert/strict'
-import { afterEach, describe, it } from 'node:test'
+import { afterEach, beforeEach, describe, it } from 'node:test'
+import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
+	approvedSessionCookie,
 	resetTestSessionCookieJar,
+	seedTestSessionCookie,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
-import { resetEtfEntries } from '../portfolio/index.ts'
 import {
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
@@ -16,9 +18,14 @@ import {
 
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
 
+// Every page under test sits behind the sign-in gate; this seeds the sticky
+// cookie jar with an approved session and an empty private gist.
+beforeEach(async () => {
+	await approvedSessionCookie()
+})
+
 afterEach(() => {
 	setAdviceClient(null)
-	resetEtfEntries()
 	resetSharedCatalogForTests()
 	resetTestSessionCookieJar()
 	if (originalApprovedGithubLogins === undefined) {
@@ -45,7 +52,11 @@ async function signInAs(login: string, params: { isAdmin?: boolean } = {}) {
 	const value = await sessionStorage.save(session)
 	if (value == null) throw new Error('expected session save value')
 	const cookieHeader = await sessionCookie.serialize(value)
-	return cookieHeader.split(';')[0]
+	const cookie = cookieHeader.split(';')[0] ?? ''
+	// Take over the sticky jar, which `beforeEach` seeded with a plain approved
+	// user; the jar is what carries flash messages between this test's requests.
+	seedTestSessionCookie(cookie)
+	return cookie
 }
 
 describe('ETF Catalog page', () => {
@@ -103,8 +114,8 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Test Fund/)
 		assert.match(body, /From your catalog/)
 		assert.match(body, /AI overview/)
-		assert.match(body, /action="\/catalog\/etf\/row-detail-test\/analysis"/)
-		assert.match(body, /data-frame-submit="catalog-etf-analysis"/)
+		assert.match(body, /action="\/catalog\/etf\/row-detail-test"/)
+		assert.match(body, /data-rmx-target="catalog-etf-analysis"/)
 		assert.match(body, /\/catalog\/fragments\/etf-analysis\/row-detail-test/)
 		assert.match(body, /ETF analysis/)
 		assert.doesNotMatch(body, /Educational ETF paragraph/)
@@ -114,7 +125,12 @@ describe('ETF Catalog page', () => {
 			/<a\b[^>]*\bhref="\/catalog"[^>]*\bdata-catalog-etf-back\b/,
 			'Back uses catalog as no-JS fallback; JS prefers history.back()',
 		)
-		assert.match(body, /catalog-etf-back\.component\.js/)
+		assert.ok(
+			body.includes(
+				await assetHref('app/features/catalog/catalog-etf-back.component.ts'),
+			),
+			'page does not mount the catalog-etf-back client entry',
+		)
 	})
 
 	it('GET /catalog/fragments/etf-analysis/:id returns empty fragment when signed in', async () => {
@@ -143,7 +159,7 @@ describe('ETF Catalog page', () => {
 		assert.doesNotMatch(body, /Fragment Fund/)
 	})
 
-	it('POST /catalog/etf/:id/analysis returns HTML fragment with text when OpenAI succeeds', async () => {
+	it('POST /catalog/etf/:id returns HTML fragment with text when OpenAI succeeds', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -168,7 +184,7 @@ describe('ETF Catalog page', () => {
 		})
 
 		const response = await testSessionFetch(
-			new Request('http://localhost/catalog/etf/row-detail-test/analysis', {
+			new Request('http://localhost/catalog/etf/row-detail-test', {
 				method: 'POST',
 				headers: {
 					Accept: 'text/html',
@@ -183,7 +199,7 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Educational ETF paragraph\./)
 	})
 
-	it('POST /catalog/etf/:id/analysis returns 403 when session is pending approval', async () => {
+	it('POST /catalog/etf/:id returns 403 when session is pending approval', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -207,17 +223,14 @@ describe('ETF Catalog page', () => {
 		const cookie = cookieHeader.split(';')[0]
 
 		const response = await testSessionFetch(
-			new Request(
-				'http://localhost/catalog/etf/pending-analysis-test/analysis',
-				{
-					method: 'POST',
-					headers: {
-						Accept: 'text/html',
-						Cookie: cookie,
-					},
-					body: new FormData(),
+			new Request('http://localhost/catalog/etf/pending-analysis-test', {
+				method: 'POST',
+				headers: {
+					Accept: 'text/html',
+					Cookie: cookie,
 				},
-			),
+				body: new FormData(),
+			}),
 		)
 		assert.equal(response.status, 403)
 		const body = await response.text()
@@ -510,7 +523,9 @@ describe('ETF Catalog page', () => {
 		assert.equal(importResponse.status, 302)
 		assert.equal(importResponse.headers.get('location'), '/admin/etf-import')
 
+		// Drop the flash, then sign back in: /catalog is behind the sign-in gate.
 		resetTestSessionCookieJar()
+		await approvedSessionCookie()
 		const catalogResponse = await testSessionFetch('http://localhost/catalog')
 		const body = await catalogResponse.text()
 
@@ -956,6 +971,7 @@ describe('ETF Catalog page', () => {
 		seedSharedCatalog(bankJson)
 
 		const addForm = new FormData()
+		addForm.set('portfolioIntent', 'trade')
 		addForm.set('portfolioOperation', 'buy')
 		addForm.set('instrumentTicker', 'VTI')
 		addForm.set('value', '5000')
@@ -1033,10 +1049,19 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /name="q"/)
 		assert.match(body, /name="type"/)
 		assert.match(body, /name="risk"/)
+		assert.match(body, /data-catalog-filter-form/)
+		assert.ok(
+			body.includes(
+				await assetHref(
+					'app/features/catalog/catalog-filter-prefs.component.ts',
+				),
+			),
+			'page does not mount the catalog-filter-prefs client entry',
+		)
 		assert.match(body, /1 ETF in catalog/)
 	})
 
-	it('catalog filter form uses Frame submit + fragment action for list updates', async () => {
+	it('catalog filter form uses native data-rmx-target for list updates', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -1055,16 +1080,42 @@ describe('ETF Catalog page', () => {
 
 		assert.match(
 			body,
-			/<form\b[^>]*\bmethod="get"[^>]*\bdata-frame-submit="catalog-list"/,
+			/<form\b[^>]*\bmethod="get"[^>]*\bdata-rmx-target="catalog-list"/,
 		)
 		assert.match(
 			body,
-			/<form\b[^>]*\bdata-frame-get-fragment-action="\/catalog\/fragments\/list"/,
+			/<form\b[^>]*\bdata-rmx-target="catalog-list"[^>]*\bdata-rmx-history="replace"/,
 		)
 		assert.match(
 			body,
-			/<form\b(?=[^>]*\bmethod="get")(?=[^>]*\bdata-frame-submit="catalog-list")[^>]*>[\s\S]*?submit-button-busy-overlay[\s\S]*?<\/form>/,
+			/<form\b(?=[^>]*\bmethod="get")(?=[^>]*\bdata-rmx-target="catalog-list")[^>]*>[\s\S]*?submit-button-busy-overlay[\s\S]*?<\/form>/,
 		)
+	})
+
+	it('GET /catalog with Accept: text/html (a frame-targeted filter reload) returns only the list fragment', async () => {
+		const bankJson = JSON.stringify({
+			data: [
+				{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' },
+				{ fund_name: 'Vanguard Bond', ticker: 'BND', assets: 'obligacje' },
+			],
+			count: 2,
+			total_count: 2,
+		})
+		seedSharedCatalog(bankJson)
+
+		const response = await testSessionFetch(
+			new Request('http://localhost/catalog?type=bond', {
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.doesNotMatch(body, /<html/)
+		assert.doesNotMatch(body, /<body/)
+		assert.match(body, /BND/)
+		assert.doesNotMatch(body, /VTI/)
+		assert.match(body, /Showing 1 of 2 ETFs/)
 	})
 
 	it('catalog type filter narrows results', async () => {

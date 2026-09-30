@@ -14,6 +14,7 @@ export const ETF_TYPE_LABELS_PL: Record<EtfType, string> = {
 	commodity: 'Towary',
 	mixed: 'Mieszany',
 	money_market: 'Rynek pieniężny',
+	unknown: 'Niesklasyfikowany',
 }
 
 export const pl = {
@@ -36,7 +37,10 @@ export const pl = {
 	'nav.guidelines': 'Wytyczne inwestycyjne',
 	'nav.admin': 'Admin',
 	'intro.tagline':
-		'Wybierz, dokąd chcesz przejść. Wszystko działa w przeglądarce; zaloguj się przez GitHuba, gdy chcesz zapisywać portfel i katalog między sesjami.',
+		'Śledź swój portfel ETF, ustaw wytyczne inwestycyjne i otrzymuj spersonalizowane porady zakupowe.',
+	'intro.signInPrompt.title': 'Zaloguj się, aby korzystać z AI Investor',
+	'intro.signInPrompt.body':
+		'Każda strona wymaga logowania przez GitHub. Twój portfel i wytyczne są przechowywane prywatnie na Twoim koncie GitHub — ta aplikacja nie prowadzi własnej bazy danych, więc nic nie jest zapisywane nigdzie indziej.',
 	'section.portfolio.title': 'Portfel',
 	'section.portfolio.description':
 		'Wklej lub prześlij plik CSV z brokera, aby dodać to, co już posiadasz lub chcesz kupić.',
@@ -70,8 +74,7 @@ export const pl = {
 	'chrome.pendingShort': '(oczekuje)',
 	'portfolio.savedGist': 'Zapisano w prywatnym gicie GitHub Gist',
 	'portfolio.pendingNotSaved':
-		'Konto oczekuje na akceptację — portfel nie jest jeszcze zapisany w GitHubie',
-	'portfolio.signInPersist': 'Zaloguj się, aby zachować dane między sesjami',
+		'Konto oczekuje na akceptację — nie można jeszcze zapisać portfela',
 	'portfolio.import.title': 'Import z pliku CSV',
 	'portfolio.import.formatsHint':
 		'Eksporty eMAKLER/mBank i podobne. Przykładowe kolumny:',
@@ -179,9 +182,7 @@ export const pl = {
 	'catalog.section.available': 'Dostępne ETF',
 	'guidelines.subtitle.savedGist': 'Zapisano w prywatnym gicie GitHub Gist.',
 	'guidelines.subtitle.pending':
-		'Konto oczekuje na akceptację — wytyczne nie są jeszcze zapisane w GitHubie.',
-	'guidelines.subtitle.signIn':
-		'Zaloguj się, aby zachować dane między sesjami.',
+		'Konto oczekuje na akceptację — nie można jeszcze zapisać wytycznych.',
 	'guidelines.tabs.navAria': 'Formularze dodawania wytycznych',
 	'guidelines.etfCard.title': 'Cel dla konkretnego ETF',
 	'guidelines.etfCard.hint':
@@ -283,6 +284,10 @@ export const pl = {
 		'Podaj kwotę większą od zera przy sprzedaży.',
 	'errors.portfolio.persistence':
 		'Nie udało się zapisać portfela. Spróbuj ponownie za chwilę.',
+	'errors.portfolio.requiresApproval':
+		'Konto oczekuje na akceptację — nie można jeszcze zapisać portfela.',
+	'errors.portfolio.importInvalid':
+		'Nie znaleziono żadnych pozycji w tym pliku CSV. Sprawdź format i spróbuj ponownie.',
 	'errors.upload.fileTooLarge':
 		'Przesłany plik jest za duży. Maksymalny rozmiar to 5 MB.',
 	'errors.catalog.importNotAllowed':
@@ -301,6 +306,10 @@ export const pl = {
 		'Katalog zapisano. Scalono {appliedCount} wiersz(y) z tej wklejki.',
 	'errors.catalog.import.diagnostic.nothingSavedLead':
 		'Nic nie zapisano z tej wklejki.',
+	'errors.catalog.import.diagnostic.unclassifiedHeading':
+		'Niesklasyfikowane — {count} wierszy nie ma klasy aktywów od banku; ustaw ich typ ręcznie:',
+	'errors.catalog.import.diagnostic.typeChangesHeading':
+		'Zmieniony typ w {count} istniejących wierszach (zapisz ponownie wytyczne wskazujące te fundusze):',
 	'errors.catalog.import.diagnostic.skippedHeading': 'Pominięte wiersze:',
 	'errors.catalog.import.diagnostic.notesHeading': 'Uwagi:',
 	'errors.catalog.import.diagnostic.notesSummaryMany':
@@ -336,6 +345,8 @@ export const pl = {
 	'errors.catalog.etfDetail.notFound': 'Nie znaleziono tego wpisu katalogu.',
 	'errors.catalog.etfDetail.pendingAnalysis':
 		'Analiza ETF jest dostępna po akceptacji konta.',
+	'errors.guidelines.requiresApproval':
+		'Konto oczekuje na akceptację — nie można jeszcze zapisać wytycznych.',
 	'errors.guidelines.totalExceeds100':
 		'Suma celów wytycznych nie może przekraczać 100%. Masz już przydzielone {current}%; dodanie {added}% przekroczyłoby limit.',
 	'errors.guidelines.updateTotalExceeds100':
@@ -350,6 +361,8 @@ export const pl = {
 		'Sprawdź fundusz lub wiadro, cel procentowy i spróbuj ponownie.',
 	'errors.guidelines.catalogEntryStale':
 		'Ten fundusz nie jest już w katalogu. Odśwież stronę i wybierz fundusz z listy.',
+	'errors.guidelines.catalogEntryUnclassified':
+		'Katalog nie ma jeszcze klasy aktywów dla {ticker}. Najpierw ustaw jej typ w katalogu, potem dodaj wytyczną.',
 	'errors.guidelines.assetClassStale':
 		'Ta klasa aktywów nie jest już dostępna. Odśwież stronę i wybierz z listy.',
 	'errors.advice.formRead':

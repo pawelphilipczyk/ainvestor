@@ -1,7 +1,9 @@
 import * as assert from 'node:assert/strict'
-import { afterEach, describe, it } from 'node:test'
+import { afterEach, beforeEach, describe, it } from 'node:test'
 
+import { assetHref } from '../../lib/remix-assets.ts'
 import {
+	approvedSessionCookie,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
@@ -10,11 +12,15 @@ import {
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
 } from '../catalog/lib.ts'
-import { resetEtfEntries } from './index.ts'
+
+// Every page under test sits behind the sign-in gate; this seeds the sticky
+// cookie jar with an approved session and an empty private gist.
+beforeEach(async () => {
+	await approvedSessionCookie()
+})
 
 afterEach(() => {
 	resetTestSessionCookieJar()
-	resetEtfEntries()
 	resetSharedCatalogForTests()
 })
 
@@ -40,6 +46,7 @@ function portfolioBuyForm(fields: {
 	currency: string
 }) {
 	const form = new FormData()
+	form.set('portfolioIntent', 'trade')
 	form.set('portfolioOperation', 'buy')
 	form.set('instrumentTicker', fields.instrumentTicker)
 	form.set('value', fields.value)
@@ -53,6 +60,7 @@ function portfolioSellForm(fields: {
 	currency: string
 }) {
 	const form = new FormData()
+	form.set('portfolioIntent', 'trade')
 	form.set('portfolioOperation', 'sell')
 	form.set('instrumentTicker', fields.instrumentTicker)
 	form.set('value', fields.value)
@@ -85,6 +93,31 @@ describe('Intro page', () => {
 		assert.match(body, /ETF Catalog/)
 		assert.match(body, /Investment Guidelines/)
 	})
+
+	it('does not show the sign-in prompt to an already-approved session', async () => {
+		// This suite's beforeEach signs in an approved session; the prompt is
+		// for the signed-out case only.
+		const response = await testSessionFetch('http://localhost/')
+		const body = await response.text()
+
+		assert.doesNotMatch(body, /Sign in to use AI Investor/)
+	})
+
+	it('shows a sign-in prompt with a non-technical storage explanation when signed out', async () => {
+		// Drop the approved session this suite seeds: the intro page is the one
+		// page a signed-out visitor still reaches, and it must explain why every
+		// section bounces back here without one.
+		resetTestSessionCookieJar()
+		const response = await testSessionFetch('http://localhost/')
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /Sign in to use AI Investor/)
+		assert.match(body, /your own GitHub account/)
+		assert.match(body, /Sign in with GitHub/)
+		assert.match(body, /href="\/auth\/github"/)
+		assert.match(body, /data-navigation-loading/)
+	})
 })
 
 describe('Portfolio page', () => {
@@ -107,7 +140,7 @@ describe('Portfolio page', () => {
 		assert.match(body, /<h1[^>]*>\s*Portfolio\s*<\/h1>/)
 		assert.match(body, /<form[^>]*method="post"[^>]*action="\/portfolio"/)
 		assert.match(body, /Import from CSV/)
-		assert.match(body, /action="\/portfolio\/import"/)
+		assert.match(body, /id="portfolio-import-form"/)
 		assert.match(body, /Buy or sell/)
 		assert.match(body, /name="portfolioCsvPaste"/)
 	})
@@ -226,10 +259,11 @@ describe('Portfolio page', () => {
 		const csv = `Papier;Giełda;Wartość;Waluta
 IBTA LN ETF;GBR-LSE;4087.48;PLN`
 		const form = new FormData()
+		form.set('portfolioIntent', 'import')
 		form.set('portfolioCsvPaste', csv)
 
 		const importResponse = await testSessionFetch(
-			new Request('http://localhost/portfolio/import', {
+			new Request('http://localhost/portfolio', {
 				method: 'POST',
 				body: form,
 			}),
@@ -248,6 +282,7 @@ IBTA LN ETF;GBR-LSE;4087.48;PLN`
 IBTA LN ETF;GBR-LSE;4087.48;PLN
 IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		const form = new FormData()
+		form.set('portfolioIntent', 'import')
 		form.set(
 			'portfolioCsv',
 			new Blob([csv], { type: 'text/csv' }),
@@ -255,7 +290,7 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		)
 
 		const importResponse = await testSessionFetch(
-			new Request('http://localhost/portfolio/import', {
+			new Request('http://localhost/portfolio', {
 				method: 'POST',
 				body: form,
 			}),
@@ -270,6 +305,89 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		assert.match(homeBody, /3[,.]?217/)
 		assert.match(homeBody, /GBR-LSE/)
 		assert.match(homeBody, /DEU-XETRA/)
+	})
+
+	it('returns HTML list fragment on successful CSV import when Accept: text/html', async () => {
+		const csv = `Papier;Giełda;Wartość;Waluta
+IBTA LN ETF;GBR-LSE;4087.48;PLN`
+		const form = new FormData()
+		form.set('portfolioIntent', 'import')
+		form.set('portfolioCsvPaste', csv)
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		assert.equal(importResponse.status, 200)
+		const ct = importResponse.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		const body = await importResponse.text()
+		assert.match(body, /IBTA LN ETF/)
+		assert.match(body, /4[,.]?087/)
+	})
+
+	it('returns 422 HTML list fragment when CSV import has no valid rows with Accept: text/html', async () => {
+		const form = new FormData()
+		form.set('portfolioIntent', 'import')
+		form.set('portfolioCsvPaste', 'not,a,valid,csv')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'text/html' },
+			}),
+		)
+		assert.equal(importResponse.status, 422)
+		const ct = importResponse.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		const body = await importResponse.text()
+		assert.match(body, /No holdings found in that CSV/)
+		assert.match(body, /Your Holdings/)
+	})
+
+	it('returns 422 JSON when CSV import has no valid rows with Accept: application/json', async () => {
+		const form = new FormData()
+		form.set('portfolioIntent', 'import')
+		form.set('portfolioCsvPaste', 'not,a,valid,csv')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: form,
+				headers: { Accept: 'application/json' },
+			}),
+		)
+		assert.equal(importResponse.status, 422)
+		const data = await importResponse.json()
+		assert.match(data.error, /No holdings found in that CSV/)
+	})
+
+	it('redirects with a flash banner when CSV import has no valid rows (full-page)', async () => {
+		const form = new FormData()
+		form.set('portfolioIntent', 'import')
+		form.set('portfolioCsvPaste', 'not,a,valid,csv')
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/portfolio', {
+				method: 'POST',
+				body: form,
+			}),
+		)
+		assert.equal(importResponse.status, 302)
+		const location = importResponse.headers.get('Location')
+		const cookie = importResponse.headers.get('Set-Cookie')
+		const homeResponse = await testSessionFetch(
+			location
+				? new URL(location, 'http://localhost/').href
+				: 'http://localhost/portfolio',
+			{ headers: cookie ? { Cookie: cookie.split(';')[0] } : undefined },
+		)
+		const body = await homeResponse.text()
+		assert.match(body, /No holdings found in that CSV/)
 	})
 
 	it('adds to existing ETF value when adding same name instead of replacing', async () => {
@@ -360,23 +478,33 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		assert.doesNotMatch(listBody, /data-island="features\/portfolio\/etf-card"/)
 	})
 
-	it('serves frame-submit component entry for form enhancement', async () => {
+	it('serves portfolio-list-frame component entry for form enhancement', async () => {
 		const componentScriptResponse = await testSessionFetch(
-			'http://localhost/components/client/frame-submit.component.js',
+			new URL(
+				await assetHref(
+					'app/features/portfolio/portfolio-list-frame.component.ts',
+				),
+				'http://localhost/',
+			).href,
 		)
 		assert.equal(componentScriptResponse.status, 200)
 		assert.match(
 			componentScriptResponse.headers.get('content-type') ?? '',
-			/text\/javascript/,
+			/javascript/,
 		)
 	})
 
 	it('serves navigation-link-loading component entry', async () => {
 		const response = await testSessionFetch(
-			'http://localhost/components/navigation/navigation-link-loading.component.js',
+			new URL(
+				await assetHref(
+					'app/components/navigation/navigation-link-loading.component.ts',
+				),
+				'http://localhost/',
+			).href,
 		)
 		assert.equal(response.status, 200)
-		assert.match(response.headers.get('content-type') ?? '', /text\/javascript/)
+		assert.match(response.headers.get('content-type') ?? '', /javascript/)
 	})
 
 	it('POST /portfolio sell reduces value for a holding', async () => {
@@ -636,16 +764,6 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		assert.match(body, /900/)
 	})
 
-	it('shows sign-in link when not authenticated', async () => {
-		const response = await testSessionFetch('http://localhost/')
-		const body = await response.text()
-
-		assert.equal(response.status, 200)
-		assert.match(body, /Sign in with GitHub/)
-		assert.match(body, /href="\/auth\/github"/)
-		assert.match(body, /data-navigation-loading/)
-	})
-
 	it('GET /fragments/portfolio-list returns ETF list HTML fragment', async () => {
 		await seedGuestCatalog()
 		const form = portfolioBuyForm({
@@ -669,10 +787,27 @@ IQQH GR ETF;DEU-XETRA;3217.14;PLN`
 		assert.match(body, /data-instrument-ticker="VTI"/)
 	})
 
-	it('forms use data-frame-submit for Frame-based list reload', async () => {
+	it('CSV import form uses native data-rmx-target for Frame-based list reload', async () => {
 		const response = await testSessionFetch('http://localhost/portfolio')
 		const body = await response.text()
-		assert.match(body, /data-frame-submit="portfolio-list"/)
+		const formIdx = body.indexOf('id="portfolio-import-form"')
+		assert.notEqual(formIdx, -1)
+		const formTag = body.slice(formIdx, formIdx + 400)
+		assert.match(formTag, /action="\/portfolio"/)
+		assert.match(formTag, /data-rmx-target="portfolio-list"/)
+		assert.doesNotMatch(formTag, /data-frame-submit=/)
+		assert.doesNotMatch(formTag, /data-frame-replace-from-response/)
+	})
+
+	it('buy/sell form uses native data-rmx-target for Frame-based list reload', async () => {
+		const response = await testSessionFetch('http://localhost/portfolio')
+		const body = await response.text()
+		const formIdx = body.indexOf('id="portfolio-trade-form"')
+		assert.notEqual(formIdx, -1)
+		const formTag = body.slice(formIdx, formIdx + 400)
+		assert.match(formTag, /data-rmx-target="portfolio-list"/)
+		assert.doesNotMatch(formTag, /data-frame-submit=/)
+		assert.doesNotMatch(formTag, /data-frame-replace-from-response/)
 	})
 
 	it('buy/sell form appears above the holdings frame', async () => {

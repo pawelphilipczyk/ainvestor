@@ -1,0 +1,883 @@
+# Remix RC migration plan
+
+Working checklist for moving this app from `remix@3.0.0-beta.0` to the newest
+published Remix 3 build, **`3.0.0-rc.2`**.
+
+## The goal
+
+**Use Remix APIs wherever Remix has one. Keep hand-rolled code to the minimum.**
+
+The version bump is the enabling step, not the objective. rc.2 closes most of
+the gaps this app filled by hand while it was on beta.0, and the migration is
+the moment to hand that code back to the framework. This restates AGENTS.md
+("Maximize Remix package usage", "If you find code that a Remix package could
+replace, refactor it") as the organizing principle of the whole plan.
+
+**The decision rule, in both directions.** Adopting a Remix API is the default
+and needs no justification. *Keeping* hand-rolled code is the exception and must
+clear a stated bar, recorded in a comment where the code lives:
+
+1. Remix ships nothing for it (for example i18n — see AGENTS.md), **or**
+2. it is genuine app or domain logic (portfolio maths, advice generation, the
+   MCP server, our Tailwind design tokens), **or**
+3. the Remix API was tried against this codebase and demonstrably does not fit —
+   with the specific gap named.
+
+"We already wrote it", "ours works", and "the swap looked fiddly" are not
+reasons. Neither is a guess that the API will not fit: reason 3 requires a real
+attempt, not a prediction. Where a Remix API exists but is genuinely unusable
+today, prefer the smallest possible vendored copy carrying an upstream link and
+a deletion trigger, over a fresh hand-rolled design.
+
+Sources to check before each implementation step:
+
+- Remix API docs: <https://api.remix.run/>
+- Remix package changelog:
+  <https://github.com/remix-run/remix/blob/main/packages/remix/CHANGELOG.md>
+- Remix UI changelog:
+  <https://github.com/remix-run/remix/blob/main/packages/ui/CHANGELOG.md>
+
+## There is no Remix 3.0 final, and no "1.0"
+
+Registry state at the time of writing (`npm view remix dist-tags`):
+
+| Tag | Version | Meaning |
+|---|---|---|
+| `latest` | `2.17.5` | The **Remix 2** lineage. Not our line — installing `remix@latest` is a downgrade to a different framework generation. |
+| `next` | `3.0.0-rc.2` | Newest Remix 3 build. **This is the migration target.** |
+| `rc` | `1.0.0-rc.4` | A stale 2021-era tag. Unrelated to any current release — the only place a "1.0" appears. |
+
+The full 3.x line published so far is `alpha.0`–`alpha.6`, `beta.0`–`beta.6`,
+`beta.9`, `beta.10`, `rc.1`, `rc.2`. So this is **beta.0 → rc.2**, skipping ten
+intermediate builds. Remix 3 has not shipped a stable release, so the app stays
+on a pre-release either way.
+
+## Baseline
+
+- Current: `remix@3.0.0-beta.0` (locked), `@remix-run/ui@0.1.1`
+- Target: `remix@3.0.0-rc.2`, `@remix-run/ui@0.9.0`
+- Surface: 170 TS/TSX files, ~29k LOC; 24 distinct `remix/*` import specifiers
+
+The heaviest dependency move is `@remix-run/ui` **0.1.1 → 0.9.0** — eight 0.x
+minors at once. That jump is what makes the deletions below possible.
+
+Eleven runtime modules are **new in rc.2** and did not exist in beta.0:
+`form-navigation`, `import-map-manager`, `module-preloader`, `frame-resolution`,
+`document-reload`, `client-entry-boundary`, `refresh`, `spa-response`,
+`element-function`, `event-types`, `key`. Several of them are direct native
+replacements for code in `app/`.
+
+## What Remix takes over
+
+| Hand-rolled today | LOC | Replace with | Availability |
+|---|---:|---|---|
+| Form interception in `frame-submit.component.js` — `getSubmitControl`, `createFormData`, `buildGetNavigationUrl`, submitter detection | ~120 of 411 | Native `form-navigation` runtime | **New in rc.2** |
+| `text-input` / `number-input` / `textarea-input` | 239 | ~~`remix/ui/input`~~ — not adopted, see Open question 2 | **New in rc.2** |
+| `tabs-nav.tsx` + `tabs-nav-scroll.component.js` | 202 | `remix/ui/tabs/primitives` | **New in rc.2** |
+| Sidebar overlay: scroll lock, outside-click, focus restore | 107 | `remix/ui/popover` — `surface` does all three | Since beta.0 |
+| `select-input.tsx` | 91 | `remix/ui/select/primitives` | **New in rc.2** |
+| `theme-toggle.tsx` + `.component.js` | 76 | `remix/ui/toggle/primitives` | **New in rc.2** |
+| `submit-button.tsx` + `submit-button-loading.component.js` | 151 | ~~`remix/ui/button`~~ — not adopted, see Open question 2 | Since beta.0 |
+| `app/components/render.ts` | 55 | `render()` from `remix/middleware/render` → `context.render(node, init)` | **New in rc.2** |
+| `IMPORT_MAP` in `document-shell.tsx` + `remixRuntime` allowlist in `router.ts` | ~15 | `ImportMap` from `remix/ui/server`, backed by the native `import-map-manager`; `@remix-run/assets` `AssetServer` | **New in rc.2** |
+| Custom `resolveFrame` in `app/entry.js` | ~10 | Built-in default resolver | **New in rc.2** |
+| `app/lib/form-data-payload.ts` | 11 | `remix/data-schema/form-data` | Since beta.0 — its comment ("there is no separate parser") is simply wrong |
+| Hand-written `AppRequestContext` | 11 | `MiddlewareContext<typeof appMiddleware>` | **New in rc.2** (also compulsory — see §2) |
+| `tsx watch` dev loop | — | `remix/node-hmr` + `remix/ui-hmr/node` (adopted, server-side only); `remix/ui/dev/refresh`/browser-side HMR not adopted — see Stage 7 | **New in rc.2** |
+| Direct `tsx` dependency | — | `remix/node-tsx` (oxc-based loader, already a transitive dep) — adopted | **New in rc.2** |
+| Source-text assertions (`assert.match(body, /addEventListeners/)`) | — | `render()` from `remix/ui/test` — but it mounts into `document.body`, so it needs a DOM this repo does not have (see Stage 6) | Since beta.0 |
+
+Roughly **1,100 LOC of hand-rolled code has a Remix owner**, before the
+dev-tooling swaps — of which ~390 (`submit-button` + the three input
+components) turned out not adopted once measured; see Open question 2.
+
+### Use the `/primitives` exports, not the styled components
+
+rc.2 ships each control twice, and for a Tailwind app the difference decides the
+approach:
+
+| Export | CSS references in `dist` | What you get |
+|---|---:|---|
+| `remix/ui/tabs` | 6 | Behavior **and** Remix's own styling |
+| `remix/ui/tabs/primitives` | **0** | Behavior only — context, registration, keyboard activation, events |
+| `remix/ui/toggle` | 2 | Styled |
+| `remix/ui/toggle/primitives` | **0** | Behavior only |
+| `remix/ui/select` | 3 | Styled |
+| `remix/ui/select/primitives` | **0** | Behavior only |
+
+The app has a committed Tailwind design system (`tailwindConfig`, `baseCss`,
+shadcn-style tokens). Primitives let us delete the hard part — keyboard
+navigation, ARIA wiring, focus management, roving tabindex, event plumbing —
+while keeping every Tailwind class. Default to primitives; take a styled
+component where we have no styling opinion.
+
+`remix/ui/popover` is the same idea for the sidebar: `surface`, `anchor`,
+`focusOnShow`/`focusOnHide` and `onOutsideClick` are mixins rather than a visual
+component, and `surface` calls `lockScroll()` internally.
+
+`remix/ui/button` and `remix/ui/input` have **no** primitives-only variant, so
+they are the one place the rule meets real friction — see Open question 2. Note
+they are still **mixin factories**, not components: `button()` and `input()`
+return mixin descriptors you apply to your own `<button>` / `<input>`, so the
+friction is CSS arriving per element, not a component swap.
+
+### What should still be hand-rolled afterwards
+
+The intended end state, so "minimum" is a target and not a vibe. These clear the
+bar in §Goal:
+
+- **Domain and app logic** — the portfolio, guidelines, advice and catalog
+  features; the MCP server; gist persistence. (Reason 2.)
+- **i18n** — `t()` / `format()` and the locale maps. Remix ships no i18n
+  package; AGENTS.md already records this. (Reason 1.)
+- **App-specific middleware** — `uiLocaleMiddleware`, `multipartLimitFlashOnError`,
+  `enforceGithubApproval`. These stay, but as thin middleware built on Remix's
+  own middleware contract, not as bespoke plumbing. (Reason 2.)
+- **Design system** — `tailwindConfig`, `baseCss`, `form-control-classes.ts`,
+  and the presentational wrappers that carry only Tailwind classes. (Reason 2.)
+- **App-specific UX inside `frame-submit.component.js`** — inline banner tones,
+  `#ui-client-messages` reading, dialog closing, submit-button loading. The form
+  *mechanics* go to the runtime; this layer stays and gets smaller. (Reason 2.)
+- **Document-level event delegation, if anything still needs it after Stage 6.**
+  `on()` is an element mixin and does not cover it. (Reason 3 — but the bar
+  requires proving a call site survives the primitives, not assuming it does.)
+
+## Validation already performed
+
+A full trial migration was run in a scratch copy of the repo against a real
+`remix@3.0.0-rc.2` install:
+
+| Stage | Result |
+|---|---|
+| rc.2 installed, no code changes | 20 typecheck errors (all cascading from 9 missing module specifiers) |
+| after specifier renames | 12 errors, in 4 real clusters |
+| after context + router refactor | 6 errors |
+| after `href` + `Session` fixes | **0 typecheck errors** |
+| test suite, after covering the two removed helpers | **566 / 569 passing** |
+
+Baseline on current beta.0: **569 passing, 0 failing.** Trial diff: **23 files.**
+
+The 3 remaining failures are all in `app/components/layout/sidebar.test.ts` and
+assert the *old* import-map contract this migration deliberately changes.
+
+**Scope of what this proves.** The trial took the shortest path to green to size
+the compulsory work. It did **not** perform the adoptions in the table above —
+those are Stages 5–7, and they are sized by reading the rc.2 type surface, not
+by porting. Treat the table as candidates with a strong prior, and expect at
+least one to need behavior the primitives do not expose. That is what reason 3
+in the decision rule is for.
+
+## Breaking changes
+
+### 1. Module specifiers renamed (mechanical, 12 file-touches)
+
+Middleware moved under `remix/middleware/*`; the router split into
+`remix/router` + `remix/routes`. Underlying `dist/` filenames are unchanged, so
+this is a pure specifier swap.
+
+| Before | After | Files |
+|---|---|---|
+| `remix/fetch-router` | `remix/router` | 4 |
+| `remix/fetch-router/routes` | `remix/routes` | 1 |
+| `remix/session-middleware` | `remix/middleware/session` | 1 |
+| `remix/static-middleware` | `remix/middleware/static` | 1 |
+| `remix/logger-middleware` | `remix/middleware/logger` | 1 |
+| `remix/compression-middleware` | `remix/middleware/compression` | 1 |
+| `remix/form-data-middleware` | `remix/middleware/form-data` | 1 |
+| `remix/method-override-middleware` | `remix/middleware/method-override` | 1 |
+| `remix/session/cookie-storage` | `remix/session-storage/cookie` | 1 |
+
+### 2. Request context is now derived from the middleware chain
+
+`ContextEntry` changed from a **tuple** to an **object**:
+
+```ts
+// beta.0
+type ContextEntry = readonly [key, value]
+
+// rc.2
+interface ContextEntry { key; value; property? }
+```
+
+`MergeContext`, `SetContextValue`, `WithParams`, `BuildAction`,
+`ApplyMiddleware*` and `MiddlewareContextTransform` were **removed**;
+`ContextWithEntries`, `ContextWithEntry`, `ContextWithParams`, `RouterTypes`,
+`createMiddleware`, `createAction` and `createController` were added.
+
+Middleware now carry their context contribution in the type system, and the
+router threads the composed shape through to every controller — `logger()`
+contributes `{ key, value, property: 'logger' }`. A hand-written
+`AppRequestContext` listing only `FormData` and `Session` no longer matches, so
+**every** `router.map(...)` fails to typecheck.
+
+The fix is itself a deletion — stop hand-maintaining the type, derive it:
+
+```ts
+// app/router.ts
+export const appMiddleware = createMiddleware(
+	appStatic, remixRuntime, compression(), logger(), uiLocaleMiddleware(),
+	session(sessionCookie, sessionStorage), multipartLimitFlashOnError(),
+	formData({ /* … */ }), methodOverride(), enforceGithubApproval(),
+)
+
+export const router = createRouter({ middleware: appMiddleware })
+```
+
+```ts
+// app/lib/request-context.ts
+import type { MiddlewareContext } from 'remix/router'
+import type { appMiddleware } from '../router.ts'
+
+export type AppRequestContext = MiddlewareContext<typeof appMiddleware>
+```
+
+This cleared all 12 router errors in the trial and lets the
+`as unknown as Middleware` cast in `enforceGithubApproval()` go away.
+
+**Consequence — the dev/prod middleware ternary must go.** `logger()` in dev and
+`compression()` in prod now produce *different context types*, so the ternary
+yields a union the router rejects. The trial ran both in both environments (one
+stable tuple). That is a real behavior change: compression in dev, logging in
+prod. See Open question 1.
+
+### 3. `context.get()` can now return `undefined`
+
+Context reads include `undefined` when the key has no default.
+`app/lib/multipart-limit-flash-middleware.ts` needs a guard after
+`context.get(Session)` even though it calls `context.has(Session)` — `has()`
+does not narrow.
+
+### 4. `href()` search params must nest under `searchParams`
+
+`route-pattern` 0.20.1 → 0.24.0:
+
+```ts
+// before
+routes.advice.index.href({}, { tab: 'buy_next' })
+
+// after
+routes.advice.index.href({}, { searchParams: { tab: 'buy_next' } })
+```
+
+9 call sites across advice, guidelines and catalog. A **silent trap**: the old
+shape still typechecks in some positions but drops the query string, so check
+all 9 by hand as well as by compiler.
+
+### 5. `addEventListeners` was removed from `@remix-run/ui`
+
+Used in **8 client components**. These are `.js` files outside `tsconfig.json`'s
+`include`, so **typecheck will not catch it** — it fails at module link time
+with `SyntaxError: does not provide an export named 'addEventListeners'`.
+
+**Fix by deleting the call sites, not by porting them.** Nearly all of them
+hand-roll behavior rc.2 now ships:
+
+| Call site | Replacement |
+|---|---|
+| `tabs-nav-scroll.component.js` | `remix/ui/tabs/primitives` |
+| `theme-toggle.component.js` | `remix/ui/toggle/primitives` |
+| `sidebar.component.js` | `remix/ui/popover` (`onOutsideClick`, `surface`) |
+| `locale-select.component.js` | `remix/ui/select/primitives` |
+| `frame-submit.component.js` | native `form-navigation` runtime (§7) |
+| `guidelines-list.component.js`, `catalog-etf-back.component.js`, `portfolio-trade-focus.component.js` | `on()` mixin where element-scoped |
+
+Only if a call site survives that pass — proven, not assumed — vendor the
+removed helper as `app/lib/event-listeners.js`: ~25 self-contained lines over
+native `addEventListener(type, handler, { signal })` plus a re-entry
+`AbortController`. Header must carry the upstream link and a note to delete it
+when Remix re-exports an equivalent.
+
+### 6. `remix/ui/scroll-lock` is gone
+
+`lockScroll` moved to `dist/popover/scroll-lock.js` and is **not publicly
+reachable** — `@remix-run/ui`'s `popover` entry exports `{}`. Imported by
+`sidebar.component.js`; it was the single root cause of all 9 initial test
+failures in the trial.
+
+**Tried in Stage 6 against this sidebar; it does not fit — reason 3.** The
+attempt drove the real `<aside>` markup with `popover.surface` + `popover.anchor`
+in Chromium at 1280x800 and 390x844, with `fixed inset-y-0 left-0 w-64` supplied
+explicitly so the measurement did not depend on the Tailwind CDN. Three
+mismatches, none of them tunable through the mixin's options:
+
+1. `surface` unconditionally applies `attrs({ popover: 'manual' })`, so the
+   element is `display: none` until JS calls `showPopover()` — measured at
+   *both* breakpoints. This sidebar is a persistent desktop rail that must
+   render visible from the server, with no JavaScript.
+2. On open, `surface` runs `anchor()` against a registered anchor, which writes
+   `position: fixed; inset: <y>px auto auto <x>px` inline. Inline styles beat
+   utility classes, so `inset-y-0 left-0` cannot survive: the full-height drawer
+   was measured at `16,771 270x14` — a strip parked under the toggle button.
+   `AnchorOptions` has no "do not position" mode.
+3. `lockScroll()` fires on every open, including desktop, where the rail is not
+   an overlay. Measured `documentElement.style.overflow === 'hidden'` at 1280px.
+
+`surface` is a dropdown/menu positioner, not a drawer primitive. `lockScroll`
+and `onOutsideClick` are not reachable on their own either — `@remix-run/ui`'s
+`popover` entry exports only `Context`, `anchor`, `surface`, `focusOnShow` and
+`focusOnHide`. So `app/lib/scroll-lock.js` stays vendored, and
+`sidebar.component.js` keeps its document-level delegation (which the plan's
+*What should still be hand-rolled* section already allows under reason 3).
+
+What the attempt did produce: `app/components/layout/sidebar.browser.ts`, real
+Chromium coverage of open, close, backdrop, Escape, scroll lock and the
+desktop no-lock rule — behavior that previously had no test at all.
+
+### 7. Client `resolveFrame` changed — and form handling went native
+
+```ts
+// beta.0
+type ResolveFrame = (src, signal?, target?) => …
+
+// rc.2
+type ResolveFrame = (src, options?: { target, formData, method, encType, signal }) => …
+```
+
+`app/entry.js` passes `signal` **positionally**, so it would silently receive an
+options object. Plain JS, browser-only — neither the typechecker nor the tests
+catch this. It is the highest-risk item in the migration.
+
+`resolveFrame` is now **optional**: the built-in default fetches the frame source
+as HTML with the submitted form data, method, encoding and abort signal, and can
+return a `Response` directly. **Delete the custom `resolveFrame`** — the removal
+both fixes the break and gains form-submission support. `loadModule` stays.
+
+Behind that default, rc.2 adds a `form-navigation` runtime module that tracks
+native `submit` events, resolves the authoritative submitter, and feeds
+method/encType/formData into frame reloads — including the Chromium case where a
+submitter overrides a non-POST form. `frame-submit.component.js` hand-rolls
+exactly this in `getSubmitControl`, `createFormData` and `buildGetNavigationUrl`.
+Those go; the app-specific UX around them stays (see *What should still be
+hand-rolled*).
+
+### 8. Smaller items
+
+- `RenderFn<Props>` → `RenderFn` (zero-arg). We already use `return () => …`.
+- `handle.update()` now throws if called during render/before first commit. **Not used** here.
+- Server-side `resolveFrame` in `RenderToStreamOptions` is **unchanged**; all 5 server call sites take only `(source)`.
+- `remix/data-schema` is unchanged (`0.3.0` both sides) — all 14 schema imports are safe.
+- Removed UI subpaths we do not use: `glyph`, `separator`, `theme`.
+
+## Staged plan
+
+Each stage lands green (`npm run check && npm run typecheck && npm test`).
+Stages 1–4 are compulsory; Stages 5–7 are the adoption work the goal is about.
+
+**Stage 1 — bump and rename.** `remix@3.0.0-rc.2`, reinstall, apply the nine
+specifier renames.
+
+**Stage 2 — router and context.** `appMiddleware` via `createMiddleware`,
+collapse the dev/prod ternary, derive `AppRequestContext`, drop the
+`as unknown as Middleware` cast, add the `Session` guard.
+
+**Stage 3 — `href` call sites.** Nest the 9 search-param objects. Typecheck
+reaches zero.
+
+**Stage 4 — unblock the client runtime.** Delete the custom `resolveFrame`
+(§7). Get the suite green on the two removed helpers — by adopting the
+replacement where it is quick, or by vendoring with an upstream link and a
+deletion trigger where it is not. Update the import map and the `remixRuntime`
+allowlist in `app/router.ts`; the current entries point at
+`@remix-run/ui/dist/utils/scroll-lock.js`, which no longer exists.
+
+At this point the app is on rc.2 and green. **Ship it, then keep going** — the
+remaining stages are where the hand-rolled code actually goes away, and each is
+independently valuable and revertible.
+
+**Stage 5 — plumbing (low risk, no visual change). Done**, with one item
+kept under Reason 3:
+
+- `render.ts` → `render()` middleware and `context.render()`. Adopted for
+  every page render *except* the five call sites that pass a per-render
+  `resolveFrame` (advice, two in catalog, guidelines, portfolio) — those
+  short-circuit a known `<Frame>` src to data the render already computed
+  (advice/ETF analysis), avoiding a second in-process request. The
+  `render()` middleware's `RenderFunction` (`context.render`) has no
+  per-call `resolveFrame` hook, so those five keep calling `renderToStream`
+  directly; `render.ts` now takes `context` and branches on whether
+  `options.resolveFrame` is given. Named gap, Reason 3.
+- `IMPORT_MAP` in `document-shell.tsx` + `remixRuntime` allowlist in
+  `router.ts` → `ImportMap` from `remix/ui/server`, backed by a minimal
+  `createAssetServer({ allowPackages: ['remix'] })` in
+  `app/lib/remix-assets.ts`. **Not** via `getImportMap()`/`getScriptEntry()`
+  as the table implied — tried, and it doesn't fit: both key their mappings
+  to a `scopes` entry for the *importing module's own served URL* (assuming
+  that module is itself served by the same asset server), so they only
+  resolve for pages the asset server serves. Our `.component.js`/`entry.js`
+  files stay on `staticFiles()` — already-built plain JS at stable
+  root-relative paths, with root-relative `clientEntry()` ids rather than
+  `import.meta.url`/`file:` ones, so `render()`'s `resolveClientEntry` never
+  needs the asset server for them either — and a scoped map never applies to
+  a module loaded from outside the asset server's own URL namespace.
+  Demonstrated against this codebase, Reason 3 on the *mechanism*; the
+  simpler `getHref()` per package file, assembled into a flat top-level
+  `imports` map by hand, gives the same win (no hand-maintained dist path
+  that can drift across upgrades) without the scoping mismatch.
+- `form-data-payload.ts` → **kept, Reason 3.** `remix/data-schema/form-data`
+  parses `FormData` directly via a schema (`object()`/`field()`), but every
+  call site here (guidelines ×3, portfolio, advice, locale) runs
+  app-specific normalization — locale-decimal parsing, defaulting blank
+  fields, mapping raw multi-field combinations — on a plain object *before*
+  `parseSafe()`, and the schema-first API has no hook for that step. Moving
+  it in would mean rewriting five schemas' worth of validation logic, which
+  is bigger than a "no visual change" plumbing stage and belongs, if
+  pursued, in its own reviewed change. `objectFromFormData`'s job (produce
+  the plain object those normalizers mutate) stays; its comment is
+  corrected to say why rather than claim no parser exists.
+
+**Stage 6 — behavior via primitives (medium risk, no visual change if done
+right). In progress.** Sidebar → `remix/ui/popover`; tabs-nav →
+`tabs/primitives`; theme-toggle → `toggle/primitives`; locale-select and
+select-input → `select/primitives`; `frame-submit.component.js` form mechanics
+→ native `form-navigation`. One component per PR, Tailwind classes untouched —
+only behavior moves. Any vendored helper from Stage 4 should be deleted here; if
+one survives, record which call site needed it and why.
+
+*The shape of the work, learned on the first component.* Every island in this
+app is a hidden `<span>` that delegates `click` from `document`, while the
+markup lives in a separate server component. Remix UI primitives are **element
+mixins** bound to the handle of the component that rendered the element, so
+none of them can attach to that shape: adopting one means folding the markup
+into the `clientEntry` and passing translated copy in as props (the render
+function also runs in the browser, where `t()` does not exist). That restructure
+— not the primitive itself — is the actual cost of each item below, and it is
+written up as pattern 8 in `docs/UI_ARCHITECTURE_GUIDELINES.md`. Each new
+`remix/ui/*` specifier an entry imports also needed a `browserModulePaths`
+entry in `app/lib/remix-assets.ts`, alongside the `@remix-run/ui/*` subpath it
+re-exports — **no longer true.** The assets migration deleted that table; the
+asset server now reads an entry's specifiers out of its own module graph.
+Importing a new subpath needs no registration. See
+`docs/REMIX_ASSETS_MIGRATION_PLAN.md`.
+
+- **theme-toggle → `toggle/primitives`. Done.** `theme-toggle.tsx` and
+  `theme-toggle.component.js` collapse into one `clientEntry` whose `<button>`
+  carries `toggle.control({ checked, onCheckedChange })`; every Tailwind class
+  and both SVGs are byte-identical, and the entry gained `role="switch"`,
+  `aria-checked` and `data-state` that the hand-rolled button never exposed.
+  Third `addEventListeners` call site retired. Verified in Chromium (click,
+  Space, `localStorage` round-trip, reload with `theme=light`, and a sweep of
+  the four main pages): no hydration warning, no runtime error.
+  One wrinkle, recorded in the component: the mixin hands the renderer a
+  boolean `aria-checked`, which the server renderer streams as the bare
+  attribute `aria-checked=""` — ARIA reads that as the `switch` default
+  (`false`) until hydration rewrites it. Accepted; working around it would mean
+  re-hand-rolling what the mixin owns.
+- **sidebar → `remix/ui/popover`. Attempted; not adopted (reason 3).** The
+  measurements are in §6. `app/lib/scroll-lock.js` therefore survives Stage 6,
+  and its deletion trigger is rewritten to say so rather than pointing at an
+  outcome that has now been ruled out. The attempt is not a dead loss: it paid
+  for the browser harness below and for the sidebar's first real test.
+  If the hand-rolled overlay is still worth retiring, the option that remains is
+  architectural rather than a swap — split the persistent desktop rail from the
+  mobile drawer and give the drawer a native `<dialog>` (focus trap, Escape,
+  `::backdrop`, top layer, all native). That trades duplicated nav markup for
+  deleting the scroll-lock, outside-click and focus code, and it is a design
+  decision, not a migration step, so it is not folded into this stage.
+- **`rmx-document` was silently inert on rc.2 — fixed.** The runtime reads
+  `data-rmx-document`; the app wrote `rmx-document`, which the JSX runtime
+  renders verbatim rather than prefixing. So the opt-out did nothing and every
+  nav link, tab link and branding link was being intercepted into a top-frame
+  swap instead of the full document load the attribute asks for. Verified in
+  Chromium by marking `window` before a sidebar click: the marker survived
+  (frame swap), and survives no longer once the attribute is spelled
+  `data-rmx-document`. Fixed across 10 files and pinned by
+  `app/components/navigation/document-navigation.browser.ts`. The same naming
+  applies to the rest of the family — `data-rmx-target`, `data-rmx-src`,
+  `data-rmx-history`, `data-rmx-reset-scroll` — or use the `link()` mixin from
+  `remix/ui`, which writes them for you. Exactly the failure mode §7 predicted:
+  silent, browser-only, invisible to `tsc` and to the server-render tests.
+- **frame-submit → native form navigation. Proven viable; not yet landed.**
+  The mechanics do transfer. Adding `data-rmx-target="portfolio-list"` to the
+  portfolio trade form and deleting its `data-frame-submit` /
+  `data-frame-replace-from-response` attributes reproduced the current
+  behavior with **no app JavaScript at all**: the runtime resolved the
+  submitter and form data, POSTed to the action with `Accept: text/html`,
+  and diffed the response into the named frame. The server side already
+  speaks that contract — `requestAcceptsFrameSubmitHtml()` matches exactly the
+  `Accept: text/html` the runtime's default resolver sends, so no handler
+  changes were needed. Measured against the characterization tests below: the
+  frame re-rendered and the URL bar stayed put; the single regression was
+  `data-reset-form`, i.e. the app-specific UX layer, not the mechanics.
+  Reverted rather than half-landed, because finishing it means re-hooking that
+  layer (form reset, `setSubmitButtonLoading`, inline banner tones, dialog
+  closing, the advice gist-stale branch) onto frame `reloadStart` /
+  `reloadComplete` events instead of onto our own `submit` interception, then
+  carrying all 11 forms across four modes (GET + fragment action, POST +
+  replace-from-response, POST + reload-src, plain POST + reload). That is its
+  own reviewed change, and it is the largest single deletion left in the plan.
+- **`data-rmx-target` commits the form's `action` as the document URL —
+  breaks any form whose action isn't its own page. Hit on guidelines
+  (×4: add-instrument, add-bucket, update-target, delete); resolved by
+  route consolidation, not left under reason 3.** The portfolio port above
+  worked with "the URL bar stayed put" only because `portfolio.create`
+  POSTs to `/portfolio`, the same path as `portfolio.index` — a coincidence
+  of that one route, not a property of `data-rmx-target`. Guidelines'
+  four actions were nested paths (`/guidelines/instrument`,
+  `/guidelines/asset-class`, `/guidelines/:id/target`, `/guidelines/:id`),
+  none equal to `/guidelines`. A first attempt ported them the same way as
+  portfolio (attributes only, plus a `guidelines-list`-wide client entry
+  mirroring `PortfolioTradeFormFrame`) and reproduced the list update
+  correctly, but left the address bar on the action URL after every submit
+  — confirmed live: `GET /guidelines/instrument` after an add returned
+  **405 Method Not Allowed**, so a refresh, back/forward, or share/bookmark
+  right after any of the four actions broke.
+
+  Traced in `@remix-run/ui`'s `runtime/navigation.ts`: a frame-targeted POST
+  still goes through `interceptNavigation`/`event.intercept()`, which is the
+  Navigation API committing `event.destination.url` — the form's actual
+  `action`, fixed by the browser, not by any data attribute — as the current
+  entry regardless of `target`; `topFrame.src` is set to it too. `data-rmx-
+  history` only chooses push vs. replace (`getReplaceHistory`), not whether
+  the URL commits at all, and remains true through both the precommit and
+  non-precommit branches (`startNavigationListenerImpl`). `data-rmx-src`
+  redirects only what the *named frame* fetches (`resolveAndRenderReload`
+  reads `frame.src`); it cannot change what the Navigation API treats as the
+  destination. There is no attribute-level way to keep the document on its
+  current URL while `data-rmx-target`-submitting to a different one.
+
+  Not guidelines-specific — every other form left in the backlog posts to a
+  path distinct from its page (catalog ETF analysis
+  `/catalog/etf/:id/analysis` vs. `/catalog/etf/:id`; portfolio CSV import
+  `/portfolio/import` vs. `/portfolio`; all three advice forms, already on
+  one route — see below). **Resolved by taking option (b) from the open
+  question this raised:** consolidate each feature onto one `form('<name>')`
+  route (an `index`/`action` GET+POST pair at the same URL — a first-party
+  `remix/routes` shorthand, already how `advice` was routed) and
+  discriminate sub-actions with a hidden intent field the single `action`
+  handler switches on, the same shape `advice`'s `adviceIntent` already
+  used. `routes.ts`'s `guidelines` entry is now `...form('guidelines')` +
+  `fragmentList`; `guidelinesController.action` reads a hidden
+  `guidelineIntent` (`addInstrument` / `addAssetClass` / `updateTarget` /
+  `delete`) and dispatches to what were the four separate route handlers;
+  `updateTarget`/`delete` take the row `id` as a hidden field instead of a
+  path segment. `remix/data-schema`'s `object()` strips unknown keys by
+  default, so the intent/id fields needed no changes to the existing
+  per-action validation schemas. With every form's `action` now equal to
+  `/guidelines`, the retry of the `data-rmx-target` port (the client entry
+  above, unchanged) works with no URL drift. Full pattern writeup:
+  `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 — it is now the standard for
+  every remaining `data-rmx-target` form, not only guidelines. Catalog ETF
+  analysis and portfolio CSV import still need the same route consolidation
+  before they can move; option (b) is chosen for them too, not still an
+  open question — see the backlog in `docs/REMIX_RC_MIGRATION_STATUS.md`.
+- **Characterization tests.** `app/components/client/frame-submit.browser.ts`
+  pins the current behavior of the two most common modes in user-visible terms
+  (what the frame region shows, where the URL bar points, whether the form
+  reset), so the port above can be judged against something rather than
+  eyeballed.
+- **Browser tests.** `npm run test:browser` (Playwright, `app/**/*.browser.ts`,
+  helper in `app/lib/browser-test.ts`). Deliberately outside `npm test`: it
+  needs a browser binary from `npx playwright install chromium`, which CI does
+  not download — `playwright@1.63` ships no postinstall, so adding the
+  dependency costs `npm ci` nothing but the tarball. This is the
+  "manual browser pass" the plan calls non-negotiable, made repeatable. The
+  Tailwind CDN is stubbed so runs are deterministic offline, which means these
+  tests assert component-owned state (classes, ARIA, inline styles,
+  `localStorage`) rather than geometry; breakpoint *behavior* is still real,
+  since the sidebar branches on `matchMedia`.
+- **Tests.** `render()` from `remix/ui/test` mounts into `document.body`, and
+  nothing in this repo supplies a DOM — upstream drives it with Playwright,
+  which is not a dependency here. Until that call is made, the replacement for
+  the source-text assertions is a **server-render** assertion: render the entry
+  with `renderToString` and assert the contract it emits (`role`,
+  `data-state`, the `rmx-data` hydration record) instead of grepping the module
+  source. `theme-toggle.test.ts` is the worked example.
+- **tabs-nav → `tabs/primitives` as a navigation replacement. Attempted; not
+  adopted (reason 3).** Measured
+  live in Chromium, same rigor as the sidebar attempt: a throwaway `clientEntry`
+  (`Context` + `root`/`list`/`tab`/`panel` from `remix/ui/tabs/primitives`) was
+  mounted on the guidelines page's add-tabs, driven with Playwright, then
+  removed once the measurement was in hand — nothing from the spike is in this
+  diff. Two results, both exactly what reading `@remix-run/ui`'s
+  `tabs/primitives.js` predicted before touching a browser: `tab()`'s entire
+  behavior is `context.activateTab(name)` on a `<button>`, with no `href`, no
+  history, no fetch, so (1) clicking a tab toggles which `<div role="tabpanel">`
+  is `hidden` **with the URL unchanged** — confirmed by comparing `page.url()`
+  before and after a click (identical), and (2) with JavaScript disabled the
+  two `<button>`s are inert — the server still renders both panels correctly
+  for the request's own tab, but there is no way to reach the other one, since
+  a bare `<button>` carries no `href`/`formaction` for a mixin to attach one
+  to. Both are disqualifying, not just gaps to work around: `tabs-nav.tsx`'s
+  whole job is real per-tab `<a href>` navigation between server-rendered
+  pages — each tab is its own bookmarkable/shareable URL, `activeId` is read
+  from that URL's own query param on the server, and `TabsNavScrollRestoration`
+  restores window scroll around that same navigation — and (2) is a direct
+  violation of this project's own "must function with little or no JavaScript"
+  principle (`docs/UI_ARCHITECTURE_GUIDELINES.md` §3), which the current
+  `<a>`-based tabs meet for free. Recovering navigation would mean hand-writing
+  an `onActiveTabChange` handler that itself pushes history and re-fetches the
+  new tab's content — more hand-rolled code than `tabs-nav.tsx` has today, the
+  opposite of what adopting a primitive is for. `tabs-nav.tsx` and
+  `tabs-nav-scroll.component.js` stay under reason 3 **for this job** — see the
+  next bullet for a real adoption of the same primitive against a different
+  job it actually fits, and `docs/REMIX_RC_MIGRATION_STATUS.md` for the closed
+  backlog item.
+- **A follow-up question, asked once the navigation verdict above landed: is
+  there a Remix-idiomatic way to keep instant, client-side tab switching
+  without giving up keyboard support or the no-JS principle?** Two more
+  things were measured before answering it, not assumed:
+  1. `tab()` composed with the `link()` mixin (`@remix-run/ui`'s
+     `link-mixin.js`) hosted on a real `<a href>` — ARIA/keyboard from
+     `tab()`, real navigation from the anchor's own `href` (for a native
+     `<a>`/`<area>` host, `link()` only ever writes `href` and the
+     `data-rmx-*` attributes; it attaches no click handler of its own, so
+     there is nothing to conflict with). This does work for mouse clicks and
+     arrow-key roving focus (confirmed live), but keyboard **Enter** silently
+     stops navigating: `tab()`'s own keydown handler calls `event.
+     preventDefault()` unconditionally on Enter, which suppresses the
+     anchor's native Enter-activation before the browser acts on it — a real,
+     measured defect (a plain `<a href>` baseline, no mixin at all, confirmed
+     Enter's native browser default *is* navigation), not a hypothetical one.
+     Fixable with a small, targeted `on('keydown', …)` addition that calls
+     `navigate(href)` on Enter, but it's still working the primitive against
+     its own grain.
+  2. **The primitive's own documented intent settled which of the two
+     directions was worth pursuing.** `node_modules/remix/src/ui/tabs/
+     README.md` — the Remix team's own docs, not inferred from source —
+     states plainly: *"Use it when related views share the same page
+     space,"* and its Behavior Notes section: *"Enter, Space, and pointer
+     clicks activate the focused tab."* Every one of its examples hosts
+     `tab()` on `<button>` with `panel()`; there is no `href`/navigation
+     concept anywhere in the doc. The `<a>`+`link()` composition above is a
+     working mechanism, not the documented one — and that's exactly why its
+     keydown handler doesn't protect Enter's native anchor behavior, the way
+     it doesn't need to for its actual, intended host.
+  3. This reframed the real question from "how do we bolt navigation onto
+     `tab()`" to "is there a tab set here that's genuinely same-page, as
+     documented, rather than page-navigation wearing tab styling?" —
+     answered yes for guidelines' add-tabs (bucket vs. named-instrument are
+     two input modes for the same action, not two pages) and adopted for
+     real: `<button>` hosts, `panel()`, full Enter/Space/click/arrow-key
+     support with zero extra glue (native `<button>` semantics, unlike the
+     `<a>` composition above), at the cost of one explicit, written exception
+     to the no-JS principle for *switching* — the initial tab still renders
+     correctly server-side. Full implementation trace in
+     `docs/REMIX_RC_MIGRATION_STATUS.md`'s newest *Done* row; the pattern and
+     its boundary against this bullet's navigation verdict are written up as
+     the project standard in `docs/UI_ARCHITECTURE_GUIDELINES.md` §11.
+- **Advice's mode tabs (`buy_next`/`portfolio_review`) — the one other tab set
+  in the app — adopted onto the same pattern, once investigated rather than
+  assumed to carry over.** Asked directly: could guidelines' shape (both
+  panels co-resident, `panel()` toggling) apply here too? No — guidelines'
+  panels are independent and static (two unrelated option lists); advice's
+  panels each carry gist-backed, mode-specific state (`cashAmount`,
+  `cashCurrency`, `selectedModel`, whether a saved review exists) that
+  `loadAdvicePageState` only ever loaded for the single active tab. Making
+  both co-resident would mean fetching both tabs' gist state on every page
+  view. Resolved by reading `@remix-run/ui`'s `component.js`/`frame.js`
+  rather than assuming: `FrameHandle.src` is a plain, live-read property
+  (`resolveAndRenderReload` reads `frame.src` at reload time, not a value
+  captured at creation), so a client entry can point the shared
+  `advice-result` Frame at the *other* mode's own fragment URL and call
+  `reload()` — fetching that mode's state exactly once, on demand, only when
+  the user actually switches to it. Given that mechanism, the user chose
+  folding each mode's whole panel (form *and* result) inside the Frame over
+  eagerly loading both tabs' state — the same "content outside the frame
+  goes stale" shape the original advice port's "Clear saved review" button
+  already had to move inside this same Frame for (see `6ddab0e`'s row in
+  `docs/REMIX_RC_MIGRATION_STATUS.md`). New `AdviceModePanel` replaces
+  `AdviceResultFragment` (deleted): the form moved in from `AdvicePage`,
+  which used to render one mode's copy directly; `advice.fragmentResult`'s
+  old 204-when-nothing-to-show contract is gone since the panel — at minimum
+  the form — now always renders. **Caught a real regression before it
+  shipped:** moving the form inside a `fallback`-carrying `<Frame>` broke it
+  for no-JS visitors entirely. Confirmed by reading `@remix-run/ui`'s
+  `server/stream.js` (`buildFrameSegment`: `nonBlocking = !!props.fallback`
+  — a fallback-carrying frame streams only the fallback synchronously and
+  delivers real content solely through the client hydration patch) and then
+  confirming live that this is true of *every* Frame in this app already
+  (tested `/guidelines` with JS disabled — `guidelines-list`'s Frame, wholly
+  untouched by this change, never shows its list either). Always harmless
+  before, since no page put a no-JS-required form inside a fallback-carrying
+  Frame; fixed by dropping `fallback` from the `advice-result` Frame
+  specifically, which costs nothing extra since `resolveAdviceResultFrame`
+  only reshapes props the page already awaited before calling `render()` —
+  no new I/O, just a blocking (not deferred) inline render. This was also
+  the last caller of `tabs-nav.tsx`/`tabs-nav-scroll.component.js`, so both
+  were deleted in the same change rather than left as a reason-3 carve-out
+  with nothing left to carve out. Full trace: `docs/REMIX_RC_MIGRATION_STATUS.md`'s
+  newest *Done* row.
+
+**Stage 7 — styled components and dev tooling. Done — last stage in this
+plan.** `remix/ui/button` and `remix/ui/input` against `submit-button.tsx` and
+the three input components — the design-system call in Open question 2,
+**resolved: not adopted, reason 2** (measured live; see Open question 2 for
+the full trace — flagged as a migration follow-up for whenever `remix/ui`
+ships `button/primitives` and `input/primitives`). Then the dev-tooling
+swap: `remix/node-tsx` **fully replaces** the `tsx` dependency (every script
+now runs `node --import remix/node-tsx` instead of the `tsx` binary), and
+`remix/node-hmr` + `remix/ui-hmr/node` replace the `tsx watch` restart loop
+with real in-place hot reload for server components — confirmed live (an
+edited route component hot-swaps with no process restart). `remix/ui/dev/refresh`
+(browser-side HMR, patching an already-open tab without a reload) is **not
+adopted**: it requires `.component.js` client entries to be served through
+`remix/assets`, and this app serves them as plain static files instead — the
+same architecture Stage 5 chose under reason 3 for a related reason. Full
+trace: `docs/REMIX_RC_MIGRATION_STATUS.md`'s dev-tooling *Done* row and its
+"Decisions already taken" bullet. Flagged as a second migration follow-up,
+revisited only if that serving architecture changes.
+
+**Throughout — tests.** Replace source-text assertions
+(`assert.match(body, /addEventListeners/)`, the import-map regexes in
+`sidebar.test.ts`) with real render tests. Those assertions are themselves
+hand-rolled testing, they are the 3 trial failures, and they will keep breaking
+on every adoption step until replaced. `render()` from `remix/ui/test` needs a
+DOM this repo does not have (see Stage 6) — until that is resolved, assert the
+server-rendered contract via `renderToString`.
+
+**Browser pass — non-negotiable, after Stage 4 and again after Stage 6.**
+Since Stage 6 this is partly automated: `npm run test:browser` covers the
+sidebar overlay and the theme toggle, and every further Stage 6 component
+should arrive with its own `*.browser.ts`. Still walk the rest by hand — the
+riskiest changes are invisible to typecheck and to the server-render tests.
+Exercise: sidebar open/close on mobile including scroll lock, theme toggle,
+locale select, every
+`<Frame>` fragment (portfolio, guidelines, catalog list, catalog ETF analysis,
+advice result), form submission via `FrameSubmitEnhancement`, and navigation
+loading states. Check Firefox or Safari too — `app/entry.js` carries a
+`window.navigation` stub for non-Chromium browsers.
+
+## Risks
+
+**Highest — untyped client code.** §5, §6 and §7 live in `.js` files
+`tsconfig.json` does not include. Two fail loudly at import time; the
+`resolveFrame` change fails **silently and only in a browser**. The manual pass
+is the only thing between that and a production regression.
+
+**Adoption is bigger than the migration.** Stages 5–7 touch far more code than
+1–4 and carry real UI-regression risk. Keep them out of the version-bump PR and
+go one component at a time — a broken tabs implementation is much harder to spot
+in review than a broken import specifier. This is an argument about *sequencing*,
+not about whether to adopt.
+
+**The inventory is read, not proven.** Sized from the rc.2 type surface. Expect
+at least one Stage 6 target to need behavior the primitives do not expose; when
+that happens, name the gap and keep the hand-rolled code under reason 3.
+
+**Behavior change from collapsing the middleware ternary.** Compression in dev
+and logging in prod is a real change to both environments. Prefer tuning each
+middleware's options over reintroducing a conditional chain — the conditional is
+what the new context typing rejects.
+
+**Still a pre-release.** rc.2 may be followed by rc.3 or further breaking changes
+before GA. Re-run the trial-migration method against whatever is newest at
+implementation time rather than trusting this document's version numbers.
+
+**Node version.** `package.json` requires Node `>=24.3.0`, as does the Remix CLI.
+Confirm CI and the Fly image satisfy it.
+
+## Open questions
+
+1. **Dev/prod middleware.** Accept compression-in-dev and logging-in-prod, or
+   invest in a structure that keeps them conditional under the new context
+   typing?
+2. **RESOLVED — not adopted, reason 2 (measured, Stage 7).** Primitives are the
+   clear default, but `remix/ui/button` and `remix/ui/input` have no
+   primitives-only variant — adopting them means accepting Remix's CSS
+   alongside Tailwind (~390 LOC deleted), and skipping them means keeping
+   hand-rolled controls under reason 2. This was the one place the goal and
+   the design system genuinely pulled against each other, so it went through
+   the same measure-before-deciding process as the tabs-nav call, not an
+   assumption.
+
+   Both are **mixin factories** in rc.2, not components: you keep your own
+   `<button>` and its Tailwind classes and apply `button({ tone: 'ghost' })` to
+   it. `ButtonTone` is `'neutral' | 'primary' | 'ghost'` and `ButtonSize` /
+   `InputSize` are `'md' | 'lg'`. That makes this a per-element opt-in rather
+   than an all-or-nothing swap, so it was trialled on `submit-button.tsx` alone
+   before deciding for the other three input components.
+
+   **Prior art — PR #150 (closed).** An earlier attempt at exactly this, on the
+   beta.0 line. It mounted `RMX_01.Style` from `remix/ui/theme`, **disabled
+   Tailwind Preflight** so the Remix reset owned global defaults, and added a
+   46-line `--rmx-*` bridge remapping Remix's variables onto this app's HSL
+   tokens. It was parked as too invasive. rc.2 has since removed the ground it
+   stood on: `remix/ui/theme` and `RMX_01` are gone (along with `glyph`,
+   `separator`, `scroll-lock`), `remix/ui/button` no longer exports a `Button`
+   component, and `--rmx-button-label-padding-inline` no longer exists — rc.2's
+   button reads only three `--rmx-*` variables, all shadow-related. So that
+   branch is not revivable, but its lesson stands: **do not disable Preflight
+   and do not build a variable bridge.** The mixin shape means neither is
+   needed.
+
+   **What was actually measured, live, against `submit-button.tsx`:**
+
+   - `button()`/`input()` are not headless like every other primitive adopted
+     in this migration (tabs, toggle, select). Reading
+     `@remix-run/ui`'s `button/index.js` / `input/index.js` shows they ship a
+     complete, opinionated visual design: pill buttons (`border-radius: 999px`)
+     at 26px(md)/30px(lg) tall, inputs at 8px radius and 32px(md)/36px(lg)
+     tall — against this app's `rounded-md` and `h-9`/`h-10` (36px/40px)
+     tokens — plus hardcoded `light-dark(#hex, #hex)` colors that do not read
+     this app's `--primary`/`--background`/`--border-input` custom properties,
+     and an Inter Variable font stack this app never loads.
+   - Confirmed live in Chromium: applying `mix={[button({ tone: 'primary' })]}`
+     next to the existing Tailwind classes renders the mixin's own 26px pill,
+     not the app's `h-10 rounded-md bg-primary` — the classes are present in
+     the DOM but inert.
+   - Root cause, not just an observation: `@remix-run/ui`'s `css()` mixin
+     inserts its generated rules through `document.adoptedStyleSheets` inside
+     a dedicated `@layer rmx.<hash>` (confirmed by reading the actual adopted
+     stylesheet at runtime). `remix/ui`'s own top-level README documents this
+     directly ("Cascade Layers" section): "Unlayered CSS outranks layered CSS,
+     so use explicit layer order when mixing Remix UI with global styles" —
+     this is Remix's deliberate, documented interop path, not a bug. Verified
+     live both directions: a plain unlayered override rule really does beat
+     `rmx` with no `!important`, and reordering an explicit `@layer` statement
+     really does let a same-named Tailwind layer (`utilities`) outrank `rmx`
+     instead.
+   - That mechanism doesn't create a middle ground, though: a cascade layer
+     wins or loses **as a whole**, not per property. Flipping the layer order
+     so this app's Tailwind wins means it wins for every property the mixin
+     sets — there is no "keep the mixin's disabled-state handling but override
+     its colors" short of going back to per-property `!important` overrides,
+     which reintroduces the same 390 LOC the adoption was meant to delete, plus
+     the mixin's own runtime overhead, for zero net visual change.
+   - `@remix-run/ui`'s own `package.json` describes it as "headless
+     primitives, **and** styled components" — two explicit tiers. Every other
+     control this migration touched (tabs, toggle, select, popover) ships
+     both; `button`/`input` currently ship only the styled tier. The button
+     README's composition guidance ("Compose app-owned styles **around** the
+     primitive when a control needs local layout or state styling") confirms
+     the styled mixins are meant to own a control's core visual identity, with
+     app styles adding local layout on top — not to have that identity
+     replaced. This matches this plan's own §"Use the `/primitives` exports,
+     not the styled components" framing ("take a styled component where we
+     have no styling opinion") — this app already has one.
+
+   **Decision:** not adopted, reason 2, for both `submit-button.tsx` and the
+   three input components (`text-input.tsx`, `number-input.tsx`,
+   `textarea-input.tsx`; `select-input.tsx` was already reason-2'd against
+   `select/primitives`). Recorded as a **migration follow-up**: revisit if/when
+   `remix/ui` ships `button/primitives` and `input/primitives` — the headless
+   tier every other adopted control already has. Until then this is the same
+   kind of dead end tabs-nav's `0b05bbe` measurement found, not an open
+   question.
+3. **Timing.** Land Stages 1–4 now for a small diff and early warning of API
+   churn, or wait for 3.0.0 final? This plan assumes now; the validated 23-file
+   diff supports it.
+4. **RESOLVED — option (b), route consolidation.** Some of the
+   `data-rmx-target` forms hit the URL-pinning gap above (§ the guidelines
+   bullet): whenever a form's `action` differs from its page's own path,
+   `data-rmx-target` leaves the address bar on a route that 405s on GET.
+   Guidelines (4 forms) and catalog ETF analysis (1 form) had this problem;
+   portfolio CSV import too. Advice's 3 forms did not — `form('advice')`
+   already gives `advice.index` and `advice.action` the same `/advice`
+   path, so they were never affected (correcting an earlier version of this
+   note that lumped them in).
+
+   Chose (b) over leaving everything on `data-frame-submit` (a) or waiting
+   for a future Remix release to add URL-pinning (c): `remix/routes`'
+   `form()` helper already generates the one-route-per-feature shape as a
+   first-party idiom, `advice` was already proof it works end-to-end in
+   this codebase, and the hidden-intent-field dispatch costs less than the
+   URL-shape risk (a) leaves permanently parked and (c) leaves indefinitely
+   blocked. Landed for guidelines — see the bullet above and
+   `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 for the pattern writeup, which
+   is now the standard for every `data-rmx-target` form. Catalog ETF
+   analysis and portfolio CSV import needed the same route consolidation
+   before their own `data-rmx-target` port, and got it (not a fresh
+   decision, just an application of this one). The catalog list's own
+   filter form did not — its `action` already equalled `/catalog` before
+   this rule ever came up — so it moved straight to `data-rmx-target` once
+   ported; see `docs/REMIX_RC_MIGRATION_STATUS.md`.

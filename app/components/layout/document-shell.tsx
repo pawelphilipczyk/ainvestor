@@ -1,27 +1,18 @@
 import type { Handle, RemixNode } from 'remix/ui'
-import { PortfolioTradeFocus } from '../../features/portfolio/portfolio-trade-focus.component.js'
+import { ImportMap } from 'remix/ui/server'
+import { PortfolioTradeFocus } from '../../features/portfolio/portfolio-trade-focus.component.ts'
 import type { AppPage } from '../../lib/app-page.ts'
 import { baseCss } from '../../lib/document-styles.ts'
 import { t } from '../../lib/i18n.ts'
+import { remixBootstrapEntry } from '../../lib/remix-assets.ts'
 import type { SessionData } from '../../lib/session.ts'
 import type { FlashBannerTone } from '../../lib/session-flash.ts'
 import { tailwindConfig } from '../../lib/tailwind-config.ts'
-import { FrameSubmitEnhancement } from '../client/frame-submit.component.js'
-import { NavigationLinkLoadingEnhancement } from '../navigation/navigation-link-loading.component.js'
-import { TabsNavScrollRestoration } from '../navigation/tabs-nav-scroll.component.js'
+import { NavigationLinkLoadingEnhancement } from '../navigation/navigation-link-loading.component.ts'
 import { AppTopBar } from './app-top-bar.tsx'
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
 import { getNavLinks } from './sidebar-nav.ts'
-
-const IMPORT_MAP = JSON.stringify({
-	imports: {
-		'remix/ui': '/remix/dist/ui.js',
-		'remix/ui/scroll-lock': '/remix/dist/ui/scroll-lock.js',
-		'@remix-run/ui': '/@remix-run/ui/dist/index.js',
-		'@remix-run/ui/scroll-lock': '/@remix-run/ui/dist/utils/scroll-lock.js',
-	},
-})
 
 type DocumentShellProps = {
 	title: string
@@ -91,7 +82,7 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 					innerHTML={`tailwind.config = ${JSON.stringify(tailwindConfig)}`}
 				/>
 				<style type="text/tailwindcss" innerHTML={baseCss} />
-				<script type="importmap" innerHTML={IMPORT_MAP} />
+				<ImportMap value={remixBootstrapEntry.importMap} />
 				<script
 					type="application/json"
 					id="ui-client-messages"
@@ -151,13 +142,11 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 						{handle.props.children}
 					</div>
 				</SessionProvider>
-				<FrameSubmitEnhancement />
 				{handle.props.currentPage === 'portfolio' ? (
 					<PortfolioTradeFocus />
 				) : null}
 				<NavigationLinkLoadingEnhancement />
-				<TabsNavScrollRestoration />
-				<script type="module" src="/entry.js" />
+				<script type="module" src={remixBootstrapEntry.href} />
 			</body>
 		</html>
 	)

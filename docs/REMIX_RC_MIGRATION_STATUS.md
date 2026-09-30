@@ -1,0 +1,373 @@
+# Remix RC migration — working status
+
+**Read this first when picking the migration back up.** It holds only *where we
+are* and *what is next*. Every finding, measurement and decision rationale
+lives in `docs/REMIX_RC_MIGRATION_PLAN.md`; this file points at it rather than
+repeating it, so the two cannot drift.
+
+Update this file in the same commit as the work it describes. A commit cannot
+contain its own hash, so leave the newest row's hash as `(pending)` and fill it
+in with the next commit — an amend or rebase silently invalidates one written
+ahead of time.
+
+---
+
+## Where we are
+
+- **Stage:** 6 (behavior via primitives) is **done and merged on `main`**
+  (PR #198). **Stage 7 (styled components and dev tooling) is done — this was
+  the last staged item in the Plan.** Part 1 (`remix/ui/button` /
+  `remix/ui/input`): **not adopted, reason 2**, per a live measurement (see
+  `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2). Part 2 (dev tooling):
+  **partially adopted** — `remix/node-tsx` fully replaces the `tsx`
+  dependency everywhere (dev/start/mcp/tests), and `remix/node-hmr` +
+  `remix/ui-hmr/node` give the dev server real in-place hot reload for server
+  components instead of `tsx watch`'s always-restart loop, confirmed live.
+  `remix/ui/dev/refresh` (browser-side HMR — patching already-open tabs
+  without a reload) was **not** adopted: it needs `.component.js` client
+  entries served through `remix/assets`, and this app serves them as plain
+  static files instead (`staticFiles()`, `app/router.ts`) — the same
+  architecture Stage 5 already chose under reason 3 for a related reason
+  (scoped import maps). Recorded as a migration follow-up, not a gap in this
+  step. **The staged plan (Stages 1–7) is now complete**; what's left is the
+  two follow-ups below — of which follow-up 2 is now **done**: the
+  `staticFiles()` architecture described above is gone, and the browser HMR it
+  was blocking works. Both live in
+  **`docs/REMIX_ASSETS_MIGRATION_PLAN.md`**. Follow-up 1 still waits on a
+  future Remix release.
+- **Branch:** `claude/next-migration-step-jd3kw9`, off `main`.
+- **Green:** `npm run check`, `npm run typecheck`, `npm test` (590) and
+  `npm run test:browser` (40) all pass.
+- **Working style:** small steps. One component or one flow per commit, each
+  landing green, each with its own browser coverage where the change is
+  client-side.
+
+## Done on this branch, most recent first
+
+| Commit | What |
+|---|---|
+| `1767e80` | **Stage 7, part 2 — dev tooling: `remix/node-tsx` fully adopted, `remix/node-hmr` + `remix/ui-hmr/node` adopted for server-side hot reload, `remix/ui/dev/refresh` (browser-side HMR) not adopted.** Removed the `tsx` dependency entirely: every script (`dev`, `start`, `mcp`, `test`, `test:browser`, `test:smoke:advice`) now runs via `node --import remix/node-tsx` instead of the `tsx` binary; confirmed live (`node --import remix/node-tsx --test` — 590/590; `node --import remix/node-tsx server.ts` serves `/portfolio` 200) before removing the package. `README.md`'s Claude Desktop stdio example updated to match (`node --import remix/node-tsx <path>`, plus a `cwd` field — confirmed live that `--import`'s bare-specifier resolution is relative to the process's working directory, not the entry script's path, so a config that only fixes the script's own absolute path would still fail to resolve `remix`). `scripts/ensure-deps.mjs`'s dependency check swapped from `node_modules/.bin/tsx` to `node_modules/remix/dist/node-tsx.js`. `tsconfig.json` gained `isolatedModules: true` per `node-tsx`'s own recommended config (already had `NodeNext`/`allowImportingTsExtensions`/`verbatimModuleSyntax`); typecheck stayed clean. New `hmr.ts` (root) replaces the `tsx watch server.ts` restart-on-every-change loop with `remix/node-hmr`'s `run('./server.ts', { nodeArgs: [...] })`, itself loaded via `node --import remix/node-tsx hmr.ts` so the `.ts` entry point needs no separate transform step; `nodeArgs` registers both `remix/node-tsx` (so the *child* server process can load `.ts`/`.tsx` too) and `remix/ui-hmr/node` (transforms Remix UI server component modules so they can hot-swap via `import.meta.hot` instead of forcing a restart). Verified live, not just wired: booted `npm run dev`, edited a route component's source (`app/features/intro/intro-page.tsx`, reverted after), and the running server logged `hmr update app/features/intro/intro-page.tsx` and kept serving 200s with no process restart. **`remix/ui/dev/refresh`'s `reconcileRoots`/`setComponentStalenessCheck` were not adopted** — read `@remix-run/ui-hmr`'s own `browser-runtime.ts` first rather than assumed: they're consumed internally by `ui-hmr`'s *browser* runtime (the piece that live-patches an already-open tab's mounted component tree when a hot-swapped module arrives over a browser HMR channel), which in turn requires the browser-facing modules to be served through `remix/assets`' `createAssetServer` with its `hmr` option. This app's `.component.js` client entries are served as plain static files instead (`staticFiles()`, `app/router.ts`) — the same architecture Stage 5 already chose under reason 3, for the related reason that a scoped import map never applies to statically-served files. Adopting browser-side HMR would mean re-architecting how client entries are served, well past "swap the dev loop" scope, so it's recorded as a **migration follow-up** rather than forced in: an edit to a `.component.js` file still causes a full `node-hmr` restart today (same as `tsx watch` always did), only server-rendered `.tsx`/route-component edits get the faster in-place path. `npm run check`, `npm run typecheck`, `npm test` (590/590), `npm run test:browser` (40/40) all green; no test files changed, since this is dev/build tooling only. |
+| `0bb474c` | **Stage 7, part 1 — `remix/ui/button` / `remix/ui/input` measured against `submit-button.tsx`: not adopted, reason 2.** Docs-only commit, matching `0b05bbe`'s pattern: built a throwaway spike (`mix={[button({ tone: 'primary' })]}` added to `submit-button.tsx` alongside its existing Tailwind classes), booted the real dev server, drove it with Playwright against `/portfolio` (renders with no session), then deleted the spike once the measurement was in hand — nothing from it ships. Confirmed live that the mixin's own 26px pill styling wins over the element's `h-10 rounded-md bg-primary` classes even though both are present in the DOM; traced the *why* to `@remix-run/ui`'s `css()` mixin inserting its rules via `document.adoptedStyleSheets` inside a dedicated `@layer rmx.<hash>` — documented, deliberate Remix behavior (`remix/ui`'s own README, "Cascade Layers" section: "Unlayered CSS outranks layered CSS"), not a bug. Verified both directions live: a plain unlayered override rule beats `rmx` with no `!important`, and an explicit `@layer` reorder (`@layer rmx, utilities;`) lets a same-named Tailwind layer outrank `rmx` instead. Concluded it's not a usable middle ground regardless: a cascade layer wins or loses as a whole, not per property, so making this app's Tailwind win means it wins for everything the mixin sets — net zero value from the mixin, not a partial adoption. Cross-checked against `@remix-run/ui`'s own `package.json` ("headless primitives, **and** styled components") and the button README's composition guidance ("compose app-owned styles **around** the primitive") — `button`/`input` are the styled tier, meant to own a control's visual identity outright, unlike every other primitive this migration adopted (tabs, toggle, select all shipped a headless `/primitives` variant `button`/`input` currently lack). Full trace in `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2, now RESOLVED. Recorded as a **migration follow-up**, not an open question: revisit once `remix/ui` ships `button/primitives` / `input/primitives`. `npm test`/`npm run test:browser` unaffected (no source changed). |
+| `dd6c7ce` | **Advice's mode tabs (`buy_next`/`portfolio_review`) ported to real `tabs/primitives` usage** — the optional backlog item from the guidelines port, closed. Unlike guidelines' two independent, always-cheap panels, advice's panels carry gist-backed, mode-specific "remembered defaults" (`cashAmount`, `cashCurrency`, `selectedModel`, whether a saved review exists) that `loadAdvicePageState` only ever loaded for the single active tab — investigated before writing any code (per the user's ask) rather than assumed to carry over from guidelines' shape. Two real findings from that investigation: (1) `FrameHandle.src` (`@remix-run/ui`'s `component.js`) is a plain, live-read property — `resolveAndRenderReload` (`frame.js`) reads `frame.src` at reload time, not a value captured at creation — so a client entry can point the shared `advice-result` Frame at the *other* mode's fragment URL and call `reload()` to fetch that mode's own state on demand, exactly once, only when the user actually switches to it; (2) the user chose folding each mode's whole panel (form *and* result) inside the Frame over eagerly loading both tabs' state on every page view, since the panels were already the right shape for it (the "Clear saved review" button had already had to move inside this same Frame during the original advice port, for the identical "content outside the frame goes stale" reason). New `app/features/advice/advice-mode-tabs.component.js` (+`.d.ts`) — `Context`/`root`/`list`/`tab`, no `panel()` (there is nothing to hide/show client-side; the *content* differing by tab lives in the Frame, not in two co-resident panels) — replaces `advice-page.tsx`'s `<TabsNav>`/`<TabLink>` block. New `AdviceModePanel` (`advice-page.tsx`) replaces `AdviceResultFragment` (deleted, `advice-result-fragment.tsx` gone): renders one mode's form *and* result together, since both now load and refresh as one unit through the Frame — the form moved in from `AdvicePage`, which used to render one mode's copy directly, chosen by a full-page reload. `index.ts`'s `resolveAdviceResultFrame`/`fragmentResult`/`renderAdviceActionResponse` all now render this panel instead of a card-or-error-only fragment, so `fragmentResult`'s old 204-when-nothing-to-show contract is gone — the panel (at minimum, the form) always renders, 200, matching the "each mode's own page always showed its own form" behavior this design is replacing. Caught and fixed one correctness bug the co-rendering exposed: `formError` used to render unconditionally in both mode blocks (harmless when only one ever existed in the DOM); the new design scopes it to the panel matching the error's own mode. **Found and fixed a real regression before it shipped, not after:** moving the form inside the Frame broke it for no-JS visitors entirely — confirmed by reading `@remix-run/ui`'s `server/stream.js` (`buildFrameSegment`: `nonBlocking = !!props.fallback`; a `fallback`-carrying Frame streams only the fallback synchronously and delivers real content solely via the client hydration patch, which needs JavaScript) and then confirming live that this is *already true of every other Frame in this app* (tested `/guidelines` with JS disabled — `guidelines-list`'s Frame, untouched by this change, also never shows real content without JS). That was always survivable elsewhere because no visitor-facing form lived inside those frames; moving advice's form in made it not survivable here. Fixed by dropping `fallback` from the `advice-result` Frame specifically — `buildFrameSegment`'s `else` branch then awaits `resolveFrame` and inlines the real HTML, blocking the response until ready, which costs nothing extra here since `resolveAdviceResultFrame` only reshapes `props` the page already awaited via `loadAdvicePageState` before calling `render()` at all, no new I/O. Verified live in Chromium: mouse click swaps the frame to the other mode with no navigation (confirmed in the request log: `GET /fragments/advice-result?tab=portfolio_review 200` fires exactly on click, not on page load); Enter and Space both activate a focused tab (free — real `<button>` hosts, unlike `0b05bbe`'s `<a>` attempt); with JS disabled, `/advice?tab=portfolio_review` renders the portfolio_review form inline, buy_next's nowhere in the DOM. This was also the last caller of `tabs-nav.tsx`/`tabs-nav-scroll.component.js` (guidelines moved off them first — see the row below), so both, their `.test.ts`, and their `document-shell.tsx`/`components/index.ts` registrations were deleted in this same commit rather than left as a stale reason-3 carve-out with nothing left to carve out. `npm test` 589/589 (2 rewritten for the 204→200 contract change; 5 fewer than the prior row's 594, all `tabs-nav.test.ts`'s own, not lost coverage), `npm run test:browser` 40/40 (3 new: click-switches, Enter/Space, no-JS initial render). |
+| `ddf1b63` | **Guidelines' add-tabs ported to real `tabs/primitives` usage** (`Context`/`root`/`list`/`tab`/`panel`, `<button>` hosts, `panel()` toggling client-side) — the correction to `0b05bbe` below, once the Remix team's own docs turned up. `node_modules/remix/src/ui/tabs/README.md` states the primitive's intended use directly: "Use it when related views share the same page space" — every example hosts `tab()` on a `<button>` with `panel()`, no `href` anywhere. Guidelines' bucket/instrument add-forms fit that description (choosing an input mode for the same action, not moving to a different page), unlike `tabs-nav.tsx`'s real per-page tabs (advice's mode tabs, left as `tabs-nav.tsx` for now — see *Backlog* below). New `app/features/guidelines/guidelines-tabs.component.js` (+`.d.ts`) replaces `guidelines-page.tsx`'s `<TabsNav>`/`<TabLink>`/`<Card>` block; both panel forms now always render in the DOM (`panel()` sets `hidden`/`inert` on the inactive one, not the server), so their previously-shared `id="guidelines-add-form"` had to split into `-bucket`/`-instrument` (a real, if minor, pre-existing latent bug — duplicate ids are invalid HTML — that only mattered once both could exist in the DOM at once) and `guidelines.browser.ts`'s form-submit selectors were updated to match. `defaultActiveTab` is still seeded from the page's own `?tab=` query param (unchanged controller code), so the *initial* tab is correct with no JS; **switching tabs needs JavaScript** — the one deliberate, written exception to `docs/UI_ARCHITECTURE_GUIDELINES.md` §3's "must function with little or no JavaScript," recorded in both that doc's new §11 and the component's own header comment, not left implicit. Verified live in Chromium rather than assumed: mouse click switches panels with the URL provably unchanged; Enter *and* Space both activate a focused tab correctly, with zero extra glue — unlike the earlier `<a>`-hosted attempt (`0b05bbe`), a real `<button>` host gets native Enter/Space activation for free, which is exactly why `0b05bbe`'s Enter-key gap doesn't recur here; ArrowRight moves focus and activates the next tab (`activateTabInDirection`); with JS disabled, `/guidelines?tab=instrument` still renders the instrument panel active and the bucket panel hidden, confirming the no-JS exception is scoped to *switching* only, not the initial page. A `.component.js` can't import a `.tsx` file (no build step), so `Card`'s "muted" variant classes are inlined as a literal string rather than imported; active/inactive tab styling uses Tailwind's `[&[data-state=active]]:` arbitrary variant against the `data-state` attribute `tab()`/`panel()` already write, no hand-rolled class toggling. `docs/UI_ARCHITECTURE_GUIDELINES.md` gained a new §11 writing up this pattern (and the boundary against `tabs-nav.tsx`'s job) as the project standard for any future same-page tab set. `npm test` 594/594 (1 test's assertions rewritten for the new server-rendered shape — panel presence/`hidden` state instead of tab `href`s — plus the pre-existing suite otherwise unchanged), `npm run test:browser` 37/37 (4 new: click-switches, Enter/Space, ArrowRight, no-JS initial render). |
+| `0b05bbe` | **tabs-nav → `tabs/primitives`: attempted, not adopted (reason 3).** Closed the last item of the prior *Next step* below. Built a throwaway `clientEntry` (`Context`/`root`/`list`/`tab`/`panel` from `remix/ui/tabs/primitives`), mounted it on the guidelines page's add-tabs, drove it with Playwright (`PLAYWRIGHT_CHROMIUM_EXECUTABLE=/opt/pw-browsers/chromium`, the pre-installed build's actual path — the plain `chromium.launch()` default looks for a headless-shell build number this environment doesn't have), then deleted the spike once the measurement was in hand — this is a docs-only commit, nothing from the spike ships. Two results, matching what `@remix-run/ui`'s `tabs/primitives.js` source already predicted before touching a browser: (1) clicking a tab flips which `<div role="tabpanel">` carries `hidden` but leaves the URL bar exactly as it was (`page.url()` identical before/after — no history entry, no fetch, nothing) — `tab()`'s whole behavior is `context.activateTab(name)` on a `<button>`, with no `href`, no navigation of any kind; (2) with `javaScriptEnabled: false`, the server still renders both panels correctly for the request's own tab, but the two `<button>`s are inert — there is no way to reach the other tab at all, since a bare `<button>` has no `href`/`formaction` for anything to hang navigation off. Both are disqualifying for `tabs-nav.tsx`'s actual job: every tab here is a real, bookmarkable `<a href>` to a different server-rendered page (`activeId` is read from that URL's own query param), and `TabsNavScrollRestoration` restores window scroll around that same navigation — none of which the primitive's client-side panel-toggle model has any place for, and (2) is a direct violation of `docs/UI_ARCHITECTURE_GUIDELINES.md` §3 ("must function with little or no JavaScript"), which the current `<a>`-based tabs satisfy for free. `tabs-nav.tsx` and `tabs-nav-scroll.component.js` stay under reason 3. Full write-up: `docs/REMIX_RC_MIGRATION_PLAN.md` Stage 6. `npm test`/`npm run test:browser` unaffected (no source changed). |
+| `2c8e1c2` | **Correction first:** the prior *Next step* entry below (carried in PR #191 through #195, and in `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 and `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 4) named "catalog's ETF import form" as the last `FrameSubmitEnhancement` user, with the attribute `data-frame-submit="catalog-list"`. That was wrong: `CatalogImportCard`'s bank-JSON-paste/HAR-upload form (`app/features/catalog/catalog-import-card.tsx`, rendered on `/admin/etf-import`, not `/catalog`) never carried `data-frame-submit` in its whole history (`git log -S`), and posts to `/catalog/import` — a path distinct from its own page, so porting *that* form would have needed the same route-consolidation fix every other port did. Confirmed by grepping the actual rendered markup instead of trusting the description: the only `data-frame-submit` left anywhere in `app/` was on the **catalog list's own filter form** (`method="get"`, `catalog-page.tsx`, targeting the `catalog-list` frame it sits above) — a leftover of the same name collision (`catalog-list` is both the frame's name and this form's old attribute value), not the import form. Ported that one. The bank-JSON import form is untouched by this migration; it still does a full-page POST + redirect, as it always has, and is not on `FrameSubmitEnhancement` and never was. **Ported the catalog list filter form to native `data-rmx-target="catalog-list"` `data-rmx-history="replace"`.** This is the first *GET* `data-rmx-target` form in the migration — every prior port (portfolio, guidelines, advice, catalog ETF analysis) was POST — so its runtime path was read from `@remix-run/ui`'s source rather than assumed to match: `form-navigation.js` resolves no `getSubmission` for a GET form (same as a plain `<a>` click), so `navigation.js` routes it through the same `<a>`/`<form method="get">` branch as a link — no special-casing needed, and `defaultResolveFrame` still sends `Accept: text/html` and no method override, matching the exact-match check `requestAcceptsFrameSubmitHtml` already used by every POST port. Added a frame-fetch branch to `catalogController.actions.index` (dispatching on that same `Accept: text/html` check, same shape as every prior port's dispatcher) so a `data-rmx-target` filter submission — which now fetches `/catalog?type=…` itself, not the separate `/catalog/fragments/list` route — gets the small `CatalogListFragment` instead of the full page; extracted `renderCatalogListFragmentHtml` so `index` and the pre-existing `fragmentList` route (still used for the Frame's own initial `src`) share it instead of duplicating the render call. Added `CatalogListFrame`, a `watchFrameFormSubmissions(handle, 'catalog-list')` client entry for the submit-button busy state — the filter form has no validation and no error path, so it needs neither `data-reset-form` nor `data-frame-hide-form-on-success`, unlike every prior port's frame-UX entry. Verified live in Chromium (not just asserted): a `window` marker set before submit survives the filter (proving an in-place frame patch, not a full reload); `data-rmx-history="replace"` reproduces the old `history.replaceState` behavior exactly, including the same-surprising consequence the old code already had — one "back" from a second filter change skips over the first and lands on whatever page was current *before* the unfiltered `/catalog` load, since every filter submission replaces the same entry rather than pushing a new one. **This was also the last `FrameSubmitEnhancement` form, so the backlog item is done in the same commit:** deleted `frame-submit.component.js` (+`.d.ts`) and its `document-shell.tsx` registration; deleted `frame-submit.browser.ts`, but not its test *bodies* — 5 of its 6 tests were the only browser coverage this repo has for the portfolio trade form and CSV import (already native `data-rmx-target`, ported in `6265ddf`/`e71e8ce`, but never given their own browser file), so those moved to `app/features/portfolio/portfolio-forms.browser.ts` under an accurate name; only the 6th test (the catalog filter form, now redundant with this commit's own `catalog-list-filter.browser.ts`) was dropped rather than moved. `requestAcceptsApplicationJson`/`requestAcceptsFrameSubmitHtml` (`app/lib/frame-submit-request.ts`) stay — they're the shared `Accept` dispatch every native port uses, not `FrameSubmitEnhancement`-specific; only their docstrings, which named the retired mechanism, were corrected. `npm test` 594/594 (1 new: the frame-fetch branch returns only the fragment), `npm run test:browser` 33/33 (31 baseline + 3 new catalog filter tests − 1 dropped redundant test). |
+| `6ddab0e` | Advice's 3 forms (buy-next run, portfolio-review run, portfolio-review clear) ported to native `data-rmx-target="advice-result"`, per the prior *Next step*. No route consolidation needed — `form('advice')` already gave every form the same path as the page (`adviceIntent`: `run`/`clear`) — but this port turned out much bigger than portfolio/guidelines/catalog once actually measured, not just an attribute swap, for two reasons this branch's own prior *Next step* note got wrong by assuming instead of checking: **(1) `advice.action` rendered the FULL PAGE for every single response** (success and every error alike — schema validation, cash-required, pending-approval, gist-required, the OpenAI 503), never a small fragment; a named (non-top) Frame diffs whatever it receives as a plain fragment regardless of whether that happens to be a whole `<html>` tree, so sending full-page HTML to an already-mounted named frame renders literal `<html>`/`<body>` elements inside the tiny frame region — confirmed by reading `@remix-run/ui`'s `frame.ts` (`isFullDocumentReload` requires `container.root instanceof Document`, true only for the *top* frame). Fixed by adding `renderAdviceActionResponse`, a single dispatcher every branch in `action` now goes through: `Accept: text/html` (a `data-rmx-target` submission) gets a small fragment built from the exact same `AdvicePageRenderProps` the full-page branch already computed (new `AdviceResultFragment` component/file, wrapping `AdviceResultCard` for success or `FormErrorAlert` for any error, shared with `advice.fragmentResult`'s GET route and the Frame's SSR-time initial content so all three render identically); anything else (no JS, or a bare fetch without that header) still gets today's unchanged full-page render. **This also means the prior *Next step* entry's claim that "the whole-page 503 is a full document response, not a frame fetch, so the ≥ 500 limitation doesn't apply" was wrong** — once ported, the OpenAI-failure branch absolutely is reached through a frame fetch, and needed the identical 200-remap the catalog ETF analysis port already established; the full-page (non-frame) fallback keeps the real 503. Lesson for whoever ports the next one: "likely doesn't apply" is not "confirmed doesn't apply" — measure the actual response path, not the response's current shape. **(2) The `advice-result` Frame was conditionally rendered** (`shouldStreamAdviceResult`), present only once a result already existed; a `data-rmx-target` submission targeting a *missing* named frame falls back to a full top-level document reload (`getNamedFrame` in `@remix-run/ui`'s `run.ts` falls back to the top frame), which is coincidentally how the *old* `FrameSubmitEnhancement` mechanism's first run "just worked" (frame absent → full reload → frame now present) — but the *second* run always targets the now-existing named frame, at which point the same full-page response would break exactly as in (1). Fixed by rendering `<Frame name="advice-result">` unconditionally (its `src` used even when there is nothing to show yet), matching every other port; `advice.fragmentResult`'s existing 204-empty contract is unchanged and reused for the frame branch's "nothing to show" case (no card, no error) instead of inventing a third rendered-but-empty shape. **A third, more surprising consequence of (2):** the portfolio-review "Clear saved review" button lived *outside* the frame (in the run-form's own Card), shown only when the full-page prop `props.advice !== undefined` — since a `data-rmx-target` submission only ever patches the one named frame it targets, nothing outside that frame updates, so once the Frame stopped depending on a full-page reload to first appear, the Clear button never appeared after an in-session run either (confirmed live: browser test timed out waiting for it). Moved it inside `AdviceResultCard` itself (rendered above the result blocks, only in `portfolio_review` mode) — the same "a form can live inside the very frame it targets" shape `GuidelinesListFrame`'s per-row forms already use. Left one smaller, lower-severity instance of the same class of staleness *undone*: the run button's own label (`Ask AI` → `Regenerate analysis` once `props.advice !== undefined`) still reads `Ask AI` after an in-session run until an actual page reload, since fixing it would mean piping a second localized string into client JS for a label difference only — documented here rather than fixed, revisit if it turns out to matter. A same-day self-review (`/code-review high`) caught one more dead-code consequence of dropping `data-frame-submit` from all 3 forms: the `X-Advice-Gist-Stale` response header (and its `renderAdvicePageResponse`/`ADVICE_GIST_STALE_HEADER` plumbing) existed solely for `FrameSubmitEnhancement`'s `gistStale` branch, which no advice form triggers anymore — removed the now-unreachable header-setting code (the client-side generic `frame-submit.component.js` mechanism it fed stays, since catalog's ETF import form still uses that file; it's due for removal once that last form moves per the backlog). Added `advice.browser.ts` (3 tests: run success, run failure, clear) and 6 new HTTP-level tests in `advice.test.ts` covering the `Accept: text/html` frame-branch contract (success fragment, 503→200 remap, 400 validation fragment, 204 clear, the always-present Frame, and the `data-rmx-target` attribute wiring) — none of the 25 pre-existing HTTP tests needed to change, since none of them send `Accept: text/html` and so all still exercise the unchanged full-page path. `npm test` 593/593, `npm run test:browser` 31/31. |
+| `e71e8ce` | Portfolio CSV import ported to native `data-rmx-target`, route-consolidation-first per the prior *Next step*. `routes.ts`'s `portfolio.create` (`POST /portfolio`, the trade form) and `portfolio.import` (`POST /portfolio/import`) became `...form('portfolio')` — one `index`/`action` pair at `/portfolio` — plus a hidden `portfolioIntent` field (`trade`/`import`) the single `action` handler switches on, same shape as `guidelines`' `guidelineIntent`. The trade form's own action already happened to equal `/portfolio` before this (it was defined by hand at the same path as `index`, not via `form()`), so this consolidation was really about the import form, which posted to a different path. Renamed `PortfolioTradeFormFrame` to `PortfolioListFrame` since it now drives two forms sharing the `portfolio-list` frame (unchanged mechanically — it already matched by `data-rmx-target` attribute, not a fixed form id); updated `frame-form-ux.component.js`'s history comment and `catalog-etf-analysis.browser.ts`'s reference-shape comment to match. A same-day self-review (`/code-review high`) flagged the import handler's own copy of the JSON/frame-HTML/flash+redirect branching as a near-duplicate of the trade form's schema-validation branch in `portfolio-operation-form/index.ts`; extracted both into a shared `portfolioValidationFailureResponse(context, message)` (alongside the existing `portfolioPersistenceFailureResponse`) rather than letting two copies of the same three-way `Accept` switch drift, the same reasoning `de7df75` used to extract `watchFrameFormSubmissions`. One deliberate behavior change alongside the wiring: the old `import` action always redirected on invalid input (empty paste, unparseable CSV, zero rows) with no feedback at all — the only portfolio/guidelines form with no error path. Porting it onto the shared `data-rmx-target` convention (JSON 422 / HTML-fragment 422 with `role="alert"` / flash+redirect, matched on `Accept`) needed *some* response for that case, so it now reports `errors.portfolio.importInvalid` the same way every other form here reports validation failures, rather than silently doing nothing. Confirmed the ≥ 500 frame-response limitation doesn't apply here — CSV import has no upstream call, so every failure path is already < 500. `npm test` 587/587 (4 new: success/422-HTML/422-JSON/flash-redirect for invalid CSV), `npm run test:browser` 28/28 (2 new: paste-import success updates the frame, no-valid-rows renders the inline error without navigating). |
+| `3c5c299` | Catalog ETF analysis form ported to native `data-rmx-target`, route-consolidation-first per the prior *Next step*. `routes.ts`'s `catalog.etf` (`GET`) and `catalog.etfAnalysis` (`POST /etf/:id/analysis`) became `...form('etf/:catalogEntryId')` nested under `catalog` — one `index`/`action` pair at `/catalog/etf/:catalogEntryId`, mapped with a separate `router.map(routes.catalog.etf, catalogEtfController)` call since `router.map()` refuses a nested route group inside the outer controller's `actions` (error message says so explicitly: call `router.map()` for that route map separately). No hidden intent field needed — the `action` route serves exactly one POST purpose. Added `CatalogEtfAnalysisFrame`, following `guidelines-list-frame.component.js`'s one-entry-per-page shape. Hit one new wrinkle beyond the guidelines/portfolio ports: `@remix-run/ui`'s `defaultResolveFrame` (`runtime/run.ts`) throws for **any** response status ≥ 500 regardless of content type — unlike 4xx, which it accepts whenever the body is HTML — so the frame's own `render()` never runs and the error fragment is silently dropped; `reloadComplete` still fires (in a `finally`), so without this fix the client code would have read "no `role=\"alert\"` present" as success and hidden the form over a request that never rendered anything. Confirmed live with a mocked OpenAI failure before touching the fix (browser test failed exactly as predicted: `[role="alert"]` never appeared). Fixed by returning `200` instead of `503` for the upstream-failure branch — the only status this route ever needs at genuine 5xx (403/404 stay as they are, both already <500 and unaffected). Added `data-frame-hide-form-on-success` support to `watchFrameFormSubmissions` (checked as a per-form attribute, same as `data-reset-form`, gated on `!failed` so a failed analysis leaves the form visible for retry) — the wrinkle flagged in the prior *Next step*, and the first thing to need it. `npm test` 583/583, `npm run test:browser` 26/26 (2 new: success hides the form and lands the analysis text with no URL drift, upstream failure renders the inline error and leaves the form/busy-state alone). |
+| `de7df75` | Extracted `watchFrameFormSubmissions` (`app/components/client/frame-form-ux.component.js`) from the near-identical logic duplicated between `PortfolioTradeFormFrame` and `GuidelinesListFrame` — flagged by code review on PR #191. Checked rc.2 first for a built-in replacement before extracting: `FrameHandle` (`@remix-run/ui`'s `component.ts`) exposes only `src`, `reload()`, `replace()` and the two payload-less `reloadStart`/`reloadComplete` events, and the `button()` mixin (`@remix-run/ui/button`) is presentational only (CSS + default `type="button"`) — no busy/pending state, no submission-status API, in either. Reason 1: nothing to adopt. Both call sites' matching turned out identical once compared side by side — both target forms already carry `data-rmx-target="<frame>"`, so the shared helper matches on that attribute generically instead of `PortfolioTradeFormFrame`'s old fixed-id lookup, and it captures the submitting form/control at `submit` time (as `GuidelinesListFrame` already did) rather than re-querying by id at `reloadComplete` (as `PortfolioTradeFormFrame` used to) — needed for guidelines' multiple per-row forms, and harmless for portfolio's single form. `closeDialogsOnReload` is an option, on for guidelines only. Both `frame-submit.browser.ts` (portfolio) and `guidelines.browser.ts` pass unchanged. |
+| `d6168c2` | Guidelines' 4 forms (add-instrument, add-bucket, update-target, delete) ported to native `data-rmx-target`. First attempt hit a real blocker: `data-rmx-target` commits the form's `action` as the document URL regardless of which frame it targets, and guidelines' four actions were nested paths distinct from `/guidelines` — confirmed live (`GET /guidelines/instrument` → 405 after an add). Resolved it rather than reverting under reason 3: consolidated `routes.ts`'s `guidelines` entry onto `...form('guidelines')` (one `index`/`action` GET+POST pair at `/guidelines`, the same first-party shape `advice` already used) and added a hidden `guidelineIntent` field (`addInstrument`/`addAssetClass`/`updateTarget`/`delete`) the single `action` handler switches on — same pattern as `advice`'s `adviceIntent`; `updateTarget`/`delete` take the row `id` as a hidden field instead of a path segment, and the `_method=DELETE` override is gone (no longer needed with one POST route). With every form's action now equal to the page, the `data-rmx-target` port (a `GuidelinesListFrame` client entry mirroring `PortfolioTradeFormFrame`, covering all 4 forms since it hooks the frame rather than one fixed form id) worked with no URL drift. Wrote the pattern up as the project standard in `docs/UI_ARCHITECTURE_GUIDELINES.md` §10, and closed Plan Open question 4 (chose option (b)). `npm test` 583/583, `npm run test:browser` 24/24 (5 new: add success/reset, add 422/no-reset, update-target, delete-via-dialog closes its own dialog, unrelated-reload doesn't clear the form). |
+| `6265ddf` | Ported the portfolio trade form (`#portfolio-trade-form`) from `FrameSubmitEnhancement` to native `data-rmx-target="portfolio-list"`. The server side needed no change — the default frame resolver's `Accept: text/html` request already matches `requestAcceptsFrameSubmitHtml`, and it accepts 4xx HTML responses, so the existing 422 inline-error fragment (`list-fragment.tsx`'s `role="alert"` banner) renders into the frame unmodified. Added `PortfolioTradeFormFrame`, a client entry that hooks `data-reset-form` and `setSubmitButtonLoading` onto the frame's `reloadStart` / `reloadComplete` events (`handle.frames.get('portfolio-list')`) instead of our own `submit` interception; since the event carries no response data, it tells success from failure by checking for the `role="alert"` node the error fragment renders (the only one on this page) so a 422 no longer clears the form. Added the 422 characterization test first (per the prior *Next step*), confirmed it green against the old enhancement, then ported and reran it unchanged — plus a new assertion that the form field keeps its value after a 422. Browser suite now 18. Import-etf-form stays on `FrameSubmitEnhancement` (still targets the same `portfolio-list` frame via `replace()`, which does not dispatch `reloadStart`/`reloadComplete`, so the two paths don't interfere). |
+| `4dd2f20` | Code review of PR #188. Fixed two real defects it found: the browser harness leaked its listening socket when Chromium failed to launch (so a first run without `npx playwright install chromium` hung instead of reporting why), and a blocked `localStorage` write wedged the theme toggle after one press. Both reproduced before fixing and pinned by tests. A third finding — `aria-checked` server-rendering as a bare attribute — stands as an upstream limitation; the suggested workaround was tried and is clobbered by the mixin. Browser suite now 17. |
+| `b7c26a4` | Browser sweep of the whole UI after the `data-rmx-document` fix: every page loads and hydrates, locale round-trip, catalog → ETF detail, sidebar nav, mobile overlay — all good. Added page smoke tests and pinned that `data-navigation-loading` overrides the document opt-out (measured; the enhancement `preventDefault()`s and calls Remix `navigate()`, so those links frame-swap by design). Browser suite now 16. |
+| `bd7977e` | Fixed `rmx-document` → `data-rmx-document` (the opt-out was silently inert on rc.2, so every nav link was doing a frame swap instead of a document load). Proved native form navigation can replace `FrameSubmitEnhancement`'s mechanics, then reverted it — see *Next step*. Added characterization browser tests for the frame-submit flows. |
+| `18ed0a2` | Measured `remix/ui/popover` against the sidebar and ruled it out (reason 3); `app/lib/scroll-lock.js` stays and its deletion trigger was corrected. Added `npm run test:browser` (Playwright) and the sidebar's first real tests. |
+| `d5ebc10` | Theme toggle moved onto `remix/ui/toggle/primitives`; `theme-toggle.tsx` folded into the client entry. |
+
+## Next step
+
+**None — the staged plan (Stages 1–7) is complete.** Stage 7 part 1
+(`remix/ui/button` / `remix/ui/input`) is resolved, not adopted, reason 2.
+Stage 7 part 2 (dev tooling) is done: `remix/node-tsx` fully replaces `tsx`,
+and `remix/node-hmr` + `remix/ui-hmr/node` give real in-place hot reload for
+server components. See the two newest *Done* rows above for both.
+
+What remains is the two follow-ups in *Backlog* below — plus the standing
+note right below about any future `data-rmx-target` form work. Follow-up 2
+(browser HMR) is **no longer waiting**: the re-architecture it needed has
+since been done and the work moved to
+`docs/REMIX_ASSETS_MIGRATION_PLAN.md`. Follow-up 1 still waits on a future
+Remix release.
+
+If any further `data-rmx-target` form work turns up, check whether any of its
+non-2xx responses can be ≥ 500 (`@remix-run/ui`'s `defaultResolveFrame` throws
+for any such status regardless of content type, silently dropping the HTML
+error fragment — see the decision recorded below) and whether its `action`
+already equals its own page's route before wiring the attribute.
+
+## Backlog — migration follow-ups, neither actionable today
+
+Both entries below are gated on a future Remix release, and both are tracked
+with their re-measurement steps in **`docs/REMIX_UPGRADE_WATCHLIST.md`** —
+read that when bumping the version, rather than re-deriving them from here.
+
+1. **`remix/ui/button` / `remix/ui/input`:** revisit if/when Remix ships
+   `button/primitives` and `input/primitives` — the headless tier every other
+   primitive adopted in this migration (tabs, toggle, select) already has.
+   Until then this is a closed measurement, not an open question — see the
+   `0bb474c` *Done* row and `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2.
+2. **Browser-side HMR:** **done — closed, not backlog.** The blocker named
+   below (this app serving `.component.js` client entries with
+   `staticFiles()` rather than through `remix/assets`' `createAssetServer`)
+   was the re-architecture Stage 5 declined under reason 3. That landed as
+   Stage 1 of its own migration, and browser HMR followed as Stage 2: editing
+   a client entry now patches an open tab instead of reloading it, confirmed
+   live. Both questions this bullet left open are answered there. See
+   **`docs/REMIX_ASSETS_MIGRATION_PLAN.md`**.
+
+   One correction to the wording below: the goal was reached *without*
+   importing `remix/ui/dev/refresh`. Those exports are consumed by
+   `@remix-run/ui-hmr`'s own browser runtime, which the asset server serves —
+   naming the export as the deliverable was a wrong guess at the mechanism,
+   not a wrong goal.
+
+   *Original entry, for the record:* revisit only if this app ever moves
+   `.component.js` client-entry serving off `staticFiles()` and onto
+   `remix/assets`' `createAssetServer` — a real re-architecture, not a tooling
+   swap, and one Stage 5 already declined (reason 3) for a related reason
+   (scoped import maps). Until then, editing a client entry restarts the dev
+   server same as it always did; only server-rendered `.tsx`/route components
+   get the faster in-place hot-reload path. See the newest *Done* row above.
+
+`tabs-nav.tsx`, `tabs-nav.test.ts`, `tabs-nav-scroll.component.js`
+(+`.d.ts`), and their registration in `document-shell.tsx`/export from
+`components/index.ts` were deleted on the way here — advice's mode-tabs
+port left them with no remaining caller, so there was nothing left to keep
+them under reason 3 for. `npm test` accordingly dropped from 594 to 589 at
+the time (the 5 tests were `tabs-nav.test.ts`'s own, not lost coverage); it
+sits at 590 now.
+
+## Decisions already taken — do not relitigate
+
+- **Browser-side HMR (`remix/ui/dev/refresh`) is not adopted.** Read
+  `@remix-run/ui-hmr`'s own `browser-runtime.ts` before concluding this:
+  `reconcileRoots`/`setComponentStalenessCheck` are consumed internally by
+  `ui-hmr`'s browser runtime, which needs the browser-facing modules served
+  through `remix/assets`' `createAssetServer` (its `hmr` option). This app's
+  `.component.js` client entries are served as plain static files
+  (`staticFiles()`, `app/router.ts`) instead — reason 3, same architecture
+  Stage 5 already chose for the related "scoped import maps don't resolve for
+  statically-served files" finding. Server-side HMR (`remix/node-hmr` +
+  `remix/ui-hmr/node`) is adopted and confirmed live; only the browser-tab
+  live-patch piece is out. Migration follow-up if that architecture ever
+  changes — see *Backlog* above.
+- **`remix/ui/button` / `remix/ui/input` are not adopted** for `submit-button.tsx`
+  or the three input components. Measured live, reason 2: unlike every other
+  primitive this migration adopted, they ship only the fully-styled tier (no
+  `/primitives` headless variant exists yet), and their CSS lives in a
+  dedicated `@layer rmx.<hash>` via `document.adoptedStyleSheets` — by design,
+  per `remix/ui`'s own README ("Cascade Layers" section), not a bug. A cascade
+  layer wins or loses as a whole, not per property, so there is no partial
+  adoption: either accept the mixin's own visual design wholesale (pill
+  buttons, hardcoded colors, different sizing than this app's `h-9`/`h-10`
+  tokens) or keep this app's Tailwind design, in which case the mixin
+  contributes nothing. Full trace: `docs/REMIX_RC_MIGRATION_PLAN.md` Open
+  question 2 (RESOLVED). **Migration follow-up:** revisit if/when `remix/ui`
+  ships `button/primitives` / `input/primitives` — see *Backlog* above.
+- **Sidebar keeps its hand-rolled overlay.** Measured, reason 3. Plan §6.
+- **`tabs-nav.tsx` (real per-page `<a>` navigation) has no remaining caller.**
+  Measured live in Chromium against `remix/ui/tabs/primitives` for that job
+  and rejected, reason 3: `tab()` is documented and built for same-page view
+  switching (`node_modules/remix/src/ui/tabs/README.md`), not navigation —
+  hosting it on `<a href>` instead of the documented `<button>` does work
+  mechanically, but its keydown handler unconditionally `preventDefault()`s
+  Enter, which silently breaks keyboard activation for a host whose default
+  action (navigation) you actually wanted to keep. Every tab set the app
+  actually has turned out to be genuinely same-page once looked at closely
+  (see the next bullet), so nothing calls `tabs-nav.tsx` anymore; it and
+  `tabs-nav-scroll.component.js` are dead code, not a live "reason 3" carve-out
+  — see *Backlog* above.
+- **`tabs/primitives` *is* adopted, for real, everywhere in the app that has
+  a tab set** — guidelines' add-tabs and advice's mode tabs (see the two
+  newest *Done* rows above), exactly the Remix team's own documented use
+  case. `<button>` hosts (not `<a>`), content differing by tab swapped
+  in — client-side `panel()` toggling for guidelines (both panels cheap and
+  independent), a shared Frame pointed at a new `src` and reloaded for advice
+  (its panels carry gist-backed, mode-specific state, so each is fetched on
+  demand instead of both loaded eagerly) — and `defaultActiveTab`/the
+  Frame's own initial `src` seeded from the page's own `?tab=` either way,
+  for a correct no-JS initial render. The one accepted trade in both cases:
+  *switching* tabs needs JavaScript, a written exception to
+  `docs/UI_ARCHITECTURE_GUIDELINES.md` §3, scoped to same-page tab widgets —
+  see that doc's §11 for the pattern and its boundary against the
+  navigation-style bullet above.
+- **A `<Frame fallback={…}>` never shows its real content without
+  JavaScript, in this app or in general.** Read from `@remix-run/ui`'s
+  `server/stream.js` (`buildFrameSegment`: `nonBlocking = !!props.fallback`
+  — a fallback-carrying frame streams only the fallback and delivers real
+  content solely through the client hydration patch) and confirmed live: an
+  untouched, pre-existing Frame (`guidelines-list`, JS disabled) never shows
+  its list either, exactly the same way. This was always harmless before
+  because no page put a form a no-JS visitor needs to use *inside* a
+  fallback-carrying Frame — advice's mode-tabs port did exactly that
+  (moved each mode's form into the `advice-result` Frame, see the newest
+  *Done* row), which would have silently broken the form for no-JS visitors
+  had `fallback` stayed. Fixed there by dropping `fallback` from that one
+  Frame (blocking is free when, as here, `resolveFrame` only reshapes
+  already-awaited props — no new I/O). Worth checking again before any other
+  page moves visitor-facing, no-JS-required content inside an existing
+  fallback-carrying Frame.
+- **`select/primitives` is not adopted** for `locale-select` / `select-input`:
+  it replaces a native `<select>` with a button + div listbox + hidden input,
+  against AGENTS.md's "native browser primitives before custom JavaScript".
+  Reason 2, not a fit question.
+- **`locale-select` is not worth porting to the `on()` mixin** on its own: more
+  lines and less typecheck coverage for an element-scoped listener, and it
+  would not let us delete `app/lib/event-listeners.js` (7 of the 8 remaining
+  call sites are genuine document-level delegation, which the plan sanctions).
+- **Playwright is in** as a dev dependency. It ships no postinstall, so `npm ci`
+  never downloads a browser on its own. Browser tests stay out of `npm test`
+  deliberately; CI runs them as a separate `browser-test` job
+  (`.github/workflows/ci.yml`) that installs Chromium itself (cached by
+  Playwright version) and runs `npm run test:browser`.
+- **`render()` from `remix/ui/test` is unusable here** — it mounts into
+  `document.body` and upstream drives it with Playwright. Server-render
+  assertions plus `*.browser.ts` are the replacement for source-text tests.
+- **No server change needed for the `data-rmx-target` port.** The default
+  frame resolver's request (`Accept: text/html`, 4xx-with-HTML accepted) is
+  exactly what `requestAcceptsFrameSubmitHtml` and the existing 422 fragment
+  responses already assume. Confirm this holds for each remaining
+  replace-from-response form before assuming it's universal — it follows from
+  those two matching, not from the runtime generally.
+- **`reloadStart`/`reloadComplete` carry no response data.** A form's
+  success/failure UX (reset-on-success, keep-values-on-error) has to be
+  inferred from the DOM after the swap — the portfolio port checks for the
+  `role="alert"` node its own error fragment renders. Each ported form needs
+  its own tell; don't assume `role="alert"` generalizes without checking that
+  form's fragment.
+- **`reloadStart`/`reloadComplete` fire for any reload of the named frame,
+  not only ones this form's own submit caused.** A same-page soft navigation
+  elsewhere on the page (e.g. the locale `<select>`) reuses the persisted
+  `Frame` and dispatches an "inherited" reload on it too — confirmed live,
+  reachable by just switching language with unsaved trade-form input. Gate
+  the frame-event handlers on a `submit` event of the specific form first
+  (`pendingSubmit` in `PortfolioTradeFormFrame` / `GuidelinesListFrame`); do
+  not react to `reloadStart`/`reloadComplete` unconditionally in any per-form
+  frame hook.
+- **A `data-rmx-target` form's `action` must equal its page's own path, or
+  the address bar drifts to a route that 405s on GET.** Confirmed live on
+  guidelines before the fix (Plan §7). The standard from here on: one
+  `form('<feature>')` route per feature (`index` + `action` at the same
+  URL — `remix/routes`' own shorthand, first used by `advice`) with a
+  hidden intent field (`adviceIntent`, `guidelineIntent`, …) discriminating
+  sub-actions inside the single `action` handler. Full writeup:
+  `docs/UI_ARCHITECTURE_GUIDELINES.md` §10. Check this *before* wiring
+  `data-rmx-target` on any form, not after.
+- **A frame-wide client entry, not a per-form one, is the right shape once a
+  page has more than one `data-rmx-target` form sharing a frame.**
+  `GuidelinesListFrame` hooks a single document-level `submit` listener plus
+  the named frame's `reloadStart`/`reloadComplete`, and dispatches on
+  whichever tracked form/control last submitted — covering the 2 external
+  add-forms and the 2 per-row forms re-rendered inside the frame on every
+  reload, in one file. `PortfolioTradeFormFrame` (one form, one page) is
+  the special case, not the template, for any page adopting a second
+  `data-rmx-target` form on the same frame.
+- **The busy-state/reset/dialog-close UX layer is hand-rolled under reason 1,
+  confirmed on the second port.** `FrameHandle` exposes only `src`, `reload()`,
+  `replace()` and two payload-less events; `remix/ui/button`'s `button()`
+  mixin is CSS-only. Neither carries a submission-status or pending-UI
+  concept, so there's nothing in rc.2 to adopt instead of
+  `watchFrameFormSubmissions` (`app/components/client/frame-form-ux.component.js`,
+  shared by `PortfolioTradeFormFrame` and `GuidelinesListFrame`). Re-check
+  this against whatever Remix build is current if a third form-frame port
+  is ever tempted to hand-roll its own copy again instead of calling it.
+- **Deleting a row whose own confirmation `<dialog>` is `showModal()`-open
+  needs an explicit close before/around the frame swap.** The rc.2 diff
+  (`@remix-run/ui`'s `diff-dom`) treats a `<dialog>`'s `open` attribute as
+  live state it preserves across a patch, same as `<input>` `value`/
+  `checked` — without an explicit close, a dialog whose row survives the
+  swap would stay stuck open, and (measured) a dialog whose row does *not*
+  survive can otherwise interact oddly with the diff given the browser's own
+  top-layer handling of a modal being removed. `GuidelinesListFrame` closes
+  every open `<dialog>` on `reloadStart`, gated on `pendingSubmit` so it
+  only fires for a reload this page's own forms caused. Verified in
+  Chromium: the delete-confirmation dialog for the deleted row closes
+  cleanly, `document.querySelectorAll('dialog[open]').length` is `0`
+  afterward.
+- **A `data-rmx-target` frame's error responses must stay below status 500.**
+  `@remix-run/ui`'s `defaultResolveFrame` (`runtime/run.ts`) throws for any
+  response status ≥ 500 regardless of content type — unlike the 4xx range,
+  which it renders whenever the body is HTML. The frame's own `render()` never
+  runs in that case, so an HTML error fragment at 503 is silently dropped; the
+  named frame's `reloadComplete` still fires (in a `finally`), so
+  `watchFrameFormSubmissions`'s "no `role=\"alert\"` present" success tell
+  reads a dropped error as success. Confirmed live on the catalog ETF analysis
+  port: a mocked OpenAI failure at its original 503 left the frame unchanged
+  and the browser test's `[role="alert"]` wait timed out; switching that
+  response to 200 (`catalogEtfController`'s `action` in
+  `app/features/catalog/index.ts`) fixed it with no other change. Every
+  `data-rmx-target` form's non-2xx responses need the same check before
+  porting — 4xx is fine as-is (422/403/404 all already render correctly), only
+  ≥ 500 needs remapping, and only when the response is reached through a frame
+  fetch rather than a full document response (advice's whole-page 503 is the
+  latter and is unaffected — see the backlog above).
+- **A route-consolidation port surfacing a form's first real error response is
+  in scope, not scope creep.** Portfolio CSV import's pre-port `action` always
+  redirected on invalid input (empty paste, unparseable CSV, zero rows parsed)
+  with no flash, no inline error, nothing — the only form on these two pages
+  with no error path at all. Adopting the shared `data-rmx-target` contract
+  (JSON 422 / HTML-fragment 422 with `role="alert"` / flash+redirect, chosen
+  by `Accept`) needs *some* response for that case, matching every other form
+  here; leaving it silent would mean inventing a fourth, import-only response
+  shape just to avoid a one-line locale addition. `errors.portfolio.
+  importInvalid` closes that gap. If a future consolidation finds a similarly
+  silent failure path, give it the same treatment rather than preserving the
+  silence for "port mechanics only" purity.
+- **A named (non-top) Frame always diffs its response as a plain fragment —
+  even a full `<html>` document.** Only the *top* frame supports full-document
+  diffing (`@remix-run/ui`'s `frame.ts`: `isFullDocumentReload` requires
+  `container.root instanceof Document`). Before assuming a `data-rmx-target`
+  port is attribute-only, check what every branch of the route's handler
+  actually returns — advice's `action` rendered the full page for every
+  response (success and error alike), which broke the moment it targeted an
+  already-mounted named frame. See the advice port's status row above for the
+  full trace.
+- **A `data-rmx-target` Frame should be unconditionally rendered, never
+  conditional on whether there's content yet.** A submission targeting a
+  frame that isn't mounted falls back to reloading the whole top-level
+  document (`getNamedFrame` in `@remix-run/ui`'s `run.ts` falls back to the
+  top frame when the name isn't found) — which can accidentally "work" once
+  (a full-page response is valid there) and then break the moment the frame
+  exists for a second submission. Render the Frame from the very first page
+  load, same as portfolio/guidelines/catalog already do, even when there's
+  nothing to show yet — reuse the route's existing empty-state contract
+  (e.g. a 204) for that case rather than inventing a new one.
+- **Content outside a `data-rmx-target` Frame that depends on the frame's own
+  result goes stale after an in-place swap.** Only the named frame's DOM gets
+  patched; nothing else on the page updates. A visibility toggle (advice's
+  portfolio-review "Clear saved review" button, previously shown only when
+  `props.advice !== undefined`) has to move *inside* the frame it targets — a
+  form can live inside the very frame it submits to, the same shape
+  `GuidelinesListFrame`'s per-row forms already use — or the affected element
+  never appears again after the first frame-only reload. A same-session
+  label change (advice's run button switching text) is lower stakes and can
+  be left as a documented, undone trade-off rather than piping localized
+  copy into client JS for cosmetic reasons alone — judge which one you have
+  by whether the element's *presence*, not just its wording, depends on
+  frame content.
+- **A GET `data-rmx-target` form runs the same runtime path as a
+  `data-rmx-target` link, not the POST forms' path.** Read from
+  `@remix-run/ui`'s source rather than assumed, since every prior port was
+  POST: `runtime/form-navigation.js`'s `createFormNavigationResolver`
+  resolves no `getSubmission` for a `method="get"` form (only POST gets one),
+  so `runtime/navigation.js`'s `getRuntimeNavigation` returns a state with no
+  `getSubmission` either — the exact same shape a plain `<a data-rmx-target>`
+  click produces — and the listener's `<a>`/`<form method="get">` branch
+  handles both identically. `runtime/run.ts`'s `defaultResolveFrame` still
+  sends `Accept: text/html` regardless, with no `method` override for a GET
+  (`options?.method` stays `undefined`, which `fetch` treats as GET), so
+  `requestAcceptsFrameSubmitHtml`'s exact-match check needs no GET-specific
+  handling on the server either. Confirmed live: a `window` marker set before
+  a filter submit survives it (an in-place frame patch, not a top-level
+  reload).
+- **`data-rmx-history="replace"` replaces whatever the *current* history
+  entry is, not "the form's own page."** For a GET form,
+  `replaceHistoryByDefault` is always `false` (it only defaults `true` for a
+  POST resubmitting the same URL), so an explicit `data-rmx-history="replace"`
+  is what makes repeated filter submissions not grow the history stack — but
+  each submission replaces whatever entry is current *at that moment*,
+  including one that was itself already a replacement. Confirmed live: two
+  filter changes in a row leave exactly one entry to undo, and going back
+  from it lands on the page open *before* the first filter — not on the
+  unfiltered `/catalog` in between — because the very first filter submission
+  already replaced that unfiltered entry. This matches `frame-submit.
+  component.js`'s old `history.replaceState(null, '', documentUrl)` call
+  exactly (same replace-on-every-submit behavior), so it is not a regression,
+  but it is worth remembering before assuming "replace" means "return to the
+  unfiltered list."
+
+## Open questions for the user
+
+None right now. Plan Open question 4 (how to unblock `data-rmx-target` form
+ports whose action isn't their own page) is resolved — see *Next step*
+above and `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 4.

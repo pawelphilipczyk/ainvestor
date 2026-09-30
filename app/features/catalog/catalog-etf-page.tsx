@@ -5,8 +5,8 @@ import { frameLoadingPlaceholder } from '../../components/layout/frame-loading-p
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AdviceModelId } from '../advice/advice-openai.ts'
-// @ts-expect-error Runtime-only remix clientEntry (scoped to this page)
-import { CatalogEtfBackEnhancement } from './catalog-etf-back.component.js'
+import { CatalogEtfAnalysisFrame } from './catalog-etf-analysis-frame.component.ts'
+import { CatalogEtfBackEnhancement } from './catalog-etf-back.component.ts'
 import type { CatalogEntry } from './lib.ts'
 
 export type CatalogEtfPageProps = {
@@ -113,7 +113,7 @@ export function CatalogEtfPage(handle: Handle<CatalogEtfPageProps>) {
 					<div class="mx-auto flex w-full min-w-0 max-w-3xl items-center gap-3">
 						<a
 							href={props.catalogFallbackHref}
-							rmx-document
+							data-rmx-document
 							class="inline-flex h-9 shrink-0 items-center justify-center rounded-md border border-border bg-background px-3 text-sm font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
 							data-catalog-etf-back=""
 						>
@@ -168,8 +168,7 @@ export function CatalogEtfPage(handle: Handle<CatalogEtfPageProps>) {
 								<form
 									method="post"
 									action={props.analysisPostHref}
-									data-frame-submit="catalog-etf-analysis"
-									data-frame-replace-from-response="1"
+									data-rmx-target="catalog-etf-analysis"
 									data-frame-hide-form-on-success="1"
 									class="min-w-0"
 								>
@@ -187,6 +186,7 @@ export function CatalogEtfPage(handle: Handle<CatalogEtfPageProps>) {
 									src={props.analysisFrameSrc}
 									fallback={frameLoadingPlaceholder()}
 								/>
+								<CatalogEtfAnalysisFrame />
 							</>
 						) : (
 							<div class="min-w-0 max-w-full overflow-x-auto whitespace-pre-wrap break-words text-sm leading-relaxed text-card-foreground">

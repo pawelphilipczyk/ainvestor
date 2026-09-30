@@ -3,10 +3,10 @@ import { defaulted, enum_, object, parseSafe, string } from 'remix/data-schema'
 import { createHtmlResponse } from 'remix/response/html'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
-import { renderToStream } from 'remix/ui/server'
-import { render } from '../../components/render.ts'
+import { render, renderFragmentToStream } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
+import { requestAcceptsFrameSubmitHtml } from '../../lib/frame-submit-request.ts'
 import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
@@ -39,8 +39,9 @@ import {
 	normalizeAdviceAnalysisTab,
 } from './advice-openai.ts'
 import {
+	AdviceModePanel,
+	type AdviceModePanelProps,
 	AdvicePage,
-	AdviceResultCard,
 	type AdviceResultCardProps,
 } from './advice-page.tsx'
 
@@ -94,8 +95,6 @@ type AdvicePageRenderProps = {
 	adviceGistGate?: 'sign_in' | 'connect_gist'
 }
 
-const ADVICE_GIST_STALE_HEADER = 'X-Advice-Gist-Stale'
-
 function adviceResultFragmentSrc(activeTab: AdviceAnalysisMode): string {
 	const tabQuery =
 		activeTab === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
@@ -132,33 +131,69 @@ function adviceResultCardPropsFromPage(
 	}
 }
 
-function resolveAdviceResultFrame(
-	source: string,
-	frameSrc: string | undefined,
+/** Reshapes already-loaded page state into one mode's `AdviceModePanel` props. */
+function adviceModePanelPropsFromPage(
+	mode: AdviceAnalysisMode,
 	props: AdvicePageRenderProps,
-) {
-	if (frameSrc === undefined || source !== frameSrc) return ''
-	const cardProps = adviceResultCardPropsFromPage(props)
-	if (cardProps === null) return ''
-	return renderToStream(jsx(AdviceResultCard, cardProps))
+): AdviceModePanelProps {
+	return {
+		mode,
+		cashAmount: props.cashAmount,
+		cashCurrency: props.cashCurrency,
+		selectedModel: props.selectedModel,
+		disabled:
+			props.pendingApproval === true || props.adviceGistGate !== undefined,
+		error: props.formError,
+		card: adviceResultCardPropsFromPage(props) ?? undefined,
+	}
 }
 
-function renderAdvicePageResponse(options: {
-	session: SessionData | null
-	props: AdvicePageRenderProps
-	init?: ResponseInit
-}) {
+function renderAdviceModePanelHtml(
+	panelProps: AdviceModePanelProps,
+	init?: ResponseInit,
+) {
+	return createHtmlResponse(
+		renderFragmentToStream(jsx(AdviceModePanel, panelProps)),
+		{
+			status: init?.status ?? 200,
+			headers: { 'Cache-Control': 'no-store' },
+		},
+	)
+}
+
+function resolveAdviceResultFrame(
+	source: string,
+	options: {
+		frameSrc: string
+		activeTab: AdviceAnalysisMode
+		props: AdvicePageRenderProps
+	},
+) {
+	if (source !== options.frameSrc) return ''
+	return renderFragmentToStream(
+		jsx(
+			AdviceModePanel,
+			adviceModePanelPropsFromPage(options.activeTab, options.props),
+		),
+	)
+}
+
+function renderAdvicePageResponse(
+	context: AppRequestContext,
+	options: {
+		session: SessionData | null
+		props: AdvicePageRenderProps
+		init?: ResponseInit
+	},
+) {
 	const activeTab = normalizeAdviceAnalysisTab(options.props.activeTab)
-	const frameSrc = shouldStreamAdviceResult(options.props)
-		? adviceResultFragmentSrc(activeTab)
-		: undefined
+	// The Frame is always rendered (even before any result exists) so a
+	// `data-rmx-target="advice-result"` submission always has a named frame to
+	// target — see `docs/UI_ARCHITECTURE_GUIDELINES.md` §10 and the notes on
+	// `renderAdviceActionResponse` below.
+	const frameSrc = adviceResultFragmentSrc(activeTab)
 
-	const responseHeaders =
-		options.props.adviceGistPersistFailed === true
-			? { [ADVICE_GIST_STALE_HEADER]: '1' }
-			: undefined
-
-	return render({
+	return render(context, {
 		title: t('meta.title.advice'),
 		htmlLang: htmlLangForCurrentUiLocale(),
 		session: options.session,
@@ -166,13 +201,57 @@ function renderAdvicePageResponse(options: {
 		body: jsx(AdvicePage, {
 			...options.props,
 			adviceResultFrameSrc: frameSrc,
+			buyNextFrameSrc: adviceResultFragmentSrc('buy_next'),
+			portfolioReviewFrameSrc: adviceResultFragmentSrc('portfolio_review'),
 		}),
 		init: options.init,
-		responseHeaders,
 		resolveFrame(source) {
-			return resolveAdviceResultFrame(source, frameSrc, options.props)
+			return resolveAdviceResultFrame(source, {
+				frameSrc,
+				activeTab,
+				props: options.props,
+			})
 		},
 	})
+}
+
+/**
+ * Small HTML-fragment/full-page dispatcher for `advice.action`, mirroring
+ * `portfolio`'s `portfolioValidationFailureResponse` shape: every branch below
+ * builds the exact same `AdvicePageRenderProps` the full-page render already
+ * used, and this decides which shape the client actually gets. `Accept:
+ * text/html` (the header `@remix-run/ui`'s `defaultResolveFrame` sends for a
+ * native `data-rmx-target` submission) means the response IS the
+ * `advice-result` Frame's own content — the full mode panel (form and
+ * result), not just the result — since a named (non-top) frame diffs the
+ * response as a plain fragment regardless of whether it happens to contain a
+ * full `<html>` tree. Every other request (no JS, or a bare fetch without
+ * that exact header) gets today's full-page render unchanged, `formError`
+ * and all.
+ *
+ * Status ≥ 500 (the OpenAI-failure branch) is remapped to 200 for the frame
+ * response only, same fix as the catalog ETF analysis port:
+ * `@remix-run/ui`'s `defaultResolveFrame` throws for any response status
+ * ≥ 500 regardless of content type, silently dropping the HTML body. The
+ * full-page fallback keeps the real 503.
+ */
+function renderAdviceActionResponse(
+	context: AppRequestContext,
+	options: {
+		session: SessionData | null
+		props: AdvicePageRenderProps
+		init?: ResponseInit
+	},
+): Response | Promise<Response> {
+	if (!requestAcceptsFrameSubmitHtml(context.request)) {
+		return renderAdvicePageResponse(context, options)
+	}
+	const status = options.init?.status
+	const activeTab = normalizeAdviceAnalysisTab(options.props.activeTab)
+	return renderAdviceModePanelHtml(
+		adviceModePanelPropsFromPage(activeTab, options.props),
+		{ status: status !== undefined && status >= 500 ? 200 : status },
+	)
 }
 
 /**
@@ -286,7 +365,7 @@ export const adviceController = {
 				pendingApproval,
 				activeTab,
 			})
-			return renderAdvicePageResponse({
+			return renderAdvicePageResponse(context, {
 				session: layoutSession,
 				props: withAdviceGate(
 					baseProps,
@@ -313,16 +392,8 @@ export const adviceController = {
 				session,
 				pendingApproval,
 			)
-			const cardProps = adviceResultCardPropsFromPage(props)
-			if (cardProps === null) {
-				return new Response(null, {
-					status: 204,
-					headers: { 'Cache-Control': 'no-store' },
-				})
-			}
-			return createHtmlResponse(
-				renderToStream(jsx(AdviceResultCard, cardProps)),
-				{ headers: { 'Cache-Control': 'no-store' } },
+			return renderAdviceModePanelHtml(
+				adviceModePanelPropsFromPage(activeTab, props),
 			)
 		},
 
@@ -333,7 +404,7 @@ export const adviceController = {
 			const activeTabFromUrl = parseAdviceTabParam(context.request.url)
 			const form = context.get(FormData)
 			if (!form) {
-				return renderAdvicePageResponse({
+				return renderAdviceActionResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -403,7 +474,7 @@ export const adviceController = {
 					(ADVICE_ANALYSIS_MODES as readonly string[]).includes(rawMode)
 						? (rawMode as AdviceAnalysisMode)
 						: DEFAULT_ADVICE_ANALYSIS_MODE
-				return renderAdvicePageResponse({
+				return renderAdviceActionResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -434,7 +505,7 @@ export const adviceController = {
 			} = result.value
 			const trimmedCash = rawCashAmount.trim()
 			if (analysisMode === 'buy_next' && trimmedCash === '') {
-				return renderAdvicePageResponse({
+				return renderAdviceActionResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -458,7 +529,7 @@ export const adviceController = {
 			const cashAmount = trimmedCash
 
 			if (pendingApproval) {
-				return renderAdvicePageResponse({
+				return renderAdviceActionResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -482,7 +553,7 @@ export const adviceController = {
 
 			if (analysisMode === 'portfolio_review' && adviceIntent === 'clear') {
 				if (!sessionUsesGithubGist(session)) {
-					return renderAdvicePageResponse({
+					return renderAdviceActionResponse(context, {
 						session: layoutSession,
 						props: withAdviceGate(
 							{
@@ -522,7 +593,7 @@ export const adviceController = {
 					activeTabFromUrl === 'portfolio_review'
 						? await fetchCatalog()
 						: undefined
-				return renderAdvicePageResponse({
+				return renderAdviceActionResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -540,7 +611,7 @@ export const adviceController = {
 			}
 
 			if (!sessionUsesGithubGist(session)) {
-				return renderAdvicePageResponse({
+				return renderAdviceActionResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -603,7 +674,7 @@ export const adviceController = {
 					adviceGistPersistFailed = true
 					console.warn('[advice] could not save gist snapshot', gistErr)
 				}
-				return renderAdvicePageResponse({
+				return renderAdviceActionResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -635,7 +706,7 @@ export const adviceController = {
 							? `${err.message}\n${err.stack ?? ''}`.trim()
 							: err.message
 						: String(err)
-				return renderAdvicePageResponse({
+				return renderAdviceActionResponse(context, {
 					session: layoutSession,
 					props: withAdviceGate(
 						{
@@ -666,5 +737,5 @@ export const adviceController = {
 /** Test helper: path + query for switching to a tab. */
 export function adviceTabHref(mode: AdviceAnalysisMode): string {
 	const tabQuery = mode === 'portfolio_review' ? 'portfolio_review' : 'buy_next'
-	return routes.advice.index.href({}, { tab: tabQuery })
+	return routes.advice.index.href({}, { searchParams: { tab: tabQuery } })
 }

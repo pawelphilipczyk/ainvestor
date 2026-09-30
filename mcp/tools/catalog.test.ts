@@ -7,6 +7,7 @@ import { afterEach, describe, it } from 'node:test'
 import type { CatalogEntry } from '../../app/features/catalog/lib.ts'
 import {
 	fetchCatalog,
+	fetchCatalogSourceRows,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
 } from '../../app/features/catalog/lib.ts'
@@ -436,6 +437,32 @@ describe('import_catalog_from_bank_file tool', () => {
 		assert.equal(payload.catalogSizeAfter, 4)
 		const saved = (await fetchCatalog()).find((row) => row.ticker === 'SXR8')
 		assert.equal(saved?.expense_ratio, '0,07%')
+		assert.equal(saved?.assets, 'akcje')
+		const sourceRows = await fetchCatalogSourceRows()
+		assert.equal(
+			(saved && (sourceRows[saved.id] as { ticker?: string }))?.ticker,
+			'SXR8',
+		)
+	})
+
+	it('reports unclassified rows and stores nothing on a dry run', async () => {
+		stubCatalog()
+		const filePath = await writeExport({
+			data: [
+				{ ticker: 'BTC', fund_name: 'Bitcoin FIZ', assets: 'kryptowaluty' },
+			],
+		})
+		const payload = payloadOf(
+			await createImportCatalogFromBankFileTool(credentials).handler({
+				filePath,
+				dryRun: true,
+			}),
+		)
+		assert.deepEqual(payload.unclassified, {
+			count: 1,
+			rows: ['BTC — Bitcoin FIZ'],
+		})
+		assert.deepEqual(await fetchCatalogSourceRows(), {})
 	})
 
 	it('checks catalog ownership before it touches the filesystem', async () => {

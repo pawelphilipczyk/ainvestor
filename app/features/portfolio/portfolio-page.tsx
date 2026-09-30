@@ -11,6 +11,7 @@ import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
 import { ImportEtfForm } from './import-etf-form/import-etf-form.tsx'
+import { PortfolioListFrame } from './portfolio-list-frame.component.ts'
 import { PortfolioOperationForm } from './portfolio-operation-form/index.ts'
 
 type PortfolioPageProps = {
@@ -39,13 +40,9 @@ export function PortfolioPage(
 						<p class="mt-1 text-xs text-muted-foreground">
 							{t('portfolio.savedGist')}
 						</p>
-					) : session?.approvalStatus === 'pending' ? (
-						<p class="mt-1 text-xs text-muted-foreground">
-							{t('portfolio.pendingNotSaved')}
-						</p>
 					) : (
 						<p class="mt-1 text-xs text-muted-foreground">
-							{t('portfolio.signInPersist')}
+							{t('portfolio.pendingNotSaved')}
 						</p>
 					)}
 				</SectionIntroCard>
@@ -65,6 +62,7 @@ export function PortfolioPage(
 					src={routes.portfolio.fragmentList.href()}
 					fallback={frameLoadingPlaceholder()}
 				/>
+				<PortfolioListFrame />
 			</main>
 		)
 	}

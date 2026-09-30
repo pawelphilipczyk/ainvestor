@@ -35,12 +35,14 @@ IBTA LN ETF;GBR-LSE;4087.48;PLN`}
 				{t('portfolio.import.encodingNote')}
 			</p>
 			<form
+				id="portfolio-import-form"
 				method="post"
-				action={routes.portfolio.import.href()}
+				action={routes.portfolio.index.href()}
 				enctype="multipart/form-data"
 				class="mt-4 grid min-w-0 gap-4"
-				data-frame-submit="portfolio-list"
+				data-rmx-target="portfolio-list"
 			>
+				<input type="hidden" name="portfolioIntent" value="import" />
 				<div class="grid min-w-0 gap-2">
 					<FieldLabel fieldId="portfolioCsvPaste">
 						{t('portfolio.import.pasteLabel')}

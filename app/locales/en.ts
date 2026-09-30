@@ -12,6 +12,7 @@ export const ETF_TYPE_LABELS: Record<EtfType, string> = {
 	commodity: 'commodity',
 	mixed: 'mixed',
 	money_market: 'money market',
+	unknown: 'unclassified',
 }
 
 export const en = {
@@ -38,7 +39,10 @@ export const en = {
 	'nav.admin': 'Admin',
 
 	'intro.tagline':
-		'Choose where to go next. Everything works in the browser; sign in with GitHub when you want your portfolio and catalog saved across sessions.',
+		'Track your ETF portfolio, set investment guidelines, and get personalized buy advice.',
+	'intro.signInPrompt.title': 'Sign in to use AI Investor',
+	'intro.signInPrompt.body':
+		"Every page here needs a GitHub sign-in. Your portfolio and guidelines are kept privately in your own GitHub account — this app doesn't run a database of its own, so nothing is stored anywhere else.",
 
 	'section.portfolio.title': 'Portfolio',
 	'section.portfolio.description':
@@ -75,8 +79,7 @@ export const en = {
 
 	'portfolio.savedGist': 'Saved to your private GitHub Gist',
 	'portfolio.pendingNotSaved':
-		'Account pending approval — portfolio is not saved to GitHub yet',
-	'portfolio.signInPersist': 'Sign in to persist your data across sessions',
+		'Account pending approval — a portfolio cannot be saved yet',
 	'portfolio.import.title': 'Import from CSV',
 	'portfolio.import.formatsHint':
 		'eMAKLER/mBank exports and similar. Example columns:',
@@ -184,8 +187,7 @@ export const en = {
 
 	'guidelines.subtitle.savedGist': 'Saved to your private GitHub Gist.',
 	'guidelines.subtitle.pending':
-		'Account pending approval — guidelines are not saved to GitHub yet.',
-	'guidelines.subtitle.signIn': 'Sign in to persist across sessions.',
+		'Account pending approval — guidelines cannot be saved yet.',
 	'guidelines.tabs.navAria': 'Add guideline forms',
 	'guidelines.etfCard.title': 'Specific ETF target',
 	'guidelines.etfCard.hint':
@@ -289,6 +291,10 @@ export const en = {
 		'Enter an amount greater than zero to sell.',
 	'errors.portfolio.persistence':
 		'Could not save your portfolio. Please try again in a moment.',
+	'errors.portfolio.requiresApproval':
+		'Account pending approval — a portfolio cannot be saved yet.',
+	'errors.portfolio.importInvalid':
+		'No holdings found in that CSV. Check the format and try again.',
 	'errors.upload.fileTooLarge':
 		'File upload is too large. Maximum size is 5 MB.',
 	'errors.catalog.importNotAllowed':
@@ -307,6 +313,10 @@ export const en = {
 		'Catalog saved. Merged {appliedCount} row(s) from this paste.',
 	'errors.catalog.import.diagnostic.nothingSavedLead':
 		'Nothing was saved from this paste.',
+	'errors.catalog.import.diagnostic.unclassifiedHeading':
+		'Unclassified — {count} rows have no asset class from the bank; set their type by hand:',
+	'errors.catalog.import.diagnostic.typeChangesHeading':
+		'Type changed on {count} existing rows (re-save any guideline naming these funds):',
 	'errors.catalog.import.diagnostic.skippedHeading': 'Skipped rows:',
 	'errors.catalog.import.diagnostic.notesHeading': 'Notes:',
 	'errors.catalog.import.diagnostic.notesSummaryMany':
@@ -343,6 +353,8 @@ export const en = {
 	'errors.catalog.etfDetail.pendingAnalysis':
 		'ETF analysis is available after your account is approved.',
 
+	'errors.guidelines.requiresApproval':
+		'Account pending approval — guidelines cannot be saved yet.',
 	'errors.guidelines.totalExceeds100':
 		'Guideline targets cannot add up to more than 100%. You currently have {current}% allocated; adding {added}% would exceed the limit.',
 	'errors.guidelines.updateTotalExceeds100':
@@ -357,6 +369,8 @@ export const en = {
 		'Check the fund or bucket, target percentage, and try again.',
 	'errors.guidelines.catalogEntryStale':
 		'That fund is no longer in your catalog. Refresh the page and choose a fund from the list.',
+	'errors.guidelines.catalogEntryUnclassified':
+		'The catalog has no asset class for {ticker} yet. Set its type in the catalog first, then add the guideline.',
 	'errors.guidelines.assetClassStale':
 		'That asset class is no longer available. Refresh the page and choose from the list.',
 

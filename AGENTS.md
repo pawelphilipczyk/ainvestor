@@ -1,5 +1,18 @@
 # Agent Working Agreement
 
+Before starting any non-trivial change, skim `docs/LESSONS_LEARNED.md` for
+known gotchas already hit (and debugged) in this repo.
+
+Adding to that file is **rare and deliberate** — the default is not to. An
+entry must be something you could not have learned by reading (not our config,
+not the library's docs): you found it empirically, the symptom actively misled
+you, the cause stays non-obvious even once the symptom is known, and it yields
+a rule that changes future code. Documented behavior of general tools, facts
+recoverable from this repo's own configuration, and version-migration breakage
+all belong elsewhere. Read that file's header and check your entry against all
+four criteria before adding it; if it fails any, put it in a code comment or
+the relevant topic doc instead.
+
 This repository uses a server-first UI architecture. Before making UI-related changes, read:
 
 - `docs/UI_ARCHITECTURE_GUIDELINES.md`
@@ -7,15 +20,35 @@ This repository uses a server-first UI architecture. Before making UI-related ch
 Before making Remix framework changes, read:
 
 - `docs/REMIX_V3_PACKAGES.md`
-- `docs/REMIX_BETA_MIGRATION_PLAN.md` when planning or performing Remix beta upgrades
+- `docs/REMIX_UPGRADE_WATCHLIST.md` **first** when bumping the Remix version — it lists the decisions this app took because of how the framework behaves today, so a release that changes that behaviour does not go unnoticed
+- `docs/REMIX_RC_MIGRATION_STATUS.md` **first** when resuming the `beta.0` → `3.0.0-rc.2` upgrade — it says which stage is in flight, what landed most recently, and what the next step is
+- `docs/REMIX_RC_MIGRATION_PLAN.md` for the plan itself, and for the measurements behind every decision the status file references
+- `docs/REMIX_ASSETS_MIGRATION_PLAN.md` when the work touches how browser modules are served, compiled or resolved (client entries, the document import map, HMR, asset caching) — it is the live plan that follows the rc.2 one
+- `docs/REMIX_BETA_MIGRATION_PLAN.md` for the earlier alpha → beta upgrade (historical)
 
 Before working on the MCP server, read:
 
 - `docs/MCP_SERVER_PLAN.md`
 
+Before touching storage — gists, the shared catalog, guest mode, or the
+OAuth scope — read:
+
+- `docs/STORAGE_MIGRATION_PLAN.md` — the move from gists to GitHub
+  repositories, the decisions behind it (and the ones it reversed), and the
+  guest-mode removal that comes first
+
 Before writing any JS/TS/CSS code, read:
 
 - `docs/BIOME_RULES.md`
+
+Before adding, deleting or reorganising tests, read:
+
+- `docs/TEST_HEALTH.md` — how the suite is kept free of overlap and gaps, and
+  the rules the weekly sweep Routine follows
+- `docs/TEST_OVERLAP_BACKLOG.md` and `docs/TEST_GAP_BACKLOG.md` — the queues
+  those sweeps work from. If you notice redundant or missing coverage while
+  doing something else, append it there as `proposed` rather than acting on it
+  mid-task.
 
 ## Plan before implementing (first message)
 
@@ -71,7 +104,7 @@ User-visible copy lives in **`app/locales/en.ts`** and **`app/locales/pl.ts`** a
 3. Use Tailwind utility classes as the default styling approach.
 4. Keep JavaScript modular, minimal, and enhancement-only.
 5. Do not introduce React/Vue-style component frameworks unless explicitly requested.
-6. **Partial HTML from forms**: use **`<Frame>`** + **`FrameSubmitEnhancement`** (`data-frame-submit`, etc.). **Primary JSON POSTs from the page**: use **`SubmitButton`** + a **small feature `clientEntry`**; share **`setSubmitButtonLoading`** from `submit-button-loading.component.js`. See **§7** in `docs/UI_ARCHITECTURE_GUIDELINES.md`.
+6. **Partial HTML from forms**: use **`<Frame>`** + **`FrameSubmitEnhancement`** (`data-frame-submit`, etc.). **Primary JSON POSTs from the page**: use **`SubmitButton`** + a **small feature `clientEntry`**; share **`setSubmitButtonLoading`** from `submit-button-loading.component.ts`. See **§7** in `docs/UI_ARCHITECTURE_GUIDELINES.md`.
 
 ## Required defaults for Remix work
 
@@ -94,7 +127,8 @@ User-visible copy lives in **`app/locales/en.ts`** and **`app/locales/pl.ts`** a
 - When a task involves UI implementation, patterns in `docs/UI_ARCHITECTURE_GUIDELINES.md` are the source of truth.
 - When a task involves Remix routing, sessions, middleware, or HTTP utilities, `docs/REMIX_V3_PACKAGES.md` is the reference.
 - For all JS/TS/CSS formatting and lint rules, `docs/BIOME_RULES.md` is the reference. Run `npm run check` before committing.
-- ClientEntry components that are feature-specific live next to the feature (`.component.js` suffix). Shared clientEntry components live in `app/components/`.
+- Client behavior that only exists after hydration (`clientEntry` wiring, Remix UI mixins) is invisible to `npm test`: nothing runs it without a browser. Cover it with a `*.browser.ts` file and run `npm run test:browser` — Playwright against a real Chromium, one-time setup `npx playwright install chromium`. It is kept out of `npm test` on purpose, so CI never downloads a browser. **`npm run typecheck` covers every client entry** (the asset server compiles TypeScript, so entries live inside `tsconfig.json`) — there is no untyped client code left; see `docs/REMIX_ASSETS_MIGRATION_PLAN.md` Stage 4.
+- ClientEntry components that are feature-specific live next to the feature (`.component.ts` suffix; `.component.js` is no longer served at all). Shared clientEntry components live in `app/components/`. Browser-only helpers that are not components live in `app/lib/browser/` — that directory and the `.component.` infix are what `allowFiles` uses to tell a browser module from a server-only one, so a new browser helper belongs there and nowhere else.
 
 ## Pattern capture rule
 

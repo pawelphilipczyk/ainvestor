@@ -59,9 +59,9 @@ function renderCatalogRow(
 	options: { tickerLinksToDetail: boolean },
 ) {
 	const { tickerLinksToDetail } = options
-	const etfDetailHref = routes.catalog.etf.href(
+	const etfDetailHref = routes.catalog.etf.index.href(
 		{ catalogEntryId: entry.id },
-		{ model: DEFAULT_CATALOG_ETF_MODEL },
+		{ searchParams: { model: DEFAULT_CATALOG_ETF_MODEL } },
 	)
 	const riskBand = riskBandFromRiskKid(entry.risk_kid)
 	const riskCell =
@@ -161,7 +161,7 @@ function renderCatalogEtfScrollableTable(params: {
 	)
 }
 
-type CatalogListFragmentProps = {
+export type CatalogListFragmentProps = {
 	catalog: CatalogEntry[]
 	holdings: EtfEntry[]
 	typeFilter: string
@@ -260,7 +260,7 @@ export function CatalogListFragment(handle: Handle<CatalogListFragmentProps>) {
 								<p class="mt-3">
 									<Link
 										href={routes.admin.etfImport.href()}
-										rmx-document
+										data-rmx-document
 										class="text-sm font-medium text-foreground underline underline-offset-4 hover:text-foreground/90"
 									>
 										{t('catalog.empty.adminImportLink')}

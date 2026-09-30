@@ -17,6 +17,8 @@ import { t } from '../../lib/i18n.ts'
 import { getSectionIntro } from '../../lib/section-intros.ts'
 import { sessionUsesGithubGist } from '../../lib/session.ts'
 import { routes } from '../../routes.ts'
+import { CatalogFilterPrefsEnhancement } from './catalog-filter-prefs.component.ts'
+import { CatalogListFrame } from './catalog-list-frame.component.ts'
 import type { CatalogRiskBand } from './lib.ts'
 
 type CatalogPageProps = {
@@ -35,6 +37,9 @@ export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
 		const catalogIntro = getSectionIntro('catalog')
 		return (
 			<main class="mx-auto grid min-w-0 max-w-5xl gap-6">
+				<CatalogFilterPrefsEnhancement
+					data-catalog-index-href={routes.catalog.index.href()}
+				/>
 				<SectionIntroCard
 					page="catalog"
 					variant="page"
@@ -57,8 +62,9 @@ export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
 							method="get"
 							action={routes.catalog.index.href()}
 							class="flex flex-wrap items-end gap-3"
-							data-frame-submit="catalog-list"
-							data-frame-get-fragment-action={routes.catalog.fragmentList.href()}
+							data-catalog-filter-form
+							data-rmx-target="catalog-list"
+							data-rmx-history="replace"
 						>
 							<div class="grid gap-1.5">
 								<FieldLabel fieldId="type" variant="filter">
@@ -130,8 +136,9 @@ export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
 							{props.typeFilter || props.riskFilter || props.query ? (
 								<a
 									href={routes.catalog.index.href()}
+									data-catalog-filter-clear
 									data-navigation-loading
-									rmx-document
+									data-rmx-document
 									class="hover:text-foreground inline-flex h-9 items-center rounded-md px-3 text-sm text-muted-foreground underline underline-offset-4"
 								>
 									{t('catalog.filter.clear')}
@@ -146,6 +153,7 @@ export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
 					src={props.catalogListFrameSrc}
 					fallback={frameLoadingPlaceholder()}
 				/>
+				<CatalogListFrame />
 			</main>
 		)
 	}

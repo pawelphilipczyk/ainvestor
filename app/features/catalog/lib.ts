@@ -2,11 +2,18 @@ import {
 	ETF_TYPES,
 	type EtfType,
 	formatEtfTypeLabel,
+	GUIDELINE_ETF_TYPES,
 } from '../../lib/guidelines.ts'
+import { readFile, writeFiles } from '../../lib/store/github-store.ts'
 
 export const CATALOG_FILENAME = 'catalog.json'
-const GITHUB_API = 'https://api.github.com'
-const GITHUB_REQUEST_TIMEOUT_MS = 5_000
+/**
+ * Every bank row as received, keyed by catalog id, in the same gist as the
+ * catalog. Kept so a field the catalog derives (like `type`) can be re-derived
+ * from the source by re-running code, not by re-capturing the bank's screener.
+ * Only the import reads it; catalog reads ignore it.
+ */
+export const CATALOG_SOURCE_FILENAME = 'catalog-source.json'
 /** In-process TTL for {@link fetchSharedCatalogSnapshot} (ms). Override with `SHARED_CATALOG_CACHE_TTL_MS`; use `0` to disable. */
 const DEFAULT_SHARED_CATALOG_CACHE_TTL_MS = 60_000
 
@@ -40,6 +47,24 @@ export type CatalogEntry = {
 	fund_size?: string
 	/** ESG-compliant. */
 	esg?: boolean
+	/** Bank's asset class for the fund (e.g. "akcje", "surowce") — what `type` is derived from. */
+	assets?: string
+	/** Bank's narrower subject, set on few rows (e.g. "Srebro"). */
+	investment_subject?: string
+	/** Bank's free-form tags (e.g. ["akcje", "AI/robotyka"]). Not reliable for classification. */
+	tags?: string[]
+	/** Trading venue (e.g. "GBR-LSE"). */
+	market?: string
+	/** Trading currency of this listing. */
+	currency?: string
+	/** Base currency of the fund. */
+	fund_currency?: string
+	/** "fizyczna" / "syntetyczna". */
+	replication?: string
+	/** "akumulujący" / "dystrybuujący". */
+	distribution?: string
+	/** Fund domicile (e.g. "Irlandia"). */
+	country?: string
 }
 
 /** Coarse risk bands for catalog filter and table display (from `risk_kid` when present). */
@@ -85,14 +110,17 @@ export function uniqueEtfTypesFromCatalog(catalog: CatalogEntry[]): EtfType[] {
 }
 
 /**
- * Dropdown options for asset-class guidelines: types that appear in the catalog.
- * When the catalog is empty, falls back to all `ETF_TYPES` so the form still works.
+ * Dropdown options for asset-class guidelines: types that appear in the catalog,
+ * minus `unknown` (a catalog to-do, not a class to target). When that leaves
+ * nothing, falls back to every guideline type so the form still works.
  */
 export function assetClassSelectOptionsFromCatalog(
 	catalog: CatalogEntry[],
 ): { value: EtfType; label: string }[] {
-	const types = uniqueEtfTypesFromCatalog(catalog)
-	const ordered = types.length > 0 ? types : [...ETF_TYPES]
+	const types = uniqueEtfTypesFromCatalog(catalog).filter(
+		(etfType) => etfType !== 'unknown',
+	)
+	const ordered = types.length > 0 ? types : [...GUIDELINE_ETF_TYPES]
 	return ordered.map((etfType) => ({
 		value: etfType,
 		label: formatEtfTypeLabel(etfType),
@@ -171,6 +199,13 @@ export type BankEtfItem = {
 	fund_size?: string
 	esg?: string
 	id?: string
+	investment_subject?: string | null
+	tags?: unknown
+	currency?: string | null
+	fund_currency?: string | null
+	replication?: string | null
+	distribution?: string | null
+	country?: string | null
 }
 
 /** Bank API response shape: { data: BankEtfItem[], count?, total_count? }. */
@@ -276,18 +311,85 @@ export function validateCatalogEntry(
 	return issues
 }
 
-function normaliseTypeFromBank(assets: string, sector: string): EtfType {
-	const assetsLower = (assets ?? '').toLowerCase()
-	const sectorLower = (sector ?? '').toLowerCase()
-	if (assetsLower.includes('obligac')) return 'bond'
-	if (assetsLower.includes('mieszany')) return 'mixed'
-	if (sectorLower.includes('nieruchomo')) return 'real_estate'
-	if (sectorLower.includes('surowce') || sectorLower.includes('towar'))
-		return 'commodity'
-	if (assetsLower.includes('akcje') || assetsLower.includes('akcj'))
-		return 'equity'
-	return 'equity'
+/**
+ * What a fund *is*, from the bank's `assets` field — never from `sector`, which
+ * says what the fund invests in: a gold-miners equity fund carries sector
+ * "surowce i towary", physical gold carries sector "metale". `sector` only
+ * narrows a class `assets` already decided.
+ *
+ * Anything `assets` does not name (missing, empty, "kryptowaluty") is
+ * `unknown` and surfaces in the import report, rather than being guessed.
+ */
+export function deriveEtfTypeFromBank(params: {
+	assets: string | null | undefined
+	sector: string | null | undefined
+}): EtfType {
+	const assets = (params.assets ?? '').trim().toLowerCase()
+	const sector = (params.sector ?? '').trim().toLowerCase()
+	switch (assets) {
+		case 'akcje':
+			return sector.includes('nieruchomo') ? 'real_estate' : 'equity'
+		case 'obligacje':
+			return sector.includes('rynek pieni') ? 'money_market' : 'bond'
+		case 'surowce':
+			return 'commodity'
+		case 'mieszany':
+			return 'mixed'
+		default:
+			return 'unknown'
+	}
 }
+
+function nonEmptyString(value: unknown): string | undefined {
+	if (typeof value !== 'string') return undefined
+	const trimmed = value.trim()
+	return trimmed.length > 0 ? trimmed : undefined
+}
+
+/** The bank sends tags as `[{ tag: "akcje" }, …]`. */
+function tagsFromBank(value: unknown): string[] | undefined {
+	if (!Array.isArray(value)) return undefined
+	const tags = value
+		.map((item) =>
+			item && typeof item === 'object'
+				? nonEmptyString((item as Record<string, unknown>).tag)
+				: undefined,
+		)
+		.filter((tag): tag is string => tag !== undefined)
+	return tags.length > 0 ? tags : undefined
+}
+
+/** Optional string fields copied verbatim from the bank row when non-empty. */
+const BANK_PASSTHROUGH_STRING_FIELDS = [
+	'assets',
+	'investment_subject',
+	'market',
+	'currency',
+	'fund_currency',
+	'replication',
+	'distribution',
+	'country',
+] as const satisfies readonly (keyof CatalogEntry & keyof BankEtfItem)[]
+
+/**
+ * Optional fields the bank import owns. A re-import clears any of them the
+ * bank no longer sends, so a stored row never mixes this import's values with
+ * a previous import's (e.g. an old `assets` next to a `type` derived without
+ * it). `isin` is left out: it is part of the merge key.
+ */
+const BANK_OWNED_OPTIONAL_FIELDS = [
+	...BANK_PASSTHROUGH_STRING_FIELDS,
+	'tags',
+	'expense_ratio',
+	'risk_kid',
+	'region',
+	'sector',
+	'rate_of_return',
+	'volatility',
+	'return_risk',
+	'fund_size',
+	'esg',
+] as const satisfies readonly (keyof CatalogEntry)[]
 
 /** Per-row problems detected while reading bank JSON (formatted in the catalog controller). */
 export type BankJsonImportRowIssue =
@@ -300,6 +402,13 @@ export type BankJsonImportRowIssue =
 	| { kind: 'duplicateMergeKeyInPaste'; otherIndex: number }
 	| { kind: 'alreadyInCatalog' }
 	| { kind: 'idAlreadyInCatalog'; id: string }
+
+/** A row whose derived type differs from the catalog row it updates. */
+export type BankJsonImportTypeChange = {
+	label: string
+	from: EtfType
+	to: EtfType
+}
 
 export type BankJsonImportRowDiagnostics = {
 	/** 1-based index in the pasted `data` array. */
@@ -321,6 +430,15 @@ export type BankJsonParseForImportResult = {
 	 * catalog line or reused an existing id).
 	 */
 	noteRowDiagnostics: BankJsonImportRowDiagnostics[]
+	/** Imported rows typed `unknown` — `assets` named no class; they need a type set by hand. */
+	unclassifiedRows: { index: number; label: string }[]
+	/** Imported rows that update an existing catalog row with a different type. */
+	typeChanges: BankJsonImportTypeChange[]
+	/**
+	 * Every imported row exactly as the bank sent it, keyed by the catalog id it
+	 * lands on after merging — see {@link CATALOG_SOURCE_FILENAME}.
+	 */
+	sourceRowsById: Record<string, unknown>
 	/** Count of elements in `data` when it is an array; otherwise 0. */
 	expectedDataRows: number
 	/** Elements that were not objects (each counts as a skipped row with an issue). */
@@ -376,6 +494,9 @@ export function parseBankJsonForImport(
 		entries: [],
 		skippedRowDiagnostics: [],
 		noteRowDiagnostics: [],
+		unclassifiedRows: [],
+		typeChanges: [],
+		sourceRowsById: {},
 		expectedDataRows,
 		skippedNonObjectCount: 0,
 		structuralIssue,
@@ -416,7 +537,10 @@ export function parseBankJsonForImport(
 		const item = element as BankEtfItem
 		const tickerUpper = (item.ticker ?? '').trim().toUpperCase()
 		const name = (item.fund_name ?? '').trim()
-		const type = normaliseTypeFromBank(item.assets ?? '', item.sector ?? '')
+		const type = deriveEtfTypeFromBank({
+			assets: item.assets,
+			sector: item.sector,
+		})
 		const description = (item.description ?? '').trim()
 
 		const id = deriveCatalogEntryId({
@@ -450,6 +574,12 @@ export function parseBankJsonForImport(
 					? { esg: false }
 					: {}),
 		}
+		for (const field of BANK_PASSTHROUGH_STRING_FIELDS) {
+			const value = nonEmptyString(item[field])
+			if (value !== undefined) entry[field] = value
+		}
+		const tags = tagsFromBank(item.tags)
+		if (tags !== undefined) entry.tags = tags
 
 		// Validate the row this import would actually write, the same way any
 		// other write path has to — see validateCatalogEntry.
@@ -480,12 +610,15 @@ export function parseBankJsonForImport(
 	}
 
 	const existingIds = new Set(existingCatalog.map((row) => row.id))
-	const existingMergeKeys = new Set(
-		existingCatalog.map((row) => catalogMergeKey(row)),
+	const existingByMergeKey = new Map(
+		existingCatalog.map((row) => [catalogMergeKey(row), row]),
 	)
 
 	const entries: CatalogEntry[] = []
 	const noteRowDiagnostics: BankJsonImportRowDiagnostics[] = []
+	const unclassifiedRows: BankJsonParseForImportResult['unclassifiedRows'] = []
+	const typeChanges: BankJsonImportTypeChange[] = []
+	const sourceRowsById: Record<string, unknown> = {}
 	for (const candidate of candidates) {
 		const { item, dataIndex, entry } = candidate
 		const mergeKey = catalogMergeKey(entry)
@@ -517,8 +650,14 @@ export function parseBankJsonForImport(
 		if (existingIds.has(entry.id)) {
 			issues.push({ kind: 'idAlreadyInCatalog', id: entry.id })
 		}
-		if (existingMergeKeys.has(mergeKey)) {
+		const existingRow = existingByMergeKey.get(mergeKey)
+		if (existingRow !== undefined) {
 			issues.push({ kind: 'alreadyInCatalog' })
+			// The bank still names no class, but someone already gave this row
+			// one by hand — the import has nothing better to offer, so keep it.
+			if (entry.type === 'unknown' && existingRow.type !== 'unknown') {
+				entry.type = existingRow.type
+			}
 		}
 
 		const blockingIssues = issues.filter(
@@ -536,6 +675,19 @@ export function parseBankJsonForImport(
 		}
 
 		entries.push(entry)
+		// mergeBankIntoCatalog keeps the existing row's id, so key the source
+		// row by that — the id the merged catalog will actually carry.
+		sourceRowsById[existingRow?.id ?? entry.id] = item
+		if (entry.type === 'unknown') {
+			unclassifiedRows.push({ index: dataIndex, label: rowLabelFromItem(item) })
+		}
+		if (existingRow !== undefined && existingRow.type !== entry.type) {
+			typeChanges.push({
+				label: rowLabelFromItem(item),
+				from: existingRow.type,
+				to: entry.type,
+			})
+		}
 		if (noteIssues.length > 0) {
 			noteRowDiagnostics.push({
 				index: dataIndex,
@@ -552,6 +704,9 @@ export function parseBankJsonForImport(
 		entries,
 		skippedRowDiagnostics,
 		noteRowDiagnostics,
+		unclassifiedRows,
+		typeChanges,
+		sourceRowsById,
 		expectedDataRows: data.length,
 		skippedNonObjectCount,
 		structuralIssue: null,
@@ -598,10 +753,23 @@ function mergeCatalogRow(
 	return { ...existingRow, ...incomingRow, id: existingRow.id }
 }
 
+/** Like {@link mergeCatalogRow}, but bank-owned fields the import omits are cleared. */
+function mergeImportedRow(
+	existingRow: CatalogEntry,
+	incomingRow: CatalogEntry,
+): CatalogEntry {
+	const bankOwned = new Set<string>(BANK_OWNED_OPTIONAL_FIELDS)
+	const base = Object.fromEntries(
+		Object.entries(existingRow).filter(([field]) => !bankOwned.has(field)),
+	) as CatalogEntry
+	return mergeCatalogRow(base, incomingRow)
+}
+
 /**
  * Merge imported rows into the catalog. Rows with the same merge key (same ISIN
  * and same normalised ticker when ISIN is present) update the existing row
- * (incoming fields win; `id` is kept from the first).
+ * (incoming fields win, bank-owned fields the import omits are cleared; `id`
+ * is kept from the first).
  */
 export function mergeBankIntoCatalog(
 	existing: CatalogEntry[],
@@ -621,7 +789,7 @@ export function mergeBankIntoCatalog(
 		const existingAtKey = byKey.get(mergeKey)
 		byKey.set(
 			mergeKey,
-			existingAtKey ? mergeCatalogRow(existingAtKey, entry) : entry,
+			existingAtKey ? mergeImportedRow(existingAtKey, entry) : entry,
 		)
 	}
 	return [...byKey.values()]
@@ -637,12 +805,14 @@ type GistFile = {
 
 type GistPayload = {
 	files: Record<string, GistFile>
-	owner?: {
-		login?: string
-	}
 }
 
-/** Parse catalog entries from a raw GitHub Gist API response object. */
+/**
+ * Parse catalog entries from a gist payload whose truncation has already been
+ * resolved — the caller reads through `readFile`/`readFiles` in
+ * `app/lib/store/github-store.ts`, so `truncated`/`raw_url`/`owner` never
+ * reach this function; that module owns the raw wire shape.
+ */
 export function parseCatalogFromGist(gist: GistPayload): CatalogEntry[] {
 	const file = gist.files[CATALOG_FILENAME]
 	if (!file || !file.content) return []
@@ -654,8 +824,15 @@ export function parseCatalogFromGist(gist: GistPayload): CatalogEntry[] {
 	}
 }
 
-/** Build a PATCH-ready body to update the catalog file in a gist. */
-export function buildCatalogGistPatch(entries: CatalogEntry[]): {
+/**
+ * Build a PATCH-ready body to update the catalog file in a gist — and, when
+ * given, the source rows file alongside it in the same request. The source
+ * file is compact JSON: it is large and read by code, not by people.
+ */
+export function buildCatalogGistPatch(
+	entries: CatalogEntry[],
+	sourceRowsById?: Record<string, unknown>,
+): {
 	files: Record<string, { content: string }>
 } {
 	return {
@@ -663,11 +840,19 @@ export function buildCatalogGistPatch(entries: CatalogEntry[]): {
 			[CATALOG_FILENAME]: {
 				content: JSON.stringify(entries, null, 2),
 			},
+			...(sourceRowsById !== undefined
+				? {
+						[CATALOG_SOURCE_FILENAME]: {
+							content: JSON.stringify(sourceRowsById),
+						},
+					}
+				: {}),
 		},
 	}
 }
 
 let sharedCatalogTestSnapshot: SharedCatalogSnapshot | null = null
+let sharedCatalogTestSourceRows: Record<string, unknown> = {}
 
 let sharedCatalogTtlCache: {
 	gistId: string
@@ -708,20 +893,13 @@ export function setSharedCatalogForTests(
 ): void {
 	sharedCatalogTtlCache = null
 	sharedCatalogTestSnapshot = cloneSharedCatalogSnapshot(snapshot)
+	sharedCatalogTestSourceRows = {}
 }
 
 export function resetSharedCatalogForTests(): void {
 	sharedCatalogTestSnapshot = null
+	sharedCatalogTestSourceRows = {}
 	sharedCatalogTtlCache = null
-}
-
-function githubHeaders(token: string): HeadersInit {
-	return {
-		Authorization: `Bearer ${token}`,
-		Accept: 'application/vnd.github+json',
-		'Content-Type': 'application/json',
-		'X-GitHub-Api-Version': '2022-11-28',
-	}
 }
 
 export function isSharedCatalogAdmin(params: {
@@ -755,22 +933,19 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 	}
 
 	try {
-		const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-			signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
-			headers: {
-				Accept: 'application/vnd.github+json',
-				'X-GitHub-Api-Version': '2022-11-28',
-			},
+		const result = await readFile({
+			token: null,
+			location: gistId,
+			path: CATALOG_FILENAME,
 		})
-		if (!response.ok) return { entries: [], ownerLogin: null }
-		const gist = (await response.json()) as GistPayload
-		const ownerLogin =
-			typeof gist.owner?.login === 'string' && gist.owner.login.length > 0
-				? gist.owner.login
-				: null
+		if (!result.ok) return { entries: [], ownerLogin: null }
 		const snapshot: SharedCatalogSnapshot = {
-			entries: parseCatalogFromGist(gist),
-			ownerLogin,
+			entries: parseCatalogFromGist({
+				files: result.file
+					? { [CATALOG_FILENAME]: { content: result.file.content } }
+					: {},
+			}),
+			ownerLogin: result.owner,
 		}
 		if (ttlMs > 0) {
 			sharedCatalogTtlCache = {
@@ -786,6 +961,61 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 	}
 }
 
+/**
+ * Read the stored source rows (see {@link CATALOG_SOURCE_FILENAME}), uncached.
+ * An absent file is an empty record. Throws when the file exists but cannot be
+ * read or parsed, so an import never overwrites history it failed to load.
+ */
+export async function fetchCatalogSourceRows(): Promise<
+	Record<string, unknown>
+> {
+	if (sharedCatalogTestSnapshot) {
+		return { ...sharedCatalogTestSourceRows }
+	}
+
+	const gistId = getSharedCatalogGistId()
+	if (!gistId) return {}
+
+	const result = await readFile({
+		token: null,
+		location: gistId,
+		path: CATALOG_SOURCE_FILENAME,
+	})
+	if (!result.ok) {
+		throw new Error(
+			`GitHub API error reading catalog source rows: ${result.status}`,
+		)
+	}
+	if (!result.file) return {}
+
+	const content = result.file.content
+	if (content.trim().length === 0) return {}
+
+	const parsed: unknown = JSON.parse(content)
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+		throw new Error(`${CATALOG_SOURCE_FILENAME} is not a JSON object`)
+	}
+	return parsed as Record<string, unknown>
+}
+
+/**
+ * Save a bank import: the merged catalog plus this import's source rows added
+ * to those stored by earlier imports (a fund re-imported replaces its row).
+ * Shared by the web import card and the MCP import tool.
+ */
+export async function saveCatalogImport(params: {
+	token: string
+	mergedEntries: CatalogEntry[]
+	sourceRowsById: Record<string, unknown>
+}): Promise<void> {
+	const storedSourceRows = await fetchCatalogSourceRows()
+	await saveCatalog({
+		token: params.token,
+		entries: params.mergedEntries,
+		sourceRowsById: { ...storedSourceRows, ...params.sourceRowsById },
+	})
+}
+
 /** Fetch catalog entries from the shared public gist. */
 export async function fetchCatalog(): Promise<CatalogEntry[]> {
 	const snapshot = await fetchSharedCatalogSnapshot()
@@ -796,12 +1026,17 @@ export async function fetchCatalog(): Promise<CatalogEntry[]> {
 export async function saveCatalog(params: {
 	token: string
 	entries: CatalogEntry[]
+	/** The complete source-rows record to store; omitted leaves that file as it is. */
+	sourceRowsById?: Record<string, unknown>
 }): Promise<void> {
-	const { token, entries } = params
+	const { token, entries, sourceRowsById } = params
 	if (sharedCatalogTestSnapshot) {
 		sharedCatalogTestSnapshot = {
 			entries: cloneCatalogEntries(entries),
 			ownerLogin: sharedCatalogTestSnapshot.ownerLogin,
+		}
+		if (sourceRowsById !== undefined) {
+			sharedCatalogTestSourceRows = { ...sourceRowsById }
 		}
 		return
 	}
@@ -811,15 +1046,17 @@ export async function saveCatalog(params: {
 		throw new Error('Shared catalog gist is not configured')
 	}
 
-	const response = await fetch(`${GITHUB_API}/gists/${gistId}`, {
-		method: 'PATCH',
-		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
-		headers: githubHeaders(token),
-		body: JSON.stringify(buildCatalogGistPatch(entries)),
+	const patch = buildCatalogGistPatch(entries, sourceRowsById)
+	const result = await writeFiles({
+		token,
+		location: gistId,
+		files: Object.fromEntries(
+			Object.entries(patch.files).map(([path, file]) => [path, file.content]),
+		),
 	})
-	if (!response.ok) {
+	if (!result.ok) {
 		throw new Error(
-			`GitHub API error updating shared catalog gist: ${response.status}`,
+			`GitHub API error updating shared catalog gist: ${result.status}`,
 		)
 	}
 

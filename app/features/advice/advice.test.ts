@@ -1,10 +1,11 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
-import { setPrivateGistFetchTestOverlay } from '../../lib/private-gist-fetch-test-overlay.ts'
+import { setPrivateGistTestStore } from '../../lib/private-gist-test-store.ts'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
 	resetTestSessionCookieJar,
+	seedTestSessionCookie,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
@@ -50,8 +51,12 @@ async function signInWithGist(login = 'advice-test-user') {
 	if (value == null) throw new Error('expected session save value')
 	const cookieHeader = await sessionCookie.serialize(value)
 	// Avoid real GitHub fetches: fetchEtfs throws on non-2xx unless overlay supplies data.
-	setPrivateGistFetchTestOverlay({ etfs: [], guidelines: [] })
-	return cookieHeader.split(';')[0]
+	setPrivateGistTestStore({ etfs: [], guidelines: [] })
+	const cookie = cookieHeader.split(';')[0] ?? ''
+	// Seed the sticky jar: /advice is behind the sign-in gate, so plain
+	// `testSessionFetch` calls in the same test need this session too.
+	seedTestSessionCookie(cookie)
+	return cookie
 }
 
 function makeMockClient(responseText: string): AdviceClient {
@@ -83,7 +88,7 @@ afterEach(() => {
 	resetTestSessionCookieJar()
 	resetSharedCatalogForTests()
 	resetAdviceGistTestOverlay()
-	setPrivateGistFetchTestOverlay(null)
+	setPrivateGistTestStore(null)
 	setAdviceClient(null)
 	if (originalApprovedGithubLogins === undefined) {
 		delete process.env.APPROVED_GITHUB_LOGINS
@@ -94,12 +99,12 @@ afterEach(() => {
 
 describe('Advice', () => {
 	it('GET /advice renders the Get Advice form page', async () => {
+		await signInWithGist()
 		const response = await testSessionFetch('http://localhost/advice')
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
 		assert.match(body, /Get Advice/)
-		assert.match(body, /Sign in to run AI advice/)
 		const cashInput = body.match(
 			/<input\b[^>]*\bid="cashAmount-buy-next"[^>]*>/,
 		)
@@ -182,6 +187,7 @@ describe('Advice', () => {
 	})
 
 	it('returns 400 with AdvicePage HTML when buy_next has empty cashAmount', async () => {
+		await signInWithGist()
 		setAdviceClient(makeMockClient('irrelevant'))
 
 		const form = new FormData()
@@ -226,7 +232,7 @@ describe('Advice', () => {
 	it('includes current ETF holdings in the advice prompt for gist-backed sessions', async () => {
 		const cookie = await signInWithGist()
 		let capturedUserMessage = ''
-		setPrivateGistFetchTestOverlay({
+		setPrivateGistTestStore({
 			etfs: [
 				{
 					id: 'h1',
@@ -277,7 +283,7 @@ describe('Advice', () => {
 	it('passes guidelines into the advice prompt when they exist (gist-backed)', async () => {
 		const cookie = await signInWithGist()
 		let capturedUserMessage = ''
-		setPrivateGistFetchTestOverlay({
+		setPrivateGistTestStore({
 			etfs: [],
 			guidelines: [
 				{
@@ -322,12 +328,21 @@ describe('Advice', () => {
 		assert.match(capturedUserMessage, /equity/)
 	})
 
-	it('POST /advice returns 403 for guest without GitHub gist when running analysis', async () => {
+	// Distinct from the pending-approval 403 above: this login IS approved and
+	// holds a token, but its session carries no gist to read or write.
+	it('POST /advice returns 403 for an approved session with no private gist', async () => {
+		process.env.APPROVED_GITHUB_LOGINS = 'no-gist-user'
+		const session = await sessionStorage.read(null)
+		session.set('login', 'no-gist-user')
+		session.set('token', 'test-token')
+		const value = await sessionStorage.save(session)
+		if (value == null) throw new Error('expected session save value')
+		const cookie = (await sessionCookie.serialize(value)).split(';')[0] ?? ''
 		setAdviceClient({
 			chat: {
 				completions: {
 					create: async () => {
-						throw new Error('advice client must not run for guests')
+						throw new Error('advice client must not run without a gist')
 					},
 				},
 			},
@@ -339,7 +354,11 @@ describe('Advice', () => {
 		form.set('adviceIntent', 'run')
 
 		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), { method: 'POST', body: form }),
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
 		)
 		const body = await response.text()
 
@@ -448,7 +467,7 @@ describe('Advice', () => {
 		assert.equal(saved?.document.blocks[0]?.type, 'paragraph')
 	})
 
-	it('POST /advice sets X-Advice-Gist-Stale and still returns analysis HTML when gist save fails', async () => {
+	it('POST /advice still returns analysis HTML with a not-saved notice when gist save fails', async () => {
 		const cookie = await signInWithGist()
 		setAdviceGistTestOverlay(null)
 		setAdviceGistTestSaveShouldFail(true)
@@ -468,7 +487,6 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.equal(response.headers.get('X-Advice-Gist-Stale'), '1')
 		assert.match(body, /Shown despite gist save failure\./)
 		assert.match(body, /Could not save this analysis to your data gist/)
 	})
@@ -556,7 +574,7 @@ describe('Advice', () => {
 		assert.doesNotMatch(body, /<html\b/i)
 	})
 
-	it('GET /advice/fragments/advice-result returns 204 when there is no result for the tab', async () => {
+	it('GET /advice/fragments/advice-result returns 200 with just the form when there is no result for the tab', async () => {
 		const cookie = await signInWithGist()
 		setAdviceGistTestOverlay(null)
 
@@ -566,8 +584,13 @@ describe('Advice', () => {
 		})
 		const body = await response.text()
 
-		assert.equal(response.status, 204)
-		assert.equal(body, '')
+		// The fragment is the whole mode panel now (form + result), not just
+		// the result — so it always renders, even with nothing to show yet.
+		// See docs/REMIX_RC_MIGRATION_STATUS.md.
+		assert.equal(response.status, 200)
+		assert.match(body, /name="cashAmount"/)
+		assert.doesNotMatch(body, /role="alert"/)
+		assert.doesNotMatch(body, /<html\b/i)
 	})
 
 	it('GET /advice does not show gist snapshot when URL tab differs from snapshot tab', async () => {
@@ -916,12 +939,11 @@ describe('Advice', () => {
 		const cookie = await signInWithGist()
 
 		const localeCookie = (await uiLocaleCookie.serialize('pl')).split(';')[0]
+		// The jar overrides a request's own Cookie header, so both cookies have
+		// to travel through it — session for the gate, locale for the copy.
+		seedTestSessionCookie(`${cookie}; ${localeCookie}`)
 
-		const response = await testSessionFetch(
-			new Request(adviceUrl('buy_next'), {
-				headers: { Cookie: `${cookie}; ${localeCookie}` },
-			}),
-		)
+		const response = await testSessionFetch(new Request(adviceUrl('buy_next')))
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
@@ -1042,5 +1064,139 @@ describe('Advice', () => {
 			/<a[^>]*href="[^"]*\/catalog\/etf\/ticker-only-row[^"]*"[^>]*>[\s\S]*?Sample ETF/,
 			'fund name links to catalog ETF resolved by ticker',
 		)
+	})
+
+	it('buy-next and portfolio-review forms use native data-rmx-target for Frame-based result reload', async () => {
+		const cookie = await signInWithGist()
+		const response = await testSessionFetch(adviceUrl('buy_next'), {
+			headers: { Cookie: cookie },
+		})
+		const body = await response.text()
+
+		const formIdx = body.indexOf('id="cashAmount-buy-next"')
+		assert.notEqual(formIdx, -1)
+		const formTag = body.slice(Math.max(0, formIdx - 800), formIdx)
+		assert.match(formTag, /data-rmx-target="advice-result"/)
+		assert.doesNotMatch(formTag, /data-frame-submit=/)
+		assert.doesNotMatch(formTag, /data-frame-reload-src=/)
+	})
+
+	it('advice-result Frame is always present, even before any analysis exists', async () => {
+		await signInWithGist()
+		const response = await testSessionFetch('http://localhost/advice')
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.match(body, /"name":"advice-result"/)
+		assert.match(body, /\/fragments\/advice-result\?tab=buy_next/)
+	})
+
+	it('POST /advice run success with Accept: text/html returns the small result fragment', async () => {
+		const cookie = await signInWithGist()
+		setAdviceClient(makeMockClient('Buy VTI for broad market exposure.'))
+
+		const form = new FormData()
+		form.set('cashAmount', '1000')
+		form.set('analysisMode', 'buy_next')
+		form.set('adviceIntent', 'run')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie, Accept: 'text/html' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		const ct = response.headers.get('content-type') ?? ''
+		assert.match(ct, /text\/html/)
+		assert.doesNotMatch(body, /<html\b/i)
+		assert.match(body, /Buy VTI for broad market exposure\./)
+	})
+
+	it('POST /advice run failure with Accept: text/html remaps 503 to 200 and renders the error fragment', async () => {
+		const cookie = await signInWithGist()
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async () => {
+						throw new Error('simulated API failure')
+					},
+				},
+			},
+		})
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+		form.set('analysisMode', 'buy_next')
+		form.set('adviceIntent', 'run')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie, Accept: 'text/html' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(
+			response.status,
+			200,
+			'the frame fragment response must stay below 500 or defaultResolveFrame drops it',
+		)
+		assert.doesNotMatch(body, /<html\b/i)
+		assert.match(body, /role="alert"/)
+		assert.match(
+			body,
+			/We couldn't get advice right now\. Please try again in a moment\./,
+		)
+	})
+
+	it('POST /advice validation failure with Accept: text/html renders the error fragment, not the full page', async () => {
+		const cookie = await signInWithGist()
+		setAdviceClient(makeMockClient('irrelevant'))
+
+		const form = new FormData()
+		form.set('analysisMode', 'buy_next')
+		form.set('adviceIntent', 'run')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie, Accept: 'text/html' },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 400)
+		assert.doesNotMatch(body, /<html\b/i)
+		assert.match(body, /role="alert"/)
+		assert.match(body, /Enter how much cash you plan to invest/)
+	})
+
+	it('POST /advice clear with Accept: text/html returns 200 with the form and no result', async () => {
+		const cookie = await signInWithGist()
+
+		const clearForm = new FormData()
+		clearForm.set('analysisMode', 'portfolio_review')
+		clearForm.set('adviceIntent', 'clear')
+		const response = await testSessionFetch(
+			new Request(adviceUrl('portfolio_review'), {
+				method: 'POST',
+				body: clearForm,
+				headers: { Cookie: cookie, Accept: 'text/html' },
+			}),
+		)
+		const body = await response.text()
+
+		// Same panel-always-renders contract as fragmentResult's 204 case above.
+		assert.equal(response.status, 200)
+		assert.match(body, /name="adviceModel"/)
+		assert.doesNotMatch(body, /role="alert"/)
+		assert.doesNotMatch(body, /aria-live="polite"/)
 	})
 })

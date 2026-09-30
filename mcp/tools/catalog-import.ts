@@ -14,7 +14,7 @@ import type {
 import {
 	mergeBankIntoCatalog,
 	parseBankJsonForImport,
-	saveCatalog,
+	saveCatalogImport,
 } from '../../app/features/catalog/lib.ts'
 import { MULTIPART_MAX_FILE_BYTES } from '../../app/lib/multipart-upload-limits.ts'
 import type { GistCredentials } from '../data-gist.ts'
@@ -117,7 +117,11 @@ export function createImportCatalogFromBankFileTool(
 			parseResult.entries,
 		)
 		if (!dryRun) {
-			await saveCatalog({ token: credentials.githubToken, entries: next })
+			await saveCatalogImport({
+				token: credentials.githubToken,
+				mergedEntries: next,
+				sourceRowsById: parseResult.sourceRowsById,
+			})
 		}
 
 		return jsonResult({
@@ -130,6 +134,18 @@ export function createImportCatalogFromBankFileTool(
 			refreshed: parseResult.entries.length - (next.length - entries.length),
 			skipped: reportDiagnostics(parseResult.skippedRowDiagnostics),
 			notes: reportDiagnostics(parseResult.noteRowDiagnostics),
+			// Rows the bank gave no asset class: typed "unknown" until set by hand.
+			unclassified: {
+				count: parseResult.unclassifiedRows.length,
+				rows: parseResult.unclassifiedRows
+					.slice(0, MAX_REPORTED_DIAGNOSTICS)
+					.map((row) => row.label),
+			},
+			// Existing rows this import re-types; guidelines naming them must be re-saved.
+			typeChanges: {
+				count: parseResult.typeChanges.length,
+				rows: parseResult.typeChanges.slice(0, MAX_REPORTED_DIAGNOSTICS),
+			},
 			...(dryRun
 				? { note: 'Nothing was saved; call again without dryRun to apply.' }
 				: {}),
