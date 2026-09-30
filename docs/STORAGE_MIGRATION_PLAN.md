@@ -1,7 +1,7 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–2 done. Phase 3's migration script is built and awaiting
-its real runs against preview and prod; Phase 4 (the cutover deploy) is next.
+**Status:** Phases 0–2 done. Phase 3's migration script is built and has
+copied preview; prod is copied during the Phase 4 cutover, which is next.
 Phases 5+ are designed but not yet detailed to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
@@ -586,6 +586,28 @@ wrong against the live API is fixed and recorded in a Phase 3 outcome.
 The copy step (read the gist → one commit → verify) is reused for the catalog
 in Phase 6. Repo creation is not, because `ainvestor-shared/ainvestor-catalog`
 already exists.
+
+### Phase 3 outcome
+
+**Preview copied.** The first run against real GitHub, on 2026-09-30, went
+dry run → `--apply` with no surprises:
+
+- The token check passed.
+- Gist discovery found `ai-investor-preview-data`.
+- `pawelphilipczyk/ainvestor-preview-data` was created, and the ownership
+  marker was written right after creation. `auto_init` made that immediate
+  write safe; no retry was needed.
+- All 5 gist files went across in one Git Data commit, and every one read
+  back identical to the gist.
+
+The gist held `advice-analysis.json`, the legacy unified advice file, next to
+the four current files. That is the case listing the gist's files, rather than
+naming them, was for.
+
+**Prod is deliberately not copied yet.** It is copied as step 5 of the
+cutover order below. A preview edit made before the cutover is safe as well:
+rerunning the script shows it as `overwrite` or `delete`, which `--force`
+applies.
 
 ### Phase 4 — cutover: the app reads and writes repos
 
