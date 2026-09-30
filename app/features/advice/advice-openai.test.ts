@@ -13,6 +13,7 @@ import {
 	formatAggregatedGuidelineBucketsBlock,
 	formatAllocationContext,
 	formatCatalogForAdvice,
+	formatInstrumentGuidelineWeightsBlock,
 	formatPostInvestmentTotalsBlock,
 	getInvestmentAdvice,
 	normalizeAdviceAnalysisTab,
@@ -1185,5 +1186,296 @@ describe('formatCatalogForAdvice', () => {
 		assert.match(formatted, /id: c1/)
 		assert.match(formatted, /annual rate of return: 5%/)
 		assert.match(formatted, /volatility: 10%/)
+	})
+})
+
+describe('named-fund guideline diagnostics', () => {
+	const catalog: CatalogEntry[] = [
+		{
+			id: 'c1',
+			ticker: 'CORE',
+			name: 'Core World',
+			type: 'equity',
+			description: '',
+		},
+		{
+			id: 'c2',
+			ticker: 'HOT',
+			name: 'Hot Sector',
+			type: 'equity',
+			description: '',
+		},
+		{
+			id: 'c3',
+			ticker: 'COOL',
+			name: 'Cool Sector',
+			type: 'equity',
+			description: '',
+		},
+		{ id: 'c4', ticker: 'BOND', name: 'Bonds', type: 'bond', description: '' },
+	]
+	const guidelines: EtfGuideline[] = [
+		{
+			id: 'g1',
+			kind: 'asset_class',
+			etfName: '',
+			targetPct: 45,
+			etfType: 'equity',
+		},
+		{
+			id: 'g2',
+			kind: 'instrument',
+			etfName: 'HOT',
+			targetPct: 10,
+			etfType: 'equity',
+		},
+		{
+			id: 'g3',
+			kind: 'instrument',
+			etfName: 'COOL',
+			targetPct: 5,
+			etfType: 'equity',
+		},
+		{
+			id: 'g4',
+			kind: 'asset_class',
+			etfName: '',
+			targetPct: 40,
+			etfType: 'bond',
+		},
+	]
+	const holdings: EtfEntry[] = [
+		{
+			id: 'h1',
+			name: 'Core World',
+			ticker: 'CORE',
+			value: 2000,
+			currency: 'PLN',
+		},
+		{
+			id: 'h2',
+			name: 'Hot Sector',
+			ticker: 'HOT',
+			value: 5000,
+			currency: 'PLN',
+		},
+		{ id: 'h3', name: 'Bonds', ticker: 'BOND', value: 1000, currency: 'PLN' },
+	]
+	const params = {
+		holdings,
+		guidelines,
+		catalog,
+		cashAmount: '2000',
+		cashCurrency: 'PLN',
+	}
+
+	it('caps an over-target fund at zero and gives an unheld one its full target', () => {
+		const diagnostics = computeAdviceAllocationDiagnostics(params)
+		assert.ok(diagnostics)
+		assert.equal(diagnostics.postTotal, 10000)
+		const hot = diagnostics.instrumentRows.find((row) => row.ticker === 'HOT')
+		const cool = diagnostics.instrumentRows.find((row) => row.ticker === 'COOL')
+		assert.ok(hot && cool)
+		assert.equal(hot.targetValueAfterInvesting, 1000)
+		assert.equal(hot.currentValue, 5000)
+		assert.equal(hot.buyHeadroom, 0)
+		assert.equal(cool.currentValue, 0)
+		assert.equal(cool.buyHeadroom, 500)
+	})
+
+	it('leaves bucket sizing untouched, so a headroom never becomes a purchase', () => {
+		const diagnostics = computeAdviceAllocationDiagnostics(params)
+		assert.ok(diagnostics)
+		const equity = diagnostics.rows.find((row) => row.etfType === 'equity')
+		const bond = diagnostics.rows.find((row) => row.etfType === 'bond')
+		assert.ok(equity && bond)
+		// Equity sits above its 60% class target, so the class buys nothing —
+		// COOL's 500 of headroom must not pull cash into an overweight class.
+		assert.equal(equity.idealBuyMin, 0)
+		assert.equal(bond.idealBuyMin, 3000)
+		assert.equal(diagnostics.sumIdealBuyMin, 3000)
+
+		const deployment = planAdviceCashDeployment({
+			diagnostics,
+			cashAmount: 2000,
+		})
+		assert.equal(deployment.coversAllMinimumBuys, false)
+		assert.equal(
+			deployment.rows.find((row) => row.etfType === 'bond')?.amount,
+			2000,
+		)
+		assert.equal(
+			deployment.rows.find((row) => row.etfType === 'equity')?.amount,
+			0,
+		)
+	})
+
+	it('separates a class into its named funds and the rest', () => {
+		const diagnostics = computeAdviceAllocationDiagnostics(params)
+		assert.ok(diagnostics)
+		const equity = diagnostics.rows.find((row) => row.etfType === 'equity')
+		assert.ok(equity)
+		assert.equal(equity.namedInstrumentCurrentValue, 5000)
+		assert.equal(equity.assetClassRowTargetPct, 45)
+		const bond = diagnostics.rows.find((row) => row.etfType === 'bond')
+		assert.equal(bond?.namedInstrumentCurrentValue, 0)
+		assert.equal(bond?.assetClassRowTargetPct, 40)
+	})
+
+	it('tells the prompt which fund is capped and what the unnamed ones absorb', () => {
+		const block = formatAdviceAllocationDiagnosticsBlock(params)
+		assert.ok(block)
+		assert.match(block, /Named-fund limits/)
+		assert.match(block, /HOT .*at or above target: buy 0/)
+		assert.match(block, /Do not propose any purchase of this fund/)
+		assert.match(block, /COOL .*may receive at most 500\.00 PLN/)
+		assert.match(block, /unnamed .* funds can absorb 2500\.00 PLN/)
+	})
+
+	it('omits the named-fund section when every guideline is a bucket', () => {
+		const block = formatAdviceAllocationDiagnosticsBlock({
+			...params,
+			guidelines: guidelines.filter(
+				(guideline) => guideline.kind === 'asset_class',
+			),
+		})
+		assert.ok(block)
+		assert.doesNotMatch(block, /Named-fund limits/)
+	})
+
+	it('reports per-fund gaps without a cash amount, for the review mode', () => {
+		const block = formatInstrumentGuidelineWeightsBlock({
+			holdings,
+			guidelines,
+		})
+		assert.ok(block)
+		assert.match(
+			block,
+			/HOT: target 10\.00%, currently 62\.50% — \*\*52\.50pp above target\*\*/,
+		)
+		assert.match(
+			block,
+			/COOL: target 5\.00%, currently 0\.00% — 5\.00pp below target/,
+		)
+	})
+
+	it('has no review-mode block when no guideline names a fund', () => {
+		assert.equal(
+			formatInstrumentGuidelineWeightsBlock({
+				holdings,
+				guidelines: guidelines.filter(
+					(guideline) => guideline.kind === 'asset_class',
+				),
+			}),
+			null,
+		)
+	})
+})
+
+describe('guideline and catalog disagreeing on a fund class', () => {
+	const catalog: CatalogEntry[] = [
+		{
+			id: 'c1',
+			ticker: 'CORE',
+			name: 'Core World',
+			type: 'equity',
+			description: '',
+		},
+		// Re-typed in the catalog after the guideline below was saved.
+		{
+			id: 'c2',
+			ticker: 'GOLD',
+			name: 'Physical Gold',
+			type: 'commodity',
+			description: '',
+		},
+	]
+	const staleGuidelines: EtfGuideline[] = [
+		{
+			id: 'g1',
+			kind: 'asset_class',
+			etfName: '',
+			targetPct: 60,
+			etfType: 'equity',
+		},
+		{
+			id: 'g2',
+			kind: 'instrument',
+			etfName: 'GOLD',
+			targetPct: 10,
+			etfType: 'equity',
+		},
+		{
+			id: 'g3',
+			kind: 'asset_class',
+			etfName: '',
+			targetPct: 30,
+			etfType: 'commodity',
+		},
+	]
+	const holdings: EtfEntry[] = [
+		{
+			id: 'h1',
+			name: 'Core World',
+			ticker: 'CORE',
+			value: 5000,
+			currency: 'PLN',
+		},
+		{
+			id: 'h2',
+			name: 'Physical Gold',
+			ticker: 'GOLD',
+			value: 5000,
+			currency: 'PLN',
+		},
+	]
+	const params = {
+		holdings,
+		guidelines: staleGuidelines,
+		catalog,
+		cashAmount: '1000',
+		cashCurrency: 'PLN',
+	}
+
+	it('produces no numbers at all, naming both classes', () => {
+		const outcome = computeAdviceAllocationDiagnosticsOutcome(params)
+		if (outcome.blocker !== 'instrument_type_mismatch') {
+			assert.fail(`expected a type mismatch, got ${outcome.blocker}`)
+		}
+		assert.equal(outcome.diagnostics, null)
+		assert.deepEqual(outcome.instrumentTypeMismatch, {
+			ticker: 'GOLD',
+			guidelineEtfType: 'equity',
+			holdingEtfType: 'commodity',
+		})
+	})
+
+	it('clears once the guideline row is re-saved against the new class', () => {
+		const outcome = computeAdviceAllocationDiagnosticsOutcome({
+			...params,
+			guidelines: staleGuidelines.map((guideline) =>
+				guideline.etfName === 'GOLD'
+					? { ...guideline, etfType: 'commodity' as const }
+					: guideline,
+			),
+		})
+		assert.equal(outcome.blocker, null)
+	})
+
+	it('ignores a stale row for a fund that is not held', () => {
+		const outcome = computeAdviceAllocationDiagnosticsOutcome({
+			...params,
+			holdings: holdings.filter((holding) => holding.ticker !== 'GOLD'),
+		})
+		assert.equal(outcome.blocker, null)
+	})
+
+	it('warns the model rather than going silent', () => {
+		const block = formatAdviceAllocationDiagnosticsBlock(params)
+		assert.ok(block)
+		assert.match(block, /Stale guideline/)
+		assert.match(block, /propose no purchases/)
+		assert.match(block, /GOLD/)
+		assert.doesNotMatch(block, /Server allocation diagnostics/)
 	})
 })
