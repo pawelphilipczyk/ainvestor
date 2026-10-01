@@ -16,6 +16,8 @@ export const CATALOG_FILENAME = 'catalog.json'
 export const CATALOG_SOURCE_FILENAME = 'catalog-source.json'
 /** In-process TTL for {@link fetchSharedCatalogSnapshot} (ms). Override with `SHARED_CATALOG_CACHE_TTL_MS`; use `0` to disable. */
 const DEFAULT_SHARED_CATALOG_CACHE_TTL_MS = 60_000
+/** How long a stale snapshot is served before the next refresh attempt (ms). */
+const STALE_RETRY_MS = 15_000
 
 type SharedCatalogSnapshot = {
 	entries: CatalogEntry[]
@@ -920,6 +922,11 @@ export function isSharedCatalogAdmin(params: {
  * read that user's own 5000/hour. The answer is the same for any token, so the
  * cache is shared. A rejected token (revoked, say) falls back to an anonymous
  * read rather than hiding the catalog.
+ *
+ * When a refresh fails, the last good snapshot is served instead of an empty
+ * catalog: the catalog changes rarely, and an empty one stops every buy and
+ * sell, which need a ticker from it. The next attempt waits
+ * {@link STALE_RETRY_MS} so a limited endpoint is not hit by every request.
  */
 export async function fetchSharedCatalogSnapshot(
 	token: string | null,
@@ -944,6 +951,14 @@ export async function fetchSharedCatalogSnapshot(
 		return cloneSharedCatalogSnapshot(cached.snapshot)
 	}
 
+	const staleOrEmpty = (): SharedCatalogSnapshot => {
+		if (ttlMs > 0 && cached !== null && cached.gistId === gistId) {
+			cached.expiresAt = Date.now() + STALE_RETRY_MS
+			return cloneSharedCatalogSnapshot(cached.snapshot)
+		}
+		return { entries: [], ownerLogin: null }
+	}
+
 	try {
 		let result = await readFile({
 			token,
@@ -961,7 +976,7 @@ export async function fetchSharedCatalogSnapshot(
 			console.error(
 				`[catalog] Shared catalog read failed: GitHub API error ${result.status}`,
 			)
-			return { entries: [], ownerLogin: null }
+			return staleOrEmpty()
 		}
 		const snapshot: SharedCatalogSnapshot = {
 			entries: parseCatalogFromGist({
@@ -981,7 +996,7 @@ export async function fetchSharedCatalogSnapshot(
 		return cloneSharedCatalogSnapshot(snapshot)
 	} catch (error) {
 		console.error('[catalog] Shared catalog fetch failed', error)
-		return { entries: [], ownerLogin: null }
+		return staleOrEmpty()
 	}
 }
 

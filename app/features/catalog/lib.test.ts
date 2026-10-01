@@ -221,6 +221,65 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 		assert.match(logged[0] ?? '', /403/)
 	})
 
+	it('serves the last good snapshot when a refresh fails, then retries after a short wait', async () => {
+		let status = 200
+		let fetchCount = 0
+		globalThis.fetch = async () => {
+			fetchCount += 1
+			if (status !== 200) return new Response('', { status })
+			return Response.json({
+				files: {
+					[CATALOG_FILENAME]: {
+						content: JSON.stringify([
+							{
+								id: '1',
+								ticker: 'ABC',
+								name: 'A',
+								type: 'equity',
+								description: '',
+							},
+						]),
+					},
+				},
+				owner: { login: 'o' },
+			})
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-stale'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '1000'
+		const originalNow = Date.now
+		let now = 1_000_000
+		Date.now = () => now
+		const originalError = console.error
+		console.error = () => {}
+		try {
+			assert.equal(
+				(await fetchSharedCatalogSnapshot(null)).entries[0]?.ticker,
+				'ABC',
+			)
+
+			// Past the TTL, GitHub starts refusing: the catalog must not vanish.
+			now += 2000
+			status = 403
+			const stale = await fetchSharedCatalogSnapshot(null)
+			assert.equal(stale.entries[0]?.ticker, 'ABC')
+			assert.equal(stale.ownerLogin, 'o')
+			assert.equal(fetchCount, 2)
+
+			// Within the retry wait, no further request is made.
+			await fetchSharedCatalogSnapshot(null)
+			assert.equal(fetchCount, 2)
+
+			// After it, GitHub is asked again, and a recovery replaces the snapshot.
+			now += 16_000
+			status = 200
+			await fetchSharedCatalogSnapshot(null)
+			assert.equal(fetchCount, 3)
+		} finally {
+			Date.now = originalNow
+			console.error = originalError
+		}
+	})
+
 	it('does not cache when ttl is 0', async () => {
 		let fetchCount = 0
 		globalThis.fetch = async () => {
