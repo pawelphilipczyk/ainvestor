@@ -9,6 +9,7 @@ import {
 import type { EtfEntry } from '../../app/lib/gist.ts'
 import { GIST_FILENAME } from '../../app/lib/gist.ts'
 import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
+import { setRetryPauseForTests } from '../../app/lib/store/read-modify-write.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resetDataRepoCache, resolveDataRepo } from '../data-repo.ts'
 import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
@@ -71,6 +72,9 @@ function stubGistReadWrite(entries: EtfEntry[]): {
 	}
 	return { saved, requestedMethods }
 }
+
+// The pause between save attempts is for real GitHub; the give-up case would just sleep.
+setRetryPauseForTests(0)
 
 const originalFetch = globalThis.fetch
 

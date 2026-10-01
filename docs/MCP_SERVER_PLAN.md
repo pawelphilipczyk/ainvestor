@@ -94,8 +94,8 @@ filename. It is a secret gist, so it does not appear on a public profile.
 
 | File | Type | Read/write helpers |
 |---|---|---|
-| `etfs.json` | `EtfEntry` — `app/lib/gist.ts` | `fetchEtfs` / `saveEtfs` |
-| `guidelines.json` | `EtfGuideline` — `app/lib/guidelines.ts` | `fetchGuidelines` / `saveGuidelines` |
+| `etfs.json` | `EtfEntry` — `app/lib/gist.ts` | `fetchEtfs` / `updateEtfs` |
+| `guidelines.json` | `EtfGuideline` — `app/lib/guidelines.ts` | `fetchGuidelines` / `updateGuidelines` |
 | `advice-buy-next.json` | `StoredAdviceAnalysis` — `app/features/advice/advice-gist.ts` | `fetchStoredAdviceAnalysisForTab` |
 | `advice-portfolio-review.json` | same | same |
 | `advice-analysis.json`, `portfolio-review.json` | legacy | read-only fallbacks |
@@ -620,7 +620,7 @@ the plan is already agreed, so implement directly rather than re-planning.
 
   `mcp/private-gist-cache.ts` wraps `fetchEtfs` and `fetchGuidelinesOrThrow` individually — one token-keyed cache per function, following the shared catalog cache's shape (TTL constant, `PRIVATE_GIST_CACHE_TTL_MS` env override, test reset helper) — rather than rewriting either to hand-parse one shared payload, per the stage's own note on why that refactor was skipped. The cache key is `gistId` plus the token (hashed via the existing `createTokenCache`, never stored in the clear), because a per-request `X-Ainvestor-Gist-Id` pin means one token can read more than one gist. Every stored and returned array is cloned apart from the others, so a caller mutating its own result can never corrupt what the cache serves next — the same discipline `fetchSharedCatalogSnapshot` already applies.
 
-  Every genuinely read-only mcp tool and resource goes through `fetchEtfsCached` / `fetchGuidelinesOrThrowCached` (`get_portfolio`, `get_buy_plan`, `get_guidelines`, and both matching resources); `get_buy_plan` no longer calls `fetchPortfolioSnapshot`, since that helper's own `fetchEtfs` call would bypass the cache. `set_guideline` and `delete_guideline`, though, keep the **uncached** `fetchGuidelinesOrThrow` for their pre-write read: caching buys them nothing (they overwrite the whole file in the same call, right after the read) and actively hurts, since a cached read up to the TTL old would let an edit made elsewhere in that window — the web app's own `saveGuidelines`, or another MCP call — be silently discarded rather than merely raced against the way an uncached read already is. Both still call `invalidateGuidelinesCache` right after a successful save, so a *subsequent* cached read (`get_guidelines`) is never stale. Holdings had no write path yet at the time — that arrived with Stage 7's `record_operation`/`remove_holding`, which added `invalidateEtfsCache` alongside them and gave them the same uncached-read treatment as the guideline writes.
+  Every genuinely read-only mcp tool and resource goes through `fetchEtfsCached` / `fetchGuidelinesOrThrowCached` (`get_portfolio`, `get_buy_plan`, `get_guidelines`, and both matching resources); `get_buy_plan` no longer calls `fetchPortfolioSnapshot`, since that helper's own `fetchEtfs` call would bypass the cache. `set_guideline` and `delete_guideline`, though, keep the **uncached** `fetchGuidelinesOrThrow` for their pre-write read: caching buys them nothing (they overwrite the whole file in the same call, right after the read) and actively hurts, since a cached read up to the TTL old would let an edit made elsewhere in that window — the web app's own guideline save, or another MCP call — be silently discarded rather than merely raced against the way an uncached read already is. Both still call `invalidateGuidelinesCache` right after a successful save, so a *subsequent* cached read (`get_guidelines`) is never stale. Holdings had no write path yet at the time — that arrived with Stage 7's `record_operation`/`remove_holding`, which added `invalidateEtfsCache` alongside them and gave them the same uncached-read treatment as the guideline writes.
 
   Accepted tradeoff: `saveCatalog()` invalidates the shared catalog cache from inside itself, so *any* writer — MCP or the web UI — keeps that cache fresh. This cache cannot do the same without touching `app/lib/gist.ts` / `app/lib/guidelines.ts`, which the stage keeps off limits (caching must stay inside `mcp/` only). So a **read-only** tool (`get_portfolio`, `get_buy_plan`, `get_guidelines`) can serve holdings or guidelines up to `PRIVATE_GIST_CACHE_TTL_MS` stale after an edit made in the web app — bounded, and never leads to data loss the way a stale read feeding a write would.
 
@@ -722,7 +722,7 @@ the plan is already agreed, so implement directly rather than re-planning.
   - Return the resulting state so the model can confirm what landed.
 
   Constraints:
-  - saveEtfs and saveGuidelines replace the whole gist file. There is no optimistic locking, so a write racing an open browser tab can lose an edit. Keep the read and the write adjacent, and document the risk in the tool description.
+  - saveEtfs and saveGuidelines replace the whole gist file. There is no optimistic locking, so a write racing an open browser tab can lose an edit. Keep the read and the write adjacent, and document the risk in the tool description. *(Superseded by storage Phase 5: `updateEtfs` / `updateGuidelines` check the save against the file's version and redo the change on a lost race, so the risk and its tool-description warning are gone.)*
   - Never expose a tool that clears or rewrites the whole portfolio at once.
 
   Test: cover a buy against an existing ticker, a buy creating a new row, a sell, a removal, a duplicate guideline rejection, and a guideline exceeding the 100% cap.

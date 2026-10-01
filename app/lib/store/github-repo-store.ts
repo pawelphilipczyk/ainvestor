@@ -432,13 +432,18 @@ export async function readFiles(params: {
 
 /**
  * Whether a refused write was refused because the file changed since it was
- * read. GitHub answers a stale `sha` with 409, and an update that names none
- * for a file that now exists with 422 — which is what a write expecting the
- * file to be absent runs into when another client created it first. Only
- * meaningful for a write that passed `expectedVersion`.
+ * read. GitHub answers a stale `sha` with 409. A 422 means it too only for a
+ * write that expected the file to be absent (`expectedVersion: null`): the
+ * update then names no `sha` for a file another client has since created.
+ * Any other 422 — a ruleset, a bad payload, a size limit — is a refusal that
+ * retrying cannot fix, so it must not be taken for a lost race.
  */
-export function isVersionConflict(status: number): boolean {
-	return status === 409 || status === 422
+export function isVersionConflict(params: {
+	status: number
+	expectedVersion: string | null
+}): boolean {
+	if (params.status === 409) return true
+	return params.status === 422 && params.expectedVersion === null
 }
 
 export type WriteFileResult =

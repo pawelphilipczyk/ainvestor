@@ -296,7 +296,12 @@ export function updateGuidelines<TResult>(params: {
 				message,
 			})
 			if (result.ok) return
-			if (isVersionConflict(result.status)) {
+			if (
+				isVersionConflict({
+					status: result.status,
+					expectedVersion: version,
+				})
+			) {
 				throw new WriteConflictError('the guidelines')
 			}
 			throw new Error(`GitHub API error saving guidelines: ${result.status}`)

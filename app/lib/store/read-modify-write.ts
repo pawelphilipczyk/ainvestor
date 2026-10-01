@@ -22,6 +22,12 @@ export const MAX_WRITE_ATTEMPTS = 3
  * like another conflict.
  */
 const RETRY_PAUSE_MS = 100
+let retryPauseMs = RETRY_PAUSE_MS
+
+/** Test seam: shorten (or restore, with `null`) the pause between attempts. */
+export function setRetryPauseForTests(milliseconds: number | null): void {
+	retryPauseMs = milliseconds ?? RETRY_PAUSE_MS
+}
 
 /** The file kept changing underneath every attempt; nothing was saved. */
 export class WriteConflictError extends Error {
@@ -67,7 +73,7 @@ export async function readModifyWrite<TValue, TResult>(params: {
 		}
 		if (attempt < MAX_WRITE_ATTEMPTS) {
 			await new Promise((resolve) =>
-				setTimeout(resolve, RETRY_PAUSE_MS * attempt),
+				setTimeout(resolve, retryPauseMs * attempt),
 			)
 		}
 	}

@@ -4,8 +4,12 @@ import { describe, it } from 'node:test'
 import {
 	MAX_WRITE_ATTEMPTS,
 	readModifyWrite,
+	setRetryPauseForTests,
 	WriteConflictError,
 } from './read-modify-write.ts'
+
+// The pause is for real GitHub; the give-up cases here would just sleep.
+setRetryPauseForTests(0)
 
 /** A one-value store whose writes fail with a conflict while `conflicts` lasts. */
 function fakeStore(conflicts: number) {

@@ -244,12 +244,6 @@ async function guidelinesUpdateSchemaValidationResponse(params: {
 }
 
 /**
- * Refuses a write from a session that has no store to write to — a login still
- * pending allowlist approval. The page disables these forms, so reaching this
- * means a request built by hand; it answers in the same three shapes as every
- * other guideline failure rather than redirecting silently.
- */
-/**
  * The response for a save that did not happen: a lost race (the guidelines kept
  * changing underneath it) says so and asks for a reload, anything else is the
  * generic persistence failure.
@@ -283,6 +277,12 @@ async function guidelinesSaveFailureResponse(params: {
 	return createRedirectResponse(guidelinesIndexHref(params.addTab))
 }
 
+/**
+ * Refuses a write from a session that has no store to write to — a login still
+ * pending allowlist approval. The page disables these forms, so reaching this
+ * means a request built by hand; it answers in the same three shapes as every
+ * other guideline failure rather than redirecting silently.
+ */
 async function guidelinesRequiresApprovalResponse(params: {
 	context: AppRequestContext
 	request: Request

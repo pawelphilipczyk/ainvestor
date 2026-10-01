@@ -22,6 +22,8 @@ export type FakeDataRepo = {
 	 * is stale.
 	 */
 	externalWrite(path: string, content: string): void
+	/** Another client deleting `path` behind the caller's back. */
+	externalDelete(path: string): void
 }
 
 type FetchInput = Parameters<typeof fetch>[0]
@@ -62,6 +64,10 @@ export function installFakeDataRepo(
 		externalWrite: (path, content) => {
 			state.files.set(path, content)
 			shas.set(path, nextSha())
+		},
+		externalDelete: (path) => {
+			state.files.delete(path)
+			shas.delete(path)
 		},
 	}
 	// Each file's version, replaced on every write like a blob's sha: a write
@@ -130,7 +136,10 @@ export function installFakeDataRepo(
 			}
 			if (method === 'PUT') {
 				// GitHub: an existing file needs its current sha (422 when missing),
-				// and a stale one is a 409.
+				// and a stale one is a 409. So is a sha for a file that is gone.
+				if (current === undefined && body.sha !== undefined) {
+					return new Response(null, { status: 409 })
+				}
 				if (current !== undefined) {
 					if (body.sha === undefined) return new Response(null, { status: 422 })
 					if (body.sha !== currentSha(filePath)) {

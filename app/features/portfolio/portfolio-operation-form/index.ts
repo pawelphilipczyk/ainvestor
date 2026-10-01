@@ -47,6 +47,12 @@ async function loadCatalogForPortfolioList(
 	}
 }
 
+/** What one buy or sell did, and the rows the page should show next. */
+type OperationEdit = {
+	outcome: PortfolioOperationOutcome
+	holdings: EtfEntry[]
+}
+
 async function portfolioListFragmentHtmlResponse(
 	context: AppRequestContext,
 	params: {
@@ -207,18 +213,7 @@ export const portfolioOperationFormHandlers = {
 				)
 			}
 
-			let catalog: CatalogEntry[]
-			let current: EtfEntry[]
-			try {
-				const snapshot = await fetchPortfolioSnapshot(
-					session.token,
-					session.dataRepo,
-				)
-				catalog = snapshot.catalog
-				current = snapshot.entries
-			} catch {
-				return portfolioPersistenceFailureResponse(context)
-			}
+			const catalog = await fetchCatalog(session.token)
 
 			const { instrumentTicker, value, currency } = operation
 			const input = {
@@ -229,9 +224,12 @@ export const portfolioOperationFormHandlers = {
 			}
 			// updateEtfs saves only if the holdings are still the version it read,
 			// redoing the operation on newer ones when another client saved first.
-			let outcome: PortfolioOperationOutcome
+			// `holdings` is what the page should show next: the result of the
+			// operation, or — when it is refused — the rows the refusal was decided
+			// on, not an earlier read.
+			let edit: OperationEdit
 			try {
-				outcome = await updateEtfs<PortfolioOperationOutcome>({
+				edit = await updateEtfs<OperationEdit>({
 					token: session.token,
 					dataRepo: session.dataRepo,
 					change: (fresh) => {
@@ -240,20 +238,23 @@ export const portfolioOperationFormHandlers = {
 							catalog,
 							input,
 						})
-						if (!applied.applied) return { result: applied }
+						if (!applied.applied) {
+							return { result: { outcome: applied, holdings: fresh } }
+						}
 						return {
 							write: applied.holdings,
 							message: commitMessage({
 								summary: describePortfolioOperation(input),
 								source: 'web',
 							}),
-							result: applied,
+							result: { outcome: applied, holdings: applied.holdings },
 						}
 					},
 				})
 			} catch (error) {
 				return portfolioSaveFailureResponse(context, error)
 			}
+			const { outcome, holdings } = edit
 
 			if (!outcome.applied) {
 				const message = t(
@@ -282,7 +283,7 @@ export const portfolioOperationFormHandlers = {
 				}
 				if (requestAcceptsFrameSubmitHtml(context.request)) {
 					return portfolioListFragmentHtmlResponse(context, {
-						entries: current,
+						entries: holdings,
 						inlineError: message,
 						status: 422,
 					})
@@ -291,10 +292,8 @@ export const portfolioOperationFormHandlers = {
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
 
-			const updated = outcome.holdings
-
 			if (requestAcceptsFrameSubmitHtml(context.request)) {
-				return portfolioListFragmentHtmlResponse(context, { entries: updated })
+				return portfolioListFragmentHtmlResponse(context, { entries: holdings })
 			}
 			return createRedirectResponse(routes.portfolio.index.href())
 		},

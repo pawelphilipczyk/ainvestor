@@ -216,7 +216,12 @@ export function updateEtfs<TResult>(params: {
 				message,
 			})
 			if (result.ok) return
-			if (isVersionConflict(result.status)) {
+			if (
+				isVersionConflict({
+					status: result.status,
+					expectedVersion: version,
+				})
+			) {
 				throw new WriteConflictError('the portfolio')
 			}
 			const detail = await result.response.text().catch(() => '')

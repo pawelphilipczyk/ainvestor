@@ -774,9 +774,15 @@ overwrite and stops pointing at gist Revisions for recovery.
 - **The fake data repo enforces versions,** answers 409/422 like GitHub, and
   can have "another client" write right after a read (`afterContentRead`,
   `externalWrite`), so the race tests fail when the check is removed.
-- **Unverified against real GitHub:** the exact status for a stale `sha`. The
-  plan assumed 409; the code accepts 409 or 422. Worth confirming on preview
-  by forcing a conflict.
+- **A 422 is a conflict only when the file was expected to be absent.** It is
+  also what a ruleset, a bad payload or a size limit answers, and retrying
+  those can never succeed, so `isVersionConflict` takes `expectedVersion` and
+  treats a 422 as a lost race only for `null`.
+- **Unverified against real GitHub:** the exact status for a stale `sha` (409
+  is assumed) and for a `sha` naming a file another client has deleted (the
+  fake answers 409). If either is something else, the write fails as an
+  ordinary persistence error rather than retrying — safe, but the conflict is
+  not redone. Worth confirming on preview by forcing a conflict.
 
 ### Phase 6 — catalog to its own private repo
 

@@ -16,13 +16,19 @@ import {
 	type FakeDataRepo,
 	installFakeDataRepo,
 } from './github-repo-test-fake.ts'
-import { MAX_WRITE_ATTEMPTS } from './read-modify-write.ts'
+import {
+	MAX_WRITE_ATTEMPTS,
+	setRetryPauseForTests,
+} from './read-modify-write.ts'
 
 /**
  * Two clients saving at once, seen from the web app: whichever saves second
  * must land on top of the first rather than over it. The other client is played
  * by the fake repo, which changes a file right after the controller reads it.
  */
+// The pause between attempts is for real GitHub; the give-up cases would just sleep.
+setRetryPauseForTests(0)
+
 const originalFetch = globalThis.fetch
 
 beforeEach(async () => {
@@ -57,15 +63,14 @@ function guideline(id: string, etfType: string, targetPct: number) {
 
 /**
  * Right after `path` is read for the `nth` time, another client saves `content`
- * there. The portfolio form reads holdings once for its snapshot and again
- * inside the save, so the race that matters is after the second read.
+ * there.
  */
-function otherClientSavesOnce(path: string, content: unknown, nth = 1) {
+function otherClientSavesOnce(path: string, content: unknown) {
 	let reads = 0
 	return (readPath: string, repo: FakeDataRepo) => {
 		if (readPath !== path) return
 		reads += 1
-		if (reads === nth) repo.externalWrite(path, JSON.stringify(content))
+		if (reads === 1) repo.externalWrite(path, JSON.stringify(content))
 	}
 }
 
@@ -82,11 +87,10 @@ describe('web concurrent writes', () => {
 		setSharedCatalogForTests({ entries: [vti], ownerLogin: null })
 		const repo = installFakeDataRepo({
 			files: { [GIST_FILENAME]: JSON.stringify([holding('a')]) },
-			afterContentRead: otherClientSavesOnce(
-				GIST_FILENAME,
-				[holding('a'), holding('theirs')],
-				2,
-			),
+			afterContentRead: otherClientSavesOnce(GIST_FILENAME, [
+				holding('a'),
+				holding('theirs'),
+			]),
 		})
 
 		const response = await post('http://localhost/portfolio', {
@@ -136,6 +140,33 @@ describe('web concurrent writes', () => {
 		assert.match(body.error, /nothing was saved/)
 		assert.deepEqual(repo.commitMessages, [])
 		assert.equal(repo.files.get(GIST_FILENAME), original)
+	})
+
+	it('shows the holdings a refused sale was decided on', async () => {
+		setSharedCatalogForTests({ entries: [vti], ownerLogin: null })
+		installFakeDataRepo({
+			files: {
+				[GIST_FILENAME]: JSON.stringify([
+					holding('a', { ticker: 'VTI', name: 'VTI', value: 100 }),
+					holding('b', { name: 'Gold from the other client' }),
+				]),
+			},
+		})
+
+		const response = await post(
+			'http://localhost/portfolio',
+			{
+				portfolioIntent: 'trade',
+				portfolioOperation: 'sell',
+				instrumentTicker: 'VTI',
+				value: '150',
+				currency: 'PLN',
+			},
+			'text/html',
+		)
+
+		assert.equal(response.status, 422)
+		assert.match(await response.text(), /Gold from the other client/)
 	})
 
 	it('removes a holding on top of one another client added in between', async () => {

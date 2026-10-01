@@ -125,6 +125,66 @@ describe('gist', () => {
 		)
 	})
 
+	it('updateEtfs does not retry a 422 on an existing file, which is not a lost race', async () => {
+		// A ruleset or a size limit refuses the save the same way every time.
+		const repo = installFakeDataRepo({
+			files: { [GIST_FILENAME]: '[]' },
+			failWritesWith: 422,
+		})
+		await assert.rejects(
+			updateEtfs({
+				token: 'token',
+				dataRepo: 'octocat/ainvestor-data',
+				change: () => ({
+					write: [{ id: 'a', name: 'X', value: 1, currency: 'PLN' }],
+					message: 'Add X',
+					result: null,
+				}),
+			}),
+			/GitHub API error saving the portfolio: 422/,
+		)
+		assert.equal(
+			repo.requests.filter((request) => request.startsWith('PUT')).length,
+			1,
+		)
+	})
+
+	it('updateEtfs recreates the file when another client deleted it after the read', async () => {
+		let deleted = false
+		const repo = installFakeDataRepo({
+			files: {
+				[GIST_FILENAME]: JSON.stringify([
+					{ id: 'old', name: 'Old', value: 1, currency: 'PLN' },
+				]),
+			},
+			afterContentRead: (path, fake) => {
+				if (path !== GIST_FILENAME || deleted) return
+				deleted = true
+				fake.externalDelete(GIST_FILENAME)
+			},
+		})
+		await updateEtfs({
+			token: 'token',
+			dataRepo: 'octocat/ainvestor-data',
+			change: (current) => ({
+				write: [
+					...current,
+					{ id: 'new', name: 'New', value: 2, currency: 'PLN' },
+				],
+				message: 'Add New',
+				result: null,
+			}),
+		})
+		// The retry saw no file, so the new row stands alone rather than reviving the old.
+		const stored = JSON.parse(repo.files.get(GIST_FILENAME) ?? '[]') as {
+			id: string
+		}[]
+		assert.deepEqual(
+			stored.map((holding) => holding.id),
+			['new'],
+		)
+	})
+
 	it('updateEtfs creates the file when it does not exist yet', async () => {
 		const repo = installFakeDataRepo({})
 		await updateEtfs({
