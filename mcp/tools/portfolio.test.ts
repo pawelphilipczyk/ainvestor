@@ -8,8 +8,9 @@ import {
 } from '../../app/features/catalog/lib.ts'
 import type { EtfEntry } from '../../app/lib/gist.ts'
 import { GIST_FILENAME } from '../../app/lib/gist.ts'
-import type { GistCredentials } from '../data-gist.ts'
-import { resetDataGistIdCache, resolveDataGistId } from '../data-gist.ts'
+import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
+import { resetDataRepoCache, resolveDataRepo } from '../data-repo.ts'
 import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
 import {
 	createGetPortfolioTool,
@@ -18,25 +19,20 @@ import {
 	summarizePortfolio,
 } from './portfolio.ts'
 
-const config: GistCredentials = {
+const config: DataRepoCredentials = {
 	githubToken: 'token-value',
-	dataGistId: 'pinned-gist',
+	dataRepo: 'octocat/ainvestor-data',
 }
 
 function entry(overrides: Partial<EtfEntry> = {}): EtfEntry {
 	return { id: 'a', name: 'VWCE', value: 1000, currency: 'PLN', ...overrides }
 }
 
-/** Serve one gist payload to `fetchEtfs`, returning the URLs that were requested. */
+/** Serve `entries` from a fake data repo, returning every request made to it. */
 function stubGist(entries: EtfEntry[]): string[] {
-	const requestedUrls: string[] = []
-	globalThis.fetch = async (input: Parameters<typeof fetch>[0]) => {
-		requestedUrls.push(String(input))
-		return Response.json({
-			files: { [GIST_FILENAME]: { content: JSON.stringify(entries) } },
-		})
-	}
-	return requestedUrls
+	return installFakeDataRepo({
+		files: { [GIST_FILENAME]: JSON.stringify(entries) },
+	}).requests
 }
 
 /** A catalog entry the write-tool tests resolve `instrumentTicker` against. */
@@ -51,29 +47,27 @@ function catalogEntry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
 	}
 }
 
-/** Serve `entries` to a GET and capture every PATCH body as parsed holdings. */
+/** Serve `entries` from a fake data repo and record the holdings after each write. */
 function stubGistReadWrite(entries: EtfEntry[]): {
 	saved: EtfEntry[][]
 	requestedMethods: string[]
 } {
+	const repo = installFakeDataRepo({
+		files: { [GIST_FILENAME]: JSON.stringify(entries) },
+	})
+	const repoFetch = globalThis.fetch
 	const saved: EtfEntry[][] = []
 	const requestedMethods: string[] = []
-	globalThis.fetch = async (
-		_input: Parameters<typeof fetch>[0],
-		init?: Parameters<typeof fetch>[1],
-	) => {
+	globalThis.fetch = async (input, init) => {
 		const method = init?.method ?? 'GET'
 		requestedMethods.push(method)
-		if (method === 'PATCH') {
-			const body = JSON.parse(String(init?.body)) as {
-				files: Record<string, { content: string }>
-			}
-			saved.push(JSON.parse(body.files[GIST_FILENAME].content) as EtfEntry[])
-			return Response.json({})
+		const response = await repoFetch(input, init)
+		if (method === 'PUT' && response.ok) {
+			saved.push(
+				JSON.parse(repo.files.get(GIST_FILENAME) ?? '[]') as EtfEntry[],
+			)
 		}
-		return Response.json({
-			files: { [GIST_FILENAME]: { content: JSON.stringify(entries) } },
-		})
+		return response
 	}
 	return { saved, requestedMethods }
 }
@@ -82,7 +76,7 @@ const originalFetch = globalThis.fetch
 
 afterEach(() => {
 	globalThis.fetch = originalFetch
-	resetDataGistIdCache()
+	resetDataRepoCache()
 	resetPrivateGistCacheForTests()
 	resetSharedCatalogForTests()
 })
@@ -170,55 +164,60 @@ describe('summarizePortfolio', () => {
 	})
 })
 
-describe('data gist resolution', () => {
-	const discovering: GistCredentials = { ...config, dataGistId: null }
+describe('data repo resolution', () => {
+	const ownRepo: DataRepoCredentials = { ...config, dataRepo: null }
 
-	/** One page of gists, optionally containing the app's own. */
-	function stubGistList(descriptions: string[]): { calls: number } {
-		const counter = { calls: 0 }
-		globalThis.fetch = async () => {
-			counter.calls++
-			return Response.json(
-				descriptions.map((description, index) => ({
-					id: `gist-${index}`,
-					description,
-				})),
-			)
-		}
-		return counter
-	}
-
-	it('discovers the gist by description when no id is pinned', async () => {
-		stubGistList(['unrelated', 'ai-investor-data'])
-		assert.equal(await resolveDataGistId(discovering), 'gist-1')
+	it("resolves the token owner's own repo when none is pinned", async () => {
+		installFakeDataRepo()
+		assert.equal(await resolveDataRepo(ownRepo), 'octocat/ainvestor-data')
 	})
 
-	it('sweeps only once for concurrent callers', async () => {
-		const counter = stubGistList(['ai-investor-data'])
+	it('serves a pinned repo without looking up the owner', async () => {
+		const repo = installFakeDataRepo({ login: 'someone-else' })
+		assert.equal(await resolveDataRepo(config), 'octocat/ainvestor-data')
+		assert.deepEqual(repo.requests, ['GET /user'])
+	})
+
+	it('looks up only once for concurrent callers', async () => {
+		const repo = installFakeDataRepo()
 		const [first, second] = await Promise.all([
-			resolveDataGistId(discovering),
-			resolveDataGistId(discovering),
+			resolveDataRepo(ownRepo),
+			resolveDataRepo(ownRepo),
 		])
-		assert.equal(first, 'gist-0')
-		assert.equal(second, 'gist-0')
-		assert.equal(counter.calls, 1)
+		assert.equal(first, 'octocat/ainvestor-data')
+		assert.equal(second, 'octocat/ainvestor-data')
+		assert.equal(
+			repo.requests.filter((request) => request === 'GET /user').length,
+			1,
+		)
 	})
 
-	it('explains what to do when no matching gist exists, and never creates one', async () => {
-		const counter = stubGistList(['unrelated'])
+	it('explains what to do when the repo does not exist, and never creates one', async () => {
+		const repo = installFakeDataRepo({ absent: true })
 		await assert.rejects(
-			async () => resolveDataGistId(discovering),
-			/No gist described "ai-investor-data" is visible to this token/,
+			async () => resolveDataRepo(ownRepo),
+			/octocat\/ainvestor-data does not exist yet/,
 		)
-		// A POST would mean a gist was created; only the listing GET is allowed.
-		assert.equal(counter.calls, 1)
+		assert.equal(
+			repo.requests.some((request) => !request.startsWith('GET ')),
+			false,
+		)
+	})
+
+	it('asks to reconnect, with a 403 the transport maps to 401, when the token lacks repo', async () => {
+		const repo = installFakeDataRepo({ scopes: 'gist' })
+		await assert.rejects(
+			async () => resolveDataRepo(ownRepo),
+			/403.*repo scope.*Reconnect/s,
+		)
+		assert.deepEqual(repo.requests, ['GET /user'])
 	})
 
 	it('does not cache a failure, so a retry after signing in succeeds', async () => {
-		stubGistList(['unrelated'])
-		await assert.rejects(async () => resolveDataGistId(discovering))
-		stubGistList(['ai-investor-data'])
-		assert.equal(await resolveDataGistId(discovering), 'gist-0')
+		installFakeDataRepo({ absent: true })
+		await assert.rejects(async () => resolveDataRepo(ownRepo))
+		installFakeDataRepo()
+		assert.equal(await resolveDataRepo(ownRepo), 'octocat/ainvestor-data')
 	})
 })
 
@@ -234,14 +233,17 @@ describe('get_portfolio tool', () => {
 		assert.match(tool.description, /no quantities, prices, or dates/)
 	})
 
-	it('get_portfolio reads the pinned gist and returns the summary as JSON text', async () => {
-		const requestedUrls = stubGist([entry({ value: 2500 })])
+	it('get_portfolio reads the pinned repo and returns the summary as JSON text', async () => {
+		const requests = stubGist([entry({ value: 2500 })])
 		const tool = createGetPortfolioTool(config)
 
 		const result = await tool.handler({})
 
-		assert.equal(requestedUrls.length, 1)
-		assert.match(requestedUrls[0], /\/gists\/pinned-gist$/)
+		assert.ok(
+			requests.includes(
+				`GET /repos/octocat/ainvestor-data/contents/${GIST_FILENAME}`,
+			),
+		)
 		assert.equal(result.content.length, 1)
 		const payload = JSON.parse(result.content[0].text) as {
 			totalValue: number
@@ -254,13 +256,10 @@ describe('get_portfolio tool', () => {
 		)
 	})
 
-	it('propagates a gist failure so the dispatcher can mark it as a tool error', async () => {
-		globalThis.fetch = async () => new Response(null, { status: 404 })
+	it('propagates a GitHub failure so the dispatcher can mark it as a tool error', async () => {
+		installFakeDataRepo({ failWith: 500 })
 		const tool = createGetPortfolioTool(config)
-		await assert.rejects(
-			async () => tool.handler({}),
-			/GitHub API error fetching portfolio gist: 404/,
-		)
+		await assert.rejects(async () => tool.handler({}), /GitHub API error.*500/)
 	})
 })
 
@@ -428,7 +427,10 @@ describe('record_operation tool', () => {
 			/not in the shared catalog/,
 		)
 		assert.equal(saved.length, 0)
-		assert.equal(requestedMethods.includes('PATCH'), false)
+		assert.equal(
+			requestedMethods.every((method) => method === 'GET'),
+			true,
+		)
 	})
 
 	it('refuses a sell exceeding the matching holding, without writing', async () => {
@@ -466,6 +468,53 @@ describe('record_operation tool', () => {
 				}),
 			/"currency" must be one of/,
 		)
+	})
+})
+
+describe('commit messages', () => {
+	function repoWith(entries: EtfEntry[]) {
+		return installFakeDataRepo({
+			files: { [GIST_FILENAME]: JSON.stringify(entries) },
+		})
+	}
+
+	it('names a buy, its amount, and that the MCP server made it', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		const repo = repoWith([entry({ ticker: 'VWCE', value: 1000 })])
+
+		await createRecordOperationTool(config).handler({
+			portfolioOperation: 'buy',
+			instrumentTicker: 'vwce',
+			value: '500',
+			currency: 'pln',
+		})
+
+		assert.deepEqual(repo.commitMessages, ['Buy VWCE: +500 PLN (MCP)'])
+	})
+
+	it('names a sell with a minus sign', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		const repo = repoWith([entry({ ticker: 'VWCE', value: 1000 })])
+
+		await createRecordOperationTool(config).handler({
+			portfolioOperation: 'sell',
+			instrumentTicker: 'VWCE',
+			value: '250',
+			currency: 'PLN',
+		})
+
+		assert.deepEqual(repo.commitMessages, ['Sell VWCE: -250 PLN (MCP)'])
+	})
+
+	it('names the holding a removal dropped', async () => {
+		const repo = repoWith([
+			entry({ id: 'keep' }),
+			entry({ id: 'drop', name: 'Gold ETC' }),
+		])
+
+		await createRemoveHoldingTool(config).handler({ id: 'drop' })
+
+		assert.deepEqual(repo.commitMessages, ['Remove holding Gold ETC (MCP)'])
 	})
 })
 

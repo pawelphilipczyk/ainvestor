@@ -4,10 +4,10 @@
  */
 
 export type McpConfig = {
-	/** GitHub PAT with the `gist` scope. */
+	/** GitHub PAT with the `gist` and `repo` scopes. */
 	githubToken: string
-	/** Private data gist id, when pinned explicitly. Discovered by description when null. */
-	dataGistId: string | null
+	/** Private data repo (`owner/repo`), when pinned explicitly. The token owner's own when null. */
+	dataRepo: string | null
 	/** Public gist holding `catalog.json`. */
 	sharedCatalogGistId: string
 }
@@ -37,9 +37,9 @@ export function resolveMcpConfig(
 		githubToken: readRequired({
 			env,
 			name: 'GH_TOKEN',
-			hint: 'Create a GitHub personal access token with the `gist` scope.',
+			hint: 'Create a GitHub personal access token with the `gist` and `repo` scopes.',
 		}),
-		dataGistId: readOptional(env, 'AINVESTOR_GIST_ID'),
+		dataRepo: readOptional(env, 'AINVESTOR_DATA_REPO'),
 		sharedCatalogGistId: readRequired({
 			env,
 			name: 'SHARED_CATALOG_GIST_ID',
@@ -52,9 +52,9 @@ export function resolveMcpConfig(
 export function describeMcpConfig(config: McpConfig) {
 	return {
 		githubTokenPresent: config.githubToken.length > 0,
-		dataGistId: config.dataGistId,
-		dataGistSource:
-			config.dataGistId === null ? 'discovered' : 'AINVESTOR_GIST_ID',
+		dataRepo: config.dataRepo,
+		dataRepoSource:
+			config.dataRepo === null ? 'token owner' : 'AINVESTOR_DATA_REPO',
 		sharedCatalogGistId: config.sharedCatalogGistId,
 	}
 }

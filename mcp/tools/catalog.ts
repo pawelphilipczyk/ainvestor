@@ -15,7 +15,7 @@ import {
 import type { EtfType } from '../../app/lib/guidelines.ts'
 import { ETF_TYPES, isEtfType } from '../../app/lib/guidelines.ts'
 import { resolveCallerLogin } from '../approved-caller.ts'
-import type { GistCredentials } from '../data-gist.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { readStringArgument } from './tool-arguments.ts'
 import { jsonResult } from './tool-result.ts'
@@ -159,10 +159,10 @@ function requireTickerOrId(toolArguments: Record<string, unknown>): {
  * that owner.
  */
 export async function loadCatalogForWrite(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): Promise<CatalogEntry[]> {
 	const [{ entries, ownerLogin }, callerLogin] = await Promise.all([
-		fetchSharedCatalogSnapshot(),
+		fetchSharedCatalogSnapshot(credentials.githubToken),
 		resolveCallerLogin(credentials.githubToken),
 	])
 	if (callerLogin === null) {
@@ -178,13 +178,15 @@ export async function loadCatalogForWrite(
 	return entries
 }
 
-export function createListCatalogTool(): McpToolDefinition {
+export function createListCatalogTool(
+	credentials: DataRepoCredentials,
+): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
 		const query = readStringArgument(toolArguments, 'query') ?? ''
 		const limit = readLimit(toolArguments)
-		const catalog = await fetchCatalog()
+		const catalog = await fetchCatalog(credentials.githubToken)
 		return jsonResult(summarizeCatalogSearch({ catalog, query, limit }))
 	}
 
@@ -210,12 +212,14 @@ export function createListCatalogTool(): McpToolDefinition {
 	}
 }
 
-export function createGetCatalogEntryTool(): McpToolDefinition {
+export function createGetCatalogEntryTool(
+	credentials: DataRepoCredentials,
+): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
 		const { ticker, id } = requireTickerOrId(toolArguments)
-		const catalog = await fetchCatalog()
+		const catalog = await fetchCatalog(credentials.githubToken)
 		const entry = findEntry({ catalog, ticker, id })
 		if (entry === undefined) {
 			throw new Error(
@@ -310,7 +314,7 @@ function describeCatalogEntryValidationIssue(
 }
 
 export function createUpsertCatalogEntryTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
@@ -426,7 +430,7 @@ export function createUpsertCatalogEntryTool(
 }
 
 export function createDeleteCatalogEntryTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,

@@ -1,5 +1,5 @@
 import type { Handle } from 'remix/ui'
-import { isPreview } from '../../lib/gist.ts'
+import { isPreview } from '../../lib/deployment.ts'
 import { t } from '../../lib/i18n.ts'
 import { getPreviewBuildChrome } from '../../lib/preview-build-meta.ts'
 import { routes } from '../../routes.ts'

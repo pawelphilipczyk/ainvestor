@@ -7,23 +7,24 @@ import {
 	ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME,
 	ADVICE_STORAGE_FILENAME,
 } from '../../app/features/advice/advice-gist.ts'
-import type { GistCredentials } from '../data-gist.ts'
-import { resetDataGistIdCache } from '../data-gist.ts'
+import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
+import { resetDataRepoCache } from '../data-repo.ts'
 import {
 	createGetSavedAdviceTool,
 	flattenAdviceDocumentToText,
 } from './saved-advice.ts'
 
-const credentials: GistCredentials = {
+const credentials: DataRepoCredentials = {
 	githubToken: 'token-value',
-	dataGistId: 'pinned-gist',
+	dataRepo: 'octocat/ainvestor-data',
 }
 
 const originalFetch = globalThis.fetch
 
 afterEach(() => {
 	globalThis.fetch = originalFetch
-	resetDataGistIdCache()
+	resetDataRepoCache()
 })
 
 function storedAnalysis(
@@ -41,22 +42,13 @@ function storedAnalysis(
 	}
 }
 
-/** Serve one gist payload, and record which URLs were asked for. */
+/** Serve these files from a fake data repo, and record the requests made to it. */
 function stubGist(files: Record<string, string>): string[] {
-	const requestedUrls: string[] = []
-	globalThis.fetch = async (input: Parameters<typeof fetch>[0]) => {
-		requestedUrls.push(String(input))
-		return Response.json({
-			files: Object.fromEntries(
-				Object.entries(files).map(([name, content]) => [name, { content }]),
-			),
-		})
-	}
-	return requestedUrls
+	return installFakeDataRepo({ files }).requests
 }
 
 function stubGistFailure(status: number): void {
-	globalThis.fetch = async () => new Response('nope', { status })
+	installFakeDataRepo({ failContentReadsWith: status })
 }
 
 /** Call the tool and parse the JSON document it answers with. */
@@ -276,6 +268,9 @@ describe('get_saved_advice', () => {
 		// turns a 401 into a challenge, which is what makes a client refresh.
 		stubGistFailure(401)
 		const tool = createGetSavedAdviceTool(credentials)
-		await assert.rejects(tool.handler({}), /advice gist: 401/)
+		await assert.rejects(
+			tool.handler({}),
+			/GitHub API error fetching saved advice: 401/,
+		)
 	})
 })

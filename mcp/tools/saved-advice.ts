@@ -13,8 +13,8 @@ import {
 	ADVICE_ANALYSIS_MODES,
 	normalizeAdviceAnalysisTab,
 } from '../../app/features/advice/advice-openai.ts'
-import type { GistCredentials } from '../data-gist.ts'
-import { resolveDataGistId } from '../data-gist.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
+import { resolveDataRepo } from '../data-repo.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
 import { readStringArgument } from './tool-arguments.ts'
@@ -194,7 +194,7 @@ export function blockedSavedAdvice(params: {
 		blocker: 'malformed',
 		reason:
 			outcome.file === 'mode'
-				? `The saved ${describeMode(mode)} analysis (${ADVICE_GIST_FILENAME_BY_MODE[mode]} in the gist) is not in the format this app stores, so nothing can be read from it. ${REGENERATE}`
+				? `The saved ${describeMode(mode)} analysis (${ADVICE_GIST_FILENAME_BY_MODE[mode]} in the data repo) is not in the format this app stores, so nothing can be read from it. ${REGENERATE}`
 				: `No ${ADVICE_GIST_FILENAME_BY_MODE[mode]} is stored, and the legacy ${ADVICE_STORAGE_FILENAME}, which holds whichever mode was saved last, is not in the format this app stores. It may or may not be the ${describeMode(mode)} analysis. ${REGENERATE}`,
 	}
 }
@@ -220,21 +220,21 @@ export function readAdviceAnalysisModeArgument(
 }
 
 export function createGetSavedAdviceTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
 		const mode = readAdviceAnalysisModeArgument(toolArguments)
-		const gistId = await resolveDataGistId(credentials)
+		const dataRepo = await resolveDataRepo(credentials)
 		const outcome = await fetchStoredAdviceAnalysisOutcomeForTab(
 			credentials.githubToken,
-			gistId,
+			dataRepo,
 			mode,
 		)
 		if (outcome.status === 'unreadable') {
 			throw new Error(
-				`GitHub API error fetching the advice gist: ${outcome.httpStatus}`,
+				`GitHub API error fetching saved advice: ${outcome.httpStatus}`,
 			)
 		}
 		if (outcome.status !== 'found') {

@@ -140,6 +140,14 @@ function installFakeGithub(state: FakeGithub) {
 		if (method === 'GET' && path === `${repoPrefix}/git/commits/commit-0`) {
 			return Response.json({ tree: { sha: 'tree-0' } })
 		}
+		if (method === 'GET' && path === `${repoPrefix}/git/trees/tree-0`) {
+			return Response.json({
+				tree: [...(state.repoFiles?.keys() ?? [])].map((name) => ({
+					path: name,
+					type: 'blob',
+				})),
+			})
+		}
 		if (method === 'POST' && path === `${repoPrefix}/git/blobs`) {
 			const sha = `blob-${blobs.size + 1}`
 			blobs.set(sha, body.content)

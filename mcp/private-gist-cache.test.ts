@@ -24,19 +24,26 @@ afterEach(() => {
 	}
 })
 
-/** Serve one gist payload holding both files, counting how many GETs land. */
+/** Serve both files from any data repo's Contents API, counting how many GETs land. */
 function stubGist(params: { holdings: unknown[]; guidelines: unknown[] }): {
 	count: number
 } {
 	const counter = { count: 0 }
-	globalThis.fetch = async () => {
+	const files: Record<string, string> = {
+		[GIST_FILENAME]: JSON.stringify(params.holdings),
+		[GUIDELINES_FILENAME]: JSON.stringify(params.guidelines),
+	}
+	globalThis.fetch = async (input) => {
 		counter.count += 1
-		return Response.json({
-			files: {
-				[GIST_FILENAME]: { content: JSON.stringify(params.holdings) },
-				[GUIDELINES_FILENAME]: { content: JSON.stringify(params.guidelines) },
-			},
-		})
+		const path = new URL(String(input)).pathname.split('/contents/')[1] ?? ''
+		const content = files[path]
+		return content === undefined
+			? new Response(null, { status: 404 })
+			: Response.json({
+					content: Buffer.from(content, 'utf-8').toString('base64'),
+					encoding: 'base64',
+					sha: `sha-${path}`,
+				})
 	}
 	return counter
 }
@@ -49,8 +56,8 @@ describe('fetchEtfsCached', () => {
 			guidelines: [],
 		})
 
-		const first = await fetchEtfsCached('token', 'gist-1')
-		const second = await fetchEtfsCached('token', 'gist-1')
+		const first = await fetchEtfsCached('token', 'octocat/ainvestor-data')
+		const second = await fetchEtfsCached('token', 'octocat/ainvestor-data')
 
 		assert.equal(counter.count, 1)
 		assert.equal(first[0]?.name, 'VWCE')
@@ -65,8 +72,8 @@ describe('fetchEtfsCached', () => {
 			guidelines: [],
 		})
 
-		await fetchEtfsCached('token', 'gist-1')
-		await fetchEtfsCached('token', 'gist-1')
+		await fetchEtfsCached('token', 'octocat/ainvestor-data')
+		await fetchEtfsCached('token', 'octocat/ainvestor-data')
 
 		assert.equal(counter.count, 2)
 	})
@@ -79,27 +86,27 @@ describe('fetchEtfsCached', () => {
 			guidelines: [],
 		})
 
-		await fetchEtfsCached('token', 'gist-1')
+		await fetchEtfsCached('token', 'octocat/ainvestor-data')
 		assert.equal(counter.count, 1)
 
 		mock.timers.tick(59_000)
-		await fetchEtfsCached('token', 'gist-1')
+		await fetchEtfsCached('token', 'octocat/ainvestor-data')
 		assert.equal(counter.count, 1)
 
 		mock.timers.tick(2_000)
-		await fetchEtfsCached('token', 'gist-1')
+		await fetchEtfsCached('token', 'octocat/ainvestor-data')
 		assert.equal(counter.count, 2)
 	})
 
-	it('keeps two gist ids apart even for the same token', async () => {
+	it('keeps two data repos apart even for the same token', async () => {
 		process.env.PRIVATE_GIST_CACHE_TTL_MS = '60000'
 		const counter = stubGist({
 			holdings: [{ id: 'a', name: 'VWCE', value: 1000, currency: 'PLN' }],
 			guidelines: [],
 		})
 
-		await fetchEtfsCached('token', 'gist-1')
-		await fetchEtfsCached('token', 'gist-2')
+		await fetchEtfsCached('token', 'octocat/ainvestor-data')
+		await fetchEtfsCached('token', 'octocat/other-data')
 
 		assert.equal(counter.count, 2)
 	})
@@ -121,8 +128,14 @@ describe('fetchGuidelinesOrThrowCached', () => {
 			],
 		})
 
-		const first = await fetchGuidelinesOrThrowCached('token', 'gist-1')
-		const second = await fetchGuidelinesOrThrowCached('token', 'gist-1')
+		const first = await fetchGuidelinesOrThrowCached(
+			'token',
+			'octocat/ainvestor-data',
+		)
+		const second = await fetchGuidelinesOrThrowCached(
+			'token',
+			'octocat/ainvestor-data',
+		)
 
 		assert.equal(counter.count, 1)
 		assert.equal(first[0]?.targetPct, 40)
@@ -134,11 +147,11 @@ describe('fetchGuidelinesOrThrowCached', () => {
 		process.env.PRIVATE_GIST_CACHE_TTL_MS = '60000'
 		const counter = stubGist({ holdings: [], guidelines: [] })
 
-		await fetchGuidelinesOrThrowCached('token', 'gist-1')
+		await fetchGuidelinesOrThrowCached('token', 'octocat/ainvestor-data')
 		assert.equal(counter.count, 1)
 
-		invalidateGuidelinesCache('token', 'gist-1')
-		await fetchGuidelinesOrThrowCached('token', 'gist-1')
+		invalidateGuidelinesCache('token', 'octocat/ainvestor-data')
+		await fetchGuidelinesOrThrowCached('token', 'octocat/ainvestor-data')
 
 		assert.equal(counter.count, 2)
 	})

@@ -13,13 +13,14 @@ import type { SessionData } from '../../lib/session.ts'
 import {
 	getLayoutSession,
 	getSessionData,
-	sessionUsesGithubGist,
+	sessionHasDataRepo,
 } from '../../lib/session.ts'
 import {
 	type FlashedBanner,
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import { commitMessage } from '../../lib/store/commit-message.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
@@ -75,7 +76,7 @@ async function handleImport(context: AppRequestContext, form: FormData) {
 	}
 
 	const session = getSessionData(context.get(Session))
-	if (!sessionUsesGithubGist(session)) {
+	if (!sessionHasDataRepo(session)) {
 		return portfolioValidationFailureResponse(
 			context,
 			t('errors.portfolio.requiresApproval'),
@@ -84,7 +85,7 @@ async function handleImport(context: AppRequestContext, form: FormData) {
 
 	let current: EtfEntry[]
 	try {
-		current = await fetchEtfs(session.token, session.gistId)
+		current = await fetchEtfs(session.token, session.dataRepo)
 	} catch {
 		return portfolioPersistenceFailureResponse(context)
 	}
@@ -110,7 +111,15 @@ async function handleImport(context: AppRequestContext, form: FormData) {
 	const updated = Array.from(byKey.values())
 
 	try {
-		await saveEtfs(session.token, session.gistId, updated)
+		await saveEtfs(
+			session.token,
+			session.dataRepo,
+			updated,
+			commitMessage({
+				summary: `Import portfolio CSV (${imported.length} rows)`,
+				source: 'web',
+			}),
+		)
 	} catch {
 		return portfolioPersistenceFailureResponse(context)
 	}
@@ -132,18 +141,18 @@ export const portfolioController = {
 			const flashedBanner = readFlashedBanner(context.get(Session))
 			// Pending approval: the page renders with its own notice and no rows,
 			// because there is no store to read until the login is approved.
-			if (!sessionUsesGithubGist(session)) {
+			if (!sessionHasDataRepo(session)) {
 				return renderPage(context, {
 					entries: [],
 					session: layoutSession,
 					flashBanner: flashedBanner,
-					catalog: await fetchCatalog(),
+					catalog: await fetchCatalog(session?.token ?? null),
 				})
 			}
 			try {
 				const { entries, catalog } = await fetchPortfolioSnapshot(
 					session.token,
-					session.gistId,
+					session.dataRepo,
 				)
 				return renderPage(context, {
 					entries,
@@ -152,7 +161,7 @@ export const portfolioController = {
 					catalog,
 				})
 			} catch {
-				const catalog = await fetchCatalog()
+				const catalog = await fetchCatalog(session.token)
 				return renderPage(context, {
 					entries: [],
 					session: layoutSession,
@@ -167,10 +176,13 @@ export const portfolioController = {
 
 		async fragmentList(context: AppRequestContext) {
 			const session = getSessionData(context.get(Session))
-			if (!sessionUsesGithubGist(session)) {
+			if (!sessionHasDataRepo(session)) {
 				return createHtmlResponse(
 					renderFragmentToStream(
-						jsx(ListFragment, { entries: [], catalog: await fetchCatalog() }),
+						jsx(ListFragment, {
+							entries: [],
+							catalog: await fetchCatalog(session?.token ?? null),
+						}),
 					),
 					{ headers: { 'Cache-Control': 'no-store' } },
 				)
@@ -178,7 +190,7 @@ export const portfolioController = {
 			let entries: EtfEntry[]
 			let inlineError: string | undefined
 			try {
-				entries = await fetchEtfs(session.token, session.gistId)
+				entries = await fetchEtfs(session.token, session.dataRepo)
 			} catch {
 				entries = []
 				inlineError = t('errors.portfolio.persistence')
@@ -187,11 +199,11 @@ export const portfolioController = {
 			try {
 				const snapshot = await fetchPortfolioSnapshot(
 					session.token,
-					session.gistId,
+					session.dataRepo,
 				)
 				catalog = snapshot.catalog
 			} catch {
-				catalog = await fetchCatalog()
+				catalog = await fetchCatalog(session.token)
 			}
 			return createHtmlResponse(
 				renderFragmentToStream(
@@ -225,16 +237,21 @@ export const portfolioController = {
 			if (!id) return createRedirectResponse(routes.portfolio.index.href())
 
 			const session = getSessionData(context.get(Session))
-			if (!sessionUsesGithubGist(session)) {
+			if (!sessionHasDataRepo(session)) {
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
 
 			try {
-				const current = await fetchEtfs(session.token, session.gistId)
+				const current = await fetchEtfs(session.token, session.dataRepo)
+				const removed = current.find((entry) => entry.id === id)
 				await saveEtfs(
 					session.token,
-					session.gistId,
+					session.dataRepo,
 					current.filter((entry) => entry.id !== id),
+					commitMessage({
+						summary: `Remove holding ${removed?.name ?? id}`,
+						source: 'web',
+					}),
 				)
 			} catch {
 				flashBanner(context.get(Session), {

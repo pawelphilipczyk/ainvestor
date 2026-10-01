@@ -21,8 +21,12 @@ import {
 	wouldGuidelineTotalExceedCap,
 } from '../../app/lib/guidelines.ts'
 import { parseLocaleDecimalString } from '../../app/lib/locale-decimal-input.ts'
-import type { GistCredentials } from '../data-gist.ts'
-import { resolveDataGistId } from '../data-gist.ts'
+import {
+	commitMessage,
+	describeGuideline,
+} from '../../app/lib/store/commit-message.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
+import { resolveDataRepo } from '../data-repo.ts'
 import {
 	fetchGuidelinesOrThrowCached,
 	invalidateGuidelinesCache,
@@ -45,11 +49,11 @@ const SET_DESCRIPTION = `Create or update one guideline row: the target percenta
 
 Setting an asset class that already has a row, or a ticker that already has one, updates that row's target rather than adding a second — there is one row per asset class and one per ticker. The tool refuses a target that would push the sum of all rows above 100%; lower or delete another row first.
 
-Read, change, and save happen inside this one call. The gist API offers no conditional write, so an edit made elsewhere in between is overwritten rather than merged — the gist keeps it in its revision history, so tell the user to restore it there if that happens. ${BUCKET_EXPLANATION}`
+Read, change, and save happen inside this one call. Nothing here checks for a concurrent write yet, so an edit made elsewhere in between is overwritten rather than merged — the data repo keeps every save as a commit, so tell the user to restore it from the repo's history if that happens. ${BUCKET_EXPLANATION}`
 
 const DELETE_DESCRIPTION = `Delete one guideline row by its id, as reported by get_guidelines. Deleting frees its share of the 100% cap.
 
-Read and save happen inside this one call. The gist API offers no conditional write, so an edit made elsewhere in between is overwritten rather than merged — the gist keeps it in its revision history, so tell the user to restore it there if that happens.`
+Read and save happen inside this one call. Nothing here checks for a concurrent write yet, so an edit made elsewhere in between is overwritten rather than merged — the data repo keeps every save as a commit, so tell the user to restore it from the repo's history if that happens.`
 
 function guidelineRow(guideline: EtfGuideline) {
 	return {
@@ -146,11 +150,12 @@ type ResolvedInstrument = {
  * supplies the canonical ticker spelling and the asset class.
  */
 async function resolveInstrument(params: {
+	token: string
 	ticker: string
 	requestedEtfType: EtfType | null
 }): Promise<ResolvedInstrument> {
-	const { ticker, requestedEtfType } = params
-	const catalog = await fetchCatalog()
+	const { token, ticker, requestedEtfType } = params
+	const catalog = await fetchCatalog(token)
 	const match = findCatalogEntryByTicker(catalog, ticker)
 
 	if (match !== undefined) {
@@ -177,6 +182,7 @@ async function resolveInstrument(params: {
 
 async function buildGuidelineEntry(
 	toolArguments: Record<string, unknown>,
+	token: string,
 ): Promise<{ entry: Omit<EtfGuideline, 'id'>; catalogVerified: boolean }> {
 	const kind = readGuidelineKind(toolArguments)
 	const targetPct = readTargetPercent(toolArguments)
@@ -203,7 +209,7 @@ async function buildGuidelineEntry(
 	if (ticker === null) {
 		throw new Error('An instrument guideline needs "ticker".')
 	}
-	const resolved = await resolveInstrument({ ticker, requestedEtfType })
+	const resolved = await resolveInstrument({ token, ticker, requestedEtfType })
 	return {
 		entry: {
 			kind,
@@ -242,13 +248,13 @@ function assertWithinCap(params: {
 }
 
 export function createGetGuidelinesTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(): Promise<McpToolResult> {
-		const gistId = await resolveDataGistId(credentials)
+		const dataRepo = await resolveDataRepo(credentials)
 		const guidelines = await fetchGuidelinesOrThrowCached(
 			credentials.githubToken,
-			gistId,
+			dataRepo,
 		)
 		return jsonResult(summarizeGuidelines(guidelines))
 	}
@@ -263,20 +269,23 @@ export function createGetGuidelinesTool(
 }
 
 export function createSetGuidelineTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
-		const { entry, catalogVerified } = await buildGuidelineEntry(toolArguments)
-		const gistId = await resolveDataGistId(credentials)
+		const { entry, catalogVerified } = await buildGuidelineEntry(
+			toolArguments,
+			credentials.githubToken,
+		)
+		const dataRepo = await resolveDataRepo(credentials)
 		// Uncached: this read feeds a same-call overwrite of the whole file, so a
 		// cached copy up to the TTL old would let a concurrent edit (the web app's
 		// own saveGuidelines does not invalidate this cache) be silently discarded
 		// rather than merely raced against, the way an uncached read already is.
 		const current = await fetchGuidelinesOrThrow(
 			credentials.githubToken,
-			gistId,
+			dataRepo,
 		)
 
 		const existing = findGuidelineDuplicateOf(current, {
@@ -300,8 +309,16 @@ export function createSetGuidelineTool(
 						guideline.id === existing.id ? saved : guideline,
 					)
 
-		await saveGuidelinesOrThrow(credentials.githubToken, gistId, next)
-		invalidateGuidelinesCache(credentials.githubToken, gistId)
+		await saveGuidelinesOrThrow(
+			credentials.githubToken,
+			dataRepo,
+			next,
+			commitMessage({
+				summary: `${existing === null ? 'Add' : 'Set'} guideline ${describeGuideline(saved)}: ${saved.targetPct}%`,
+				source: 'MCP',
+			}),
+		)
+		invalidateGuidelinesCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({
 			action: existing === null ? 'created' : 'updated',
@@ -351,7 +368,7 @@ export function createSetGuidelineTool(
 }
 
 export function createDeleteGuidelineTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
@@ -361,11 +378,11 @@ export function createDeleteGuidelineTool(
 			throw new Error('"id" is required; get_guidelines reports the ids.')
 		}
 
-		const gistId = await resolveDataGistId(credentials)
+		const dataRepo = await resolveDataRepo(credentials)
 		// Uncached — see the same note in set_guideline.
 		const current = await fetchGuidelinesOrThrow(
 			credentials.githubToken,
-			gistId,
+			dataRepo,
 		)
 		const existing = current.find((guideline) => guideline.id === id)
 		if (existing === undefined) {
@@ -375,8 +392,16 @@ export function createDeleteGuidelineTool(
 		}
 
 		const next = current.filter((guideline) => guideline.id !== id)
-		await saveGuidelinesOrThrow(credentials.githubToken, gistId, next)
-		invalidateGuidelinesCache(credentials.githubToken, gistId)
+		await saveGuidelinesOrThrow(
+			credentials.githubToken,
+			dataRepo,
+			next,
+			commitMessage({
+				summary: `Remove guideline ${describeGuideline(existing)}`,
+				source: 'MCP',
+			}),
+		)
+		invalidateGuidelinesCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({
 			action: 'deleted',

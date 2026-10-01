@@ -9,6 +9,7 @@
 import { parseArgs } from 'node:util'
 import { findGistIdByDescription, getGistDescription } from '../app/lib/gist.ts'
 import {
+	fetchAuthenticatedUser,
 	findDataRepo,
 	findOrCreateDataRepo,
 	getDataRepoName,
@@ -117,33 +118,6 @@ export function planFileCopies(params: {
 			}),
 		)
 	return [...fromGist, ...dropped]
-}
-
-async function fetchAuthenticatedUser(
-	token: string,
-): Promise<{ login: string; scopes: string[] | null }> {
-	const response = await fetch(`${GITHUB_API}/user`, {
-		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
-		headers: githubHeaders(token),
-	})
-	if (!response.ok) {
-		throw new Error(
-			`GitHub API error reading the token's user: ${response.status}`,
-		)
-	}
-	const body = (await response.json()) as { login?: unknown }
-	if (typeof body.login !== 'string' || body.login.length === 0) {
-		throw new Error('GitHub did not report a login for this token')
-	}
-	const scopesHeader = response.headers.get('x-oauth-scopes')
-	const scopes =
-		scopesHeader === null
-			? null
-			: scopesHeader
-					.split(',')
-					.map((scope) => scope.trim())
-					.filter((scope) => scope.length > 0)
-	return { login: body.login, scopes }
 }
 
 /** Every file in the gist — listed, not assumed, so none is left behind. */

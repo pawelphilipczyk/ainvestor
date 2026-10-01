@@ -102,8 +102,8 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 		process.env.SHARED_CATALOG_GIST_ID = 'ttl-gist-test'
 		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
 
-		const first = await fetchSharedCatalogSnapshot()
-		const second = await fetchSharedCatalogSnapshot()
+		const first = await fetchSharedCatalogSnapshot(null)
+		const second = await fetchSharedCatalogSnapshot(null)
 		assert.equal(fetchCount, 1)
 		assert.equal(first.entries.length, 1)
 		assert.equal(second.entries.length, 1)
@@ -148,10 +148,136 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 		process.env.SHARED_CATALOG_GIST_ID = 'gist-truncated'
 		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
 
-		const snapshot = await fetchSharedCatalogSnapshot()
+		const snapshot = await fetchSharedCatalogSnapshot(null)
 		assert.equal(snapshot.entries[0]?.ticker, 'ABC')
 		assert.equal(snapshot.ownerLogin, 'owner')
 		assert.equal(requested.length, 2)
+	})
+
+	it('reads with the caller token, so the request counts against their rate limit and not the server IP', async () => {
+		const authorizations: Array<string | null> = []
+		globalThis.fetch = async (_input, init) => {
+			authorizations.push(new Headers(init?.headers).get('authorization'))
+			return Response.json({
+				files: { [CATALOG_FILENAME]: { content: '[]' } },
+				owner: { login: 'o' },
+			})
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-token'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+
+		await fetchSharedCatalogSnapshot('user-token')
+		await fetchSharedCatalogSnapshot(null)
+
+		assert.deepEqual(authorizations, ['Bearer user-token', null])
+	})
+
+	it('falls back to an anonymous read when GitHub rejects the token, instead of hiding the catalog', async () => {
+		const authorizations: Array<string | null> = []
+		globalThis.fetch = async (_input, init) => {
+			const authorization = new Headers(init?.headers).get('authorization')
+			authorizations.push(authorization)
+			if (authorization !== null) return new Response('', { status: 401 })
+			return Response.json({
+				files: {
+					[CATALOG_FILENAME]: {
+						content: JSON.stringify([
+							{
+								id: '1',
+								ticker: 'ABC',
+								name: 'A',
+								type: 'equity',
+								description: '',
+							},
+						]),
+					},
+				},
+				owner: { login: 'o' },
+			})
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-revoked'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+
+		const snapshot = await fetchSharedCatalogSnapshot('revoked-token')
+
+		assert.equal(snapshot.entries[0]?.ticker, 'ABC')
+		assert.deepEqual(authorizations, ['Bearer revoked-token', null])
+	})
+
+	it('logs the status when the read fails, rather than silently answering an empty catalog', async () => {
+		globalThis.fetch = async () => new Response('', { status: 403 })
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-limited'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		const logged: string[] = []
+		const originalError = console.error
+		console.error = (...parts: unknown[]) => logged.push(parts.join(' '))
+		try {
+			const snapshot = await fetchSharedCatalogSnapshot(null)
+			assert.deepEqual(snapshot, { entries: [], ownerLogin: null })
+		} finally {
+			console.error = originalError
+		}
+		assert.equal(logged.length, 1)
+		assert.match(logged[0] ?? '', /403/)
+	})
+
+	it('serves the last good snapshot when a refresh fails, then retries after a short wait', async () => {
+		let status = 200
+		let fetchCount = 0
+		globalThis.fetch = async () => {
+			fetchCount += 1
+			if (status !== 200) return new Response('', { status })
+			return Response.json({
+				files: {
+					[CATALOG_FILENAME]: {
+						content: JSON.stringify([
+							{
+								id: '1',
+								ticker: 'ABC',
+								name: 'A',
+								type: 'equity',
+								description: '',
+							},
+						]),
+					},
+				},
+				owner: { login: 'o' },
+			})
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'gist-stale'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '1000'
+		const originalNow = Date.now
+		let now = 1_000_000
+		Date.now = () => now
+		const originalError = console.error
+		console.error = () => {}
+		try {
+			assert.equal(
+				(await fetchSharedCatalogSnapshot(null)).entries[0]?.ticker,
+				'ABC',
+			)
+
+			// Past the TTL, GitHub starts refusing: the catalog must not vanish.
+			now += 2000
+			status = 403
+			const stale = await fetchSharedCatalogSnapshot(null)
+			assert.equal(stale.entries[0]?.ticker, 'ABC')
+			assert.equal(stale.ownerLogin, 'o')
+			assert.equal(fetchCount, 2)
+
+			// Within the retry wait, no further request is made.
+			await fetchSharedCatalogSnapshot(null)
+			assert.equal(fetchCount, 2)
+
+			// After it, GitHub is asked again, and a recovery replaces the snapshot.
+			now += 16_000
+			status = 200
+			await fetchSharedCatalogSnapshot(null)
+			assert.equal(fetchCount, 3)
+		} finally {
+			Date.now = originalNow
+			console.error = originalError
+		}
 	})
 
 	it('does not cache when ttl is 0', async () => {
@@ -169,8 +295,8 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 		process.env.SHARED_CATALOG_GIST_ID = 'gist-no-ttl'
 		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
 
-		await fetchSharedCatalogSnapshot()
-		await fetchSharedCatalogSnapshot()
+		await fetchSharedCatalogSnapshot(null)
+		await fetchSharedCatalogSnapshot(null)
 		assert.equal(fetchCount, 2)
 	})
 
@@ -216,7 +342,7 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 		process.env.SHARED_CATALOG_GIST_ID = 'ttl-gist-save'
 		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
 
-		const before = await fetchSharedCatalogSnapshot()
+		const before = await fetchSharedCatalogSnapshot(null)
 		assert.equal(before.entries[0]?.ticker, 'ABC')
 		assert.equal(getCount, 1)
 
@@ -233,7 +359,7 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 			],
 		})
 
-		const after = await fetchSharedCatalogSnapshot()
+		const after = await fetchSharedCatalogSnapshot(null)
 		assert.equal(getCount, 2)
 		assert.equal(after.entries[0]?.ticker, 'XYZ')
 	})
@@ -923,15 +1049,19 @@ describe('parseBankJsonForImport keeps the bank fields and reports types', () =>
 	it('saveCatalog stores source rows alongside the catalog', async () => {
 		setSharedCatalogForTests({ entries: [], ownerLogin: 'owner' })
 		try {
-			assert.deepEqual(await fetchCatalogSourceRows(), {})
+			assert.deepEqual(await fetchCatalogSourceRows('tkn'), {})
 			await saveCatalog({
 				token: 'tkn',
 				entries: [],
 				sourceRowsById: { a: { ticker: 'A' } },
 			})
-			assert.deepEqual(await fetchCatalogSourceRows(), { a: { ticker: 'A' } })
+			assert.deepEqual(await fetchCatalogSourceRows('tkn'), {
+				a: { ticker: 'A' },
+			})
 			await saveCatalog({ token: 'tkn', entries: [] })
-			assert.deepEqual(await fetchCatalogSourceRows(), { a: { ticker: 'A' } })
+			assert.deepEqual(await fetchCatalogSourceRows('tkn'), {
+				a: { ticker: 'A' },
+			})
 		} finally {
 			resetSharedCatalogForTests()
 		}

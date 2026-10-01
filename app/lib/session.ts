@@ -5,7 +5,8 @@ import { createCookieSessionStorage } from 'remix/session-storage/cookie'
 export type SessionData = {
 	/** GitHub OAuth token; null when signed in but pending allowlist approval. */
 	token: string | null
-	gistId: string | null
+	/** The private data repo, `"owner/repo"`; null when sign-in could not resolve it. */
+	dataRepo: string | null
 	login: string
 	isAdmin?: boolean
 	/** Present when login allowlist is active and this login is not on the list. */
@@ -36,7 +37,7 @@ export function getSessionData(session: Session): SessionData | null {
 	const approvalStatus = session.get('approvalStatus') as 'pending' | undefined
 	return {
 		token,
-		gistId: (session.get('gistId') as string | undefined) ?? null,
+		dataRepo: (session.get('dataRepo') as string | undefined) ?? null,
 		login,
 		...(session.get('isAdmin') === true ? { isAdmin: true } : {}),
 		...(approvalStatus === 'pending' ? { approvalStatus: 'pending' } : {}),
@@ -64,7 +65,7 @@ export function getLayoutSession(session: Session): SessionData | null {
 	if (!identity) return null
 	return {
 		token: null,
-		gistId: null,
+		dataRepo: null,
 		login: identity.login,
 		...(session.get('isAdmin') === true ? { isAdmin: true } : {}),
 		...(identity.approvalStatus === 'pending'
@@ -73,15 +74,30 @@ export function getLayoutSession(session: Session): SessionData | null {
 	}
 }
 
-/** Session with a GitHub token and private data gist (not guest, not pending-only identity). */
-export type SessionWithGithubGist = SessionData & {
+/** Session with a GitHub token and a private data repo (not pending-only identity). */
+export type SessionWithDataRepo = SessionData & {
 	token: string
-	gistId: string
+	dataRepo: string
 }
 
-/** True when the session can read/write the private GitHub Gist (not guest, not pending). */
-export function sessionUsesGithubGist(
+/** True when the session can read/write the private data repo (not pending). */
+export function sessionHasDataRepo(
 	session: SessionData | null,
-): session is SessionWithGithubGist {
-	return Boolean(session?.token && session.gistId)
+): session is SessionWithDataRepo {
+	return Boolean(session?.token && session.dataRepo)
+}
+
+/**
+ * Signs out a session from before the storage cutover. Such a cookie carries
+ * the old `gistId` key and a token granted only the `gist` scope, which cannot
+ * reach a private repo — so rather than leave it signed in against storage it
+ * cannot read, it is cleared, and the next page sends the user through sign-in
+ * for the new scope. Cookies expire within a day, so this has little to do for
+ * long; it can go once the gist backend does.
+ */
+export function signOutPreCutoverSession(session: Session): void {
+	if (session.get('gistId') === undefined) return
+	for (const key of ['token', 'gistId', 'login', 'isAdmin', 'approvalStatus']) {
+		session.unset(key)
+	}
 }

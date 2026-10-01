@@ -18,8 +18,12 @@ import {
 	PortfolioOperationSchema,
 } from '../../../lib/portfolio-operations.ts'
 import type { AppRequestContext } from '../../../lib/request-context.ts'
-import { getSessionData, sessionUsesGithubGist } from '../../../lib/session.ts'
+import { getSessionData, sessionHasDataRepo } from '../../../lib/session.ts'
 import { flashBanner } from '../../../lib/session-flash.ts'
+import {
+	commitMessage,
+	describePortfolioOperation,
+} from '../../../lib/store/commit-message.ts'
 import { routes } from '../../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../../catalog/lib.ts'
 import { ListFragment } from './list-fragment.tsx'
@@ -29,12 +33,15 @@ async function loadCatalogForPortfolioList(
 	context: AppRequestContext,
 ): Promise<CatalogEntry[]> {
 	const session = getSessionData(context.get(Session))
-	if (!sessionUsesGithubGist(session)) return fetchCatalog()
+	if (!sessionHasDataRepo(session)) return fetchCatalog(session?.token ?? null)
 	try {
-		const snapshot = await fetchPortfolioSnapshot(session.token, session.gistId)
+		const snapshot = await fetchPortfolioSnapshot(
+			session.token,
+			session.dataRepo,
+		)
 		return snapshot.catalog
 	} catch {
-		return fetchCatalog()
+		return fetchCatalog(session.token)
 	}
 }
 
@@ -73,9 +80,12 @@ async function loadPortfolioEntries(
 ): Promise<EtfEntry[] | null> {
 	const session = getSessionData(context.get(Session))
 	// Pending approval: no store to read, so no rows — not a read failure.
-	if (!sessionUsesGithubGist(session)) return []
+	if (!sessionHasDataRepo(session)) return []
 	try {
-		const snapshot = await fetchPortfolioSnapshot(session.token, session.gistId)
+		const snapshot = await fetchPortfolioSnapshot(
+			session.token,
+			session.dataRepo,
+		)
 		return snapshot.entries
 	} catch {
 		return null
@@ -169,7 +179,7 @@ export const portfolioOperationFormHandlers = {
 
 			const operation = result.value
 			const session = getSessionData(context.get(Session))
-			if (!sessionUsesGithubGist(session)) {
+			if (!sessionHasDataRepo(session)) {
 				return portfolioValidationFailureResponse(
 					context,
 					t('errors.portfolio.requiresApproval'),
@@ -181,7 +191,7 @@ export const portfolioOperationFormHandlers = {
 			try {
 				const snapshot = await fetchPortfolioSnapshot(
 					session.token,
-					session.gistId,
+					session.dataRepo,
 				)
 				catalog = snapshot.catalog
 				current = snapshot.entries
@@ -216,7 +226,7 @@ export const portfolioOperationFormHandlers = {
 							...(outcome.blocker === 'catalog_entry_missing'
 								? {
 										instrumentTicker: instrumentTicker.trim(),
-										gistId: session.gistId,
+										dataRepo: session.dataRepo,
 									}
 								: {}),
 						}),
@@ -240,7 +250,20 @@ export const portfolioOperationFormHandlers = {
 			const updated = outcome.holdings
 
 			try {
-				await saveEtfs(session.token, session.gistId, updated)
+				await saveEtfs(
+					session.token,
+					session.dataRepo,
+					updated,
+					commitMessage({
+						summary: describePortfolioOperation({
+							portfolioOperation: operation.portfolioOperation,
+							instrumentTicker,
+							value,
+							currency,
+						}),
+						source: 'web',
+					}),
+				)
 			} catch {
 				return portfolioPersistenceFailureResponse(context)
 			}

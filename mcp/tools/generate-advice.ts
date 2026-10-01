@@ -16,11 +16,15 @@ import {
 import { fetchCatalog } from '../../app/features/catalog/lib.ts'
 import { CURRENCIES } from '../../app/lib/currencies.ts'
 import {
+	commitMessage,
+	describeAdviceMode,
+} from '../../app/lib/store/commit-message.ts'
+import {
 	runWithUiCopyContext,
 	SUPPORTED_UI_LOCALES,
 } from '../../app/lib/ui-locale.ts'
-import type { GistCredentials } from '../data-gist.ts'
-import { resolveDataGistId } from '../data-gist.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
+import { resolveDataRepo } from '../data-repo.ts'
 import {
 	fetchEtfsCached,
 	fetchGuidelinesOrThrowCached,
@@ -41,9 +45,9 @@ const DESCRIPTION = `Generate a fresh written analysis by calling OpenAI, the sa
 
 "buy_next" requires cashAmount, the same non-negative amount get_buy_plan takes; cashCurrency defaults to the currency the holdings already share. "portfolio_review" ignores both — the review reasons about the holdings as they are, not about a purchase.
 
-By default this also **saves** the result to the gist, exactly as the web app's own Generate button does — overwriting whatever was saved there before for that mode (the gist keeps prior revisions, so it is restorable). Pass save: false to only get the text back without persisting it. A save failure is reported alongside the generated text rather than losing an analysis that already cost money to produce.
+By default this also **saves** the result to the data repo, exactly as the web app's own Generate button does — overwriting whatever was saved there before for that mode (the repo keeps every save as a commit, so it is restorable). Pass save: false to only get the text back without persisting it. A save failure is reported alongside the generated text rather than losing an analysis that already cost money to produce.
 
-An MCP call has no browser cookie to infer a UI language from, so pass "locale" to get bucket names and prose in that language (English otherwise). Whatever is chosen here is also what gets saved to the gist.`
+An MCP call has no browser cookie to infer a UI language from, so pass "locale" to get bucket names and prose in that language (English otherwise). Whatever is chosen here is also what gets saved.`
 
 export type GenerateAdviceSummary = {
 	available: true
@@ -85,7 +89,7 @@ function readSave(toolArguments: Record<string, unknown>): boolean {
 }
 
 export function createGenerateAdviceTool(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
@@ -97,11 +101,11 @@ export function createGenerateAdviceTool(
 		const cashAmountText =
 			mode === 'buy_next' ? readCashAmountText(toolArguments) : ''
 
-		const gistId = await resolveDataGistId(credentials)
+		const dataRepo = await resolveDataRepo(credentials)
 		const [holdings, catalog, guidelines] = await Promise.all([
-			fetchEtfsCached(credentials.githubToken, gistId),
-			fetchCatalog(),
-			fetchGuidelinesOrThrowCached(credentials.githubToken, gistId),
+			fetchEtfsCached(credentials.githubToken, dataRepo),
+			fetchCatalog(credentials.githubToken),
+			fetchGuidelinesOrThrowCached(credentials.githubToken, dataRepo),
 		])
 
 		const { currency: holdingsCurrency } = summarizePortfolio(holdings)
@@ -156,9 +160,13 @@ export function createGenerateAdviceTool(
 			try {
 				await saveStoredAdviceAnalysisForTab(
 					credentials.githubToken,
-					gistId,
+					dataRepo,
 					mode,
 					stored,
+					commitMessage({
+						summary: `Save ${describeAdviceMode(mode)} advice`,
+						source: 'MCP',
+					}),
 				)
 				saved = true
 				savedAt = stored.savedAt
@@ -180,9 +188,9 @@ export function createGenerateAdviceTool(
 			...(savedAt !== undefined ? { savedAt } : {}),
 			...(savePersistFailed !== undefined ? { savePersistFailed } : {}),
 			note: saved
-				? 'Written by this call, just now, and saved to the gist — get_saved_advice will return it until something overwrites it.'
+				? 'Written by this call, just now, and saved — get_saved_advice will return it until something overwrites it.'
 				: savePersistFailed !== undefined
-					? 'Written by this call, just now, but the gist save failed; the text below is not lost, only not persisted. Retry, or the analysis is gone once this response is.'
+					? 'Written by this call, just now, but saving it failed; the text below is not lost, only not persisted. Retry, or the analysis is gone once this response is.'
 					: 'Written by this call, just now, and not saved — save: false was passed, so the analysis is gone once this response is.',
 		} satisfies GenerateAdviceSummary)
 	}
@@ -219,7 +227,7 @@ export function createGenerateAdviceTool(
 				save: {
 					type: 'boolean',
 					description:
-						"Persist the result to the gist, the way the web app's own Generate button does — overwriting whatever was saved there before for this mode. Defaults to true, matching the web app; pass false to only get the text back.",
+						"Persist the result to the data repo, the way the web app's own Generate button does — overwriting whatever was saved there before for this mode. Defaults to true, matching the web app; pass false to only get the text back.",
 				},
 				locale: {
 					type: 'string',

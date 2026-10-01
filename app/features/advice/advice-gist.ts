@@ -10,7 +10,7 @@ import {
 	readFiles,
 	writeFile,
 	writeFiles,
-} from '../../lib/store/github-store.ts'
+} from '../../lib/store/github-repo-store.ts'
 import { type AdviceDocument, AdviceDocumentSchema } from './advice-document.ts'
 import {
 	ADVICE_ANALYSIS_MODES,
@@ -188,7 +188,7 @@ function hasStoredContent(content: string | null | undefined): boolean {
  */
 export async function fetchStoredAdviceAnalysisOutcomeForTab(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 	tab: AdviceAnalysisMode,
 ): Promise<StoredAdviceAnalysisOutcome> {
 	if (gistTestState.enabled) {
@@ -202,7 +202,7 @@ export async function fetchStoredAdviceAnalysisOutcomeForTab(
 	// second round trip on every read.
 	const result = await readFiles({
 		token,
-		location: gistId,
+		location: dataRepo,
 		paths: [modeFilename, ADVICE_STORAGE_FILENAME],
 	})
 	if (!result.ok) {
@@ -237,12 +237,12 @@ export async function fetchStoredAdviceAnalysisOutcomeForTab(
  */
 export async function fetchStoredAdviceAnalysisForTab(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 	tab: AdviceAnalysisMode,
 ): Promise<StoredAdviceAnalysis | null> {
 	const outcome = await fetchStoredAdviceAnalysisOutcomeForTab(
 		token,
-		gistId,
+		dataRepo,
 		tab,
 	)
 	return outcome.status === 'found' ? outcome.stored : null
@@ -251,11 +251,11 @@ export async function fetchStoredAdviceAnalysisForTab(
 /** @deprecated Use {@link fetchStoredAdviceAnalysisForTab} with an explicit tab. */
 export async function fetchStoredAdviceAnalysis(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 ): Promise<StoredAdviceAnalysis | null> {
 	return fetchStoredAdviceAnalysisForTab(
 		token,
-		gistId,
+		dataRepo,
 		DEFAULT_ADVICE_ANALYSIS_MODE,
 	)
 }
@@ -277,9 +277,10 @@ function buildAdviceAnalysisPayload(stored: StoredAdviceAnalysis): unknown {
 
 export async function saveStoredAdviceAnalysisForTab(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 	tab: AdviceAnalysisMode,
 	stored: StoredAdviceAnalysis,
+	message?: string,
 ): Promise<void> {
 	if (gistTestState.enabled) {
 		if (gistTestState.saveShouldFail) {
@@ -292,9 +293,10 @@ export async function saveStoredAdviceAnalysisForTab(
 	const filename = ADVICE_GIST_FILENAME_BY_MODE[tab]
 	const result = await writeFile({
 		token,
-		location: gistId,
+		location: dataRepo,
 		path: filename,
 		content: JSON.stringify(buildAdviceAnalysisPayload(stored), null, 2),
+		message,
 	})
 	if (!result.ok) {
 		throw new Error(`GitHub API error saving advice snapshot: ${result.status}`)
@@ -304,17 +306,18 @@ export async function saveStoredAdviceAnalysisForTab(
 /** @deprecated Use {@link saveStoredAdviceAnalysisForTab}. */
 export async function saveStoredAdviceAnalysis(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 	stored: StoredAdviceAnalysis,
 ): Promise<void> {
 	const tab = stored.activeTab ?? stored.lastAnalysisMode
-	return saveStoredAdviceAnalysisForTab(token, gistId, tab, stored)
+	return saveStoredAdviceAnalysisForTab(token, dataRepo, tab, stored)
 }
 
 export async function clearStoredAdviceAnalysisForTab(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 	tab: AdviceAnalysisMode,
+	message?: string,
 ): Promise<void> {
 	if (gistTestState.enabled) {
 		gistTestState.byTab[tab] = null
@@ -323,9 +326,10 @@ export async function clearStoredAdviceAnalysisForTab(
 	const filename = ADVICE_GIST_FILENAME_BY_MODE[tab]
 	const result = await writeFile({
 		token,
-		location: gistId,
+		location: dataRepo,
 		path: filename,
 		content: null,
+		message,
 	})
 	if (!result.ok) {
 		throw new Error(
@@ -337,16 +341,18 @@ export async function clearStoredAdviceAnalysisForTab(
 /** Clears legacy unified file only (per-tab files unchanged). */
 export async function clearLegacyUnifiedAdviceAnalysis(
 	token: string,
-	gistId: string,
+	dataRepo: string,
+	message?: string,
 ): Promise<void> {
 	if (gistTestState.enabled) {
 		return
 	}
 	const result = await writeFile({
 		token,
-		location: gistId,
+		location: dataRepo,
 		path: ADVICE_STORAGE_FILENAME,
 		content: null,
+		message,
 	})
 	if (!result.ok) {
 		throw new Error(
@@ -358,7 +364,7 @@ export async function clearLegacyUnifiedAdviceAnalysis(
 /** @deprecated Use {@link clearStoredAdviceAnalysisForTab}. */
 export async function clearStoredAdviceAnalysis(
 	token: string,
-	gistId: string,
+	dataRepo: string,
 ): Promise<void> {
 	if (gistTestState.enabled) {
 		gistTestState.byTab = {}
@@ -367,7 +373,7 @@ export async function clearStoredAdviceAnalysis(
 	}
 	const result = await writeFiles({
 		token,
-		location: gistId,
+		location: dataRepo,
 		files: {
 			[ADVICE_STORAGE_FILENAME]: null,
 			[ADVICE_BUY_NEXT_STORAGE_FILENAME]: null,

@@ -32,13 +32,17 @@ import type { SessionData } from '../../lib/session.ts'
 import {
 	getLayoutSession,
 	getSessionData,
-	sessionUsesGithubGist,
+	sessionHasDataRepo,
 } from '../../lib/session.ts'
 import {
 	type FlashedBanner,
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import {
+	commitMessage,
+	describeGuideline,
+} from '../../lib/store/commit-message.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
@@ -100,8 +104,8 @@ async function loadGuidelinesForSession(
 ): Promise<EtfGuideline[]> {
 	const session = getSessionData(context.get(Session))
 	// Pending approval: no store to read, so no rows.
-	if (!sessionUsesGithubGist(session)) return []
-	return fetchGuidelines(session.token, session.gistId)
+	if (!sessionHasDataRepo(session)) return []
+	return fetchGuidelines(session.token, session.dataRepo)
 }
 
 async function guidelinesListFragmentHtmlResponse(params: {
@@ -312,7 +316,7 @@ async function persistGuideline(params: {
 	addTab: GuidelinesAddTabId
 }): Promise<Response | null> {
 	const { entry, session, remixSession, request, context, addTab } = params
-	if (!sessionUsesGithubGist(session)) {
+	if (!sessionHasDataRepo(session)) {
 		return guidelinesRequiresApprovalResponse({
 			context,
 			request,
@@ -320,7 +324,7 @@ async function persistGuideline(params: {
 		})
 	}
 
-	const current = await fetchGuidelines(session.token, session.gistId)
+	const current = await fetchGuidelines(session.token, session.dataRepo)
 	if (findGuidelineDuplicateOf(current, entry)) {
 		return guidelinesDuplicateErrorResponse({
 			context,
@@ -345,7 +349,15 @@ async function persistGuideline(params: {
 			addTab,
 		})
 	}
-	await saveGuidelines(session.token, session.gistId, [entry, ...current])
+	await saveGuidelines(
+		session.token,
+		session.dataRepo,
+		[entry, ...current],
+		commitMessage({
+			summary: `Add guideline ${describeGuideline(entry)}: ${entry.targetPct}%`,
+			source: 'web',
+		}),
+	)
 	return null
 }
 
@@ -364,7 +376,7 @@ async function updateGuidelineTarget(params: {
 	const { id, newTargetPercent, session, remixSession, request, context } =
 		params
 
-	if (!sessionUsesGithubGist(session)) {
+	if (!sessionHasDataRepo(session)) {
 		return guidelinesRequiresApprovalResponse({
 			context,
 			request,
@@ -372,7 +384,7 @@ async function updateGuidelineTarget(params: {
 		})
 	}
 
-	const current = await fetchGuidelines(session.token, session.gistId)
+	const current = await fetchGuidelines(session.token, session.dataRepo)
 	const existing = current.find((g) => g.id === id)
 	if (!existing) {
 		return createRedirectResponse(routes.guidelines.index.href())
@@ -393,12 +405,17 @@ async function updateGuidelineTarget(params: {
 			resultingTotal,
 		})
 	}
+	const updatedGuideline = current.find((g) => g.id === id)
 	await saveGuidelines(
 		session.token,
-		session.gistId,
+		session.dataRepo,
 		current.map((g) =>
 			g.id === id ? { ...g, targetPct: newTargetPercent } : g,
 		),
+		commitMessage({
+			summary: `Set guideline ${updatedGuideline ? describeGuideline(updatedGuideline) : id}: ${newTargetPercent}%`,
+			source: 'web',
+		}),
 	)
 	return null
 }
@@ -436,7 +453,7 @@ async function handleAddInstrument(context: AppRequestContext, form: FormData) {
 	}
 
 	const session = getSessionData(context.get(Session))
-	const catalog = await fetchCatalog()
+	const catalog = await fetchCatalog(session?.token ?? null)
 
 	const ticker = (result.value.instrumentTicker ?? '').trim()
 	if (!ticker) {
@@ -518,7 +535,7 @@ async function handleAddAssetClass(context: AppRequestContext, form: FormData) {
 	}
 
 	const session = getSessionData(context.get(Session))
-	const catalog = await fetchCatalog()
+	const catalog = await fetchCatalog(session?.token ?? null)
 	const allowedAssetClasses = new Set(
 		assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
 	)
@@ -604,15 +621,20 @@ async function handleDelete(context: AppRequestContext, form: FormData) {
 	}
 
 	const session = getSessionData(context.get(Session))
-	if (!sessionUsesGithubGist(session)) {
+	if (!sessionHasDataRepo(session)) {
 		return createRedirectResponse(routes.guidelines.index.href())
 	}
 
-	const current = await fetchGuidelines(session.token, session.gistId)
+	const current = await fetchGuidelines(session.token, session.dataRepo)
+	const removedGuideline = current.find((g) => g.id === id)
 	await saveGuidelines(
 		session.token,
-		session.gistId,
+		session.dataRepo,
 		current.filter((g) => g.id !== id),
+		commitMessage({
+			summary: `Remove guideline ${removedGuideline ? describeGuideline(removedGuideline) : id}`,
+			source: 'web',
+		}),
 	)
 
 	if (requestAcceptsFrameSubmitHtml(context.request)) {
@@ -635,7 +657,7 @@ export const guidelinesController = {
 			)
 			const [guidelines, catalog] = await Promise.all([
 				loadGuidelinesForSession(context),
-				fetchCatalog(),
+				fetchCatalog(getSessionData(context.get(Session))?.token ?? null),
 			])
 			return renderGuidelinesPage(context, {
 				guidelines,

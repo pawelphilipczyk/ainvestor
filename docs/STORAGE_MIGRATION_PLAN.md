@@ -1,8 +1,9 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–2 done. Phase 3's migration script is built and has
-copied preview; prod is copied during the Phase 4 cutover, which is next.
-Phases 5+ are designed but not yet detailed to the commit level.
+**Status:** Phases 0–3 done. Phase 4 (cutover) is built and rehearsed on
+preview, and prod's data is copied; what remains is the merge, then the prod
+checks and reconnecting MCP clients (cutover order below). Phases 5+ are
+designed but not yet detailed to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -604,10 +605,12 @@ The gist held `advice-analysis.json`, the legacy unified advice file, next to
 the four current files. That is the case listing the gist's files, rather than
 naming them, was for.
 
-**Prod is deliberately not copied yet.** It is copied as step 5 of the
-cutover order below. A preview edit made before the cutover is safe as well:
-rerunning the script shows it as `overwrite` or `delete`, which `--force`
-applies.
+**Prod copied** on 2026-10-01, as step 5 of the cutover order below: dry run
+showed five `create`s and no repo, `--apply` created
+`pawelphilipczyk/ainvestor-data`, wrote the five files in one commit, and
+verified them against `ai-investor-data`. An edit made in either environment
+between the copy and the cutover is safe: rerunning the script shows it as
+`overwrite` or `delete`, which `--force` applies.
 
 ### Phase 4 — cutover: the app reads and writes repos
 
@@ -683,6 +686,46 @@ is missing anything saved after the cutover.
 **Done when** both environments read and write their repos and pass the
 checks above, the gists are untouched, CI (lint, types, tests, browser tests)
 is green, and the docs are updated.
+
+#### What the cutover PR built, where it differs from the above
+
+- **Pre-cutover cookies** are recognised by their old `gistId` key rather than
+  by a missing `dataRepo`, and signed out in the same middleware step that
+  strips unapproved tokens (`signOutPreCutoverSession`, `app/lib/session.ts`).
+  A missing `dataRepo` also means "sign-in could not resolve the repo", which
+  must keep the user signed in with the banner rather than bounce them.
+- **A same-named foreign repo** gets its own banner in both locales
+  (`errors.storage.foreignRepo`), naming the repo and the fix. The generic
+  persistence banner said nothing about what to do.
+- **`writeFiles` drops a deletion of an absent path** instead of sending a
+  `sha: null` tree entry for it, matching `writeFile`'s no-op. Clearing saved
+  advice deletes three files at once, and some may not exist.
+- **The tool descriptions stop pointing at gist Revisions.** Recovery is the
+  repo's commit history now; the "overwrite rather than merge" warning stays
+  until Phase 5.
+- **User-facing copy** that said "private GitHub Gist" now says repository. The
+  catalog copy keeps "gist": it still is one.
+- **`findOrCreateGist` and `buildGistBody` are gone.** `findGistIdByDescription`
+  stays for the migration script until Phase 7.
+- **Every write carries a commit message** naming the operation and its
+  source — `Buy SWDA LN: +1 PLN (MCP)`, `Remove guideline IBCI LN (web)`,
+  `Save buy-next advice (web)` — instead of `Update etfs.json`, which said
+  neither. `writeFile` / `writeFiles` take an optional `message`; the
+  wording lives in `app/lib/store/commit-message.ts`, in English, since it is
+  stored in the user's repo rather than shown in the UI.
+- **The shared catalog is read with the caller's token,** and a failed
+  refresh serves the last good snapshot. The gist is public, but an
+  anonymous read counts against GitHub's 60/hour limit for the server's IP,
+  and every failure used to be answered as an empty catalog — which stops
+  every buy and sell. Phase 6 replaces this read, but until then it must not
+  vanish.
+- **A shared test fake,** `app/lib/store/github-repo-test-fake.ts`, serves an
+  in-memory data repo. Tests assert on the files that land rather than on
+  request bodies.
+
+Names still to follow, each a mechanical rename: `gist.ts`, `advice-gist.ts`,
+`private-gist-cache.ts`, `private-gist-test-store.ts`, and the `*Gist` i18n
+keys.
 
 ### Phase 5 — turn on compare-and-swap
 

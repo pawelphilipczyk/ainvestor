@@ -7,8 +7,8 @@
  * `get_portfolio` reason about identical text.
  */
 import { fetchCatalog } from '../app/features/catalog/lib.ts'
-import type { GistCredentials } from './data-gist.ts'
-import { resolveDataGistId } from './data-gist.ts'
+import type { DataRepoCredentials } from './data-repo.ts'
+import { resolveDataRepo } from './data-repo.ts'
 import {
 	fetchEtfsCached,
 	fetchGuidelinesOrThrowCached,
@@ -25,7 +25,7 @@ function jsonText(payload: unknown): string {
 }
 
 export function createAinvestorResources(
-	credentials: GistCredentials,
+	credentials: DataRepoCredentials,
 ): McpResourceDefinition[] {
 	return [
 		{
@@ -36,8 +36,8 @@ export function createAinvestorResources(
 				"The user's holdings with their values and currencies, the portfolio total, and each holding's share of it. Same content as the get_portfolio tool.",
 			mimeType: MIME_TYPE,
 			read: async () => {
-				const gistId = await resolveDataGistId(credentials)
-				const entries = await fetchEtfsCached(credentials.githubToken, gistId)
+				const dataRepo = await resolveDataRepo(credentials)
+				const entries = await fetchEtfsCached(credentials.githubToken, dataRepo)
 				return jsonText(summarizePortfolio(entries))
 			},
 		},
@@ -49,10 +49,10 @@ export function createAinvestorResources(
 				"The user's guideline rows, the sum of their targets, and the effective target per asset class. Same content as the get_guidelines tool.",
 			mimeType: MIME_TYPE,
 			read: async () => {
-				const gistId = await resolveDataGistId(credentials)
+				const dataRepo = await resolveDataRepo(credentials)
 				const guidelines = await fetchGuidelinesOrThrowCached(
 					credentials.githubToken,
-					gistId,
+					dataRepo,
 				)
 				return jsonText(summarizeGuidelines(guidelines))
 			},
@@ -64,7 +64,10 @@ export function createAinvestorResources(
 			description:
 				'Every fund in the shared catalog as a compact row — the only source of valid tickers. The list_catalog tool searches the same data; get_catalog_entry returns one row in full.',
 			mimeType: MIME_TYPE,
-			read: async () => jsonText(summarizeWholeCatalog(await fetchCatalog())),
+			read: async () =>
+				jsonText(
+					summarizeWholeCatalog(await fetchCatalog(credentials.githubToken)),
+				),
 		},
 	]
 }

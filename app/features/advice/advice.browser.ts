@@ -50,9 +50,9 @@ describe('advice forms (browser)', () => {
 		remixSession.set('login', login)
 		remixSession.set('token', 'test-token')
 		// The private-gist test overlay (avoids real GitHub calls) matches this
-		// exact token/gistId pair regardless of login — see
+		// exact token/dataRepo pair regardless of login — see
 		// `private-gist-test-store.ts`.
-		remixSession.set('gistId', 'gist-advice-test')
+		remixSession.set('dataRepo', 'octocat/ainvestor-data')
 		const value = await sessionStorage.save(remixSession)
 		if (value == null) throw new Error('expected session save value')
 		const cookieHeader = await sessionCookie.serialize(value)
@@ -217,7 +217,7 @@ describe('advice mode tabs (browser)', () => {
 		const remixSession = await sessionStorage.read(null)
 		remixSession.set('login', 'advice-browser-tabs')
 		remixSession.set('token', 'test-token')
-		remixSession.set('gistId', 'gist-advice-test')
+		remixSession.set('dataRepo', 'octocat/ainvestor-data')
 		const value = await sessionStorage.save(remixSession)
 		if (value == null) throw new Error('expected session save value')
 		const cookieHeader = await sessionCookie.serialize(value)
@@ -280,7 +280,7 @@ describe('advice mode tabs (browser)', () => {
 		const remixSession = await sessionStorage.read(null)
 		remixSession.set('login', 'advice-browser-tabs-nojs')
 		remixSession.set('token', 'test-token')
-		remixSession.set('gistId', 'gist-advice-test')
+		remixSession.set('dataRepo', 'octocat/ainvestor-data')
 		const value = await sessionStorage.save(remixSession)
 		if (value == null) throw new Error('expected session save value')
 		const cookieHeader = await sessionCookie.serialize(value)

@@ -10,15 +10,16 @@ import type { EtfEntry } from '../app/lib/gist.ts'
 import { GIST_FILENAME } from '../app/lib/gist.ts'
 import type { EtfGuideline } from '../app/lib/guidelines.ts'
 import { GUIDELINES_FILENAME } from '../app/lib/guidelines.ts'
+import { installFakeDataRepo } from '../app/lib/store/github-repo-test-fake.ts'
 import { createAinvestorMcpServer } from './ainvestor-server.ts'
-import type { GistCredentials } from './data-gist.ts'
-import { resetDataGistIdCache } from './data-gist.ts'
+import type { DataRepoCredentials } from './data-repo.ts'
+import { resetDataRepoCache } from './data-repo.ts'
 import { resetPrivateGistCacheForTests } from './private-gist-cache.ts'
 import { createAinvestorResources } from './resources.ts'
 
-const credentials: GistCredentials = {
+const credentials: DataRepoCredentials = {
 	githubToken: 'token-value',
-	dataGistId: 'pinned-gist',
+	dataRepo: 'octocat/ainvestor-data',
 }
 
 const HOLDINGS: EtfEntry[] = [
@@ -56,20 +57,19 @@ function catalogEntry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
 
 const originalFetch = globalThis.fetch
 
-/** Serve the one private gist both datasets live in. */
+/** Serve the one private data repo both datasets live in. */
 function stubGist(): void {
-	globalThis.fetch = async () =>
-		Response.json({
-			files: {
-				[GIST_FILENAME]: { content: JSON.stringify(HOLDINGS) },
-				[GUIDELINES_FILENAME]: { content: JSON.stringify(GUIDELINES) },
-			},
-		})
+	installFakeDataRepo({
+		files: {
+			[GIST_FILENAME]: JSON.stringify(HOLDINGS),
+			[GUIDELINES_FILENAME]: JSON.stringify(GUIDELINES),
+		},
+	})
 }
 
 afterEach(() => {
 	globalThis.fetch = originalFetch
-	resetDataGistIdCache()
+	resetDataRepoCache()
 	resetSharedCatalogForTests()
 	resetPrivateGistCacheForTests()
 })
@@ -137,8 +137,8 @@ describe('ainvestor resources', () => {
 		assert.deepEqual(payload.entries, [])
 	})
 
-	it('lets a rejected gist read fail instead of reporting an empty portfolio', async () => {
-		globalThis.fetch = async () => new Response('nope', { status: 401 })
+	it('lets a rejected read fail instead of reporting an empty portfolio', async () => {
+		installFakeDataRepo({ failContentReadsWith: 401 })
 		await assert.rejects(resourceByUri('ainvestor://guidelines').read(), /401/)
 	})
 

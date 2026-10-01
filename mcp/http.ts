@@ -9,18 +9,18 @@
  */
 import { createAinvestorMcpServer } from './ainvestor-server.ts'
 import { callerIsApproved } from './approved-caller.ts'
-import type { GistCredentials } from './data-gist.ts'
+import type { DataRepoCredentials } from './data-repo.ts'
 import type { JsonRpcResponse } from './jsonrpc.ts'
 import { errorResponse, JSON_RPC_ERROR_CODES } from './jsonrpc.ts'
 import {
-	REQUIRED_GITHUB_SCOPE,
+	REQUIRED_GITHUB_SCOPES,
 	resolvePublicOrigin,
 	resourceMetadataUrl,
 } from './oauth-metadata.ts'
 import { SUPPORTED_PROTOCOL_VERSIONS } from './protocol.ts'
 
-/** Optional per-request override, naming the gist this caller wants read. */
-const GIST_ID_HEADER = 'x-ainvestor-gist-id'
+/** Optional per-request override, naming the data repo (`owner/repo`) this caller wants read. */
+const DATA_REPO_HEADER = 'x-ainvestor-data-repo'
 
 /**
  * A JSON-RPC message is a few hundred bytes. The app's multipart limits do not
@@ -94,49 +94,55 @@ function readBearerToken(request: Request): string | null {
 	return token.length > 0 ? token : null
 }
 
-/** Gist ids are hex, but anything that cannot alter the request path is safe. */
-function isWellFormedGistId(value: string): boolean {
-	return /^[A-Za-z0-9]{1,64}$/.test(value)
+/**
+ * `owner/repo` made only of the characters GitHub allows in logins and repo
+ * names, so the value cannot alter the request path it is spliced into.
+ */
+function isWellFormedDataRepo(value: string): boolean {
+	return (
+		/^[A-Za-z0-9-]{1,39}\/[A-Za-z0-9_.-]{1,100}$/.test(value) &&
+		!value.includes('..')
+	)
 }
 
 type CredentialsResult =
-	| { ok: true; credentials: GistCredentials }
-	| { ok: false; reason: 'missing-token' | 'bad-gist-id' | 'not-approved' }
+	| { ok: true; credentials: DataRepoCredentials }
+	| { ok: false; reason: 'missing-token' | 'bad-data-repo' | 'not-approved' }
 
 /**
  * Credentials come from the request; the deployment supplies at most a default
- * gist, and only to a caller who has proved they are entitled to it (decision
+ * repo, and only to a caller who has proved they are entitled to it (decision
  * D3 in docs/MCP_SERVER_PLAN.md).
  */
 async function readCredentials(request: Request): Promise<CredentialsResult> {
 	const githubToken = readBearerToken(request)
 	if (githubToken === null) return { ok: false, reason: 'missing-token' }
 
-	const headerGistId = (request.headers.get(GIST_ID_HEADER) ?? '').trim()
-	if (headerGistId.length > 0 && !isWellFormedGistId(headerGistId)) {
-		return { ok: false, reason: 'bad-gist-id' }
+	const headerDataRepo = (request.headers.get(DATA_REPO_HEADER) ?? '').trim()
+	if (headerDataRepo.length > 0 && !isWellFormedDataRepo(headerDataRepo)) {
+		return { ok: false, reason: 'bad-data-repo' }
 	}
-	if (headerGistId.length > 0) {
+	if (headerDataRepo.length > 0) {
 		return {
 			ok: true,
-			credentials: { githubToken, dataGistId: headerGistId },
+			credentials: { githubToken, dataRepo: headerDataRepo },
 		}
 	}
 
-	const pinnedGistId = (process.env.AINVESTOR_GIST_ID ?? '').trim()
-	if (pinnedGistId.length > 0) {
+	const pinnedDataRepo = (process.env.AINVESTOR_DATA_REPO ?? '').trim()
+	if (pinnedDataRepo.length > 0) {
 		if (!(await callerIsApproved(githubToken))) {
 			return { ok: false, reason: 'not-approved' }
 		}
 		return {
 			ok: true,
-			credentials: { githubToken, dataGistId: pinnedGistId },
+			credentials: { githubToken, dataRepo: pinnedDataRepo },
 		}
 	}
 
-	// No pinned gist: the caller's own gist is discovered from their own token,
+	// No pinned repo: the caller's own repo is found from their own token,
 	// which is safe for anyone.
-	return { ok: true, credentials: { githubToken, dataGistId: null } }
+	return { ok: true, credentials: { githubToken, dataRepo: null } }
 }
 
 /**
@@ -238,21 +244,21 @@ export async function handleMcpHttpRequest(
 			return protocolError({
 				code: JSON_RPC_ERROR_CODES.invalidRequest,
 				message:
-					'This deployment serves a pinned gist and your GitHub account is not on its allowlist.',
+					'This deployment serves a pinned data repo and your GitHub account is not on its allowlist.',
 				status: 403,
 			})
 		}
-		if (credentials.reason === 'bad-gist-id') {
+		if (credentials.reason === 'bad-data-repo') {
 			return protocolError({
 				code: JSON_RPC_ERROR_CODES.invalidParams,
-				message: `${GIST_ID_HEADER} must be alphanumeric`,
+				message: `${DATA_REPO_HEADER} must be "owner/repo"`,
 				status: 400,
 			})
 		}
 		return protocolError({
 			code: JSON_RPC_ERROR_CODES.invalidRequest,
 			message:
-				'Missing credentials. Send `Authorization: Bearer <GitHub token with the gist scope>`.',
+				'Missing credentials. Send `Authorization: Bearer <GitHub token with the gist and repo scopes>`.',
 			status: 401,
 			headers: { 'WWW-Authenticate': authenticateChallenge(publicOrigin) },
 		})
@@ -306,7 +312,8 @@ export async function handleMcpHttpRequest(
 
 /** RFC 9728 challenge, pointing the client at discovery and the needed scope. */
 function authenticateChallenge(publicOrigin: string | null): string {
-	if (publicOrigin === null) return `Bearer scope="${REQUIRED_GITHUB_SCOPE}"`
+	const scope = REQUIRED_GITHUB_SCOPES.join(' ')
+	if (publicOrigin === null) return `Bearer scope="${scope}"`
 	const metadataUrl = resourceMetadataUrl(publicOrigin)
-	return `Bearer resource_metadata="${metadataUrl}", scope="${REQUIRED_GITHUB_SCOPE}"`
+	return `Bearer resource_metadata="${metadataUrl}", scope="${scope}"`
 }

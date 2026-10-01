@@ -10,15 +10,16 @@ import type { EtfEntry } from '../../app/lib/gist.ts'
 import { GIST_FILENAME } from '../../app/lib/gist.ts'
 import type { EtfGuideline } from '../../app/lib/guidelines.ts'
 import { GUIDELINES_FILENAME } from '../../app/lib/guidelines.ts'
-import type { GistCredentials } from '../data-gist.ts'
-import { resetDataGistIdCache } from '../data-gist.ts'
+import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
+import type { DataRepoCredentials } from '../data-repo.ts'
+import { resetDataRepoCache } from '../data-repo.ts'
 import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
 import type { BuyPlanSummary } from './buy-plan.ts'
 import { createGetBuyPlanTool, summarizeBuyPlan } from './buy-plan.ts'
 
-const credentials: GistCredentials = {
+const credentials: DataRepoCredentials = {
 	githubToken: 'token-value',
-	dataGistId: 'pinned-gist',
+	dataRepo: 'octocat/ainvestor-data',
 }
 
 function holding(overrides: Partial<EtfEntry> = {}): EtfEntry {
@@ -97,29 +98,24 @@ function withoutDiagnostics(summary: BuyPlanSummary) {
 	return summary
 }
 
-/** Serve one gist carrying both the holdings and the guidelines files. */
+/** Serve a fake data repo carrying both the holdings and the guidelines files. */
 function stubGist(params: {
 	holdings: EtfEntry[]
 	guidelines: EtfGuideline[]
 }): string[] {
-	const requestedUrls: string[] = []
-	globalThis.fetch = async (input: Parameters<typeof fetch>[0]) => {
-		requestedUrls.push(String(input))
-		return Response.json({
-			files: {
-				[GIST_FILENAME]: { content: JSON.stringify(params.holdings) },
-				[GUIDELINES_FILENAME]: { content: JSON.stringify(params.guidelines) },
-			},
-		})
-	}
-	return requestedUrls
+	return installFakeDataRepo({
+		files: {
+			[GIST_FILENAME]: JSON.stringify(params.holdings),
+			[GUIDELINES_FILENAME]: JSON.stringify(params.guidelines),
+		},
+	}).requests
 }
 
 const originalFetch = globalThis.fetch
 
 afterEach(() => {
 	globalThis.fetch = originalFetch
-	resetDataGistIdCache()
+	resetDataRepoCache()
 	resetSharedCatalogForTests()
 	resetPrivateGistCacheForTests()
 })
@@ -399,7 +395,11 @@ describe('get_buy_plan tool', () => {
 		const result = await tool.handler({ cashAmount: '5000' })
 
 		assert.ok(
-			requestedUrls.every((url) => url.endsWith('/gists/pinned-gist')),
+			requestedUrls.every(
+				(request) =>
+					request === 'GET /user' ||
+					request.startsWith('GET /repos/octocat/ainvestor-data/'),
+			),
 			`unexpected requests: ${requestedUrls.join(', ')}`,
 		)
 		const payload = JSON.parse(result.content[0].text) as BuyPlanSummary
@@ -473,12 +473,12 @@ describe('get_buy_plan tool', () => {
 		assert.equal(summary.cash.currencySource, 'argument')
 	})
 
-	it('propagates a gist failure so the dispatcher marks it as a tool error', async () => {
+	it('propagates a GitHub failure so the dispatcher marks it as a tool error', async () => {
 		setSharedCatalogForTests({
 			entries: SHORTFALL.catalog,
 			ownerLogin: null,
 		})
-		globalThis.fetch = async () => new Response(null, { status: 404 })
+		installFakeDataRepo({ failWith: 500 })
 		const tool = createGetBuyPlanTool(credentials)
 		await assert.rejects(async () => tool.handler({ cashAmount: '100' }))
 	})

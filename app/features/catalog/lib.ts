@@ -16,6 +16,8 @@ export const CATALOG_FILENAME = 'catalog.json'
 export const CATALOG_SOURCE_FILENAME = 'catalog-source.json'
 /** In-process TTL for {@link fetchSharedCatalogSnapshot} (ms). Override with `SHARED_CATALOG_CACHE_TTL_MS`; use `0` to disable. */
 const DEFAULT_SHARED_CATALOG_CACHE_TTL_MS = 60_000
+/** How long a stale snapshot is served before the next refresh attempt (ms). */
+const STALE_RETRY_MS = 15_000
 
 type SharedCatalogSnapshot = {
 	entries: CatalogEntry[]
@@ -911,7 +913,24 @@ export function isSharedCatalogAdmin(params: {
 	return sessionLogin.trim().toLowerCase() === ownerLogin.trim().toLowerCase()
 }
 
-export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapshot> {
+/**
+ * The shared catalog and its owner, cached in-process for a short TTL.
+ *
+ * The gist is public, but an anonymous read counts against GitHub's 60/hour
+ * limit for the server's IP, which a shared host exhausts; the catalog then
+ * came back empty. So a caller with a GitHub token passes it, which gives the
+ * read that user's own 5000/hour. The answer is the same for any token, so the
+ * cache is shared. A rejected token (revoked, say) falls back to an anonymous
+ * read rather than hiding the catalog.
+ *
+ * When a refresh fails, the last good snapshot is served instead of an empty
+ * catalog: the catalog changes rarely, and an empty one stops every buy and
+ * sell, which need a ticker from it. The next attempt waits
+ * {@link STALE_RETRY_MS} so a limited endpoint is not hit by every request.
+ */
+export async function fetchSharedCatalogSnapshot(
+	token: string | null,
+): Promise<SharedCatalogSnapshot> {
 	if (sharedCatalogTestSnapshot) {
 		return cloneSharedCatalogSnapshot(sharedCatalogTestSnapshot)
 	}
@@ -932,13 +951,33 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 		return cloneSharedCatalogSnapshot(cached.snapshot)
 	}
 
+	const staleOrEmpty = (): SharedCatalogSnapshot => {
+		if (ttlMs > 0 && cached !== null && cached.gistId === gistId) {
+			cached.expiresAt = Date.now() + STALE_RETRY_MS
+			return cloneSharedCatalogSnapshot(cached.snapshot)
+		}
+		return { entries: [], ownerLogin: null }
+	}
+
 	try {
-		const result = await readFile({
-			token: null,
+		let result = await readFile({
+			token,
 			location: gistId,
 			path: CATALOG_FILENAME,
 		})
-		if (!result.ok) return { entries: [], ownerLogin: null }
+		if (!result.ok && result.status === 401 && token !== null) {
+			result = await readFile({
+				token: null,
+				location: gistId,
+				path: CATALOG_FILENAME,
+			})
+		}
+		if (!result.ok) {
+			console.error(
+				`[catalog] Shared catalog read failed: GitHub API error ${result.status}`,
+			)
+			return staleOrEmpty()
+		}
 		const snapshot: SharedCatalogSnapshot = {
 			entries: parseCatalogFromGist({
 				files: result.file
@@ -957,7 +996,7 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
 		return cloneSharedCatalogSnapshot(snapshot)
 	} catch (error) {
 		console.error('[catalog] Shared catalog fetch failed', error)
-		return { entries: [], ownerLogin: null }
+		return staleOrEmpty()
 	}
 }
 
@@ -966,9 +1005,9 @@ export async function fetchSharedCatalogSnapshot(): Promise<SharedCatalogSnapsho
  * An absent file is an empty record. Throws when the file exists but cannot be
  * read or parsed, so an import never overwrites history it failed to load.
  */
-export async function fetchCatalogSourceRows(): Promise<
-	Record<string, unknown>
-> {
+export async function fetchCatalogSourceRows(
+	token: string,
+): Promise<Record<string, unknown>> {
 	if (sharedCatalogTestSnapshot) {
 		return { ...sharedCatalogTestSourceRows }
 	}
@@ -977,7 +1016,7 @@ export async function fetchCatalogSourceRows(): Promise<
 	if (!gistId) return {}
 
 	const result = await readFile({
-		token: null,
+		token,
 		location: gistId,
 		path: CATALOG_SOURCE_FILENAME,
 	})
@@ -1008,7 +1047,7 @@ export async function saveCatalogImport(params: {
 	mergedEntries: CatalogEntry[]
 	sourceRowsById: Record<string, unknown>
 }): Promise<void> {
-	const storedSourceRows = await fetchCatalogSourceRows()
+	const storedSourceRows = await fetchCatalogSourceRows(params.token)
 	await saveCatalog({
 		token: params.token,
 		entries: params.mergedEntries,
@@ -1016,9 +1055,11 @@ export async function saveCatalogImport(params: {
 	})
 }
 
-/** Fetch catalog entries from the shared public gist. */
-export async function fetchCatalog(): Promise<CatalogEntry[]> {
-	const snapshot = await fetchSharedCatalogSnapshot()
+/** Fetch catalog entries from the shared public gist; see {@link fetchSharedCatalogSnapshot} for `token`. */
+export async function fetchCatalog(
+	token: string | null,
+): Promise<CatalogEntry[]> {
+	const snapshot = await fetchSharedCatalogSnapshot(token)
 	return snapshot.entries
 }
 

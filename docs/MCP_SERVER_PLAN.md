@@ -18,6 +18,13 @@ case) would fail to match, silently duplicating the row under the same id. Flip
 a checkbox to `[x]` when its stage ships (same PR as the code, or a tiny
 follow-up).
 
+**Storage moved to repositories.** Per-user data now lives in a private
+repository (`<login>/ainvestor-data`), not a gist — Phase 4 of
+`docs/STORAGE_MIGRATION_PLAN.md`. The decision and variable tables below are
+kept current; the stage notes further down are the record of what shipped at
+the time, so their gist ids, `AINVESTOR_GIST_ID` and `X-Ainvestor-Gist-Id` are
+historical. The shared catalog is still a gist until that plan's Phase 6.
+
 Read before any implementation stage:
 
 - `AGENTS.md` — working agreement, TypeScript style, function signature rule
@@ -39,12 +46,12 @@ These are settled so every thread starts from the same baseline. Change them
 | # | Decision | Choice | Why |
 |---|---|---|---|
 | D1 | Transport | **Both**: stdio for a local client, `POST /mcp` on the deployed app for everything else | stdio needs the client to launch a local subprocess, so it cannot serve a phone at all. The HTTP endpoint (Stage 10) covers that without replacing stdio, and both share one tool definition in `mcp/ainvestor-server.ts`. |
-| D2 | Auth | **The caller's own GitHub token with `gist` scope** — from env over stdio, from the `Authorization` header over HTTP. Remote clients obtain that token by signing in to **GitHub**, which the app names as its authorization server in published discovery metadata | The app never becomes an authorization server and stores no secret. Building one was designed and rejected once GitHub turned out to serve the same purpose: it supports PKCE `S256`, and the connector dialog's Client ID/secret fields take a GitHub OAuth App the user registers. |
+| D2 | Auth | **The caller's own GitHub token with the `gist` and `repo` scopes** (`repo` for the data repository, `gist` for the shared catalog) — from env over stdio, from the `Authorization` header over HTTP. Remote clients obtain that token by signing in to **GitHub**, which the app names as its authorization server in published discovery metadata | The app never becomes an authorization server and stores no secret. Building one was designed and rejected once GitHub turned out to serve the same purpose: it supports PKCE `S256`, and the connector dialog's Client ID/secret fields take a GitHub OAuth App the user registers. |
 | D3 | Write access | **Guideline, catalog and holdings writes are all always exposed**, no env flag | Superseded the original read-only-until-Stage-7 stance: setting targets and fixing the fund list from a client is the point of those tools, and an env flag only made them fail to appear. Guideline writes reach only the gist the caller's own token owns. Catalog writes reach shared, public data, so they carry their own guard instead: the catalog gist's **owner** is the only account GitHub lets write it, and the tools check that first so the refusal names both logins rather than surfacing a bare 404. Every write is a gist **revision**, so an overwritten edit is restorable. Holdings (`record_operation`, `remove_holding`, Stage 7) got their promised separate review before shipping, but landed on the same answer as the guideline writes: they reach only the caller's own gist, through the same read-modify-write-inside-one-call shape with the same no-optimistic-locking caveat that guideline writes already carry with no reported problems, and the web app's own operation form applies a buy/sell with no confirmation step either. `record_operation` additionally requires the ticker to resolve against the shared catalog — it cannot invent a row for an arbitrary name — and `remove_holding` requires the row's own id, the same shape `delete_guideline` already uses, so a stray call cannot address the wrong row by a name collision. |
 | D8 | Local-file tools | **stdio only**, the single sanctioned difference between the transports | `import_catalog_from_bank_file` reads a path on the caller's machine, which the deployed server cannot see, and a DevTools HAR runs to megabytes against the HTTP transport's 256 KB body cap. `createAinvestorMcpServer` takes `allowLocalFileTools` for exactly this; nothing else may vary between stdio and HTTP. |
 | D4 | Location | **`mcp/` in this repo**, importing `app/lib/*` and `app/features/*` directly | Reuses `fetchEtfs`, `fetchGuidelines`, `fetchCatalog`, and the allocation maths with no package boundary. CI catches drift. |
 | D5 | AI advice | **Read stored analyses (`get_saved_advice`), plus fresh generation (`generate_advice`, Stage 9)** | Generation needs `OPENAI_API_KEY` in the MCP client's environment and costs money per call, so it stays a distinct, clearly-labelled tool rather than folded into the free read path — see the disambiguation table below. |
-| D6 | Gist discovery | `AINVESTOR_GIST_ID` when set, otherwise discovery by description | Discovery works (pagination fixed in `app/lib/gist.ts`), but an explicit id avoids listing every gist on every start. |
+| D6 | Data location | `AINVESTOR_DATA_REPO` (or the `X-Ainvestor-Data-Repo` header) when set, otherwise the token owner's `<login>/ainvestor-data`, found with one `GET /user` | The repository name is fixed, so there is nothing to discover. A token without `repo` is refused with a 403-worded error that the HTTP transport turns into a `401` challenge, so the client re-authorizes instead of reading an empty portfolio. The server never creates the repository. |
 | D7 | Protocol implementation | **Hand-rolled JSON-RPC over stdio, zero new dependencies** | `@modelcontextprotocol/sdk` pulls in ~90 packages (express, hono, zod, ajv) for what is newline-delimited JSON on stdin/stdout. This repo deliberately runs on three runtime dependencies. Cost: we own protocol correctness — see the note below. |
 
 **Consequence of D7:** `mcp/protocol.ts` pins the revisions we answer
@@ -67,9 +74,9 @@ Named to match the existing `GH_` / `SHARED_CATALOG_GIST_ID` convention.
 
 | Variable | Required | Description |
 |---|---|---|
-| `GH_TOKEN` | stdio only | GitHub PAT with the **`gist`** scope. Over HTTP the token arrives per request in the `Authorization` header instead, so the deployment never holds one. |
+| `GH_TOKEN` | stdio only | GitHub PAT with the **`gist`** and **`repo`** scopes. Over HTTP the token arrives per request in the `Authorization` header instead, so the deployment never holds one. |
 | `SHARED_CATALOG_GIST_ID` | stdio | Public gist holding `catalog.json`. Required since the catalog tools shipped: without it `fetchCatalog()` quietly returns an empty list, so a search would answer "no such fund" instead of "no catalog configured". |
-| `AINVESTOR_GIST_ID` | No | Private data gist id. When unset, it is discovered by description from the caller's own token. Over HTTP a pinned id is served **only to an approved GitHub login** — see the note under Stage 10. |
+| `AINVESTOR_DATA_REPO` | No | Private data repository, `owner/repo`. When unset, the caller's own `<login>/ainvestor-data` is used. Over HTTP a pinned repository is served **only to an approved GitHub login** — see the note under Stage 10. |
 | `AINVESTOR_PUBLIC_ORIGIN` | Off Fly | The origin advertised in OAuth discovery metadata. Required wherever `FLY_APP_NAME` is absent and the host is not loopback; request headers are never trusted for this. |
 | `OPENAI_API_KEY` | Only for `generate_advice` | The same key the web app's own deployment uses. Every other tool works without it; calling `generate_advice` while it is unset fails with the same error `createAdviceClient()` already raises for the web app. |
 
@@ -168,7 +175,7 @@ mcp/
   protocol.ts          # MCP dispatch (initialize, ping, tools/*, resources/*)
   jsonrpc.ts           # JSON-RPC 2.0 types, error codes, single-line framing
   config.ts            # env resolution and validation
-  data-gist.ts         # resolves the data gist id (never creates one)
+  data-repo.ts         # resolves the data repository (never creates one)
   resources.ts         # ainvestor://portfolio, ://guidelines, ://catalog
   stdout-guard.ts      # keeps console output off the stdio protocol channel
   tools/portfolio.ts   # get_portfolio

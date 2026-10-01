@@ -13,6 +13,7 @@ import {
 	writeFile,
 	writeFiles,
 } from './github-repo-store.ts'
+import { installFakeDataRepo } from './github-repo-test-fake.ts'
 
 type FetchInput = Parameters<typeof fetch>[0]
 type FetchInit = Parameters<typeof fetch>[1]
@@ -602,6 +603,8 @@ describe('findOrCreateDataRepo', () => {
 describe('writeFiles', () => {
 	function stubGitDataSequence(params: {
 		defaultBranch?: string
+		/** Paths in the parent tree; a deletion of any other path is dropped. */
+		existingPaths?: string[]
 		onBlobCreated?: (content: string) => void
 		onTreeRequested?: (body: {
 			base_tree: string
@@ -620,6 +623,17 @@ describe('writeFiles', () => {
 			}
 			if (method === 'GET' && url.endsWith('/git/commits/parent-commit-sha')) {
 				return Response.json({ tree: { sha: 'parent-tree-sha' } })
+			}
+			if (
+				method === 'GET' &&
+				url.endsWith('/git/trees/parent-tree-sha?recursive=1')
+			) {
+				return Response.json({
+					tree: (params.existingPaths ?? []).map((path) => ({
+						path,
+						type: 'blob',
+					})),
+				})
 			}
 			if (method === 'POST' && url.endsWith('/git/blobs')) {
 				const body = jsonBody(init) as { content: string }
@@ -672,6 +686,11 @@ describe('writeFiles', () => {
 			| { tree: Array<{ path: string; sha: string | null }> }
 			| undefined
 		stubGitDataSequence({
+			existingPaths: [
+				'advice-analysis.json',
+				'advice-buy-next.json',
+				'advice-portfolio-review.json',
+			],
 			onTreeRequested: (body) => {
 				treeBody = body
 			},
@@ -688,6 +707,49 @@ describe('writeFiles', () => {
 		assert.deepEqual(result, { ok: true })
 		assert.equal(treeBody?.tree.length, 3)
 		assert.ok(treeBody?.tree.every((entry) => entry.sha === null))
+	})
+
+	it('leaves a deletion of an absent path out of the tree, like writeFile', async () => {
+		let treeBody:
+			| { tree: Array<{ path: string; sha: string | null }> }
+			| undefined
+		stubGitDataSequence({
+			existingPaths: ['advice-buy-next.json', 'etfs.json'],
+			onTreeRequested: (body) => {
+				treeBody = body
+			},
+		})
+		const result = await writeFiles({
+			token: 'token',
+			location: 'octocat/ainvestor-data',
+			files: {
+				'advice-analysis.json': null,
+				'advice-buy-next.json': null,
+				'etfs.json': '[]',
+			},
+		})
+		assert.deepEqual(result, { ok: true })
+		assert.deepEqual(
+			treeBody?.tree.map((entry) => entry.path),
+			['advice-buy-next.json', 'etfs.json'],
+		)
+	})
+
+	it('commits nothing when every deletion targets an absent path', async () => {
+		let treeRequested = false
+		stubGitDataSequence({
+			existingPaths: ['etfs.json'],
+			onTreeRequested: () => {
+				treeRequested = true
+			},
+		})
+		const result = await writeFiles({
+			token: 'token',
+			location: 'octocat/ainvestor-data',
+			files: { 'advice-analysis.json': null },
+		})
+		assert.deepEqual(result, { ok: true })
+		assert.equal(treeRequested, false)
 	})
 
 	it('respects a non-default branch name', async () => {
@@ -780,5 +842,42 @@ describe('writeFiles', () => {
 		assert.equal(result.ok, false)
 		if (result.ok) throw new Error('unreachable')
 		assert.equal(result.status, 422)
+	})
+})
+
+describe('commit messages', () => {
+	const location = 'octocat/ainvestor-data'
+
+	it('uses the message a single-file write is given, for an update and a removal', async () => {
+		const repo = installFakeDataRepo({ files: { 'etfs.json': '[]' } })
+		await writeFile({
+			token: 't',
+			location,
+			path: 'etfs.json',
+			content: '[1]',
+			message: 'Buy VWCE: +1 PLN (web)',
+		})
+		await writeFile({
+			token: 't',
+			location,
+			path: 'etfs.json',
+			content: null,
+			message: 'Remove holding VWCE (web)',
+		})
+		assert.deepEqual(repo.commitMessages, [
+			'Buy VWCE: +1 PLN (web)',
+			'Remove holding VWCE (web)',
+		])
+	})
+
+	it('uses the message a multi-file write is given', async () => {
+		const repo = installFakeDataRepo({})
+		await writeFiles({
+			token: 't',
+			location,
+			files: { 'a.json': '1', 'b.json': '2' },
+			message: 'Save two files (MCP)',
+		})
+		assert.deepEqual(repo.commitMessages, ['Save two files (MCP)'])
 	})
 })

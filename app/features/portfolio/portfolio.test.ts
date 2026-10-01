@@ -14,7 +14,7 @@ import {
 } from '../catalog/lib.ts'
 
 // Every page under test sits behind the sign-in gate; this seeds the sticky
-// cookie jar with an approved session and an empty private gist.
+// cookie jar with an approved session and an empty data repo.
 beforeEach(async () => {
 	await approvedSessionCookie()
 })

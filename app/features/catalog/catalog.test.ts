@@ -19,7 +19,7 @@ import {
 const originalApprovedGithubLogins = process.env.APPROVED_GITHUB_LOGINS
 
 // Every page under test sits behind the sign-in gate; this seeds the sticky
-// cookie jar with an approved session and an empty private gist.
+// cookie jar with an approved session and an empty data repo.
 beforeEach(async () => {
 	await approvedSessionCookie()
 })
@@ -46,7 +46,7 @@ async function signInAs(login: string, params: { isAdmin?: boolean } = {}) {
 	const session = await sessionStorage.read(null)
 	session.set('login', login)
 	session.set('token', 'test-token')
-	session.set('gistId', 'gist-1')
+	session.set('dataRepo', 'gist-1')
 	session.set('isAdmin', params.isAdmin ?? true)
 	process.env.APPROVED_GITHUB_LOGINS = login
 	const value = await sessionStorage.save(session)

@@ -27,7 +27,7 @@ async function main(): Promise<void> {
 	const server = createAinvestorMcpServer({
 		credentials: {
 			githubToken: config.githubToken,
-			dataGistId: config.dataGistId,
+			dataRepo: config.dataRepo,
 		},
 		allowLocalFileTools: true,
 	})

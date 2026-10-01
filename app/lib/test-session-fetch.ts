@@ -2,7 +2,7 @@ import { router } from '../router.ts'
 import {
 	ensurePrivateGistTestStore,
 	setPrivateGistTestStore,
-	TEST_GIST_ID,
+	TEST_DATA_REPO,
 	TEST_TOKEN,
 } from './private-gist-test-store.ts'
 import { sessionCookie, sessionStorage } from './session.ts'
@@ -69,7 +69,23 @@ export async function approvedSessionCookie(
 	return seedSessionCookie((session) => {
 		session.set('login', login)
 		session.set('token', TEST_TOKEN)
-		session.set('gistId', TEST_GIST_ID)
+		session.set('dataRepo', TEST_DATA_REPO)
+	})
+}
+
+/**
+ * Test-only: an approved session pointed at a real data repo path rather than
+ * the in-process overlay, for tests that install `installFakeDataRepo` and
+ * assert on what the web app actually commits there.
+ */
+export async function approvedSessionCookieForFakeRepo(
+	login = 'octocat',
+): Promise<string> {
+	addApprovedGithubLogin(login)
+	return seedSessionCookie((session) => {
+		session.set('login', login)
+		session.set('token', 'fake-repo-token')
+		session.set('dataRepo', `${login}/ainvestor-data`)
 	})
 }
 
@@ -85,7 +101,7 @@ export async function pendingSessionCookie(
 	return seedSessionCookie((session) => {
 		session.set('login', login)
 		session.set('token', TEST_TOKEN)
-		session.set('gistId', TEST_GIST_ID)
+		session.set('dataRepo', TEST_DATA_REPO)
 	})
 }
 

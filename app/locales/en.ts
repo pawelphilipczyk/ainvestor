@@ -77,7 +77,7 @@ export const en = {
 	'chrome.signIn': 'Sign in',
 	'chrome.pendingShort': '(pending)',
 
-	'portfolio.savedGist': 'Saved to your private GitHub Gist',
+	'portfolio.savedGist': 'Saved to your private GitHub repository',
 	'portfolio.pendingNotSaved':
 		'Account pending approval — a portfolio cannot be saved yet',
 	'portfolio.import.title': 'Import from CSV',
@@ -185,7 +185,7 @@ export const en = {
 	'catalog.section.otherAvailable': 'Other Available ETFs',
 	'catalog.section.available': 'Available ETFs',
 
-	'guidelines.subtitle.savedGist': 'Saved to your private GitHub Gist.',
+	'guidelines.subtitle.savedGist': 'Saved to your private GitHub repository.',
 	'guidelines.subtitle.pending':
 		'Account pending approval — guidelines cannot be saved yet.',
 	'guidelines.tabs.navAria': 'Add guideline forms',
@@ -248,9 +248,9 @@ export const en = {
 	'advice.result.subtitleReviewGuidelinesOnly':
 		'Based on your current ETF holdings, catalog, and guidelines.',
 	'advice.restore.fromGistNotice':
-		'Showing your last saved analysis from your data gist (saved {savedAt}). Run Ask AI again after you change holdings or cash.',
+		'Showing your last saved analysis (saved {savedAt}). Run Ask AI again after you change holdings or cash.',
 	'advice.persistFailed.notice':
-		'Could not save this analysis to your data gist. The result below is shown for this visit only; reload may lose it until saving works again.',
+		'Could not save this analysis. The result below is shown for this visit only; reload may lose it until saving works again.',
 	'advice.table.empty': 'No specific ETF proposals in this response.',
 	'advice.table.caption': 'Proposed ETF investments',
 	'advice.table.fund': 'Fund',
@@ -291,6 +291,8 @@ export const en = {
 		'Enter an amount greater than zero to sell.',
 	'errors.portfolio.persistence':
 		'Could not save your portfolio. Please try again in a moment.',
+	'errors.storage.foreignRepo':
+		'Your GitHub account already has a repository named {repo} that this app did not create, so your data cannot be stored there. Rename or delete it, then sign in again.',
 	'errors.portfolio.requiresApproval':
 		'Account pending approval — a portfolio cannot be saved yet.',
 	'errors.portfolio.importInvalid':
@@ -383,12 +385,12 @@ export const en = {
 	'errors.advice.notApproved':
 		'Your account is not approved yet. You cannot request advice until your GitHub username is added to app/lib/approved-github-logins.ts and deployed.',
 	'errors.advice.requiresGithubGist':
-		'AI advice uses your portfolio and guidelines from your private GitHub gist. Sign in with GitHub and set up your data gist from the Portfolio page before running analysis.',
+		'AI advice uses your portfolio and guidelines from your private GitHub repository, which is set up when you sign in. Sign out and sign in with GitHub again before running analysis.',
 	'advice.requiresGist.title': 'Sign in to run AI advice',
 	'advice.requiresGist.bodySignIn':
-		'Advice is generated from your saved portfolio and guidelines. Use Sign in with GitHub in the header, then open Portfolio to create or connect your private gist.',
+		'Advice is generated from your saved portfolio and guidelines. Use Sign in with GitHub in the header; your private data repository is set up when you sign in.',
 	'advice.requiresGist.bodyConnectGist':
-		'Open the Portfolio page to create or connect your private data gist. After that, you can run portfolio review and buy-next analysis here.',
+		'Your private data repository could not be set up when you signed in. Sign out and sign in again to retry; after that, you can run portfolio review and buy-next analysis here.',
 	'advice.requiresGist.linkSignIn': 'Sign in with GitHub',
 	'advice.requiresGist.linkPortfolio': 'Open Portfolio',
 	'errors.advice.service':
