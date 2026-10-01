@@ -10,11 +10,9 @@ const GITHUB_TOKEN_ENDPOINT = 'https://github.com/login/oauth/access_token'
 
 /**
  * The GitHub scopes these tools ask for: `repo` for the private data repo and
- * the shared catalog repo. Nothing reads a gist any more; `gist` stays until
- * the gist backend is deleted (Phase 7 of docs/STORAGE_MIGRATION_PLAN.md), so
- * a token still works if a deploy is rolled back to the gist-catalog build.
+ * the shared catalog repo.
  */
-export const REQUIRED_GITHUB_SCOPES = ['gist', 'repo'] as const
+export const REQUIRED_GITHUB_SCOPES = ['repo'] as const
 
 /** Path of the MCP endpoint, relative to the public origin. */
 const MCP_ENDPOINT_PATH = '/mcp'

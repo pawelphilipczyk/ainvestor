@@ -5,7 +5,7 @@
 import { getSharedCatalogRepo } from '../app/features/catalog/lib.ts'
 
 export type McpConfig = {
-	/** GitHub PAT with the `gist` and `repo` scopes. */
+	/** GitHub PAT with the `repo` scope. */
 	githubToken: string
 	/** Private data repo (`owner/repo`), when pinned explicitly. The token owner's own when null. */
 	dataRepo: string | null
@@ -42,7 +42,7 @@ export function resolveMcpConfig(
 		githubToken: readRequired({
 			env,
 			name: 'GH_TOKEN',
-			hint: 'Create a GitHub personal access token with the `gist` and `repo` scopes.',
+			hint: 'Create a GitHub personal access token with the `repo` scope.',
 		}),
 		dataRepo: readOptional(env, 'AINVESTOR_DATA_REPO'),
 		sharedCatalogRepo: getSharedCatalogRepo(env),

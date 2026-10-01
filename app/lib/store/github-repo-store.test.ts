@@ -5,6 +5,7 @@ import {
 	findDataRepo,
 	findOrCreateDataRepo,
 	getDataRepoName,
+	githubHeaders,
 	isVersionConflict,
 	parseRepoLocation,
 	REPO_MARKER_CONTENT,
@@ -44,6 +45,14 @@ function base64(text: string): string {
 function jsonBody(init?: FetchInit): unknown {
 	return JSON.parse(String(init?.body))
 }
+
+describe('githubHeaders', () => {
+	it('carries the bearer token and API version', () => {
+		const headers = githubHeaders('a-token') as Record<string, string>
+		assert.equal(headers.Authorization, 'Bearer a-token')
+		assert.equal(headers['X-GitHub-Api-Version'], '2022-11-28')
+	})
+})
 
 describe('parseRepoLocation', () => {
 	it('splits a valid owner/repo location', () => {

@@ -45,10 +45,8 @@ export const authController = {
 			context.get(Session).set(OAUTH_STATE_SESSION_KEY, state)
 			const params = new URLSearchParams({
 				client_id: clientId,
-				// `repo` for the data repo and the catalog repo. Nothing reads a
-				// gist any more, but `gist` stays until Phase 7 deletes the gist
-				// backend, so a rollback to the gist-catalog build still works.
-				scope: 'gist repo',
+				// `repo` for the data repo and the catalog repo.
+				scope: 'repo',
 				state,
 			})
 			return createRedirectResponse(

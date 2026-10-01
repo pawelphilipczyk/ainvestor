@@ -79,7 +79,7 @@ describe('GitHub OAuth routes', () => {
 		const location = response.headers.get('location') ?? ''
 		assert.ok(location.startsWith('https://github.com/login/oauth/authorize'))
 		assert.ok(location.includes('client_id=test-client-id'))
-		assert.equal(new URL(location).searchParams.get('scope'), 'gist repo')
+		assert.equal(new URL(location).searchParams.get('scope'), 'repo')
 		const stateMatch = location.match(/(?:^|[?&])state=([^&]+)/)
 		assert.ok(stateMatch, 'expected state query param on authorize URL')
 		const stateValue = decodeURIComponent(stateMatch[1])
