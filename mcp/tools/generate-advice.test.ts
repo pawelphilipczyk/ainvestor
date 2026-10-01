@@ -106,7 +106,7 @@ afterEach(() => {
 
 describe('generate_advice', () => {
 	it('generates buy_next advice and saves it by default, like the web app Generate button', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		const { completions, writes } = stubServer()
 
 		const payload = await callTool({ cashAmount: '500' })
@@ -125,7 +125,7 @@ describe('generate_advice', () => {
 	})
 
 	it('skips saving when save: false is passed', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		const { writes } = stubServer()
 
 		const payload = await callTool({ cashAmount: '500', save: false })
@@ -136,14 +136,14 @@ describe('generate_advice', () => {
 	})
 
 	it('requires cashAmount for buy_next', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		stubServer()
 
 		await assert.rejects(async () => callTool({}), /"cashAmount" is required/)
 	})
 
 	it('ignores cashAmount for portfolio_review and omits cash fields', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		stubServer()
 
 		const payload = await callTool({ mode: 'portfolio_review' })
@@ -155,7 +155,7 @@ describe('generate_advice', () => {
 	})
 
 	it('ignores an invalid cashCurrency for portfolio_review too, as the schema promises', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		stubServer()
 
 		const payload = await callTool({
@@ -168,7 +168,7 @@ describe('generate_advice', () => {
 	})
 
 	it('rejects a model outside the accepted list', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		stubServer()
 
 		await assert.rejects(
@@ -178,7 +178,7 @@ describe('generate_advice', () => {
 	})
 
 	it('rejects a model of the wrong type instead of silently defaulting it', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		stubServer()
 
 		await assert.rejects(
@@ -188,7 +188,7 @@ describe('generate_advice', () => {
 	})
 
 	it('passes a named model through to the completion call', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		const { completions } = stubServer()
 
 		const payload = await callTool({ cashAmount: '100', model: 'gpt-5.6-luna' })
@@ -198,7 +198,7 @@ describe('generate_advice', () => {
 	})
 
 	it('saves to the mode-specific file', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		const { writes } = stubServer()
 
 		const payload = await callTool({ cashAmount: '500' })
@@ -219,7 +219,7 @@ describe('generate_advice', () => {
 	})
 
 	it('saves portfolio_review under its own file, without a cashAmount field', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		const { writes } = stubServer()
 
 		await callTool({ mode: 'portfolio_review' })
@@ -236,7 +236,7 @@ describe('generate_advice', () => {
 	})
 
 	it('commits the saved advice with a message naming its mode and the MCP server', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		const { commitMessages } = stubServer()
 
 		await callTool({ mode: 'portfolio_review' })
@@ -245,7 +245,7 @@ describe('generate_advice', () => {
 	})
 
 	it('reports a failed save without losing the generated text', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		setAdviceClient({
 			chat: {
 				completions: {

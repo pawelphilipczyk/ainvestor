@@ -3,18 +3,19 @@ import type {
 	CatalogEntryValidationIssue,
 } from '../../app/features/catalog/lib.ts'
 import {
+	canWriteSharedCatalog,
 	catalogEntryMatchesQuery,
 	deriveCatalogEntryId,
 	fetchCatalog,
 	fetchSharedCatalogSnapshot,
 	findCatalogEntryByTicker,
-	isSharedCatalogAdmin,
+	getSharedCatalogRepo,
 	saveCatalog,
 	validateCatalogEntry,
 } from '../../app/features/catalog/lib.ts'
 import type { EtfType } from '../../app/lib/guidelines.ts'
 import { ETF_TYPES, isEtfType } from '../../app/lib/guidelines.ts'
-import { resolveCallerLogin } from '../approved-caller.ts'
+import { commitMessage } from '../../app/lib/store/commit-message.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { readStringArgument } from './tool-arguments.ts'
@@ -43,7 +44,7 @@ const ENTRY_DESCRIPTION = `Read one catalog entry in full, by ticker or by id. E
 ${FIELD_CAVEAT}`
 
 const WRITE_CAVEAT =
-	'The catalog is one public gist shared by every user of the app, and only its owner may write to it — a write from anyone else is refused. Saving replaces the whole file with what this call read a moment earlier, so an import running in the web app in between is overwritten rather than merged; the gist keeps every write as a revision, so tell the user to restore it there if that happens.'
+	'The catalog is one private repository shared by every user of the app, and only its maintainers may write to it — a write from anyone else is refused. Saving replaces the whole file with what this call read a moment earlier, so an import running in the web app in between is overwritten rather than merged; the repository keeps every save as a commit, so tell the user to restore it from its history if that happens.'
 
 const UPSERT_DESCRIPTION = `Add a fund to the shared catalog, or update the fields of one already in it.
 
@@ -155,24 +156,20 @@ function requireTickerOrId(toolArguments: Record<string, unknown>): {
 }
 
 /**
- * Loads the catalog together with its owner, and refuses a caller who is not
- * that owner.
+ * Loads the catalog for a write, refusing a caller GitHub would not let push to
+ * the catalog repo — checked first so the refusal names the repo, rather than
+ * surfacing GitHub's bare 404 or 403 from the save.
  */
 export async function loadCatalogForWrite(
 	credentials: DataRepoCredentials,
 ): Promise<CatalogEntry[]> {
-	const [{ entries, ownerLogin }, callerLogin] = await Promise.all([
+	const [{ entries }, canWrite] = await Promise.all([
 		fetchSharedCatalogSnapshot(credentials.githubToken),
-		resolveCallerLogin(credentials.githubToken),
+		canWriteSharedCatalog(credentials.githubToken),
 	])
-	if (callerLogin === null) {
+	if (!canWrite) {
 		throw new Error(
-			'GitHub would not resolve this token to an account (401), so catalog ownership cannot be checked.',
-		)
-	}
-	if (!isSharedCatalogAdmin({ sessionLogin: callerLogin, ownerLogin })) {
-		throw new Error(
-			`The shared catalog belongs to ${ownerLogin ?? 'an unknown account'}, and this token belongs to ${callerLogin}. Only the catalog's owner can change it.`,
+			`This token cannot push to ${getSharedCatalogRepo()}, the shared catalog. Only its maintainers in the ainvestor-shared organization can change it.`,
 		)
 	}
 	return entries
@@ -369,7 +366,14 @@ export function createUpsertCatalogEntryTool(
 			existing === undefined
 				? [merged, ...entries]
 				: entries.map((entry) => (entry.id === existing.id ? merged : entry))
-		await saveCatalog({ token: credentials.githubToken, entries: next })
+		await saveCatalog({
+			token: credentials.githubToken,
+			entries: next,
+			message: commitMessage({
+				summary: `${existing === undefined ? 'Add' : 'Update'} catalog entry ${merged.ticker}`,
+				source: 'MCP',
+			}),
+		})
 
 		return jsonResult({
 			action: existing === undefined ? 'created' : 'updated',
@@ -445,7 +449,14 @@ export function createDeleteCatalogEntryTool(
 		}
 
 		const next = entries.filter((entry) => entry.id !== existing.id)
-		await saveCatalog({ token: credentials.githubToken, entries: next })
+		await saveCatalog({
+			token: credentials.githubToken,
+			entries: next,
+			message: commitMessage({
+				summary: `Remove catalog entry ${existing.ticker}`,
+				source: 'MCP',
+			}),
+		})
 
 		return jsonResult({
 			action: 'deleted',

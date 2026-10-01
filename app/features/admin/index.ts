@@ -6,7 +6,7 @@ import type { AppRequestContext } from '../../lib/request-context.ts'
 import { getLayoutSession, getSessionData } from '../../lib/session.ts'
 import { readFlashedBanner } from '../../lib/session-flash.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
-import { fetchSharedCatalogSnapshot } from '../catalog/lib.ts'
+import { getSharedCatalogRepo } from '../catalog/lib.ts'
 import { AdminETFImportPage } from './admin-etf-import-page.tsx'
 
 export const adminController = {
@@ -14,9 +14,6 @@ export const adminController = {
 		async etfImport(context: AppRequestContext) {
 			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
-			const catalogSnapshot = await fetchSharedCatalogSnapshot(
-				session?.token ?? null,
-			)
 			const isCurrentUserAdmin = Boolean(
 				session?.isAdmin === true || layoutSession?.isAdmin === true,
 			)
@@ -34,7 +31,7 @@ export const adminController = {
 				session: layoutSession,
 				currentPage: 'admin',
 				body: jsx(AdminETFImportPage, {
-					sharedCatalogOwnerLogin: catalogSnapshot.ownerLogin,
+					catalogRepo: getSharedCatalogRepo(),
 				}),
 				flashBanner: readFlashedBanner(context.get(Session)),
 				init: { headers: { 'Cache-Control': 'no-store' } },

@@ -119,24 +119,19 @@ export const en = {
 
 	'catalog.savedGist': 'Your portfolio is matched against the shared catalog.',
 	'catalog.sharedSource':
-		'This catalog is loaded from a shared public GitHub Gist.',
+		'This catalog is loaded from a shared private GitHub repository.',
 	'catalog.import.title': 'Import',
 	'catalog.import.subtitle':
 		'Paste bank API JSON or upload a DevTools HAR (.har) to update the shared catalog (merges with existing rows).',
 	'catalog.import.submit': 'Import',
-	'catalog.import.ownerOnly': 'Import updates from the shared catalog gist.',
-	'catalog.import.ownerMissing':
-		'Import is unavailable until the shared catalog gist owner is configured.',
-	'catalog.import.signInRequired':
-		'Sign in with the shared catalog gist owner account to import updates.',
-	'catalog.import.ownerActive': 'Import updates from the shared catalog gist.',
+	'catalog.import.target': 'Import updates the shared catalog in {repo}.',
 	'catalog.import.pasteLabel.screenReader': 'Paste bank API JSON',
 	'catalog.import.pastePlaceholder':
 		'Paste fetch response JSON here (or use HAR upload below)',
 	'catalog.import.harLabel': 'HAR file',
 	'catalog.empty.title': 'No catalog imported yet.',
 	'catalog.empty.hint':
-		'The shared catalog gist is empty. If you are the gist owner, open Admin and import broker ETF data to populate it.',
+		'The shared catalog is empty. If you maintain it, open Admin and import broker ETF data to populate it.',
 	'catalog.empty.adminImportLink': 'Open Admin ETF import',
 	'catalog.filter.assetType': 'Asset type',
 	'catalog.filter.allTypes': 'All types',
@@ -306,7 +301,7 @@ export const en = {
 	'errors.upload.fileTooLarge':
 		'File upload is too large. Maximum size is 5 MB.',
 	'errors.catalog.importNotAllowed':
-		'Only the shared catalog gist owner can import catalog updates.',
+		'Only the shared catalog’s maintainers can import catalog updates.',
 	'errors.catalog.import.fieldMissing':
 		'Provide pasted bank API JSON or choose a HAR file, then try again.',
 	'errors.catalog.import.emptyJson':

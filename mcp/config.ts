@@ -2,14 +2,19 @@
  * Environment resolution for the MCP server. Read once at startup so a missing
  * variable fails immediately with an actionable message rather than mid-call.
  */
+import { DEFAULT_SHARED_CATALOG_REPO } from '../app/features/catalog/lib.ts'
 
 export type McpConfig = {
 	/** GitHub PAT with the `gist` and `repo` scopes. */
 	githubToken: string
 	/** Private data repo (`owner/repo`), when pinned explicitly. The token owner's own when null. */
 	dataRepo: string | null
-	/** Public gist holding `catalog.json`. */
-	sharedCatalogGistId: string
+	/**
+	 * The shared catalog's repo, `owner/repo`: `SHARED_CATALOG_REPO` when set,
+	 * otherwise the app's own. Read with the same token, so the token's account
+	 * must be able to see it (the `ainvestor-users` team).
+	 */
+	sharedCatalogRepo: string
 }
 
 function readRequired(params: {
@@ -40,11 +45,8 @@ export function resolveMcpConfig(
 			hint: 'Create a GitHub personal access token with the `gist` and `repo` scopes.',
 		}),
 		dataRepo: readOptional(env, 'AINVESTOR_DATA_REPO'),
-		sharedCatalogGistId: readRequired({
-			env,
-			name: 'SHARED_CATALOG_GIST_ID',
-			hint: 'Set it to the public gist holding catalog.json (the same value the web app uses).',
-		}),
+		sharedCatalogRepo:
+			readOptional(env, 'SHARED_CATALOG_REPO') ?? DEFAULT_SHARED_CATALOG_REPO,
 	}
 }
 
@@ -55,6 +57,6 @@ export function describeMcpConfig(config: McpConfig) {
 		dataRepo: config.dataRepo,
 		dataRepoSource:
 			config.dataRepo === null ? 'token owner' : 'AINVESTOR_DATA_REPO',
-		sharedCatalogGistId: config.sharedCatalogGistId,
+		sharedCatalogRepo: config.sharedCatalogRepo,
 	}
 }

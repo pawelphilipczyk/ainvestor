@@ -51,7 +51,6 @@ import {
 	type BankJsonImportRowIssue,
 	type BankJsonParseForImportResult,
 	fetchSharedCatalogSnapshot,
-	isSharedCatalogAdmin,
 	mergeBankIntoCatalog,
 	parseBankJsonForImport,
 	saveCatalogImport,
@@ -316,7 +315,6 @@ async function catalogListFragmentResponse(
 		isAdmin: isAdmin({
 			session,
 			layoutSession,
-			ownerLogin: catalogSnapshot.ownerLogin,
 		}),
 		pendingApproval: layoutSession?.approvalStatus === 'pending',
 	})
@@ -369,7 +367,6 @@ export const catalogController = {
 				isAdmin: isAdmin({
 					session,
 					layoutSession,
-					ownerLogin: catalogSnapshot.ownerLogin,
 				}),
 				pendingApproval: layoutSession?.approvalStatus === 'pending',
 				typeFilter,
@@ -438,16 +435,12 @@ export const catalogController = {
 			if (!sessionData?.token || !sessionData?.login) {
 				return importFailureResponse(t('errors.catalog.importNotAllowed'))
 			}
-			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot(
-				sessionData.token,
-			)
-			const canImport = isSharedCatalogAdmin({
-				sessionLogin: sessionData.login,
-				ownerLogin,
-			})
-			if (!canImport) {
+			// The admin flag comes from sign-in's push-access check; GitHub still
+			// refuses the save itself if that access has since been withdrawn.
+			if (sessionData.isAdmin !== true) {
 				return importFailureResponse(t('errors.catalog.importNotAllowed'))
 			}
+			const { entries } = await fetchSharedCatalogSnapshot(sessionData.token)
 
 			const form = context.get(FormData)
 			const harUpload = form?.get('bankApiHar')
@@ -520,6 +513,7 @@ export const catalogController = {
 					token: sessionData.token,
 					mergedEntries: merged,
 					sourceRowsById: parseResult.sourceRowsById,
+					source: 'web',
 				})
 			} catch (error) {
 				console.error('[catalog] import save failed', error)

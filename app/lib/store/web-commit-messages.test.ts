@@ -63,7 +63,6 @@ describe('web commit messages', () => {
 					description: '',
 				},
 			],
-			ownerLogin: null,
 		})
 		const repo = installFakeDataRepo({ login: 'octocat' })
 
@@ -120,7 +119,7 @@ describe('web commit messages', () => {
 	})
 
 	it('names advice that was saved and then cleared', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		setAdviceClient({
 			chat: {
 				completions: {

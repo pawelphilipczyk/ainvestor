@@ -37,7 +37,6 @@ const adviceUrl = (mode: Parameters<typeof adviceTabHref>[0]) =>
 function seedSharedCatalog(bankJson: string): void {
 	setSharedCatalogForTests({
 		entries: parseBankJsonToCatalog(JSON.parse(bankJson)),
-		ownerLogin: 'catalog-admin',
 	})
 }
 

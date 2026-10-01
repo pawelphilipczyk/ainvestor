@@ -46,6 +46,8 @@ export function installFakeDataRepo(
 		absent?: boolean
 		/** `X-OAuth-Scopes` on `GET /user`; omitted, as a fine-grained token does. */
 		scopes?: string
+		/** `permissions.push` on the repo itself: whether this token may write it. Defaults to true. */
+		canWrite?: boolean
 		/** Runs after a file read (`GET …/contents/…`) is answered, whether or not the file exists — where a test slips in a concurrent write. */
 		afterContentRead?: (path: string, repo: FakeDataRepo) => void
 	} = {},
@@ -112,7 +114,10 @@ export function installFakeDataRepo(
 		}
 		if (options.absent && path.startsWith(repoPrefix)) return notFound()
 		if (method === 'GET' && path === repoPrefix) {
-			return Response.json({ default_branch: 'main' })
+			return Response.json({
+				default_branch: 'main',
+				permissions: { pull: true, push: options.canWrite ?? true },
+			})
 		}
 		if (path.startsWith(`${repoPrefix}/contents/`)) {
 			const filePath = path.slice(`${repoPrefix}/contents/`.length)

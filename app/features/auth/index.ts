@@ -14,10 +14,7 @@ import {
 import { DEFAULT_UI_LOCALE } from '../../lib/ui-locale.ts'
 import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
 import { routes } from '../../routes.ts'
-import {
-	fetchSharedCatalogSnapshot,
-	isSharedCatalogAdmin,
-} from '../catalog/lib.ts'
+import { canWriteSharedCatalog } from '../catalog/lib.ts'
 
 const OAUTH_STATE_SESSION_KEY = 'oauthGithubState'
 
@@ -48,8 +45,9 @@ export const authController = {
 			context.get(Session).set(OAUTH_STATE_SESSION_KEY, state)
 			const params = new URLSearchParams({
 				client_id: clientId,
-				// `repo` for the private data repo; `gist` while the shared catalog
-				// is still a gist (dropped with the gist backend, Phase 7).
+				// `repo` for the data repo and the catalog repo. Nothing reads a
+				// gist any more, but `gist` stays until Phase 7 deletes the gist
+				// backend, so a rollback to the gist-catalog build still works.
 				scope: 'gist repo',
 				state,
 			})
@@ -133,15 +131,14 @@ export const authController = {
 
 			context.get(Session).regenerateId()
 			context.get(Session).set('login', login)
+			// A catalog admin is whoever GitHub lets push to the catalog repo. A
+			// token that cannot see the private repo is simply not one, and a
+			// GitHub failure here must not end an otherwise good sign-in.
 			let isAdmin = false
 			try {
-				const sharedCatalogSnapshot = await fetchSharedCatalogSnapshot(token)
-				isAdmin = isSharedCatalogAdmin({
-					sessionLogin: login,
-					ownerLogin: sharedCatalogSnapshot.ownerLogin,
-				})
+				isAdmin = await canWriteSharedCatalog(token)
 			} catch (error) {
-				console.error('[auth] Shared catalog lookup failed', error)
+				console.error('[auth] Shared catalog access check failed', error)
 			}
 
 			if (!isAdmin && !isGithubLoginApproved(login)) {

@@ -1,9 +1,12 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
+import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
 	buildCatalogGistPatch,
 	CATALOG_FILENAME,
+	CATALOG_SOURCE_FILENAME,
+	canWriteSharedCatalog,
 	catalogMergeKey,
 	deriveEtfTypeFromBank,
 	fetchCatalogSourceRows,
@@ -17,6 +20,7 @@ import {
 	resetSharedCatalogForTests,
 	riskBandFromRiskKid,
 	saveCatalog,
+	saveCatalogImport,
 	setSharedCatalogForTests,
 } from './lib.ts'
 
@@ -54,19 +58,16 @@ describe('parseCatalogRiskFilterParam', () => {
 	})
 })
 
-describe('fetchSharedCatalogSnapshot ttl cache', () => {
+describe('shared catalog repo', () => {
 	const originalFetch = globalThis.fetch
-	const originalGistId = process.env.SHARED_CATALOG_GIST_ID
+	const originalRepo = process.env.SHARED_CATALOG_REPO
 	const originalTtl = process.env.SHARED_CATALOG_CACHE_TTL_MS
 
 	afterEach(() => {
 		globalThis.fetch = originalFetch
 		resetSharedCatalogForTests()
-		if (originalGistId === undefined) {
-			delete process.env.SHARED_CATALOG_GIST_ID
-		} else {
-			process.env.SHARED_CATALOG_GIST_ID = originalGistId
-		}
+		if (originalRepo === undefined) delete process.env.SHARED_CATALOG_REPO
+		else process.env.SHARED_CATALOG_REPO = originalRepo
 		if (originalTtl === undefined) {
 			delete process.env.SHARED_CATALOG_CACHE_TTL_MS
 		} else {
@@ -74,178 +75,146 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 		}
 	})
 
-	it('hits GitHub once and returns independent clones while the cache entry is valid', async () => {
-		let fetchCount = 0
-		globalThis.fetch = async (input: string | URL | Request) => {
-			fetchCount += 1
-			assert.match(String(input), /\/gists\/ttl-gist-test$/)
-			return new Response(
-				JSON.stringify({
-					files: {
-						[CATALOG_FILENAME]: {
-							content: JSON.stringify([
-								{
-									id: '1',
-									ticker: 'ABC',
-									name: 'Alpha',
-									type: 'equity',
-									description: '',
-								},
-							]),
-						},
-					},
-					owner: { login: 'owner' },
-				}),
-				{ status: 200 },
-			)
-		}
-		process.env.SHARED_CATALOG_GIST_ID = 'ttl-gist-test'
-		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+	const abc = {
+		id: '1',
+		ticker: 'ABC',
+		name: 'Alpha',
+		type: 'equity',
+		description: '',
+	}
 
-		const first = await fetchSharedCatalogSnapshot(null)
-		const second = await fetchSharedCatalogSnapshot(null)
-		assert.equal(fetchCount, 1)
-		assert.equal(first.entries.length, 1)
-		assert.equal(second.entries.length, 1)
-		assert.equal(first.entries[0]?.ticker, 'ABC')
-		if (first.entries[0]) {
-			first.entries[0] = { ...first.entries[0], ticker: 'MUT' }
+	/** The catalog repo, served by the fake at its real location. */
+	function catalogRepo(
+		options: Parameters<typeof installFakeDataRepo>[0] = {},
+	) {
+		return installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			files: { [CATALOG_FILENAME]: JSON.stringify([abc]) },
+			...options,
+		})
+	}
+
+	/** Every Authorization header the fake was sent, in order. */
+	function recordAuthorizations(): Array<string | null> {
+		const repoFetch = globalThis.fetch
+		const seen: Array<string | null> = []
+		globalThis.fetch = async (input, init) => {
+			seen.push(new Headers(init?.headers).get('authorization'))
+			return repoFetch(input, init)
 		}
+		return seen
+	}
+
+	it('reads catalog.json from ainvestor-shared/ainvestor-catalog with the caller token', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		const repo = catalogRepo()
+		const authorizations = recordAuthorizations()
+
+		const snapshot = await fetchSharedCatalogSnapshot('user-token')
+
+		assert.equal(snapshot.entries[0]?.ticker, 'ABC')
+		assert.deepEqual(repo.requests, [
+			`GET /repos/ainvestor-shared/ainvestor-catalog/contents/${CATALOG_FILENAME}`,
+		])
+		assert.deepEqual(authorizations, ['Bearer user-token'])
+	})
+
+	it('follows SHARED_CATALOG_REPO to another repo', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		process.env.SHARED_CATALOG_REPO = 'someone/their-catalog'
+		installFakeDataRepo({
+			login: 'someone',
+			repoName: 'their-catalog',
+			files: { [CATALOG_FILENAME]: JSON.stringify([abc]) },
+		})
+		const snapshot = await fetchSharedCatalogSnapshot('user-token')
+		assert.equal(snapshot.entries.length, 1)
+	})
+
+	it('reads nothing without a token, since the private repo cannot be read anonymously', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		const repo = catalogRepo()
+		const snapshot = await fetchSharedCatalogSnapshot(null)
+		assert.deepEqual(snapshot, { entries: [] })
+		assert.deepEqual(repo.requests, [])
+	})
+
+	it('hits GitHub once and returns independent clones while the cache entry is valid', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+		const repo = catalogRepo()
+
+		const first = await fetchSharedCatalogSnapshot('user-token')
+		const second = await fetchSharedCatalogSnapshot('other-token')
+
+		assert.equal(repo.requests.length, 1)
+		if (first.entries[0])
+			first.entries[0] = { ...first.entries[0], ticker: 'MUT' }
 		assert.equal(second.entries[0]?.ticker, 'ABC')
 	})
 
-	it('downloads catalog.json from raw_url when the gist API truncated it', async () => {
-		const fullCatalog = JSON.stringify([
-			{
-				id: '1',
-				ticker: 'ABC',
-				name: 'Alpha',
-				type: 'equity',
-				description: '',
-			},
-		])
-		const requested: string[] = []
-		globalThis.fetch = async (input: string | URL | Request) => {
-			const url = String(input)
-			requested.push(url)
-			if (url === 'https://gist.example/raw/catalog.json') {
-				return new Response(fullCatalog, { status: 200 })
-			}
-			return new Response(
-				JSON.stringify({
-					files: {
-						[CATALOG_FILENAME]: {
-							content: fullCatalog.slice(0, 20),
-							truncated: true,
-							raw_url: 'https://gist.example/raw/catalog.json',
-						},
-					},
-					owner: { login: 'owner' },
-				}),
-				{ status: 200 },
-			)
-		}
-		process.env.SHARED_CATALOG_GIST_ID = 'gist-truncated'
+	it('does not cache when ttl is 0', async () => {
 		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
-
-		const snapshot = await fetchSharedCatalogSnapshot(null)
-		assert.equal(snapshot.entries[0]?.ticker, 'ABC')
-		assert.equal(snapshot.ownerLogin, 'owner')
-		assert.equal(requested.length, 2)
-	})
-
-	it('reads with the caller token, so the request counts against their rate limit and not the server IP', async () => {
-		const authorizations: Array<string | null> = []
-		globalThis.fetch = async (_input, init) => {
-			authorizations.push(new Headers(init?.headers).get('authorization'))
-			return Response.json({
-				files: { [CATALOG_FILENAME]: { content: '[]' } },
-				owner: { login: 'o' },
-			})
-		}
-		process.env.SHARED_CATALOG_GIST_ID = 'gist-token'
-		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
-
+		const repo = catalogRepo()
 		await fetchSharedCatalogSnapshot('user-token')
-		await fetchSharedCatalogSnapshot(null)
-
-		assert.deepEqual(authorizations, ['Bearer user-token', null])
+		await fetchSharedCatalogSnapshot('user-token')
+		assert.equal(repo.requests.length, 2)
 	})
 
-	it('falls back to an anonymous read when GitHub rejects the token, instead of hiding the catalog', async () => {
-		const authorizations: Array<string | null> = []
-		globalThis.fetch = async (_input, init) => {
-			const authorization = new Headers(init?.headers).get('authorization')
-			authorizations.push(authorization)
-			if (authorization !== null) return new Response('', { status: 401 })
-			return Response.json({
-				files: {
-					[CATALOG_FILENAME]: {
-						content: JSON.stringify([
-							{
-								id: '1',
-								ticker: 'ABC',
-								name: 'A',
-								type: 'equity',
-								description: '',
-							},
-						]),
-					},
-				},
-				owner: { login: 'o' },
-			})
-		}
-		process.env.SHARED_CATALOG_GIST_ID = 'gist-revoked'
+	it('logs the status and the repo when a token cannot see it, rather than silently answering empty', async () => {
 		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
-
-		const snapshot = await fetchSharedCatalogSnapshot('revoked-token')
-
-		assert.equal(snapshot.entries[0]?.ticker, 'ABC')
-		assert.deepEqual(authorizations, ['Bearer revoked-token', null])
-	})
-
-	it('logs the status when the read fails, rather than silently answering an empty catalog', async () => {
-		globalThis.fetch = async () => new Response('', { status: 403 })
-		process.env.SHARED_CATALOG_GIST_ID = 'gist-limited'
-		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		// GitHub's answer for a private repo outside the token's reach.
+		catalogRepo({ absent: true })
 		const logged: string[] = []
 		const originalError = console.error
 		console.error = (...parts: unknown[]) => logged.push(parts.join(' '))
 		try {
-			const snapshot = await fetchSharedCatalogSnapshot(null)
-			assert.deepEqual(snapshot, { entries: [], ownerLogin: null })
+			const snapshot = await fetchSharedCatalogSnapshot('outsider-token')
+			assert.deepEqual(snapshot, { entries: [] })
 		} finally {
 			console.error = originalError
 		}
 		assert.equal(logged.length, 1)
-		assert.match(logged[0] ?? '', /403/)
+		assert.match(logged[0] ?? '', /404/)
+		assert.match(logged[0] ?? '', /ainvestor-shared\/ainvestor-catalog/)
+	})
+
+	it('does not cache an empty catalog read by a token that cannot see the repo', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+		const repo = catalogRepo()
+		const repoFetch = globalThis.fetch
+		// An outsider's token gets GitHub's 404 for the private repo.
+		globalThis.fetch = async (input, init) =>
+			new Headers(init?.headers).get('authorization') ===
+			'Bearer outsider-token'
+				? new Response(null, { status: 404 })
+				: repoFetch(input, init)
+		const originalError = console.error
+		console.error = () => {}
+		try {
+			assert.deepEqual(await fetchSharedCatalogSnapshot('outsider-token'), {
+				entries: [],
+			})
+			// A team member right after must still see the catalog.
+			const forMember = await fetchSharedCatalogSnapshot('member-token')
+			assert.equal(forMember.entries[0]?.ticker, 'ABC')
+		} finally {
+			console.error = originalError
+		}
+		assert.equal(repo.requests.length, 1)
 	})
 
 	it('serves the last good snapshot when a refresh fails, then retries after a short wait', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '1000'
+		catalogRepo()
+		const repoFetch = globalThis.fetch
 		let status = 200
 		let fetchCount = 0
-		globalThis.fetch = async () => {
+		globalThis.fetch = async (input, init) => {
 			fetchCount += 1
 			if (status !== 200) return new Response('', { status })
-			return Response.json({
-				files: {
-					[CATALOG_FILENAME]: {
-						content: JSON.stringify([
-							{
-								id: '1',
-								ticker: 'ABC',
-								name: 'A',
-								type: 'equity',
-								description: '',
-							},
-						]),
-					},
-				},
-				owner: { login: 'o' },
-			})
+			return repoFetch(input, init)
 		}
-		process.env.SHARED_CATALOG_GIST_ID = 'gist-stale'
-		process.env.SHARED_CATALOG_CACHE_TTL_MS = '1000'
 		const originalNow = Date.now
 		let now = 1_000_000
 		Date.now = () => now
@@ -253,26 +222,25 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 		console.error = () => {}
 		try {
 			assert.equal(
-				(await fetchSharedCatalogSnapshot(null)).entries[0]?.ticker,
+				(await fetchSharedCatalogSnapshot('user-token')).entries[0]?.ticker,
 				'ABC',
 			)
 
 			// Past the TTL, GitHub starts refusing: the catalog must not vanish.
 			now += 2000
 			status = 403
-			const stale = await fetchSharedCatalogSnapshot(null)
+			const stale = await fetchSharedCatalogSnapshot('user-token')
 			assert.equal(stale.entries[0]?.ticker, 'ABC')
-			assert.equal(stale.ownerLogin, 'o')
 			assert.equal(fetchCount, 2)
 
 			// Within the retry wait, no further request is made.
-			await fetchSharedCatalogSnapshot(null)
+			await fetchSharedCatalogSnapshot('user-token')
 			assert.equal(fetchCount, 2)
 
 			// After it, GitHub is asked again, and a recovery replaces the snapshot.
 			now += 16_000
 			status = 200
-			await fetchSharedCatalogSnapshot(null)
+			await fetchSharedCatalogSnapshot('user-token')
 			assert.equal(fetchCount, 3)
 		} finally {
 			Date.now = originalNow
@@ -280,88 +248,100 @@ describe('fetchSharedCatalogSnapshot ttl cache', () => {
 		}
 	})
 
-	it('does not cache when ttl is 0', async () => {
-		let fetchCount = 0
-		globalThis.fetch = async () => {
-			fetchCount += 1
-			return new Response(
-				JSON.stringify({
-					files: { [CATALOG_FILENAME]: { content: '[]' } },
-					owner: { login: 'o' },
-				}),
-				{ status: 200 },
-			)
-		}
-		process.env.SHARED_CATALOG_GIST_ID = 'gist-no-ttl'
-		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
-
-		await fetchSharedCatalogSnapshot(null)
-		await fetchSharedCatalogSnapshot(null)
-		assert.equal(fetchCount, 2)
-	})
-
-	it('saveCatalog invalidates the cached snapshot so the next read is fresh', async () => {
-		let getCount = 0
-		let served = 'ABC'
-		globalThis.fetch = async (
-			input: string | URL | Request,
-			init?: RequestInit,
-		) => {
-			if (init?.method === 'PATCH') {
-				const body = JSON.parse(String(init.body)) as {
-					files: Record<string, { content: string }>
-				}
-				const patched = JSON.parse(
-					body.files[CATALOG_FILENAME]?.content ?? '[]',
-				) as { ticker: string }[]
-				served = patched[0]?.ticker ?? served
-				return new Response('{}', { status: 200 })
-			}
-			getCount += 1
-			assert.match(String(input), /\/gists\/ttl-gist-save$/)
-			return new Response(
-				JSON.stringify({
-					files: {
-						[CATALOG_FILENAME]: {
-							content: JSON.stringify([
-								{
-									id: '1',
-									ticker: served,
-									name: 'Alpha',
-									type: 'equity',
-									description: '',
-								},
-							]),
-						},
-					},
-					owner: { login: 'owner' },
-				}),
-				{ status: 200 },
-			)
-		}
-		process.env.SHARED_CATALOG_GIST_ID = 'ttl-gist-save'
+	it('saves the catalog and its source rows in one commit, and the next read is fresh', async () => {
 		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
-
-		const before = await fetchSharedCatalogSnapshot(null)
-		assert.equal(before.entries[0]?.ticker, 'ABC')
-		assert.equal(getCount, 1)
+		const repo = catalogRepo()
+		await fetchSharedCatalogSnapshot('admin-token')
 
 		await saveCatalog({
-			token: 'tkn',
-			entries: [
-				{
-					id: '1',
-					ticker: 'XYZ',
-					name: 'Alpha',
-					type: 'equity',
-					description: '',
-				},
-			],
+			token: 'admin-token',
+			entries: [{ ...abc, type: 'equity' as const, ticker: 'XYZ' }],
+			sourceRowsById: { '1': { ticker: 'XYZ' } },
+			message: 'Import catalog (web)',
 		})
 
-		const after = await fetchSharedCatalogSnapshot(null)
-		assert.equal(getCount, 2)
-		assert.equal(after.entries[0]?.ticker, 'XYZ')
+		assert.deepEqual(repo.commitMessages, ['Import catalog (web)'])
+		assert.deepEqual(
+			JSON.parse(repo.files.get(CATALOG_SOURCE_FILENAME) ?? '{}'),
+			{ '1': { ticker: 'XYZ' } },
+		)
+		const fresh = await fetchSharedCatalogSnapshot('admin-token')
+		assert.equal(fresh.entries[0]?.ticker, 'XYZ')
+	})
+
+	it('commits a bank import with its row count and source, keeping earlier source rows', async () => {
+		const repo = catalogRepo({
+			files: {
+				[CATALOG_FILENAME]: '[]',
+				[CATALOG_SOURCE_FILENAME]: JSON.stringify({ old: { ticker: 'OLD' } }),
+			},
+		})
+		await saveCatalogImport({
+			token: 'admin-token',
+			mergedEntries: [{ ...abc, type: 'equity' as const }],
+			sourceRowsById: { a: { ticker: 'A' }, b: { ticker: 'B' } },
+			source: 'MCP',
+		})
+		assert.deepEqual(repo.commitMessages, [
+			'Import bank catalog (2 rows) (MCP)',
+		])
+		assert.deepEqual(
+			Object.keys(
+				JSON.parse(repo.files.get(CATALOG_SOURCE_FILENAME) ?? '{}'),
+			).sort(),
+			['a', 'b', 'old'],
+		)
+	})
+
+	it('reads stored source rows from the catalog repo, an absent file being none', async () => {
+		catalogRepo({
+			files: {
+				[CATALOG_FILENAME]: '[]',
+				[CATALOG_SOURCE_FILENAME]: JSON.stringify({ a: { ticker: 'A' } }),
+			},
+		})
+		assert.deepEqual(await fetchCatalogSourceRows('admin-token'), {
+			a: { ticker: 'A' },
+		})
+		catalogRepo({ files: { [CATALOG_FILENAME]: '[]' } })
+		assert.deepEqual(await fetchCatalogSourceRows('admin-token'), {})
+	})
+})
+
+describe('canWriteSharedCatalog', () => {
+	const originalFetch = globalThis.fetch
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch
+		resetSharedCatalogForTests()
+	})
+
+	function catalogRepo(options: Parameters<typeof installFakeDataRepo>[0]) {
+		return installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			...options,
+		})
+	}
+
+	it('is true for a token GitHub lets push to the catalog repo', async () => {
+		catalogRepo({ canWrite: true })
+		assert.equal(await canWriteSharedCatalog('maintainer-token'), true)
+	})
+
+	it('is false for a token that can only read it, like the ainvestor-users team', async () => {
+		catalogRepo({ canWrite: false })
+		assert.equal(await canWriteSharedCatalog('reader-token'), false)
+	})
+
+	it('is false, not an error, for a token that cannot see the private repo', async () => {
+		catalogRepo({ absent: true })
+		assert.equal(await canWriteSharedCatalog('outsider-token'), false)
+	})
+
+	it('throws on any other GitHub failure, so "no" and "could not ask" stay apart', async () => {
+		catalogRepo({ failWith: 500 })
+		await assert.rejects(canWriteSharedCatalog('maintainer-token'), /500/)
 	})
 })
 
@@ -1047,7 +1027,7 @@ describe('parseBankJsonForImport keeps the bank fields and reports types', () =>
 	})
 
 	it('saveCatalog stores source rows alongside the catalog', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: 'owner' })
+		setSharedCatalogForTests({ entries: [] })
 		try {
 			assert.deepEqual(await fetchCatalogSourceRows('tkn'), {})
 			await saveCatalog({

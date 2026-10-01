@@ -10,6 +10,7 @@ import {
 	missingScopes,
 	parseMigrationArguments,
 	planFileCopies,
+	runCatalogMigration,
 	runMigration,
 } from './gist-to-repo-migration.ts'
 
@@ -38,6 +39,12 @@ type FakeGithub = {
 		files: Record<string, string>
 	} | null
 	repoName: string
+	/** Owner of the target repo; the token's own login when unset. */
+	repoOwner?: string
+	/** `permissions.push` on the target repo. Defaults to true. */
+	canWrite?: boolean
+	/** The repo exists but has no commits: its root listing answers 404. */
+	repoEmpty?: boolean
 	/** `null` until the repo exists. The marker lives here like any other file. */
 	repoFiles: Map<string, string> | null
 	/** Every non-GET request, as `METHOD /path`. */
@@ -66,7 +73,8 @@ function installFakeGithub(state: FakeGithub) {
 			typeof init?.body === 'string' ? JSON.parse(init.body) : undefined
 		if (method !== 'GET') state.mutations.push(`${method} ${path}`)
 
-		const repoPrefix = `/repos/${state.login}/${state.repoName}`
+		const repoOwner = state.repoOwner ?? state.login
+		const repoPrefix = `/repos/${repoOwner}/${state.repoName}`
 		const notFound = () => new Response(null, { status: 404 })
 
 		if (method === 'GET' && path === '/user') {
@@ -99,15 +107,22 @@ function installFakeGithub(state: FakeGithub) {
 		}
 		if (method === 'GET' && path === repoPrefix) {
 			return state.repoFiles
-				? Response.json({ default_branch: 'main' })
+				? Response.json({
+						default_branch: 'main',
+						permissions: { pull: true, push: state.canWrite ?? true },
+					})
 				: notFound()
 		}
 		if (method === 'POST' && path === '/user/repos') {
 			state.repoFiles = new Map([['README.md', '# ainvestor-data\n']])
 			return Response.json({}, { status: 201 })
 		}
+		if (method === 'POST' && path === `/orgs/${repoOwner}/repos`) {
+			state.repoFiles = new Map([['README.md', `# ${body.name}\n`]])
+			return Response.json({}, { status: 201 })
+		}
 		if (method === 'GET' && path === `${repoPrefix}/contents/`) {
-			if (!state.repoFiles) return notFound()
+			if (!state.repoFiles || state.repoEmpty) return notFound()
 			return Response.json(
 				[...state.repoFiles.keys()].map((name) => ({
 					type: 'file',
@@ -130,6 +145,7 @@ function installFakeGithub(state: FakeGithub) {
 						})
 			}
 			if (method === 'PUT') {
+				state.repoEmpty = false
 				state.repoFiles.set(filePath, fromBase64(body.content))
 				return Response.json({ content: { sha: `sha-${filePath}` } })
 			}
@@ -233,12 +249,13 @@ describe('parseMigrationArguments', () => {
 	it('reads --env and the two switches', () => {
 		assert.deepEqual(
 			parseMigrationArguments(['--env', 'preview', '--apply', '--force']),
-			{ environment: 'preview', apply: true, force: true },
+			{ kind: 'data', environment: 'preview', apply: true, force: true },
 		)
 	})
 
 	it('defaults to a dry run without --force', () => {
 		assert.deepEqual(parseMigrationArguments(['--env=prod']), {
+			kind: 'data',
 			environment: 'prod',
 			apply: false,
 			force: false,
@@ -252,6 +269,36 @@ describe('parseMigrationArguments', () => {
 
 	it('rejects an unknown flag rather than ignoring a typo', () => {
 		assert.throws(() => parseMigrationArguments(['--env', 'prod', '--aply']))
+	})
+
+	it('reads --catalog with the gist to copy, and no environment', () => {
+		assert.deepEqual(
+			parseMigrationArguments(['--catalog', '--gist', 'abc123', '--apply']),
+			{ kind: 'catalog', gistId: 'abc123', apply: true, force: false },
+		)
+	})
+
+	it('refuses --catalog without a gist, or with an environment', () => {
+		assert.throws(() => parseMigrationArguments(['--catalog']), /--gist/)
+		assert.throws(
+			() => parseMigrationArguments(['--catalog', '--gist', 'a/b']),
+			/--gist/,
+		)
+		assert.throws(
+			() =>
+				parseMigrationArguments([
+					'--catalog',
+					'--gist',
+					'abc',
+					'--env',
+					'prod',
+				]),
+			/share one catalog repo/,
+		)
+		assert.throws(
+			() => parseMigrationArguments(['--env', 'prod', '--gist', 'abc']),
+			/only goes with --catalog/,
+		)
 	})
 })
 
@@ -448,5 +495,126 @@ describe('runMigration', () => {
 	it('stops when no gist has the environment description', async () => {
 		const state = fakeGithub({ gist: null })
 		await assert.rejects(migrate(state), /No gist described "ai-investor-data"/)
+	})
+})
+
+describe('runCatalogMigration', () => {
+	const CATALOG_GIST_FILES = {
+		'catalog.json': '[{"id":"t:VWCE","ticker":"VWCE"}]',
+		'catalog-source.json': '{"t:VWCE":{"ticker":"VWCE"}}',
+	}
+
+	function catalogGithub(overrides: Partial<FakeGithub> = {}): FakeGithub {
+		return fakeGithub({
+			gist: {
+				id: 'catalog-gist',
+				description: 'shared catalog',
+				files: { ...CATALOG_GIST_FILES },
+			},
+			repoOwner: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			...overrides,
+		})
+	}
+
+	async function migrateCatalog(
+		state: FakeGithub,
+		options: { apply?: boolean; force?: boolean; gistId?: string } = {},
+	) {
+		installFakeGithub(state)
+		const lines: string[] = []
+		const succeeded = await runCatalogMigration({
+			gistId: options.gistId ?? 'catalog-gist',
+			apply: options.apply ?? false,
+			force: options.force ?? false,
+			token: 'test-token',
+			log: (line) => lines.push(line),
+		})
+		return { succeeded, output: lines.join('\n') }
+	}
+
+	it('dry run: plans both catalog files and creates nothing', async () => {
+		const state = catalogGithub()
+		const { succeeded, output } = await migrateCatalog(state)
+		assert.equal(succeeded, true)
+		assert.match(
+			output,
+			/Target: +ainvestor-shared\/ainvestor-catalog \(does not exist yet/,
+		)
+		assert.match(output, /create +catalog\.json/)
+		assert.match(output, /create +catalog-source\.json/)
+		assert.deepEqual(state.mutations, [])
+	})
+
+	it('apply: creates the private repo in the organization, copies in one commit, and verifies', async () => {
+		const state = catalogGithub()
+		const { succeeded, output } = await migrateCatalog(state, { apply: true })
+		assert.equal(succeeded, true)
+		assert.equal(state.mutations[0], 'POST /orgs/ainvestor-shared/repos')
+		assert.equal(
+			state.repoFiles?.get('catalog.json'),
+			CATALOG_GIST_FILES['catalog.json'],
+		)
+		assert.equal(
+			state.mutations.filter((mutation) => mutation.includes('/git/refs/'))
+				.length,
+			1,
+		)
+		assert.match(
+			output,
+			/Verified: the 2 data file\(s\) in ainvestor-shared\/ainvestor-catalog/,
+		)
+		assert.equal(
+			state.mutations.some((mutation) => mutation.startsWith('PATCH /gists')),
+			false,
+		)
+	})
+
+	it('initialises an existing repo that has no commits before copying into it', async () => {
+		const state = catalogGithub({ repoFiles: new Map(), repoEmpty: true })
+		const { succeeded, output } = await migrateCatalog(state, { apply: true })
+		assert.equal(succeeded, true)
+		assert.match(output, /Initialised ainvestor-shared\/ainvestor-catalog/)
+		assert.equal(state.repoFiles?.has('catalog.json'), true)
+	})
+
+	it('refuses to overwrite a catalog already in the repo, without --force', async () => {
+		const state = catalogGithub({
+			repoFiles: new Map([
+				['README.md', '# ainvestor-catalog'],
+				['catalog.json', '[]'],
+			]),
+		})
+		const { succeeded, output } = await migrateCatalog(state, { apply: true })
+		assert.equal(succeeded, false)
+		assert.match(output, /Refusing/)
+		assert.equal(state.repoFiles?.get('catalog.json'), '[]')
+	})
+
+	it('stops when the token can read the repo but not push to it', async () => {
+		const state = catalogGithub({
+			repoFiles: new Map([['README.md', '# ainvestor-catalog']]),
+			canWrite: false,
+		})
+		await assert.rejects(
+			migrateCatalog(state, { apply: true }),
+			/not push to it/,
+		)
+		assert.deepEqual(state.mutations, [])
+	})
+
+	it('refuses a gist without catalog.json, which is the wrong id', async () => {
+		const state = catalogGithub({
+			gist: {
+				id: 'data-gist',
+				description: 'ai-investor-data',
+				files: { ...GIST_FILES },
+			},
+		})
+		await assert.rejects(
+			migrateCatalog(state, { apply: true, gistId: 'data-gist' }),
+			/not a catalog gist/,
+		)
+		assert.deepEqual(state.mutations, [])
 	})
 })

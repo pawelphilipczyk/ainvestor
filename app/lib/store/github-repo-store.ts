@@ -163,6 +163,32 @@ async function getRepoMetadata(params: {
 }
 
 /**
+ * What this token may do with a repo: `found: false` when GitHub answers 404 —
+ * which for a private repo means "not visible to you" as much as "does not
+ * exist", so the two are deliberately one case. `canWrite` is GitHub's own
+ * `permissions.push` for the token's user: whoever GitHub lets push is whoever
+ * may change what the repo holds. Throws on any other refusal, with the status.
+ */
+export async function getRepoAccess(params: {
+	token: string
+	location: string
+}): Promise<{ found: false } | { found: true; canWrite: boolean }> {
+	const { owner, repo } = repoLocationOrThrow(params.location)
+	const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}`, {
+		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+		headers: githubHeaders(params.token),
+	})
+	if (response.status === 404) return { found: false }
+	if (!response.ok) {
+		throw new Error(
+			`GitHub API error reading ${owner}/${repo}: ${response.status}`,
+		)
+	}
+	const body = (await response.json()) as { permissions?: { push?: unknown } }
+	return { found: true, canWrite: body.permissions?.push === true }
+}
+
+/**
  * Whether the repo carries this app's ownership marker file. A repo that
  * exists but confirms it lacks the marker (`found: false`, a 404) is never
  * treated as ours — see {@link findOrCreateDataRepo}. A request that fails

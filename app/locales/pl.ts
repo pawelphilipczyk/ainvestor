@@ -113,26 +113,19 @@ export const pl = {
 	'forms.targetPct.placeholderAsset': 'np. 40',
 	'catalog.savedGist': 'Twój portfel jest dopasowywany do wspólnego katalogu.',
 	'catalog.sharedSource':
-		'Ten katalog jest wczytywany ze wspólnego publicznego gistu GitHub.',
+		'Ten katalog jest wczytywany ze wspólnego prywatnego repozytorium GitHub.',
 	'catalog.import.title': 'Import',
 	'catalog.import.subtitle':
 		'Wklej JSON API banku lub prześlij plik HAR z narzędzi deweloperskich (.har), aby zaktualizować wspólny katalog (scala z istniejącymi wierszami).',
 	'catalog.import.submit': 'Importuj',
-	'catalog.import.ownerOnly':
-		'Import aktualizacji ze wspólnego gistu katalogu.',
-	'catalog.import.ownerMissing':
-		'Import jest niedostępny, dopóki nie skonfiguruje się właściciela wspólnego gistu katalogu.',
-	'catalog.import.signInRequired':
-		'Zaloguj się kontem właściciela wspólnego gistu katalogu, aby importować aktualizacje.',
-	'catalog.import.ownerActive':
-		'Import aktualizacji ze wspólnego gistu katalogu.',
+	'catalog.import.target': 'Import aktualizuje wspólny katalog w {repo}.',
 	'catalog.import.pasteLabel.screenReader': 'Wklej JSON API banku',
 	'catalog.import.pastePlaceholder':
 		'Wklej tutaj JSON odpowiedzi fetch (albo użyj wgrywania HAR poniżej)',
 	'catalog.import.harLabel': 'Plik HAR',
 	'catalog.empty.title': 'Nie zaimportowano jeszcze katalogu.',
 	'catalog.empty.hint':
-		'Wspólny gist katalogu jest pusty. Jeśli jesteś właścicielem gistu, otwórz Admin i zaimportuj dane ETF brokera, aby go wypełnić.',
+		'Wspólny katalog jest pusty. Jeśli go prowadzisz, otwórz Admin i zaimportuj dane ETF brokera, aby go wypełnić.',
 	'catalog.empty.adminImportLink': 'Otwórz import ETF w panelu Admin',
 	'catalog.filter.assetType': 'Typ aktywów',
 	'catalog.filter.allTypes': 'Wszystkie typy',
@@ -299,7 +292,7 @@ export const pl = {
 	'errors.upload.fileTooLarge':
 		'Przesłany plik jest za duży. Maksymalny rozmiar to 5 MB.',
 	'errors.catalog.importNotAllowed':
-		'Tylko właściciel wspólnego gistu katalogu może importować aktualizacje.',
+		'Tylko opiekunowie wspólnego katalogu mogą importować aktualizacje.',
 	'errors.catalog.import.fieldMissing':
 		'Wklej JSON API banku lub wybierz plik HAR, a następnie spróbuj ponownie.',
 	'errors.catalog.import.emptyJson':

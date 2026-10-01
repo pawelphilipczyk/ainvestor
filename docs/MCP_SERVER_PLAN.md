@@ -47,7 +47,7 @@ These are settled so every thread starts from the same baseline. Change them
 |---|---|---|---|
 | D1 | Transport | **Both**: stdio for a local client, `POST /mcp` on the deployed app for everything else | stdio needs the client to launch a local subprocess, so it cannot serve a phone at all. The HTTP endpoint (Stage 10) covers that without replacing stdio, and both share one tool definition in `mcp/ainvestor-server.ts`. |
 | D2 | Auth | **The caller's own GitHub token with the `gist` and `repo` scopes** (`repo` for the data repository, `gist` for the shared catalog) — from env over stdio, from the `Authorization` header over HTTP. Remote clients obtain that token by signing in to **GitHub**, which the app names as its authorization server in published discovery metadata | The app never becomes an authorization server and stores no secret. Building one was designed and rejected once GitHub turned out to serve the same purpose: it supports PKCE `S256`, and the connector dialog's Client ID/secret fields take a GitHub OAuth App the user registers. |
-| D3 | Write access | **Guideline, catalog and holdings writes are all always exposed**, no env flag | Superseded the original read-only-until-Stage-7 stance: setting targets and fixing the fund list from a client is the point of those tools, and an env flag only made them fail to appear. Guideline writes reach only the gist the caller's own token owns. Catalog writes reach shared, public data, so they carry their own guard instead: the catalog gist's **owner** is the only account GitHub lets write it, and the tools check that first so the refusal names both logins rather than surfacing a bare 404. Every write is a gist **revision**, so an overwritten edit is restorable. Holdings (`record_operation`, `remove_holding`, Stage 7) got their promised separate review before shipping, but landed on the same answer as the guideline writes: they reach only the caller's own gist, through the same read-modify-write-inside-one-call shape with the same no-optimistic-locking caveat that guideline writes already carry with no reported problems, and the web app's own operation form applies a buy/sell with no confirmation step either. `record_operation` additionally requires the ticker to resolve against the shared catalog — it cannot invent a row for an arbitrary name — and `remove_holding` requires the row's own id, the same shape `delete_guideline` already uses, so a stray call cannot address the wrong row by a name collision. **Since storage Phase 5**, holdings and guideline writes are compare-and-swap (`updateEtfs` / `updateGuidelines`): the no-optimistic-locking caveat above, and the "restore from history" advice that went with it, no longer apply to them — see `docs/STORAGE_MIGRATION_PLAN.md`. |
+| D3 | Write access | **Guideline, catalog and holdings writes are all always exposed**, no env flag | Superseded the original read-only-until-Stage-7 stance: setting targets and fixing the fund list from a client is the point of those tools, and an env flag only made them fail to appear. Guideline writes reach only the gist the caller's own token owns. Catalog writes reach shared, public data, so they carry their own guard instead: the catalog gist's **owner** is the only account GitHub lets write it, and the tools check that first so the refusal names both logins rather than surfacing a bare 404. Every write is a gist **revision**, so an overwritten edit is restorable. Holdings (`record_operation`, `remove_holding`, Stage 7) got their promised separate review before shipping, but landed on the same answer as the guideline writes: they reach only the caller's own gist, through the same read-modify-write-inside-one-call shape with the same no-optimistic-locking caveat that guideline writes already carry with no reported problems, and the web app's own operation form applies a buy/sell with no confirmation step either. `record_operation` additionally requires the ticker to resolve against the shared catalog — it cannot invent a row for an arbitrary name — and `remove_holding` requires the row's own id, the same shape `delete_guideline` already uses, so a stray call cannot address the wrong row by a name collision. **Since storage Phase 5**, holdings and guideline writes are compare-and-swap (`updateEtfs` / `updateGuidelines`): the no-optimistic-locking caveat above, and the "restore from history" advice that went with it, no longer apply to them — see `docs/STORAGE_MIGRATION_PLAN.md`. **Since storage Phase 6**, the catalog is a private repository (`ainvestor-shared/ainvestor-catalog`) rather than a public gist: the guard is push access to that repository, which `canWriteSharedCatalog` asks GitHub for, and the refusal names the repository; every save is a commit there rather than a gist revision. |
 | D8 | Local-file tools | **stdio only**, the single sanctioned difference between the transports | `import_catalog_from_bank_file` reads a path on the caller's machine, which the deployed server cannot see, and a DevTools HAR runs to megabytes against the HTTP transport's 256 KB body cap. `createAinvestorMcpServer` takes `allowLocalFileTools` for exactly this; nothing else may vary between stdio and HTTP. |
 | D4 | Location | **`mcp/` in this repo**, importing `app/lib/*` and `app/features/*` directly | Reuses `fetchEtfs`, `fetchGuidelines`, `fetchCatalog`, and the allocation maths with no package boundary. CI catches drift. |
 | D5 | AI advice | **Read stored analyses (`get_saved_advice`), plus fresh generation (`generate_advice`, Stage 9)** | Generation needs `OPENAI_API_KEY` in the MCP client's environment and costs money per call, so it stays a distinct, clearly-labelled tool rather than folded into the free read path — see the disambiguation table below. |
@@ -70,12 +70,12 @@ behaviour. Sources of record:
 
 ### Environment variables
 
-Named to match the existing `GH_` / `SHARED_CATALOG_GIST_ID` convention.
+Named to match the existing `GH_` / `SHARED_CATALOG_` convention.
 
 | Variable | Required | Description |
 |---|---|---|
 | `GH_TOKEN` | stdio only | GitHub PAT with the **`gist`** and **`repo`** scopes. Over HTTP the token arrives per request in the `Authorization` header instead, so the deployment never holds one. |
-| `SHARED_CATALOG_GIST_ID` | stdio | Public gist holding `catalog.json`. Required since the catalog tools shipped: without it `fetchCatalog()` quietly returns an empty list, so a search would answer "no such fund" instead of "no catalog configured". |
+| `SHARED_CATALOG_REPO` | No | The shared catalog repository, `owner/repo`; defaults to `ainvestor-shared/ainvestor-catalog`. Read with the caller's token, so its account must be on the `ainvestor-users` team. Replaced `SHARED_CATALOG_GIST_ID`, which was required, in storage Phase 6. |
 | `AINVESTOR_DATA_REPO` | No | Private data repository, `owner/repo`. When unset, the caller's own `<login>/ainvestor-data` is used. Over HTTP a pinned repository is served **only to an approved GitHub login** — see the note under Stage 10. |
 | `AINVESTOR_PUBLIC_ORIGIN` | Off Fly | The origin advertised in OAuth discovery metadata. Required wherever `FLY_APP_NAME` is absent and the host is not loopback; request headers are never trusted for this. |
 | `OPENAI_API_KEY` | Only for `generate_advice` | The same key the web app's own deployment uses. Every other tool works without it; calling `generate_advice` while it is unset fails with the same error `createAdviceClient()` already raises for the web app. |
@@ -100,11 +100,13 @@ filename. It is a secret gist, so it does not appear on a public profile.
 | `advice-portfolio-review.json` | same | same |
 | `advice-analysis.json`, `portfolio-review.json` | legacy | read-only fallbacks |
 
-### One shared public gist
+### One shared private repository
 
-`catalog.json`, id from `SHARED_CATALOG_GIST_ID`. Read with `fetchCatalog()` —
-no token required, cached in-process for 60s, cleared on every successful
-`saveCatalog()` so a write is never served stale for the rest of the TTL.
+`catalog.json` in `ainvestor-shared/ainvestor-catalog` (storage Phase 6; it was a
+public gist before). Read with `fetchCatalog(token)` using the caller's own
+token, cached in-process for 60s, cleared on every successful `saveCatalog()`
+so a write is never served stale for the rest of the TTL. Writes need push
+access to the repository — `canWriteSharedCatalog` asks GitHub.
 `CatalogEntry` carries `ticker`,
 `name`, `type`, `description`, and optionally `isin`, `expense_ratio`,
 `risk_kid` (1–7), `region`, `sector`, `rate_of_return`, `volatility`,
@@ -277,7 +279,7 @@ alongside them in `mcp/private-gist-cache.ts`) right after a successful save.
 and one per ticker, so setting an existing one updates its target. The 100% cap
 is checked against the rows that will remain, so raising an existing target does
 not count its old value twice. Instrument rows resolve their ticker and asset
-class through the shared catalog when `SHARED_CATALOG_GIST_ID` is set; with an
+class through the shared catalog; with an
 unlisted ticker the caller must name `etfType` and the response says the class
 was not verified — the web app's form simply refuses that case, but over MCP the
 catalog may not be configured at all.

@@ -1,16 +1,18 @@
 /**
- * Copies the owner's data gist into their private data repo for one
- * environment. See `scripts/gist-to-repo-migration.ts` and Phase 3 of
+ * Copies a gist into a repo: the owner's data gist for one environment, or
+ * (with `--catalog`) the shared catalog gist into the organization's catalog
+ * repo. See `scripts/gist-to-repo-migration.ts` and Phases 3 and 6 of
  * `docs/STORAGE_MIGRATION_PLAN.md`.
  */
 import {
 	MIGRATION_USAGE,
-	type MigrationOptions,
+	type ParsedMigrationArguments,
 	parseMigrationArguments,
+	runCatalogMigration,
 	runMigration,
 } from './gist-to-repo-migration.ts'
 
-let options: MigrationOptions | null = null
+let options: ParsedMigrationArguments | null = null
 try {
 	options = parseMigrationArguments(process.argv.slice(2))
 } catch (error) {
@@ -26,12 +28,12 @@ if (options !== null && token.length === 0) {
 	)
 	process.exitCode = 1
 } else if (options !== null) {
+	const log = (line: string) => console.log(line)
 	try {
-		const succeeded = await runMigration({
-			...options,
-			token,
-			log: (line) => console.log(line),
-		})
+		const succeeded =
+			options.kind === 'catalog'
+				? await runCatalogMigration({ ...options, token, log })
+				: await runMigration({ ...options, token, log })
 		if (!succeeded) process.exitCode = 1
 	} catch (error) {
 		console.error(error instanceof Error ? error.message : error)

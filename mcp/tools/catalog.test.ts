@@ -11,7 +11,9 @@ import {
 	fetchCatalogSourceRows,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
+	setSharedCatalogWriteAccessForTests,
 } from '../../app/features/catalog/lib.ts'
+import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
 import { resetApprovedCallerCache } from '../approved-caller.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import {
@@ -22,8 +24,6 @@ import {
 	summarizeCatalogSearch,
 } from './catalog.ts'
 import { createImportCatalogFromBankFileTool } from './catalog-import.ts'
-
-const OWNER = 'catalog-owner'
 
 const credentials: DataRepoCredentials = {
 	githubToken: 'owner-token',
@@ -61,15 +61,14 @@ const CATALOG = [
 	}),
 ]
 
-/** Seed the shared catalog and answer the caller-login lookup as `login`. */
+/** Seed the shared catalog, and whether this token may push to its repo. */
 function stubCatalog(
-	params: { login?: string; entries?: CatalogEntry[] } = {},
+	params: { canWrite?: boolean; entries?: CatalogEntry[] } = {},
 ) {
 	setSharedCatalogForTests({
 		entries: params.entries ?? CATALOG,
-		ownerLogin: OWNER,
 	})
-	globalThis.fetch = async () => Response.json({ login: params.login ?? OWNER })
+	setSharedCatalogWriteAccessForTests(params.canWrite ?? true)
 }
 
 const originalFetch = globalThis.fetch
@@ -168,22 +167,20 @@ describe('list_catalog tool', () => {
 		)
 	})
 
-	it('reads the catalog with the caller token rather than anonymously', async () => {
-		const originalFetch = globalThis.fetch
-		const originalGistId = process.env.SHARED_CATALOG_GIST_ID
+	it('reads the catalog from the catalog repo with the caller token', async () => {
 		const originalTtl = process.env.SHARED_CATALOG_CACHE_TTL_MS
-		const authorizations: Array<string | null> = []
-		globalThis.fetch = async (_input, init) => {
-			authorizations.push(new Headers(init?.headers).get('authorization'))
-			return Response.json({
-				files: {
-					[CATALOG_FILENAME]: { content: JSON.stringify([entry()]) },
-				},
-				owner: { login: OWNER },
-			})
-		}
-		process.env.SHARED_CATALOG_GIST_ID = 'public-catalog-gist'
 		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			files: { [CATALOG_FILENAME]: JSON.stringify([entry()]) },
+		})
+		const repoFetch = globalThis.fetch
+		const authorizations: Array<string | null> = []
+		globalThis.fetch = async (input, init) => {
+			authorizations.push(new Headers(init?.headers).get('authorization'))
+			return repoFetch(input, init)
+		}
 		try {
 			const payload = payloadOf(
 				await createListCatalogTool(credentials).handler({}),
@@ -191,10 +188,6 @@ describe('list_catalog tool', () => {
 			assert.equal(payload.catalogSize, 1)
 			assert.deepEqual(authorizations, ['Bearer owner-token'])
 		} finally {
-			globalThis.fetch = originalFetch
-			if (originalGistId === undefined)
-				delete process.env.SHARED_CATALOG_GIST_ID
-			else process.env.SHARED_CATALOG_GIST_ID = originalGistId
 			if (originalTtl === undefined)
 				delete process.env.SHARED_CATALOG_CACHE_TTL_MS
 			else process.env.SHARED_CATALOG_CACHE_TTL_MS = originalTtl
@@ -248,15 +241,15 @@ describe('get_catalog_entry tool', () => {
 })
 
 describe('catalog writes', () => {
-	it('refuses a caller who does not own the shared gist, naming both accounts', async () => {
-		stubCatalog({ login: 'someone-else' })
+	it('refuses a token GitHub would not let push to the catalog repo, naming the repo', async () => {
+		stubCatalog({ canWrite: false })
 		await assert.rejects(
 			async () =>
 				createUpsertCatalogEntryTool(credentials).handler({
 					ticker: 'VWCE',
 					expense_ratio: '0,22%',
 				}),
-			/belongs to catalog-owner, and this token belongs to someone-else/,
+			/cannot push to ainvestor-shared\/ainvestor-catalog/,
 		)
 		// Nothing was written.
 		const catalog = await fetchCatalog(credentials.githubToken)
@@ -266,14 +259,14 @@ describe('catalog writes', () => {
 		)
 	})
 
-	it('refuses when GitHub will not resolve the token to an account', async () => {
-		setSharedCatalogForTests({ entries: CATALOG, ownerLogin: OWNER })
-		globalThis.fetch = async () => new Response(null, { status: 401 })
+	it('refuses a delete from a token without push access too', async () => {
+		stubCatalog({ canWrite: false })
 		await assert.rejects(
 			async () =>
 				createDeleteCatalogEntryTool(credentials).handler({ ticker: 'VWCE' }),
-			/would not resolve this token to an account/,
+			/cannot push to ainvestor-shared\/ainvestor-catalog/,
 		)
+		assert.equal((await fetchCatalog(credentials.githubToken)).length, 3)
 	})
 
 	it('updates only the named fields of an existing fund, keeping its id', async () => {
@@ -515,14 +508,14 @@ describe('import_catalog_from_bank_file tool', () => {
 		assert.deepEqual(await fetchCatalogSourceRows(credentials.githubToken), {})
 	})
 
-	it('checks catalog ownership before it touches the filesystem', async () => {
-		stubCatalog({ login: 'someone-else' })
+	it('checks catalog write access before it touches the filesystem', async () => {
+		stubCatalog({ canWrite: false })
 		await assert.rejects(
 			async () =>
 				createImportCatalogFromBankFileTool(credentials).handler({
 					filePath: '/nonexistent/path.json',
 				}),
-			/Only the catalog's owner can change it/,
+			/Only its maintainers in the ainvestor-shared organization can change it/,
 		)
 	})
 

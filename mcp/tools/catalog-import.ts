@@ -29,7 +29,7 @@ const DESCRIPTION = `Refresh the shared ETF catalog from a bank export saved on 
 
 Reads a local file, so it exists only when the server runs locally over stdio. Rows are matched by ISIN plus ticker: a fund already in the catalog is refreshed, a new one is added, and nothing is removed. Pass dryRun: true first to see what would change without writing.
 
-The catalog is one public gist shared by every user of the app, and only its owner may write to it. Saving replaces the whole file, so an import running in the web app at the same time is overwritten rather than merged; the gist keeps every write as a revision.`
+The catalog is one private repository shared by every user of the app, and only its maintainers may write to it. Saving replaces the whole file, so an import running in the web app at the same time is overwritten rather than merged; the repository keeps every save as a commit.`
 
 /** Trims diagnostics to something a model can read, keeping the count honest. */
 function reportDiagnostics(rows: BankJsonImportRowDiagnostics[]) {
@@ -121,6 +121,7 @@ export function createImportCatalogFromBankFileTool(
 				token: credentials.githubToken,
 				mergedEntries: next,
 				sourceRowsById: parseResult.sourceRowsById,
+				source: 'MCP',
 			})
 		}
 
