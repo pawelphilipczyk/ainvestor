@@ -471,6 +471,53 @@ describe('record_operation tool', () => {
 	})
 })
 
+describe('commit messages', () => {
+	function repoWith(entries: EtfEntry[]) {
+		return installFakeDataRepo({
+			files: { [GIST_FILENAME]: JSON.stringify(entries) },
+		})
+	}
+
+	it('names a buy, its amount, and that the MCP server made it', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		const repo = repoWith([entry({ ticker: 'VWCE', value: 1000 })])
+
+		await createRecordOperationTool(config).handler({
+			portfolioOperation: 'buy',
+			instrumentTicker: 'vwce',
+			value: '500',
+			currency: 'pln',
+		})
+
+		assert.deepEqual(repo.commitMessages, ['Buy VWCE: +500 PLN (MCP)'])
+	})
+
+	it('names a sell with a minus sign', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		const repo = repoWith([entry({ ticker: 'VWCE', value: 1000 })])
+
+		await createRecordOperationTool(config).handler({
+			portfolioOperation: 'sell',
+			instrumentTicker: 'VWCE',
+			value: '250',
+			currency: 'PLN',
+		})
+
+		assert.deepEqual(repo.commitMessages, ['Sell VWCE: -250 PLN (MCP)'])
+	})
+
+	it('names the holding a removal dropped', async () => {
+		const repo = repoWith([
+			entry({ id: 'keep' }),
+			entry({ id: 'drop', name: 'Gold ETC' }),
+		])
+
+		await createRemoveHoldingTool(config).handler({ id: 'drop' })
+
+		assert.deepEqual(repo.commitMessages, ['Remove holding Gold ETC (MCP)'])
+	})
+})
+
 describe('remove_holding tool', () => {
 	it('deletes a holding by id and reports the remaining portfolio', async () => {
 		const { saved } = stubGistReadWrite([

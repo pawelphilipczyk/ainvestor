@@ -20,6 +20,7 @@ import {
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import { commitMessage } from '../../lib/store/commit-message.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
@@ -110,7 +111,15 @@ async function handleImport(context: AppRequestContext, form: FormData) {
 	const updated = Array.from(byKey.values())
 
 	try {
-		await saveEtfs(session.token, session.dataRepo, updated)
+		await saveEtfs(
+			session.token,
+			session.dataRepo,
+			updated,
+			commitMessage({
+				summary: `Import portfolio CSV (${imported.length} rows)`,
+				source: 'web',
+			}),
+		)
 	} catch {
 		return portfolioPersistenceFailureResponse(context)
 	}
@@ -234,10 +243,15 @@ export const portfolioController = {
 
 			try {
 				const current = await fetchEtfs(session.token, session.dataRepo)
+				const removed = current.find((entry) => entry.id === id)
 				await saveEtfs(
 					session.token,
 					session.dataRepo,
 					current.filter((entry) => entry.id !== id),
+					commitMessage({
+						summary: `Remove holding ${removed?.name ?? id}`,
+						source: 'web',
+					}),
 				)
 			} catch {
 				flashBanner(context.get(Session), {

@@ -211,7 +211,9 @@ and a holdings write (`record_operation`, `remove_holding`) the same for
 `etfs.json`. Nothing checks for a concurrent write yet, so an edit you make in a
 browser tab between the read and the save is overwritten rather than merged.
 Nothing is lost, though: every save is a commit in your data repository, so the
-previous content is in its history and can be restored from there.
+previous content is in its history and can be restored from there. Each commit
+says what it did and where it came from, for example `Buy SWDA LN: +1 PLN (MCP)`
+or `Remove guideline IBCI LN (web)`.
 
 There are two ways to reach it. Both need a **classic** GitHub personal access
 token with the **`gist`** and **`repo`** scopes: `repo` for your private data

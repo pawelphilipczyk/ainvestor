@@ -14,6 +14,8 @@ export type FakeDataRepo = {
 	files: Map<string, string>
 	/** Every request as `METHOD /path` (query string dropped). */
 	requests: string[]
+	/** The message of every commit made, oldest first. */
+	commitMessages: string[]
 }
 
 type FetchInput = Parameters<typeof fetch>[0]
@@ -48,6 +50,7 @@ export function installFakeDataRepo(
 			...Object.entries(options.files ?? {}),
 		]),
 		requests: [],
+		commitMessages: [],
 	}
 	const blobs = new Map<string, string>()
 	let pendingTree: Array<{ path: string; sha: string | null }> = []
@@ -96,6 +99,7 @@ export function installFakeDataRepo(
 						})
 			}
 			if (method === 'PUT') {
+				state.commitMessages.push(body.message)
 				state.files.set(
 					filePath,
 					Buffer.from(body.content, 'base64').toString('utf-8'),
@@ -104,6 +108,7 @@ export function installFakeDataRepo(
 			}
 			if (method === 'DELETE') {
 				if (current === undefined) return notFound()
+				state.commitMessages.push(body.message)
 				state.files.delete(filePath)
 				return Response.json({})
 			}
@@ -132,6 +137,7 @@ export function installFakeDataRepo(
 			return Response.json({ sha: 'tree-1' })
 		}
 		if (method === 'POST' && path === `${repoPrefix}/git/commits`) {
+			state.commitMessages.push(body.message)
 			return Response.json({ sha: 'commit-1' })
 		}
 		if (method === 'PATCH' && path === `${repoPrefix}/git/refs/heads/main`) {

@@ -452,6 +452,8 @@ export async function writeFile(params: {
 	path: string
 	content: string | null
 	expectedVersion?: string | null
+	/** Commit message; defaults to `Update <path>` / `Remove <path>`. */
+	message?: string
 }): Promise<WriteFileResult> {
 	const { owner, repo } = repoLocationOrThrow(params.location)
 	const url = contentsUrl({ owner, repo, path: params.path })
@@ -479,7 +481,10 @@ export async function writeFile(params: {
 			method: 'DELETE',
 			signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
 			headers: githubHeaders(params.token),
-			body: JSON.stringify({ message: `Remove ${params.path}`, sha }),
+			body: JSON.stringify({
+				message: params.message ?? `Remove ${params.path}`,
+				sha,
+			}),
 		})
 		if (!response.ok) return { ok: false, status: response.status, response }
 		return { ok: true, version: '' }
@@ -490,7 +495,7 @@ export async function writeFile(params: {
 		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
 		headers: githubHeaders(params.token),
 		body: JSON.stringify({
-			message: `Update ${params.path}`,
+			message: params.message ?? `Update ${params.path}`,
 			content: encodeBase64Content(params.content),
 			...(sha !== undefined ? { sha } : {}),
 		}),
@@ -545,6 +550,8 @@ export async function writeFiles(params: {
 	location: string
 	files: Record<string, string | null>
 	expectedVersion?: string | null
+	/** Commit message; defaults to `Update <path>` or `Update <n> files`. */
+	message?: string
 }): Promise<WriteFilesResult> {
 	const { owner, repo } = repoLocationOrThrow(params.location)
 	const { token } = params
@@ -674,9 +681,10 @@ export async function writeFiles(params: {
 	const tree = (await treeResponse.json()) as { sha: string }
 
 	const commitMessage =
-		paths.length === 1
+		params.message ??
+		(paths.length === 1
 			? `Update ${paths[0]?.[0]}`
-			: `Update ${paths.length} files`
+			: `Update ${paths.length} files`)
 	const newCommitResponse = await gitDataRequest({
 		token,
 		owner,

@@ -7,6 +7,10 @@ import {
 	applyPortfolioOperation,
 	parsePortfolioOperationInput,
 } from '../../app/lib/portfolio-operations.ts'
+import {
+	commitMessage,
+	describePortfolioOperation,
+} from '../../app/lib/store/commit-message.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resolveDataRepo } from '../data-repo.ts'
 import { fetchEtfsCached, invalidateEtfsCache } from '../private-gist-cache.ts'
@@ -199,7 +203,20 @@ export function createRecordOperationTool(
 			)
 		}
 
-		await saveEtfs(credentials.githubToken, dataRepo, outcome.holdings)
+		await saveEtfs(
+			credentials.githubToken,
+			dataRepo,
+			outcome.holdings,
+			commitMessage({
+				summary: describePortfolioOperation({
+					portfolioOperation: operation.portfolioOperation,
+					instrumentTicker: operation.instrumentTicker,
+					value: operation.value,
+					currency,
+				}),
+				source: 'MCP',
+			}),
+		)
 		invalidateEtfsCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({
@@ -265,7 +282,15 @@ export function createRemoveHoldingTool(
 		}
 
 		const next = current.filter((entry) => entry.id !== id)
-		await saveEtfs(credentials.githubToken, dataRepo, next)
+		await saveEtfs(
+			credentials.githubToken,
+			dataRepo,
+			next,
+			commitMessage({
+				summary: `Remove holding ${existing.name}`,
+				source: 'MCP',
+			}),
+		)
 		invalidateEtfsCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({

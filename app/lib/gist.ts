@@ -175,6 +175,7 @@ export async function saveEtfs(
 	token: string,
 	dataRepo: string,
 	entries: EtfEntry[],
+	message?: string,
 ): Promise<void> {
 	if (putPrivateGistTestEtfs(token, dataRepo, entries)) return
 	const result = await writeFile({
@@ -182,6 +183,7 @@ export async function saveEtfs(
 		location: dataRepo,
 		path: GIST_FILENAME,
 		content: JSON.stringify(entries, null, 2),
+		message,
 	})
 	if (!result.ok) {
 		const detail = await result.response.text().catch(() => '')

@@ -280,6 +280,7 @@ export async function saveStoredAdviceAnalysisForTab(
 	dataRepo: string,
 	tab: AdviceAnalysisMode,
 	stored: StoredAdviceAnalysis,
+	message?: string,
 ): Promise<void> {
 	if (gistTestState.enabled) {
 		if (gistTestState.saveShouldFail) {
@@ -295,6 +296,7 @@ export async function saveStoredAdviceAnalysisForTab(
 		location: dataRepo,
 		path: filename,
 		content: JSON.stringify(buildAdviceAnalysisPayload(stored), null, 2),
+		message,
 	})
 	if (!result.ok) {
 		throw new Error(`GitHub API error saving advice snapshot: ${result.status}`)
@@ -315,6 +317,7 @@ export async function clearStoredAdviceAnalysisForTab(
 	token: string,
 	dataRepo: string,
 	tab: AdviceAnalysisMode,
+	message?: string,
 ): Promise<void> {
 	if (gistTestState.enabled) {
 		gistTestState.byTab[tab] = null
@@ -326,6 +329,7 @@ export async function clearStoredAdviceAnalysisForTab(
 		location: dataRepo,
 		path: filename,
 		content: null,
+		message,
 	})
 	if (!result.ok) {
 		throw new Error(
@@ -338,6 +342,7 @@ export async function clearStoredAdviceAnalysisForTab(
 export async function clearLegacyUnifiedAdviceAnalysis(
 	token: string,
 	dataRepo: string,
+	message?: string,
 ): Promise<void> {
 	if (gistTestState.enabled) {
 		return
@@ -347,6 +352,7 @@ export async function clearLegacyUnifiedAdviceAnalysis(
 		location: dataRepo,
 		path: ADVICE_STORAGE_FILENAME,
 		content: null,
+		message,
 	})
 	if (!result.ok) {
 		throw new Error(

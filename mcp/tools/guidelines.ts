@@ -21,6 +21,10 @@ import {
 	wouldGuidelineTotalExceedCap,
 } from '../../app/lib/guidelines.ts'
 import { parseLocaleDecimalString } from '../../app/lib/locale-decimal-input.ts'
+import {
+	commitMessage,
+	describeGuideline,
+} from '../../app/lib/store/commit-message.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resolveDataRepo } from '../data-repo.ts'
 import {
@@ -305,7 +309,15 @@ export function createSetGuidelineTool(
 						guideline.id === existing.id ? saved : guideline,
 					)
 
-		await saveGuidelinesOrThrow(credentials.githubToken, dataRepo, next)
+		await saveGuidelinesOrThrow(
+			credentials.githubToken,
+			dataRepo,
+			next,
+			commitMessage({
+				summary: `${existing === null ? 'Add' : 'Set'} guideline ${describeGuideline(saved)}: ${saved.targetPct}%`,
+				source: 'MCP',
+			}),
+		)
 		invalidateGuidelinesCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({
@@ -380,7 +392,15 @@ export function createDeleteGuidelineTool(
 		}
 
 		const next = current.filter((guideline) => guideline.id !== id)
-		await saveGuidelinesOrThrow(credentials.githubToken, dataRepo, next)
+		await saveGuidelinesOrThrow(
+			credentials.githubToken,
+			dataRepo,
+			next,
+			commitMessage({
+				summary: `Remove guideline ${describeGuideline(existing)}`,
+				source: 'MCP',
+			}),
+		)
 		invalidateGuidelinesCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({

@@ -74,6 +74,22 @@ export async function approvedSessionCookie(
 }
 
 /**
+ * Test-only: an approved session pointed at a real data repo path rather than
+ * the in-process overlay, for tests that install `installFakeDataRepo` and
+ * assert on what the web app actually commits there.
+ */
+export async function approvedSessionCookieForFakeRepo(
+	login = 'octocat',
+): Promise<string> {
+	addApprovedGithubLogin(login)
+	return seedSessionCookie((session) => {
+		session.set('login', login)
+		session.set('token', 'fake-repo-token')
+		session.set('dataRepo', `${login}/ainvestor-data`)
+	})
+}
+
+/**
  * Test-only: signed in with GitHub but **not** on the allowlist, so
  * `enforceGithubApproval` strips the token and the pending state renders.
  * Distinct from signed out, which the gate redirects away.

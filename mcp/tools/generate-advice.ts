@@ -16,6 +16,10 @@ import {
 import { fetchCatalog } from '../../app/features/catalog/lib.ts'
 import { CURRENCIES } from '../../app/lib/currencies.ts'
 import {
+	commitMessage,
+	describeAdviceMode,
+} from '../../app/lib/store/commit-message.ts'
+import {
 	runWithUiCopyContext,
 	SUPPORTED_UI_LOCALES,
 } from '../../app/lib/ui-locale.ts'
@@ -159,6 +163,10 @@ export function createGenerateAdviceTool(
 					dataRepo,
 					mode,
 					stored,
+					commitMessage({
+						summary: `Save ${describeAdviceMode(mode)} advice`,
+						source: 'MCP',
+					}),
 				)
 				saved = true
 				savedAt = stored.savedAt

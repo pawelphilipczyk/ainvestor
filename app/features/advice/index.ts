@@ -18,6 +18,10 @@ import {
 	type SessionWithDataRepo,
 	sessionHasDataRepo,
 } from '../../lib/session.ts'
+import {
+	commitMessage,
+	describeAdviceMode,
+} from '../../lib/store/commit-message.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
@@ -577,6 +581,10 @@ export const adviceController = {
 						session.token,
 						session.dataRepo,
 						'portfolio_review',
+						commitMessage({
+							summary: 'Clear portfolio-review advice',
+							source: 'web',
+						}),
 					)
 				} catch (err) {
 					console.warn(
@@ -588,6 +596,7 @@ export const adviceController = {
 					await clearLegacyUnifiedAdviceAnalysis(
 						session.token,
 						session.dataRepo,
+						commitMessage({ summary: 'Clear legacy advice', source: 'web' }),
 					)
 				} catch (err) {
 					console.warn('[advice] could not clear legacy advice snapshot', err)
@@ -674,6 +683,10 @@ export const adviceController = {
 							activeTab: activeTabFromUrl,
 							document: advice,
 						},
+						commitMessage({
+							summary: `Save ${describeAdviceMode(analysisMode)} advice`,
+							source: 'web',
+						}),
 					)
 				} catch (gistErr) {
 					// Frame reload reads from gist; without this flag + client handling the result would disappear.

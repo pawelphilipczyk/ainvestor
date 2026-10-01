@@ -39,6 +39,10 @@ import {
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import {
+	commitMessage,
+	describeGuideline,
+} from '../../lib/store/commit-message.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
@@ -345,7 +349,15 @@ async function persistGuideline(params: {
 			addTab,
 		})
 	}
-	await saveGuidelines(session.token, session.dataRepo, [entry, ...current])
+	await saveGuidelines(
+		session.token,
+		session.dataRepo,
+		[entry, ...current],
+		commitMessage({
+			summary: `Add guideline ${describeGuideline(entry)}: ${entry.targetPct}%`,
+			source: 'web',
+		}),
+	)
 	return null
 }
 
@@ -393,12 +405,17 @@ async function updateGuidelineTarget(params: {
 			resultingTotal,
 		})
 	}
+	const updatedGuideline = current.find((g) => g.id === id)
 	await saveGuidelines(
 		session.token,
 		session.dataRepo,
 		current.map((g) =>
 			g.id === id ? { ...g, targetPct: newTargetPercent } : g,
 		),
+		commitMessage({
+			summary: `Set guideline ${updatedGuideline ? describeGuideline(updatedGuideline) : id}: ${newTargetPercent}%`,
+			source: 'web',
+		}),
 	)
 	return null
 }
@@ -609,10 +626,15 @@ async function handleDelete(context: AppRequestContext, form: FormData) {
 	}
 
 	const current = await fetchGuidelines(session.token, session.dataRepo)
+	const removedGuideline = current.find((g) => g.id === id)
 	await saveGuidelines(
 		session.token,
 		session.dataRepo,
 		current.filter((g) => g.id !== id),
+		commitMessage({
+			summary: `Remove guideline ${removedGuideline ? describeGuideline(removedGuideline) : id}`,
+			source: 'web',
+		}),
 	)
 
 	if (requestAcceptsFrameSubmitHtml(context.request)) {

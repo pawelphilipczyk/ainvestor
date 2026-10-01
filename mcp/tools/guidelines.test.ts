@@ -432,3 +432,43 @@ describe('delete_guideline tool', () => {
 		assert.equal(exchange.saved.length, 0)
 	})
 })
+
+describe('commit messages', () => {
+	function repoWith(rows: EtfGuideline[]) {
+		return installFakeDataRepo({
+			files: { [GUIDELINES_FILENAME]: JSON.stringify(rows) },
+		})
+	}
+
+	it('says a new target was added, with its percentage', async () => {
+		const repo = repoWith([guideline({ id: 'existing', targetPct: 40 })])
+		await createSetGuidelineTool(credentials).handler({
+			kind: 'asset_class',
+			etfType: 'bond',
+			targetPct: 25,
+		})
+		assert.deepEqual(repo.commitMessages, [
+			'Add guideline bond class: 25% (MCP)',
+		])
+	})
+
+	it('says an existing target was set, not added', async () => {
+		const repo = repoWith([guideline({ id: 'existing', targetPct: 40 })])
+		await createSetGuidelineTool(credentials).handler({
+			kind: 'asset_class',
+			etfType: 'equity',
+			targetPct: 55,
+		})
+		assert.deepEqual(repo.commitMessages, [
+			'Set guideline equity class: 55% (MCP)',
+		])
+	})
+
+	it('names the guideline a deletion removed', async () => {
+		const repo = repoWith([guideline({ id: 'existing' })])
+		await createDeleteGuidelineTool(credentials).handler({ id: 'existing' })
+		assert.deepEqual(repo.commitMessages, [
+			'Remove guideline equity class (MCP)',
+		])
+	})
+})

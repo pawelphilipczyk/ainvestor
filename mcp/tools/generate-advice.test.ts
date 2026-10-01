@@ -42,7 +42,10 @@ function adviceJson(text: string): string {
 type FileWrite = { path: string; content: string }
 
 /** Serve one fixed portfolio from a fake data repo; record each file written after it lands. */
-function stubRepo(options: { failWritesWith?: number } = {}): FileWrite[] {
+function stubRepo(options: { failWritesWith?: number } = {}): {
+	writes: FileWrite[]
+	commitMessages: string[]
+} {
 	const repo = installFakeDataRepo({
 		files: {
 			[GIST_FILENAME]: JSON.stringify(HOLDINGS),
@@ -60,13 +63,14 @@ function stubRepo(options: { failWritesWith?: number } = {}): FileWrite[] {
 		}
 		return response
 	}
-	return writes
+	return { writes, commitMessages: repo.commitMessages }
 }
 
 /** Records every completion request and every file written, serving one fixed portfolio. */
 function stubServer(): {
 	completions: { model: string }[]
 	writes: FileWrite[]
+	commitMessages: string[]
 } {
 	const completions: { model: string }[] = []
 	setAdviceClient({
@@ -79,7 +83,7 @@ function stubServer(): {
 			},
 		},
 	} satisfies AdviceClient)
-	return { completions, writes: stubRepo() }
+	return { completions, ...stubRepo() }
 }
 
 async function callTool(
@@ -229,6 +233,15 @@ describe('generate_advice', () => {
 		)
 		const saved = JSON.parse(savedFile.content) as Record<string, unknown>
 		assert.equal('cashAmount' in saved, false)
+	})
+
+	it('commits the saved advice with a message naming its mode and the MCP server', async () => {
+		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		const { commitMessages } = stubServer()
+
+		await callTool({ mode: 'portfolio_review' })
+
+		assert.deepEqual(commitMessages, ['Save portfolio-review advice (MCP)'])
 	})
 
 	it('reports a failed save without losing the generated text', async () => {

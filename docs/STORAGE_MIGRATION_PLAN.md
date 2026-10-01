@@ -704,6 +704,18 @@ is green, and the docs are updated.
   catalog copy keeps "gist": it still is one.
 - **`findOrCreateGist` and `buildGistBody` are gone.** `findGistIdByDescription`
   stays for the migration script until Phase 7.
+- **Every write carries a commit message** naming the operation and its
+  source — `Buy SWDA LN: +1 PLN (MCP)`, `Remove guideline IBCI LN (web)`,
+  `Save buy-next advice (web)` — instead of `Update etfs.json`, which said
+  neither. `writeFile` / `writeFiles` take an optional `message`; the
+  wording lives in `app/lib/store/commit-message.ts`, in English, since it is
+  stored in the user's repo rather than shown in the UI.
+- **The shared catalog is read with the caller's token,** and a failed
+  refresh serves the last good snapshot. The gist is public, but an
+  anonymous read counts against GitHub's 60/hour limit for the server's IP,
+  and every failure used to be answered as an empty catalog — which stops
+  every buy and sell. Phase 6 replaces this read, but until then it must not
+  vanish.
 - **A shared test fake,** `app/lib/store/github-repo-test-fake.ts`, serves an
   in-memory data repo. Tests assert on the files that land rather than on
   request bodies.

@@ -13,6 +13,7 @@ import {
 	writeFile,
 	writeFiles,
 } from './github-repo-store.ts'
+import { installFakeDataRepo } from './github-repo-test-fake.ts'
 
 type FetchInput = Parameters<typeof fetch>[0]
 type FetchInit = Parameters<typeof fetch>[1]
@@ -841,5 +842,42 @@ describe('writeFiles', () => {
 		assert.equal(result.ok, false)
 		if (result.ok) throw new Error('unreachable')
 		assert.equal(result.status, 422)
+	})
+})
+
+describe('commit messages', () => {
+	const location = 'octocat/ainvestor-data'
+
+	it('uses the message a single-file write is given, for an update and a removal', async () => {
+		const repo = installFakeDataRepo({ files: { 'etfs.json': '[]' } })
+		await writeFile({
+			token: 't',
+			location,
+			path: 'etfs.json',
+			content: '[1]',
+			message: 'Buy VWCE: +1 PLN (web)',
+		})
+		await writeFile({
+			token: 't',
+			location,
+			path: 'etfs.json',
+			content: null,
+			message: 'Remove holding VWCE (web)',
+		})
+		assert.deepEqual(repo.commitMessages, [
+			'Buy VWCE: +1 PLN (web)',
+			'Remove holding VWCE (web)',
+		])
+	})
+
+	it('uses the message a multi-file write is given', async () => {
+		const repo = installFakeDataRepo({})
+		await writeFiles({
+			token: 't',
+			location,
+			files: { 'a.json': '1', 'b.json': '2' },
+			message: 'Save two files (MCP)',
+		})
+		assert.deepEqual(repo.commitMessages, ['Save two files (MCP)'])
 	})
 })

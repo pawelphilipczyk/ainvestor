@@ -258,6 +258,7 @@ async function writeGuidelinesGist(params: {
 	token: string
 	dataRepo: string
 	guidelines: EtfGuideline[]
+	message?: string
 }): Promise<GuidelinesGistWriteResult> {
 	if (
 		putPrivateGistTestGuidelines(
@@ -274,6 +275,7 @@ async function writeGuidelinesGist(params: {
 		location: params.dataRepo,
 		path: GUIDELINES_FILENAME,
 		content: patch.files[GUIDELINES_FILENAME].content,
+		message: params.message,
 	})
 	return result.ok ? { ok: true } : { ok: false, status: result.status }
 }
@@ -283,8 +285,14 @@ export async function saveGuidelinesOrThrow(
 	token: string,
 	dataRepo: string,
 	guidelines: EtfGuideline[],
+	message?: string,
 ): Promise<void> {
-	const result = await writeGuidelinesGist({ token, dataRepo, guidelines })
+	const result = await writeGuidelinesGist({
+		token,
+		dataRepo,
+		guidelines,
+		message,
+	})
 	if (!result.ok) {
 		throw new Error(`GitHub API error saving guidelines: ${result.status}`)
 	}
@@ -295,6 +303,7 @@ export async function saveGuidelines(
 	token: string,
 	dataRepo: string,
 	guidelines: EtfGuideline[],
+	message?: string,
 ): Promise<void> {
-	await writeGuidelinesGist({ token, dataRepo, guidelines })
+	await writeGuidelinesGist({ token, dataRepo, guidelines, message })
 }

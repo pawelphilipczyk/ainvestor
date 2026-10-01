@@ -20,6 +20,10 @@ import {
 import type { AppRequestContext } from '../../../lib/request-context.ts'
 import { getSessionData, sessionHasDataRepo } from '../../../lib/session.ts'
 import { flashBanner } from '../../../lib/session-flash.ts'
+import {
+	commitMessage,
+	describePortfolioOperation,
+} from '../../../lib/store/commit-message.ts'
 import { routes } from '../../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../../catalog/lib.ts'
 import { ListFragment } from './list-fragment.tsx'
@@ -246,7 +250,20 @@ export const portfolioOperationFormHandlers = {
 			const updated = outcome.holdings
 
 			try {
-				await saveEtfs(session.token, session.dataRepo, updated)
+				await saveEtfs(
+					session.token,
+					session.dataRepo,
+					updated,
+					commitMessage({
+						summary: describePortfolioOperation({
+							portfolioOperation: operation.portfolioOperation,
+							instrumentTicker,
+							value,
+							currency,
+						}),
+						source: 'web',
+					}),
+				)
 			} catch {
 				return portfolioPersistenceFailureResponse(context)
 			}
