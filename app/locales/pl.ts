@@ -284,6 +284,12 @@ export const pl = {
 		'Podaj kwotę większą od zera przy sprzedaży.',
 	'errors.portfolio.persistence':
 		'Nie udało się zapisać portfela. Spróbuj ponownie za chwilę.',
+	'errors.portfolio.changedElsewhere':
+		'Twój portfel został w międzyczasie zmieniony gdzie indziej, więc nic nie zapisano. Odśwież stronę i spróbuj ponownie.',
+	'errors.guidelines.persistence':
+		'Nie udało się zapisać wytycznych. Spróbuj ponownie za chwilę.',
+	'errors.guidelines.changedElsewhere':
+		'Twoje wytyczne zostały w międzyczasie zmienione gdzie indziej, więc nic nie zapisano. Odśwież stronę i spróbuj ponownie.',
 	'errors.storage.foreignRepo':
 		'Na Twoim koncie GitHub jest już repozytorium {repo}, którego nie utworzyła ta aplikacja, więc nie można w nim zapisać Twoich danych. Zmień jego nazwę lub je usuń, a potem zaloguj się ponownie.',
 	'errors.portfolio.requiresApproval':

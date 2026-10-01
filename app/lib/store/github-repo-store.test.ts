@@ -5,6 +5,7 @@ import {
 	findDataRepo,
 	findOrCreateDataRepo,
 	getDataRepoName,
+	isVersionConflict,
 	parseRepoLocation,
 	REPO_MARKER_CONTENT,
 	REPO_MARKER_PATH,
@@ -879,5 +880,35 @@ describe('commit messages', () => {
 			message: 'Save two files (MCP)',
 		})
 		assert.deepEqual(repo.commitMessages, ['Save two files (MCP)'])
+	})
+})
+
+describe('isVersionConflict', () => {
+	it('takes a 409 for a lost race whatever was expected', () => {
+		assert.equal(
+			isVersionConflict({ status: 409, expectedVersion: 'sha-1' }),
+			true,
+		)
+		assert.equal(
+			isVersionConflict({ status: 409, expectedVersion: null }),
+			true,
+		)
+	})
+
+	it('takes a 422 for a lost race only when the file was expected to be absent', () => {
+		assert.equal(
+			isVersionConflict({ status: 422, expectedVersion: null }),
+			true,
+		)
+		assert.equal(
+			isVersionConflict({ status: 422, expectedVersion: 'sha-1' }),
+			false,
+		)
+	})
+
+	it('does not take other refusals for one', () => {
+		for (const status of [401, 403, 404, 500]) {
+			assert.equal(isVersionConflict({ status, expectedVersion: null }), false)
+		}
 	})
 })

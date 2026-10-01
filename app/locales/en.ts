@@ -291,6 +291,12 @@ export const en = {
 		'Enter an amount greater than zero to sell.',
 	'errors.portfolio.persistence':
 		'Could not save your portfolio. Please try again in a moment.',
+	'errors.portfolio.changedElsewhere':
+		'Your portfolio was changed elsewhere while you were saving, so nothing was saved. Reload the page and try again.',
+	'errors.guidelines.persistence':
+		'Could not save your guidelines. Please try again in a moment.',
+	'errors.guidelines.changedElsewhere':
+		'Your guidelines were changed elsewhere while you were saving, so nothing was saved. Reload the page and try again.',
 	'errors.storage.foreignRepo':
 		'Your GitHub account already has a repository named {repo} that this app did not create, so your data cannot be stored there. Rename or delete it, then sign in again.',
 	'errors.portfolio.requiresApproval':

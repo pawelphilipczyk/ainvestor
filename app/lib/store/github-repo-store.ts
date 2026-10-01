@@ -430,6 +430,22 @@ export async function readFiles(params: {
 	return { ok: true, files }
 }
 
+/**
+ * Whether a refused write was refused because the file changed since it was
+ * read. GitHub answers a stale `sha` with 409. A 422 means it too only for a
+ * write that expected the file to be absent (`expectedVersion: null`): the
+ * update then names no `sha` for a file another client has since created.
+ * Any other 422 — a ruleset, a bad payload, a size limit — is a refusal that
+ * retrying cannot fix, so it must not be taken for a lost race.
+ */
+export function isVersionConflict(params: {
+	status: number
+	expectedVersion: string | null
+}): boolean {
+	if (params.status === 409) return true
+	return params.status === 422 && params.expectedVersion === null
+}
+
 export type WriteFileResult =
 	| { ok: true; version: string }
 	| { ok: false; status: number; response: Response }
@@ -438,13 +454,15 @@ export type WriteFileResult =
  * Writes or deletes one file. `content: null` deletes it (a no-op success if
  * it was already absent, matching the gist backend's convention).
  *
- * When `expectedVersion` is omitted, reads the file's current `sha` first so
- * the write can succeed at all — the Contents API rejects an update with no
- * `sha`. This is not compare-and-swap (the read-then-write is not atomic
- * against a concurrent writer); it exists only to match gists' current
- * last-write-wins behavior. Passing `expectedVersion` skips that read and
- * uses it directly, and it is GitHub's own stale-`sha` rejection that then
- * gives Phase 5 real compare-and-swap — nothing else changes.
+ * `expectedVersion` picks the write's contract:
+ * - **omitted**: reads the file's current `sha` first so the write can succeed
+ *   at all (the Contents API rejects an update with no `sha`). Not
+ *   compare-and-swap — the read-then-write is not atomic against a concurrent
+ *   writer — so this is last-write-wins, for files nobody races on (advice).
+ * - **a version string**: the write succeeds only if the file still has that
+ *   `sha`; GitHub refuses a stale one, which {@link isVersionConflict} names.
+ * - **`null`**: the write succeeds only if the file does not exist yet. A
+ *   deletion of an absent file is still the no-op success it always was.
  */
 export async function writeFile(params: {
 	token: string
@@ -459,7 +477,7 @@ export async function writeFile(params: {
 	const url = contentsUrl({ owner, repo, path: params.path })
 
 	let sha = params.expectedVersion ?? undefined
-	if (sha === undefined) {
+	if (params.expectedVersion === undefined) {
 		const current = await getContentsFile({
 			token: params.token,
 			owner,

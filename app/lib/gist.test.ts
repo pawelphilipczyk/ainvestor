@@ -1,5 +1,5 @@
 import * as assert from 'node:assert/strict'
-import { describe, it } from 'node:test'
+import { afterEach, describe, it } from 'node:test'
 
 import {
 	fetchEtfs,
@@ -7,8 +7,15 @@ import {
 	GIST_FILENAME,
 	getGistDescription,
 	parseEtfsFromGist,
-	saveEtfs,
+	updateEtfs,
 } from './gist.ts'
+import { installFakeDataRepo } from './store/github-repo-test-fake.ts'
+
+const originalFetch = globalThis.fetch
+
+afterEach(() => {
+	globalThis.fetch = originalFetch
+})
 
 type FetchInput = Parameters<typeof fetch>[0]
 
@@ -99,21 +106,134 @@ describe('gist', () => {
 		}
 	})
 
-	it('saveEtfs throws when GitHub API returns an error status', async () => {
-		const previousFetch = globalThis.fetch
-		globalThis.fetch = async () =>
-			new Response(null, { status: 422, statusText: 'Unprocessable' })
-		try {
-			await assert.rejects(
-				async () =>
-					saveEtfs('token', 'octocat/ainvestor-data', [
-						{ id: 'a', name: 'X', value: 1, currency: 'PLN' },
+	it('updateEtfs throws with the status when GitHub refuses the save', async () => {
+		installFakeDataRepo({
+			files: { [GIST_FILENAME]: '[]' },
+			failWritesWith: 500,
+		})
+		await assert.rejects(
+			updateEtfs({
+				token: 'token',
+				dataRepo: 'octocat/ainvestor-data',
+				change: () => ({
+					write: [{ id: 'a', name: 'X', value: 1, currency: 'PLN' }],
+					message: 'Add X',
+					result: null,
+				}),
+			}),
+			/GitHub API error saving the portfolio: 500/,
+		)
+	})
+
+	it('updateEtfs does not retry a 422 on an existing file, which is not a lost race', async () => {
+		// A ruleset or a size limit refuses the save the same way every time.
+		const repo = installFakeDataRepo({
+			files: { [GIST_FILENAME]: '[]' },
+			failWritesWith: 422,
+		})
+		await assert.rejects(
+			updateEtfs({
+				token: 'token',
+				dataRepo: 'octocat/ainvestor-data',
+				change: () => ({
+					write: [{ id: 'a', name: 'X', value: 1, currency: 'PLN' }],
+					message: 'Add X',
+					result: null,
+				}),
+			}),
+			/GitHub API error saving the portfolio: 422/,
+		)
+		assert.equal(
+			repo.requests.filter((request) => request.startsWith('PUT')).length,
+			1,
+		)
+	})
+
+	it('updateEtfs recreates the file when another client deleted it after the read', async () => {
+		let deleted = false
+		const repo = installFakeDataRepo({
+			files: {
+				[GIST_FILENAME]: JSON.stringify([
+					{ id: 'old', name: 'Old', value: 1, currency: 'PLN' },
+				]),
+			},
+			afterContentRead: (path, fake) => {
+				if (path !== GIST_FILENAME || deleted) return
+				deleted = true
+				fake.externalDelete(GIST_FILENAME)
+			},
+		})
+		await updateEtfs({
+			token: 'token',
+			dataRepo: 'octocat/ainvestor-data',
+			change: (current) => ({
+				write: [
+					...current,
+					{ id: 'new', name: 'New', value: 2, currency: 'PLN' },
+				],
+				message: 'Add New',
+				result: null,
+			}),
+		})
+		// The retry saw no file, so the new row stands alone rather than reviving the old.
+		const stored = JSON.parse(repo.files.get(GIST_FILENAME) ?? '[]') as {
+			id: string
+		}[]
+		assert.deepEqual(
+			stored.map((holding) => holding.id),
+			['new'],
+		)
+	})
+
+	it('updateEtfs creates the file when it does not exist yet', async () => {
+		const repo = installFakeDataRepo({})
+		await updateEtfs({
+			token: 'token',
+			dataRepo: 'octocat/ainvestor-data',
+			change: (current) => ({
+				write: [...current, { id: 'a', name: 'X', value: 1, currency: 'PLN' }],
+				message: 'Add X',
+				result: null,
+			}),
+		})
+		assert.deepEqual(repo.commitMessages, ['Add X'])
+		assert.equal(JSON.parse(repo.files.get(GIST_FILENAME) ?? '[]').length, 1)
+	})
+
+	it('updateEtfs redoes its change when another client created the file first', async () => {
+		let created = false
+		const repo = installFakeDataRepo({
+			// The first read finds no file; before this save lands, another client creates it.
+			afterContentRead: (path, fake) => {
+				if (path !== GIST_FILENAME || created) return
+				created = true
+				fake.externalWrite(
+					GIST_FILENAME,
+					JSON.stringify([
+						{ id: 'theirs', name: 'Y', value: 2, currency: 'PLN' },
 					]),
-				/GitHub API error saving the portfolio: 422/,
-			)
-		} finally {
-			globalThis.fetch = previousFetch
-		}
+				)
+			},
+		})
+		await updateEtfs({
+			token: 'token',
+			dataRepo: 'octocat/ainvestor-data',
+			change: (current) => ({
+				write: [
+					...current,
+					{ id: 'mine', name: 'X', value: 1, currency: 'PLN' },
+				],
+				message: 'Add X',
+				result: null,
+			}),
+		})
+		const stored = JSON.parse(repo.files.get(GIST_FILENAME) ?? '[]') as {
+			id: string
+		}[]
+		assert.deepEqual(stored.map((holding) => holding.id).sort(), [
+			'mine',
+			'theirs',
+		])
 	})
 
 	it('getGistDescription returns base description for production or unset env', () => {

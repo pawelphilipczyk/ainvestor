@@ -4,7 +4,7 @@ import type { EtfGuideline } from './guidelines.ts'
 /**
  * Test-only in-memory stand-in for a user's private data gist.
  *
- * When set, `fetchEtfs` / `saveEtfs` / `fetchGuidelines` / `saveGuidelines`
+ * When set, `fetchEtfs` / `updateEtfs` / `fetchGuidelines` / `updateGuidelines`
  * read and write **here** instead of GitHub, for the token and gist id below.
  * Route tests need the writes as much as the reads: before guest mode was
  * removed they exercised add/remove flows through the in-memory guest state,

@@ -10,11 +10,12 @@ import {
 	requestAcceptsFrameSubmitHtml,
 } from '../../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../../lib/gist.ts'
-import { fetchPortfolioSnapshot, saveEtfs } from '../../../lib/gist.ts'
+import { fetchPortfolioSnapshot, updateEtfs } from '../../../lib/gist.ts'
 import { t } from '../../../lib/i18n.ts'
 import {
 	applyPortfolioOperation,
 	normalizePortfolioOperationInput,
+	type PortfolioOperationOutcome,
 	PortfolioOperationSchema,
 } from '../../../lib/portfolio-operations.ts'
 import type { AppRequestContext } from '../../../lib/request-context.ts'
@@ -24,6 +25,7 @@ import {
 	commitMessage,
 	describePortfolioOperation,
 } from '../../../lib/store/commit-message.ts'
+import { WriteConflictError } from '../../../lib/store/read-modify-write.ts'
 import { routes } from '../../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../../catalog/lib.ts'
 import { ListFragment } from './list-fragment.tsx'
@@ -43,6 +45,12 @@ async function loadCatalogForPortfolioList(
 	} catch {
 		return fetchCatalog(session.token)
 	}
+}
+
+/** What one buy or sell did, and the rows the page should show next. */
+type OperationEdit = {
+	outcome: PortfolioOperationOutcome
+	holdings: EtfEntry[]
 }
 
 async function portfolioListFragmentHtmlResponse(
@@ -115,6 +123,24 @@ async function portfolioPersistenceFailureResponse(
 }
 
 /**
+ * The response for a save that did not happen: a lost race (the holdings kept
+ * changing underneath it) says so and asks for a reload, anything else is the
+ * generic persistence failure.
+ */
+async function portfolioSaveFailureResponse(
+	context: AppRequestContext,
+	error: unknown,
+): Promise<Response> {
+	if (error instanceof WriteConflictError) {
+		return portfolioValidationFailureResponse(
+			context,
+			t('errors.portfolio.changedElsewhere'),
+		)
+	}
+	return portfolioPersistenceFailureResponse(context)
+}
+
+/**
  * JSON/frame-HTML/flash+redirect response for a validation failure that
  * happens before any holdings snapshot has been loaded for this request —
  * reloads entries fresh for the frame-HTML branch, falling back to a
@@ -157,6 +183,7 @@ export {
 	PortfolioOperationForm,
 	portfolioListFragmentHtmlResponse,
 	portfolioPersistenceFailureResponse,
+	portfolioSaveFailureResponse,
 	portfolioValidationFailureResponse,
 }
 
@@ -186,30 +213,48 @@ export const portfolioOperationFormHandlers = {
 				)
 			}
 
-			let catalog: CatalogEntry[]
-			let current: EtfEntry[]
-			try {
-				const snapshot = await fetchPortfolioSnapshot(
-					session.token,
-					session.dataRepo,
-				)
-				catalog = snapshot.catalog
-				current = snapshot.entries
-			} catch {
-				return portfolioPersistenceFailureResponse(context)
-			}
+			const catalog = await fetchCatalog(session.token)
 
 			const { instrumentTicker, value, currency } = operation
-			const outcome = applyPortfolioOperation({
-				current,
-				catalog,
-				input: {
-					portfolioOperation: operation.portfolioOperation,
-					instrumentTicker,
-					value,
-					currency,
-				},
-			})
+			const input = {
+				portfolioOperation: operation.portfolioOperation,
+				instrumentTicker,
+				value,
+				currency,
+			}
+			// updateEtfs saves only if the holdings are still the version it read,
+			// redoing the operation on newer ones when another client saved first.
+			// `holdings` is what the page should show next: the result of the
+			// operation, or — when it is refused — the rows the refusal was decided
+			// on, not an earlier read.
+			let edit: OperationEdit
+			try {
+				edit = await updateEtfs<OperationEdit>({
+					token: session.token,
+					dataRepo: session.dataRepo,
+					change: (fresh) => {
+						const applied = applyPortfolioOperation({
+							current: fresh,
+							catalog,
+							input,
+						})
+						if (!applied.applied) {
+							return { result: { outcome: applied, holdings: fresh } }
+						}
+						return {
+							write: applied.holdings,
+							message: commitMessage({
+								summary: describePortfolioOperation(input),
+								source: 'web',
+							}),
+							result: { outcome: applied, holdings: applied.holdings },
+						}
+					},
+				})
+			} catch (error) {
+				return portfolioSaveFailureResponse(context, error)
+			}
+			const { outcome, holdings } = edit
 
 			if (!outcome.applied) {
 				const message = t(
@@ -238,7 +283,7 @@ export const portfolioOperationFormHandlers = {
 				}
 				if (requestAcceptsFrameSubmitHtml(context.request)) {
 					return portfolioListFragmentHtmlResponse(context, {
-						entries: current,
+						entries: holdings,
 						inlineError: message,
 						status: 422,
 					})
@@ -247,29 +292,8 @@ export const portfolioOperationFormHandlers = {
 				return createRedirectResponse(routes.portfolio.index.href())
 			}
 
-			const updated = outcome.holdings
-
-			try {
-				await saveEtfs(
-					session.token,
-					session.dataRepo,
-					updated,
-					commitMessage({
-						summary: describePortfolioOperation({
-							portfolioOperation: operation.portfolioOperation,
-							instrumentTicker,
-							value,
-							currency,
-						}),
-						source: 'web',
-					}),
-				)
-			} catch {
-				return portfolioPersistenceFailureResponse(context)
-			}
-
 			if (requestAcceptsFrameSubmitHtml(context.request)) {
-				return portfolioListFragmentHtmlResponse(context, { entries: updated })
+				return portfolioListFragmentHtmlResponse(context, { entries: holdings })
 			}
 			return createRedirectResponse(routes.portfolio.index.href())
 		},

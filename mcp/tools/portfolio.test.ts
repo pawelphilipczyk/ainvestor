@@ -9,6 +9,7 @@ import {
 import type { EtfEntry } from '../../app/lib/gist.ts'
 import { GIST_FILENAME } from '../../app/lib/gist.ts'
 import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
+import { setRetryPauseForTests } from '../../app/lib/store/read-modify-write.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resetDataRepoCache, resolveDataRepo } from '../data-repo.ts'
 import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
@@ -71,6 +72,9 @@ function stubGistReadWrite(entries: EtfEntry[]): {
 	}
 	return { saved, requestedMethods }
 }
+
+// The pause between save attempts is for real GitHub; the give-up case would just sleep.
+setRetryPauseForTests(0)
 
 const originalFetch = globalThis.fetch
 
@@ -515,6 +519,114 @@ describe('commit messages', () => {
 		await createRemoveHoldingTool(config).handler({ id: 'drop' })
 
 		assert.deepEqual(repo.commitMessages, ['Remove holding Gold ETC (MCP)'])
+	})
+})
+
+describe('concurrent writes', () => {
+	it('keeps a holding another client saved between this call’s read and its save', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		let intruded = false
+		const repo = installFakeDataRepo({
+			files: {
+				[GIST_FILENAME]: JSON.stringify([
+					entry({
+						id: 'mine',
+						name: 'Vanguard FTSE All-World',
+						ticker: 'VWCE',
+					}),
+				]),
+			},
+			afterContentRead: (path, fake) => {
+				if (path !== GIST_FILENAME || intruded) return
+				intruded = true
+				// Another client (the web app, say) saves a new holding right now.
+				fake.externalWrite(
+					GIST_FILENAME,
+					JSON.stringify([
+						entry({
+							id: 'mine',
+							name: 'Vanguard FTSE All-World',
+							ticker: 'VWCE',
+						}),
+						entry({ id: 'theirs', name: 'Gold ETC', value: 700 }),
+					]),
+				)
+			},
+		})
+
+		await createRecordOperationTool(config).handler({
+			portfolioOperation: 'buy',
+			instrumentTicker: 'VWCE',
+			value: '500',
+			currency: 'PLN',
+		})
+
+		const stored = JSON.parse(
+			repo.files.get(GIST_FILENAME) ?? '[]',
+		) as EtfEntry[]
+		assert.deepEqual(stored.map((holding) => holding.id).sort(), [
+			'mine',
+			'theirs',
+		])
+		assert.equal(stored.find((holding) => holding.id === 'mine')?.value, 1500)
+	})
+
+	it('applies a removal on top of a holding another client added in between', async () => {
+		let intruded = false
+		const repo = installFakeDataRepo({
+			files: {
+				[GIST_FILENAME]: JSON.stringify([
+					entry({ id: 'drop', name: 'Gold ETC' }),
+					entry({ id: 'keep', name: 'Bonds' }),
+				]),
+			},
+			afterContentRead: (path, fake) => {
+				if (path !== GIST_FILENAME || intruded) return
+				intruded = true
+				fake.externalWrite(
+					GIST_FILENAME,
+					JSON.stringify([
+						entry({ id: 'drop', name: 'Gold ETC' }),
+						entry({ id: 'keep', name: 'Bonds' }),
+						entry({ id: 'theirs', name: 'Equities' }),
+					]),
+				)
+			},
+		})
+
+		await createRemoveHoldingTool(config).handler({ id: 'drop' })
+
+		const stored = JSON.parse(
+			repo.files.get(GIST_FILENAME) ?? '[]',
+		) as EtfEntry[]
+		assert.deepEqual(stored.map((holding) => holding.id).sort(), [
+			'keep',
+			'theirs',
+		])
+	})
+
+	it('tells the model nothing was saved when the file keeps changing underneath it', async () => {
+		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		const original = JSON.stringify([entry({ ticker: 'VWCE', value: 1000 })])
+		const repo = installFakeDataRepo({
+			files: { [GIST_FILENAME]: original },
+			// Every read is followed by another client saving the same content.
+			afterContentRead: (path, fake) => {
+				if (path === GIST_FILENAME) fake.externalWrite(path, original)
+			},
+		})
+
+		await assert.rejects(
+			createRecordOperationTool(config).handler({
+				portfolioOperation: 'buy',
+				instrumentTicker: 'VWCE',
+				value: '500',
+				currency: 'PLN',
+			}),
+			/changed elsewhere.*nothing was saved.*get_portfolio/s,
+		)
+		assert.deepEqual(repo.commitMessages, [])
+		assert.equal(repo.files.get(GIST_FILENAME), original)
 	})
 })
 
