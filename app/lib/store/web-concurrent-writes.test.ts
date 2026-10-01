@@ -84,7 +84,7 @@ const vti = {
 
 describe('web concurrent writes', () => {
 	it('adds a buy on top of a holding another client saved in between', async () => {
-		setSharedCatalogForTests({ entries: [vti], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [vti] })
 		const repo = installFakeDataRepo({
 			files: { [GIST_FILENAME]: JSON.stringify([holding('a')]) },
 			afterContentRead: otherClientSavesOnce(GIST_FILENAME, [
@@ -113,7 +113,7 @@ describe('web concurrent writes', () => {
 	})
 
 	it('tells the user to reload when the portfolio keeps changing underneath the save', async () => {
-		setSharedCatalogForTests({ entries: [vti], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [vti] })
 		const original = JSON.stringify([holding('a')])
 		const repo = installFakeDataRepo({
 			files: { [GIST_FILENAME]: original },
@@ -143,7 +143,7 @@ describe('web concurrent writes', () => {
 	})
 
 	it('shows the holdings a refused sale was decided on', async () => {
-		setSharedCatalogForTests({ entries: [vti], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [vti] })
 		installFakeDataRepo({
 			files: {
 				[GIST_FILENAME]: JSON.stringify([

@@ -1,11 +1,10 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–4 done, Phase 5 built (awaiting its PR and a check on
-real GitHub). The cutover merged on 2026-10-01 (#236): both environments read
-and write their data repos, and buying and selling on prod was confirmed to
-commit to `ainvestor-data`. Phase 5 makes edits of `etfs.json` and
-`guidelines.json` compare-and-swap. Phases 6+ are designed but not yet detailed
-to the commit level.
+**Status:** Phases 0–5 done; Phase 6 (catalog to a private repo) is built and
+awaits its cutover order below. The data cutover merged on 2026-10-01 (#236):
+both environments read and write their data repos. Phase 5 (#237) made edits
+of `etfs.json` and `guidelines.json` compare-and-swap. Phase 7 is designed but
+not yet detailed to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -803,6 +802,85 @@ today) becomes one Git Data commit — same atomicity, plus CAS on the parent.
 The data moves the Phase 3 way: the script's copy-and-verify step, pointed at
 the catalog gist and the existing `ainvestor-shared/ainvestor-catalog`, then a
 cutover deploy.
+
+#### What Phase 6 built, where it differs from the above
+
+- **One catalog repo for preview and prod,** `ainvestor-shared/ainvestor-catalog`
+  (`DEFAULT_SHARED_CATALOG_REPO`; `SHARED_CATALOG_REPO` overrides it). The two
+  environments had separate catalog gists; the catalog changes rarely, so they
+  now share one. Preview's catalog (620 funds) is the one copied — prod's gist
+  held an older 292.
+- **The token ripple was already done** in #236, which read the public gist
+  with the caller's token to dodge the anonymous rate limit. Phase 6 only
+  swapped the store underneath.
+- **Admin is push access, not gist ownership.** An organization repo has no
+  single owner, so `canWriteSharedCatalog(token)` reads GitHub's own
+  `permissions.push` for the token's user. Sign-in stores the answer as
+  `isAdmin`; the web import trusts that flag and GitHub refuses the save if the
+  access has since gone; the MCP write tools ask GitHub on every write. The
+  snapshot lost its `ownerLogin`.
+- **The `404` trap** is handled as planned: at sign-in a private repo the token
+  cannot see is "not an admin", and a GitHub error there is logged without
+  ending the sign-in. Both have tests.
+- **A missing `catalog.json` is a failed read, not an empty catalog.** GitHub
+  answers 404 both for a missing file and for a repo the token cannot see, and
+  the snapshot cache is shared across tokens — so a read by an account outside
+  the `ainvestor-users` team must not cache an empty list for everyone else.
+- **The catalog cache is per token,** no longer shared. The plan's "possible
+  only because guests lose catalog access" overlooked the MCP HTTP endpoint,
+  which serves read tools to any GitHub token: a shared copy would hand the
+  private catalog to anyone. A token GitHub will not show the repo to gets an
+  empty catalog marked `problem: 'no-access'` (and drops its own copy); the
+  page and `list_catalog` say so, naming the `ainvestor-users` team, instead of
+  calling the catalog empty. Adding a user is therefore two steps: approve the
+  login, add the account to the team.
+- **Catalog writes are compare-and-swap, built from a fresh read.**
+  `updateSharedCatalog` reads the head commit, then both files, uncached and
+  failing loudly, and commits only on top of that head (`writeFiles`' ref
+  update reports `conflict` when it moved). The old path built a whole-file
+  save from the cached snapshot, which a failed read turned into an empty list
+  — an MCP edit could have saved a catalog of one fund. Bank imports go through
+  `importBankCatalog`, which parses the payload against the catalog as it
+  stands at the save.
+- **`catalog-source.json` moved** with the catalog, in the same commit.
+- **Catalog saves carry commit messages** like the data repo's:
+  `Import bank catalog (N rows) (web)`, `Update catalog entry VWCE (MCP)`.
+- **`SHARED_CATALOG_GIST_ID` is no longer read.** The web server no longer
+  refuses to start without it, and the stdio MCP server no longer requires it.
+  The Fly secret can go in Phase 7.
+- **`gist` stays in the OAuth scope** although nothing in the app reads a gist
+  any more, so a token still works if a deploy is rolled back to the
+  gist-catalog build. Phase 7 drops it.
+- **The migration script gained `--catalog --gist <id>`.** It creates the repo
+  in the organization (private, initialised) when absent and waits for its
+  first commit to be readable, initialises one that exists with no commits,
+  refuses a token that can read but not push, refuses a gist without
+  `catalog.json`, and treats only root JSON files as catalog data (a `LICENSE`
+  or `.gitignore` made with the repo is never planned for deletion). Then it
+  plans, copies in one commit and verifies exactly like the data copy, which
+  now shares that core. A refused repo lookup names the organization's
+  Third-party access setting.
+
+**Cutover order** (one catalog repo, so one copy; the PR's preview deploy is
+the rehearsal):
+
+1. If `ainvestor-shared` restricts OAuth apps (new organizations do), approve
+   both AInvestor OAuth apps (prod and preview) and GitHub CLI under the
+   organization's **Settings → Third-party access**. Otherwise GitHub hides the
+   private repo behind a `404` from those tokens.
+2. Read preview's catalog gist id from the running app:
+   `fly ssh console -a ainvestor-preview -C 'printenv SHARED_CATALOG_GIST_ID'`
+   (start the machine first if it is stopped).
+3. `GH_TOKEN=$(gh auth token) npm run migrate:gist-to-repo -- --catalog --gist <id>`,
+   then again with `--apply`, and confirm it verifies.
+4. On this PR's preview deploy: sign in, check the catalog shows every fund and
+   the Admin link is there. From step 3 until the merge, import nothing through
+   prod: it still writes the old gist, which the repo would not pick up.
+5. Merge. On prod: the catalog shows the same funds, and Admin still works.
+   MCP clients need no reconnect — the scopes did not change.
+
+**Rollback:** redeploy the previous build. It reads the gists, which are
+untouched — prod's still holds its older catalog.
 
 ### Phase 7 — remove the gist backend
 

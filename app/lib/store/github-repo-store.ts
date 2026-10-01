@@ -163,6 +163,32 @@ async function getRepoMetadata(params: {
 }
 
 /**
+ * What this token may do with a repo: `found: false` when GitHub answers 404 —
+ * which for a private repo means "not visible to you" as much as "does not
+ * exist", so the two are deliberately one case. `canWrite` is GitHub's own
+ * `permissions.push` for the token's user: whoever GitHub lets push is whoever
+ * may change what the repo holds. Throws on any other refusal, with the status.
+ */
+export async function getRepoAccess(params: {
+	token: string
+	location: string
+}): Promise<{ found: false } | { found: true; canWrite: boolean }> {
+	const { owner, repo } = repoLocationOrThrow(params.location)
+	const response = await fetch(`${GITHUB_API}/repos/${owner}/${repo}`, {
+		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
+		headers: githubHeaders(params.token),
+	})
+	if (response.status === 404) return { found: false }
+	if (!response.ok) {
+		throw new Error(
+			`GitHub API error reading ${owner}/${repo}: ${response.status}`,
+		)
+	}
+	const body = (await response.json()) as { permissions?: { push?: unknown } }
+	return { found: true, canWrite: body.permissions?.push === true }
+}
+
+/**
  * Whether the repo carries this app's ownership marker file. A repo that
  * exists but confirms it lacks the marker (`found: false`, a 404) is never
  * treated as ours — see {@link findOrCreateDataRepo}. A request that fails
@@ -527,7 +553,16 @@ export async function writeFile(params: {
 // Multi-file atomic write — Git Data API
 // ---------------------------------------------------------------------------
 
-type GitDataFailure = { ok: false; status: number; response: Response }
+type GitDataFailure = {
+	ok: false
+	status: number
+	response: Response
+	/**
+	 * The branch moved past `expectedVersion` before the commit landed: another
+	 * client wrote first. Only ever set when `expectedVersion` was passed.
+	 */
+	conflict?: true
+}
 
 async function gitDataRequest(params: {
 	token: string
@@ -559,9 +594,12 @@ export type WriteFilesResult = { ok: true } | GitDataFailure
  * commit non-fast-forward — a ref that moved since we read it rejects the
  * update rather than losing a concurrent write.
  *
- * `expectedVersion` names the parent commit to build on; when omitted, the
- * current tip is read and used, matching {@link writeFile}'s same-shaped
- * last-write-wins default.
+ * `expectedVersion` names the parent commit to build on — the head the caller
+ * read its content at (see {@link readHeadCommit}), which makes the write
+ * compare-and-swap: if the branch has moved since, GitHub refuses the
+ * non-fast-forward ref update and the result carries `conflict: true`. When
+ * omitted, the current tip is read and used, matching {@link writeFile}'s
+ * same-shaped last-write-wins default.
  */
 export async function writeFiles(params: {
 	token: string
@@ -737,7 +775,35 @@ export async function writeFiles(params: {
 			ok: false,
 			status: refUpdateResponse.status,
 			response: refUpdateResponse,
+			// GitHub answers a non-fast-forward ref update with 422.
+			...(typeof params.expectedVersion === 'string' &&
+			refUpdateResponse.status === 422
+				? { conflict: true as const }
+				: {}),
 		}
 	}
 	return { ok: true }
+}
+
+/**
+ * The commit at the tip of the repo's default branch: what a later
+ * {@link writeFiles} passes as `expectedVersion` so that it only lands on top
+ * of the content read after this call.
+ */
+export async function readHeadCommit(params: {
+	token: string
+	location: string
+}): Promise<{ ok: true; sha: string } | { ok: false; status: number }> {
+	const { owner, repo } = repoLocationOrThrow(params.location)
+	const metadata = await getRepoMetadata({ token: params.token, owner, repo })
+	if (!metadata.found) return { ok: false, status: 404 }
+	const refResponse = await gitDataRequest({
+		token: params.token,
+		owner,
+		repo,
+		path: `ref/heads/${metadata.metadata.defaultBranch}`,
+	})
+	if (!refResponse.ok) return { ok: false, status: refResponse.status }
+	const ref = (await refResponse.json()) as { object: { sha: string } }
+	return { ok: true, sha: ref.object.sha }
 }

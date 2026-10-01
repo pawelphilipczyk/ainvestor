@@ -35,10 +35,9 @@ afterEach(() => {
 	}
 })
 
-function seedSharedCatalog(bankJson: string, ownerLogin = 'catalog-admin') {
+function seedSharedCatalog(bankJson: string) {
 	setSharedCatalogForTests({
 		entries: parseBankJsonToCatalog(JSON.parse(bankJson)),
-		ownerLogin,
 	})
 }
 
@@ -317,7 +316,7 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('GET /admin/etf-import returns 404 for signed-in non-admin user', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: 'regular-user' })
+		setSharedCatalogForTests({ entries: [] })
 		const cookie = await signInAs('regular-user', { isAdmin: false })
 		const response = await testSessionFetch(
 			'http://localhost/admin/etf-import',
@@ -332,8 +331,8 @@ describe('ETF Catalog page', () => {
 		assert.doesNotMatch(body, /name="bankApiJson"/)
 	})
 
-	it('GET /admin/etf-import allows session isAdmin when login is not catalog owner', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+	it('GET /admin/etf-import follows the session admin flag set at sign-in', async () => {
+		setSharedCatalogForTests({ entries: [] })
 		const cookie = await signInAs('regular-user', { isAdmin: true })
 		const response = await testSessionFetch(
 			'http://localhost/admin/etf-import',
@@ -361,7 +360,7 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('POST /catalog/import returns JSON for Accept: application/json on success without consuming flash', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+		setSharedCatalogForTests({ entries: [] })
 		const cookie = await signInAs('catalog-admin')
 		const bankJson = JSON.stringify({
 			data: [
@@ -455,12 +454,37 @@ describe('ETF Catalog page', () => {
 		const body = await response.text()
 
 		assert.match(body, /No catalog imported yet/)
-		assert.match(body, /The shared catalog gist is empty/)
+		assert.match(body, /The shared catalog is empty/)
 		assert.doesNotMatch(body, /Open Admin ETF import/)
 	})
 
-	it('GET /catalog shows Admin import link for gist owner when catalog is empty', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+	it('GET /catalog says the account has no access, instead of calling the catalog empty', async () => {
+		resetSharedCatalogForTests()
+		const originalFetch = globalThis.fetch
+		const originalTtl = process.env.SHARED_CATALOG_CACHE_TTL_MS
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		// GitHub hides the private catalog repo from this account.
+		globalThis.fetch = async () => new Response(null, { status: 404 })
+		const originalError = console.error
+		console.error = () => {}
+		try {
+			const response = await testSessionFetch('http://localhost/catalog')
+			const body = await response.text()
+			assert.match(body, /You do not have access to the shared catalog/)
+			assert.match(body, /ainvestor-shared\/ainvestor-catalog/)
+			assert.match(body, /ainvestor-users team/)
+			assert.doesNotMatch(body, /No catalog imported yet/)
+		} finally {
+			globalThis.fetch = originalFetch
+			console.error = originalError
+			if (originalTtl === undefined)
+				delete process.env.SHARED_CATALOG_CACHE_TTL_MS
+			else process.env.SHARED_CATALOG_CACHE_TTL_MS = originalTtl
+		}
+	})
+
+	it('GET /catalog shows Admin import link for a catalog maintainer when catalog is empty', async () => {
+		setSharedCatalogForTests({ entries: [] })
 		const cookie = await signInAs('catalog-admin')
 		const response = await testSessionFetch('http://localhost/catalog', {
 			headers: { Cookie: cookie },
@@ -533,7 +557,7 @@ describe('ETF Catalog page', () => {
 		assert.doesNotMatch(body, /Xtrackers Future Mobility/)
 	})
 
-	it('POST /catalog/import merges into shared catalog for gist owner', async () => {
+	it('POST /catalog/import merges into shared catalog for a catalog maintainer', async () => {
 		const bankJson = JSON.stringify({
 			data: [
 				{
@@ -581,7 +605,7 @@ describe('ETF Catalog page', () => {
 	})
 
 	it('POST /catalog/import flashes success line when all rows merge with no skips', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-admin' })
+		setSharedCatalogForTests({ entries: [] })
 		const cookie = await signInAs('catalog-admin')
 		const bankJson = JSON.stringify({
 			data: [

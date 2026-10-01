@@ -119,24 +119,25 @@ export const en = {
 
 	'catalog.savedGist': 'Your portfolio is matched against the shared catalog.',
 	'catalog.sharedSource':
-		'This catalog is loaded from a shared public GitHub Gist.',
+		'This catalog is loaded from a shared private GitHub repository.',
 	'catalog.import.title': 'Import',
 	'catalog.import.subtitle':
 		'Paste bank API JSON or upload a DevTools HAR (.har) to update the shared catalog (merges with existing rows).',
 	'catalog.import.submit': 'Import',
-	'catalog.import.ownerOnly': 'Import updates from the shared catalog gist.',
-	'catalog.import.ownerMissing':
-		'Import is unavailable until the shared catalog gist owner is configured.',
-	'catalog.import.signInRequired':
-		'Sign in with the shared catalog gist owner account to import updates.',
-	'catalog.import.ownerActive': 'Import updates from the shared catalog gist.',
+	'catalog.import.target': 'Import updates the shared catalog in {repo}.',
 	'catalog.import.pasteLabel.screenReader': 'Paste bank API JSON',
 	'catalog.import.pastePlaceholder':
 		'Paste fetch response JSON here (or use HAR upload below)',
 	'catalog.import.harLabel': 'HAR file',
+	'catalog.noAccess.title': 'You do not have access to the shared catalog.',
+	'catalog.noAccess.hint':
+		'The catalog lives in the private GitHub repository {repo}. Ask its maintainer to add your GitHub account to the ainvestor-users team, then sign in again.',
+	'catalog.unavailable.title': 'The shared catalog could not be loaded.',
+	'catalog.unavailable.hint':
+		'GitHub did not answer as expected. Reload the page in a moment.',
 	'catalog.empty.title': 'No catalog imported yet.',
 	'catalog.empty.hint':
-		'The shared catalog gist is empty. If you are the gist owner, open Admin and import broker ETF data to populate it.',
+		'The shared catalog is empty. If you maintain it, open Admin and import broker ETF data to populate it.',
 	'catalog.empty.adminImportLink': 'Open Admin ETF import',
 	'catalog.filter.assetType': 'Asset type',
 	'catalog.filter.allTypes': 'All types',
@@ -306,7 +307,7 @@ export const en = {
 	'errors.upload.fileTooLarge':
 		'File upload is too large. Maximum size is 5 MB.',
 	'errors.catalog.importNotAllowed':
-		'Only the shared catalog gist owner can import catalog updates.',
+		'Only the shared catalog’s maintainers can import catalog updates.',
 	'errors.catalog.import.fieldMissing':
 		'Provide pasted bank API JSON or choose a HAR file, then try again.',
 	'errors.catalog.import.emptyJson':
@@ -353,6 +354,8 @@ export const en = {
 		'Fund id "{id}" already exists in the catalog; incoming fields were merged into that row.',
 	'errors.catalog.import.dataArrayEmpty':
 		'The pasted JSON has an empty "data" array — no funds to import.',
+	'errors.catalog.import.changedElsewhere':
+		'The shared catalog kept changing while this import was being saved, so nothing was saved. Try the import again.',
 	'errors.catalog.import.saveFailed':
 		'Could not save the catalog to GitHub. Check your connection and permissions, then try again.',
 	'errors.catalog.etfDetail.service':

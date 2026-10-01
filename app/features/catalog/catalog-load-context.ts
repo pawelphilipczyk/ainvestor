@@ -8,14 +8,11 @@ import {
 	getSessionData,
 	sessionHasDataRepo,
 } from '../../lib/session.ts'
-import type { CatalogEntry } from './lib.ts'
-import { fetchSharedCatalogSnapshot, isSharedCatalogAdmin } from './lib.ts'
+import type { SharedCatalogSnapshot } from './lib.ts'
+import { fetchSharedCatalogSnapshot } from './lib.ts'
 
 export type CatalogPageLoadContext = {
-	catalogSnapshot: {
-		entries: CatalogEntry[]
-		ownerLogin: string | null
-	}
+	catalogSnapshot: SharedCatalogSnapshot
 	entries: EtfEntry[]
 	session: ReturnType<typeof getSessionData>
 	layoutSession: SessionData | null
@@ -27,7 +24,7 @@ export type CatalogEtfDetailLoadContext = {
 }
 
 /**
- * Catalog ETF detail page: shared gist snapshot + session headers only (no holdings fetch).
+ * Catalog ETF detail page: shared catalog snapshot + session headers only (no holdings fetch).
  */
 export async function loadCatalogEtfDetailContext(
 	context: AppRequestContext,
@@ -40,7 +37,7 @@ export async function loadCatalogEtfDetailContext(
 }
 
 /**
- * Catalog list page: shared gist snapshot + user holdings. A session pending
+ * Catalog list page: shared catalog snapshot + user holdings. A session pending
  * approval has no store to read, so it gets no holdings rather than an error.
  */
 export async function loadCatalogPageContext(
@@ -62,18 +59,19 @@ export async function loadCatalogPageContext(
 	return { catalogSnapshot, entries, session, layoutSession }
 }
 
+/**
+ * Whether to offer catalog admin controls: a signed-in session whose sign-in
+ * found push access to the catalog repo (`isAdmin`, set in `auth`). GitHub
+ * still refuses the write itself for anyone without that access.
+ */
 export function isAdmin(params: {
 	session: CatalogPageLoadContext['session']
 	layoutSession: SessionData | null
-	ownerLogin: string | null
 }): boolean {
-	const { session, layoutSession, ownerLogin } = params
+	const { session, layoutSession } = params
 	return (
 		session?.token !== null &&
 		session?.token !== undefined &&
-		isSharedCatalogAdmin({
-			sessionLogin: layoutSession?.login,
-			ownerLogin,
-		})
+		layoutSession?.isAdmin === true
 	)
 }

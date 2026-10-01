@@ -384,7 +384,6 @@ describe('get_buy_plan tool', () => {
 	it('reads holdings, guidelines and catalog, then answers with the buckets', async () => {
 		setSharedCatalogForTests({
 			entries: SHORTFALL.catalog,
-			ownerLogin: null,
 		})
 		const requestedUrls = stubGist({
 			holdings: SHORTFALL.holdings,
@@ -413,7 +412,6 @@ describe('get_buy_plan tool', () => {
 	it('accepts cashAmount as a number, which models routinely send', async () => {
 		setSharedCatalogForTests({
 			entries: SHORTFALL.catalog,
-			ownerLogin: null,
 		})
 		stubGist({ holdings: [], guidelines: SHORTFALL.guidelines })
 		const tool = createGetBuyPlanTool(credentials)
@@ -443,7 +441,6 @@ describe('get_buy_plan tool', () => {
 	it('rejects a currency the app does not support', async () => {
 		setSharedCatalogForTests({
 			entries: SHORTFALL.catalog,
-			ownerLogin: null,
 		})
 		stubGist({ holdings: [], guidelines: SHORTFALL.guidelines })
 		const tool = createGetBuyPlanTool(credentials)
@@ -456,7 +453,6 @@ describe('get_buy_plan tool', () => {
 	it('takes the currency argument case-insensitively', async () => {
 		setSharedCatalogForTests({
 			entries: SHORTFALL.catalog,
-			ownerLogin: null,
 		})
 		stubGist({ holdings: [], guidelines: SHORTFALL.guidelines })
 		const tool = createGetBuyPlanTool(credentials)
@@ -476,7 +472,6 @@ describe('get_buy_plan tool', () => {
 	it('propagates a GitHub failure so the dispatcher marks it as a tool error', async () => {
 		setSharedCatalogForTests({
 			entries: SHORTFALL.catalog,
-			ownerLogin: null,
 		})
 		installFakeDataRepo({ failWith: 500 })
 		const tool = createGetBuyPlanTool(credentials)

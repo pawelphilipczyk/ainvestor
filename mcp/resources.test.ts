@@ -115,7 +115,7 @@ describe('ainvestor resources', () => {
 		const catalog = Array.from({ length: 120 }, (_unused, index) =>
 			catalogEntry({ id: `t:F${index}`, ticker: `F${index}` }),
 		)
-		setSharedCatalogForTests({ entries: catalog, ownerLogin: 'catalog-owner' })
+		setSharedCatalogForTests({ entries: catalog })
 
 		const payload = await readResource('ainvestor://catalog')
 
@@ -129,7 +129,7 @@ describe('ainvestor resources', () => {
 	// business logic, covered in catalog.test.ts; this only checks that the
 	// resource passes an empty catalog through rather than erroring.
 	it('reports an empty catalog rather than erroring', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: 'catalog-owner' })
+		setSharedCatalogForTests({ entries: [] })
 
 		const payload = await readResource('ainvestor://catalog')
 

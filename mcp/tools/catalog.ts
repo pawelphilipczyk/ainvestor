@@ -3,22 +3,24 @@ import type {
 	CatalogEntryValidationIssue,
 } from '../../app/features/catalog/lib.ts'
 import {
+	canWriteSharedCatalog,
 	catalogEntryMatchesQuery,
 	deriveCatalogEntryId,
 	fetchCatalog,
 	fetchSharedCatalogSnapshot,
 	findCatalogEntryByTicker,
-	isSharedCatalogAdmin,
-	saveCatalog,
+	getSharedCatalogRepo,
+	updateSharedCatalog,
 	validateCatalogEntry,
 } from '../../app/features/catalog/lib.ts'
 import type { EtfType } from '../../app/lib/guidelines.ts'
 import { ETF_TYPES, isEtfType } from '../../app/lib/guidelines.ts'
-import { resolveCallerLogin } from '../approved-caller.ts'
+import { commitMessage } from '../../app/lib/store/commit-message.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { readStringArgument } from './tool-arguments.ts'
 import { jsonResult } from './tool-result.ts'
+import { withConflictAdvice } from './write-conflict.ts'
 
 /** Enough rows to choose from without flooding the context. */
 const DEFAULT_LIMIT = 25
@@ -43,7 +45,7 @@ const ENTRY_DESCRIPTION = `Read one catalog entry in full, by ticker or by id. E
 ${FIELD_CAVEAT}`
 
 const WRITE_CAVEAT =
-	'The catalog is one public gist shared by every user of the app, and only its owner may write to it — a write from anyone else is refused. Saving replaces the whole file with what this call read a moment earlier, so an import running in the web app in between is overwritten rather than merged; the gist keeps every write as a revision, so tell the user to restore it there if that happens.'
+	'The catalog is one private repository shared by every user of the app, and only its maintainers may write to it — a write from anyone else is refused. Saving replaces the whole file with what this call read a moment earlier, so an import running in the web app in between is overwritten rather than merged; the repository keeps every save as a commit, so tell the user to restore it from its history if that happens.'
 
 const UPSERT_DESCRIPTION = `Add a fund to the shared catalog, or update the fields of one already in it.
 
@@ -82,8 +84,10 @@ export function summarizeCatalogSearch(params: {
 	catalog: CatalogEntry[]
 	query: string
 	limit: number
+	/** Why the catalog is empty when it was not read; see `fetchSharedCatalogSnapshot`. */
+	problem?: 'no-access' | 'unavailable'
 }) {
-	const { catalog, query, limit } = params
+	const { catalog, query, limit, problem } = params
 	const matches = catalog.filter((entry) =>
 		catalogEntryMatchesQuery(entry, query),
 	)
@@ -102,7 +106,10 @@ export function summarizeCatalogSearch(params: {
 			: {}),
 		...(catalog.length === 0
 			? {
-					note: 'The shared catalog came back with no entries at all: it is either not configured or temporarily unreachable. Do not report this as "the app knows no funds" — retry before drawing any conclusion from it.',
+					note:
+						problem === 'no-access'
+							? `This token cannot read the shared catalog, a private repository (${getSharedCatalogRepo()}). Tell the user their GitHub account must be added to the ainvestor-users team; do not report this as "the app knows no funds".`
+							: 'The shared catalog came back with no entries at all: it is either empty or temporarily unreachable. Do not report this as "the app knows no funds" — retry before drawing any conclusion from it.',
 				}
 			: {}),
 	}
@@ -155,27 +162,18 @@ function requireTickerOrId(toolArguments: Record<string, unknown>): {
 }
 
 /**
- * Loads the catalog together with its owner, and refuses a caller who is not
- * that owner.
+ * Refuses a caller GitHub would not let push to the catalog repo — checked
+ * before a write so the refusal names the repo, rather than surfacing GitHub's
+ * bare 404 or 403 from the save.
  */
-export async function loadCatalogForWrite(
+export async function assertCanWriteCatalog(
 	credentials: DataRepoCredentials,
-): Promise<CatalogEntry[]> {
-	const [{ entries, ownerLogin }, callerLogin] = await Promise.all([
-		fetchSharedCatalogSnapshot(credentials.githubToken),
-		resolveCallerLogin(credentials.githubToken),
-	])
-	if (callerLogin === null) {
+): Promise<void> {
+	if (!(await canWriteSharedCatalog(credentials.githubToken))) {
 		throw new Error(
-			'GitHub would not resolve this token to an account (401), so catalog ownership cannot be checked.',
+			`This token cannot push to ${getSharedCatalogRepo()}, the shared catalog. Only its maintainers in the ainvestor-shared organization can change it.`,
 		)
 	}
-	if (!isSharedCatalogAdmin({ sessionLogin: callerLogin, ownerLogin })) {
-		throw new Error(
-			`The shared catalog belongs to ${ownerLogin ?? 'an unknown account'}, and this token belongs to ${callerLogin}. Only the catalog's owner can change it.`,
-		)
-	}
-	return entries
 }
 
 export function createListCatalogTool(
@@ -186,8 +184,15 @@ export function createListCatalogTool(
 	): Promise<McpToolResult> {
 		const query = readStringArgument(toolArguments, 'query') ?? ''
 		const limit = readLimit(toolArguments)
-		const catalog = await fetchCatalog(credentials.githubToken)
-		return jsonResult(summarizeCatalogSearch({ catalog, query, limit }))
+		const snapshot = await fetchSharedCatalogSnapshot(credentials.githubToken)
+		return jsonResult(
+			summarizeCatalogSearch({
+				catalog: snapshot.entries,
+				query,
+				limit,
+				problem: snapshot.problem,
+			}),
+		)
 	}
 
 	return {
@@ -325,56 +330,76 @@ export function createUpsertCatalogEntryTool(
 		const type = readEtfTypeArgument(toolArguments)
 		const optionalFields = readOptionalEntryFields(toolArguments)
 
-		const entries = await loadCatalogForWrite(credentials)
-		const existing = findCatalogEntryByTicker(entries, ticker)
+		await assertCanWriteCatalog(credentials)
+		// Built from a fresh, compare-and-swap read inside updateSharedCatalog,
+		// never the cached snapshot: this saves the whole file.
+		const { existing, merged, catalogSize } = await withConflictAdvice(
+			'list_catalog',
+			() =>
+				updateSharedCatalog({
+					token: credentials.githubToken,
+					change: ({ entries }) => {
+						const existing = findCatalogEntryByTicker(entries, ticker)
 
-		if (existing === undefined && (name === null || type === null)) {
-			throw new Error(
-				`${ticker} is not in the catalog yet, so "name" and "type" are required to add it.`,
-			)
-		}
+						if (existing === undefined && (name === null || type === null)) {
+							throw new Error(
+								`${ticker} is not in the catalog yet, so "name" and "type" are required to add it.`,
+							)
+						}
 
-		// Only the fields this call names are sent, so spreading them onto
-		// `existing` last keeps every field the call did not mention — including
-		// `isin`, which must NOT be dropped here (see this file's merge-by-id note
-		// in docs/MCP_SERVER_PLAN.md for why).
-		const changes: CatalogEntry = {
-			id:
-				existing?.id ??
-				deriveCatalogEntryId({
-					ticker,
-					isin: readStringArgument(toolArguments, 'isin') ?? undefined,
+						// Only the fields this call names are sent, so spreading them onto
+						// `existing` last keeps every field the call did not mention —
+						// including `isin`, which must NOT be dropped here (see this file's
+						// merge-by-id note in docs/MCP_SERVER_PLAN.md for why).
+						const changes: CatalogEntry = {
+							id:
+								existing?.id ??
+								deriveCatalogEntryId({
+									ticker,
+									isin: readStringArgument(toolArguments, 'isin') ?? undefined,
+								}),
+							ticker: existing?.ticker ?? ticker.toUpperCase(),
+							name: name ?? existing?.name ?? '',
+							type: type ?? existing?.type ?? 'equity',
+							description:
+								readStringArgument(toolArguments, 'description') ??
+								existing?.description ??
+								'',
+							...optionalFields,
+						}
+						const merged: CatalogEntry =
+							existing === undefined ? changes : { ...existing, ...changes }
+
+						// Same gate a bank import row has to pass — see validateCatalogEntry.
+						const issues = validateCatalogEntry(merged)
+						if (issues.length > 0) {
+							throw new Error(
+								`Invalid catalog entry: ${issues.map(describeCatalogEntryValidationIssue).join('; ')}.`,
+							)
+						}
+
+						const next =
+							existing === undefined
+								? [merged, ...entries]
+								: entries.map((entry) =>
+										entry.id === existing.id ? merged : entry,
+									)
+						return {
+							write: { entries: next },
+							message: commitMessage({
+								summary: `${existing === undefined ? 'Add' : 'Update'} catalog entry ${merged.ticker}`,
+								source: 'MCP',
+							}),
+							result: { existing, merged, catalogSize: next.length },
+						}
+					},
 				}),
-			ticker: existing?.ticker ?? ticker.toUpperCase(),
-			name: name ?? existing?.name ?? '',
-			type: type ?? existing?.type ?? 'equity',
-			description:
-				readStringArgument(toolArguments, 'description') ??
-				existing?.description ??
-				'',
-			...optionalFields,
-		}
-		const merged: CatalogEntry =
-			existing === undefined ? changes : { ...existing, ...changes }
-
-		// Same gate a bank import row has to pass — see validateCatalogEntry.
-		const issues = validateCatalogEntry(merged)
-		if (issues.length > 0) {
-			throw new Error(
-				`Invalid catalog entry: ${issues.map(describeCatalogEntryValidationIssue).join('; ')}.`,
-			)
-		}
-
-		const next =
-			existing === undefined
-				? [merged, ...entries]
-				: entries.map((entry) => (entry.id === existing.id ? merged : entry))
-		await saveCatalog({ token: credentials.githubToken, entries: next })
+		)
 
 		return jsonResult({
 			action: existing === undefined ? 'created' : 'updated',
 			entry: merged,
-			catalogSize: next.length,
+			catalogSize,
 		})
 	}
 
@@ -436,21 +461,36 @@ export function createDeleteCatalogEntryTool(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
 		const { ticker, id } = requireTickerOrId(toolArguments)
-		const entries = await loadCatalogForWrite(credentials)
-		const existing = findEntry({ catalog: entries, ticker, id })
-		if (existing === undefined) {
-			throw new Error(
-				`No catalog entry matches ${id === null ? `ticker "${ticker}"` : `id "${id}"`}; nothing was removed.`,
-			)
-		}
-
-		const next = entries.filter((entry) => entry.id !== existing.id)
-		await saveCatalog({ token: credentials.githubToken, entries: next })
+		await assertCanWriteCatalog(credentials)
+		const { existing, catalogSize } = await withConflictAdvice(
+			'list_catalog',
+			() =>
+				updateSharedCatalog({
+					token: credentials.githubToken,
+					change: ({ entries }) => {
+						const existing = findEntry({ catalog: entries, ticker, id })
+						if (existing === undefined) {
+							throw new Error(
+								`No catalog entry matches ${id === null ? `ticker "${ticker}"` : `id "${id}"`}; nothing was removed.`,
+							)
+						}
+						const next = entries.filter((entry) => entry.id !== existing.id)
+						return {
+							write: { entries: next },
+							message: commitMessage({
+								summary: `Remove catalog entry ${existing.ticker}`,
+								source: 'MCP',
+							}),
+							result: { existing, catalogSize: next.length },
+						}
+					},
+				}),
+		)
 
 		return jsonResult({
 			action: 'deleted',
 			deleted: compactRow(existing),
-			catalogSize: next.length,
+			catalogSize,
 		})
 	}
 

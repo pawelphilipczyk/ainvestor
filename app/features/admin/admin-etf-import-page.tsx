@@ -5,7 +5,8 @@ import { getSectionIntro } from '../../lib/section-intros.ts'
 import { CatalogImportCard } from '../catalog/catalog-import-card.tsx'
 
 type AdminEtfImportPageProps = {
-	sharedCatalogOwnerLogin: string | null
+	/** The catalog repo an import writes to, `owner/repo`. */
+	catalogRepo: string
 }
 
 export function AdminETFImportPage(handle: Handle<AdminEtfImportPageProps>) {
@@ -24,9 +25,7 @@ export function AdminETFImportPage(handle: Handle<AdminEtfImportPageProps>) {
 						{t('admin.etfImport.frequencyNote')}
 					</p>
 				</div>
-				<CatalogImportCard
-					sharedCatalogOwnerLogin={handle.props.sharedCatalogOwnerLogin}
-				/>
+				<CatalogImportCard catalogRepo={handle.props.catalogRepo} />
 			</main>
 		)
 	}

@@ -26,6 +26,24 @@ backlog just feeds the overlap backlog.
 
 ## Open items
 
+### GAP-025 — advice route tests read the real GitHub API for saved advice
+**Status:** `proposed` · **Proposed:** 2026-10-01 · **Area:** `app/features/advice`
+
+Running the suite with `fetch` to `api.github.com` intercepted shows
+`app/features/advice/advice.test.ts` sending about 26 real requests per run, to
+`octocat/ainvestor-data/contents/advice-*.json`: the saved-advice read goes past
+the in-process overlay (`setPrivateGistTestStore` covers holdings and
+guidelines, and `advice-gist.ts`'s own `gistTestState` is not enabled by those
+tests). They pass only because GitHub answers 401/404 for the fake token, which
+the page treats as "nothing saved" — so the tests depend on the network and on
+GitHub's answer, and a slow or offline run changes their timing. Found while
+storage Phase 6 stopped the catalog doing the same (it now defaults route tests
+to an empty test catalog via `ensureSharedCatalogForTests`).
+
+**Suggested action:** enable the advice overlay (or install a fake data repo)
+in `signInWithGist`, and add a suite-wide guard in the test setup that fails a
+test reaching the real GitHub API.
+
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
 **Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
 

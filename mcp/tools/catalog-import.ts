@@ -7,20 +7,19 @@
 import { readFile, stat } from 'node:fs/promises'
 
 import { extractBankApiJsonFromHar } from '../../app/features/catalog/har-bank-json-adapter.ts'
-import type {
-	BankJsonImportRowDiagnostics,
-	CatalogEntry,
-} from '../../app/features/catalog/lib.ts'
+import type { BankJsonImportRowDiagnostics } from '../../app/features/catalog/lib.ts'
 import {
+	fetchCatalog,
+	importBankCatalog,
 	mergeBankIntoCatalog,
 	parseBankJsonForImport,
-	saveCatalogImport,
 } from '../../app/features/catalog/lib.ts'
 import { MULTIPART_MAX_FILE_BYTES } from '../../app/lib/multipart-upload-limits.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
-import { loadCatalogForWrite } from './catalog.ts'
+import { assertCanWriteCatalog } from './catalog.ts'
 import { jsonResult } from './tool-result.ts'
+import { withConflictAdvice } from './write-conflict.ts'
 
 /** A long import must not push its own rows out of the model's context. */
 const MAX_REPORTED_DIAGNOSTICS = 20
@@ -29,7 +28,7 @@ const DESCRIPTION = `Refresh the shared ETF catalog from a bank export saved on 
 
 Reads a local file, so it exists only when the server runs locally over stdio. Rows are matched by ISIN plus ticker: a fund already in the catalog is refreshed, a new one is added, and nothing is removed. Pass dryRun: true first to see what would change without writing.
 
-The catalog is one public gist shared by every user of the app, and only its owner may write to it. Saving replaces the whole file, so an import running in the web app at the same time is overwritten rather than merged; the gist keeps every write as a revision.`
+The catalog is one private repository shared by every user of the app, and only its maintainers may write to it. Saving replaces the whole file, so an import running in the web app at the same time is overwritten rather than merged; the repository keeps every save as a commit.`
 
 /** Trims diagnostics to something a model can read, keeping the count honest. */
 function reportDiagnostics(rows: BankJsonImportRowDiagnostics[]) {
@@ -97,41 +96,48 @@ export function createImportCatalogFromBankFileTool(
 		}
 		const dryRun = toolArguments.dryRun === true
 
-		// Ownership is checked before the file is read: a caller who cannot write
-		// should not learn whether a path exists on the machine either.
-		const entries = await loadCatalogForWrite(credentials)
-		const parsed = await readBankExportFile(filePath)
-		const parseResult = parseBankJsonForImport(bankPayloadFrom(parsed), entries)
+		// Write access is checked before the file is read: a caller who cannot
+		// write should not learn whether a path exists on the machine either.
+		await assertCanWriteCatalog(credentials)
+		const payload = bankPayloadFrom(await readBankExportFile(filePath))
 
-		if (parseResult.structuralIssue !== null) {
-			throw new Error(structuralIssueMessage(parseResult.structuralIssue))
+		// A dry run reports against the catalog as read now; an import parses
+		// again against the catalog as it stands at the save, and reports that.
+		const current = await fetchCatalog(credentials.githubToken)
+		const preview = parseBankJsonForImport(payload, current)
+		if (preview.structuralIssue !== null) {
+			throw new Error(structuralIssueMessage(preview.structuralIssue))
 		}
-		if (parseResult.entries.length === 0) {
+		if (preview.entries.length === 0) {
 			throw new Error(
-				`None of the ${parseResult.expectedDataRows} row(s) in the file could be imported. ${JSON.stringify(reportDiagnostics(parseResult.skippedRowDiagnostics))}`,
+				`None of the ${preview.expectedDataRows} row(s) in the file could be imported. ${JSON.stringify(reportDiagnostics(preview.skippedRowDiagnostics))}`,
 			)
 		}
 
-		const next: CatalogEntry[] = mergeBankIntoCatalog(
-			entries,
-			parseResult.entries,
-		)
-		if (!dryRun) {
-			await saveCatalogImport({
-				token: credentials.githubToken,
-				mergedEntries: next,
-				sourceRowsById: parseResult.sourceRowsById,
-			})
-		}
+		const { parseResult, catalogSizeBefore, catalogSizeAfter } = dryRun
+			? {
+					parseResult: preview,
+					catalogSizeBefore: current.length,
+					catalogSizeAfter: mergeBankIntoCatalog(current, preview.entries)
+						.length,
+				}
+			: await withConflictAdvice('list_catalog', () =>
+					importBankCatalog({
+						token: credentials.githubToken,
+						payload,
+						source: 'MCP',
+					}),
+				)
 
 		return jsonResult({
 			action: dryRun ? 'previewed' : 'imported',
 			appliedRows: parseResult.entries.length,
 			rowsInFile: parseResult.expectedDataRows,
-			catalogSizeBefore: entries.length,
-			catalogSizeAfter: next.length,
-			added: next.length - entries.length,
-			refreshed: parseResult.entries.length - (next.length - entries.length),
+			catalogSizeBefore,
+			catalogSizeAfter,
+			added: catalogSizeAfter - catalogSizeBefore,
+			refreshed:
+				parseResult.entries.length - (catalogSizeAfter - catalogSizeBefore),
 			skipped: reportDiagnostics(parseResult.skippedRowDiagnostics),
 			notes: reportDiagnostics(parseResult.noteRowDiagnostics),
 			// Rows the bank gave no asset class: typed "unknown" until set by hand.

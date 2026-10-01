@@ -1,3 +1,4 @@
+import { ensureSharedCatalogForTests } from '../features/catalog/lib.ts'
 import { router } from '../router.ts'
 import {
 	ensurePrivateGistTestStore,
@@ -66,6 +67,7 @@ export async function approvedSessionCookie(
 	// beforehand must not have either wiped out from under it.
 	addApprovedGithubLogin(login)
 	ensurePrivateGistTestStore()
+	ensureSharedCatalogForTests()
 	return seedSessionCookie((session) => {
 		session.set('login', login)
 		session.set('token', TEST_TOKEN)
@@ -82,6 +84,7 @@ export async function approvedSessionCookieForFakeRepo(
 	login = 'octocat',
 ): Promise<string> {
 	addApprovedGithubLogin(login)
+	ensureSharedCatalogForTests()
 	return seedSessionCookie((session) => {
 		session.set('login', login)
 		session.set('token', 'fake-repo-token')

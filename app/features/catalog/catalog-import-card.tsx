@@ -5,11 +5,12 @@ import {
 	SubmitButton,
 	TextareaInput,
 } from '../../components/index.ts'
-import { t } from '../../lib/i18n.ts'
+import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'
 
 type CatalogImportCardProps = {
-	sharedCatalogOwnerLogin: string | null
+	/** The catalog repo an import writes to, `owner/repo`. */
+	catalogRepo: string
 }
 
 export function CatalogImportCard(handle: Handle<CatalogImportCardProps>) {
@@ -25,11 +26,11 @@ export function CatalogImportCard(handle: Handle<CatalogImportCardProps>) {
 				<p class="mt-0.5 text-xs text-muted-foreground">
 					{t('catalog.import.subtitle')}
 				</p>
-				{handle.props.sharedCatalogOwnerLogin ? (
-					<p class="mt-2 text-xs text-muted-foreground">
-						{t('catalog.import.ownerActive')}
-					</p>
-				) : null}
+				<p class="mt-2 text-xs text-muted-foreground">
+					{format(t('catalog.import.target'), {
+						repo: handle.props.catalogRepo,
+					})}
+				</p>
 				<form
 					method="post"
 					action={routes.catalog.import.href()}

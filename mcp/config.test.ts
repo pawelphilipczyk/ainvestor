@@ -5,7 +5,6 @@ import { describeMcpConfig, resolveMcpConfig } from './config.ts'
 
 const validEnv = {
 	GH_TOKEN: 'token-value',
-	SHARED_CATALOG_GIST_ID: 'catalog-gist',
 } satisfies NodeJS.ProcessEnv
 
 describe('mcp config', () => {
@@ -17,17 +16,21 @@ describe('mcp config', () => {
 
 	it('throws an actionable error when GH_TOKEN is missing', () => {
 		assert.throws(
-			() => resolveMcpConfig({ SHARED_CATALOG_GIST_ID: 'catalog-gist' }),
+			() => resolveMcpConfig({}),
 			/GH_TOKEN is not set.*`gist` and `repo` scopes/s,
 		)
 	})
 
-	it('needs the catalog gist too, so an unconfigured catalog is not read as empty', () => {
-		assert.throws(
-			() => resolveMcpConfig({ GH_TOKEN: 'token-value' }),
-			/SHARED_CATALOG_GIST_ID is not set.*catalog\.json/s,
+	it('reads the catalog from the shared repo unless SHARED_CATALOG_REPO points elsewhere', () => {
+		assert.equal(
+			resolveMcpConfig(validEnv).sharedCatalogRepo,
+			'ainvestor-shared/ainvestor-catalog',
 		)
-		assert.equal(resolveMcpConfig(validEnv).sharedCatalogGistId, 'catalog-gist')
+		assert.equal(
+			resolveMcpConfig({ ...validEnv, SHARED_CATALOG_REPO: 'me/my-catalog' })
+				.sharedCatalogRepo,
+			'me/my-catalog',
+		)
 	})
 
 	it('treats whitespace-only values as missing', () => {

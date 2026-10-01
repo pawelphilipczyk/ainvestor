@@ -20,6 +20,7 @@ import {
 	flashBanner,
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
+import { WriteConflictError } from '../../lib/store/read-modify-write.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import { getOrCreateAdviceClient } from '../advice/advice-client.ts'
@@ -48,13 +49,12 @@ import { CatalogPage } from './catalog-page.tsx'
 import { extractBankApiJsonFromHar } from './har-bank-json-adapter.ts'
 import type { CatalogEntry, CatalogRiskBand } from './lib.ts'
 import {
+	type BankCatalogImport,
 	type BankJsonImportRowIssue,
 	type BankJsonParseForImportResult,
 	fetchSharedCatalogSnapshot,
-	isSharedCatalogAdmin,
-	mergeBankIntoCatalog,
+	importBankCatalog,
 	parseBankJsonForImport,
-	saveCatalogImport,
 } from './lib.ts'
 
 /** Cookie session storage (~4KB total); keep flash small so login + flash still fit. */
@@ -313,10 +313,10 @@ async function catalogListFragmentResponse(
 		riskFilter,
 		query,
 		totalCatalogCount: catalogSnapshot.entries.length,
+		catalogProblem: catalogSnapshot.problem,
 		isAdmin: isAdmin({
 			session,
 			layoutSession,
-			ownerLogin: catalogSnapshot.ownerLogin,
 		}),
 		pendingApproval: layoutSession?.approvalStatus === 'pending',
 	})
@@ -364,12 +364,12 @@ export const catalogController = {
 
 			return renderCatalogPage(context, {
 				catalog: catalogSnapshot.entries,
+				catalogProblem: catalogSnapshot.problem,
 				entries,
 				session: layoutSession,
 				isAdmin: isAdmin({
 					session,
 					layoutSession,
-					ownerLogin: catalogSnapshot.ownerLogin,
 				}),
 				pendingApproval: layoutSession?.approvalStatus === 'pending',
 				typeFilter,
@@ -438,16 +438,12 @@ export const catalogController = {
 			if (!sessionData?.token || !sessionData?.login) {
 				return importFailureResponse(t('errors.catalog.importNotAllowed'))
 			}
-			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot(
-				sessionData.token,
-			)
-			const canImport = isSharedCatalogAdmin({
-				sessionLogin: sessionData.login,
-				ownerLogin,
-			})
-			if (!canImport) {
+			// The admin flag comes from sign-in's push-access check; GitHub still
+			// refuses the save itself if that access has since been withdrawn.
+			if (sessionData.isAdmin !== true) {
 				return importFailureResponse(t('errors.catalog.importNotAllowed'))
 			}
+			const { entries } = await fetchSharedCatalogSnapshot(sessionData.token)
 
 			const form = context.get(FormData)
 			const harUpload = form?.get('bankApiHar')
@@ -514,28 +510,38 @@ export const catalogController = {
 				)
 			}
 
-			const merged = mergeBankIntoCatalog(entries, imported)
+			// The checks above parse against the cached catalog; the save parses
+			// again against the catalog as it stands, and its report is the one
+			// shown.
+			let saved: BankCatalogImport
 			try {
-				await saveCatalogImport({
+				saved = await importBankCatalog({
 					token: sessionData.token,
-					mergedEntries: merged,
-					sourceRowsById: parseResult.sourceRowsById,
+					payload: parsedJson,
+					source: 'web',
 				})
 			} catch (error) {
 				console.error('[catalog] import save failed', error)
-				return importFailureResponse(t('errors.catalog.import.saveFailed'))
+				return importFailureResponse(
+					t(
+						error instanceof WriteConflictError
+							? 'errors.catalog.import.changedElsewhere'
+							: 'errors.catalog.import.saveFailed',
+					),
+				)
 			}
+			const appliedCount = saved.parseResult.entries.length
 
 			const outcomeFlash = formatCatalogImportOutcomeFlash({
-				appliedCount: imported.length,
-				parseResult,
+				appliedCount,
+				parseResult: saved.parseResult,
 			})
 			const successText =
 				outcomeFlash ??
 				format(t('errors.catalog.import.diagnostic.savedLead'), {
-					appliedCount: imported.length,
+					appliedCount,
 				})
-			const successTone = catalogImportOutcomeTone(parseResult)
+			const successTone = catalogImportOutcomeTone(saved.parseResult)
 
 			if (wantsFrameSubmitJson) {
 				return new Response(
@@ -741,6 +747,7 @@ async function renderCatalogPage(
 	context: AppRequestContext,
 	params: {
 		catalog: CatalogEntry[]
+		catalogProblem: CatalogListFragmentProps['catalogProblem']
 		entries: EtfEntry[]
 		session: SessionData | null
 		isAdmin: boolean
@@ -753,6 +760,7 @@ async function renderCatalogPage(
 ) {
 	const {
 		catalog,
+		catalogProblem,
 		entries,
 		session,
 		isAdmin,
@@ -787,6 +795,7 @@ async function renderCatalogPage(
 						riskFilter,
 						query,
 						totalCatalogCount: catalog.length,
+						catalogProblem,
 						isAdmin,
 						pendingApproval,
 					}),

@@ -20,6 +20,11 @@ afterEach(() => {
  */
 async function signInThroughCallback(
 	repoOptions: Parameters<typeof installFakeDataRepo>[0],
+	/**
+	 * How GitHub answers the sign-in's look at the catalog repo: push access, read
+	 * only, a 404 (a private repo this account cannot see), or a server error.
+	 */
+	catalogAccess: 'push' | 'read' | 'hidden' | 'error' = 'hidden',
 ) {
 	process.env.GH_CLIENT_ID = 'test-client-id'
 	process.env.APPROVED_GITHUB_LOGINS = 'octocat'
@@ -30,10 +35,22 @@ async function signInThroughCallback(
 
 	installFakeDataRepo(repoOptions)
 	const repoFetch = globalThis.fetch
-	globalThis.fetch = async (input, init) =>
-		String(input) === 'https://github.com/login/oauth/access_token'
-			? Response.json({ access_token: 'new-token' })
-			: repoFetch(input, init)
+	globalThis.fetch = async (input, init) => {
+		const url = String(input)
+		if (url === 'https://github.com/login/oauth/access_token') {
+			return Response.json({ access_token: 'new-token' })
+		}
+		if (
+			url === 'https://api.github.com/repos/ainvestor-shared/ainvestor-catalog'
+		) {
+			if (catalogAccess === 'hidden') return new Response(null, { status: 404 })
+			if (catalogAccess === 'error') return new Response(null, { status: 502 })
+			return Response.json({
+				permissions: { pull: true, push: catalogAccess === 'push' },
+			})
+		}
+		return repoFetch(input, init)
+	}
 
 	const response = await router.fetch(
 		new Request(
@@ -134,5 +151,38 @@ describe('storage cutover', () => {
 		assert.equal(after.get('token'), undefined)
 		assert.equal(after.get('gistId'), undefined)
 		assert.equal(after.get('login'), undefined)
+	})
+})
+
+describe('catalog admin at sign-in', () => {
+	it('makes an account that can push to the catalog repo an admin', async () => {
+		const { session } = await signInThroughCallback({}, 'push')
+		assert.equal(session.get('isAdmin'), true)
+	})
+
+	it('does not make a read-only team member an admin', async () => {
+		const { session } = await signInThroughCallback({}, 'read')
+		assert.equal(session.get('isAdmin'), false)
+	})
+
+	it('signs in an account that cannot see the private catalog repo, just not as admin', async () => {
+		const { response, session } = await signInThroughCallback({}, 'hidden')
+		assert.equal(response.status, 302)
+		assert.equal(session.get('token'), 'new-token')
+		assert.equal(session.get('dataRepo'), 'octocat/ainvestor-data')
+		assert.equal(session.get('isAdmin'), false)
+	})
+
+	it('does not let a GitHub failure on the catalog check end the sign-in', async () => {
+		const originalError = console.error
+		console.error = () => {}
+		try {
+			const { response, session } = await signInThroughCallback({}, 'error')
+			assert.equal(response.status, 302)
+			assert.equal(session.get('token'), 'new-token')
+			assert.equal(session.get('isAdmin'), false)
+		} finally {
+			console.error = originalError
+		}
 	})
 })

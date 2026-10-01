@@ -30,6 +30,5 @@ export function seedSharedCatalog() {
 			],
 			count: 2,
 		}),
-		ownerLogin: 'catalog-admin',
 	})
 }

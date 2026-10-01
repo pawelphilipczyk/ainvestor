@@ -103,7 +103,6 @@ function stubCatalog() {
 				description: '',
 			},
 		],
-		ownerLogin: 'owner',
 	})
 }
 

@@ -36,7 +36,6 @@ async function seedGuestCatalog() {
 	})
 	setSharedCatalogForTests({
 		entries: parseBankJsonToCatalog(JSON.parse(bankJson)),
-		ownerLogin: 'catalog-admin',
 	})
 }
 

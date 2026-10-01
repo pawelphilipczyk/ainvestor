@@ -13,7 +13,7 @@ repository using the `remix` package (`remix@next`).
 - ETF form (ETF name + status: **Have** or **Want to Buy**)
 - **GitHub OAuth login** — sign in with your GitHub account
 - **Your own GitHub repository as the database** — your portfolio, guidelines and saved advice live in a private repository (`ainvestor-data`) in your own GitHub account, created on first sign-in (no external DB required)
-- **Shared ETF catalog** — the catalog is loaded from one public GitHub Gist shared by all users
+- **Shared ETF catalog** — the catalog is loaded from one private repository (`ainvestor-shared/ainvestor-catalog`) shared by all users, read with each user's own token
 - **Sign-in required** — every page but the intro is behind GitHub sign-in; a
   signed-out visitor is sent back to the intro page. A login awaiting allowlist
   approval can open the pages and sees a pending notice on each, but has no
@@ -27,21 +27,29 @@ repository using the `remix` package (`remix@next`).
 |---|---|---|
 | `GH_CLIENT_ID` | Yes (for auth) | Client ID of your GitHub OAuth App |
 | `GH_CLIENT_SECRET` | Yes (for auth) | Client secret of your GitHub OAuth App |
-| `SHARED_CATALOG_GIST_ID` | Yes | Public GitHub Gist ID that stores the shared `catalog.json` file |
+| `SHARED_CATALOG_REPO` | No | The shared catalog repository (`owner/repo`); defaults to `ainvestor-shared/ainvestor-catalog`. The stdio MCP server reads it too |
 | `SESSION_SECRET` | Recommended | Random string used to sign session cookies (defaults to a weak dev value) |
 | `APPROVED_GITHUB_LOGINS` | No | Extra GitHub logins allowed in, on top of `app/lib/approved-github-logins.ts` |
 | `AINVESTOR_PUBLIC_ORIGIN` | For MCP off Fly | Origin the deployment is reached on; becomes the OAuth issuer in MCP discovery |
 | `AINVESTOR_DATA_REPO` | No | Pins the data repository (`owner/repo`) the MCP server reads, for approved logins only (see [MCP server](#mcp-server-use-your-data-from-an-ai-client)) |
-| `SHARED_CATALOG_GIST_ID` | Yes (MCP too) | Also required by the stdio MCP server, which refuses to start without it |
 
-### Shared catalog gist
+### Shared catalog repository
 
-The ETF catalog now lives in a **single public gist** shared by all users.
+The ETF catalog lives in **one private repository**, `ainvestor-shared/ainvestor-catalog`,
+shared by preview and prod and by every user. It holds `catalog.json` and
+`catalog-source.json` (the raw bank rows an import keeps).
 
-- The gist must contain `catalog.json`
-- Set `SHARED_CATALOG_GIST_ID` to that gist's ID
-- The **owner of that gist** is the only user who can import catalog updates from the UI
-- All other users can browse and use the catalog, but cannot import changes
+- It is read with the signed-in user's own token, so the app holds no
+  credential for it. Readers are the `ainvestor-shared` organization's
+  **`ainvestor-users`** team (the organization's default Read permission).
+  **Adding a user means two steps:** approve the login in the app, and add the
+  account to that team. Without the second, their own reads of the catalog fail.
+- A **catalog admin** is whoever GitHub lets push to the repository — the
+  organization's owners and anyone given Write. The app keeps no admin list:
+  sign-in asks GitHub, and the Admin page and the MCP catalog tools follow it.
+- The organization must allow this app's OAuth app (and, for the migration
+  script, GitHub CLI) under **Settings → Third-party access** if it restricts
+  OAuth apps; otherwise GitHub hides the private repository behind a `404`.
 
 ### Creating a GitHub OAuth App
 
@@ -57,7 +65,6 @@ Create a `.env` file (or export variables in your shell):
 ```bash
 export GH_CLIENT_ID=your_client_id
 export GH_CLIENT_SECRET=your_client_secret
-export SHARED_CATALOG_GIST_ID=your_public_catalog_gist_id
 export SESSION_SECRET=$(openssl rand -hex 32)
 ```
 
@@ -195,10 +202,10 @@ tickers — a fund it does not list is one you may not be able to buy:
   the deployed server cannot read your disk, and a HAR is far larger than the
   256 KB an MCP request body may carry.
 
-The three catalog writes are **owner-only**. The catalog is one public gist
-shared by everyone using the app, and GitHub lets only its owner write to it;
-the tools check that first, so a wrong token is told which account owns the
-catalog instead of getting a bare `404`.
+The three catalog writes are **for catalog maintainers only**: the catalog is
+one private repository shared by everyone using the app, and GitHub lets only
+accounts with push access write to it. The tools check that first, so a token
+without it is told so by name instead of getting a bare `404`.
 
 The same three datasets are also readable as MCP **resources** —
 `ainvestor://portfolio`, `ainvestor://guidelines` and `ainvestor://catalog` —
@@ -218,8 +225,9 @@ its history. Each commit says what it did and where it came from, for example
 
 There are two ways to reach it. Both need a **classic** GitHub personal access
 token with the **`gist`** and **`repo`** scopes: `repo` for your private data
-repository, and `gist` for the shared catalog, which is still a gist.
-Fine-grained tokens cannot access gists. Create one at
+repository and the shared catalog repository. Nothing reads a gist any more;
+`gist` is asked for until the gist backend is removed, so a rollback still
+works. Create one at
 [Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens).
 ### Remote — works from any client, including mobile
 
@@ -298,8 +306,7 @@ Two things to weigh before relying on this:
   reach, private ones included — a real widening from `gist` alone. It is
   accepted for an app with a handful of users, rather than building a GitHub App
   for per-repository access; see "Why `repo` scope and not a GitHub App" in
-  `docs/STORAGE_MIGRATION_PLAN.md`. Fine-grained tokens cannot access gists at
-  all, so there is no narrower option while the catalog is a gist.
+  `docs/STORAGE_MIGRATION_PLAN.md`.
 - A GitHub token is not bound to this server as its audience, which the MCP
   security guidance would otherwise prefer. In practice the server is your own,
   but the token it receives is valid at GitHub generally, not just here.
@@ -333,8 +340,7 @@ Then edit `claude_desktop_config.json` — macOS
       "cwd": "/absolute/path/to/ainvestor",
       "env": {
         "GH_TOKEN": "ghp_your_token_here",
-        "AINVESTOR_DATA_REPO": "your-login/ainvestor-data",
-        "SHARED_CATALOG_GIST_ID": "shared_catalog_gist_id"
+        "AINVESTOR_DATA_REPO": "your-login/ainvestor-data"
       }
     }
   }
@@ -345,10 +351,11 @@ Restart Claude Desktop and ask what is in your portfolio. The token sits in that
 file in plain text, so keep its scopes to `gist` and `repo`. `AINVESTOR_DATA_REPO`
 is optional: without it the server reads the token owner's own repository.
 
-`SHARED_CATALOG_GIST_ID` is **required**: the catalog tools read it, and
-`set_guideline` uses it to resolve a fund's ticker and asset class exactly as the
-web app's form does. The server refuses to start without it rather than let an
-unconfigured catalog look like an empty one.
+The catalog is read from `ainvestor-shared/ainvestor-catalog` with the same
+token, so the token's account must be on the `ainvestor-users` team — the
+catalog tools, and `set_guideline` resolving a fund's ticker and asset class,
+depend on it. `SHARED_CATALOG_REPO` points the server at another catalog
+repository.
 
 `OPENAI_API_KEY` is optional. Every tool works without it; only `generate_advice`
 needs it, and calling that tool while it is unset fails with a clear error
@@ -421,7 +428,6 @@ Add these repository secrets in GitHub before relying on the workflow:
 - `FLY_API_TOKEN` — use `fly tokens create org -o personal` (or your org name). An org-scoped token is required for PR preview deployments, which create new apps. It also works for production deploys.
 - `GH_CLIENT_ID` — your OAuth App client ID
 - `GH_CLIENT_SECRET` — your OAuth App client secret
-- `SHARED_CATALOG_GIST_ID` — the public gist ID for the shared ETF catalog
 - `SESSION_SECRET` — a random string (generate with `openssl rand -hex 32`)
 
 Also update the **Authorization callback URL** in your GitHub OAuth App to your Fly.io app URL:
@@ -433,7 +439,7 @@ Also update the **Authorization callback URL** in your GitHub OAuth App to your 
 
 - **Triggers:** opened, reopened, or updated PRs
 - **Preview URL:** `https://ainvestor-preview.fly.dev` (stable, never changes)
-- **Secrets:** `FLY_API_TOKEN` (org-scoped) is required for the workflow. `SESSION_SECRET`, `GH_CLIENT_ID_PREVIEW`, `GH_CLIENT_SECRET_PREVIEW`, and `SHARED_CATALOG_GIST_ID` are used for **one-time** configuration of the preview Fly app (see below); the workflow does not push them on every run so deploys stay fast.
+- **Secrets:** `FLY_API_TOKEN` (org-scoped) is required for the workflow. `SESSION_SECRET`, `GH_CLIENT_ID_PREVIEW`, and `GH_CLIENT_SECRET_PREVIEW` are used for **one-time** configuration of the preview Fly app (see below); the workflow does not push them on every run so deploys stay fast.
 - **Note:** Only one PR is previewed at a time (the most recently pushed). Pushing to a different PR overwrites the preview.
 
 Configure Fly secrets for the preview app **once** (after creating the app or when rotating credentials):
@@ -442,7 +448,6 @@ Configure Fly secrets for the preview app **once** (after creating the app or wh
 flyctl secrets set \
   GH_CLIENT_ID="<from GH_CLIENT_ID_PREVIEW>" \
   GH_CLIENT_SECRET="<from GH_CLIENT_SECRET_PREVIEW>" \
-  SHARED_CATALOG_GIST_ID="<shared public catalog gist id>" \
   SESSION_SECRET="<from SESSION_SECRET>" \
   --app ainvestor-preview
 ```

@@ -10,6 +10,7 @@ import {
 	type CatalogEntry,
 	type CatalogRiskBand,
 	catalogEntryMatchesQuery,
+	getSharedCatalogRepo,
 	riskBandFromRiskKid,
 } from './lib.ts'
 
@@ -168,6 +169,8 @@ export type CatalogListFragmentProps = {
 	riskFilter: '' | CatalogRiskBand
 	query: string
 	totalCatalogCount: number
+	/** Why the catalog is empty when it was not read: see `SharedCatalogSnapshot`. */
+	catalogProblem?: 'no-access' | 'unavailable'
 	isAdmin: boolean
 	pendingApproval?: boolean
 }
@@ -248,7 +251,29 @@ export function CatalogListFragment(handle: Handle<CatalogListFragmentProps>) {
 				) : null}
 
 				{restOfCatalog.length === 0 && ownedInCatalog.length === 0 ? (
-					props.totalCatalogCount === 0 ? (
+					props.totalCatalogCount === 0 &&
+					props.catalogProblem !== undefined &&
+					props.pendingApproval !== true ? (
+						<div
+							role="status"
+							class="rounded-lg border border-dashed border-border bg-card/60 p-4"
+						>
+							<p class="font-medium text-foreground">
+								{t(
+									props.catalogProblem === 'no-access'
+										? 'catalog.noAccess.title'
+										: 'catalog.unavailable.title',
+								)}
+							</p>
+							<p class="mt-1 text-sm text-muted-foreground">
+								{props.catalogProblem === 'no-access'
+									? format(t('catalog.noAccess.hint'), {
+											repo: getSharedCatalogRepo(),
+										})
+									: t('catalog.unavailable.hint')}
+							</p>
+						</div>
+					) : props.totalCatalogCount === 0 ? (
 						<div class="rounded-lg border border-dashed border-border bg-card/60 p-4">
 							<p class="font-medium text-foreground">
 								{t('catalog.empty.title')}

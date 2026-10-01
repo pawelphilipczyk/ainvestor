@@ -21,8 +21,8 @@ export function resetApprovedCallerCache(): void {
 /**
  * The GitHub login a token belongs to, or null when GitHub will not say.
  *
- * Cached per token, because more than one decision hangs off the caller's
- * identity — the allowlist below, and whether they own the shared catalog gist.
+ * Cached per token, so the allowlist check below does not ask GitHub on every
+ * request.
  * A failed lookup is not cached, so a transient GitHub error does not lock the
  * caller out for the process lifetime.
  */

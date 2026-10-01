@@ -14,7 +14,7 @@ import { createTokenCache } from './token-cache.ts'
  * layer must not depend on process-wide configuration.
  */
 export type DataRepoCredentials = {
-	/** GitHub token with the `repo` scope (and `gist`, for the shared catalog). */
+	/** GitHub token with the `repo` scope, for the data repo and the shared catalog repo. */
 	githubToken: string
 	/** Pinned data repo, `"owner/repo"`, or null to use the token owner's own. */
 	dataRepo: string | null

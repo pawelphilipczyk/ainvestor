@@ -280,7 +280,7 @@ describe('record_operation tool', () => {
 	})
 
 	it('buys against an existing holding, adding to its value', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		const { saved } = stubGistReadWrite([
 			entry({ ticker: 'VWCE', value: 1000, currency: 'PLN' }),
 		])
@@ -306,7 +306,7 @@ describe('record_operation tool', () => {
 	})
 
 	it('carries the exchange through in the response, like get_portfolio does', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		stubGistReadWrite([
 			entry({
 				ticker: 'VWCE',
@@ -331,7 +331,7 @@ describe('record_operation tool', () => {
 	})
 
 	it('accepts a currency with incidental whitespace', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		stubGistReadWrite([entry({ ticker: 'VWCE', value: 1000, currency: 'PLN' })])
 		const tool = createRecordOperationTool(config)
 
@@ -349,7 +349,7 @@ describe('record_operation tool', () => {
 	})
 
 	it('buys a ticker with no matching holding, creating a new row', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		const { saved } = stubGistReadWrite([])
 		const tool = createRecordOperationTool(config)
 
@@ -370,7 +370,7 @@ describe('record_operation tool', () => {
 	})
 
 	it('sells part of a holding, leaving the remainder', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		const { saved } = stubGistReadWrite([
 			entry({ ticker: 'VWCE', value: 1000, currency: 'PLN' }),
 		])
@@ -393,7 +393,7 @@ describe('record_operation tool', () => {
 	})
 
 	it('sells a holding down to zero, removing the row entirely', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		const { saved } = stubGistReadWrite([
 			entry({ ticker: 'VWCE', value: 400, currency: 'PLN' }),
 		])
@@ -416,7 +416,7 @@ describe('record_operation tool', () => {
 	})
 
 	it('refuses a ticker the shared catalog does not list, without writing', async () => {
-		setSharedCatalogForTests({ entries: [], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [] })
 		const { saved, requestedMethods } = stubGistReadWrite([])
 		const tool = createRecordOperationTool(config)
 
@@ -438,7 +438,7 @@ describe('record_operation tool', () => {
 	})
 
 	it('refuses a sell exceeding the matching holding, without writing', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		const { saved } = stubGistReadWrite([
 			entry({ ticker: 'VWCE', value: 100, currency: 'PLN' }),
 		])
@@ -458,7 +458,7 @@ describe('record_operation tool', () => {
 	})
 
 	it('refuses a currency the app does not support', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		stubGistReadWrite([])
 		const tool = createRecordOperationTool(config)
 
@@ -483,7 +483,7 @@ describe('commit messages', () => {
 	}
 
 	it('names a buy, its amount, and that the MCP server made it', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		const repo = repoWith([entry({ ticker: 'VWCE', value: 1000 })])
 
 		await createRecordOperationTool(config).handler({
@@ -497,7 +497,7 @@ describe('commit messages', () => {
 	})
 
 	it('names a sell with a minus sign', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		const repo = repoWith([entry({ ticker: 'VWCE', value: 1000 })])
 
 		await createRecordOperationTool(config).handler({
@@ -524,7 +524,7 @@ describe('commit messages', () => {
 
 describe('concurrent writes', () => {
 	it('keeps a holding another client saved between this call’s read and its save', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		let intruded = false
 		const repo = installFakeDataRepo({
 			files: {
@@ -606,7 +606,7 @@ describe('concurrent writes', () => {
 	})
 
 	it('tells the model nothing was saved when the file keeps changing underneath it', async () => {
-		setSharedCatalogForTests({ entries: [catalogEntry()], ownerLogin: null })
+		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		const original = JSON.stringify([entry({ ticker: 'VWCE', value: 1000 })])
 		const repo = installFakeDataRepo({
 			files: { [GIST_FILENAME]: original },
