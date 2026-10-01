@@ -4,15 +4,33 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 6 — `app/components` + shared browser layer
-**Last swept:** 2026-09-26 (`app/lib`)
+**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
+**Last swept:** 2026-10-01 (`app/components` + shared browser layer)
 
 ---
 
 ## Open items
 
+### OV-008 — two "file exists" tests that the render/asset tests already imply
+**Status:** `proposed` · **Proposed:** 2026-10-01 · **Area:** `app/components`
+
+`app/components/navigation/theme-toggle.test.ts:23-26` only asserts
+`theme-toggle.component.ts` exists on disk; `theme-toggle.test.ts:62-70` and
+`:81-87` fetch the same file through the asset server and would fail if it were
+missing. Likewise `app/components/layout/sidebar.test.ts:32-35` only asserts
+`sidebar.tsx` exists, while `sidebar.test.ts:37-139` import and render it.
+
+**Triage question:** are these deliberate file-location guards left from the
+island migration (reject as intentional), or can both be deleted?
+
+Considered and not proposed (different contracts): `pages.browser.ts:32-55`
+`role=switch` canary vs `theme-toggle.browser.ts:44-56` (deliberate cross-page
+hydration check); `sidebar.test.ts:259-285` source-regex checks vs
+`sidebar.browser.ts:56-90` scroll-lock behaviour (guards the vendored
+scroll-lock import, not the behaviour).
+
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/lib`
+**Status:** `approved` (2026-10-01, evidence re-checked: both cases unchanged) · **Proposed:** 2026-09-26 · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel

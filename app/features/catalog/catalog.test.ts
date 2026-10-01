@@ -1,5 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, it } from 'node:test'
+import { MULTIPART_MAX_FILE_BYTES } from '../../lib/multipart-upload-limits.ts'
 import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
@@ -602,6 +603,48 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /OLD/)
 		assert.match(body, /XMOV GR/)
 		assert.match(body, /Xtrackers Future Mobility/)
+	})
+
+	it('POST /catalog/import rejects an oversized upload with a flash and leaves the catalog unchanged', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+
+		const postOversizedHar = (referer?: string) => {
+			const formData = new FormData()
+			formData.set(
+				'bankApiHar',
+				new File([new Uint8Array(MULTIPART_MAX_FILE_BYTES + 1)], 'bank.har'),
+			)
+			return testSessionFetch(
+				new Request('http://localhost/catalog/import', {
+					method: 'POST',
+					body: formData,
+					headers: { Cookie: cookie, ...(referer ? { Referer: referer } : {}) },
+				}),
+			)
+		}
+
+		const withoutReferer = await postOversizedHar()
+		assert.equal(withoutReferer.status, 302)
+		assert.equal(withoutReferer.headers.get('location'), '/admin/etf-import')
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog')
+		const body = await catalogResponse.text()
+		assert.match(body, /File upload is too large\. Maximum size is 5 MB\./)
+		assert.match(body, /Existing Fund/)
+
+		const sameOrigin = await postOversizedHar('http://localhost/catalog')
+		assert.equal(sameOrigin.status, 302)
+		assert.equal(sameOrigin.headers.get('location'), 'http://localhost/catalog')
+
+		const crossOrigin = await postOversizedHar('https://evil.example/phish')
+		assert.equal(crossOrigin.status, 302)
+		assert.equal(crossOrigin.headers.get('location'), '/admin/etf-import')
 	})
 
 	it('POST /catalog/import flashes success line when all rows merge with no skips', async () => {

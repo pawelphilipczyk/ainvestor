@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-10-01 (`app/features/catalog`)
 
 ---
 
@@ -25,6 +25,34 @@ backlog just feeds the overlap backlog.
 ---
 
 ## Open items
+
+### GAP-026 — `/catalog/etf/:id` analysis: upstream AI failure branch is untested
+**Status:** `proposed` · **Proposed:** 2026-10-01 · **Area:** `app/features/catalog`
+
+`app/features/catalog/index.ts:711-725` (catch in `catalogEtfController.action`)
+should answer 200 with `errors.catalog.etfDetail.service` when the AI client
+throws. Only the success POST is tested (`catalog.test.ts:161`). A test would
+`setAdviceClient` with a throwing client, POST, and assert status 200, the
+service message, and that the raw error text is absent. Very easy.
+
+### GAP-027 — `GET /catalog/fragments/etf-analysis/:id` 403/404 branches
+**Status:** `proposed` · **Proposed:** 2026-10-01 · **Area:** `app/features/catalog`
+
+`index.ts:393-409`: only the success case is tested (`catalog.test.ts:135`).
+Pending-approval 403 and unknown-id 404 on this handler are not (sibling POST
+403 at `:201` and detail 404 at `:239` are different handlers). Two short cases.
+
+### GAP-028 — `POST /catalog/import` HAR-file and missing-field branches
+**Status:** `proposed` · **Proposed:** 2026-10-01 · **Area:** `app/features/catalog`
+
+`index.ts:453-472`: route-level `bankApiHar` File (valid, `invalidHar`, no
+screener responses) and absent `bankApiJson` (`fieldMissing`) are unpinned;
+`extractBankApiJsonFromHar` is only unit-tested in
+`har-bank-json-adapter.test.ts`. Medium: needs a HAR fixture.
+
+Triaged out (already covered): signed-out gate (`require-approved-session.test.ts:20-21`),
+non-maintainer import (`catalog.test.ts:515`), invalid/empty/duplicate import
+(`:414`, `:648-980`), fragment list route (`:1119`), sanitizer, client components.
 
 ### GAP-025 — advice route tests read the real GitHub API for saved advice
 **Status:** `proposed` · **Proposed:** 2026-10-01 · **Area:** `app/features/advice`
@@ -158,7 +186,7 @@ via `git diff` that the temporary edit was fully reverted before this PR.
 Production code was not modified in the final diff.
 
 ### GAP-002 — upload limits and the multipart flash middleware
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-01 · **PR:** (this sweep's PR; test in `app/features/catalog/catalog.test.ts`) · **Area:** `app/lib`
 
 `app/lib/multipart-upload-limits.ts` and
 `app/lib/multipart-limit-flash-middleware.ts` — no direct coverage. This is the
