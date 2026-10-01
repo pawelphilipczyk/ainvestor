@@ -361,7 +361,7 @@ export function createGetBuyPlanTool(
 		const dataRepo = await resolveDataRepo(credentials)
 		const [entries, catalog, guidelines] = await Promise.all([
 			fetchEtfsCached(credentials.githubToken, dataRepo),
-			fetchCatalog(),
+			fetchCatalog(credentials.githubToken),
 			fetchGuidelinesOrThrowCached(credentials.githubToken, dataRepo),
 		])
 

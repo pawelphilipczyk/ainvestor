@@ -137,7 +137,7 @@ export const portfolioController = {
 					entries: [],
 					session: layoutSession,
 					flashBanner: flashedBanner,
-					catalog: await fetchCatalog(),
+					catalog: await fetchCatalog(session?.token ?? null),
 				})
 			}
 			try {
@@ -152,7 +152,7 @@ export const portfolioController = {
 					catalog,
 				})
 			} catch {
-				const catalog = await fetchCatalog()
+				const catalog = await fetchCatalog(session.token)
 				return renderPage(context, {
 					entries: [],
 					session: layoutSession,
@@ -170,7 +170,10 @@ export const portfolioController = {
 			if (!sessionHasDataRepo(session)) {
 				return createHtmlResponse(
 					renderFragmentToStream(
-						jsx(ListFragment, { entries: [], catalog: await fetchCatalog() }),
+						jsx(ListFragment, {
+							entries: [],
+							catalog: await fetchCatalog(session?.token ?? null),
+						}),
 					),
 					{ headers: { 'Cache-Control': 'no-store' } },
 				)
@@ -191,7 +194,7 @@ export const portfolioController = {
 				)
 				catalog = snapshot.catalog
 			} catch {
-				catalog = await fetchCatalog()
+				catalog = await fetchCatalog(session.token)
 			}
 			return createHtmlResponse(
 				renderFragmentToStream(

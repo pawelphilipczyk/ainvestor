@@ -436,7 +436,7 @@ async function handleAddInstrument(context: AppRequestContext, form: FormData) {
 	}
 
 	const session = getSessionData(context.get(Session))
-	const catalog = await fetchCatalog()
+	const catalog = await fetchCatalog(session?.token ?? null)
 
 	const ticker = (result.value.instrumentTicker ?? '').trim()
 	if (!ticker) {
@@ -518,7 +518,7 @@ async function handleAddAssetClass(context: AppRequestContext, form: FormData) {
 	}
 
 	const session = getSessionData(context.get(Session))
-	const catalog = await fetchCatalog()
+	const catalog = await fetchCatalog(session?.token ?? null)
 	const allowedAssetClasses = new Set(
 		assetClassSelectOptionsFromCatalog(catalog).map((o) => o.value),
 	)
@@ -635,7 +635,7 @@ export const guidelinesController = {
 			)
 			const [guidelines, catalog] = await Promise.all([
 				loadGuidelinesForSession(context),
-				fetchCatalog(),
+				fetchCatalog(getSessionData(context.get(Session))?.token ?? null),
 			])
 			return renderGuidelinesPage(context, {
 				guidelines,

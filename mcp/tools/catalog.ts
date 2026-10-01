@@ -162,7 +162,7 @@ export async function loadCatalogForWrite(
 	credentials: DataRepoCredentials,
 ): Promise<CatalogEntry[]> {
 	const [{ entries, ownerLogin }, callerLogin] = await Promise.all([
-		fetchSharedCatalogSnapshot(),
+		fetchSharedCatalogSnapshot(credentials.githubToken),
 		resolveCallerLogin(credentials.githubToken),
 	])
 	if (callerLogin === null) {
@@ -178,13 +178,15 @@ export async function loadCatalogForWrite(
 	return entries
 }
 
-export function createListCatalogTool(): McpToolDefinition {
+export function createListCatalogTool(
+	credentials: DataRepoCredentials,
+): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
 		const query = readStringArgument(toolArguments, 'query') ?? ''
 		const limit = readLimit(toolArguments)
-		const catalog = await fetchCatalog()
+		const catalog = await fetchCatalog(credentials.githubToken)
 		return jsonResult(summarizeCatalogSearch({ catalog, query, limit }))
 	}
 
@@ -210,12 +212,14 @@ export function createListCatalogTool(): McpToolDefinition {
 	}
 }
 
-export function createGetCatalogEntryTool(): McpToolDefinition {
+export function createGetCatalogEntryTool(
+	credentials: DataRepoCredentials,
+): McpToolDefinition {
 	async function handler(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
 		const { ticker, id } = requireTickerOrId(toolArguments)
-		const catalog = await fetchCatalog()
+		const catalog = await fetchCatalog(credentials.githubToken)
 		const entry = findEntry({ catalog, ticker, id })
 		if (entry === undefined) {
 			throw new Error(

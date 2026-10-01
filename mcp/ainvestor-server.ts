@@ -67,8 +67,8 @@ export function createAinvestorMcpServer(params: {
 			createGetBuyPlanTool(credentials),
 			createGetSavedAdviceTool(credentials),
 			createGenerateAdviceTool(credentials),
-			createListCatalogTool(),
-			createGetCatalogEntryTool(),
+			createListCatalogTool(credentials),
+			createGetCatalogEntryTool(credentials),
 			createUpsertCatalogEntryTool(credentials),
 			createDeleteCatalogEntryTool(credentials),
 			...(allowLocalFileTools

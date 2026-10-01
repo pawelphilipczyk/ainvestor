@@ -176,7 +176,7 @@ export function createRecordOperationTool(
 		// rather than merely raced against, the way an uncached read already is.
 		const [current, catalog] = await Promise.all([
 			fetchEtfs(credentials.githubToken, dataRepo),
-			fetchCatalog(),
+			fetchCatalog(credentials.githubToken),
 		])
 
 		const outcome = applyPortfolioOperation({

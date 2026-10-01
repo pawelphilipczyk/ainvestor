@@ -29,7 +29,7 @@ async function loadCatalogForPortfolioList(
 	context: AppRequestContext,
 ): Promise<CatalogEntry[]> {
 	const session = getSessionData(context.get(Session))
-	if (!sessionHasDataRepo(session)) return fetchCatalog()
+	if (!sessionHasDataRepo(session)) return fetchCatalog(session?.token ?? null)
 	try {
 		const snapshot = await fetchPortfolioSnapshot(
 			session.token,
@@ -37,7 +37,7 @@ async function loadCatalogForPortfolioList(
 		)
 		return snapshot.catalog
 	} catch {
-		return fetchCatalog()
+		return fetchCatalog(session.token)
 	}
 }
 

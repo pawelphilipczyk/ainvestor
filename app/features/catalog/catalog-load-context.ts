@@ -33,7 +33,9 @@ export async function loadCatalogEtfDetailContext(
 	context: AppRequestContext,
 ): Promise<CatalogEtfDetailLoadContext> {
 	const layoutSession = getLayoutSession(context.get(Session))
-	const catalogSnapshot = await fetchSharedCatalogSnapshot()
+	const catalogSnapshot = await fetchSharedCatalogSnapshot(
+		getSessionData(context.get(Session))?.token ?? null,
+	)
 	return { catalogSnapshot, layoutSession }
 }
 
@@ -47,7 +49,7 @@ export async function loadCatalogPageContext(
 	const session = getSessionData(context.get(Session))
 	const layoutSession = getLayoutSession(context.get(Session))
 	const [catalogSnapshot, entries] = await Promise.all([
-		fetchSharedCatalogSnapshot(),
+		fetchSharedCatalogSnapshot(session?.token ?? null),
 		(async (): Promise<EtfEntry[]> => {
 			if (!sessionHasDataRepo(session)) return []
 			try {

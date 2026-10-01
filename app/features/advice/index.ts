@@ -299,7 +299,7 @@ async function loadAdvicePageState(options: {
 			activeTab,
 		)
 		if (stored !== null) {
-			const catalog = await fetchCatalog()
+			const catalog = await fetchCatalog(dataSession.token)
 			const adviceGistSavedAt = new Date(stored.savedAt).toISOString()
 			return {
 				...baseProps,
@@ -594,7 +594,7 @@ export const adviceController = {
 				}
 				const catalog =
 					activeTabFromUrl === 'portfolio_review'
-						? await fetchCatalog()
+						? await fetchCatalog(session.token)
 						: undefined
 				return renderAdviceActionResponse(context, {
 					session: layoutSession,

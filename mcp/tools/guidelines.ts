@@ -146,11 +146,12 @@ type ResolvedInstrument = {
  * supplies the canonical ticker spelling and the asset class.
  */
 async function resolveInstrument(params: {
+	token: string
 	ticker: string
 	requestedEtfType: EtfType | null
 }): Promise<ResolvedInstrument> {
-	const { ticker, requestedEtfType } = params
-	const catalog = await fetchCatalog()
+	const { token, ticker, requestedEtfType } = params
+	const catalog = await fetchCatalog(token)
 	const match = findCatalogEntryByTicker(catalog, ticker)
 
 	if (match !== undefined) {
@@ -177,6 +178,7 @@ async function resolveInstrument(params: {
 
 async function buildGuidelineEntry(
 	toolArguments: Record<string, unknown>,
+	token: string,
 ): Promise<{ entry: Omit<EtfGuideline, 'id'>; catalogVerified: boolean }> {
 	const kind = readGuidelineKind(toolArguments)
 	const targetPct = readTargetPercent(toolArguments)
@@ -203,7 +205,7 @@ async function buildGuidelineEntry(
 	if (ticker === null) {
 		throw new Error('An instrument guideline needs "ticker".')
 	}
-	const resolved = await resolveInstrument({ ticker, requestedEtfType })
+	const resolved = await resolveInstrument({ token, ticker, requestedEtfType })
 	return {
 		entry: {
 			kind,
@@ -268,7 +270,10 @@ export function createSetGuidelineTool(
 	async function handler(
 		toolArguments: Record<string, unknown>,
 	): Promise<McpToolResult> {
-		const { entry, catalogVerified } = await buildGuidelineEntry(toolArguments)
+		const { entry, catalogVerified } = await buildGuidelineEntry(
+			toolArguments,
+			credentials.githubToken,
+		)
 		const dataRepo = await resolveDataRepo(credentials)
 		// Uncached: this read feeds a same-call overwrite of the whole file, so a
 		// cached copy up to the TTL old would let a concurrent edit (the web app's

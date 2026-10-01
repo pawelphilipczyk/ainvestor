@@ -100,7 +100,7 @@ export function createGenerateAdviceTool(
 		const dataRepo = await resolveDataRepo(credentials)
 		const [holdings, catalog, guidelines] = await Promise.all([
 			fetchEtfsCached(credentials.githubToken, dataRepo),
-			fetchCatalog(),
+			fetchCatalog(credentials.githubToken),
 			fetchGuidelinesOrThrowCached(credentials.githubToken, dataRepo),
 		])
 

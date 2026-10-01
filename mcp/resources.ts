@@ -64,7 +64,10 @@ export function createAinvestorResources(
 			description:
 				'Every fund in the shared catalog as a compact row — the only source of valid tickers. The list_catalog tool searches the same data; get_catalog_entry returns one row in full.',
 			mimeType: MIME_TYPE,
-			read: async () => jsonText(summarizeWholeCatalog(await fetchCatalog())),
+			read: async () =>
+				jsonText(
+					summarizeWholeCatalog(await fetchCatalog(credentials.githubToken)),
+				),
 		},
 	]
 }

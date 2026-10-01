@@ -14,7 +14,9 @@ export const adminController = {
 		async etfImport(context: AppRequestContext) {
 			const session = getSessionData(context.get(Session))
 			const layoutSession = getLayoutSession(context.get(Session))
-			const catalogSnapshot = await fetchSharedCatalogSnapshot()
+			const catalogSnapshot = await fetchSharedCatalogSnapshot(
+				session?.token ?? null,
+			)
 			const isCurrentUserAdmin = Boolean(
 				session?.isAdmin === true || layoutSession?.isAdmin === true,
 			)

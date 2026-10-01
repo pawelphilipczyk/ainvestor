@@ -6,6 +6,7 @@ import { afterEach, describe, it } from 'node:test'
 
 import type { CatalogEntry } from '../../app/features/catalog/lib.ts'
 import {
+	CATALOG_FILENAME,
 	fetchCatalog,
 	fetchCatalogSourceRows,
 	resetSharedCatalogForTests,
@@ -158,24 +159,63 @@ describe('list_catalog tool', () => {
 	it('caps the limit so a huge catalog cannot flood the context', async () => {
 		stubCatalog()
 		const payload = payloadOf(
-			await createListCatalogTool().handler({ limit: 5000 }),
+			await createListCatalogTool(credentials).handler({ limit: 5000 }),
 		)
 		assert.equal(payload.returned, 3)
 		assert.match(
-			createListCatalogTool().description,
+			createListCatalogTool(credentials).description,
 			/only source of valid tickers/,
 		)
 	})
 
+	it('reads the catalog with the caller token rather than anonymously', async () => {
+		const originalFetch = globalThis.fetch
+		const originalGistId = process.env.SHARED_CATALOG_GIST_ID
+		const originalTtl = process.env.SHARED_CATALOG_CACHE_TTL_MS
+		const authorizations: Array<string | null> = []
+		globalThis.fetch = async (_input, init) => {
+			authorizations.push(new Headers(init?.headers).get('authorization'))
+			return Response.json({
+				files: {
+					[CATALOG_FILENAME]: { content: JSON.stringify([entry()]) },
+				},
+				owner: { login: OWNER },
+			})
+		}
+		process.env.SHARED_CATALOG_GIST_ID = 'public-catalog-gist'
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		try {
+			const payload = payloadOf(
+				await createListCatalogTool(credentials).handler({}),
+			)
+			assert.equal(payload.catalogSize, 1)
+			assert.deepEqual(authorizations, ['Bearer owner-token'])
+		} finally {
+			globalThis.fetch = originalFetch
+			if (originalGistId === undefined)
+				delete process.env.SHARED_CATALOG_GIST_ID
+			else process.env.SHARED_CATALOG_GIST_ID = originalGistId
+			if (originalTtl === undefined)
+				delete process.env.SHARED_CATALOG_CACHE_TTL_MS
+			else process.env.SHARED_CATALOG_CACHE_TTL_MS = originalTtl
+		}
+	})
+
 	it('warns that formatted fields are not numbers', async () => {
-		assert.match(createListCatalogTool().description, /display strings/)
-		assert.match(createGetCatalogEntryTool().description, /display strings/)
+		assert.match(
+			createListCatalogTool(credentials).description,
+			/display strings/,
+		)
+		assert.match(
+			createGetCatalogEntryTool(credentials).description,
+			/display strings/,
+		)
 	})
 
 	it('rejects a limit that is not a positive number', async () => {
 		stubCatalog()
 		await assert.rejects(
-			async () => createListCatalogTool().handler({ limit: 0 }),
+			async () => createListCatalogTool(credentials).handler({ limit: 0 }),
 			/"limit" must be a positive number/,
 		)
 	})
@@ -184,7 +224,7 @@ describe('list_catalog tool', () => {
 describe('get_catalog_entry tool', () => {
 	it('finds an entry by ticker regardless of case, and by id', async () => {
 		stubCatalog()
-		const tool = createGetCatalogEntryTool()
+		const tool = createGetCatalogEntryTool(credentials)
 		const byTicker = payloadOf(await tool.handler({ ticker: 'vwce' }))
 		assert.equal(byTicker.id, 't:VWCE')
 		const byId = payloadOf(await tool.handler({ id: 't:AGGH' }))
@@ -195,7 +235,7 @@ describe('get_catalog_entry tool', () => {
 
 	it('asks for one of the two identifiers, and reports an unknown one', async () => {
 		stubCatalog()
-		const tool = createGetCatalogEntryTool()
+		const tool = createGetCatalogEntryTool(credentials)
 		await assert.rejects(
 			async () => tool.handler({}),
 			/Pass either "ticker" or "id"/,
@@ -219,7 +259,7 @@ describe('catalog writes', () => {
 			/belongs to catalog-owner, and this token belongs to someone-else/,
 		)
 		// Nothing was written.
-		const catalog = await fetchCatalog()
+		const catalog = await fetchCatalog(credentials.githubToken)
 		assert.equal(
 			catalog.find((row) => row.ticker === 'VWCE')?.expense_ratio,
 			undefined,
@@ -246,7 +286,9 @@ describe('catalog writes', () => {
 		)
 
 		assert.equal(payload.action, 'updated')
-		const saved = (await fetchCatalog()).find((row) => row.ticker === 'AGGH')
+		const saved = (await fetchCatalog(credentials.githubToken)).find(
+			(row) => row.ticker === 'AGGH',
+		)
 		assert.equal(saved?.id, 't:AGGH')
 		assert.equal(saved?.expense_ratio, '0,12%')
 		// Untouched fields survive the partial update.
@@ -280,7 +322,7 @@ describe('catalog writes', () => {
 		assert.equal(payload.action, 'updated')
 		assert.equal(payload.catalogSize, 1)
 
-		const catalog = await fetchCatalog()
+		const catalog = await fetchCatalog(credentials.githubToken)
 		assert.equal(catalog.length, 1)
 		assert.equal(catalog[0].id, 'IE00B5BMR087:SXR8')
 		assert.equal(catalog[0].isin, 'IE00B5BMR087')
@@ -305,7 +347,9 @@ describe('catalog writes', () => {
 			}),
 		)
 		assert.equal(payload.action, 'created')
-		const saved = (await fetchCatalog()).find((row) => row.ticker === 'SXR8')
+		const saved = (await fetchCatalog(credentials.githubToken)).find(
+			(row) => row.ticker === 'SXR8',
+		)
 		// The id follows the same rule the bank import would compute.
 		assert.equal(saved?.id, 'IE00B5BMR087:SXR8')
 		assert.equal(payload.catalogSize, 4)
@@ -337,7 +381,9 @@ describe('catalog writes', () => {
 			/Invalid catalog entry: "isin" is not a valid ISIN/,
 		)
 		assert.equal(
-			(await fetchCatalog()).some((row) => row.ticker === 'SXR8'),
+			(await fetchCatalog(credentials.githubToken)).some(
+				(row) => row.ticker === 'SXR8',
+			),
 			false,
 		)
 	})
@@ -352,7 +398,9 @@ describe('catalog writes', () => {
 				}),
 			/Invalid catalog entry: "risk_kid" must be a whole number from 1 to 7/,
 		)
-		const saved = (await fetchCatalog()).find((row) => row.ticker === 'AGGH')
+		const saved = (await fetchCatalog(credentials.githubToken)).find(
+			(row) => row.ticker === 'AGGH',
+		)
 		// The bad value never overwrote the existing, valid one.
 		assert.equal(saved?.risk_kid, 2)
 	})
@@ -366,7 +414,7 @@ describe('catalog writes', () => {
 		)
 		assert.equal(payload.action, 'deleted')
 		assert.equal(payload.catalogSize, 2)
-		const catalog = await fetchCatalog()
+		const catalog = await fetchCatalog(credentials.githubToken)
 		assert.equal(
 			catalog.some((row) => row.ticker === 'IPRP'),
 			false,
@@ -380,7 +428,7 @@ describe('catalog writes', () => {
 				createDeleteCatalogEntryTool(credentials).handler({ ticker: 'NOPE' }),
 			/nothing was removed/,
 		)
-		assert.equal((await fetchCatalog()).length, 3)
+		assert.equal((await fetchCatalog(credentials.githubToken)).length, 3)
 	})
 })
 
@@ -421,7 +469,7 @@ describe('import_catalog_from_bank_file tool', () => {
 		assert.equal(payload.added, 1)
 		assert.equal((payload.skipped as { count: number }).count, 1)
 		// Nothing landed in the catalog.
-		assert.equal((await fetchCatalog()).length, 3)
+		assert.equal((await fetchCatalog(credentials.githubToken)).length, 3)
 	})
 
 	it('merges the file into the catalog when applied', async () => {
@@ -435,10 +483,12 @@ describe('import_catalog_from_bank_file tool', () => {
 
 		assert.equal(payload.action, 'imported')
 		assert.equal(payload.catalogSizeAfter, 4)
-		const saved = (await fetchCatalog()).find((row) => row.ticker === 'SXR8')
+		const saved = (await fetchCatalog(credentials.githubToken)).find(
+			(row) => row.ticker === 'SXR8',
+		)
 		assert.equal(saved?.expense_ratio, '0,07%')
 		assert.equal(saved?.assets, 'akcje')
-		const sourceRows = await fetchCatalogSourceRows()
+		const sourceRows = await fetchCatalogSourceRows(credentials.githubToken)
 		assert.equal(
 			(saved && (sourceRows[saved.id] as { ticker?: string }))?.ticker,
 			'SXR8',
@@ -462,7 +512,7 @@ describe('import_catalog_from_bank_file tool', () => {
 			count: 1,
 			rows: ['BTC — Bitcoin FIZ'],
 		})
-		assert.deepEqual(await fetchCatalogSourceRows(), {})
+		assert.deepEqual(await fetchCatalogSourceRows(credentials.githubToken), {})
 	})
 
 	it('checks catalog ownership before it touches the filesystem', async () => {

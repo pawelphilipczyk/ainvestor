@@ -135,7 +135,7 @@ export const authController = {
 			context.get(Session).set('login', login)
 			let isAdmin = false
 			try {
-				const sharedCatalogSnapshot = await fetchSharedCatalogSnapshot()
+				const sharedCatalogSnapshot = await fetchSharedCatalogSnapshot(token)
 				isAdmin = isSharedCatalogAdmin({
 					sessionLogin: login,
 					ownerLogin: sharedCatalogSnapshot.ownerLogin,

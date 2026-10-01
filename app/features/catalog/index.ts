@@ -398,7 +398,9 @@ export const catalogController = {
 				)
 			}
 
-			const catalogSnapshot = await fetchSharedCatalogSnapshot()
+			const catalogSnapshot = await fetchSharedCatalogSnapshot(
+				getSessionData(context.get(Session))?.token ?? null,
+			)
 			if (!catalogSnapshot.entries.some((row) => row.id === entryId)) {
 				return renderCatalogEtfAnalysisFragmentHtml(
 					{ error: t('errors.catalog.etfDetail.notFound') },
@@ -436,7 +438,9 @@ export const catalogController = {
 			if (!sessionData?.token || !sessionData?.login) {
 				return importFailureResponse(t('errors.catalog.importNotAllowed'))
 			}
-			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot()
+			const { ownerLogin, entries } = await fetchSharedCatalogSnapshot(
+				sessionData.token,
+			)
 			const canImport = isSharedCatalogAdmin({
 				sessionLogin: sessionData.login,
 				ownerLogin,
@@ -679,7 +683,9 @@ export const catalogEtfController = {
 				}
 			}
 
-			const catalogSnapshot = await fetchSharedCatalogSnapshot()
+			const catalogSnapshot = await fetchSharedCatalogSnapshot(
+				getSessionData(context.get(Session))?.token ?? null,
+			)
 			const entry = catalogSnapshot.entries.find((row) => row.id === entryId)
 			if (entry === undefined) {
 				return renderCatalogEtfAnalysisFragmentHtml(

@@ -162,7 +162,7 @@ export async function fetchPortfolioSnapshot(
 ): Promise<{ entries: EtfEntry[]; catalog: CatalogEntry[] }> {
 	const [entries, catalog] = await Promise.all([
 		fetchEtfs(token, dataRepo),
-		fetchCatalog(),
+		fetchCatalog(token),
 	])
 	return {
 		entries,
