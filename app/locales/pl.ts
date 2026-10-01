@@ -123,6 +123,12 @@ export const pl = {
 	'catalog.import.pastePlaceholder':
 		'Wklej tutaj JSON odpowiedzi fetch (albo użyj wgrywania HAR poniżej)',
 	'catalog.import.harLabel': 'Plik HAR',
+	'catalog.noAccess.title': 'Nie masz dostępu do wspólnego katalogu.',
+	'catalog.noAccess.hint':
+		'Katalog jest w prywatnym repozytorium GitHub {repo}. Poproś jego opiekuna o dodanie Twojego konta GitHub do zespołu ainvestor-users, a potem zaloguj się ponownie.',
+	'catalog.unavailable.title': 'Nie udało się wczytać wspólnego katalogu.',
+	'catalog.unavailable.hint':
+		'GitHub nie odpowiedział zgodnie z oczekiwaniami. Odśwież stronę za chwilę.',
 	'catalog.empty.title': 'Nie zaimportowano jeszcze katalogu.',
 	'catalog.empty.hint':
 		'Wspólny katalog jest pusty. Jeśli go prowadzisz, otwórz Admin i zaimportuj dane ETF brokera, aby go wypełnić.',
@@ -339,6 +345,8 @@ export const pl = {
 		'Fundusz o id „{id}” już istnieje w katalogu; pola z importu zostały scalone do tego wiersza.',
 	'errors.catalog.import.dataArrayEmpty':
 		'Wklejony JSON ma pustą tablicę „data” — brak funduszy do importu.',
+	'errors.catalog.import.changedElsewhere':
+		'Wspólny katalog zmieniał się w trakcie zapisu tego importu, więc nic nie zapisano. Spróbuj zaimportować jeszcze raz.',
 	'errors.catalog.import.saveFailed':
 		'Nie udało się zapisać katalogu w GitHubie. Sprawdź połączenie i uprawnienia, a następnie spróbuj ponownie.',
 	'errors.catalog.etfDetail.service':

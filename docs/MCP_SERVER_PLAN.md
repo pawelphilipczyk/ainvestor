@@ -104,17 +104,24 @@ filename. It is a secret gist, so it does not appear on a public profile.
 
 `catalog.json` in `ainvestor-shared/ainvestor-catalog` (storage Phase 6; it was a
 public gist before). Read with `fetchCatalog(token)` using the caller's own
-token, cached in-process for 60s, cleared on every successful `saveCatalog()`
-so a write is never served stale for the rest of the TTL. Writes need push
-access to the repository — `canWriteSharedCatalog` asks GitHub.
+token, cached in-process for 60s **per token** — a copy one account read is never
+handed to another, since any GitHub token can call the read tools — and cleared
+on every successful `updateSharedCatalog()` so a write is never served stale
+for the rest of the TTL. A token GitHub will not show the repo to gets an empty
+catalog marked `problem: 'no-access'`, which `list_catalog` turns into a note
+naming the `ainvestor-users` team. Writes need push access to the repository —
+`canWriteSharedCatalog` asks GitHub.
 `CatalogEntry` carries `ticker`,
 `name`, `type`, `description`, and optionally `isin`, `expense_ratio`,
 `risk_kid` (1–7), `region`, `sector`, `rate_of_return`, `volatility`,
 `return_risk`, `fund_size`, `esg`.
 
-Only the gist **owner** may write it (`isSharedCatalogAdmin()`), which is what
-makes the MCP catalog writes safe to expose: a non-owner is refused before the
-call reaches GitHub, and GitHub would refuse it anyway.
+Only accounts with **push access** to the catalog repository may write it
+(`canWriteSharedCatalog()`, which asks GitHub), which is what makes the MCP
+catalog writes safe to expose: anyone else is refused before the call reaches
+GitHub, and GitHub would refuse it anyway. Every write is built from a fresh,
+uncached read and lands only on the commit it read (`updateSharedCatalog`), so
+a stale cache or a failed read can never save a truncated catalog.
 
 ### Derived logic worth exposing as tools
 

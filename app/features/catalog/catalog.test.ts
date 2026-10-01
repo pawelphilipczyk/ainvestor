@@ -458,6 +458,31 @@ describe('ETF Catalog page', () => {
 		assert.doesNotMatch(body, /Open Admin ETF import/)
 	})
 
+	it('GET /catalog says the account has no access, instead of calling the catalog empty', async () => {
+		resetSharedCatalogForTests()
+		const originalFetch = globalThis.fetch
+		const originalTtl = process.env.SHARED_CATALOG_CACHE_TTL_MS
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		// GitHub hides the private catalog repo from this account.
+		globalThis.fetch = async () => new Response(null, { status: 404 })
+		const originalError = console.error
+		console.error = () => {}
+		try {
+			const response = await testSessionFetch('http://localhost/catalog')
+			const body = await response.text()
+			assert.match(body, /You do not have access to the shared catalog/)
+			assert.match(body, /ainvestor-shared\/ainvestor-catalog/)
+			assert.match(body, /ainvestor-users team/)
+			assert.doesNotMatch(body, /No catalog imported yet/)
+		} finally {
+			globalThis.fetch = originalFetch
+			console.error = originalError
+			if (originalTtl === undefined)
+				delete process.env.SHARED_CATALOG_CACHE_TTL_MS
+			else process.env.SHARED_CATALOG_CACHE_TTL_MS = originalTtl
+		}
+	})
+
 	it('GET /catalog shows Admin import link for a catalog maintainer when catalog is empty', async () => {
 		setSharedCatalogForTests({ entries: [] })
 		const cookie = await signInAs('catalog-admin')

@@ -8,10 +8,10 @@ import type { CatalogEntry } from '../../app/features/catalog/lib.ts'
 import {
 	CATALOG_FILENAME,
 	fetchCatalog,
-	fetchCatalogSourceRows,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
 	setSharedCatalogWriteAccessForTests,
+	updateSharedCatalog,
 } from '../../app/features/catalog/lib.ts'
 import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
 import { resetApprovedCallerCache } from '../approved-caller.ts'
@@ -79,6 +79,14 @@ afterEach(() => {
 	resetApprovedCallerCache()
 })
 
+/** The stored source rows, read the way a catalog edit sees them. */
+function storedSourceRows() {
+	return updateSharedCatalog({
+		token: credentials.githubToken,
+		change: ({ sourceRowsById }) => ({ result: sourceRowsById }),
+	})
+}
+
 function payloadOf(result: { content: { text: string }[] }) {
 	return JSON.parse(result.content[0].text) as Record<string, never> & {
 		[key: string]: unknown
@@ -137,9 +145,8 @@ describe('summarizeCatalogSearch', () => {
 	})
 
 	it('blames an empty catalog on the catalog, not on there being no matches', () => {
-		// `fetchCatalog` reports an unconfigured gist id, a rejected read and a
-		// timeout all as no rows, so an empty catalog must not read as "the app
-		// knows no funds" during an outage.
+		// A failed read with no earlier copy comes back as no rows, so an empty
+		// catalog must not read as "the app knows no funds" during an outage.
 		const summary = summarizeCatalogSearch({
 			catalog: [],
 			query: '',
@@ -147,10 +154,7 @@ describe('summarizeCatalogSearch', () => {
 		})
 		assert.equal(summary.catalogSize, 0)
 		assert.equal(summary.truncated, false)
-		assert.match(
-			String(summary.note),
-			/not configured or temporarily unreachable/,
-		)
+		assert.match(String(summary.note), /empty or temporarily unreachable/)
 	})
 })
 
@@ -211,6 +215,32 @@ describe('list_catalog tool', () => {
 			async () => createListCatalogTool(credentials).handler({ limit: 0 }),
 			/"limit" must be a positive number/,
 		)
+	})
+
+	it('tells the model when the token cannot read the private catalog, rather than that it is empty', async () => {
+		const originalTtl = process.env.SHARED_CATALOG_CACHE_TTL_MS
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		// GitHub's 404 for a private repo the account cannot see.
+		installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			absent: true,
+		})
+		const originalError = console.error
+		console.error = () => {}
+		try {
+			const payload = payloadOf(
+				await createListCatalogTool(credentials).handler({}),
+			)
+			assert.equal(payload.catalogSize, 0)
+			assert.match(String(payload.note), /cannot read the shared catalog/)
+			assert.match(String(payload.note), /ainvestor-users team/)
+		} finally {
+			console.error = originalError
+			if (originalTtl === undefined)
+				delete process.env.SHARED_CATALOG_CACHE_TTL_MS
+			else process.env.SHARED_CATALOG_CACHE_TTL_MS = originalTtl
+		}
 	})
 })
 
@@ -481,7 +511,7 @@ describe('import_catalog_from_bank_file tool', () => {
 		)
 		assert.equal(saved?.expense_ratio, '0,07%')
 		assert.equal(saved?.assets, 'akcje')
-		const sourceRows = await fetchCatalogSourceRows(credentials.githubToken)
+		const sourceRows = await storedSourceRows()
 		assert.equal(
 			(saved && (sourceRows[saved.id] as { ticker?: string }))?.ticker,
 			'SXR8',
@@ -505,7 +535,7 @@ describe('import_catalog_from_bank_file tool', () => {
 			count: 1,
 			rows: ['BTC — Bitcoin FIZ'],
 		})
-		assert.deepEqual(await fetchCatalogSourceRows(credentials.githubToken), {})
+		assert.deepEqual(await storedSourceRows(), {})
 	})
 
 	it('checks catalog write access before it touches the filesystem', async () => {

@@ -24,6 +24,7 @@ import {
 	getRepoAccess,
 	parseRepoLocation,
 	REPO_MARKER_PATH,
+	readHeadCommit,
 	readFiles as readRepoFiles,
 	writeFile as writeRepoFile,
 	writeFiles as writeRepoFiles,
@@ -213,6 +214,8 @@ const REPO_FILES_NOT_FROM_GIST = new Set([REPO_MARKER_PATH, 'README.md'])
 async function readRepoDataFiles(params: {
 	token: string
 	location: string
+	/** Which root files count as data; every one but the marker and README when omitted. */
+	isDataFile?: (path: string) => boolean
 }): Promise<Record<string, string> | null> {
 	const listing = await fetch(
 		`${GITHUB_API}/repos/${params.location}/contents/`,
@@ -236,11 +239,17 @@ async function readRepoDataFiles(params: {
 		.map((entry) => entry.path)
 		.filter(
 			(path): path is string =>
-				typeof path === 'string' && !REPO_FILES_NOT_FROM_GIST.has(path),
+				typeof path === 'string' &&
+				!REPO_FILES_NOT_FROM_GIST.has(path) &&
+				(params.isDataFile?.(path) ?? true),
 		)
 	if (paths.length === 0) return {}
 
-	const result = await readRepoFiles({ ...params, paths })
+	const result = await readRepoFiles({
+		token: params.token,
+		location: params.location,
+		paths,
+	})
 	if (!result.ok) {
 		throw new Error(
 			`GitHub API error reading ${params.location}: ${result.status}`,
@@ -273,6 +282,8 @@ async function copyGistIntoRepo(params: {
 	header: string[]
 	/** The repo's data files now; `{}` when it does not exist or has no commits. */
 	repoFiles: Record<string, string>
+	/** Which root files count as data when verifying; see {@link readRepoDataFiles}. */
+	isDataFile?: (path: string) => boolean
 	/** Creates or initialises the repo. Called only with `apply`, before the write. */
 	prepareRepo: () => Promise<void>
 	/** Checks the gist is the kind this run expects, before anything is planned. */
@@ -336,7 +347,12 @@ async function copyGistIntoRepo(params: {
 	const mismatched = changedFiles(
 		planFileCopies({
 			gistFiles,
-			repoFiles: (await readRepoDataFiles({ token, location })) ?? {},
+			repoFiles:
+				(await readRepoDataFiles({
+					token,
+					location,
+					isDataFile: params.isDataFile,
+				})) ?? {},
 		}),
 	)
 	if (mismatched.length > 0) {
@@ -437,6 +453,37 @@ function organizationAccessHint(organization: string): string {
 	)
 }
 
+/** Test seam: how long {@link waitForBranch} pauses between checks. */
+let branchPollMs = 1000
+
+export function setBranchPollForTests(milliseconds: number): void {
+	branchPollMs = milliseconds
+}
+
+/**
+ * Waits for a just-created repo's first commit to be readable through the Git
+ * Data API, which the copy's commit builds on — GitHub can answer 404 or 409
+ * for a moment after `auto_init`.
+ */
+async function waitForBranch(params: {
+	token: string
+	location: string
+}): Promise<void> {
+	for (let attempt = 1; attempt <= 10; attempt += 1) {
+		const head = await readHeadCommit(params)
+		if (head.ok) return
+		if (head.status !== 404 && head.status !== 409) {
+			throw new Error(
+				`GitHub API error reading ${params.location}'s branch: ${head.status}`,
+			)
+		}
+		await new Promise((resolve) => setTimeout(resolve, branchPollMs))
+	}
+	throw new Error(
+		`${params.location} was created but its first commit is still not readable; rerun in a minute.`,
+	)
+}
+
 /**
  * Copies a catalog gist into the shared catalog repo, creating the repo in its
  * organization when it does not exist. The token's account must be able to
@@ -456,14 +503,23 @@ export async function runCatalogMigration(
 	}
 	const user = await requireScopes(token)
 
-	const access = await getRepoAccess({ token, location })
+	let access: Awaited<ReturnType<typeof getRepoAccess>>
+	try {
+		access = await getRepoAccess({ token, location })
+	} catch (error) {
+		const message = error instanceof Error ? error.message : String(error)
+		throw new Error(`${message}. ${organizationAccessHint(parsed.owner)}`)
+	}
 	if (access.found && !access.canWrite) {
 		throw new Error(
 			`${user.login} can read ${location} but not push to it, so it cannot copy the catalog there.`,
 		)
 	}
+	// Only JSON at the root is catalog data: a LICENSE or .gitignore someone
+	// created with the repo is neither planned for deletion nor verified.
+	const isDataFile = (path: string) => path.endsWith('.json')
 	const repoFiles = access.found
-		? await readRepoDataFiles({ token, location })
+		? await readRepoDataFiles({ token, location, isDataFile })
 		: null
 
 	return copyGistIntoRepo({
@@ -480,6 +536,7 @@ export async function runCatalogMigration(
 			}`,
 		],
 		repoFiles: repoFiles ?? {},
+		isDataFile,
 		checkGist: (files) => {
 			if (!Object.hasOwn(files, CATALOG_FILENAME)) {
 				throw new Error(
@@ -509,6 +566,7 @@ export async function runCatalogMigration(
 					)
 				}
 				params.log(`Created ${location}.`)
+				await waitForBranch({ token, location })
 				return
 			}
 			if (repoFiles === null) {

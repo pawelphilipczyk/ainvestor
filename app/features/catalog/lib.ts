@@ -11,8 +11,14 @@ import {
 import {
 	getRepoAccess,
 	readFile,
+	readHeadCommit,
 	writeFiles,
 } from '../../lib/store/github-repo-store.ts'
+import {
+	type ChangeOutcome,
+	readModifyWrite,
+	WriteConflictError,
+} from '../../lib/store/read-modify-write.ts'
 
 export const CATALOG_FILENAME = 'catalog.json'
 /**
@@ -31,8 +37,10 @@ export const CATALOG_SOURCE_FILENAME = 'catalog-source.json'
  */
 export const DEFAULT_SHARED_CATALOG_REPO = 'ainvestor-shared/ainvestor-catalog'
 
-export function getSharedCatalogRepo(): string {
-	const configured = (process.env.SHARED_CATALOG_REPO ?? '').trim()
+export function getSharedCatalogRepo(
+	env: NodeJS.ProcessEnv = process.env,
+): string {
+	const configured = (env.SHARED_CATALOG_REPO ?? '').trim()
 	return configured.length > 0 ? configured : DEFAULT_SHARED_CATALOG_REPO
 }
 
@@ -41,8 +49,14 @@ const DEFAULT_SHARED_CATALOG_CACHE_TTL_MS = 60_000
 /** How long a stale snapshot is served before the next refresh attempt (ms). */
 const STALE_RETRY_MS = 15_000
 
-type SharedCatalogSnapshot = {
+export type SharedCatalogSnapshot = {
 	entries: CatalogEntry[]
+	/**
+	 * Why `entries` is empty when it is not really: `no-access` when GitHub will
+	 * not show this token the private repo, `unavailable` when it could not be
+	 * read and no earlier copy was at hand. Absent on a good read.
+	 */
+	problem?: 'no-access' | 'unavailable'
 }
 
 export type CatalogEntry = {
@@ -876,12 +890,37 @@ export function buildCatalogGistPatch(
 
 let sharedCatalogTestSnapshot: SharedCatalogSnapshot | null = null
 let sharedCatalogTestSourceRows: Record<string, unknown> = {}
+let sharedCatalogTestCanWrite = true
 
-let sharedCatalogTtlCache: {
-	location: string
-	snapshot: SharedCatalogSnapshot
-	expiresAt: number
-} | null = null
+/** Bounds the per-token cache; only approved users reach it, and they are few. */
+const MAX_CACHED_TOKENS = 50
+
+/**
+ * The last good snapshot per token. Keyed by token, not shared: the repo is
+ * private, so a copy read with one account's token must never be handed to
+ * another account GitHub would not show it to — over MCP, any GitHub token can
+ * call the read tools.
+ */
+const snapshotByToken = new Map<
+	string,
+	{ location: string; snapshot: SharedCatalogSnapshot; expiresAt: number }
+>()
+
+function rememberSnapshot(
+	token: string,
+	entry: {
+		location: string
+		snapshot: SharedCatalogSnapshot
+		expiresAt: number
+	},
+): void {
+	snapshotByToken.delete(token)
+	snapshotByToken.set(token, entry)
+	if (snapshotByToken.size > MAX_CACHED_TOKENS) {
+		const oldest = snapshotByToken.keys().next().value
+		if (oldest !== undefined) snapshotByToken.delete(oldest)
+	}
+}
 
 function getSharedCatalogCacheTtlMs(): number {
 	const raw = (process.env.SHARED_CATALOG_CACHE_TTL_MS ?? '').trim()
@@ -900,25 +939,37 @@ function cloneCatalogEntries(entries: CatalogEntry[]): CatalogEntry[] {
 function cloneSharedCatalogSnapshot(
 	snapshot: SharedCatalogSnapshot,
 ): SharedCatalogSnapshot {
-	return { entries: cloneCatalogEntries(snapshot.entries) }
+	return {
+		entries: cloneCatalogEntries(snapshot.entries),
+		...(snapshot.problem !== undefined ? { problem: snapshot.problem } : {}),
+	}
 }
 
-export function setSharedCatalogForTests(
-	snapshot: SharedCatalogSnapshot,
-): void {
-	sharedCatalogTtlCache = null
-	sharedCatalogTestSnapshot = cloneSharedCatalogSnapshot(snapshot)
+export function setSharedCatalogForTests(snapshot: {
+	entries: CatalogEntry[]
+}): void {
+	snapshotByToken.clear()
+	sharedCatalogTestSnapshot = { entries: cloneCatalogEntries(snapshot.entries) }
 	sharedCatalogTestSourceRows = {}
+}
+
+/**
+ * Test seam: an empty test catalog unless a test already set one, so a route
+ * test that never mentions the catalog does not reach for the real private
+ * repo with a fake token. Additive, like `ensurePrivateGistTestStore`.
+ */
+export function ensureSharedCatalogForTests(): void {
+	if (sharedCatalogTestSnapshot === null) {
+		setSharedCatalogForTests({ entries: [] })
+	}
 }
 
 export function resetSharedCatalogForTests(): void {
 	sharedCatalogTestSnapshot = null
 	sharedCatalogTestSourceRows = {}
 	sharedCatalogTestCanWrite = true
-	sharedCatalogTtlCache = null
+	snapshotByToken.clear()
 }
-
-let sharedCatalogTestCanWrite = true
 
 /** Test seam: what {@link canWriteSharedCatalog} answers while a test catalog is set. */
 export function setSharedCatalogWriteAccessForTests(canWrite: boolean): void {
@@ -942,19 +993,55 @@ export async function canWriteSharedCatalog(token: string): Promise<boolean> {
 	return access.found && access.canWrite
 }
 
+/** The catalog as a reader sees it, or why it could not be read. */
+type CatalogRead =
+	| { ok: true; entries: CatalogEntry[] }
+	/** GitHub's 404: the token cannot see the repo, or catalog.json is missing. */
+	| { ok: false; reason: 'no-access'; status: number }
+	| { ok: false; reason: 'unavailable'; status: number }
+
+async function readCatalogFile(params: {
+	token: string
+	location: string
+}): Promise<CatalogRead> {
+	const result = await readFile({ ...params, path: CATALOG_FILENAME })
+	if (!result.ok) {
+		return {
+			ok: false,
+			reason:
+				result.status === 401 || result.status === 404
+					? 'no-access'
+					: 'unavailable',
+			status: result.status,
+		}
+	}
+	// GitHub answers 404 both for a missing file and for a private repo this
+	// token cannot see. The catalog repo always holds catalog.json, so it is the
+	// second case.
+	if (result.file === null) {
+		return { ok: false, reason: 'no-access', status: 404 }
+	}
+	return {
+		ok: true,
+		entries: parseCatalogFromGist({
+			files: { [CATALOG_FILENAME]: { content: result.file.content } },
+		}),
+	}
+}
+
 /**
- * The shared catalog, cached in-process for a short TTL.
+ * The shared catalog as this token may see it, cached per token for a short
+ * TTL.
  *
- * The repo is private, so it is read with the caller's token: anonymous reads
- * cannot see it, and no server-side credential exists to read it with. With no
- * token (signed out) there is nothing to read. Who may see the catalog is
- * GitHub's call, but the cache is shared across tokens — the app's own
- * allowlist is the gate on who reaches it, so an approved user must also be on
- * the `ainvestor-users` team to read a fresh copy.
+ * The repo is private, so it is read with the caller's own token: anonymous
+ * reads cannot see it, and no server-side credential exists. Without a token
+ * (signed out, or pending approval) there is nothing to read. A token GitHub
+ * will not show the repo to gets an empty catalog marked `problem: 'no-access'`
+ * — not an empty catalog that looks like nobody imported one.
  *
- * When a refresh fails, the last good snapshot is served instead of an empty
- * catalog: the catalog changes rarely, and an empty one stops every buy and
- * sell, which need a ticker from it. The next attempt waits
+ * When a refresh fails for any other reason, the same token's last good
+ * snapshot is served instead: the catalog changes rarely, and an empty one stops
+ * every buy and sell, which need a ticker from it. The next attempt waits
  * {@link STALE_RETRY_MS} so a limited endpoint is not hit by every request.
  */
 export async function fetchSharedCatalogSnapshot(
@@ -963,124 +1050,55 @@ export async function fetchSharedCatalogSnapshot(
 	if (sharedCatalogTestSnapshot) {
 		return cloneSharedCatalogSnapshot(sharedCatalogTestSnapshot)
 	}
+	if (token === null) return { entries: [], problem: 'no-access' }
 
 	const location = getSharedCatalogRepo()
 	const ttlMs = getSharedCatalogCacheTtlMs()
-	const cached = sharedCatalogTtlCache
-	if (
-		ttlMs > 0 &&
-		cached !== null &&
-		cached.location === location &&
-		Date.now() < cached.expiresAt
-	) {
+	const cachedEntry = snapshotByToken.get(token)
+	const cached =
+		cachedEntry !== undefined && cachedEntry.location === location
+			? cachedEntry
+			: undefined
+	if (ttlMs > 0 && cached !== undefined && Date.now() < cached.expiresAt) {
 		return cloneSharedCatalogSnapshot(cached.snapshot)
 	}
 
-	const staleOrEmpty = (): SharedCatalogSnapshot => {
-		if (ttlMs > 0 && cached !== null && cached.location === location) {
-			cached.expiresAt = Date.now() + STALE_RETRY_MS
-			return cloneSharedCatalogSnapshot(cached.snapshot)
-		}
-		return { entries: [] }
+	let read: CatalogRead
+	try {
+		read = await readCatalogFile({ token, location })
+	} catch (error) {
+		console.error('[catalog] Shared catalog fetch failed', error)
+		read = { ok: false, reason: 'unavailable', status: 0 }
 	}
 
-	if (token === null) return staleOrEmpty()
-
-	try {
-		const result = await readFile({ token, location, path: CATALOG_FILENAME })
-		if (!result.ok) {
-			console.error(
-				`[catalog] Shared catalog read failed: GitHub API error ${result.status} reading ${location}`,
-			)
-			return staleOrEmpty()
-		}
-		if (result.file === null) {
-			// GitHub answers 404 both for a missing file and for a private repo
-			// this token cannot see (not on the `ainvestor-users` team, or the
-			// organization has not approved this OAuth app). The catalog repo
-			// always holds catalog.json, so this is the second case — and an
-			// empty list must not be cached and served to everyone else.
-			console.error(
-				`[catalog] Shared catalog read failed: GitHub API error 404 reading ${location} (not visible to this token, or no ${CATALOG_FILENAME})`,
-			)
-			return staleOrEmpty()
-		}
-		const snapshot: SharedCatalogSnapshot = {
-			entries: parseCatalogFromGist({
-				files: { [CATALOG_FILENAME]: { content: result.file.content } },
-			}),
-		}
+	if (read.ok) {
+		const snapshot: SharedCatalogSnapshot = { entries: read.entries }
 		if (ttlMs > 0) {
-			sharedCatalogTtlCache = {
+			rememberSnapshot(token, {
 				location,
 				snapshot: cloneSharedCatalogSnapshot(snapshot),
 				expiresAt: Date.now() + ttlMs,
-			}
+			})
 		}
 		return cloneSharedCatalogSnapshot(snapshot)
-	} catch (error) {
-		console.error('[catalog] Shared catalog fetch failed', error)
-		return staleOrEmpty()
-	}
-}
-
-/**
- * Read the stored source rows (see {@link CATALOG_SOURCE_FILENAME}), uncached.
- * An absent file is an empty record. Throws when the file exists but cannot be
- * read or parsed, so an import never overwrites history it failed to load.
- */
-export async function fetchCatalogSourceRows(
-	token: string,
-): Promise<Record<string, unknown>> {
-	if (sharedCatalogTestSnapshot) {
-		return { ...sharedCatalogTestSourceRows }
 	}
 
-	const result = await readFile({
-		token,
-		location: getSharedCatalogRepo(),
-		path: CATALOG_SOURCE_FILENAME,
-	})
-	if (!result.ok) {
-		throw new Error(
-			`GitHub API error reading catalog source rows: ${result.status}`,
-		)
+	console.error(
+		`[catalog] Shared catalog read failed: GitHub API error ${read.status} reading ${location}` +
+			(read.reason === 'no-access'
+				? ` (not visible to this token: is the account on the ainvestor-users team, and is this OAuth app approved for the organization? Or ${CATALOG_FILENAME} is missing.)`
+				: ''),
+	)
+	if (read.reason === 'no-access') {
+		// Access gone: this token keeps no copy of what it can no longer read.
+		snapshotByToken.delete(token)
+		return { entries: [], problem: 'no-access' }
 	}
-	if (!result.file) return {}
-
-	const content = result.file.content
-	if (content.trim().length === 0) return {}
-
-	const parsed: unknown = JSON.parse(content)
-	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
-		throw new Error(`${CATALOG_SOURCE_FILENAME} is not a JSON object`)
+	if (ttlMs > 0 && cached !== undefined) {
+		cached.expiresAt = Date.now() + STALE_RETRY_MS
+		return cloneSharedCatalogSnapshot(cached.snapshot)
 	}
-	return parsed as Record<string, unknown>
-}
-
-/**
- * Save a bank import: the merged catalog plus this import's source rows added
- * to those stored by earlier imports (a fund re-imported replaces its row).
- * Shared by the web import card and the MCP import tool.
- */
-export async function saveCatalogImport(params: {
-	token: string
-	mergedEntries: CatalogEntry[]
-	sourceRowsById: Record<string, unknown>
-	/** Where the import came from, for the commit message. */
-	source: CommitSource
-}): Promise<void> {
-	const storedSourceRows = await fetchCatalogSourceRows(params.token)
-	const importedRows = Object.keys(params.sourceRowsById).length
-	await saveCatalog({
-		token: params.token,
-		entries: params.mergedEntries,
-		sourceRowsById: { ...storedSourceRows, ...params.sourceRowsById },
-		message: commitMessage({
-			summary: `Import bank catalog (${importedRows} rows)`,
-			source: params.source,
-		}),
-	})
+	return { entries: [], problem: 'unavailable' }
 }
 
 /** Fetch catalog entries from the shared catalog repo; see {@link fetchSharedCatalogSnapshot} for `token`. */
@@ -1091,46 +1109,176 @@ export async function fetchCatalog(
 	return snapshot.entries
 }
 
-/**
- * Save catalog entries to the shared catalog repo, in one commit with the
- * source rows when given. GitHub refuses the write for a token without push
- * access, which is what keeps the catalog owner-only.
- */
-export async function saveCatalog(params: {
-	token: string
+/** What a catalog edit sees, and what it may write back. */
+export type SharedCatalogContent = {
 	entries: CatalogEntry[]
-	/** The complete source-rows record to store; omitted leaves that file as it is. */
-	sourceRowsById?: Record<string, unknown>
-	/** Commit message; defaults to the store's `Update …`. */
-	message?: string
-}): Promise<void> {
-	const { token, entries, sourceRowsById, message } = params
-	if (sharedCatalogTestSnapshot) {
-		sharedCatalogTestSnapshot = { entries: cloneCatalogEntries(entries) }
-		if (sourceRowsById !== undefined) {
-			sharedCatalogTestSourceRows = { ...sourceRowsById }
-		}
-		return
-	}
+	/** Every bank row stored by earlier imports, by catalog id (see {@link CATALOG_SOURCE_FILENAME}). */
+	sourceRowsById: Record<string, unknown>
+}
 
-	const patch = buildCatalogGistPatch(entries, sourceRowsById)
-	const result = await writeFiles({
-		token,
-		location: getSharedCatalogRepo(),
-		files: Object.fromEntries(
-			Object.entries(patch.files).map(([path, file]) => [path, file.content]),
-		),
-		message,
-	})
+async function readSourceRows(params: {
+	token: string
+	location: string
+}): Promise<Record<string, unknown>> {
+	const result = await readFile({ ...params, path: CATALOG_SOURCE_FILENAME })
 	if (!result.ok) {
 		throw new Error(
-			`GitHub API error updating the shared catalog: ${result.status}`,
+			`GitHub API error reading catalog source rows: ${result.status}`,
 		)
 	}
+	if (!result.file) return {}
+	const content = result.file.content
+	if (content.trim().length === 0) return {}
+	const parsed: unknown = JSON.parse(content)
+	if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+		throw new Error(`${CATALOG_SOURCE_FILENAME} is not a JSON object`)
+	}
+	return parsed as Record<string, unknown>
+}
 
-	// A write must be visible to the very next read, in this process and in
-	// every other reader sharing it (UI and the MCP HTTP transport both call
-	// fetchCatalog/fetchSharedCatalogSnapshot from this module) — otherwise a
-	// stale snapshot can keep serving for up to the TTL after a save.
-	sharedCatalogTtlCache = null
+/**
+ * Edit the shared catalog with compare-and-swap. Every edit replaces whole
+ * files, so it is built from a fresh read — never the cached snapshot, which
+ * can be a minute old or empty after a failed read — and that read fails
+ * loudly: an edit built on an empty list would save a catalog of one fund.
+ *
+ * The head commit is read first and the save lands only on top of it, in one
+ * commit with both files; when another client saved in between, `change` is
+ * redone on the newer catalog, up to {@link MAX_WRITE_ATTEMPTS} times, then
+ * {@link WriteConflictError}. GitHub refuses the save for a token without push
+ * access. `change` runs once per attempt, so it must be free of side effects.
+ */
+export async function updateSharedCatalog<TResult>(params: {
+	token: string
+	change: (
+		current: SharedCatalogContent,
+	) => ChangeOutcome<
+		{ entries: CatalogEntry[]; sourceRowsById?: Record<string, unknown> },
+		TResult
+	>
+}): Promise<TResult> {
+	const { token } = params
+	if (sharedCatalogTestSnapshot) {
+		const outcome = params.change({
+			entries: cloneCatalogEntries(sharedCatalogTestSnapshot.entries),
+			sourceRowsById: { ...sharedCatalogTestSourceRows },
+		})
+		if ('write' in outcome) {
+			sharedCatalogTestSnapshot = {
+				entries: cloneCatalogEntries(outcome.write.entries),
+			}
+			if (outcome.write.sourceRowsById !== undefined) {
+				sharedCatalogTestSourceRows = { ...outcome.write.sourceRowsById }
+			}
+		}
+		return outcome.result
+	}
+
+	const location = getSharedCatalogRepo()
+	const result = await readModifyWrite({
+		what: 'the shared catalog',
+		read: async () => {
+			const head = await readHeadCommit({ token, location })
+			if (!head.ok) {
+				throw new Error(`GitHub API error reading ${location}: ${head.status}`)
+			}
+			const read = await readCatalogFile({ token, location })
+			if (!read.ok) {
+				throw new Error(
+					`GitHub API error reading the shared catalog: ${read.status}`,
+				)
+			}
+			return {
+				value: {
+					entries: read.entries,
+					sourceRowsById: await readSourceRows({ token, location }),
+				},
+				version: head.sha,
+			}
+		},
+		change: params.change,
+		write: async ({ value, version, message }) => {
+			const patch = buildCatalogGistPatch(value.entries, value.sourceRowsById)
+			const saved = await writeFiles({
+				token,
+				location,
+				files: Object.fromEntries(
+					Object.entries(patch.files).map(([path, file]) => [
+						path,
+						file.content,
+					]),
+				),
+				expectedVersion: version,
+				message,
+			})
+			if (saved.ok) return
+			if (saved.conflict) throw new WriteConflictError('the shared catalog')
+			throw new Error(
+				`GitHub API error updating the shared catalog: ${saved.status}`,
+			)
+		},
+	})
+
+	// A write must be visible to the very next read, for every reader in this
+	// process (the UI and the MCP HTTP transport share this module) — otherwise
+	// a stale snapshot keeps serving for up to the TTL after a save.
+	snapshotByToken.clear()
+	return result
+}
+
+/** What a saved bank import did: the parse it applied, and the catalog size around it. */
+export type BankCatalogImport = {
+	parseResult: BankJsonParseForImportResult
+	catalogSizeBefore: number
+	catalogSizeAfter: number
+	/** False when no row could be imported, so nothing was saved. */
+	saved: boolean
+}
+
+/**
+ * Merge a bank payload into the shared catalog and store its source rows, in
+ * one compare-and-swap commit (see {@link updateSharedCatalog}). The payload is
+ * parsed against the catalog as it stands at the save — not an earlier read —
+ * so re-type notes and refreshes are reported against what was really there.
+ * Shared by the web import card and the MCP import tool.
+ */
+export function importBankCatalog(params: {
+	token: string
+	payload: unknown
+	source: CommitSource
+}): Promise<BankCatalogImport> {
+	return updateSharedCatalog<BankCatalogImport>({
+		token: params.token,
+		change: ({ entries, sourceRowsById }) => {
+			const parseResult = parseBankJsonForImport(params.payload, entries)
+			if (parseResult.entries.length === 0) {
+				return {
+					result: {
+						parseResult,
+						catalogSizeBefore: entries.length,
+						catalogSizeAfter: entries.length,
+						saved: false,
+					},
+				}
+			}
+			const merged = mergeBankIntoCatalog(entries, parseResult.entries)
+			return {
+				write: {
+					entries: merged,
+					// A fund re-imported replaces its stored row.
+					sourceRowsById: { ...sourceRowsById, ...parseResult.sourceRowsById },
+				},
+				message: commitMessage({
+					summary: `Import bank catalog (${parseResult.entries.length} rows)`,
+					source: params.source,
+				}),
+				result: {
+					parseResult,
+					catalogSizeBefore: entries.length,
+					catalogSizeAfter: merged.length,
+					saved: true,
+				},
+			}
+		},
+	})
 }

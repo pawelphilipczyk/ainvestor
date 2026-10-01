@@ -2,7 +2,7 @@
  * Environment resolution for the MCP server. Read once at startup so a missing
  * variable fails immediately with an actionable message rather than mid-call.
  */
-import { DEFAULT_SHARED_CATALOG_REPO } from '../app/features/catalog/lib.ts'
+import { getSharedCatalogRepo } from '../app/features/catalog/lib.ts'
 
 export type McpConfig = {
 	/** GitHub PAT with the `gist` and `repo` scopes. */
@@ -45,8 +45,7 @@ export function resolveMcpConfig(
 			hint: 'Create a GitHub personal access token with the `gist` and `repo` scopes.',
 		}),
 		dataRepo: readOptional(env, 'AINVESTOR_DATA_REPO'),
-		sharedCatalogRepo:
-			readOptional(env, 'SHARED_CATALOG_REPO') ?? DEFAULT_SHARED_CATALOG_REPO,
+		sharedCatalogRepo: getSharedCatalogRepo(env),
 	}
 }
 

@@ -553,7 +553,16 @@ export async function writeFile(params: {
 // Multi-file atomic write — Git Data API
 // ---------------------------------------------------------------------------
 
-type GitDataFailure = { ok: false; status: number; response: Response }
+type GitDataFailure = {
+	ok: false
+	status: number
+	response: Response
+	/**
+	 * The branch moved past `expectedVersion` before the commit landed: another
+	 * client wrote first. Only ever set when `expectedVersion` was passed.
+	 */
+	conflict?: true
+}
 
 async function gitDataRequest(params: {
 	token: string
@@ -585,9 +594,12 @@ export type WriteFilesResult = { ok: true } | GitDataFailure
  * commit non-fast-forward — a ref that moved since we read it rejects the
  * update rather than losing a concurrent write.
  *
- * `expectedVersion` names the parent commit to build on; when omitted, the
- * current tip is read and used, matching {@link writeFile}'s same-shaped
- * last-write-wins default.
+ * `expectedVersion` names the parent commit to build on — the head the caller
+ * read its content at (see {@link readHeadCommit}), which makes the write
+ * compare-and-swap: if the branch has moved since, GitHub refuses the
+ * non-fast-forward ref update and the result carries `conflict: true`. When
+ * omitted, the current tip is read and used, matching {@link writeFile}'s
+ * same-shaped last-write-wins default.
  */
 export async function writeFiles(params: {
 	token: string
@@ -763,7 +775,35 @@ export async function writeFiles(params: {
 			ok: false,
 			status: refUpdateResponse.status,
 			response: refUpdateResponse,
+			// GitHub answers a non-fast-forward ref update with 422.
+			...(typeof params.expectedVersion === 'string' &&
+			refUpdateResponse.status === 422
+				? { conflict: true as const }
+				: {}),
 		}
 	}
 	return { ok: true }
+}
+
+/**
+ * The commit at the tip of the repo's default branch: what a later
+ * {@link writeFiles} passes as `expectedVersion` so that it only lands on top
+ * of the content read after this call.
+ */
+export async function readHeadCommit(params: {
+	token: string
+	location: string
+}): Promise<{ ok: true; sha: string } | { ok: false; status: number }> {
+	const { owner, repo } = repoLocationOrThrow(params.location)
+	const metadata = await getRepoMetadata({ token: params.token, owner, repo })
+	if (!metadata.found) return { ok: false, status: 404 }
+	const refResponse = await gitDataRequest({
+		token: params.token,
+		owner,
+		repo,
+		path: `ref/heads/${metadata.metadata.defaultBranch}`,
+	})
+	if (!refResponse.ok) return { ok: false, status: refResponse.status }
+	const ref = (await refResponse.json()) as { object: { sha: string } }
+	return { ok: true, sha: ref.object.sha }
 }

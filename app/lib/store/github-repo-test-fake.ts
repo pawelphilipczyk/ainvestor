@@ -66,10 +66,12 @@ export function installFakeDataRepo(
 		externalWrite: (path, content) => {
 			state.files.set(path, content)
 			shas.set(path, nextSha())
+			head += 1
 		},
 		externalDelete: (path) => {
 			state.files.delete(path)
 			shas.delete(path)
+			head += 1
 		},
 	}
 	// Each file's version, replaced on every write like a blob's sha: a write
@@ -85,6 +87,10 @@ export function installFakeDataRepo(
 		}
 		return sha
 	}
+	// The branch tip, as a counter: every write is a commit that moves it, so a
+	// Git Data commit built on an older tip is refused like a non-fast-forward.
+	let head = 0
+	let pendingCommit: { parent: string; message: string } | null = null
 	const blobs = new Map<string, string>()
 	let pendingTree: Array<{ path: string; sha: string | null }> = []
 	const repoPrefix = `/repos/${login}/${repoName}`
@@ -152,6 +158,7 @@ export function installFakeDataRepo(
 					}
 				}
 				state.commitMessages.push(body.message)
+				head += 1
 				state.files.set(
 					filePath,
 					Buffer.from(body.content, 'base64').toString('utf-8'),
@@ -166,13 +173,14 @@ export function installFakeDataRepo(
 					return new Response(null, { status: 409 })
 				}
 				state.commitMessages.push(body.message)
+				head += 1
 				state.files.delete(filePath)
 				shas.delete(filePath)
 				return Response.json({})
 			}
 		}
 		if (method === 'GET' && path === `${repoPrefix}/git/ref/heads/main`) {
-			return Response.json({ object: { sha: 'commit-0' } })
+			return Response.json({ object: { sha: `commit-${head}` } })
 		}
 		if (method === 'GET' && path.startsWith(`${repoPrefix}/git/commits/`)) {
 			return Response.json({ tree: { sha: 'tree-0' } })
@@ -195,10 +203,17 @@ export function installFakeDataRepo(
 			return Response.json({ sha: 'tree-1' })
 		}
 		if (method === 'POST' && path === `${repoPrefix}/git/commits`) {
-			state.commitMessages.push(body.message)
-			return Response.json({ sha: 'commit-1' })
+			pendingCommit = { parent: body.parents[0], message: body.message }
+			return Response.json({ sha: 'commit-new' })
 		}
 		if (method === 'PATCH' && path === `${repoPrefix}/git/refs/heads/main`) {
+			// A commit whose parent is no longer the tip is not a fast-forward.
+			if (pendingCommit === null || pendingCommit.parent !== `commit-${head}`) {
+				return new Response(null, { status: 422 })
+			}
+			state.commitMessages.push(pendingCommit.message)
+			pendingCommit = null
+			head += 1
 			for (const entry of pendingTree) {
 				if (entry.sha === null) {
 					state.files.delete(entry.path)
@@ -208,7 +223,7 @@ export function installFakeDataRepo(
 					shas.set(entry.path, nextSha())
 				}
 			}
-			return Response.json({ object: { sha: 'commit-1' } })
+			return Response.json({ object: { sha: `commit-${head}` } })
 		}
 		throw new Error(
 			`unexpected request to the fake data repo: ${method} ${path}`,

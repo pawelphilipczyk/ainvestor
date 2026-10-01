@@ -11,6 +11,7 @@ import {
 import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
 import { routes } from '../../routes.ts'
 import {
+	ensureSharedCatalogForTests,
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
@@ -51,6 +52,8 @@ async function signInWithGist(login = 'advice-test-user') {
 	const cookieHeader = await sessionCookie.serialize(value)
 	// Avoid real GitHub fetches: fetchEtfs throws on non-2xx unless overlay supplies data.
 	setPrivateGistTestStore({ etfs: [], guidelines: [] })
+	// The same for the private catalog repo, unless this test seeded a catalog.
+	ensureSharedCatalogForTests()
 	const cookie = cookieHeader.split(';')[0] ?? ''
 	// Seed the sticky jar: /advice is behind the sign-in gate, so plain
 	// `testSessionFetch` calls in the same test need this session too.

@@ -8,13 +8,11 @@ import {
 	getSessionData,
 	sessionHasDataRepo,
 } from '../../lib/session.ts'
-import type { CatalogEntry } from './lib.ts'
+import type { SharedCatalogSnapshot } from './lib.ts'
 import { fetchSharedCatalogSnapshot } from './lib.ts'
 
 export type CatalogPageLoadContext = {
-	catalogSnapshot: {
-		entries: CatalogEntry[]
-	}
+	catalogSnapshot: SharedCatalogSnapshot
 	entries: EtfEntry[]
 	session: ReturnType<typeof getSessionData>
 	layoutSession: SessionData | null

@@ -826,9 +826,22 @@ cutover deploy.
   answers 404 both for a missing file and for a repo the token cannot see, and
   the snapshot cache is shared across tokens — so a read by an account outside
   the `ainvestor-users` team must not cache an empty list for everyone else.
-- **The cache stays shared across tokens.** The app's allowlist is the gate on
-  who reaches it; GitHub's team membership decides whose own reads work. Adding
-  a user is therefore two steps: approve the login, add the account to the team.
+- **The catalog cache is per token,** no longer shared. The plan's "possible
+  only because guests lose catalog access" overlooked the MCP HTTP endpoint,
+  which serves read tools to any GitHub token: a shared copy would hand the
+  private catalog to anyone. A token GitHub will not show the repo to gets an
+  empty catalog marked `problem: 'no-access'` (and drops its own copy); the
+  page and `list_catalog` say so, naming the `ainvestor-users` team, instead of
+  calling the catalog empty. Adding a user is therefore two steps: approve the
+  login, add the account to the team.
+- **Catalog writes are compare-and-swap, built from a fresh read.**
+  `updateSharedCatalog` reads the head commit, then both files, uncached and
+  failing loudly, and commits only on top of that head (`writeFiles`' ref
+  update reports `conflict` when it moved). The old path built a whole-file
+  save from the cached snapshot, which a failed read turned into an empty list
+  — an MCP edit could have saved a catalog of one fund. Bank imports go through
+  `importBankCatalog`, which parses the payload against the catalog as it
+  stands at the save.
 - **`catalog-source.json` moved** with the catalog, in the same commit.
 - **Catalog saves carry commit messages** like the data repo's:
   `Import bank catalog (N rows) (web)`, `Update catalog entry VWCE (MCP)`.
@@ -839,10 +852,14 @@ cutover deploy.
   any more, so a token still works if a deploy is rolled back to the
   gist-catalog build. Phase 7 drops it.
 - **The migration script gained `--catalog --gist <id>`.** It creates the repo
-  in the organization (private, initialised) when absent, initialises one that
-  exists with no commits, refuses a token that can read but not push, refuses a
-  gist without `catalog.json`, then plans, copies in one commit and verifies
-  exactly like the data copy, which now shares that core.
+  in the organization (private, initialised) when absent and waits for its
+  first commit to be readable, initialises one that exists with no commits,
+  refuses a token that can read but not push, refuses a gist without
+  `catalog.json`, and treats only root JSON files as catalog data (a `LICENSE`
+  or `.gitignore` made with the repo is never planned for deletion). Then it
+  plans, copies in one commit and verifies exactly like the data copy, which
+  now shares that core. A refused repo lookup names the organization's
+  Third-party access setting.
 
 **Cutover order** (one catalog repo, so one copy; the PR's preview deploy is
 the rehearsal):

@@ -12,7 +12,10 @@ import {
 	planFileCopies,
 	runCatalogMigration,
 	runMigration,
+	setBranchPollForTests,
 } from './gist-to-repo-migration.ts'
+
+setBranchPollForTests(0)
 
 let previousFetch: typeof fetch | undefined
 
@@ -45,6 +48,10 @@ type FakeGithub = {
 	canWrite?: boolean
 	/** The repo exists but has no commits: its root listing answers 404. */
 	repoEmpty?: boolean
+	/** How many branch reads answer 409 before the branch is readable, as just after creation. */
+	branchUnreadyReads?: number
+	/** Status for the repo lookup itself, as an organization's OAuth restriction gives. */
+	repoLookupStatus?: number
 	/** `null` until the repo exists. The marker lives here like any other file. */
 	repoFiles: Map<string, string> | null
 	/** Every non-GET request, as `METHOD /path`. */
@@ -106,6 +113,9 @@ function installFakeGithub(state: FakeGithub) {
 			})
 		}
 		if (method === 'GET' && path === repoPrefix) {
+			if (state.repoLookupStatus !== undefined) {
+				return new Response(null, { status: state.repoLookupStatus })
+			}
 			return state.repoFiles
 				? Response.json({
 						default_branch: 'main',
@@ -151,6 +161,10 @@ function installFakeGithub(state: FakeGithub) {
 			}
 		}
 		if (method === 'GET' && path === `${repoPrefix}/git/ref/heads/main`) {
+			if ((state.branchUnreadyReads ?? 0) > 0) {
+				state.branchUnreadyReads = (state.branchUnreadyReads ?? 0) - 1
+				return new Response(null, { status: 409 })
+			}
 			return Response.json({ object: { sha: 'commit-0' } })
 		}
 		if (method === 'GET' && path === `${repoPrefix}/git/commits/commit-0`) {
@@ -599,6 +613,40 @@ describe('runCatalogMigration', () => {
 		await assert.rejects(
 			migrateCatalog(state, { apply: true }),
 			/not push to it/,
+		)
+		assert.deepEqual(state.mutations, [])
+	})
+
+	it('leaves non-JSON files a maintainer created with the repo alone, even with --force', async () => {
+		const state = catalogGithub({
+			repoFiles: new Map([
+				['README.md', '# ainvestor-catalog'],
+				['LICENSE', 'MIT'],
+				['.gitignore', 'node_modules'],
+			]),
+		})
+		const { succeeded, output } = await migrateCatalog(state, {
+			apply: true,
+			force: true,
+		})
+		assert.equal(succeeded, true)
+		assert.doesNotMatch(output, /delete/)
+		assert.equal(state.repoFiles?.get('LICENSE'), 'MIT')
+		assert.equal(state.repoFiles?.get('.gitignore'), 'node_modules')
+	})
+
+	it('waits for a just-created repo’s branch before committing to it', async () => {
+		const state = catalogGithub({ branchUnreadyReads: 2 })
+		const { succeeded } = await migrateCatalog(state, { apply: true })
+		assert.equal(succeeded, true)
+		assert.equal(state.repoFiles?.has('catalog.json'), true)
+	})
+
+	it('names the organization setting when GitHub refuses the repo lookup', async () => {
+		const state = catalogGithub({ repoLookupStatus: 403 })
+		await assert.rejects(
+			migrateCatalog(state, { apply: true }),
+			/403.*Third-party access/s,
 		)
 		assert.deepEqual(state.mutations, [])
 	})

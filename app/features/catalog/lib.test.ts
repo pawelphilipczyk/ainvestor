@@ -9,8 +9,8 @@ import {
 	canWriteSharedCatalog,
 	catalogMergeKey,
 	deriveEtfTypeFromBank,
-	fetchCatalogSourceRows,
 	fetchSharedCatalogSnapshot,
+	importBankCatalog,
 	mergeBankIntoCatalog,
 	normalizeCatalogTickerLookupKey,
 	parseBankJsonForImport,
@@ -19,9 +19,8 @@ import {
 	parseCatalogRiskFilterParam,
 	resetSharedCatalogForTests,
 	riskBandFromRiskKid,
-	saveCatalog,
-	saveCatalogImport,
 	setSharedCatalogForTests,
+	updateSharedCatalog,
 } from './lib.ts'
 
 describe('riskBandFromRiskKid', () => {
@@ -136,7 +135,7 @@ describe('shared catalog repo', () => {
 		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
 		const repo = catalogRepo()
 		const snapshot = await fetchSharedCatalogSnapshot(null)
-		assert.deepEqual(snapshot, { entries: [] })
+		assert.deepEqual(snapshot, { entries: [], problem: 'no-access' })
 		assert.deepEqual(repo.requests, [])
 	})
 
@@ -145,7 +144,7 @@ describe('shared catalog repo', () => {
 		const repo = catalogRepo()
 
 		const first = await fetchSharedCatalogSnapshot('user-token')
-		const second = await fetchSharedCatalogSnapshot('other-token')
+		const second = await fetchSharedCatalogSnapshot('user-token')
 
 		assert.equal(repo.requests.length, 1)
 		if (first.entries[0])
@@ -170,7 +169,7 @@ describe('shared catalog repo', () => {
 		console.error = (...parts: unknown[]) => logged.push(parts.join(' '))
 		try {
 			const snapshot = await fetchSharedCatalogSnapshot('outsider-token')
-			assert.deepEqual(snapshot, { entries: [] })
+			assert.deepEqual(snapshot, { entries: [], problem: 'no-access' })
 		} finally {
 			console.error = originalError
 		}
@@ -194,6 +193,7 @@ describe('shared catalog repo', () => {
 		try {
 			assert.deepEqual(await fetchSharedCatalogSnapshot('outsider-token'), {
 				entries: [],
+				problem: 'no-access',
 			})
 			// A team member right after must still see the catalog.
 			const forMember = await fetchSharedCatalogSnapshot('member-token')
@@ -248,19 +248,32 @@ describe('shared catalog repo', () => {
 		}
 	})
 
+	/** The stored source rows, read the way an edit sees them. */
+	function readStoredSourceRows(token: string) {
+		return updateSharedCatalog({
+			token,
+			change: ({ sourceRowsById }) => ({ result: sourceRowsById }),
+		})
+	}
+
 	it('saves the catalog and its source rows in one commit, and the next read is fresh', async () => {
 		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
 		const repo = catalogRepo()
 		await fetchSharedCatalogSnapshot('admin-token')
 
-		await saveCatalog({
+		await updateSharedCatalog({
 			token: 'admin-token',
-			entries: [{ ...abc, type: 'equity' as const, ticker: 'XYZ' }],
-			sourceRowsById: { '1': { ticker: 'XYZ' } },
-			message: 'Import catalog (web)',
+			change: () => ({
+				write: {
+					entries: [{ ...abc, type: 'equity' as const, ticker: 'XYZ' }],
+					sourceRowsById: { '1': { ticker: 'XYZ' } },
+				},
+				message: 'Edit catalog (web)',
+				result: null,
+			}),
 		})
 
-		assert.deepEqual(repo.commitMessages, ['Import catalog (web)'])
+		assert.deepEqual(repo.commitMessages, ['Edit catalog (web)'])
 		assert.deepEqual(
 			JSON.parse(repo.files.get(CATALOG_SOURCE_FILENAME) ?? '{}'),
 			{ '1': { ticker: 'XYZ' } },
@@ -269,28 +282,108 @@ describe('shared catalog repo', () => {
 		assert.equal(fresh.entries[0]?.ticker, 'XYZ')
 	})
 
-	it('commits a bank import with its row count and source, keeping earlier source rows', async () => {
+	it('builds an edit from a fresh read, not a stale cached snapshot', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+		const repo = catalogRepo()
+		await fetchSharedCatalogSnapshot('admin-token')
+		// Another process adds a fund; this one's cache still holds the old list.
+		repo.externalWrite(
+			CATALOG_FILENAME,
+			JSON.stringify([abc, { ...abc, id: '2', ticker: 'NEW' }]),
+		)
+
+		const seen = await updateSharedCatalog({
+			token: 'admin-token',
+			change: ({ entries }) => ({ result: entries.map((row) => row.ticker) }),
+		})
+
+		assert.deepEqual(seen, ['ABC', 'NEW'])
+	})
+
+	it('refuses to edit when the catalog cannot be read, instead of saving from an empty list', async () => {
+		const repo = catalogRepo()
+		const repoFetch = globalThis.fetch
+		// Only catalog.json fails; the source rows still read fine.
+		globalThis.fetch = async (input, init) =>
+			String(input).endsWith(`/contents/${CATALOG_FILENAME}`)
+				? new Response(null, { status: 502 })
+				: repoFetch(input, init)
+		let changeRan = false
+		await assert.rejects(
+			updateSharedCatalog({
+				token: 'admin-token',
+				change: () => {
+					changeRan = true
+					return { write: { entries: [] }, message: 'Wipe', result: null }
+				},
+			}),
+			/502/,
+		)
+		assert.equal(changeRan, false)
+		assert.deepEqual(repo.commitMessages, [])
+	})
+
+	it('redoes an edit on top of a commit another client made between the read and the save', async () => {
+		let intruded = false
+		const repo = catalogRepo({
+			afterContentRead: (path, fake) => {
+				if (path !== CATALOG_SOURCE_FILENAME || intruded) return
+				intruded = true
+				fake.externalWrite(
+					CATALOG_FILENAME,
+					JSON.stringify([abc, { ...abc, id: '2', ticker: 'THEIRS' }]),
+				)
+			},
+		})
+
+		await updateSharedCatalog({
+			token: 'admin-token',
+			change: ({ entries }) => ({
+				write: { entries: [...entries, { ...abc, id: '3', ticker: 'MINE' }] },
+				message: 'Add MINE (MCP)',
+				result: null,
+			}),
+		})
+
+		const stored = JSON.parse(repo.files.get(CATALOG_FILENAME) ?? '[]') as {
+			ticker: string
+		}[]
+		assert.deepEqual(
+			stored.map((row) => row.ticker),
+			['ABC', 'THEIRS', 'MINE'],
+		)
+	})
+
+	it('commits a bank import with its row count and source, parsing against the catalog at the save', async () => {
 		const repo = catalogRepo({
 			files: {
 				[CATALOG_FILENAME]: '[]',
 				[CATALOG_SOURCE_FILENAME]: JSON.stringify({ old: { ticker: 'OLD' } }),
 			},
 		})
-		await saveCatalogImport({
+
+		const saved = await importBankCatalog({
 			token: 'admin-token',
-			mergedEntries: [{ ...abc, type: 'equity' as const }],
-			sourceRowsById: { a: { ticker: 'A' }, b: { ticker: 'B' } },
+			payload: {
+				data: [
+					{ fund_name: 'Alpha', ticker: 'AAA', assets: 'akcje' },
+					{ fund_name: 'Beta', ticker: 'BBB', assets: 'obligacje' },
+				],
+			},
 			source: 'MCP',
 		})
+
+		assert.equal(saved.saved, true)
+		assert.equal(saved.catalogSizeBefore, 0)
+		assert.equal(saved.catalogSizeAfter, 2)
 		assert.deepEqual(repo.commitMessages, [
 			'Import bank catalog (2 rows) (MCP)',
 		])
-		assert.deepEqual(
-			Object.keys(
-				JSON.parse(repo.files.get(CATALOG_SOURCE_FILENAME) ?? '{}'),
-			).sort(),
-			['a', 'b', 'old'],
-		)
+		const sourceRows = JSON.parse(
+			repo.files.get(CATALOG_SOURCE_FILENAME) ?? '{}',
+		) as Record<string, unknown>
+		assert.equal(Object.hasOwn(sourceRows, 'old'), true)
+		assert.equal(Object.keys(sourceRows).length, 3)
 	})
 
 	it('reads stored source rows from the catalog repo, an absent file being none', async () => {
@@ -300,11 +393,74 @@ describe('shared catalog repo', () => {
 				[CATALOG_SOURCE_FILENAME]: JSON.stringify({ a: { ticker: 'A' } }),
 			},
 		})
-		assert.deepEqual(await fetchCatalogSourceRows('admin-token'), {
+		assert.deepEqual(await readStoredSourceRows('admin-token'), {
 			a: { ticker: 'A' },
 		})
 		catalogRepo({ files: { [CATALOG_FILENAME]: '[]' } })
-		assert.deepEqual(await fetchCatalogSourceRows('admin-token'), {})
+		assert.deepEqual(await readStoredSourceRows('admin-token'), {})
+	})
+
+	it('never serves one token the copy another token read', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+		catalogRepo()
+		const repoFetch = globalThis.fetch
+		// The outsider's token cannot see the private repo.
+		globalThis.fetch = async (input, init) =>
+			new Headers(init?.headers).get('authorization') ===
+			'Bearer outsider-token'
+				? new Response(null, { status: 404 })
+				: repoFetch(input, init)
+		const originalError = console.error
+		console.error = () => {}
+		try {
+			assert.equal(
+				(await fetchSharedCatalogSnapshot('member-token')).entries.length,
+				1,
+			)
+			assert.deepEqual(await fetchSharedCatalogSnapshot('outsider-token'), {
+				entries: [],
+				problem: 'no-access',
+			})
+		} finally {
+			console.error = originalError
+		}
+	})
+
+	it('serves nothing without a token, even with a copy cached for someone else', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '60000'
+		const repo = catalogRepo()
+		await fetchSharedCatalogSnapshot('member-token')
+		assert.deepEqual(await fetchSharedCatalogSnapshot(null), {
+			entries: [],
+			problem: 'no-access',
+		})
+		assert.equal(repo.requests.length, 1)
+	})
+
+	it('drops a token’s copy once GitHub stops showing it the repo', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '1000'
+		catalogRepo()
+		const repoFetch = globalThis.fetch
+		let revoked = false
+		globalThis.fetch = async (input, init) =>
+			revoked ? new Response(null, { status: 404 }) : repoFetch(input, init)
+		const originalNow = Date.now
+		let now = 1_000_000
+		Date.now = () => now
+		const originalError = console.error
+		console.error = () => {}
+		try {
+			await fetchSharedCatalogSnapshot('member-token')
+			now += 2000
+			revoked = true
+			assert.deepEqual(await fetchSharedCatalogSnapshot('member-token'), {
+				entries: [],
+				problem: 'no-access',
+			})
+		} finally {
+			Date.now = originalNow
+			console.error = originalError
+		}
 	})
 })
 
@@ -1026,22 +1182,33 @@ describe('parseBankJsonForImport keeps the bank fields and reports types', () =>
 		assert.deepEqual(result.typeChanges, [])
 	})
 
-	it('saveCatalog stores source rows alongside the catalog', async () => {
+	it('a test catalog keeps source rows across edits, and leaves them when an edit sends none', async () => {
 		setSharedCatalogForTests({ entries: [] })
-		try {
-			assert.deepEqual(await fetchCatalogSourceRows('tkn'), {})
-			await saveCatalog({
+		const sourceRows = () =>
+			updateSharedCatalog({
 				token: 'tkn',
-				entries: [],
-				sourceRowsById: { a: { ticker: 'A' } },
+				change: ({ sourceRowsById }) => ({ result: sourceRowsById }),
 			})
-			assert.deepEqual(await fetchCatalogSourceRows('tkn'), {
-				a: { ticker: 'A' },
+		try {
+			assert.deepEqual(await sourceRows(), {})
+			await updateSharedCatalog({
+				token: 'tkn',
+				change: () => ({
+					write: { entries: [], sourceRowsById: { a: { ticker: 'A' } } },
+					message: 'Import',
+					result: null,
+				}),
 			})
-			await saveCatalog({ token: 'tkn', entries: [] })
-			assert.deepEqual(await fetchCatalogSourceRows('tkn'), {
-				a: { ticker: 'A' },
+			assert.deepEqual(await sourceRows(), { a: { ticker: 'A' } })
+			await updateSharedCatalog({
+				token: 'tkn',
+				change: () => ({
+					write: { entries: [] },
+					message: 'Edit',
+					result: null,
+				}),
 			})
+			assert.deepEqual(await sourceRows(), { a: { ticker: 'A' } })
 		} finally {
 			resetSharedCatalogForTests()
 		}
