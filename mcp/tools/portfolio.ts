@@ -1,8 +1,11 @@
 import { fetchCatalog } from '../../app/features/catalog/lib.ts'
 import { CURRENCIES } from '../../app/lib/currencies.ts'
-import { type EtfEntry, fetchEtfs, saveEtfs } from '../../app/lib/gist.ts'
+import { type EtfEntry, updateEtfs } from '../../app/lib/gist.ts'
 import { totalHoldingsValueForShareBars } from '../../app/lib/portfolio-holdings-share.ts'
-import type { PortfolioOperationBlocker } from '../../app/lib/portfolio-operations.ts'
+import type {
+	PortfolioOperationBlocker,
+	PortfolioOperationOutcome,
+} from '../../app/lib/portfolio-operations.ts'
 import {
 	applyPortfolioOperation,
 	parsePortfolioOperationInput,
@@ -18,6 +21,7 @@ import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
 import { readStringArgument } from './tool-arguments.ts'
 import { jsonResult } from './tool-result.ts'
+import { withConflictAdvice } from './write-conflict.ts'
 
 const DESCRIPTION = `Read the user's current ETF portfolio: every holding with its value and currency, plus the portfolio total and each holding's share of it.
 
@@ -29,11 +33,11 @@ A row is matched by ticker (or name, for a legacy row with no ticker) **and** cu
 
 The ticker must be in the shared catalog (list_catalog / get_catalog_entry); this tool does not accept an arbitrary name. A sell greater than the matching holding's value is refused rather than going negative.
 
-Read, change, and save happen inside this one call. Nothing here checks for a concurrent write yet, so an edit made elsewhere in between is overwritten rather than merged — the data repo keeps every save as a commit, so tell the user to restore it from the repo's history if that happens.`
+Read, change, and save happen inside this one call, and the save is checked against the version read: if another client (the web app, say) saved in between, the change is redone on top of theirs rather than over it. If the file keeps changing underneath every attempt the call fails with an error saying nothing was saved; read again and retry. The data repo keeps every save as a commit.`
 
 const REMOVE_HOLDING_DESCRIPTION = `Delete one holding by its id, as reported by get_portfolio — regardless of its value. Unlike record_operation's sell, this does not require knowing the exact value to zero it out, so it is the right tool for removing a holding entered by mistake.
 
-Read and save happen inside this one call. Nothing here checks for a concurrent write yet, so an edit made elsewhere in between is overwritten rather than merged — the data repo keeps every save as a commit, so tell the user to restore it from the repo's history if that happens.`
+Read and save happen inside this one call, and the save is checked against the version read: if another client (the web app, say) saved in between, the change is redone on top of theirs rather than over it. If the file keeps changing underneath every attempt the call fails with an error saying nothing was saved; read again and retry. The data repo keeps every save as a commit.`
 
 /**
  * Share of the portfolio total.
@@ -174,25 +178,43 @@ export function createRecordOperationTool(
 		}
 
 		const dataRepo = await resolveDataRepo(credentials)
-		// Uncached, like set_guideline/delete_guideline: this read feeds a
-		// same-call overwrite of the whole file, so a cached copy up to the TTL
-		// old would let a concurrent edit made elsewhere be silently discarded
-		// rather than merely raced against, the way an uncached read already is.
-		const [current, catalog] = await Promise.all([
-			fetchEtfs(credentials.githubToken, dataRepo),
-			fetchCatalog(credentials.githubToken),
-		])
+		const catalog = await fetchCatalog(credentials.githubToken)
 
-		const outcome = applyPortfolioOperation({
-			current,
-			catalog,
-			input: {
-				portfolioOperation: operation.portfolioOperation,
-				instrumentTicker: operation.instrumentTicker,
-				value: operation.value,
-				currency,
-			},
-		})
+		// updateEtfs reads the file uncached and saves only if it is still the
+		// version read, redoing the operation on newer holdings when another
+		// client saved first — so a cached copy is never what gets written.
+		const outcome = await withConflictAdvice('get_portfolio', () =>
+			updateEtfs<PortfolioOperationOutcome>({
+				token: credentials.githubToken,
+				dataRepo,
+				change: (current) => {
+					const applied = applyPortfolioOperation({
+						current,
+						catalog,
+						input: {
+							portfolioOperation: operation.portfolioOperation,
+							instrumentTicker: operation.instrumentTicker,
+							value: operation.value,
+							currency,
+						},
+					})
+					if (!applied.applied) return { result: applied }
+					return {
+						write: applied.holdings,
+						message: commitMessage({
+							summary: describePortfolioOperation({
+								portfolioOperation: operation.portfolioOperation,
+								instrumentTicker: operation.instrumentTicker,
+								value: operation.value,
+								currency,
+							}),
+							source: 'MCP',
+						}),
+						result: applied,
+					}
+				},
+			}),
+		)
 
 		if (!outcome.applied) {
 			throw new Error(
@@ -203,20 +225,6 @@ export function createRecordOperationTool(
 			)
 		}
 
-		await saveEtfs(
-			credentials.githubToken,
-			dataRepo,
-			outcome.holdings,
-			commitMessage({
-				summary: describePortfolioOperation({
-					portfolioOperation: operation.portfolioOperation,
-					instrumentTicker: operation.instrumentTicker,
-					value: operation.value,
-					currency,
-				}),
-				source: 'MCP',
-			}),
-		)
 		invalidateEtfsCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({
@@ -272,31 +280,37 @@ export function createRemoveHoldingTool(
 		}
 
 		const dataRepo = await resolveDataRepo(credentials)
-		// Uncached — see the same note in record_operation.
-		const current = await fetchEtfs(credentials.githubToken, dataRepo)
-		const existing = current.find((entry) => entry.id === id)
-		if (existing === undefined) {
+		// Uncached and compare-and-swap, as in record_operation.
+		const outcome = await withConflictAdvice('get_portfolio', () =>
+			updateEtfs({
+				token: credentials.githubToken,
+				dataRepo,
+				change: (current) => {
+					const existing = current.find((entry) => entry.id === id)
+					if (existing === undefined) return { result: null }
+					const next = current.filter((entry) => entry.id !== id)
+					return {
+						write: next,
+						message: commitMessage({
+							summary: `Remove holding ${existing.name}`,
+							source: 'MCP',
+						}),
+						result: { existing, next },
+					}
+				},
+			}),
+		)
+		if (outcome === null) {
 			throw new Error(
 				`No holding has id "${id}". Call get_portfolio for the current ids.`,
 			)
 		}
-
-		const next = current.filter((entry) => entry.id !== id)
-		await saveEtfs(
-			credentials.githubToken,
-			dataRepo,
-			next,
-			commitMessage({
-				summary: `Remove holding ${existing.name}`,
-				source: 'MCP',
-			}),
-		)
 		invalidateEtfsCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({
 			action: 'removed',
-			removed: holdingRow(existing, null),
-			...summarizePortfolio(next),
+			removed: holdingRow(outcome.existing, null),
+			...summarizePortfolio(outcome.next),
 		})
 	}
 

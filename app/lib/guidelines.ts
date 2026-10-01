@@ -7,7 +7,16 @@ import {
 	putPrivateGistTestGuidelines,
 	takePrivateGistTestGuidelines,
 } from './private-gist-test-store.ts'
-import { readFile, writeFile } from './store/github-repo-store.ts'
+import {
+	isVersionConflict,
+	readFile,
+	writeFile,
+} from './store/github-repo-store.ts'
+import {
+	type ChangeOutcome,
+	readModifyWrite,
+	WriteConflictError,
+} from './store/read-modify-write.ts'
 import { getUiLocale } from './ui-locale.ts'
 
 export const GUIDELINES_FILENAME = 'guidelines.json'
@@ -196,7 +205,12 @@ export function buildGuidelinesGistPatch(guidelines: EtfGuideline[]): {
 }
 
 type GuidelinesGistReadResult =
-	| { ok: true; guidelines: EtfGuideline[] }
+	| {
+			ok: true
+			guidelines: EtfGuideline[]
+			/** The file's version; `null` when it does not exist yet (or in a test overlay). */
+			version: string | null
+	  }
 	| { ok: false; status: number }
 
 async function readGuidelinesGist(
@@ -204,7 +218,9 @@ async function readGuidelinesGist(
 	dataRepo: string,
 ): Promise<GuidelinesGistReadResult> {
 	const testRows = takePrivateGistTestGuidelines(token, dataRepo)
-	if (testRows !== null) return { ok: true, guidelines: testRows }
+	if (testRows !== null) {
+		return { ok: true, guidelines: testRows, version: null }
+	}
 	const result = await readFile({
 		token,
 		location: dataRepo,
@@ -218,6 +234,7 @@ async function readGuidelinesGist(
 				? { [GUIDELINES_FILENAME]: { content: result.file.content } }
 				: {},
 		}),
+		version: result.file?.version ?? null,
 	}
 }
 
@@ -241,6 +258,53 @@ export async function fetchGuidelinesOrThrow(
 }
 
 /**
+ * Edit the guidelines with compare-and-swap: reads them (failing loudly, so a
+ * rejected read can never look like "no guidelines"), lets `change` decide from
+ * what it sees, and saves only if the file is still the version read. A save
+ * that lost a race reads again and redoes `change` on the newer rows; after
+ * {@link MAX_WRITE_ATTEMPTS} losses in a row it throws a
+ * {@link WriteConflictError}. `change` runs once per attempt, so it must be
+ * free of side effects.
+ */
+export function updateGuidelines<TResult>(params: {
+	token: string
+	dataRepo: string
+	change: (current: EtfGuideline[]) => ChangeOutcome<EtfGuideline[], TResult>
+}): Promise<TResult> {
+	const { token, dataRepo } = params
+	return readModifyWrite({
+		what: 'the guidelines',
+		read: async () => {
+			const result = await readGuidelinesGist(token, dataRepo)
+			if (!result.ok) {
+				throw new Error(
+					`GitHub API error fetching guidelines: ${result.status}`,
+				)
+			}
+			return { value: result.guidelines, version: result.version }
+		},
+		change: params.change,
+		write: async ({ value, version, message }) => {
+			if (putPrivateGistTestGuidelines(token, dataRepo, value)) return
+			const patch = buildGuidelinesGistPatch(value)
+			const result = await writeFile({
+				token,
+				location: dataRepo,
+				path: GUIDELINES_FILENAME,
+				content: patch.files[GUIDELINES_FILENAME].content,
+				expectedVersion: version,
+				message,
+			})
+			if (result.ok) return
+			if (isVersionConflict(result.status)) {
+				throw new WriteConflictError('the guidelines')
+			}
+			throw new Error(`GitHub API error saving guidelines: ${result.status}`)
+		},
+	})
+}
+
+/**
  * Fetch guidelines for a read-only view, where a rejected read shows as an empty
  * list so the page still renders. Never build a list you then save from this.
  */
@@ -250,60 +314,4 @@ export async function fetchGuidelines(
 ): Promise<EtfGuideline[]> {
 	const result = await readGuidelinesGist(token, dataRepo)
 	return result.ok ? result.guidelines : []
-}
-
-type GuidelinesGistWriteResult = { ok: true } | { ok: false; status: number }
-
-async function writeGuidelinesGist(params: {
-	token: string
-	dataRepo: string
-	guidelines: EtfGuideline[]
-	message?: string
-}): Promise<GuidelinesGistWriteResult> {
-	if (
-		putPrivateGistTestGuidelines(
-			params.token,
-			params.dataRepo,
-			params.guidelines,
-		)
-	) {
-		return { ok: true }
-	}
-	const patch = buildGuidelinesGistPatch(params.guidelines)
-	const result = await writeFile({
-		token: params.token,
-		location: params.dataRepo,
-		path: GUIDELINES_FILENAME,
-		content: patch.files[GUIDELINES_FILENAME].content,
-		message: params.message,
-	})
-	return result.ok ? { ok: true } : { ok: false, status: result.status }
-}
-
-/** Save guidelines to an existing gist by ID, failing loudly when GitHub rejects the write. */
-export async function saveGuidelinesOrThrow(
-	token: string,
-	dataRepo: string,
-	guidelines: EtfGuideline[],
-	message?: string,
-): Promise<void> {
-	const result = await writeGuidelinesGist({
-		token,
-		dataRepo,
-		guidelines,
-		message,
-	})
-	if (!result.ok) {
-		throw new Error(`GitHub API error saving guidelines: ${result.status}`)
-	}
-}
-
-/** Save guidelines, ignoring a rejected write (the web app's long-standing behaviour). */
-export async function saveGuidelines(
-	token: string,
-	dataRepo: string,
-	guidelines: EtfGuideline[],
-	message?: string,
-): Promise<void> {
-	await writeGuidelinesGist({ token, dataRepo, guidelines, message })
 }

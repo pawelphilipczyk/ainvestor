@@ -21,8 +21,8 @@ import {
 	GUIDELINE_TARGET_PERCENT_MAX,
 	GUIDELINE_TARGET_PERCENT_MIN,
 	isEtfType,
-	saveGuidelines,
 	sumGuidelineTargetPercent,
+	updateGuidelines,
 	wouldGuidelineTotalExceedCap,
 } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
@@ -43,6 +43,7 @@ import {
 	commitMessage,
 	describeGuideline,
 } from '../../lib/store/commit-message.ts'
+import { WriteConflictError } from '../../lib/store/read-modify-write.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
@@ -248,6 +249,40 @@ async function guidelinesUpdateSchemaValidationResponse(params: {
  * means a request built by hand; it answers in the same three shapes as every
  * other guideline failure rather than redirecting silently.
  */
+/**
+ * The response for a save that did not happen: a lost race (the guidelines kept
+ * changing underneath it) says so and asks for a reload, anything else is the
+ * generic persistence failure.
+ */
+async function guidelinesSaveFailureResponse(params: {
+	context: AppRequestContext
+	request: Request
+	session: Session
+	error: unknown
+	addTab?: GuidelinesAddTabId
+}): Promise<Response> {
+	const message =
+		params.error instanceof WriteConflictError
+			? t('errors.guidelines.changedElsewhere')
+			: t('errors.guidelines.persistence')
+	if (requestAcceptsApplicationJson(params.request)) {
+		return new Response(JSON.stringify({ error: message }), {
+			status: 422,
+			headers: { 'Content-Type': 'application/json' },
+		})
+	}
+	if (requestAcceptsFrameSubmitHtml(params.request)) {
+		const guidelines = await loadGuidelinesForSession(params.context)
+		return guidelinesListFragmentHtmlResponse({
+			guidelines,
+			inlineError: message,
+			status: 422,
+		})
+	}
+	flashBanner(params.session, { text: message, tone: 'error' })
+	return createRedirectResponse(guidelinesIndexHref(params.addTab))
+}
+
 async function guidelinesRequiresApprovalResponse(params: {
 	context: AppRequestContext
 	request: Request
@@ -324,8 +359,54 @@ async function persistGuideline(params: {
 		})
 	}
 
-	const current = await fetchGuidelines(session.token, session.dataRepo)
-	if (findGuidelineDuplicateOf(current, entry)) {
+	// updateGuidelines saves only if the rows are still the version it read,
+	// checking duplicate and cap again on newer rows when another client saved first.
+	type Outcome =
+		| { kind: 'saved' }
+		| { kind: 'duplicate' }
+		| { kind: 'cap'; currentTotal: number }
+	let outcome: Outcome
+	try {
+		outcome = await updateGuidelines<Outcome>({
+			token: session.token,
+			dataRepo: session.dataRepo,
+			change: (current) => {
+				if (findGuidelineDuplicateOf(current, entry)) {
+					return { result: { kind: 'duplicate' } }
+				}
+				if (
+					wouldGuidelineTotalExceedCap({
+						existing: current,
+						additionalPercent: entry.targetPct,
+					})
+				) {
+					return {
+						result: {
+							kind: 'cap',
+							currentTotal: sumGuidelineTargetPercent(current),
+						},
+					}
+				}
+				return {
+					write: [entry, ...current],
+					message: commitMessage({
+						summary: `Add guideline ${describeGuideline(entry)}: ${entry.targetPct}%`,
+						source: 'web',
+					}),
+					result: { kind: 'saved' },
+				}
+			},
+		})
+	} catch (error) {
+		return guidelinesSaveFailureResponse({
+			context,
+			request,
+			session: remixSession,
+			error,
+			addTab,
+		})
+	}
+	if (outcome.kind === 'duplicate') {
 		return guidelinesDuplicateErrorResponse({
 			context,
 			request,
@@ -334,30 +415,16 @@ async function persistGuideline(params: {
 			addTab,
 		})
 	}
-	if (
-		wouldGuidelineTotalExceedCap({
-			existing: current,
-			additionalPercent: entry.targetPct,
-		})
-	) {
+	if (outcome.kind === 'cap') {
 		return guidelinesTotalCapErrorResponse({
 			context,
 			request,
 			session: remixSession,
-			currentTotal: sumGuidelineTargetPercent(current),
+			currentTotal: outcome.currentTotal,
 			addedPercent: entry.targetPct,
 			addTab,
 		})
 	}
-	await saveGuidelines(
-		session.token,
-		session.dataRepo,
-		[entry, ...current],
-		commitMessage({
-			summary: `Add guideline ${describeGuideline(entry)}: ${entry.targetPct}%`,
-			source: 'web',
-		}),
-	)
 	return null
 }
 
@@ -384,39 +451,65 @@ async function updateGuidelineTarget(params: {
 		})
 	}
 
-	const current = await fetchGuidelines(session.token, session.dataRepo)
-	const existing = current.find((g) => g.id === id)
-	if (!existing) {
+	type Outcome =
+		| { kind: 'saved' }
+		| { kind: 'missing' }
+		| { kind: 'cap'; resultingTotal: number }
+	let outcome: Outcome
+	try {
+		outcome = await updateGuidelines<Outcome>({
+			token: session.token,
+			dataRepo: session.dataRepo,
+			change: (current) => {
+				const existing = current.find((g) => g.id === id)
+				if (!existing) return { result: { kind: 'missing' } }
+				const others = current.filter((g) => g.id !== id)
+				if (
+					wouldGuidelineTotalExceedCap({
+						existing: others,
+						additionalPercent: newTargetPercent,
+					})
+				) {
+					return {
+						result: {
+							kind: 'cap',
+							resultingTotal:
+								sumGuidelineTargetPercent(others) + newTargetPercent,
+						},
+					}
+				}
+				return {
+					write: current.map((g) =>
+						g.id === id ? { ...g, targetPct: newTargetPercent } : g,
+					),
+					message: commitMessage({
+						summary: `Set guideline ${describeGuideline(existing)}: ${newTargetPercent}%`,
+						source: 'web',
+					}),
+					result: { kind: 'saved' },
+				}
+			},
+		})
+	} catch (error) {
+		return guidelinesSaveFailureResponse({
+			context,
+			request,
+			session: remixSession,
+			error,
+		})
+	}
+	if (outcome.kind === 'missing') {
 		return createRedirectResponse(routes.guidelines.index.href())
 	}
-	const others = current.filter((g) => g.id !== id)
-	const resultingTotal = sumGuidelineTargetPercent(others) + newTargetPercent
-	if (
-		wouldGuidelineTotalExceedCap({
-			existing: others,
-			additionalPercent: newTargetPercent,
-		})
-	) {
+	if (outcome.kind === 'cap') {
 		return guidelinesUpdateCapErrorResponse({
 			context,
 			request,
 			session: remixSession,
 			newTargetPercent,
-			resultingTotal,
+			resultingTotal: outcome.resultingTotal,
 		})
 	}
-	const updatedGuideline = current.find((g) => g.id === id)
-	await saveGuidelines(
-		session.token,
-		session.dataRepo,
-		current.map((g) =>
-			g.id === id ? { ...g, targetPct: newTargetPercent } : g,
-		),
-		commitMessage({
-			summary: `Set guideline ${updatedGuideline ? describeGuideline(updatedGuideline) : id}: ${newTargetPercent}%`,
-			source: 'web',
-		}),
-	)
 	return null
 }
 
@@ -625,17 +718,32 @@ async function handleDelete(context: AppRequestContext, form: FormData) {
 		return createRedirectResponse(routes.guidelines.index.href())
 	}
 
-	const current = await fetchGuidelines(session.token, session.dataRepo)
-	const removedGuideline = current.find((g) => g.id === id)
-	await saveGuidelines(
-		session.token,
-		session.dataRepo,
-		current.filter((g) => g.id !== id),
-		commitMessage({
-			summary: `Remove guideline ${removedGuideline ? describeGuideline(removedGuideline) : id}`,
-			source: 'web',
-		}),
-	)
+	try {
+		await updateGuidelines({
+			token: session.token,
+			dataRepo: session.dataRepo,
+			change: (current) => {
+				const removed = current.find((g) => g.id === id)
+				// Already gone (removed elsewhere): nothing to save.
+				if (removed === undefined) return { result: null }
+				return {
+					write: current.filter((g) => g.id !== id),
+					message: commitMessage({
+						summary: `Remove guideline ${describeGuideline(removed)}`,
+						source: 'web',
+					}),
+					result: null,
+				}
+			},
+		})
+	} catch (error) {
+		return guidelinesSaveFailureResponse({
+			context,
+			request: context.request,
+			session: context.get(Session),
+			error,
+		})
+	}
 
 	if (requestAcceptsFrameSubmitHtml(context.request)) {
 		const guidelines = await loadGuidelinesForSession(context)

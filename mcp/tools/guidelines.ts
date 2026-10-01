@@ -9,15 +9,14 @@ import type {
 	GuidelineKind,
 } from '../../app/lib/guidelines.ts'
 import {
-	fetchGuidelinesOrThrow,
 	findGuidelineDuplicateOf,
 	GUIDELINE_ETF_TYPES,
 	GUIDELINE_KINDS,
 	GUIDELINE_TARGET_PERCENT_MAX,
 	GUIDELINE_TARGET_PERCENT_MIN,
 	isGuidelineEtfType,
-	saveGuidelinesOrThrow,
 	sumGuidelineTargetPercent,
+	updateGuidelines,
 	wouldGuidelineTotalExceedCap,
 } from '../../app/lib/guidelines.ts'
 import { parseLocaleDecimalString } from '../../app/lib/locale-decimal-input.ts'
@@ -35,6 +34,7 @@ import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
 import { readStringArgument } from './tool-arguments.ts'
 import { jsonResult } from './tool-result.ts'
+import { withConflictAdvice } from './write-conflict.ts'
 
 const BUCKET_EXPLANATION =
 	'Instrument rows count toward their own asset class: `byAssetClass` folds every row of a type — bucket rows and named funds alike — into one effective target for that class. Do not add a fund target on top of its class target.'
@@ -49,11 +49,11 @@ const SET_DESCRIPTION = `Create or update one guideline row: the target percenta
 
 Setting an asset class that already has a row, or a ticker that already has one, updates that row's target rather than adding a second — there is one row per asset class and one per ticker. The tool refuses a target that would push the sum of all rows above 100%; lower or delete another row first.
 
-Read, change, and save happen inside this one call. Nothing here checks for a concurrent write yet, so an edit made elsewhere in between is overwritten rather than merged — the data repo keeps every save as a commit, so tell the user to restore it from the repo's history if that happens. ${BUCKET_EXPLANATION}`
+Read, change, and save happen inside this one call, and the save is checked against the version read: if another client (the web app, say) saved in between, the change is redone on top of theirs rather than over it. If the file keeps changing underneath every attempt the call fails with an error saying nothing was saved; read again and retry. The data repo keeps every save as a commit. ${BUCKET_EXPLANATION}`
 
 const DELETE_DESCRIPTION = `Delete one guideline row by its id, as reported by get_guidelines. Deleting frees its share of the 100% cap.
 
-Read and save happen inside this one call. Nothing here checks for a concurrent write yet, so an edit made elsewhere in between is overwritten rather than merged — the data repo keeps every save as a commit, so tell the user to restore it from the repo's history if that happens.`
+Read and save happen inside this one call, and the save is checked against the version read: if another client (the web app, say) saved in between, the change is redone on top of theirs rather than over it. If the file keeps changing underneath every attempt the call fails with an error saying nothing was saved; read again and retry. The data repo keeps every save as a commit.`
 
 function guidelineRow(guideline: EtfGuideline) {
 	return {
@@ -279,44 +279,46 @@ export function createSetGuidelineTool(
 			credentials.githubToken,
 		)
 		const dataRepo = await resolveDataRepo(credentials)
-		// Uncached: this read feeds a same-call overwrite of the whole file, so a
-		// cached copy up to the TTL old would let a concurrent edit (the web app's
-		// own saveGuidelines does not invalidate this cache) be silently discarded
-		// rather than merely raced against, the way an uncached read already is.
-		const current = await fetchGuidelinesOrThrow(
-			credentials.githubToken,
-			dataRepo,
-		)
+		// updateGuidelines reads uncached and saves only if the file is still the
+		// version read, redoing the edit on newer rows when another client (the
+		// web app, say) saved first — so a cached copy is never what gets written.
+		const { existing, saved, next } = await withConflictAdvice(
+			'get_guidelines',
+			() =>
+				updateGuidelines({
+					token: credentials.githubToken,
+					dataRepo,
+					change: (current) => {
+						const existing = findGuidelineDuplicateOf(current, {
+							...entry,
+							id: 'candidate',
+						})
+						const others =
+							existing === null
+								? current
+								: current.filter((guideline) => guideline.id !== existing.id)
+						assertWithinCap({ others, targetPct: entry.targetPct })
 
-		const existing = findGuidelineDuplicateOf(current, {
-			...entry,
-			id: 'candidate',
-		})
-		const others =
-			existing === null
-				? current
-				: current.filter((guideline) => guideline.id !== existing.id)
-		assertWithinCap({ others, targetPct: entry.targetPct })
-
-		const saved: EtfGuideline =
-			existing === null
-				? { ...entry, id: crypto.randomUUID() }
-				: { ...entry, id: existing.id }
-		const next =
-			existing === null
-				? [saved, ...current]
-				: current.map((guideline) =>
-						guideline.id === existing.id ? saved : guideline,
-					)
-
-		await saveGuidelinesOrThrow(
-			credentials.githubToken,
-			dataRepo,
-			next,
-			commitMessage({
-				summary: `${existing === null ? 'Add' : 'Set'} guideline ${describeGuideline(saved)}: ${saved.targetPct}%`,
-				source: 'MCP',
-			}),
+						const saved: EtfGuideline =
+							existing === null
+								? { ...entry, id: crypto.randomUUID() }
+								: { ...entry, id: existing.id }
+						const next =
+							existing === null
+								? [saved, ...current]
+								: current.map((guideline) =>
+										guideline.id === existing.id ? saved : guideline,
+									)
+						return {
+							write: next,
+							message: commitMessage({
+								summary: `${existing === null ? 'Add' : 'Set'} guideline ${describeGuideline(saved)}: ${saved.targetPct}%`,
+								source: 'MCP',
+							}),
+							result: { existing, saved, next },
+						}
+					},
+				}),
 		)
 		invalidateGuidelinesCache(credentials.githubToken, dataRepo)
 
@@ -379,28 +381,32 @@ export function createDeleteGuidelineTool(
 		}
 
 		const dataRepo = await resolveDataRepo(credentials)
-		// Uncached — see the same note in set_guideline.
-		const current = await fetchGuidelinesOrThrow(
-			credentials.githubToken,
-			dataRepo,
+		// Uncached and compare-and-swap, as in set_guideline.
+		const outcome = await withConflictAdvice('get_guidelines', () =>
+			updateGuidelines({
+				token: credentials.githubToken,
+				dataRepo,
+				change: (current) => {
+					const existing = current.find((guideline) => guideline.id === id)
+					if (existing === undefined) return { result: null }
+					const next = current.filter((guideline) => guideline.id !== id)
+					return {
+						write: next,
+						message: commitMessage({
+							summary: `Remove guideline ${describeGuideline(existing)}`,
+							source: 'MCP',
+						}),
+						result: { existing, next },
+					}
+				},
+			}),
 		)
-		const existing = current.find((guideline) => guideline.id === id)
-		if (existing === undefined) {
+		if (outcome === null) {
 			throw new Error(
 				`No guideline has id "${id}". Call get_guidelines for the current ids.`,
 			)
 		}
-
-		const next = current.filter((guideline) => guideline.id !== id)
-		await saveGuidelinesOrThrow(
-			credentials.githubToken,
-			dataRepo,
-			next,
-			commitMessage({
-				summary: `Remove guideline ${describeGuideline(existing)}`,
-				source: 'MCP',
-			}),
-		)
+		const { existing, next } = outcome
 		invalidateGuidelinesCache(credentials.githubToken, dataRepo)
 
 		return jsonResult({

@@ -16,6 +16,12 @@ export type FakeDataRepo = {
 	requests: string[]
 	/** The message of every commit made, oldest first. */
 	commitMessages: string[]
+	/**
+	 * Another client writing `path` behind the caller's back: the content
+	 * changes and the file gets a new version, so a write holding the old one
+	 * is stale.
+	 */
+	externalWrite(path: string, content: string): void
 }
 
 type FetchInput = Parameters<typeof fetch>[0]
@@ -38,6 +44,8 @@ export function installFakeDataRepo(
 		absent?: boolean
 		/** `X-OAuth-Scopes` on `GET /user`; omitted, as a fine-grained token does. */
 		scopes?: string
+		/** Runs after a file read (`GET …/contents/…`) is answered, whether or not the file exists — where a test slips in a concurrent write. */
+		afterContentRead?: (path: string, repo: FakeDataRepo) => void
 	} = {},
 ): FakeDataRepo {
 	const login = options.login ?? 'octocat'
@@ -51,6 +59,23 @@ export function installFakeDataRepo(
 		]),
 		requests: [],
 		commitMessages: [],
+		externalWrite: (path, content) => {
+			state.files.set(path, content)
+			shas.set(path, nextSha())
+		},
+	}
+	// Each file's version, replaced on every write like a blob's sha: a write
+	// that names an older one is refused the way GitHub refuses it.
+	const shas = new Map<string, string>()
+	let shaCounter = 0
+	const nextSha = () => `sha-${++shaCounter}`
+	const currentSha = (filePath: string) => {
+		let sha = shas.get(filePath)
+		if (sha === undefined) {
+			sha = nextSha()
+			shas.set(filePath, sha)
+		}
+		return sha
 	}
 	const blobs = new Map<string, string>()
 	let pendingTree: Array<{ path: string; sha: string | null }> = []
@@ -90,26 +115,45 @@ export function installFakeDataRepo(
 				return new Response(null, { status: options.failContentReadsWith })
 			}
 			if (method === 'GET') {
-				return current === undefined
-					? notFound()
-					: Response.json({
-							content: Buffer.from(current, 'utf-8').toString('base64'),
-							encoding: 'base64',
-							sha: `sha-${filePath}`,
-						})
+				if (current === undefined) {
+					const response = notFound()
+					options.afterContentRead?.(filePath, state)
+					return response
+				}
+				const response = Response.json({
+					content: Buffer.from(current, 'utf-8').toString('base64'),
+					encoding: 'base64',
+					sha: currentSha(filePath),
+				})
+				options.afterContentRead?.(filePath, state)
+				return response
 			}
 			if (method === 'PUT') {
+				// GitHub: an existing file needs its current sha (422 when missing),
+				// and a stale one is a 409.
+				if (current !== undefined) {
+					if (body.sha === undefined) return new Response(null, { status: 422 })
+					if (body.sha !== currentSha(filePath)) {
+						return new Response(null, { status: 409 })
+					}
+				}
 				state.commitMessages.push(body.message)
 				state.files.set(
 					filePath,
 					Buffer.from(body.content, 'base64').toString('utf-8'),
 				)
-				return Response.json({ content: { sha: `sha-${filePath}` } })
+				const sha = nextSha()
+				shas.set(filePath, sha)
+				return Response.json({ content: { sha } })
 			}
 			if (method === 'DELETE') {
 				if (current === undefined) return notFound()
+				if (body.sha !== currentSha(filePath)) {
+					return new Response(null, { status: 409 })
+				}
 				state.commitMessages.push(body.message)
 				state.files.delete(filePath)
+				shas.delete(filePath)
 				return Response.json({})
 			}
 		}
@@ -142,8 +186,13 @@ export function installFakeDataRepo(
 		}
 		if (method === 'PATCH' && path === `${repoPrefix}/git/refs/heads/main`) {
 			for (const entry of pendingTree) {
-				if (entry.sha === null) state.files.delete(entry.path)
-				else state.files.set(entry.path, blobs.get(entry.sha) ?? '')
+				if (entry.sha === null) {
+					state.files.delete(entry.path)
+					shas.delete(entry.path)
+				} else {
+					state.files.set(entry.path, blobs.get(entry.sha) ?? '')
+					shas.set(entry.path, nextSha())
+				}
 			}
 			return Response.json({ object: { sha: 'commit-1' } })
 		}

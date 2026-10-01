@@ -472,3 +472,89 @@ describe('commit messages', () => {
 		])
 	})
 })
+
+describe('concurrent writes', () => {
+	function repoRacing(rows: EtfGuideline[], otherClientSaves: EtfGuideline[]) {
+		let intruded = false
+		return installFakeDataRepo({
+			files: { [GUIDELINES_FILENAME]: JSON.stringify(rows) },
+			afterContentRead: (path, fake) => {
+				if (path !== GUIDELINES_FILENAME || intruded) return
+				intruded = true
+				fake.externalWrite(
+					GUIDELINES_FILENAME,
+					JSON.stringify(otherClientSaves),
+				)
+			},
+		})
+	}
+
+	function storedRows(repo: ReturnType<typeof installFakeDataRepo>) {
+		return JSON.parse(
+			repo.files.get(GUIDELINES_FILENAME) ?? '[]',
+		) as EtfGuideline[]
+	}
+
+	it('keeps a guideline another client saved between the read and the save', async () => {
+		const equity = guideline({ id: 'equity', targetPct: 40 })
+		const repo = repoRacing(
+			[equity],
+			[equity, guideline({ id: 'gold', etfType: 'commodity', targetPct: 10 })],
+		)
+
+		await createSetGuidelineTool(credentials).handler({
+			kind: 'asset_class',
+			etfType: 'bond',
+			targetPct: 25,
+		})
+
+		assert.deepEqual(
+			storedRows(repo)
+				.map((row) => row.etfType)
+				.sort(),
+			['bond', 'commodity', 'equity'],
+		)
+	})
+
+	it('checks the 100% cap again against what the other client saved', async () => {
+		const equity = guideline({ id: 'equity', targetPct: 40 })
+		// Alone, 40 + 55 fits; once the other client's 30 lands, it does not.
+		const repo = repoRacing(
+			[equity],
+			[equity, guideline({ id: 'gold', etfType: 'commodity', targetPct: 30 })],
+		)
+
+		await assert.rejects(
+			createSetGuidelineTool(credentials).handler({
+				kind: 'asset_class',
+				etfType: 'bond',
+				targetPct: 55,
+			}),
+			/100/,
+		)
+		assert.equal(storedRows(repo).length, 2)
+		assert.deepEqual(repo.commitMessages, [])
+	})
+
+	it('applies a deletion on top of a guideline another client added', async () => {
+		const equity = guideline({ id: 'equity', targetPct: 40 })
+		const bond = guideline({ id: 'bond', etfType: 'bond', targetPct: 20 })
+		const repo = repoRacing(
+			[equity, bond],
+			[
+				equity,
+				bond,
+				guideline({ id: 'gold', etfType: 'commodity', targetPct: 10 }),
+			],
+		)
+
+		await createDeleteGuidelineTool(credentials).handler({ id: 'bond' })
+
+		assert.deepEqual(
+			storedRows(repo)
+				.map((row) => row.id)
+				.sort(),
+			['equity', 'gold'],
+		)
+	})
+})

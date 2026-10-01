@@ -1,9 +1,11 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–4 done. The cutover merged on 2026-10-01 (#236): both
-environments read and write their data repos, and buying and selling on prod
-was confirmed to commit to `ainvestor-data`. Phases 5+ are designed but not
-yet detailed to the commit level.
+**Status:** Phases 0–4 done, Phase 5 built (awaiting its PR and a check on
+real GitHub). The cutover merged on 2026-10-01 (#236): both environments read
+and write their data repos, and buying and selling on prod was confirmed to
+commit to `ainvestor-data`. Phase 5 makes edits of `etfs.json` and
+`guidelines.json` compare-and-swap. Phases 6+ are designed but not yet detailed
+to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -727,7 +729,7 @@ Names still to follow, each a mechanical rename: `gist.ts`, `advice-gist.ts`,
 `private-gist-cache.ts`, `private-gist-test-store.ts`, and the `*Gist` i18n
 keys.
 
-### Phase 5 — turn on compare-and-swap
+### Phase 5 — turn on compare-and-swap ✅
 
 Thread `expectedVersion` through every write and surface `409` as a visible
 "changed elsewhere, reload" instead of a silent overwrite. **This is the payoff;
@@ -737,6 +739,44 @@ Two doc changes fall out: the lost-update warning in `README.md` gets deleted
 rather than reworded, and the `record_operation` tool description in
 `mcp/ainvestor-server.ts` stops telling the model that concurrent writes
 overwrite and stops pointing at gist Revisions for recovery.
+
+#### What Phase 5 built, where it differs from the above
+
+- **Scope is `etfs.json` and `guidelines.json`.** Those are the files that are
+  edited relative to what they hold. Saved advice is a whole document
+  generated from scratch, where the last save should win, and the catalog is a
+  gist until Phase 6.
+- **The version never leaves the request.** Every edit is relative — a buy adds
+  to a holding, a delete drops a row by id — so redoing it on fresh content is
+  always correct, and no version has to ride in a form field or a tool
+  argument. A stale tab therefore needs no special handling.
+- **A lost race is retried, not shown.** Rather than surface the `409`
+  straight away, `readModifyWrite` (`app/lib/store/read-modify-write.ts`)
+  reads again and redoes the change, up to `MAX_WRITE_ATTEMPTS` (3). Only then
+  does it throw `WriteConflictError`, which the web app shows as "changed
+  elsewhere, reload" (`errors.*.changedElsewhere`) and the MCP tools turn into
+  an error telling the model nothing was saved. Validation (the 100% cap, a
+  duplicate row, a sell larger than the holding) runs *inside* the change, so
+  it is re-checked against whatever the other client saved.
+- **Only a conflict is retried.** A timeout or a 5xx may have landed, and
+  retrying would apply a buy twice.
+- **`expectedVersion` has three meanings on `writeFile`:** omitted reads the
+  current `sha` first (last write wins, kept for advice), a string is
+  compare-and-swap, and `null` means "the file must not exist yet". GitHub
+  answers a stale `sha` with 409 and an update that names none for an existing
+  file with 422; `isVersionConflict` treats both as a conflict.
+- **`updateEtfs` and `updateGuidelines` replaced `saveEtfs`, `saveGuidelines`
+  and `saveGuidelinesOrThrow`,** and the eight copies of the read-change-save
+  sequence in the web handlers and MCP tools. This also fixed a latent
+  data-loss path: the web handlers read guidelines through a function that
+  turns a rejected read into an empty list and then saved from it, which would
+  have dropped every row.
+- **The fake data repo enforces versions,** answers 409/422 like GitHub, and
+  can have "another client" write right after a read (`afterContentRead`,
+  `externalWrite`), so the race tests fail when the check is removed.
+- **Unverified against real GitHub:** the exact status for a stale `sha`. The
+  plan assumed 409; the code accepts 409 or 422. Worth confirming on preview
+  by forcing a conflict.
 
 ### Phase 6 — catalog to its own private repo
 

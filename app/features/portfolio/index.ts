@@ -5,7 +5,11 @@ import { jsx } from 'remix/ui/jsx-runtime'
 import { render, renderFragmentToStream } from '../../components/render.ts'
 import { requestAcceptsFrameSubmitHtml } from '../../lib/frame-submit-request.ts'
 import type { EtfEntry } from '../../lib/gist.ts'
-import { fetchEtfs, fetchPortfolioSnapshot, saveEtfs } from '../../lib/gist.ts'
+import {
+	fetchEtfs,
+	fetchPortfolioSnapshot,
+	updateEtfs,
+} from '../../lib/gist.ts'
 import { t } from '../../lib/i18n.ts'
 import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
@@ -21,6 +25,7 @@ import {
 	readFlashedBanner,
 } from '../../lib/session-flash.ts'
 import { commitMessage } from '../../lib/store/commit-message.ts'
+import { WriteConflictError } from '../../lib/store/read-modify-write.ts'
 import { htmlLangForCurrentUiLocale } from '../../lib/ui-locale.ts'
 import { routes } from '../../routes.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'
@@ -32,7 +37,7 @@ import {
 	ListFragment,
 	portfolioListFragmentHtmlResponse,
 	portfolioOperationFormHandlers,
-	portfolioPersistenceFailureResponse,
+	portfolioSaveFailureResponse,
 	portfolioValidationFailureResponse,
 } from './portfolio-operation-form/index.ts'
 import { PortfolioPage } from './portfolio-page.tsx'
@@ -49,6 +54,31 @@ export { resetTestSessionCookieJar } from './state.ts'
  * see `docs/UI_ARCHITECTURE_GUIDELINES.md` §10.
  */
 const PORTFOLIO_INTENTS = ['trade', 'import'] as const
+
+/** Merge imported rows into the holdings: the same name and currency adds the values. */
+function mergeImportedHoldings(
+	current: EtfEntry[],
+	imported: EtfEntry[],
+): EtfEntry[] {
+	const byKey = new Map<string, EtfEntry>()
+	for (const entry of current) {
+		byKey.set(`${entry.name.toLowerCase()}:${entry.currency}`, entry)
+	}
+	for (const importedEntry of imported) {
+		const key = `${importedEntry.name.toLowerCase()}:${importedEntry.currency}`
+		const existing = byKey.get(key)
+		if (existing) {
+			byKey.set(key, {
+				...existing,
+				value: existing.value + importedEntry.value,
+				exchange: existing.exchange || importedEntry.exchange || undefined,
+			})
+		} else {
+			byKey.set(key, importedEntry)
+		}
+	}
+	return Array.from(byKey.values())
+}
 
 async function handleImport(context: AppRequestContext, form: FormData) {
 	const pasteRaw = form.get('portfolioCsvPaste')
@@ -83,45 +113,27 @@ async function handleImport(context: AppRequestContext, form: FormData) {
 		)
 	}
 
-	let current: EtfEntry[]
+	// updateEtfs saves only if the holdings are still the version it read,
+	// merging the import into newer ones when another client saved first.
+	let updated: EtfEntry[]
 	try {
-		current = await fetchEtfs(session.token, session.dataRepo)
-	} catch {
-		return portfolioPersistenceFailureResponse(context)
-	}
-
-	// Merge imported with existing (same name+currency: add values)
-	const byKey = new Map<string, EtfEntry>()
-	for (const entry of current) {
-		byKey.set(`${entry.name.toLowerCase()}:${entry.currency}`, entry)
-	}
-	for (const importedEntry of imported) {
-		const key = `${importedEntry.name.toLowerCase()}:${importedEntry.currency}`
-		const existing = byKey.get(key)
-		if (existing) {
-			byKey.set(key, {
-				...existing,
-				value: existing.value + importedEntry.value,
-				exchange: existing.exchange || importedEntry.exchange || undefined,
-			})
-		} else {
-			byKey.set(key, importedEntry)
-		}
-	}
-	const updated = Array.from(byKey.values())
-
-	try {
-		await saveEtfs(
-			session.token,
-			session.dataRepo,
-			updated,
-			commitMessage({
-				summary: `Import portfolio CSV (${imported.length} rows)`,
-				source: 'web',
-			}),
-		)
-	} catch {
-		return portfolioPersistenceFailureResponse(context)
+		updated = await updateEtfs({
+			token: session.token,
+			dataRepo: session.dataRepo,
+			change: (current) => {
+				const merged = mergeImportedHoldings(current, imported)
+				return {
+					write: merged,
+					message: commitMessage({
+						summary: `Import portfolio CSV (${imported.length} rows)`,
+						source: 'web',
+					}),
+					result: merged,
+				}
+			},
+		})
+	} catch (error) {
+		return portfolioSaveFailureResponse(context, error)
 	}
 
 	if (requestAcceptsFrameSubmitHtml(context.request)) {
@@ -242,20 +254,29 @@ export const portfolioController = {
 			}
 
 			try {
-				const current = await fetchEtfs(session.token, session.dataRepo)
-				const removed = current.find((entry) => entry.id === id)
-				await saveEtfs(
-					session.token,
-					session.dataRepo,
-					current.filter((entry) => entry.id !== id),
-					commitMessage({
-						summary: `Remove holding ${removed?.name ?? id}`,
-						source: 'web',
-					}),
-				)
-			} catch {
+				await updateEtfs({
+					token: session.token,
+					dataRepo: session.dataRepo,
+					change: (current) => {
+						const removed = current.find((entry) => entry.id === id)
+						// Already gone (removed elsewhere): nothing to save.
+						if (removed === undefined) return { result: null }
+						return {
+							write: current.filter((entry) => entry.id !== id),
+							message: commitMessage({
+								summary: `Remove holding ${removed.name}`,
+								source: 'web',
+							}),
+							result: null,
+						}
+					},
+				})
+			} catch (error) {
 				flashBanner(context.get(Session), {
-					text: t('errors.portfolio.persistence'),
+					text:
+						error instanceof WriteConflictError
+							? t('errors.portfolio.changedElsewhere')
+							: t('errors.portfolio.persistence'),
 					tone: 'error',
 				})
 			}

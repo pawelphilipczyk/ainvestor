@@ -4,8 +4,17 @@ import {
 	putPrivateGistTestEtfs,
 	takePrivateGistTestEtfs,
 } from './private-gist-test-store.ts'
-import { readFile, writeFile } from './store/github-repo-store.ts'
+import {
+	isVersionConflict,
+	readFile,
+	writeFile,
+} from './store/github-repo-store.ts'
 import { githubHeaders } from './store/github-store.ts'
+import {
+	type ChangeOutcome,
+	readModifyWrite,
+	WriteConflictError,
+} from './store/read-modify-write.ts'
 
 export const GIST_FILENAME = 'etfs.json'
 
@@ -153,6 +162,71 @@ export async function fetchEtfs(
 	})
 }
 
+/** The holdings and the version of the file they came from; `null` when it does not exist yet. */
+async function fetchEtfsWithVersion(
+	token: string,
+	dataRepo: string,
+): Promise<{ value: EtfEntry[]; version: string | null }> {
+	const testEtfs = takePrivateGistTestEtfs(token, dataRepo)
+	if (testEtfs !== null) return { value: testEtfs, version: null }
+	const result = await readFile({
+		token,
+		location: dataRepo,
+		path: GIST_FILENAME,
+	})
+	if (!result.ok) {
+		throw new Error(`GitHub API error fetching the portfolio: ${result.status}`)
+	}
+	return {
+		value: parseEtfsFromGist({
+			files: result.file
+				? { [GIST_FILENAME]: { content: result.file.content } }
+				: {},
+		}),
+		version: result.file?.version ?? null,
+	}
+}
+
+/**
+ * Edit the holdings with compare-and-swap: reads them, lets `change` decide
+ * from what it sees, and saves only if the file is still the version read. A
+ * save that lost a race reads again and redoes `change` on the newer holdings;
+ * after {@link MAX_WRITE_ATTEMPTS} losses in a row it throws a
+ * {@link WriteConflictError}. `change` runs once per attempt, so it must be
+ * free of side effects.
+ */
+export function updateEtfs<TResult>(params: {
+	token: string
+	dataRepo: string
+	change: (current: EtfEntry[]) => ChangeOutcome<EtfEntry[], TResult>
+}): Promise<TResult> {
+	const { token, dataRepo } = params
+	return readModifyWrite({
+		what: 'the portfolio',
+		read: () => fetchEtfsWithVersion(token, dataRepo),
+		change: params.change,
+		write: async ({ value, version, message }) => {
+			if (putPrivateGistTestEtfs(token, dataRepo, value)) return
+			const result = await writeFile({
+				token,
+				location: dataRepo,
+				path: GIST_FILENAME,
+				content: JSON.stringify(value, null, 2),
+				expectedVersion: version,
+				message,
+			})
+			if (result.ok) return
+			if (isVersionConflict(result.status)) {
+				throw new WriteConflictError('the portfolio')
+			}
+			const detail = await result.response.text().catch(() => '')
+			throw new Error(
+				`GitHub API error saving the portfolio: ${result.status}${detail ? ` ${detail}` : ''}`,
+			)
+		},
+	})
+}
+
 /**
  * One private Gist GET for holdings plus one shared catalog read.
  */
@@ -167,28 +241,5 @@ export async function fetchPortfolioSnapshot(
 	return {
 		entries,
 		catalog,
-	}
-}
-
-/** Save ETF entries to a gist by ID. */
-export async function saveEtfs(
-	token: string,
-	dataRepo: string,
-	entries: EtfEntry[],
-	message?: string,
-): Promise<void> {
-	if (putPrivateGistTestEtfs(token, dataRepo, entries)) return
-	const result = await writeFile({
-		token,
-		location: dataRepo,
-		path: GIST_FILENAME,
-		content: JSON.stringify(entries, null, 2),
-		message,
-	})
-	if (!result.ok) {
-		const detail = await result.response.text().catch(() => '')
-		throw new Error(
-			`GitHub API error saving the portfolio: ${result.status}${detail ? ` ${detail}` : ''}`,
-		)
 	}
 }
