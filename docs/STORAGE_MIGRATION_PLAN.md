@@ -1,9 +1,9 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–3 done. Phase 4 (cutover) is built and rehearsed on
-preview, and prod's data is copied; what remains is the merge, then the prod
-checks and reconnecting MCP clients (cutover order below). Phases 5+ are
-designed but not yet detailed to the commit level.
+**Status:** Phases 0–4 done. The cutover merged on 2026-10-01 (#236): both
+environments read and write their data repos, and buying and selling on prod
+was confirmed to commit to `ainvestor-data`. Phases 5+ are designed but not
+yet detailed to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -612,7 +612,7 @@ verified them against `ai-investor-data`. An edit made in either environment
 between the copy and the cutover is safe: rerunning the script shows it as
 `overwrite` or `delete`, which `--force` applies.
 
-### Phase 4 — cutover: the app reads and writes repos
+### Phase 4 — cutover: the app reads and writes repos ✅
 
 One PR switches all per-user data from gists to the repo. At no point is some
 of it on each backend: the script copies, the deploy switches.
