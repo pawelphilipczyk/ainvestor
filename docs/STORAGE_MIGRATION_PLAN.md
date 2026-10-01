@@ -1,8 +1,9 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–3 done (preview copied). Phase 4's cutover PR is built
-and awaits the cutover order below: preview rehearsal, prod copy, merge.
-Phases 5+ are designed but not yet detailed to the commit level.
+**Status:** Phases 0–3 done. Phase 4 (cutover) is built and rehearsed on
+preview, and prod's data is copied; what remains is the merge, then the prod
+checks and reconnecting MCP clients (cutover order below). Phases 5+ are
+designed but not yet detailed to the commit level.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -604,10 +605,12 @@ The gist held `advice-analysis.json`, the legacy unified advice file, next to
 the four current files. That is the case listing the gist's files, rather than
 naming them, was for.
 
-**Prod is deliberately not copied yet.** It is copied as step 5 of the
-cutover order below. A preview edit made before the cutover is safe as well:
-rerunning the script shows it as `overwrite` or `delete`, which `--force`
-applies.
+**Prod copied** on 2026-10-01, as step 5 of the cutover order below: dry run
+showed five `create`s and no repo, `--apply` created
+`pawelphilipczyk/ainvestor-data`, wrote the five files in one commit, and
+verified them against `ai-investor-data`. An edit made in either environment
+between the copy and the cutover is safe: rerunning the script shows it as
+`overwrite` or `delete`, which `--force` applies.
 
 ### Phase 4 — cutover: the app reads and writes repos
 
