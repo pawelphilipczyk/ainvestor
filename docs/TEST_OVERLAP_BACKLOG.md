@@ -4,15 +4,38 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 6 — `app/components` + shared browser layer
-**Last swept:** 2026-09-26 (`app/lib`)
+**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
+**Last swept:** 2026-09-29 (`app/components` + shared browser layer)
 
 ---
 
 ## Open items
 
+### OV-008 — existence-only `existsSync` tests subsumed by import/route tests
+**Status:** `proposed` · **Proposed:** 2026-09-29 · **Area:** `app/components`
+
+`app/components/layout/sidebar.test.ts:30-33` ("sidebar.tsx exists in
+app/components/layout/") asserts only `existsSync(sidebar.tsx)`, yet the same
+file imports `Sidebar` from `./sidebar.tsx` at line 11 (a missing file fails
+the whole module load) and every `Sidebar renders…` case renders it.
+`app/components/navigation/theme-toggle.test.ts:24-27` ("theme-toggle.component.ts
+exists…") likewise asserts only `existsSync` on a file the same test file
+imports at line 10, and `theme-toggle.test.ts:66-71` asserts the entry is
+served with HTTP 200. Deleting both cases would also drop the now-unused
+`existsSync`/`join`/`dirname`/`fileURLToPath` imports and `componentsDir`.
+
+**Triage question:** is the existence check a deliberate guard against a file
+rename that a stale import would not catch? (An import would catch it, so
+likely not.) Deletion is not eligible until a later run.
+
+**Considered and not proposed (weak):** the two "`/components/*.island.js`
+returns 404" cases (`theme-toggle.test.ts:73-78`, `sidebar.test.ts:~208`);
+`doesNotMatch(/href="\/admin\/etf-import"/)` asserted at
+`sidebar.test.ts:42` and `:73` (first sits in a broader test); the repeated
+"asset served as javascript" cases (each resolves a different module).
+
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/lib`
+**Status:** `approved` (2026-09-29, evidence re-checked: cites still match) · **Proposed:** 2026-09-26 · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
@@ -46,7 +69,7 @@ than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 maintain every run.
 
 ### OV-006 — guideline formatting asserted twice with the same input/output
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** advice
+**Status:** `approved` (2026-09-29; re-checked: `advice.test.ts` case has drifted to ~283-331, assertions at 327-328; unit-test side unchanged) · **Proposed:** 2026-09-16 · **Area:** advice
 
 `app/features/advice/advice.test.ts:277-323` ("passes guidelines into the
 advice prompt when they exist (gist-backed)") builds a guideline
