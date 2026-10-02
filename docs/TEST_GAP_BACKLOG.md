@@ -27,7 +27,7 @@ backlog just feeds the overlap backlog.
 ## Open items
 
 ### GAP-025 — advice route tests read the real GitHub API for saved advice
-**Status:** `done` · **Proposed:** 2026-10-01 · **Acted:** 2026-10-02 · **Area:** `app/features/advice` · **PR:** PR_URL
+**Status:** `done` · **Proposed:** 2026-10-01 · **Acted:** 2026-10-02 · **Area:** `app/features/advice` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/242
 
 Running the suite with `fetch` to `api.github.com` intercepted showed
 `app/features/advice/advice.test.ts` (22) and `app/lib/remix-assets.test.ts`
