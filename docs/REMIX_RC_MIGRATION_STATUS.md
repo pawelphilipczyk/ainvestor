@@ -21,7 +21,9 @@ ahead of time.
   `@remix-run/ui/toggle`), so `allowPackages` in `app/lib/remix-assets.ts`
   lists both. Also changed: `innerHTML` props need `unsafeHTML()`, and the
   session middleware stores cookies as `{ value, expires }` (test helpers
-  mirror it). Everything below describes the rc.2 work that led here.
+  mirror it). Cookies issued before the upgrade lack that shape and are read
+  as empty, so every signed-in user is signed out once after deploy —
+  accepted, no compatibility shim. Everything below describes the rc.2 work that led here.
 
 - **Stage:** 6 (behavior via primitives) is **done and merged on `main`**
   (PR #198). **Stage 7 (styled components and dev tooling) is done — this was
