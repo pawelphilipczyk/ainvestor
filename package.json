@@ -11,9 +11,9 @@
 		"start": "node --import remix/node-tsx server.ts",
 		"mcp": "node --import remix/node-tsx mcp/server.ts",
 		"typecheck": "tsc --noEmit",
-		"test": "npm run -s ensure-deps && node --import remix/node-tsx --test",
-		"test:browser": "npm run -s ensure-deps && node --import remix/node-tsx --test \"app/**/*.browser.ts\"",
-		"test:smoke:advice": "npm run -s ensure-deps && cross-env RUN_ADVICE_OPENAI_SMOKE=1 node --import remix/node-tsx --test app/features/advice/advice-openai.smoke.test.ts",
+		"test": "npm run -s ensure-deps && node --import remix/node-tsx --import ./scripts/network-guard.mjs --test",
+		"test:browser": "npm run -s ensure-deps && node --import remix/node-tsx --import ./scripts/network-guard.mjs --test \"app/**/*.browser.ts\"",
+		"test:smoke:advice": "npm run -s ensure-deps && cross-env RUN_ADVICE_OPENAI_SMOKE=1 node --import remix/node-tsx --import ./scripts/network-guard.mjs --test app/features/advice/advice-openai.smoke.test.ts",
 		"lint": "biome lint .",
 		"format": "biome format .",
 		"check": "npm run -s ensure-deps && biome check ."

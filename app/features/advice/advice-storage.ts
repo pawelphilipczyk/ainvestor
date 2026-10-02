@@ -6,6 +6,7 @@ import {
 	parseSafe,
 	string,
 } from 'remix/data-schema'
+import { privateDataTestStoreHandles } from '../../lib/private-data-test-store.ts'
 import {
 	readFiles,
 	writeFile,
@@ -70,6 +71,16 @@ const storageTestState: {
 	byTab: {},
 	lastSaved: null,
 	saveShouldFail: false,
+}
+
+/**
+ * The explicit overlay, or the in-process private data store standing in for
+ * this very token and repository: either way the read or write stays in memory.
+ */
+function usesTestOverlay(token: string, dataRepo: string): boolean {
+	return (
+		storageTestState.enabled || privateDataTestStoreHandles(token, dataRepo)
+	)
 }
 
 export function setAdviceStorageTestOverlay(
@@ -191,7 +202,7 @@ export async function fetchStoredAdviceAnalysisOutcomeForTab(
 	dataRepo: string,
 	tab: AdviceAnalysisMode,
 ): Promise<StoredAdviceAnalysisOutcome> {
-	if (storageTestState.enabled) {
+	if (usesTestOverlay(token, dataRepo)) {
 		const stored = storageTestState.byTab[tab] ?? null
 		return stored === null
 			? { status: 'not_found' }
@@ -282,7 +293,7 @@ export async function saveStoredAdviceAnalysisForTab(
 	stored: StoredAdviceAnalysis,
 	message?: string,
 ): Promise<void> {
-	if (storageTestState.enabled) {
+	if (usesTestOverlay(token, dataRepo)) {
 		if (storageTestState.saveShouldFail) {
 			throw new Error('simulated save failure (test overlay)')
 		}
@@ -319,7 +330,7 @@ export async function clearStoredAdviceAnalysisForTab(
 	tab: AdviceAnalysisMode,
 	message?: string,
 ): Promise<void> {
-	if (storageTestState.enabled) {
+	if (usesTestOverlay(token, dataRepo)) {
 		storageTestState.byTab[tab] = null
 		return
 	}
@@ -344,7 +355,7 @@ export async function clearLegacyUnifiedAdviceAnalysis(
 	dataRepo: string,
 	message?: string,
 ): Promise<void> {
-	if (storageTestState.enabled) {
+	if (usesTestOverlay(token, dataRepo)) {
 		return
 	}
 	const result = await writeFile({
@@ -366,7 +377,7 @@ export async function clearStoredAdviceAnalysis(
 	token: string,
 	dataRepo: string,
 ): Promise<void> {
-	if (storageTestState.enabled) {
+	if (usesTestOverlay(token, dataRepo)) {
 		storageTestState.byTab = {}
 		storageTestState.lastSaved = null
 		return

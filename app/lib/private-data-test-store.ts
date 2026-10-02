@@ -20,9 +20,19 @@ let store: PrivateDataTestStore | null = null
 export const TEST_TOKEN = 'test-token'
 export const TEST_DATA_REPO = 'octocat/ainvestor-data'
 
-function handles(token: string, dataRepo: string): boolean {
+/**
+ * True while the in-process store stands in for this token and repository, so
+ * any other storage keyed on the same pair (the saved advice) can stay off
+ * GitHub too instead of each test remembering to say so.
+ */
+export function privateDataTestStoreHandles(
+	token: string,
+	dataRepo: string,
+): boolean {
 	return store !== null && token === TEST_TOKEN && dataRepo === TEST_DATA_REPO
 }
+
+const handles = privateDataTestStoreHandles
 
 export function setPrivateDataTestStore(
 	next: PrivateDataTestStore | null,
