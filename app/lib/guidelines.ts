@@ -8,7 +8,6 @@ import {
 	takePrivateDataTestGuidelines,
 } from './private-data-test-store.ts'
 import {
-	type FilesPayload,
 	isVersionConflict,
 	readFile,
 	writeFile,
@@ -169,14 +168,13 @@ export function normalizeGuideline(raw: unknown): EtfGuideline | null {
 	}
 }
 
-/** Parse guidelines from the stored files' contents. */
-export function parseGuidelinesFromFiles(
-	payload: FilesPayload,
+/** Parse guidelines from the text of `guidelines.json`; `null` when the file does not exist. */
+export function parseGuidelinesFromFile(
+	content: string | null,
 ): EtfGuideline[] {
-	const file = payload.files[GUIDELINES_FILENAME]
-	if (!file || !file.content) return []
+	if (!content) return []
 	try {
-		const parsed = JSON.parse(file.content)
+		const parsed = JSON.parse(content)
 		if (!Array.isArray(parsed)) return []
 		return parsed
 			.map(normalizeGuideline)
@@ -186,17 +184,9 @@ export function parseGuidelinesFromFiles(
 	}
 }
 
-/** Build a PATCH-ready body to update the guidelines file. */
-export function buildGuidelinesFilesPatch(guidelines: EtfGuideline[]): {
-	files: Record<string, { content: string }>
-} {
-	return {
-		files: {
-			[GUIDELINES_FILENAME]: {
-				content: JSON.stringify(guidelines, null, 2),
-			},
-		},
-	}
+/** The text `guidelines.json` is written with. */
+export function serializeGuidelines(guidelines: EtfGuideline[]): string {
+	return JSON.stringify(guidelines, null, 2)
 }
 
 type GuidelinesReadResult =
@@ -224,11 +214,7 @@ async function readGuidelinesFile(
 	if (!result.ok) return { ok: false, status: result.status }
 	return {
 		ok: true,
-		guidelines: parseGuidelinesFromFiles({
-			files: result.file
-				? { [GUIDELINES_FILENAME]: { content: result.file.content } }
-				: {},
-		}),
+		guidelines: parseGuidelinesFromFile(result.file?.content ?? null),
 		version: result.file?.version ?? null,
 	}
 }
@@ -281,12 +267,11 @@ export function updateGuidelines<TResult>(params: {
 		change: params.change,
 		write: async ({ value, version, message }) => {
 			if (putPrivateDataTestGuidelines(token, dataRepo, value)) return
-			const patch = buildGuidelinesFilesPatch(value)
 			const result = await writeFile({
 				token,
 				location: dataRepo,
 				path: GUIDELINES_FILENAME,
-				content: patch.files[GUIDELINES_FILENAME].content,
+				content: serializeGuidelines(value),
 				expectedVersion: version,
 				message,
 			})

@@ -3,7 +3,7 @@ import { afterEach, describe, it } from 'node:test'
 
 import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
-	buildCatalogFilesPatch,
+	buildCatalogFiles,
 	CATALOG_FILENAME,
 	CATALOG_SOURCE_FILENAME,
 	canWriteSharedCatalog,
@@ -15,7 +15,7 @@ import {
 	normalizeCatalogTickerLookupKey,
 	parseBankJsonForImport,
 	parseBankJsonToCatalog,
-	parseCatalogFromFiles,
+	parseCatalogFromFile,
 	parseCatalogRiskFilterParam,
 	resetSharedCatalogForTests,
 	riskBandFromRiskKid,
@@ -501,20 +501,13 @@ describe('canWriteSharedCatalog', () => {
 	})
 })
 
-describe('parseCatalogFromFiles', () => {
-	it('returns empty array when catalog file is absent', () => {
-		const payload = { files: {} }
-		assert.deepEqual(parseCatalogFromFiles(payload), [])
-	})
-
-	it('returns empty array when file content is null', () => {
-		const payload = { files: { [CATALOG_FILENAME]: { content: null } } }
-		assert.deepEqual(parseCatalogFromFiles(payload), [])
+describe('parseCatalogFromFile', () => {
+	it('returns empty array when the catalog file is absent', () => {
+		assert.deepEqual(parseCatalogFromFile(null), [])
 	})
 
 	it('returns empty array when content is invalid JSON', () => {
-		const payload = { files: { [CATALOG_FILENAME]: { content: 'not json' } } }
-		assert.deepEqual(parseCatalogFromFiles(payload), [])
+		assert.deepEqual(parseCatalogFromFile('not json'), [])
 	})
 
 	it('returns entries from valid JSON content', () => {
@@ -525,19 +518,14 @@ describe('parseCatalogFromFiles', () => {
 			type: 'equity',
 			description: '',
 		}
-		const payload = {
-			files: {
-				[CATALOG_FILENAME]: { content: JSON.stringify([entry]) },
-			},
-		}
-		const result = parseCatalogFromFiles(payload)
+		const result = parseCatalogFromFile(JSON.stringify([entry]))
 		assert.equal(result.length, 1)
 		assert.equal(result[0].ticker, 'VTI')
 	})
 })
 
-describe('buildCatalogFilesPatch', () => {
-	it('wraps entries in the expected files patch shape', () => {
+describe('buildCatalogFiles', () => {
+	it('writes the catalog, and the source rows only when given', () => {
 		const entry = {
 			id: '1',
 			ticker: 'VTI',
@@ -545,10 +533,15 @@ describe('buildCatalogFilesPatch', () => {
 			type: 'equity' as const,
 			description: '',
 		}
-		const patch = buildCatalogFilesPatch([entry])
-		assert.ok(patch.files[CATALOG_FILENAME])
-		const parsed = JSON.parse(patch.files[CATALOG_FILENAME].content)
-		assert.equal(parsed[0].ticker, 'VTI')
+		const withoutSource = buildCatalogFiles([entry])
+		assert.deepEqual(Object.keys(withoutSource), [CATALOG_FILENAME])
+		assert.equal(JSON.parse(withoutSource[CATALOG_FILENAME])[0].ticker, 'VTI')
+
+		const withSource = buildCatalogFiles([entry], { '1': { raw: true } })
+		assert.deepEqual(
+			Object.keys(withSource).sort(),
+			[CATALOG_FILENAME, CATALOG_SOURCE_FILENAME].sort(),
+		)
 	})
 })
 

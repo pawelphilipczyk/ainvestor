@@ -4,7 +4,6 @@ import {
 	takePrivateDataTestEtfs,
 } from './private-data-test-store.ts'
 import {
-	type FilesPayload,
 	isVersionConflict,
 	readFile,
 	writeFile,
@@ -57,12 +56,11 @@ export function normalizeStoredEtfEntries(rows: unknown): EtfEntry[] {
 	return out
 }
 
-/** Parse ETF entries from the stored files' contents. */
-export function parseEtfsFromFiles(payload: FilesPayload): EtfEntry[] {
-	const file = payload.files[ETFS_FILENAME]
-	if (!file || !file.content) return []
+/** Parse ETF entries from the text of `etfs.json`; `null` when the file does not exist. */
+export function parseEtfsFromFile(content: string | null): EtfEntry[] {
+	if (!content) return []
 	try {
-		const parsed: unknown = JSON.parse(file.content)
+		const parsed: unknown = JSON.parse(content)
 		return normalizeStoredEtfEntries(parsed)
 	} catch {
 		return []
@@ -84,11 +82,7 @@ export async function fetchEtfs(
 	if (!result.ok) {
 		throw new Error(`GitHub API error fetching the portfolio: ${result.status}`)
 	}
-	return parseEtfsFromFiles({
-		files: result.file
-			? { [ETFS_FILENAME]: { content: result.file.content } }
-			: {},
-	})
+	return parseEtfsFromFile(result.file?.content ?? null)
 }
 
 /** The holdings and the version of the file they came from; `null` when it does not exist yet. */
@@ -107,11 +101,7 @@ async function fetchEtfsWithVersion(
 		throw new Error(`GitHub API error fetching the portfolio: ${result.status}`)
 	}
 	return {
-		value: parseEtfsFromFiles({
-			files: result.file
-				? { [ETFS_FILENAME]: { content: result.file.content } }
-				: {},
-		}),
+		value: parseEtfsFromFile(result.file?.content ?? null),
 		version: result.file?.version ?? null,
 	}
 }

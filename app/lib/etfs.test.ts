@@ -4,7 +4,7 @@ import { afterEach, describe, it } from 'node:test'
 import {
 	ETFS_FILENAME,
 	fetchEtfs,
-	parseEtfsFromFiles,
+	parseEtfsFromFile,
 	updateEtfs,
 } from './etfs.ts'
 import { installFakeDataRepo } from './store/github-repo-test-fake.ts'
@@ -20,30 +20,20 @@ describe('etfs', () => {
 		assert.equal(typeof ETFS_FILENAME, 'string')
 	})
 
-	it('parseEtfsFromFiles returns empty array for missing file', () => {
-		const result = parseEtfsFromFiles({ files: {} })
-		assert.deepEqual(result, [])
+	it('parseEtfsFromFile returns empty array for a missing file', () => {
+		assert.deepEqual(parseEtfsFromFile(null), [])
 	})
 
-	it('parseEtfsFromFiles returns empty array for null content', () => {
-		const result = parseEtfsFromFiles({
-			files: { [ETFS_FILENAME]: { content: null } },
-		})
-		assert.deepEqual(result, [])
-	})
-
-	it('parseEtfsFromFiles parses valid ETF JSON with new fields', () => {
+	it('parseEtfsFromFile parses valid ETF JSON with new fields', () => {
 		const entries = [
 			{ id: 'abc-1', name: 'VTI', value: 1200.5, currency: 'USD' },
 			{ id: 'abc-2', name: 'VWCE', value: 3400, currency: 'EUR' },
 		]
-		const result = parseEtfsFromFiles({
-			files: { [ETFS_FILENAME]: { content: JSON.stringify(entries) } },
-		})
+		const result = parseEtfsFromFile(JSON.stringify(entries))
 		assert.deepEqual(result, entries)
 	})
 
-	it('parseEtfsFromFiles drops legacy quantity from stored JSON', () => {
+	it('parseEtfsFromFile drops legacy quantity from stored JSON', () => {
 		const raw = [
 			{
 				id: 'abc-1',
@@ -53,18 +43,14 @@ describe('etfs', () => {
 				quantity: 10,
 			},
 		]
-		const result = parseEtfsFromFiles({
-			files: { [ETFS_FILENAME]: { content: JSON.stringify(raw) } },
-		})
+		const result = parseEtfsFromFile(JSON.stringify(raw))
 		assert.deepEqual(result, [
 			{ id: 'abc-1', name: 'VTI', value: 1000, currency: 'USD' },
 		])
 	})
 
-	it('parseEtfsFromFiles returns empty array for invalid JSON', () => {
-		const result = parseEtfsFromFiles({
-			files: { [ETFS_FILENAME]: { content: 'not-json!!!' } },
-		})
+	it('parseEtfsFromFile returns empty array for invalid JSON', () => {
+		const result = parseEtfsFromFile('not-json!!!')
 		assert.deepEqual(result, [])
 	})
 

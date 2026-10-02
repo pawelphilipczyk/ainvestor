@@ -2,14 +2,14 @@ import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { EtfGuideline } from './guidelines.ts'
 import {
-	buildGuidelinesFilesPatch,
 	clampGuidelineBarWidthPercent,
 	findGuidelineDuplicateOf,
 	formatEtfTypeLabel,
 	formatGuidelineTargetPercentForInput,
 	GUIDELINES_FILENAME,
 	normalizeGuideline,
-	parseGuidelinesFromFiles,
+	parseGuidelinesFromFile,
+	serializeGuidelines,
 	sumGuidelineTargetPercent,
 	wouldGuidelineTotalExceedCap,
 } from './guidelines.ts'
@@ -34,19 +34,11 @@ describe('guidelines', () => {
 		assert.ok(GUIDELINES_FILENAME.length > 0)
 	})
 
-	it('parseGuidelinesFromFiles returns empty array when file is missing', () => {
-		const result = parseGuidelinesFromFiles({ files: {} })
-		assert.deepEqual(result, [])
+	it('parseGuidelinesFromFile returns empty array when file is missing', () => {
+		assert.deepEqual(parseGuidelinesFromFile(null), [])
 	})
 
-	it('parseGuidelinesFromFiles returns empty array when content is null', () => {
-		const result = parseGuidelinesFromFiles({
-			files: { [GUIDELINES_FILENAME]: { content: null } },
-		})
-		assert.deepEqual(result, [])
-	})
-
-	it('parseGuidelinesFromFiles parses valid guidelines JSON', () => {
+	it('parseGuidelinesFromFile parses valid guidelines JSON', () => {
 		const guidelines: EtfGuideline[] = [
 			{
 				id: 'g1',
@@ -63,19 +55,15 @@ describe('guidelines', () => {
 				etfType: 'bond',
 			},
 		]
-		const result = parseGuidelinesFromFiles({
-			files: { [GUIDELINES_FILENAME]: { content: JSON.stringify(guidelines) } },
-		})
+		const result = parseGuidelinesFromFile(JSON.stringify(guidelines))
 		assert.deepEqual(result, guidelines)
 	})
 
-	it('parseGuidelinesFromFiles infers kind instrument when omitted (legacy)', () => {
+	it('parseGuidelinesFromFile infers kind instrument when omitted (legacy)', () => {
 		const stored = [
 			{ id: 'g1', etfName: 'VTI', targetPct: 60, etfType: 'equity' },
 		]
-		const result = parseGuidelinesFromFiles({
-			files: { [GUIDELINES_FILENAME]: { content: JSON.stringify(stored) } },
-		})
+		const result = parseGuidelinesFromFile(JSON.stringify(stored))
 		assert.deepEqual(result, [
 			{
 				id: 'g1',
@@ -104,10 +92,8 @@ describe('guidelines', () => {
 		})
 	})
 
-	it('parseGuidelinesFromFiles returns empty array for invalid JSON', () => {
-		const result = parseGuidelinesFromFiles({
-			files: { [GUIDELINES_FILENAME]: { content: 'not-json!!!' } },
-		})
+	it('parseGuidelinesFromFile returns empty array for invalid JSON', () => {
+		const result = parseGuidelinesFromFile('not-json!!!')
 		assert.deepEqual(result, [])
 	})
 
@@ -290,7 +276,7 @@ describe('guidelines', () => {
 		)
 	})
 
-	it('buildGuidelinesFilesPatch produces a PATCH-ready body', () => {
+	it('serializeGuidelines writes the rows as indented JSON', () => {
 		const guidelines: EtfGuideline[] = [
 			{
 				id: 'g1',
@@ -300,11 +286,8 @@ describe('guidelines', () => {
 				etfType: 'equity',
 			},
 		]
-		const patch = buildGuidelinesFilesPatch(guidelines)
-
-		assert.ok(patch.files[GUIDELINES_FILENAME])
 		assert.equal(
-			patch.files[GUIDELINES_FILENAME].content,
+			serializeGuidelines(guidelines),
 			JSON.stringify(guidelines, null, 2),
 		)
 	})
