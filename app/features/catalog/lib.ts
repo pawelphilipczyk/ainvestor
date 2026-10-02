@@ -9,7 +9,6 @@ import {
 	commitMessage,
 } from '../../lib/store/commit-message.ts'
 import {
-	type FilesPayload,
 	getRepoAccess,
 	readFile,
 	readHeadCommit,
@@ -838,15 +837,15 @@ export function mergeBankIntoCatalog(
 // ---------------------------------------------------------------------------
 
 /**
- * Parse catalog entries from the stored files' contents. The caller reads
- * through `readFile` in `app/lib/store/github-repo-store.ts`, which owns the raw
- * wire shape, so only text reaches this function.
+ * Parse catalog entries from the text of `catalog.json`; `null` when the file
+ * does not exist. The caller reads through `readFile` in
+ * `app/lib/store/github-repo-store.ts`, which owns the raw wire shape, so only
+ * text reaches this function.
  */
-export function parseCatalogFromFiles(payload: FilesPayload): CatalogEntry[] {
-	const file = payload.files[CATALOG_FILENAME]
-	if (!file || !file.content) return []
+export function parseCatalogFromFile(content: string | null): CatalogEntry[] {
+	if (!content) return []
 	try {
-		const parsed = JSON.parse(file.content)
+		const parsed = JSON.parse(content)
 		return Array.isArray(parsed) ? (parsed as CatalogEntry[]) : []
 	} catch {
 		return []
@@ -854,29 +853,19 @@ export function parseCatalogFromFiles(payload: FilesPayload): CatalogEntry[] {
 }
 
 /**
- * The files a catalog save writes: the catalog — and, when given, the source
- * rows file alongside it in the same commit. The source
- * file is compact JSON: it is large and read by code, not by people.
+ * The file texts a catalog save writes, by path: the catalog — and, when given,
+ * the source rows file alongside it in the same commit. The source file is
+ * compact JSON: it is large and read by code, not by people.
  */
-export function buildCatalogFilesPatch(
+export function buildCatalogFiles(
 	entries: CatalogEntry[],
 	sourceRowsById?: Record<string, unknown>,
-): {
-	files: Record<string, { content: string }>
-} {
+): Record<string, string> {
 	return {
-		files: {
-			[CATALOG_FILENAME]: {
-				content: JSON.stringify(entries, null, 2),
-			},
-			...(sourceRowsById !== undefined
-				? {
-						[CATALOG_SOURCE_FILENAME]: {
-							content: JSON.stringify(sourceRowsById),
-						},
-					}
-				: {}),
-		},
+		[CATALOG_FILENAME]: JSON.stringify(entries, null, 2),
+		...(sourceRowsById !== undefined
+			? { [CATALOG_SOURCE_FILENAME]: JSON.stringify(sourceRowsById) }
+			: {}),
 	}
 }
 
@@ -1015,9 +1004,7 @@ async function readCatalogFile(params: {
 	}
 	return {
 		ok: true,
-		entries: parseCatalogFromFiles({
-			files: { [CATALOG_FILENAME]: { content: result.file.content } },
-		}),
+		entries: parseCatalogFromFile(result.file.content),
 	}
 }
 
@@ -1190,16 +1177,10 @@ export async function updateSharedCatalog<TResult>(params: {
 		},
 		change: params.change,
 		write: async ({ value, version, message }) => {
-			const patch = buildCatalogFilesPatch(value.entries, value.sourceRowsById)
 			const saved = await writeFiles({
 				token,
 				location,
-				files: Object.fromEntries(
-					Object.entries(patch.files).map(([path, file]) => [
-						path,
-						file.content,
-					]),
-				),
+				files: buildCatalogFiles(value.entries, value.sourceRowsById),
 				expectedVersion: version,
 				message,
 			})

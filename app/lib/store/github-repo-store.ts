@@ -35,14 +35,6 @@ import { isPreview } from '../deployment.ts'
 export const GITHUB_API = 'https://api.github.com'
 export const GITHUB_REQUEST_TIMEOUT_MS = 5_000
 
-/**
- * File contents keyed by path, the shape every domain parser takes. A missing
- * file is absent from `files`; `content: null` is a present-but-empty one.
- */
-export type FilesPayload = {
-	files: Record<string, { content: string | null }>
-}
-
 export type StoredFile = {
 	/** Raw file text, exactly as stored — never parsed here. */
 	content: string

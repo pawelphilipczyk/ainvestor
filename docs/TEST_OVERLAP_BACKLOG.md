@@ -143,9 +143,9 @@ matching names reflect matching design, not copied coverage.
 ### RJ-002 — `app/lib/guidelines.test.ts` vs. `mcp/tools/guidelines.test.ts`
 **Rejected:** 2026-09-16 · **Reason:** different layers, no shared assertions.
 
-The `app/lib` file tests pure functions (`parseGuidelinesFromFiles`,
+The `app/lib` file tests pure functions (`parseGuidelinesFromFile`,
 `sumGuidelineTargetPercent`, `findGuidelineDuplicateOf`,
-`buildGuidelinesFilesPatch`). The `mcp/tools` file tests tool contracts
+`serializeGuidelines`). The `mcp/tools` file tests tool contracts
 (argument validation, catalog cross-checks, the 100% cap surfaced as a tool
 error, rejected writes). Same domain, disjoint assertions.
 

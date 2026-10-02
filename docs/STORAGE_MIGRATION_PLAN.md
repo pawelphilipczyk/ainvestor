@@ -341,7 +341,7 @@ and catalog's `sharedCatalogTestSnapshot`. Unifying them touches
 from the transport extraction; noted here rather than done by accident.
 `app/lib/portfolio-review-gist.ts` was checked and confirmed to have **no**
 network calls left (only its own test imports it) — out of scope, and a
-candidate for deletion in an unrelated cleanup.
+candidate for deletion in an unrelated cleanup. (Deleted after Phase 7.)
 
 New direct coverage: `app/lib/store/github-store.test.ts` (16 cases) for the
 port itself, and 5 new cases in `app/features/advice/advice-gist.test.ts` for
@@ -887,18 +887,20 @@ untouched — prod's still holds its older catalog.
 
 ### Phase 7 — remove the gist backend
 
-**Done in two steps.** 7a (#239) deleted what talked to the Gist API and
-stopped asking for its scope; 7b renamed what was still *called* gist but
-already read repositories, with no behaviour change. The phase sections above
-and the stage notes in `docs/MCP_SERVER_PLAN.md` use the old names:
+**Done in three steps.** 7a (#239) deleted what talked to the Gist API and
+stopped asking for its scope; 7b (#241) renamed what was still *called* gist but
+already read repositories, with no behaviour change; 7c (#242) dropped the
+gist-shaped `{ files: … }` payload from the parsers and writers. The phase
+sections above and the stage notes in `docs/MCP_SERVER_PLAN.md` use the old
+names:
 
 | Before | After |
 |---|---|
-| `app/lib/gist.ts`, `GIST_FILENAME`, `parseEtfsFromGist` | `app/lib/etfs.ts`, `ETFS_FILENAME`, `parseEtfsFromFiles` |
-| `parseGuidelinesFromGist`, `parseCatalogFromGist`, `parsePortfolioReviewFromGist` | `…FromFiles` (one shared `FilesPayload` type from `github-repo-store.ts`) |
-| `build…GistPatch` | `build…FilesPatch` |
+| `app/lib/gist.ts`, `GIST_FILENAME`, `parseEtfsFromGist` | `app/lib/etfs.ts`, `ETFS_FILENAME`, `parseEtfsFromFile` |
+| `parseGuidelinesFromGist`, `parseCatalogFromGist` | `parseGuidelinesFromFile`, `parseCatalogFromFile` — take the file's text (`string \| null`), as does `parseEtfsFromFile`; the gist-shaped `FilesPayload` is gone |
+| `buildGuidelinesGistPatch`, `buildCatalogGistPatch` | `serializeGuidelines`, `buildCatalogFiles` — plain text rather than a `{ files: … }` body |
+| `app/lib/portfolio-review-gist.ts` (parser, clear patch) | deleted: nothing but its own test imported it |
 | `app/features/advice/advice-gist.ts`, `ADVICE_GIST_FILENAME_BY_MODE` | `advice-storage.ts`, `ADVICE_FILENAME_BY_MODE` |
-| `app/lib/portfolio-review-gist.ts` | `app/lib/portfolio-review-storage.ts` |
 | `app/lib/private-gist-test-store.ts`, `setPrivateGistTestStore` | `private-data-test-store.ts`, `setPrivateDataTestStore` |
 | `mcp/private-gist-cache.ts`, env `PRIVATE_GIST_CACHE_TTL_MS` | `mcp/private-data-cache.ts`, `PRIVATE_DATA_CACHE_TTL_MS` |
 | `adviceGistGate` / `'connect_gist'`, `adviceFromGist`, locale keys `…Gist…` | `adviceStorageGate` / `'connect_repo'`, `adviceFromStorage`, keys `…Repo…` |
