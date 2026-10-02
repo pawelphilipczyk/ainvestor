@@ -947,13 +947,17 @@ with only the `gist` scope is still sent back through sign-in by the scope check
 Two outlast the migration; the rest (the gist-named MCP config, the `repo` scope
 not covering gists, the gist-shaped test seams) went with the gist backend.
 
-- **GitHub returns `404`, not `403`, for a private repo you cannot see.** "Not a
-  collaborator" and "does not exist" are indistinguishable. This bites hardest
+- **GitHub returns `404`, usually not `403`, for a private repo you cannot see.**
+  "Not a collaborator" and "does not exist" are indistinguishable. An organization
+  that restricts OAuth App access answers `403` instead, until the app the token
+  came from is approved for the organization. This bites hardest
   at `app/features/auth/index.ts`, which reads the catalog *during login* to
   decide admin status: a `404` there means "not an admin, no catalog access" and
-  must not break the login. The shared catalog read marks it `no-access`, and
-  `fetchSharedCatalogSnapshot` tells that apart from `unavailable` (any other
-  failure), which keeps serving the last good copy.
+  must not break the login. The shared catalog read marks `401`, `404` and a `403` that is
+  not a rate limit (`429`, or `403` with `x-ratelimit-remaining: 0` or
+  `retry-after`) as `no-access`, and `fetchSharedCatalogSnapshot` tells that
+  apart from `unavailable` (any other failure), which keeps serving the last good
+  copy.
 - The Contents API is base64 and keeps a 1 MB ceiling on the JSON response —
   reads of a larger file fall back to the Git Data blob (`readFile`).
 

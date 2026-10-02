@@ -108,7 +108,7 @@ export function summarizeCatalogSearch(params: {
 			? {
 					note:
 						problem === 'no-access'
-							? `This token cannot read the shared catalog, a private repository (${getSharedCatalogRepo()}). Tell the user their GitHub account must be added to the ainvestor-users team; do not report this as "the app knows no funds".`
+							? `This token cannot read the shared catalog, a private repository (${getSharedCatalogRepo()}). Tell the user either their GitHub account must be added to the ainvestor-users team, or — if they are already on it — the organization must approve the OAuth app this connector signs in with (GitHub → Settings → Applications → the app → grant access to the organization); do not report this as "the app knows no funds".`
 							: 'The shared catalog came back with no entries at all: it is either empty or temporarily unreachable. Do not report this as "the app knows no funds" — retry before drawing any conclusion from it.',
 				}
 			: {}),

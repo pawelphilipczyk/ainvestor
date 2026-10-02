@@ -131,7 +131,7 @@ export const en = {
 	'catalog.import.harLabel': 'HAR file',
 	'catalog.noAccess.title': 'You do not have access to the shared catalog.',
 	'catalog.noAccess.hint':
-		'The catalog lives in the private GitHub repository {repo}. Ask its maintainer to add your GitHub account to the ainvestor-users team, then sign in again.',
+		'The catalog lives in the private GitHub repository {repo}. Ask its maintainer to add your GitHub account to the ainvestor-users team, then sign in again. If you are already on the team, the organization may not have approved the OAuth app you signed in with (GitHub → Settings → Applications, request or grant access to the organization).',
 	'catalog.unavailable.title': 'The shared catalog could not be loaded.',
 	'catalog.unavailable.hint':
 		'GitHub did not answer as expected. Reload the page in a moment.',

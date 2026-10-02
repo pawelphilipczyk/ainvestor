@@ -342,7 +342,8 @@ async function getBlobContent(params: {
 	path: string
 	sha: string
 }): Promise<
-	{ found: true; file: ContentsFile } | { ok: false; status: number }
+	| { found: true; file: ContentsFile }
+	| { ok: false; status: number; rateLimited: boolean }
 > {
 	const response = await fetch(
 		`${GITHUB_API}/repos/${params.owner}/${params.repo}/git/blobs/${params.sha}`,
@@ -351,7 +352,13 @@ async function getBlobContent(params: {
 			headers: githubHeaders(params.token),
 		},
 	)
-	if (!response.ok) return { ok: false, status: response.status }
+	if (!response.ok) {
+		return {
+			ok: false,
+			status: response.status,
+			rateLimited: isRateLimited(response),
+		}
+	}
 	const blob = (await response.json()) as { content: string; encoding: string }
 	if (blob.encoding !== 'base64') {
 		throw new Error(
@@ -364,6 +371,21 @@ async function getBlobContent(params: {
 	}
 }
 
+/**
+ * GitHub answers a rate-limited request with 429, or with 403 plus an
+ * exhausted `x-ratelimit-remaining` (primary limit) or a `retry-after`
+ * (secondary limit). A bare 403 is a refusal — an OAuth App access restriction
+ * or missing repository access — and retrying it changes nothing.
+ */
+function isRateLimited(response: Response): boolean {
+	if (response.status === 429) return true
+	if (response.status !== 403) return false
+	return (
+		response.headers.get('x-ratelimit-remaining') === '0' ||
+		response.headers.has('retry-after')
+	)
+}
+
 async function getContentsFile(params: {
 	token: string
 	owner: string
@@ -372,14 +394,20 @@ async function getContentsFile(params: {
 }): Promise<
 	| { found: true; file: ContentsFile }
 	| { found: false }
-	| { ok: false; status: number }
+	| { ok: false; status: number; rateLimited: boolean }
 > {
 	const response = await fetch(contentsUrl(params), {
 		signal: AbortSignal.timeout(GITHUB_REQUEST_TIMEOUT_MS),
 		headers: githubHeaders(params.token),
 	})
 	if (response.status === 404) return { found: false }
-	if (!response.ok) return { ok: false, status: response.status }
+	if (!response.ok) {
+		return {
+			ok: false,
+			status: response.status,
+			rateLimited: isRateLimited(response),
+		}
+	}
 	const body = (await response.json()) as {
 		content?: string
 		encoding?: string
@@ -402,7 +430,7 @@ async function getContentsFile(params: {
 
 export type ReadFileResult =
 	| { ok: true; file: StoredFile | null }
-	| { ok: false; status: number }
+	| { ok: false; status: number; rateLimited: boolean }
 
 /** Reads one file from a data repo. */
 export async function readFile(params: {
@@ -427,7 +455,7 @@ export async function readFile(params: {
 
 export type ReadFilesResult =
 	| { ok: true; files: Record<string, StoredFile | null> }
-	| { ok: false; status: number }
+	| { ok: false; status: number; rateLimited: boolean }
 
 /**
  * Reads several files from a data repo — one request per path (parallelized),
@@ -448,7 +476,7 @@ export async function readFiles(params: {
 	const failed = results.find(([, result]) => !result.ok)
 	if (failed) {
 		const [, result] = failed
-		return result as { ok: false; status: number }
+		return result as Extract<ReadFilesResult, { ok: false }>
 	}
 	const files = Object.fromEntries(
 		results.map(([path, result]) => [
