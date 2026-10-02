@@ -887,10 +887,12 @@ untouched — prod's still holds its older catalog.
 
 ### Phase 7 — remove the gist backend
 
-**Done in two steps.** 7a (#239) deleted what talked to the Gist API and
-stopped asking for its scope; 7b renamed what was still *called* gist but
-already read repositories, with no behaviour change. The phase sections above
-and the stage notes in `docs/MCP_SERVER_PLAN.md` use the old names:
+**Done in three steps.** 7a (#239) deleted what talked to the Gist API and
+stopped asking for its scope; 7b (#241) renamed what was still *called* gist but
+already read repositories, with no behaviour change; 7c (#242) dropped the
+gist-shaped `{ files: … }` payload from the parsers and writers. The phase
+sections above and the stage notes in `docs/MCP_SERVER_PLAN.md` use the old
+names:
 
 | Before | After |
 |---|---|
