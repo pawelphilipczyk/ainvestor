@@ -1,6 +1,6 @@
 import { fetchCatalog } from '../../app/features/catalog/lib.ts'
 import { CURRENCIES } from '../../app/lib/currencies.ts'
-import { type EtfEntry, updateEtfs } from '../../app/lib/gist.ts'
+import { type EtfEntry, updateEtfs } from '../../app/lib/etfs.ts'
 import { totalHoldingsValueForShareBars } from '../../app/lib/portfolio-holdings-share.ts'
 import type {
 	PortfolioOperationBlocker,
@@ -16,7 +16,7 @@ import {
 } from '../../app/lib/store/commit-message.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resolveDataRepo } from '../data-repo.ts'
-import { fetchEtfsCached, invalidateEtfsCache } from '../private-gist-cache.ts'
+import { fetchEtfsCached, invalidateEtfsCache } from '../private-data-cache.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
 import { readStringArgument } from './tool-arguments.ts'

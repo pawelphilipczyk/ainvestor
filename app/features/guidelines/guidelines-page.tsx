@@ -57,7 +57,7 @@ export function GuidelinesPage(
 					>
 						<p class="mt-1 text-sm text-muted-foreground">
 							{sessionHasDataRepo(session)
-								? t('guidelines.subtitle.savedGist')
+								? t('guidelines.subtitle.savedRepo')
 								: t('guidelines.subtitle.pending')}
 						</p>
 					</SectionIntroCard>

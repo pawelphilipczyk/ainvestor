@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { Card } from '../../../components/index.ts'
+import type { EtfEntry } from '../../../lib/etfs.ts'
 import { formatValue } from '../../../lib/format.ts'
-import type { EtfEntry } from '../../../lib/gist.ts'
 import { t } from '../../../lib/i18n.ts'
 import {
 	totalHoldingsValueForShareBars,

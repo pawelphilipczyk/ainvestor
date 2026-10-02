@@ -6,8 +6,8 @@ import { createTokenCache } from './token-cache.ts'
 describe('token cache', () => {
 	it('returns what was stored for that token and nothing for another', () => {
 		const cache = createTokenCache<string>(4)
-		cache.set('token-a', 'gist-a')
-		assert.equal(cache.get('token-a'), 'gist-a')
+		cache.set('token-a', 'repo-a')
+		assert.equal(cache.get('token-a'), 'repo-a')
 		assert.equal(cache.get('token-b'), undefined)
 	})
 

@@ -35,6 +35,14 @@ import { isPreview } from '../deployment.ts'
 export const GITHUB_API = 'https://api.github.com'
 export const GITHUB_REQUEST_TIMEOUT_MS = 5_000
 
+/**
+ * File contents keyed by path, the shape every domain parser takes. A missing
+ * file is absent from `files`; `content: null` is a present-but-empty one.
+ */
+export type FilesPayload = {
+	files: Record<string, { content: string | null }>
+}
+
 export type StoredFile = {
 	/** Raw file text, exactly as stored — never parsed here. */
 	content: string
@@ -240,7 +248,7 @@ export class ForeignRepoError extends Error {
  * (`"owner/repo"`), or `null` when no repo by that name exists. A repo that
  * exists without the ownership marker throws {@link ForeignRepoError}.
  *
- * Unlike gist discovery, this never pages a list looking for a match: the
+ * Unlike the gist discovery this replaced, this never pages a list looking for a match: the
  * repo name is fixed and deterministic, so one `GET` on the known
  * `owner/name` either finds it or doesn't.
  */
@@ -431,7 +439,7 @@ export type ReadFilesResult =
 
 /**
  * Reads several files from a data repo — one request per path (parallelized),
- * since the Contents API has no bundled-multi-file response the way a gist
+ * since the Contents API has no bundled-multi-file response (a gist, the old backend, had one)
  * GET does. The first rejected read's status wins if more than one fails.
  */
 export async function readFiles(params: {
@@ -481,7 +489,7 @@ export type WriteFileResult =
 
 /**
  * Writes or deletes one file. `content: null` deletes it (a no-op success if
- * it was already absent, matching the gist backend's convention).
+ * it was already absent, matching the old gist backend's convention).
  *
  * `expectedVersion` picks the write's contract:
  * - **omitted**: reads the file's current `sha` first so the write can succeed

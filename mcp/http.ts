@@ -258,7 +258,7 @@ export async function handleMcpHttpRequest(
 		return protocolError({
 			code: JSON_RPC_ERROR_CODES.invalidRequest,
 			message:
-				'Missing credentials. Send `Authorization: Bearer <GitHub token with the gist and repo scopes>`.',
+				'Missing credentials. Send `Authorization: Bearer <GitHub token with the repo scope>`.',
 			status: 401,
 			headers: { 'WWW-Authenticate': authenticateChallenge(publicOrigin) },
 		})

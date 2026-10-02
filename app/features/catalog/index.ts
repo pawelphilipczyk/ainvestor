@@ -3,11 +3,11 @@ import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
 import { render, renderFragmentToStream } from '../../components/render.ts'
+import type { EtfEntry } from '../../lib/etfs.ts'
 import {
 	requestAcceptsApplicationJson,
 	requestAcceptsFrameSubmitHtml,
 } from '../../lib/frame-submit-request.ts'
-import type { EtfEntry } from '../../lib/gist.ts'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { MULTIPART_MAX_FILE_BYTES } from '../../lib/multipart-upload-limits.ts'

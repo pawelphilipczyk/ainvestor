@@ -3,21 +3,21 @@ import { describe, it } from 'node:test'
 
 import { DEFAULT_ADVICE_MODEL } from '../features/advice/advice-openai.ts'
 import {
-	buildClearPortfolioReviewGistPatch,
+	buildClearPortfolioReviewFilesPatch,
 	PORTFOLIO_REVIEW_FILENAME,
-	parsePortfolioReviewFromGist,
-} from './portfolio-review-gist.ts'
+	parsePortfolioReviewFromFiles,
+} from './portfolio-review-storage.ts'
 
-describe('portfolio-review-gist', () => {
-	it('parsePortfolioReviewFromGist returns null when file is missing', () => {
-		assert.equal(parsePortfolioReviewFromGist({ files: {} }), null)
+describe('portfolio-review-storage', () => {
+	it('parsePortfolioReviewFromFiles returns null when file is missing', () => {
+		assert.equal(parsePortfolioReviewFromFiles({ files: {} }), null)
 	})
 
-	it('parsePortfolioReviewFromGist reads model and advice wrapper', () => {
+	it('parsePortfolioReviewFromFiles reads model and advice wrapper', () => {
 		const advice = {
 			blocks: [{ type: 'paragraph' as const, text: 'Hello review' }],
 		}
-		const stored = parsePortfolioReviewFromGist({
+		const stored = parsePortfolioReviewFromFiles({
 			files: {
 				[PORTFOLIO_REVIEW_FILENAME]: {
 					content: JSON.stringify({
@@ -32,11 +32,11 @@ describe('portfolio-review-gist', () => {
 		assert.deepEqual(stored.advice, advice)
 	})
 
-	it('parsePortfolioReviewFromGist accepts legacy bare AdviceDocument JSON', () => {
+	it('parsePortfolioReviewFromFiles accepts legacy bare AdviceDocument JSON', () => {
 		const advice = {
 			blocks: [{ type: 'paragraph' as const, text: 'Legacy' }],
 		}
-		const stored = parsePortfolioReviewFromGist({
+		const stored = parsePortfolioReviewFromFiles({
 			files: {
 				[PORTFOLIO_REVIEW_FILENAME]: {
 					content: JSON.stringify(advice),
@@ -48,8 +48,8 @@ describe('portfolio-review-gist', () => {
 		assert.deepEqual(stored.advice, advice)
 	})
 
-	it('buildClearPortfolioReviewGistPatch nulls the file', () => {
-		const patch = buildClearPortfolioReviewGistPatch()
+	it('buildClearPortfolioReviewFilesPatch nulls the file', () => {
+		const patch = buildClearPortfolioReviewFilesPatch()
 		assert.equal(patch.files[PORTFOLIO_REVIEW_FILENAME], null)
 	})
 })

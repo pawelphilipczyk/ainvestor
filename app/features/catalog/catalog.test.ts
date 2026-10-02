@@ -45,7 +45,7 @@ async function signInAs(login: string, params: { isAdmin?: boolean } = {}) {
 	const session = await sessionStorage.read(null)
 	session.set('login', login)
 	session.set('token', 'test-token')
-	session.set('dataRepo', 'gist-1')
+	session.set('dataRepo', 'repo-1')
 	session.set('isAdmin', params.isAdmin ?? true)
 	process.env.APPROVED_GITHUB_LOGINS = login
 	const value = await sessionStorage.save(session)

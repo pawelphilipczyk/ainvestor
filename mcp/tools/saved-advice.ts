@@ -2,17 +2,17 @@ import type {
 	AdviceBlock,
 	AdviceDocument,
 } from '../../app/features/advice/advice-document.ts'
-import type { StoredAdviceAnalysis } from '../../app/features/advice/advice-gist.ts'
-import {
-	ADVICE_GIST_FILENAME_BY_MODE,
-	ADVICE_STORAGE_FILENAME,
-	fetchStoredAdviceAnalysisOutcomeForTab,
-} from '../../app/features/advice/advice-gist.ts'
 import type { AdviceAnalysisMode } from '../../app/features/advice/advice-openai.ts'
 import {
 	ADVICE_ANALYSIS_MODES,
 	normalizeAdviceAnalysisTab,
 } from '../../app/features/advice/advice-openai.ts'
+import type { StoredAdviceAnalysis } from '../../app/features/advice/advice-storage.ts'
+import {
+	ADVICE_FILENAME_BY_MODE,
+	ADVICE_STORAGE_FILENAME,
+	fetchStoredAdviceAnalysisOutcomeForTab,
+} from '../../app/features/advice/advice-storage.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resolveDataRepo } from '../data-repo.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
@@ -194,8 +194,8 @@ export function blockedSavedAdvice(params: {
 		blocker: 'malformed',
 		reason:
 			outcome.file === 'mode'
-				? `The saved ${describeMode(mode)} analysis (${ADVICE_GIST_FILENAME_BY_MODE[mode]} in the data repo) is not in the format this app stores, so nothing can be read from it. ${REGENERATE}`
-				: `No ${ADVICE_GIST_FILENAME_BY_MODE[mode]} is stored, and the legacy ${ADVICE_STORAGE_FILENAME}, which holds whichever mode was saved last, is not in the format this app stores. It may or may not be the ${describeMode(mode)} analysis. ${REGENERATE}`,
+				? `The saved ${describeMode(mode)} analysis (${ADVICE_FILENAME_BY_MODE[mode]} in the data repo) is not in the format this app stores, so nothing can be read from it. ${REGENERATE}`
+				: `No ${ADVICE_FILENAME_BY_MODE[mode]} is stored, and the legacy ${ADVICE_STORAGE_FILENAME}, which holds whichever mode was saved last, is not in the format this app stores. It may or may not be the ${describeMode(mode)} analysis. ${REGENERATE}`,
 	}
 }
 

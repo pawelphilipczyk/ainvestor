@@ -27,7 +27,7 @@ import { createImportCatalogFromBankFileTool } from './catalog-import.ts'
 
 const credentials: DataRepoCredentials = {
 	githubToken: 'owner-token',
-	dataRepo: 'pinned-gist',
+	dataRepo: 'pinned-repo',
 }
 
 function entry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {

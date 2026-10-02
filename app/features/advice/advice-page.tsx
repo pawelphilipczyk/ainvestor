@@ -70,8 +70,8 @@ type AdvicePageProps = {
 	/** Selected tab from `?tab=` (defaults to buy_next). */
 	activeTab?: AdviceAnalysisMode
 	pendingApproval?: boolean
-	/** Guest or signed-in user without a private gist — forms disabled; explain sign-in / Portfolio. */
-	adviceGistGate?: 'sign_in' | 'connect_gist'
+	/** Guest or signed-in user without a data repository — forms disabled; explain sign-in / Portfolio. */
+	adviceStorageGate?: 'sign_in' | 'connect_repo'
 	/** Fragment URL the `advice-result` Frame loads/reloads for the active tab — always rendered, even with no result yet. */
 	adviceResultFrameSrc: string
 	/** Fragment URL for each mode, so switching tabs client-side can point the frame at the other one. */
@@ -82,16 +82,16 @@ type AdvicePageProps = {
 type AdviceAccessBanner =
 	| 'none'
 	| 'pending_approval'
-	| 'sign_in_for_gist'
-	| 'connect_gist'
+	| 'sign_in_for_repo'
+	| 'connect_repo'
 
 function adviceAccessBannerFromProps(props: {
 	pendingApproval?: boolean
-	adviceGistGate?: 'sign_in' | 'connect_gist'
+	adviceStorageGate?: 'sign_in' | 'connect_repo'
 }): AdviceAccessBanner {
 	if (props.pendingApproval === true) return 'pending_approval'
-	if (props.adviceGistGate === 'sign_in') return 'sign_in_for_gist'
-	if (props.adviceGistGate === 'connect_gist') return 'connect_gist'
+	if (props.adviceStorageGate === 'sign_in') return 'sign_in_for_repo'
+	if (props.adviceStorageGate === 'connect_repo') return 'connect_repo'
 	return 'none'
 }
 
@@ -537,11 +537,11 @@ export type AdviceResultCardProps = {
 	cashAmount?: string
 	cashCurrency?: string
 	catalog?: CatalogEntry[]
-	adviceFromGist?: boolean
-	adviceGistSavedAt?: string
-	adviceGistPersistFailed?: boolean
+	adviceFromStorage?: boolean
+	adviceStorageSavedAt?: string
+	adviceStoragePersistFailed?: boolean
 	pendingApproval?: boolean
-	adviceGistGate?: 'sign_in' | 'connect_gist'
+	adviceStorageGate?: 'sign_in' | 'connect_repo'
 }
 
 function adviceResultCardView(props: AdviceResultCardProps) {
@@ -549,10 +549,10 @@ function adviceResultCardView(props: AdviceResultCardProps) {
 	const resultMode =
 		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
 	const pendingApproval = props.pendingApproval === true
-	const adviceGistGate = props.adviceGistGate
+	const adviceStorageGate = props.adviceStorageGate
 	return (
 		<Card class="min-w-0 p-4" aria-live="polite">
-			{props.adviceGistPersistFailed === true ? (
+			{props.adviceStoragePersistFailed === true ? (
 				<p
 					class="mb-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-card-foreground"
 					role="status"
@@ -560,15 +560,15 @@ function adviceResultCardView(props: AdviceResultCardProps) {
 					{t('advice.persistFailed.notice')}
 				</p>
 			) : null}
-			{props.adviceFromGist === true &&
-			props.adviceGistSavedAt !== undefined &&
-			props.adviceGistSavedAt.length > 0 ? (
+			{props.adviceFromStorage === true &&
+			props.adviceStorageSavedAt !== undefined &&
+			props.adviceStorageSavedAt.length > 0 ? (
 				<p
 					class="mb-3 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-xs text-muted-foreground"
 					role="status"
 				>
-					{format(t('advice.restore.fromGistNotice'), {
-						savedAt: props.adviceGistSavedAt,
+					{format(t('advice.restore.fromRepoNotice'), {
+						savedAt: props.adviceStorageSavedAt,
 					})}
 				</p>
 			) : null}
@@ -599,7 +599,7 @@ function adviceResultCardView(props: AdviceResultCardProps) {
 					<input type="hidden" name="adviceIntent" value="clear" />
 					<button
 						type="submit"
-						disabled={pendingApproval || adviceGistGate !== undefined}
+						disabled={pendingApproval || adviceStorageGate !== undefined}
 						class="inline-flex h-9 min-h-9 items-center justify-center rounded-md border border-border bg-background px-3 text-xs font-medium text-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
 					>
 						{t('advice.portfolioReview.clearStored')}
@@ -610,7 +610,8 @@ function adviceResultCardView(props: AdviceResultCardProps) {
 				{props.advice.blocks.map((block, i) => (
 					<div key={`${block.type}-${i}`}>
 						{renderAdviceBlock(block, cashCurrency, i, {
-							pendingApproval: pendingApproval || adviceGistGate !== undefined,
+							pendingApproval:
+								pendingApproval || adviceStorageGate !== undefined,
 							catalog: props.catalog,
 						})}
 					</div>
@@ -794,39 +795,39 @@ export function AdvicePage(handle: Handle<AdvicePageProps>) {
 							{t('advice.pending.afterPath')}
 						</p>
 					</div>
-				) : accessBanner === 'sign_in_for_gist' ? (
+				) : accessBanner === 'sign_in_for_repo' ? (
 					<div
 						role="status"
 						class="rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-card-foreground"
 					>
-						<p class="font-medium">{t('advice.requiresGist.title')}</p>
+						<p class="font-medium">{t('advice.requiresRepo.title')}</p>
 						<p class="mt-1 text-muted-foreground">
-							{t('advice.requiresGist.bodySignIn')}
+							{t('advice.requiresRepo.bodySignIn')}
 						</p>
 						<p class="mt-3">
 							<Link
 								href={routes.auth.login.href()}
 								class="font-medium text-primary underline-offset-4 hover:underline"
 							>
-								{t('advice.requiresGist.linkSignIn')}
+								{t('advice.requiresRepo.linkSignIn')}
 							</Link>
 						</p>
 					</div>
-				) : accessBanner === 'connect_gist' ? (
+				) : accessBanner === 'connect_repo' ? (
 					<div
 						role="status"
 						class="rounded-md border border-border bg-muted/40 px-4 py-3 text-sm text-card-foreground"
 					>
-						<p class="font-medium">{t('advice.requiresGist.title')}</p>
+						<p class="font-medium">{t('advice.requiresRepo.title')}</p>
 						<p class="mt-1 text-muted-foreground">
-							{t('advice.requiresGist.bodyConnectGist')}
+							{t('advice.requiresRepo.bodyConnectRepo')}
 						</p>
 						<p class="mt-3">
 							<Link
 								href={routes.portfolio.index.href()}
 								class="font-medium text-primary underline-offset-4 hover:underline"
 							>
-								{t('advice.requiresGist.linkPortfolio')}
+								{t('advice.requiresRepo.linkPortfolio')}
 							</Link>
 						</p>
 					</div>

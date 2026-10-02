@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
-import { setPrivateGistTestStore } from '../../lib/private-gist-test-store.ts'
+import { setPrivateDataTestStore } from '../../lib/private-data-test-store.ts'
 import { sessionCookie, sessionStorage } from '../../lib/session.ts'
 import {
 	resetTestSessionCookieJar,
@@ -18,12 +18,12 @@ import {
 } from '../catalog/lib.ts'
 import type { AdviceClient } from './advice-client.ts'
 import {
-	getAdviceGistLastSavedInTest,
-	resetAdviceGistTestOverlay,
+	getAdviceStorageLastSavedInTest,
+	resetAdviceStorageTestOverlay,
 	type StoredAdviceAnalysis,
-	setAdviceGistTestOverlay,
-	setAdviceGistTestSaveShouldFail,
-} from './advice-gist.ts'
+	setAdviceStorageTestOverlay,
+	setAdviceStorageTestSaveShouldFail,
+} from './advice-storage.ts'
 import { adviceTabHref, setAdviceClient } from './index.ts'
 
 type AdviceCompletionCreateParams = Parameters<
@@ -41,7 +41,7 @@ function seedSharedCatalog(bankJson: string): void {
 	})
 }
 
-async function signInWithGist(login = 'advice-test-user') {
+async function signInWithDataRepo(login = 'advice-test-user') {
 	process.env.APPROVED_GITHUB_LOGINS = login
 	const session = await sessionStorage.read(null)
 	session.set('login', login)
@@ -51,7 +51,7 @@ async function signInWithGist(login = 'advice-test-user') {
 	if (value == null) throw new Error('expected session save value')
 	const cookieHeader = await sessionCookie.serialize(value)
 	// Avoid real GitHub fetches: fetchEtfs throws on non-2xx unless overlay supplies data.
-	setPrivateGistTestStore({ etfs: [], guidelines: [] })
+	setPrivateDataTestStore({ etfs: [], guidelines: [] })
 	// The same for the private catalog repo, unless this test seeded a catalog.
 	ensureSharedCatalogForTests()
 	const cookie = cookieHeader.split(';')[0] ?? ''
@@ -89,8 +89,8 @@ function makeMockClient(responseText: string): AdviceClient {
 afterEach(() => {
 	resetTestSessionCookieJar()
 	resetSharedCatalogForTests()
-	resetAdviceGistTestOverlay()
-	setPrivateGistTestStore(null)
+	resetAdviceStorageTestOverlay()
+	setPrivateDataTestStore(null)
 	setAdviceClient(null)
 	if (originalApprovedGithubLogins === undefined) {
 		delete process.env.APPROVED_GITHUB_LOGINS
@@ -101,7 +101,7 @@ afterEach(() => {
 
 describe('Advice', () => {
 	it('GET /advice renders the Get Advice form page', async () => {
-		await signInWithGist()
+		await signInWithDataRepo()
 		const response = await testSessionFetch('http://localhost/advice')
 		const body = await response.text()
 
@@ -189,7 +189,7 @@ describe('Advice', () => {
 	})
 
 	it('returns 400 with AdvicePage HTML when buy_next has empty cashAmount', async () => {
-		await signInWithGist()
+		await signInWithDataRepo()
 		setAdviceClient(makeMockClient('irrelevant'))
 
 		const form = new FormData()
@@ -210,7 +210,7 @@ describe('Advice', () => {
 	})
 
 	it('returns 200 for portfolio_review without cashAmount', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		setAdviceClient(makeMockClient('Concentrated in equities; consider bonds.'))
 
 		const form = new FormData()
@@ -231,10 +231,10 @@ describe('Advice', () => {
 		assert.match(body, /Concentrated in equities/)
 	})
 
-	it('includes current ETF holdings in the advice prompt for gist-backed sessions', async () => {
-		const cookie = await signInWithGist()
+	it('includes current ETF holdings in the advice prompt for repo-backed sessions', async () => {
+		const cookie = await signInWithDataRepo()
 		let capturedUserMessage = ''
-		setPrivateGistTestStore({
+		setPrivateDataTestStore({
 			etfs: [
 				{
 					id: 'h1',
@@ -282,10 +282,10 @@ describe('Advice', () => {
 		assert.match(capturedUserMessage, /Allocation context/)
 	})
 
-	it('passes guidelines into the advice prompt when they exist (gist-backed)', async () => {
-		const cookie = await signInWithGist()
+	it('passes guidelines into the advice prompt when they exist (repo-backed)', async () => {
+		const cookie = await signInWithDataRepo()
 		let capturedUserMessage = ''
-		setPrivateGistTestStore({
+		setPrivateDataTestStore({
 			etfs: [],
 			guidelines: [
 				{
@@ -331,11 +331,11 @@ describe('Advice', () => {
 	})
 
 	// Distinct from the pending-approval 403 above: this login IS approved and
-	// holds a token, but its session carries no gist to read or write.
+	// holds a token, but its session carries no data repository to read or write.
 	it('POST /advice returns 403 for an approved session with no data repo', async () => {
-		process.env.APPROVED_GITHUB_LOGINS = 'no-gist-user'
+		process.env.APPROVED_GITHUB_LOGINS = 'no-repo-user'
 		const session = await sessionStorage.read(null)
-		session.set('login', 'no-gist-user')
+		session.set('login', 'no-repo-user')
 		session.set('token', 'test-token')
 		const value = await sessionStorage.save(session)
 		if (value == null) throw new Error('expected session save value')
@@ -344,7 +344,9 @@ describe('Advice', () => {
 			chat: {
 				completions: {
 					create: async () => {
-						throw new Error('advice client must not run without a gist')
+						throw new Error(
+							'advice client must not run without a data repository',
+						)
 					},
 				},
 			},
@@ -372,7 +374,7 @@ describe('Advice', () => {
 	})
 
 	it('returns 503 with AdvicePage HTML when the advice client throws', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		setAdviceClient({
 			chat: {
 				completions: {
@@ -412,7 +414,7 @@ describe('Advice', () => {
 		delete process.env.OPENAI_API_KEY
 
 		try {
-			const cookie = await signInWithGist()
+			const cookie = await signInWithDataRepo()
 			const form = new FormData()
 			form.set('cashAmount', '100')
 			form.set('analysisMode', 'buy_next')
@@ -445,8 +447,8 @@ describe('Advice', () => {
 	})
 
 	it('returns advice HTML from the LLM when cashAmount is provided', async () => {
-		const cookie = await signInWithGist()
-		setAdviceGistTestOverlay(null)
+		const cookie = await signInWithDataRepo()
+		setAdviceStorageTestOverlay(null)
 		setAdviceClient(makeMockClient('Buy VTI for broad market exposure.'))
 
 		const form = new FormData()
@@ -465,18 +467,18 @@ describe('Advice', () => {
 		assert.equal(response.status, 200)
 		assert.match(body, /Investment Advice/)
 		assert.match(body, /Buy VTI for broad market exposure\./)
-		const saved = getAdviceGistLastSavedInTest()
+		const saved = getAdviceStorageLastSavedInTest()
 		assert.ok(saved)
 		assert.equal(saved?.lastAnalysisMode, 'buy_next')
 		assert.equal(saved?.cashAmount, '1000')
 		assert.equal(saved?.document.blocks[0]?.type, 'paragraph')
 	})
 
-	it('POST /advice still returns analysis HTML with a not-saved notice when gist save fails', async () => {
-		const cookie = await signInWithGist()
-		setAdviceGistTestOverlay(null)
-		setAdviceGistTestSaveShouldFail(true)
-		setAdviceClient(makeMockClient('Shown despite gist save failure.'))
+	it('POST /advice still returns analysis HTML with a not-saved notice when the repository save fails', async () => {
+		const cookie = await signInWithDataRepo()
+		setAdviceStorageTestOverlay(null)
+		setAdviceStorageTestSaveShouldFail(true)
+		setAdviceClient(makeMockClient('Shown despite repository save failure.'))
 
 		const form = new FormData()
 		form.set('cashAmount', '1000')
@@ -492,12 +494,12 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /Shown despite gist save failure\./)
+		assert.match(body, /Shown despite repository save failure\./)
 		assert.match(body, /Could not save this analysis\. The result below/)
 	})
 
-	it('GET /advice shows last analysis from gist when tab matches snapshot', async () => {
-		const cookie = await signInWithGist()
+	it('GET /advice shows last analysis from the repository when tab matches snapshot', async () => {
+		const cookie = await signInWithDataRepo()
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -520,10 +522,10 @@ describe('Advice', () => {
 			selectedModel: 'gpt-5.6-sol',
 			activeTab: 'buy_next',
 			document: {
-				blocks: [{ type: 'paragraph', text: 'Cached gist paragraph.' }],
+				blocks: [{ type: 'paragraph', text: 'Cached stored paragraph.' }],
 			},
 		}
-		setAdviceGistTestOverlay(stored)
+		setAdviceStorageTestOverlay(stored)
 
 		const response = await testSessionFetch(
 			`http://localhost${adviceTabHref('buy_next')}`,
@@ -532,14 +534,14 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /Cached gist paragraph\./)
+		assert.match(body, /Cached stored paragraph\./)
 		assert.match(body, /Showing your last saved analysis \(saved/)
 		assert.match(body, /"name":"advice-result"/)
 		assert.match(body, /\/fragments\/advice-result\?tab=buy_next/)
 	})
 
-	it('GET /advice/fragments/advice-result returns HTML for stored gist advice when tab matches', async () => {
-		const cookie = await signInWithGist()
+	it('GET /advice/fragments/advice-result returns HTML for stored advice when tab matches', async () => {
+		const cookie = await signInWithDataRepo()
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -565,7 +567,7 @@ describe('Advice', () => {
 				blocks: [{ type: 'paragraph', text: 'Fragment-only paragraph.' }],
 			},
 		}
-		setAdviceGistTestOverlay(stored)
+		setAdviceStorageTestOverlay(stored)
 
 		const url = `${routes.advice.fragmentResult.href()}?tab=buy_next`
 		const response = await testSessionFetch(`http://localhost${url}`, {
@@ -580,8 +582,8 @@ describe('Advice', () => {
 	})
 
 	it('GET /advice/fragments/advice-result returns 200 with just the form when there is no result for the tab', async () => {
-		const cookie = await signInWithGist()
-		setAdviceGistTestOverlay(null)
+		const cookie = await signInWithDataRepo()
+		setAdviceStorageTestOverlay(null)
 
 		const url = `${routes.advice.fragmentResult.href()}?tab=buy_next`
 		const response = await testSessionFetch(`http://localhost${url}`, {
@@ -598,9 +600,9 @@ describe('Advice', () => {
 		assert.doesNotMatch(body, /<html\b/i)
 	})
 
-	it('GET /advice does not show gist snapshot when URL tab differs from snapshot tab', async () => {
-		const cookie = await signInWithGist()
-		setAdviceGistTestOverlay({
+	it('GET /advice does not show the saved snapshot when URL tab differs from snapshot tab', async () => {
+		const cookie = await signInWithDataRepo()
+		setAdviceStorageTestOverlay({
 			version: 1,
 			savedAt: Date.now(),
 			lastAnalysisMode: 'buy_next',
@@ -624,7 +626,7 @@ describe('Advice', () => {
 	})
 
 	it('renders capital_snapshot and guideline_bars when the model returns them', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -692,7 +694,7 @@ describe('Advice', () => {
 	})
 
 	it('renders guideline_bars with default heading when caption is omitted', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -752,7 +754,7 @@ describe('Advice', () => {
 	})
 
 	it('renders guideline_bars default heading when caption is only whitespace', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -810,7 +812,7 @@ describe('Advice', () => {
 	})
 
 	it('shows a fallback when capital_snapshot segments fail UI validation', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -854,7 +856,7 @@ describe('Advice', () => {
 	})
 
 	it('renders an ETF proposals table when the model returns etf_proposals blocks', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		setAdviceClient(
 			makeMockClient(
 				JSON.stringify({
@@ -908,7 +910,7 @@ describe('Advice', () => {
 	})
 
 	it('passes the selected advice model to the OpenAI client', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		let capturedModel = ''
 		setAdviceClient({
 			chat: {
@@ -941,7 +943,7 @@ describe('Advice', () => {
 	})
 
 	it('labels the model select in the request locale, not the import-time default', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 
 		const localeCookie = (await uiLocaleCookie.serialize('pl')).split(';')[0]
 		// The jar overrides a request's own Cookie header, so both cookies have
@@ -957,7 +959,7 @@ describe('Advice', () => {
 	})
 
 	it('renders catalog ETF href on fund name when etf_proposals include catalogEntryId', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -1015,7 +1017,7 @@ describe('Advice', () => {
 	})
 
 	it('renders catalog ETF href on fund name from ticker match when catalogEntryId is absent', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		seedSharedCatalog(
 			JSON.stringify({
 				data: [
@@ -1072,7 +1074,7 @@ describe('Advice', () => {
 	})
 
 	it('buy-next and portfolio-review forms use native data-rmx-target for Frame-based result reload', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		const response = await testSessionFetch(adviceUrl('buy_next'), {
 			headers: { Cookie: cookie },
 		})
@@ -1087,7 +1089,7 @@ describe('Advice', () => {
 	})
 
 	it('advice-result Frame is always present, even before any analysis exists', async () => {
-		await signInWithGist()
+		await signInWithDataRepo()
 		const response = await testSessionFetch('http://localhost/advice')
 		const body = await response.text()
 
@@ -1097,7 +1099,7 @@ describe('Advice', () => {
 	})
 
 	it('POST /advice run success with Accept: text/html returns the small result fragment', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		setAdviceClient(makeMockClient('Buy VTI for broad market exposure.'))
 
 		const form = new FormData()
@@ -1122,7 +1124,7 @@ describe('Advice', () => {
 	})
 
 	it('POST /advice run failure with Accept: text/html remaps 503 to 200 and renders the error fragment', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		setAdviceClient({
 			chat: {
 				completions: {
@@ -1161,7 +1163,7 @@ describe('Advice', () => {
 	})
 
 	it('POST /advice validation failure with Accept: text/html renders the error fragment, not the full page', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 		setAdviceClient(makeMockClient('irrelevant'))
 
 		const form = new FormData()
@@ -1184,7 +1186,7 @@ describe('Advice', () => {
 	})
 
 	it('POST /advice clear with Accept: text/html returns 200 with the form and no result', async () => {
-		const cookie = await signInWithGist()
+		const cookie = await signInWithDataRepo()
 
 		const clearForm = new FormData()
 		clearForm.set('analysisMode', 'portfolio_review')

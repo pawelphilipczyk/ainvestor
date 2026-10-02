@@ -13,14 +13,14 @@ import {
 import type { CatalogEntry } from '../../app/features/catalog/lib.ts'
 import { fetchCatalog } from '../../app/features/catalog/lib.ts'
 import { CURRENCIES } from '../../app/lib/currencies.ts'
-import type { EtfEntry } from '../../app/lib/gist.ts'
+import type { EtfEntry } from '../../app/lib/etfs.ts'
 import type { EtfGuideline, EtfType } from '../../app/lib/guidelines.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resolveDataRepo } from '../data-repo.ts'
 import {
 	fetchEtfsCached,
 	fetchGuidelinesOrThrowCached,
-} from '../private-gist-cache.ts'
+} from '../private-data-cache.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { summarizePortfolio } from './portfolio.ts'
 import { roundToTwoDecimals } from './rounding.ts'

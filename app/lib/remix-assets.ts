@@ -96,7 +96,7 @@ function assetSourcePath(relativePath: string): string {
  * `allowFiles` is the security boundary, and it is deliberately narrow now
  * that TypeScript is served: the `.component.` infix and the `lib/browser/`
  * directory are what separate a browser module from a server-only one, not the
- * file extension. `app/**\/*.ts` would expose `session.ts`, `gist.ts` and every
+ * file extension. `app/**\/*.ts` would expose `session.ts`, `etfs.ts` and every
  * other server module; `app/lib/*.js` (which this replaced) would have served
  * any stray `.js` later dropped into `app/lib`. Anything reachable here is
  * public — check that before widening a glob, and see

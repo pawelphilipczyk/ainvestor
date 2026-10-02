@@ -32,8 +32,8 @@ backlog just feeds the overlap backlog.
 Running the suite with `fetch` to `api.github.com` intercepted shows
 `app/features/advice/advice.test.ts` sending about 26 real requests per run, to
 `octocat/ainvestor-data/contents/advice-*.json`: the saved-advice read goes past
-the in-process overlay (`setPrivateGistTestStore` covers holdings and
-guidelines, and `advice-gist.ts`'s own `gistTestState` is not enabled by those
+the in-process overlay (`setPrivateDataTestStore` covers holdings and
+guidelines, and `advice-storage.ts`'s own `storageTestState` is not enabled by those
 tests). They pass only because GitHub answers 401/404 for the fake token, which
 the page treats as "nothing saved" — so the tests depend on the network and on
 GitHub's answer, and a slow or offline run changes their timing. Found while
@@ -41,7 +41,7 @@ storage Phase 6 stopped the catalog doing the same (it now defaults route tests
 to an empty test catalog via `ensureSharedCatalogForTests`).
 
 **Suggested action:** enable the advice overlay (or install a fake data repo)
-in `signInWithGist`, and add a suite-wide guard in the test setup that fails a
+in `signInWithDataRepo`, and add a suite-wide guard in the test setup that fails a
 test reaching the real GitHub API.
 
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
@@ -99,29 +99,29 @@ through `getInvestmentAdvice`, and assert the result falls back to
 `{ type: 'paragraph', text: <the raw JSON string> }` rather than throwing or
 silently accepting the invalid structure.
 
-### GAP-024 — the unauthenticated `adviceGistGate: 'sign_in'` banner is never reached by any test
+### GAP-024 — the unauthenticated `adviceStorageGate: 'sign_in'` banner is never reached by any test
 **Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
 
-`app/features/advice/index.ts:328-337` (`adviceGistGateProps`) returns
-`{ adviceGistGate: 'sign_in' }` when there is no session cookie at all — this
+`app/features/advice/index.ts:328-337` (`adviceStorageGateProps`) returns
+`{ adviceStorageGate: 'sign_in' }` when there is no session cookie at all — this
 is the plain signed-out path, not guest mode (guest mode is confirmed fully
 removed per `docs/STORAGE_MIGRATION_PLAN.md`, Phase 0). `advice-page.tsx:797-814`
-renders this as a distinct banner (`t('advice.requiresGist.title')`/`bodySignIn`/
+renders this as a distinct banner (`t('advice.requiresRepo.title')`/`bodySignIn`/
 `linkSignIn` → `routes.auth.login.href()`). Every one of the 28 requests in
-`advice.test.ts` signs in first via `signInWithGist()` or a pre-seeded cookie
+`advice.test.ts` signs in first via `signInWithDataRepo()` or a pre-seeded cookie
 jar — none hits `/advice` with zero session, so this banner's copy and link
 are never rendered in any test.
 
-The sibling `'connect_gist'` banner (signed in, no gist) *is* reached
+The sibling `'connect_repo'` banner (signed in, no gist) *is* reached
 (`advice.test.ts:333-365`), but that test only asserts the unrelated
 form-level error string (`/private GitHub gist/`), never the banner's own
-copy (`bodyConnectGist`/`linkPortfolio`) — a softer, secondary gap.
+copy (`bodyConnectRepo`/`linkPortfolio`) — a softer, secondary gap.
 
 **Triage:** genuine gap, user-visible (the copy every signed-out visitor to
 `/advice` sees). A `GET /advice` request with no session cookie, asserting
-`t('advice.requiresGist.title')`/`bodySignIn`/the sign-in link href appear in
+`t('advice.requiresRepo.title')`/`bodySignIn`/the sign-in link href appear in
 the body. Optionally extend the existing `:333` test with an assertion on
-`bodyConnectGist`/`linkPortfolio` in the same pass, rather than adding a
+`bodyConnectRepo`/`linkPortfolio` in the same pass, rather than adding a
 second test for that half.
 
 ### GAP-001 — session flash messages

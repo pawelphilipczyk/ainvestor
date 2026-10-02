@@ -1,5 +1,5 @@
 /**
- * GitHub usernames allowed to use gist-backed features and AI advice.
+ * GitHub usernames allowed to use repo-backed features and AI advice.
  *
  * Matching is case-insensitive. When this list is **empty**, no one is allowed
  * until you add at least one login here (or set comma-separated

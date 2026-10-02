@@ -4,10 +4,11 @@ import type { EtfType } from './etf-type.ts'
 import { ETF_TYPES, GUIDELINE_ETF_TYPES } from './etf-type.ts'
 import { t } from './i18n.ts'
 import {
-	putPrivateGistTestGuidelines,
-	takePrivateGistTestGuidelines,
-} from './private-gist-test-store.ts'
+	putPrivateDataTestGuidelines,
+	takePrivateDataTestGuidelines,
+} from './private-data-test-store.ts'
 import {
+	type FilesPayload,
 	isVersionConflict,
 	readFile,
 	writeFile,
@@ -137,7 +138,7 @@ export function isGuidelineEtfType(value: unknown): value is EtfType {
 	)
 }
 
-/** Normalize gist JSON rows (legacy rows omit `kind` → instrument). */
+/** Normalize stored JSON rows (legacy rows omit `kind` → instrument). */
 export function normalizeGuideline(raw: unknown): EtfGuideline | null {
 	if (!raw || typeof raw !== 'object') return null
 	const rawRecord = raw as Record<string, unknown>
@@ -168,17 +169,11 @@ export function normalizeGuideline(raw: unknown): EtfGuideline | null {
 	}
 }
 
-type GistFile = {
-	content: string | null
-}
-
-type GistPayload = {
-	files: Record<string, GistFile>
-}
-
-/** Parse guidelines from a raw GitHub Gist API response object. */
-export function parseGuidelinesFromGist(gist: GistPayload): EtfGuideline[] {
-	const file = gist.files[GUIDELINES_FILENAME]
+/** Parse guidelines from the stored files' contents. */
+export function parseGuidelinesFromFiles(
+	payload: FilesPayload,
+): EtfGuideline[] {
+	const file = payload.files[GUIDELINES_FILENAME]
 	if (!file || !file.content) return []
 	try {
 		const parsed = JSON.parse(file.content)
@@ -191,8 +186,8 @@ export function parseGuidelinesFromGist(gist: GistPayload): EtfGuideline[] {
 	}
 }
 
-/** Build a PATCH-ready body to update the guidelines file in a gist. */
-export function buildGuidelinesGistPatch(guidelines: EtfGuideline[]): {
+/** Build a PATCH-ready body to update the guidelines file. */
+export function buildGuidelinesFilesPatch(guidelines: EtfGuideline[]): {
 	files: Record<string, { content: string }>
 } {
 	return {
@@ -204,7 +199,7 @@ export function buildGuidelinesGistPatch(guidelines: EtfGuideline[]): {
 	}
 }
 
-type GuidelinesGistReadResult =
+type GuidelinesReadResult =
 	| {
 			ok: true
 			guidelines: EtfGuideline[]
@@ -213,11 +208,11 @@ type GuidelinesGistReadResult =
 	  }
 	| { ok: false; status: number }
 
-async function readGuidelinesGist(
+async function readGuidelinesFile(
 	token: string,
 	dataRepo: string,
-): Promise<GuidelinesGistReadResult> {
-	const testRows = takePrivateGistTestGuidelines(token, dataRepo)
+): Promise<GuidelinesReadResult> {
+	const testRows = takePrivateDataTestGuidelines(token, dataRepo)
 	if (testRows !== null) {
 		return { ok: true, guidelines: testRows, version: null }
 	}
@@ -229,7 +224,7 @@ async function readGuidelinesGist(
 	if (!result.ok) return { ok: false, status: result.status }
 	return {
 		ok: true,
-		guidelines: parseGuidelinesFromGist({
+		guidelines: parseGuidelinesFromFiles({
 			files: result.file
 				? { [GUIDELINES_FILENAME]: { content: result.file.content } }
 				: {},
@@ -239,10 +234,10 @@ async function readGuidelinesGist(
 }
 
 /**
- * Fetch guidelines from an existing gist by ID, failing loudly when GitHub
+ * Fetch guidelines from the data repository, failing loudly when GitHub
  * rejects the read.
  *
- * Use this wherever an empty list and an unreachable gist must not look alike —
+ * Use this wherever an empty list and an unreachable repository must not look alike —
  * a read-modify-write above all, where mistaking a rejected read for "no
  * guidelines" would save a list that silently drops every existing row.
  */
@@ -250,7 +245,7 @@ export async function fetchGuidelinesOrThrow(
 	token: string,
 	dataRepo: string,
 ): Promise<EtfGuideline[]> {
-	const result = await readGuidelinesGist(token, dataRepo)
+	const result = await readGuidelinesFile(token, dataRepo)
 	if (!result.ok) {
 		throw new Error(`GitHub API error fetching guidelines: ${result.status}`)
 	}
@@ -275,7 +270,7 @@ export function updateGuidelines<TResult>(params: {
 	return readModifyWrite({
 		what: 'the guidelines',
 		read: async () => {
-			const result = await readGuidelinesGist(token, dataRepo)
+			const result = await readGuidelinesFile(token, dataRepo)
 			if (!result.ok) {
 				throw new Error(
 					`GitHub API error fetching guidelines: ${result.status}`,
@@ -285,8 +280,8 @@ export function updateGuidelines<TResult>(params: {
 		},
 		change: params.change,
 		write: async ({ value, version, message }) => {
-			if (putPrivateGistTestGuidelines(token, dataRepo, value)) return
-			const patch = buildGuidelinesGistPatch(value)
+			if (putPrivateDataTestGuidelines(token, dataRepo, value)) return
+			const patch = buildGuidelinesFilesPatch(value)
 			const result = await writeFile({
 				token,
 				location: dataRepo,
@@ -317,6 +312,6 @@ export async function fetchGuidelines(
 	token: string,
 	dataRepo: string,
 ): Promise<EtfGuideline[]> {
-	const result = await readGuidelinesGist(token, dataRepo)
+	const result = await readGuidelinesFile(token, dataRepo)
 	return result.ok ? result.guidelines : []
 }

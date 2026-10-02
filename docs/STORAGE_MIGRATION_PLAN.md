@@ -887,14 +887,27 @@ untouched — prod's still holds its older catalog.
 
 ### Phase 7 — remove the gist backend
 
-**Done in two steps.** 7a (this one) deletes what talked to the Gist API and
-stops asking for its scope; 7b renames what is still *called* gist but already
-reads repositories (`app/lib/gist.ts`, `private-gist-cache.ts`,
-`advice-gist.ts`, `portfolio-review-gist.ts`, `GIST_FILENAME`, the
-`parse…FromGist` helpers and the `Gist` test stores), a rename with no behaviour
-change.
+**Done in two steps.** 7a (#239) deleted what talked to the Gist API and
+stopped asking for its scope; 7b renamed what was still *called* gist but
+already read repositories, with no behaviour change. The phase sections above
+and the stage notes in `docs/MCP_SERVER_PLAN.md` use the old names:
 
-What 7a removed:
+| Before | After |
+|---|---|
+| `app/lib/gist.ts`, `GIST_FILENAME`, `parseEtfsFromGist` | `app/lib/etfs.ts`, `ETFS_FILENAME`, `parseEtfsFromFiles` |
+| `parseGuidelinesFromGist`, `parseCatalogFromGist`, `parsePortfolioReviewFromGist` | `…FromFiles` (one shared `FilesPayload` type from `github-repo-store.ts`) |
+| `build…GistPatch` | `build…FilesPatch` |
+| `app/features/advice/advice-gist.ts`, `ADVICE_GIST_FILENAME_BY_MODE` | `advice-storage.ts`, `ADVICE_FILENAME_BY_MODE` |
+| `app/lib/portfolio-review-gist.ts` | `app/lib/portfolio-review-storage.ts` |
+| `app/lib/private-gist-test-store.ts`, `setPrivateGistTestStore` | `private-data-test-store.ts`, `setPrivateDataTestStore` |
+| `mcp/private-gist-cache.ts`, env `PRIVATE_GIST_CACHE_TTL_MS` | `mcp/private-data-cache.ts`, `PRIVATE_DATA_CACHE_TTL_MS` |
+| `adviceGistGate` / `'connect_gist'`, `adviceFromGist`, locale keys `…Gist…` | `adviceStorageGate` / `'connect_repo'`, `adviceFromStorage`, keys `…Repo…` |
+
+The one place still saying `gist` on purpose is the legacy `gistId` session key
+(`signOutPreCutoverSession`) and its tests, plus the tokens that carry only the
+old `gist` scope.
+
+What 7a removed (#239):
 
 - `app/lib/store/github-store.ts` and its tests — the gist transport. Its shared
   parts (`GITHUB_API`, the timeout, `githubHeaders`, `StoredFile`) moved into

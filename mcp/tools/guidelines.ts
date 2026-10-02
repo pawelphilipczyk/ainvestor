@@ -29,7 +29,7 @@ import { resolveDataRepo } from '../data-repo.ts'
 import {
 	fetchGuidelinesOrThrowCached,
 	invalidateGuidelinesCache,
-} from '../private-gist-cache.ts'
+} from '../private-data-cache.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { roundToTwoDecimals } from './rounding.ts'
 import { readStringArgument } from './tool-arguments.ts'

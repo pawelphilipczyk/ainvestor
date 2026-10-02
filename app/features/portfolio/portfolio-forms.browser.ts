@@ -10,7 +10,7 @@ import {
 	waitForFrameFormSettled,
 } from '../../lib/browser-test.ts'
 import { seedSharedCatalog } from '../../lib/browser-test-fixtures.ts'
-import { setPrivateGistTestStore } from '../../lib/private-gist-test-store.ts'
+import { setPrivateDataTestStore } from '../../lib/private-data-test-store.ts'
 
 /**
  * Browser coverage for the portfolio trade form and CSV import, both
@@ -41,10 +41,10 @@ describe('portfolio forms (browser)', () => {
 		await session.close()
 	})
 
-	// Each page shares one signed-in session and so one private-gist store;
+	// Each page shares one signed-in session and so one private-data store;
 	// reset it per test, or rows added by one leak into the next.
 	beforeEach(() => {
-		setPrivateGistTestStore({ etfs: [], guidelines: [] })
+		setPrivateDataTestStore({ etfs: [], guidelines: [] })
 	})
 
 	async function open(path: string) {

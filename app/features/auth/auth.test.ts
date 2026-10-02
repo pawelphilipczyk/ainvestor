@@ -131,7 +131,7 @@ describe('storage cutover', () => {
 		process.env.APPROVED_GITHUB_LOGINS = 'octocat'
 		const seeded = await sessionStorage.read(null)
 		seeded.set('login', 'octocat')
-		seeded.set('token', 'gist-only-token')
+		seeded.set('token', 'old-scope-token')
 		seeded.set('gistId', 'abc123')
 		const value = await sessionStorage.save(seeded)
 		if (value == null) throw new Error('expected session save value')

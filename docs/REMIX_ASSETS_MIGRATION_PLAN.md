@@ -259,7 +259,7 @@ caught that the first cut of it leaked. `app/lib/*.js` (which would have
 served any stray `.js` later dropped into `app/lib`) is gone, replaced by
 `app/lib/browser/**/*.ts`. What separates a browser module from a server-only
 one is now the `.component.` infix and that one directory — never the file
-extension. `app/router.ts`, `app/lib/session.ts`, `app/lib/gist.ts`,
+extension. `app/router.ts`, `app/lib/session.ts`, `app/lib/etfs.ts`,
 `document-shell.tsx` and `remix-assets.test.ts` all report `not-allowed`.
 
 Two things about that glob are load-bearing, and both are now pinned by tests

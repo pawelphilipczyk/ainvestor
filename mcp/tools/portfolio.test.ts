@@ -6,13 +6,13 @@ import {
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
 } from '../../app/features/catalog/lib.ts'
-import type { EtfEntry } from '../../app/lib/gist.ts'
-import { GIST_FILENAME } from '../../app/lib/gist.ts'
+import type { EtfEntry } from '../../app/lib/etfs.ts'
+import { ETFS_FILENAME } from '../../app/lib/etfs.ts'
 import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
 import { setRetryPauseForTests } from '../../app/lib/store/read-modify-write.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resetDataRepoCache, resolveDataRepo } from '../data-repo.ts'
-import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
+import { resetPrivateDataCacheForTests } from '../private-data-cache.ts'
 import {
 	createGetPortfolioTool,
 	createRecordOperationTool,
@@ -30,9 +30,9 @@ function entry(overrides: Partial<EtfEntry> = {}): EtfEntry {
 }
 
 /** Serve `entries` from a fake data repo, returning every request made to it. */
-function stubGist(entries: EtfEntry[]): string[] {
+function stubDataRepo(entries: EtfEntry[]): string[] {
 	return installFakeDataRepo({
-		files: { [GIST_FILENAME]: JSON.stringify(entries) },
+		files: { [ETFS_FILENAME]: JSON.stringify(entries) },
 	}).requests
 }
 
@@ -49,12 +49,12 @@ function catalogEntry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
 }
 
 /** Serve `entries` from a fake data repo and record the holdings after each write. */
-function stubGistReadWrite(entries: EtfEntry[]): {
+function stubDataRepoReadWrite(entries: EtfEntry[]): {
 	saved: EtfEntry[][]
 	requestedMethods: string[]
 } {
 	const repo = installFakeDataRepo({
-		files: { [GIST_FILENAME]: JSON.stringify(entries) },
+		files: { [ETFS_FILENAME]: JSON.stringify(entries) },
 	})
 	const repoFetch = globalThis.fetch
 	const saved: EtfEntry[][] = []
@@ -65,7 +65,7 @@ function stubGistReadWrite(entries: EtfEntry[]): {
 		const response = await repoFetch(input, init)
 		if (method === 'PUT' && response.ok) {
 			saved.push(
-				JSON.parse(repo.files.get(GIST_FILENAME) ?? '[]') as EtfEntry[],
+				JSON.parse(repo.files.get(ETFS_FILENAME) ?? '[]') as EtfEntry[],
 			)
 		}
 		return response
@@ -81,7 +81,7 @@ const originalFetch = globalThis.fetch
 afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataRepoCache()
-	resetPrivateGistCacheForTests()
+	resetPrivateDataCacheForTests()
 	resetSharedCatalogForTests()
 })
 
@@ -238,14 +238,14 @@ describe('get_portfolio tool', () => {
 	})
 
 	it('get_portfolio reads the pinned repo and returns the summary as JSON text', async () => {
-		const requests = stubGist([entry({ value: 2500 })])
+		const requests = stubDataRepo([entry({ value: 2500 })])
 		const tool = createGetPortfolioTool(config)
 
 		const result = await tool.handler({})
 
 		assert.ok(
 			requests.includes(
-				`GET /repos/octocat/ainvestor-data/contents/${GIST_FILENAME}`,
+				`GET /repos/octocat/ainvestor-data/contents/${ETFS_FILENAME}`,
 			),
 		)
 		assert.equal(result.content.length, 1)
@@ -281,7 +281,7 @@ describe('record_operation tool', () => {
 
 	it('buys against an existing holding, adding to its value', async () => {
 		setSharedCatalogForTests({ entries: [catalogEntry()] })
-		const { saved } = stubGistReadWrite([
+		const { saved } = stubDataRepoReadWrite([
 			entry({ ticker: 'VWCE', value: 1000, currency: 'PLN' }),
 		])
 		const tool = createRecordOperationTool(config)
@@ -307,7 +307,7 @@ describe('record_operation tool', () => {
 
 	it('carries the exchange through in the response, like get_portfolio does', async () => {
 		setSharedCatalogForTests({ entries: [catalogEntry()] })
-		stubGistReadWrite([
+		stubDataRepoReadWrite([
 			entry({
 				ticker: 'VWCE',
 				value: 1000,
@@ -332,7 +332,9 @@ describe('record_operation tool', () => {
 
 	it('accepts a currency with incidental whitespace', async () => {
 		setSharedCatalogForTests({ entries: [catalogEntry()] })
-		stubGistReadWrite([entry({ ticker: 'VWCE', value: 1000, currency: 'PLN' })])
+		stubDataRepoReadWrite([
+			entry({ ticker: 'VWCE', value: 1000, currency: 'PLN' }),
+		])
 		const tool = createRecordOperationTool(config)
 
 		const result = await tool.handler({
@@ -350,7 +352,7 @@ describe('record_operation tool', () => {
 
 	it('buys a ticker with no matching holding, creating a new row', async () => {
 		setSharedCatalogForTests({ entries: [catalogEntry()] })
-		const { saved } = stubGistReadWrite([])
+		const { saved } = stubDataRepoReadWrite([])
 		const tool = createRecordOperationTool(config)
 
 		const result = await tool.handler({
@@ -371,7 +373,7 @@ describe('record_operation tool', () => {
 
 	it('sells part of a holding, leaving the remainder', async () => {
 		setSharedCatalogForTests({ entries: [catalogEntry()] })
-		const { saved } = stubGistReadWrite([
+		const { saved } = stubDataRepoReadWrite([
 			entry({ ticker: 'VWCE', value: 1000, currency: 'PLN' }),
 		])
 		const tool = createRecordOperationTool(config)
@@ -394,7 +396,7 @@ describe('record_operation tool', () => {
 
 	it('sells a holding down to zero, removing the row entirely', async () => {
 		setSharedCatalogForTests({ entries: [catalogEntry()] })
-		const { saved } = stubGistReadWrite([
+		const { saved } = stubDataRepoReadWrite([
 			entry({ ticker: 'VWCE', value: 400, currency: 'PLN' }),
 		])
 		const tool = createRecordOperationTool(config)
@@ -417,7 +419,7 @@ describe('record_operation tool', () => {
 
 	it('refuses a ticker the shared catalog does not list, without writing', async () => {
 		setSharedCatalogForTests({ entries: [] })
-		const { saved, requestedMethods } = stubGistReadWrite([])
+		const { saved, requestedMethods } = stubDataRepoReadWrite([])
 		const tool = createRecordOperationTool(config)
 
 		await assert.rejects(
@@ -439,7 +441,7 @@ describe('record_operation tool', () => {
 
 	it('refuses a sell exceeding the matching holding, without writing', async () => {
 		setSharedCatalogForTests({ entries: [catalogEntry()] })
-		const { saved } = stubGistReadWrite([
+		const { saved } = stubDataRepoReadWrite([
 			entry({ ticker: 'VWCE', value: 100, currency: 'PLN' }),
 		])
 		const tool = createRecordOperationTool(config)
@@ -459,7 +461,7 @@ describe('record_operation tool', () => {
 
 	it('refuses a currency the app does not support', async () => {
 		setSharedCatalogForTests({ entries: [catalogEntry()] })
-		stubGistReadWrite([])
+		stubDataRepoReadWrite([])
 		const tool = createRecordOperationTool(config)
 
 		await assert.rejects(
@@ -478,7 +480,7 @@ describe('record_operation tool', () => {
 describe('commit messages', () => {
 	function repoWith(entries: EtfEntry[]) {
 		return installFakeDataRepo({
-			files: { [GIST_FILENAME]: JSON.stringify(entries) },
+			files: { [ETFS_FILENAME]: JSON.stringify(entries) },
 		})
 	}
 
@@ -528,7 +530,7 @@ describe('concurrent writes', () => {
 		let intruded = false
 		const repo = installFakeDataRepo({
 			files: {
-				[GIST_FILENAME]: JSON.stringify([
+				[ETFS_FILENAME]: JSON.stringify([
 					entry({
 						id: 'mine',
 						name: 'Vanguard FTSE All-World',
@@ -537,11 +539,11 @@ describe('concurrent writes', () => {
 				]),
 			},
 			afterContentRead: (path, fake) => {
-				if (path !== GIST_FILENAME || intruded) return
+				if (path !== ETFS_FILENAME || intruded) return
 				intruded = true
 				// Another client (the web app, say) saves a new holding right now.
 				fake.externalWrite(
-					GIST_FILENAME,
+					ETFS_FILENAME,
 					JSON.stringify([
 						entry({
 							id: 'mine',
@@ -562,7 +564,7 @@ describe('concurrent writes', () => {
 		})
 
 		const stored = JSON.parse(
-			repo.files.get(GIST_FILENAME) ?? '[]',
+			repo.files.get(ETFS_FILENAME) ?? '[]',
 		) as EtfEntry[]
 		assert.deepEqual(stored.map((holding) => holding.id).sort(), [
 			'mine',
@@ -575,16 +577,16 @@ describe('concurrent writes', () => {
 		let intruded = false
 		const repo = installFakeDataRepo({
 			files: {
-				[GIST_FILENAME]: JSON.stringify([
+				[ETFS_FILENAME]: JSON.stringify([
 					entry({ id: 'drop', name: 'Gold ETC' }),
 					entry({ id: 'keep', name: 'Bonds' }),
 				]),
 			},
 			afterContentRead: (path, fake) => {
-				if (path !== GIST_FILENAME || intruded) return
+				if (path !== ETFS_FILENAME || intruded) return
 				intruded = true
 				fake.externalWrite(
-					GIST_FILENAME,
+					ETFS_FILENAME,
 					JSON.stringify([
 						entry({ id: 'drop', name: 'Gold ETC' }),
 						entry({ id: 'keep', name: 'Bonds' }),
@@ -597,7 +599,7 @@ describe('concurrent writes', () => {
 		await createRemoveHoldingTool(config).handler({ id: 'drop' })
 
 		const stored = JSON.parse(
-			repo.files.get(GIST_FILENAME) ?? '[]',
+			repo.files.get(ETFS_FILENAME) ?? '[]',
 		) as EtfEntry[]
 		assert.deepEqual(stored.map((holding) => holding.id).sort(), [
 			'keep',
@@ -609,10 +611,10 @@ describe('concurrent writes', () => {
 		setSharedCatalogForTests({ entries: [catalogEntry()] })
 		const original = JSON.stringify([entry({ ticker: 'VWCE', value: 1000 })])
 		const repo = installFakeDataRepo({
-			files: { [GIST_FILENAME]: original },
+			files: { [ETFS_FILENAME]: original },
 			// Every read is followed by another client saving the same content.
 			afterContentRead: (path, fake) => {
-				if (path === GIST_FILENAME) fake.externalWrite(path, original)
+				if (path === ETFS_FILENAME) fake.externalWrite(path, original)
 			},
 		})
 
@@ -626,13 +628,13 @@ describe('concurrent writes', () => {
 			/changed elsewhere.*nothing was saved.*get_portfolio/s,
 		)
 		assert.deepEqual(repo.commitMessages, [])
-		assert.equal(repo.files.get(GIST_FILENAME), original)
+		assert.equal(repo.files.get(ETFS_FILENAME), original)
 	})
 })
 
 describe('remove_holding tool', () => {
 	it('deletes a holding by id and reports the remaining portfolio', async () => {
-		const { saved } = stubGistReadWrite([
+		const { saved } = stubDataRepoReadWrite([
 			entry({ id: 'keep', value: 500 }),
 			entry({ id: 'drop', value: 300 }),
 		])
@@ -653,7 +655,7 @@ describe('remove_holding tool', () => {
 	})
 
 	it('refuses an unknown id, without writing', async () => {
-		const { saved } = stubGistReadWrite([entry({ id: 'keep' })])
+		const { saved } = stubDataRepoReadWrite([entry({ id: 'keep' })])
 		const tool = createRemoveHoldingTool(config)
 
 		await assert.rejects(

@@ -153,7 +153,7 @@ describe('mcp protocol', () => {
 		const server = newServer([
 			testTool({
 				handler: async () => {
-					throw new Error('gist unreachable')
+					throw new Error('repository unreachable')
 				},
 			}),
 		])
@@ -162,7 +162,7 @@ describe('mcp protocol', () => {
 		)
 		assert.equal(result.isError, true)
 		assert.deepEqual(result.content, [
-			{ type: 'text', text: 'gist unreachable' },
+			{ type: 'text', text: 'repository unreachable' },
 		])
 	})
 

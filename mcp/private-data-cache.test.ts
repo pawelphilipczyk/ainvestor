@@ -1,36 +1,36 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it, mock } from 'node:test'
 
-import { GIST_FILENAME } from '../app/lib/gist.ts'
+import { ETFS_FILENAME } from '../app/lib/etfs.ts'
 import { GUIDELINES_FILENAME } from '../app/lib/guidelines.ts'
 import {
 	fetchEtfsCached,
 	fetchGuidelinesOrThrowCached,
 	invalidateGuidelinesCache,
-	resetPrivateGistCacheForTests,
-} from './private-gist-cache.ts'
+	resetPrivateDataCacheForTests,
+} from './private-data-cache.ts'
 
 const originalFetch = globalThis.fetch
-const originalTtl = process.env.PRIVATE_GIST_CACHE_TTL_MS
+const originalTtl = process.env.PRIVATE_DATA_CACHE_TTL_MS
 
 afterEach(() => {
 	globalThis.fetch = originalFetch
-	resetPrivateGistCacheForTests()
+	resetPrivateDataCacheForTests()
 	mock.timers.reset()
 	if (originalTtl === undefined) {
-		delete process.env.PRIVATE_GIST_CACHE_TTL_MS
+		delete process.env.PRIVATE_DATA_CACHE_TTL_MS
 	} else {
-		process.env.PRIVATE_GIST_CACHE_TTL_MS = originalTtl
+		process.env.PRIVATE_DATA_CACHE_TTL_MS = originalTtl
 	}
 })
 
 /** Serve both files from any data repo's Contents API, counting how many GETs land. */
-function stubGist(params: { holdings: unknown[]; guidelines: unknown[] }): {
+function stubDataRepo(params: { holdings: unknown[]; guidelines: unknown[] }): {
 	count: number
 } {
 	const counter = { count: 0 }
 	const files: Record<string, string> = {
-		[GIST_FILENAME]: JSON.stringify(params.holdings),
+		[ETFS_FILENAME]: JSON.stringify(params.holdings),
 		[GUIDELINES_FILENAME]: JSON.stringify(params.guidelines),
 	}
 	globalThis.fetch = async (input) => {
@@ -50,8 +50,8 @@ function stubGist(params: { holdings: unknown[]; guidelines: unknown[] }): {
 
 describe('fetchEtfsCached', () => {
 	it('hits GitHub once and returns independent clones while the cache entry is valid', async () => {
-		process.env.PRIVATE_GIST_CACHE_TTL_MS = '60000'
-		const counter = stubGist({
+		process.env.PRIVATE_DATA_CACHE_TTL_MS = '60000'
+		const counter = stubDataRepo({
 			holdings: [{ id: 'a', name: 'VWCE', value: 1000, currency: 'PLN' }],
 			guidelines: [],
 		})
@@ -66,8 +66,8 @@ describe('fetchEtfsCached', () => {
 	})
 
 	it('does not cache when the ttl is 0', async () => {
-		process.env.PRIVATE_GIST_CACHE_TTL_MS = '0'
-		const counter = stubGist({
+		process.env.PRIVATE_DATA_CACHE_TTL_MS = '0'
+		const counter = stubDataRepo({
 			holdings: [{ id: 'a', name: 'VWCE', value: 1000, currency: 'PLN' }],
 			guidelines: [],
 		})
@@ -79,9 +79,9 @@ describe('fetchEtfsCached', () => {
 	})
 
 	it('refetches once the ttl has expired', async () => {
-		process.env.PRIVATE_GIST_CACHE_TTL_MS = '60000'
+		process.env.PRIVATE_DATA_CACHE_TTL_MS = '60000'
 		mock.timers.enable({ apis: ['Date'] })
-		const counter = stubGist({
+		const counter = stubDataRepo({
 			holdings: [{ id: 'a', name: 'VWCE', value: 1000, currency: 'PLN' }],
 			guidelines: [],
 		})
@@ -99,8 +99,8 @@ describe('fetchEtfsCached', () => {
 	})
 
 	it('keeps two data repos apart even for the same token', async () => {
-		process.env.PRIVATE_GIST_CACHE_TTL_MS = '60000'
-		const counter = stubGist({
+		process.env.PRIVATE_DATA_CACHE_TTL_MS = '60000'
+		const counter = stubDataRepo({
 			holdings: [{ id: 'a', name: 'VWCE', value: 1000, currency: 'PLN' }],
 			guidelines: [],
 		})
@@ -114,8 +114,8 @@ describe('fetchEtfsCached', () => {
 
 describe('fetchGuidelinesOrThrowCached', () => {
 	it('hits GitHub once while the cache entry is valid', async () => {
-		process.env.PRIVATE_GIST_CACHE_TTL_MS = '60000'
-		const counter = stubGist({
+		process.env.PRIVATE_DATA_CACHE_TTL_MS = '60000'
+		const counter = stubDataRepo({
 			holdings: [],
 			guidelines: [
 				{
@@ -144,8 +144,8 @@ describe('fetchGuidelinesOrThrowCached', () => {
 	})
 
 	it('serves a fresh read right after invalidateGuidelinesCache', async () => {
-		process.env.PRIVATE_GIST_CACHE_TTL_MS = '60000'
-		const counter = stubGist({ holdings: [], guidelines: [] })
+		process.env.PRIVATE_DATA_CACHE_TTL_MS = '60000'
+		const counter = stubDataRepo({ holdings: [], guidelines: [] })
 
 		await fetchGuidelinesOrThrowCached('token', 'octocat/ainvestor-data')
 		assert.equal(counter.count, 1)

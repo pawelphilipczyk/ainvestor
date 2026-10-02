@@ -1,7 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 import type { CatalogEntry } from '../features/catalog/lib.ts'
-import type { EtfEntry } from './gist.ts'
+import type { EtfEntry } from './etfs.ts'
 import {
 	applyPortfolioOperation,
 	normalizePortfolioOperationInput,

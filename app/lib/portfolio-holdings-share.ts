@@ -1,4 +1,4 @@
-import type { EtfEntry } from './gist.ts'
+import type { EtfEntry } from './etfs.ts'
 import { clampGuidelineBarWidthPercent } from './guidelines.ts'
 
 /**

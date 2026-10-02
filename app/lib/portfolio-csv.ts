@@ -1,4 +1,4 @@
-import type { EtfEntry } from './gist.ts'
+import type { EtfEntry } from './etfs.ts'
 
 /**
  * Decode CSV bytes, trying UTF-8 first and falling back to Windows-1250

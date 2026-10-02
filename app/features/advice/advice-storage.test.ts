@@ -1,6 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
+import { DEFAULT_ADVICE_MODEL } from './advice-openai.ts'
 import {
 	ADVICE_BUY_NEXT_STORAGE_FILENAME,
 	ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME,
@@ -10,20 +11,19 @@ import {
 	clearStoredAdviceAnalysisForTab,
 	fetchStoredAdviceAnalysisForTab,
 	fetchStoredAdviceAnalysisOutcomeForTab,
-	parseStoredAdviceAnalysisFromGistFile,
-	resetAdviceGistTestOverlay,
+	parseStoredAdviceAnalysisFromFile,
+	resetAdviceStorageTestOverlay,
 	type StoredAdviceAnalysis,
 	saveStoredAdviceAnalysisForTab,
-	setAdviceGistTestOverlay,
-} from './advice-gist.ts'
-import { DEFAULT_ADVICE_MODEL } from './advice-openai.ts'
+	setAdviceStorageTestOverlay,
+} from './advice-storage.ts'
 
 const originalFetch = globalThis.fetch
 const TOKEN = 'token'
 const REPO = 'octocat/ainvestor-data'
 
 afterEach(() => {
-	resetAdviceGistTestOverlay()
+	resetAdviceStorageTestOverlay()
 	globalThis.fetch = originalFetch
 })
 
@@ -38,14 +38,14 @@ const sampleStoredAnalysis: StoredAdviceAnalysis = {
 	document: { blocks: [{ type: 'paragraph', text: 'Buy VTI.' }] },
 }
 
-describe('advice gist storage', () => {
-	it('parseStoredAdviceAnalysisFromGistFile returns null for empty or invalid JSON', () => {
-		assert.equal(parseStoredAdviceAnalysisFromGistFile(null), null)
-		assert.equal(parseStoredAdviceAnalysisFromGistFile(''), null)
-		assert.equal(parseStoredAdviceAnalysisFromGistFile('not json'), null)
+describe('advice storage', () => {
+	it('parseStoredAdviceAnalysisFromFile returns null for empty or invalid JSON', () => {
+		assert.equal(parseStoredAdviceAnalysisFromFile(null), null)
+		assert.equal(parseStoredAdviceAnalysisFromFile(''), null)
+		assert.equal(parseStoredAdviceAnalysisFromFile('not json'), null)
 	})
 
-	it('parseStoredAdviceAnalysisFromGistFile accepts a minimal valid snapshot', () => {
+	it('parseStoredAdviceAnalysisFromFile accepts a minimal valid snapshot', () => {
 		const raw = JSON.stringify({
 			version: 1,
 			savedAt: 1_700_000_000_000,
@@ -56,13 +56,13 @@ describe('advice gist storage', () => {
 				blocks: [{ type: 'paragraph', text: 'Hello.' }],
 			},
 		})
-		const parsed = parseStoredAdviceAnalysisFromGistFile(raw)
+		const parsed = parseStoredAdviceAnalysisFromFile(raw)
 		assert.ok(parsed)
 		assert.equal(parsed?.lastAnalysisMode, 'portfolio_review')
 		assert.equal(parsed?.document.blocks[0]?.type, 'paragraph')
 	})
 
-	it('parseStoredAdviceAnalysisFromGistFile keeps snapshots saved under a retired model id', () => {
+	it('parseStoredAdviceAnalysisFromFile keeps snapshots saved under a retired model id', () => {
 		const raw = JSON.stringify({
 			version: 1,
 			savedAt: 1_700_000_000_000,
@@ -74,7 +74,7 @@ describe('advice gist storage', () => {
 				blocks: [{ type: 'paragraph', text: 'Old advice.' }],
 			},
 		})
-		const parsed = parseStoredAdviceAnalysisFromGistFile(raw)
+		const parsed = parseStoredAdviceAnalysisFromFile(raw)
 		assert.ok(parsed)
 		assert.equal(parsed?.selectedModel, DEFAULT_ADVICE_MODEL)
 	})
@@ -90,7 +90,7 @@ describe('advice gist storage', () => {
 			activeTab: 'buy_next' as const,
 			document: { blocks: [{ type: 'paragraph' as const, text: 'Buy' }] },
 		}
-		setAdviceGistTestOverlay(buyNextStored)
+		setAdviceStorageTestOverlay(buyNextStored)
 		const forBuy = await fetchStoredAdviceAnalysisForTab('t', 'g', 'buy_next')
 		const forReview = await fetchStoredAdviceAnalysisForTab(
 			't',

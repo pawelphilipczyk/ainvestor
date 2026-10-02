@@ -1,12 +1,12 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { APPROVED_GITHUB_LOGINS } from '../app/lib/approved-github-logins.ts'
-import type { EtfEntry } from '../app/lib/gist.ts'
-import { GIST_FILENAME } from '../app/lib/gist.ts'
+import type { EtfEntry } from '../app/lib/etfs.ts'
+import { ETFS_FILENAME } from '../app/lib/etfs.ts'
 import { resetApprovedCallerCache } from './approved-caller.ts'
 import { resetDataRepoCache } from './data-repo.ts'
 import { handleMcpHttpRequest } from './http.ts'
-import { resetPrivateGistCacheForTests } from './private-gist-cache.ts'
+import { resetPrivateDataCacheForTests } from './private-data-cache.ts'
 import { LATEST_PROTOCOL_VERSION } from './protocol.ts'
 
 const ENDPOINT = 'https://ainvestor.fly.dev/mcp'
@@ -20,7 +20,7 @@ afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataRepoCache()
 	resetApprovedCallerCache()
-	resetPrivateGistCacheForTests()
+	resetPrivateDataCacheForTests()
 	if (originalDataRepo === undefined) delete process.env.AINVESTOR_DATA_REPO
 	else process.env.AINVESTOR_DATA_REPO = originalDataRepo
 	if (originalPublicOrigin === undefined) {
@@ -70,7 +70,7 @@ function request(id: number, method: string, params?: Record<string, unknown>) {
  * A fake GitHub serving one holdings file per data repo (`owner/repo`), plus
  * `GET /user` for the token's login and scopes. Records every URL requested.
  */
-function stubGist(
+function stubDataRepo(
 	entriesByRepo: Record<string, EtfEntry[]>,
 	user: { login?: string; scopes?: string } = {},
 ): string[] {
@@ -89,7 +89,7 @@ function stubGist(
 		}
 		const match = /^\/repos\/([^/]+\/[^/]+)\/contents\/(.+)$/.exec(path)
 		const entries = match ? entriesByRepo[match[1]] : undefined
-		if (match?.[2] !== GIST_FILENAME || entries === undefined) {
+		if (match?.[2] !== ETFS_FILENAME || entries === undefined) {
 			return new Response(null, { status: 404 })
 		}
 		return Response.json({
@@ -122,7 +122,7 @@ describe('mcp over http', () => {
 		)
 		assert.equal(response.status, 401)
 		const body = (await response.json()) as { error: { message: string } }
-		assert.match(body.error.message, /gist and repo scopes/)
+		assert.match(body.error.message, /repo scope/)
 	})
 
 	it('points an unauthenticated client at its OAuth metadata and scope', async () => {
@@ -286,7 +286,7 @@ describe('mcp over http', () => {
 	})
 
 	it('reads the portfolio of the repo pinned by header', async () => {
-		stubGist({
+		stubDataRepo({
 			'octocat/data-a': [
 				{ id: '1', name: 'VWCE', value: 1000, currency: 'PLN' },
 			],
@@ -312,7 +312,7 @@ describe('mcp over http', () => {
 	it('serves each token its own repo, never another one', async () => {
 		// The endpoint is multi-user: a cache keyed by anything but the token
 		// would hand one caller someone else's holdings.
-		stubGist({
+		stubDataRepo({
 			'octocat/data-a': [
 				{ id: '1', name: 'VWCE', value: 1000, currency: 'PLN' },
 			],
@@ -351,7 +351,7 @@ describe('mcp over http', () => {
 
 	it('refuses the pinned repo to a caller who is not on the allowlist', async () => {
 		// AINVESTOR_DATA_REPO names the deployment's own data. It is served only to
-		// approved callers, as the pinned gist was: a private repo is
+		// approved callers, as the pinned repo was: a private repo is
 		// access-controlled, but the allowlist stays the deployment's own gate.
 		process.env.AINVESTOR_DATA_REPO = 'owner/ainvestor-data'
 		const requestedUrls: string[] = []
@@ -379,7 +379,7 @@ describe('mcp over http', () => {
 
 	it('serves the pinned repo to an approved caller', async () => {
 		process.env.AINVESTOR_DATA_REPO = 'owner/ainvestor-data'
-		stubGist(
+		stubDataRepo(
 			{
 				'owner/ainvestor-data': [
 					{ id: '1', name: 'VWCE', value: 42, currency: 'PLN' },
@@ -430,7 +430,7 @@ describe('mcp over http', () => {
 		// cutover) sees the private repo as a 404, which would read as an empty
 		// portfolio. It must get the challenge that sends it back through sign-in
 		// for the new scope.
-		stubGist(
+		stubDataRepo(
 			{
 				'octocat/data-a': [
 					{ id: '1', name: 'VWCE', value: 1, currency: 'PLN' },
@@ -451,7 +451,7 @@ describe('mcp over http', () => {
 	})
 
 	it('reads a resource over the same transport', async () => {
-		stubGist({
+		stubDataRepo({
 			'octocat/data-a': [
 				{ id: 'a', name: 'VWCE', value: 100, currency: 'PLN' },
 			],

@@ -4,13 +4,13 @@ import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
 import { renderFragmentToStream } from '../../../components/render.ts'
+import type { EtfEntry } from '../../../lib/etfs.ts'
+import { fetchPortfolioSnapshot, updateEtfs } from '../../../lib/etfs.ts'
 import { objectFromFormData } from '../../../lib/form-data-payload.ts'
 import {
 	requestAcceptsApplicationJson,
 	requestAcceptsFrameSubmitHtml,
 } from '../../../lib/frame-submit-request.ts'
-import type { EtfEntry } from '../../../lib/gist.ts'
-import { fetchPortfolioSnapshot, updateEtfs } from '../../../lib/gist.ts'
 import { t } from '../../../lib/i18n.ts'
 import {
 	applyPortfolioOperation,
@@ -80,7 +80,7 @@ async function portfolioListFragmentHtmlResponse(
 }
 
 /**
- * Loads current holdings for the session. Returns `null` when the gist snapshot
+ * Loads current holdings for the session. Returns `null` when the repository snapshot
  * cannot be read (same class of failure as save errors).
  */
 async function loadPortfolioEntries(

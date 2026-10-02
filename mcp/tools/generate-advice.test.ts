@@ -6,17 +6,17 @@ import { setAdviceClient } from '../../app/features/advice/advice-client.ts'
 import {
 	ADVICE_BUY_NEXT_STORAGE_FILENAME,
 	ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME,
-} from '../../app/features/advice/advice-gist.ts'
+} from '../../app/features/advice/advice-storage.ts'
 import {
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
 } from '../../app/features/catalog/lib.ts'
-import { GIST_FILENAME } from '../../app/lib/gist.ts'
+import { ETFS_FILENAME } from '../../app/lib/etfs.ts'
 import { GUIDELINES_FILENAME } from '../../app/lib/guidelines.ts'
 import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resetDataRepoCache } from '../data-repo.ts'
-import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
+import { resetPrivateDataCacheForTests } from '../private-data-cache.ts'
 import { createGenerateAdviceTool } from './generate-advice.ts'
 
 const credentials: DataRepoCredentials = {
@@ -48,7 +48,7 @@ function stubRepo(options: { failWritesWith?: number } = {}): {
 } {
 	const repo = installFakeDataRepo({
 		files: {
-			[GIST_FILENAME]: JSON.stringify(HOLDINGS),
+			[ETFS_FILENAME]: JSON.stringify(HOLDINGS),
 			[GUIDELINES_FILENAME]: JSON.stringify(GUIDELINES),
 		},
 		...options,
@@ -101,7 +101,7 @@ afterEach(() => {
 	setAdviceClient(null)
 	resetDataRepoCache()
 	resetSharedCatalogForTests()
-	resetPrivateGistCacheForTests()
+	resetPrivateDataCacheForTests()
 })
 
 describe('generate_advice', () => {

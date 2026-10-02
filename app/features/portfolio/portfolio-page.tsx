@@ -38,7 +38,7 @@ export function PortfolioPage(
 				>
 					{sessionHasDataRepo(session) ? (
 						<p class="mt-1 text-xs text-muted-foreground">
-							{t('portfolio.savedGist')}
+							{t('portfolio.savedRepo')}
 						</p>
 					) : (
 						<p class="mt-1 text-xs text-muted-foreground">

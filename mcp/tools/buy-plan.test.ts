@@ -6,14 +6,14 @@ import {
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
 } from '../../app/features/catalog/lib.ts'
-import type { EtfEntry } from '../../app/lib/gist.ts'
-import { GIST_FILENAME } from '../../app/lib/gist.ts'
+import type { EtfEntry } from '../../app/lib/etfs.ts'
+import { ETFS_FILENAME } from '../../app/lib/etfs.ts'
 import type { EtfGuideline } from '../../app/lib/guidelines.ts'
 import { GUIDELINES_FILENAME } from '../../app/lib/guidelines.ts'
 import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resetDataRepoCache } from '../data-repo.ts'
-import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
+import { resetPrivateDataCacheForTests } from '../private-data-cache.ts'
 import type { BuyPlanSummary } from './buy-plan.ts'
 import { createGetBuyPlanTool, summarizeBuyPlan } from './buy-plan.ts'
 
@@ -99,13 +99,13 @@ function withoutDiagnostics(summary: BuyPlanSummary) {
 }
 
 /** Serve a fake data repo carrying both the holdings and the guidelines files. */
-function stubGist(params: {
+function stubDataRepo(params: {
 	holdings: EtfEntry[]
 	guidelines: EtfGuideline[]
 }): string[] {
 	return installFakeDataRepo({
 		files: {
-			[GIST_FILENAME]: JSON.stringify(params.holdings),
+			[ETFS_FILENAME]: JSON.stringify(params.holdings),
 			[GUIDELINES_FILENAME]: JSON.stringify(params.guidelines),
 		},
 	}).requests
@@ -117,7 +117,7 @@ afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataRepoCache()
 	resetSharedCatalogForTests()
-	resetPrivateGistCacheForTests()
+	resetPrivateDataCacheForTests()
 })
 
 describe('summarizeBuyPlan', () => {
@@ -302,7 +302,7 @@ describe('summarizeBuyPlan blockers', () => {
 	})
 
 	/**
-	 * `fetchCatalog` reports an unconfigured gist id, a rejected read and a
+	 * `fetchCatalog` reports an rejected read, a missing file and a
 	 * timeout identically as zero rows, so the tool must not turn that into a
 	 * claim about what the shared catalog contains.
 	 */
@@ -385,7 +385,7 @@ describe('get_buy_plan tool', () => {
 		setSharedCatalogForTests({
 			entries: SHORTFALL.catalog,
 		})
-		const requestedUrls = stubGist({
+		const requestedUrls = stubDataRepo({
 			holdings: SHORTFALL.holdings,
 			guidelines: SHORTFALL.guidelines,
 		})
@@ -413,7 +413,7 @@ describe('get_buy_plan tool', () => {
 		setSharedCatalogForTests({
 			entries: SHORTFALL.catalog,
 		})
-		stubGist({ holdings: [], guidelines: SHORTFALL.guidelines })
+		stubDataRepo({ holdings: [], guidelines: SHORTFALL.guidelines })
 		const tool = createGetBuyPlanTool(credentials)
 
 		const result = await tool.handler({ cashAmount: 1000 })
@@ -442,7 +442,7 @@ describe('get_buy_plan tool', () => {
 		setSharedCatalogForTests({
 			entries: SHORTFALL.catalog,
 		})
-		stubGist({ holdings: [], guidelines: SHORTFALL.guidelines })
+		stubDataRepo({ holdings: [], guidelines: SHORTFALL.guidelines })
 		const tool = createGetBuyPlanTool(credentials)
 		await assert.rejects(
 			async () => tool.handler({ cashAmount: '100', cashCurrency: 'XYZ' }),
@@ -454,7 +454,7 @@ describe('get_buy_plan tool', () => {
 		setSharedCatalogForTests({
 			entries: SHORTFALL.catalog,
 		})
-		stubGist({ holdings: [], guidelines: SHORTFALL.guidelines })
+		stubDataRepo({ holdings: [], guidelines: SHORTFALL.guidelines })
 		const tool = createGetBuyPlanTool(credentials)
 
 		const result = await tool.handler({
