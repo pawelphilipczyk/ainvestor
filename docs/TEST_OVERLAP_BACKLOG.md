@@ -4,15 +4,31 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 6 — `app/components` + shared browser layer
-**Last swept:** 2026-09-26 (`app/lib`)
+**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
+**Last swept:** 2026-10-02 (`app/components` + shared browser layer)
 
 ---
 
 ## Open items
 
+### OV-008 — "file exists" tests that cannot fail on their own
+**Status:** `proposed` · **Proposed:** 2026-10-02 · **Area:** `app/components`
+
+`app/components/navigation/theme-toggle.test.ts:23-26` ("theme-toggle.component.ts
+exists in app/components/navigation/") and `app/components/layout/sidebar.test.ts:32-35`
+("sidebar.tsx exists in app/components/layout/") only run `existsSync` on a
+file the same test file already imports (`ThemeToggle` at
+`theme-toggle.test.ts:10`, `Sidebar` at `sidebar.test.ts:12`) and fetches
+through the router in later cases. A missing file fails the whole test file at
+load, so these cases are a strict subset of what already runs.
+
+**Triage question:** drop both, or keep as an intentional "file layout" pin?
+Sibling cases in the same two files that fetch `*.component.ts` through the
+router (`sidebar.test.ts` x3, `theme-toggle.test.ts:66-91`) assert disjoint
+things and are not overlap.
+
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/lib`
+**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-02 (evidence re-checked: `guidelines.test.ts:24-29` and `ui-locale.test.ts:15-19` still assert the same pairs; triage question above still open for the user) · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel

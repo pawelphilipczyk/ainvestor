@@ -129,6 +129,24 @@ describe('getInvestmentAdvice', () => {
 		}
 	})
 
+	it('falls back to a single paragraph when the model returns JSON that fails the advice schema', async () => {
+		for (const raw of [
+			JSON.stringify({ blocks: [] }),
+			JSON.stringify({ blocks: [{ type: 'paragraph' }] }),
+		]) {
+			const advice = await getInvestmentAdvice({
+				holdings: [],
+				guidelines: [],
+				cashAmount: '100',
+				cashCurrency: 'PLN',
+				catalog: [],
+				client: makeMockClient(raw),
+			})
+
+			assert.deepEqual(advice.blocks, [{ type: 'paragraph', text: raw }])
+		}
+	})
+
 	it('describes holdings with name, value and currency', async () => {
 		let capturedMessage = ''
 		const client: AdviceClient = {
