@@ -1,56 +1,60 @@
 /**
- * Repository-backed implementation of the storage port's contract — the same
- * four operations `github-store.ts` provides over gists, over a private
- * GitHub repository instead. See Phase 2 in `docs/STORAGE_MIGRATION_PLAN.md`.
+ * The storage layer: private per-user data and the shared catalog both live in
+ * GitHub repositories, read and written through this module. See
+ * `docs/STORAGE_MIGRATION_PLAN.md` for how the app got here from gists.
  *
- * **Not wired into anything yet.** No caller in `app/` or `mcp/` reaches it.
- * The Phase 3 migration script is its first user; the Phase 4 cutover then
- * points the per-user data modules at it directly, replacing the gist backend
- * for them in one deploy — there is no dispatcher between the two.
+ * This module moves **bytes**, not documents: it reads and writes raw file
+ * text. Parsing, schema validation and normalization stay in each domain
+ * module — a transport layer has no business knowing what an `EtfGuideline`
+ * looks like.
  *
- * `location` is `"owner/repo"` here (a gist id in the gist backend) — one
- * string works for both because a GitHub login or repo name can never
- * contain `/`, so the split is unambiguous. {@link parseRepoLocation} is the
- * only place that needs to know this.
+ * `location` is `"owner/repo"` — one string, because a GitHub login or repo
+ * name can never contain `/`, so the split is unambiguous.
+ * {@link parseRepoLocation} is the only place that needs to know this.
  *
- * The two backends' write contracts do not match, which is most of why this
- * module is larger than `github-store.ts`:
- *
- * - A gist PATCH has no version concept; GitHub silently overwrites. A repo
- *   file update always requires the blob's current `sha` — there is no
- *   "just overwrite" option on the Contents API. When a caller does not
- *   supply `expectedVersion` (every caller today — Phase 5 is what starts
- *   threading it through), {@link writeFile} reads the current `sha` itself
- *   first, matching gists' last-write-wins behavior. Once a caller does
- *   supply one, GitHub's own rejection of a stale `sha` *is* the
- *   compare-and-swap signal Phase 5 wants — nothing extra to build here.
- * - A multi-file atomic write has no PATCH equivalent: it is a five-request
- *   Git Data sequence (read the branch ref, read its commit, create a blob
- *   per changed file, create a tree layering those blobs on the current one,
- *   create a commit, then update the ref non-fast-forward — which is where
- *   the atomicity comes from: a ref that moved since we read it rejects the
- *   update instead of silently losing a concurrent write).
- * - A multi-file *read* has no bundled-response shortcut: gists return every
- *   file in one payload; repos have no equivalent for arbitrary paths, so
- *   {@link readFiles} costs one request per path (parallelized, but still
+ * - A repo file update always requires the blob's current `sha` — there is no
+ *   "just overwrite" option on the Contents API. A caller that does not
+ *   supply `expectedVersion` has {@link writeFile} read the current `sha`
+ *   first (last write wins). A caller that does supply one gets GitHub's own
+ *   rejection of a stale `sha` as the compare-and-swap signal.
+ * - A multi-file atomic write is a five-request Git Data sequence (read the
+ *   branch ref, read its commit, create a blob per changed file, create a tree
+ *   layering those blobs on the current one, create a commit, then update the
+ *   ref non-fast-forward — which is where the atomicity comes from: a ref that
+ *   moved since we read it rejects the update instead of silently losing a
+ *   concurrent write).
+ * - A multi-file *read* costs one request per path (parallelized, but still
  *   one each against the rate limit).
  *
- * Every {@link StoredFile} here carries the real blob `sha` as `version` from
- * day one, even though nothing consumes it until Phase 5.
+ * Every {@link StoredFile} carries the real blob `sha` as `version`.
  */
 
 import { isPreview } from '../deployment.ts'
-import {
-	GITHUB_API,
-	GITHUB_REQUEST_TIMEOUT_MS,
-	githubHeaders,
-	type StoredFile,
-} from './github-store.ts'
+
+/** One GitHub REST API root and one timeout policy for every request. */
+export const GITHUB_API = 'https://api.github.com'
+export const GITHUB_REQUEST_TIMEOUT_MS = 5_000
+
+export type StoredFile = {
+	/** Raw file text, exactly as stored — never parsed here. */
+	content: string
+	/** Opaque compare-and-swap token: the blob `sha` the content was read at. */
+	version: string | null
+}
+
+/** Auth header for a token-bearing request. */
+export function githubHeaders(token: string): HeadersInit {
+	return {
+		Authorization: `Bearer ${token}`,
+		Accept: 'application/vnd.github+json',
+		'Content-Type': 'application/json',
+		'X-GitHub-Api-Version': '2022-11-28',
+	}
+}
 
 /**
- * The private data repo's fixed name, mirroring `getGistDescription()`'s
- * preview split. `preview` defaults to the running deployment; the migration
- * script names an environment explicitly, since a laptop has no `FLY_APP_NAME`.
+ * The private data repo's fixed name; preview has its own repo. `preview`
+ * defaults to the running deployment.
  */
 export function getDataRepoName(options: { preview?: boolean } = {}): string {
 	const preview = options.preview ?? isPreview()
@@ -326,11 +330,10 @@ type ContentsFile = { content: string; sha: string }
 
 /**
  * Fetches a blob's content directly by sha. The Contents API omits inline
- * content for a file over ~1MB (`content: ''`, `encoding: 'none'`) — the same
- * truncation problem `github-store.ts`'s `readFullFileContent` works around
- * for gists via `raw_url`. The Git Data blob endpoint has no such limit until
- * 100MB, and every {@link getContentsFile} response already carries the sha
- * this needs, so no extra lookup is required.
+ * content for a file over ~1MB (`content: ''`, `encoding: 'none'`). The Git
+ * Data blob endpoint has no such limit until 100MB, and every
+ * {@link getContentsFile} response already carries the sha this needs, so no
+ * extra lookup is required.
  */
 async function getBlobContent(params: {
 	token: string

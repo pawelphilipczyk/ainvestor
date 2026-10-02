@@ -224,10 +224,8 @@ its history. Each commit says what it did and where it came from, for example
 `Buy SWDA LN: +1 PLN (MCP)` or `Remove guideline IBCI LN (web)`.
 
 There are two ways to reach it. Both need a **classic** GitHub personal access
-token with the **`gist`** and **`repo`** scopes: `repo` for your private data
-repository and the shared catalog repository. Nothing reads a gist any more;
-`gist` is asked for until the gist backend is removed, so a rollback still
-works. Create one at
+token with the **`repo`** scope, which covers your private data repository and
+the shared catalog repository. Create one at
 [Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens).
 ### Remote — works from any client, including mobile
 
@@ -246,8 +244,8 @@ preregistered credentials — dynamic client registration is not offered.
 2. Add the connector in your Claude client: give it the URL
    `https://ainvestor.fly.dev/mcp`, turn **Requires sign-in** on, and paste the
    OAuth App's **Client ID** and **Client secret**.
-3. The client will send you to GitHub to authorize the `gist` and `repo` scopes, then start
-   using the connector.
+3. The client will send you to GitHub to authorize the `repo` scope, then start using
+   the connector.
 
 **The redirect URI is the usual stumbling block.** Set **Authorization callback
 URL** — not Homepage URL, which is cosmetic — to the address your client returns
@@ -296,16 +294,15 @@ A caller can still name a repository per request with the
 caller's own token can already reach.
 
 A token without the `repo` scope — any connector set up before the storage
-moved from gists — is answered with `401` and a challenge for `gist repo`, so
+moved from gists — is answered with `401` and a challenge for `repo`, so
 the client asks you to sign in again rather than showing an empty portfolio.
 
 Two things to weigh before relying on this:
 
-- Both scopes are all-or-nothing. `gist` reads and writes **every** gist on your
-  account, and `repo` reads and writes **every repository** your account can
-  reach, private ones included — a real widening from `gist` alone. It is
-  accepted for an app with a handful of users, rather than building a GitHub App
-  for per-repository access; see "Why `repo` scope and not a GitHub App" in
+- The scope is all-or-nothing: `repo` reads and writes **every repository** your
+  account can reach, private ones included. It is accepted for an app with a
+  handful of users, rather than building a GitHub App for per-repository
+  access; see "Why `repo` scope and not a GitHub App" in
   `docs/STORAGE_MIGRATION_PLAN.md`.
 - A GitHub token is not bound to this server as its audience, which the MCP
   security guidance would otherwise prefer. In practice the server is your own,
@@ -348,7 +345,7 @@ Then edit `claude_desktop_config.json` — macOS
 ```
 
 Restart Claude Desktop and ask what is in your portfolio. The token sits in that
-file in plain text, so keep its scopes to `gist` and `repo`. `AINVESTOR_DATA_REPO`
+file in plain text, so keep its scope to `repo`. `AINVESTOR_DATA_REPO`
 is optional: without it the server reads the token owner's own repository.
 
 The catalog is read from `ainvestor-shared/ainvestor-catalog` with the same

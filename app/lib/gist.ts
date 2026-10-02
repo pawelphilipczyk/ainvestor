@@ -1,5 +1,4 @@
 import { type CatalogEntry, fetchCatalog } from '../features/catalog/lib.ts'
-import { isPreview } from './deployment.ts'
 import {
 	putPrivateGistTestEtfs,
 	takePrivateGistTestEtfs,
@@ -9,7 +8,6 @@ import {
 	readFile,
 	writeFile,
 } from './store/github-repo-store.ts'
-import { githubHeaders } from './store/github-store.ts'
 import {
 	type ChangeOutcome,
 	readModifyWrite,
@@ -17,14 +15,6 @@ import {
 } from './store/read-modify-write.ts'
 
 export const GIST_FILENAME = 'etfs.json'
-
-/** Gist description for a deployment environment (the running one by default). Preview uses separate gists from production. */
-export function getGistDescription(
-	options: { preview?: boolean } = {},
-): string {
-	const preview = options.preview ?? isPreview()
-	return preview ? 'ai-investor-preview-data' : 'ai-investor-data'
-}
 
 export type EtfEntry = {
 	id: string
@@ -84,60 +74,6 @@ export function parseEtfsFromGist(gist: GistPayload): EtfEntry[] {
 	} catch {
 		return []
 	}
-}
-
-const GITHUB_API = 'https://api.github.com'
-
-/** GitHub caps `per_page` at 100; the default of 30 would hide older gists. */
-const GISTS_PER_PAGE = 100
-
-/** Safety cap on paging through `GET /gists` (100 × 50 = 5000 gists). */
-const MAX_GIST_LIST_PAGES = 50
-
-type GistListItem = {
-	id: string
-	description: string | null
-}
-
-/**
- * Find the ai-investor gist by description, paging through every gist the token
- * can see. Without pagination GitHub returns only the 30 most recently updated
- * gists, so an account with more than that could hide the gist. When
- * duplicates exist, the most recently updated one wins (GitHub's default list
- * order). Used by the migration script until the gists are retired.
- */
-export async function findGistIdByDescription(
-	token: string,
-	description: string,
-): Promise<string | null> {
-	for (let page = 1; page <= MAX_GIST_LIST_PAGES; page++) {
-		const response = await fetch(
-			`${GITHUB_API}/gists?per_page=${GISTS_PER_PAGE}&page=${page}`,
-			{ headers: githubHeaders(token) },
-		)
-
-		if (!response.ok) {
-			throw new Error(`GitHub API error listing gists: ${response.status}`)
-		}
-
-		const gists = (await response.json()) as GistListItem[]
-		// Not a miss — an answer we cannot read. Returning null here would tell
-		// the caller the gist does not exist, when nothing was proven.
-		if (!Array.isArray(gists)) {
-			throw new Error('GitHub API returned a non-array gist listing')
-		}
-
-		const existing = gists.find((gist) => gist.description === description)
-		if (existing) return existing.id
-
-		// A short page is the last page, so the gist genuinely does not exist.
-		if (gists.length < GISTS_PER_PAGE) return null
-	}
-	// Distinct from `null`: we ran out of pages without proving anything, and a
-	// caller must not read that as "no such gist".
-	throw new Error(
-		`GitHub API returned more than ${MAX_GIST_LIST_PAGES * GISTS_PER_PAGE} gists without matching "${description}"`,
-	)
 }
 
 /** Fetch ETF entries from a gist by ID. */

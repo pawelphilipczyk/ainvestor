@@ -101,8 +101,8 @@ describe('protected resource metadata', () => {
 
 	it('asks for the gist and repo scopes and nothing more', () => {
 		const metadata = buildProtectedResourceMetadata(origin)
-		assert.deepEqual(metadata.scopes_supported, ['gist', 'repo'])
-		assert.deepEqual(REQUIRED_GITHUB_SCOPES, ['gist', 'repo'])
+		assert.deepEqual(metadata.scopes_supported, ['repo'])
+		assert.deepEqual(REQUIRED_GITHUB_SCOPES, ['repo'])
 	})
 
 	it('accepts the token in the header only, never the query string', () => {

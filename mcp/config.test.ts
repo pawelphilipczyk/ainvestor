@@ -17,7 +17,7 @@ describe('mcp config', () => {
 	it('throws an actionable error when GH_TOKEN is missing', () => {
 		assert.throws(
 			() => resolveMcpConfig({}),
-			/GH_TOKEN is not set.*`gist` and `repo` scopes/s,
+			/GH_TOKEN is not set.*`repo` scope/s,
 		)
 	})
 

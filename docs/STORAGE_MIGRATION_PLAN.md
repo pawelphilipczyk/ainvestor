@@ -1,10 +1,13 @@
 # Storage Migration Plan — gists → GitHub repositories
 
-**Status:** Phases 0–5 done; Phase 6 (catalog to a private repo) is built and
-awaits its cutover order below. The data cutover merged on 2026-10-01 (#236):
+**Status:** Phases 0–7 done. The data cutover merged on 2026-10-01 (#236):
 both environments read and write their data repos. Phase 5 (#237) made edits
-of `etfs.json` and `guidelines.json` compare-and-swap. Phase 7 is designed but
-not yet detailed to the commit level.
+of `etfs.json` and `guidelines.json` compare-and-swap, Phase 6 (#238) moved the
+shared catalog to `ainvestor-shared/ainvestor-catalog`, and Phase 7 removed the
+gist backend. The phase sections below are the record of what each step did, so
+they name code that no longer exists (`github-store.ts`,
+`findGistIdByDescription`, the migration script); `git log` before Phase 7 has
+all of it.
 
 This plan replaces gist-backed storage with repository-backed storage, and
 removes guest mode first because it shrinks the surface the migration has to
@@ -884,10 +887,43 @@ untouched — prod's still holds its older catalog.
 
 ### Phase 7 — remove the gist backend
 
-Delete the gist implementation, the env vars, and the gist language throughout
-`README.md` and `docs/MCP_SERVER_PLAN.md`. Drop `gist` from the OAuth scope and
-the MCP `REQUIRED_GITHUB_SCOPE`: nothing needs it once the catalog is a repo.
-Delete the gists themselves, which were the backup since Phase 4, by hand.
+**Done in two steps.** 7a (this one) deletes what talked to the Gist API and
+stops asking for its scope; 7b renames what is still *called* gist but already
+reads repositories (`app/lib/gist.ts`, `private-gist-cache.ts`,
+`advice-gist.ts`, `portfolio-review-gist.ts`, `GIST_FILENAME`, the
+`parse…FromGist` helpers and the `Gist` test stores), a rename with no behaviour
+change.
+
+What 7a removed:
+
+- `app/lib/store/github-store.ts` and its tests — the gist transport. Its shared
+  parts (`GITHUB_API`, the timeout, `githubHeaders`, `StoredFile`) moved into
+  `app/lib/store/github-repo-store.ts`, which is now the only storage module.
+- `findGistIdByDescription` and `getGistDescription` from `app/lib/gist.ts`.
+- `scripts/migrate-gist-to-repo.ts`, `scripts/gist-to-repo-migration.ts`, their
+  test and the `migrate:gist-to-repo` npm script. Both migrations are done and
+  the script needed the Gist API.
+- The `gist` OAuth scope: sign-in asks for `repo`, `REQUIRED_GITHUB_SCOPES` is
+  `['repo']`, and the MCP challenge and metadata say so. A token that has
+  `gist` as well is still accepted — the check is for `repo` only — so no
+  connected client has to reconnect. A token with `gist` alone is still sent
+  back through sign-in.
+
+Left for later: `signOutPreCutoverSession` in `app/lib/session.ts` clears a
+cookie from before the Phase 4 cutover. Cookies last a day, so it can be deleted
+once every such cookie has expired.
+
+**Cutover order (for the owner), after the merge:**
+
+1. Check sign-in and an MCP call on preview and prod. Nothing else changes for a
+   user who is already signed in.
+2. Remove the `SHARED_CATALOG_GIST_ID` secret: `fly secrets unset
+   SHARED_CATALOG_GIST_ID -a ainvestor-preview` and the same for `-a ainvestor`.
+3. Delete the gists by hand, which were the backup since Phase 4: each user's
+   `ai-investor-data` / `ai-investor-preview-data`, and the two catalog gists.
+   This is the point of no return for a rollback to a gist build.
+4. In the GitHub OAuth apps nothing needs changing: scopes are requested by the
+   app at sign-in, not stored on the app.
 
 ## Traps
 

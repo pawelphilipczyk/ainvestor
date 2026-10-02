@@ -142,7 +142,7 @@ describe('mcp over http', () => {
 			challenge,
 			/resource_metadata="https:\/\/ainvestor\.fly\.dev\/\.well-known\/oauth-protected-resource"/,
 		)
-		assert.match(challenge, /scope="gist repo"/)
+		assert.match(challenge, /scope="repo"/)
 	})
 
 	it('rejects a data repo pin that could redirect the GitHub request', async () => {
@@ -447,10 +447,7 @@ describe('mcp over http', () => {
 			}),
 		)
 		assert.equal(response.status, 401)
-		assert.match(
-			response.headers.get('WWW-Authenticate') ?? '',
-			/scope="gist repo"/,
-		)
+		assert.match(response.headers.get('WWW-Authenticate') ?? '', /scope="repo"/)
 	})
 
 	it('reads a resource over the same transport', async () => {

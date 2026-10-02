@@ -93,7 +93,7 @@ export function sessionHasDataRepo(
  * reach a private repo — so rather than leave it signed in against storage it
  * cannot read, it is cleared, and the next page sends the user through sign-in
  * for the new scope. Cookies expire within a day, so this has little to do for
- * long; it can go once the gist backend does.
+ * long; it can go once every cookie from before the cutover has expired.
  */
 export function signOutPreCutoverSession(session: Session): void {
 	if (session.get('gistId') === undefined) return
