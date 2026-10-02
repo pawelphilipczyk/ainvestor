@@ -1,13 +1,7 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
-import {
-	getSessionData,
-	getSessionIdentity,
-	sessionCookie,
-	sessionStorage,
-	signOutPreCutoverSession,
-} from './session.ts'
+import { sessionCookie, sessionStorage } from './session.ts'
 
 describe('session', () => {
 	it('session cookie must be signed (has secrets)', async () => {
@@ -107,33 +101,5 @@ describe('session', () => {
 		} finally {
 			process.env.SESSION_SECRET = restore
 		}
-	})
-})
-
-describe('signOutPreCutoverSession', () => {
-	it('signs out a cookie still holding the pre-cutover gistId', async () => {
-		const session = await sessionStorage.read(null)
-		session.set('token', 'gist-only-token')
-		session.set('gistId', 'abc123')
-		session.set('login', 'octocat')
-		session.set('isAdmin', true)
-		signOutPreCutoverSession(session)
-		assert.equal(getSessionIdentity(session), null)
-		assert.equal(session.get('token'), undefined)
-		assert.equal(session.get('gistId'), undefined)
-		assert.equal(session.get('isAdmin'), undefined)
-	})
-
-	it('leaves a current session alone', async () => {
-		const session = await sessionStorage.read(null)
-		session.set('token', 'token')
-		session.set('dataRepo', 'octocat/ainvestor-data')
-		session.set('login', 'octocat')
-		signOutPreCutoverSession(session)
-		assert.deepEqual(getSessionData(session), {
-			token: 'token',
-			dataRepo: 'octocat/ainvestor-data',
-			login: 'octocat',
-		})
 	})
 })

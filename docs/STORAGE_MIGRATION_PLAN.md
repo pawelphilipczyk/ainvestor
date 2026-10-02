@@ -924,9 +924,11 @@ What 7a removed (#239):
   connected client has to reconnect. A token with `gist` alone is still sent
   back through sign-in.
 
-Left for later: `signOutPreCutoverSession` in `app/lib/session.ts` clears a
-cookie from before the Phase 4 cutover. Cookies last a day, so it can be deleted
-once every such cookie has expired.
+`signOutPreCutoverSession` (`app/lib/session.ts`), which cleared a cookie from
+before the Phase 4 cutover, was removed afterwards: cookies last a day, so none
+was left. A cookie that still carried a `gistId` would now simply be ignored
+(`token` and `dataRepo` decide whether a session can read storage), and a token
+with only the `gist` scope is still sent back through sign-in by the scope check.
 
 **Cutover order (for the owner), after the merge:**
 

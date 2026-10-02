@@ -86,18 +86,3 @@ export function sessionHasDataRepo(
 ): session is SessionWithDataRepo {
 	return Boolean(session?.token && session.dataRepo)
 }
-
-/**
- * Signs out a session from before the storage cutover. Such a cookie carries
- * the old `gistId` key and a token granted only the `gist` scope, which cannot
- * reach a private repo — so rather than leave it signed in against storage it
- * cannot read, it is cleared, and the next page sends the user through sign-in
- * for the new scope. Cookies expire within a day, so this has little to do for
- * long; it can go once every cookie from before the cutover has expired.
- */
-export function signOutPreCutoverSession(session: Session): void {
-	if (session.get('gistId') === undefined) return
-	for (const key of ['token', 'gistId', 'login', 'isAdmin', 'approvalStatus']) {
-		session.unset(key)
-	}
-}
