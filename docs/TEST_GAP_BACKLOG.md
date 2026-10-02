@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-10-02 (`app/features/catalog`)
 
 ---
 
@@ -25,6 +25,51 @@ backlog just feeds the overlap backlog.
 ---
 
 ## Open items
+
+### GAP-026 — catalog filter-prefs client entry has no browser test
+**Status:** `proposed` · **Proposed:** 2026-10-02 · **Area:** `app/features/catalog` · **Priority:** high (client-only)
+
+`catalog-filter-prefs.component.ts:38-150` (localStorage read with legacy-key
+migration, write on submit, Clear, one-shot `location.replace` restore) is
+covered only by pure-helper tests (`catalog-filter-prefs.test.ts`) and a
+mount-script assertion (`catalog.test.ts:1080`); `catalog-list-filter.browser.ts`
+never touches localStorage or Clear. A `*.browser.ts` case would submit filters,
+assert `catalog/filters/v1`, reload bare `/catalog` and expect the redirect with
+selections, click Clear and expect no redirect.
+
+### GAP-027 — `POST /catalog/import` HAR-upload branch and validation errors unexercised
+**Status:** `proposed` · **Proposed:** 2026-10-02 · **Area:** `app/features/catalog`
+
+`catalog/index.ts:453-472`: over-5MB `fileTooLarge`, bad-JSON `invalidHar`,
+`extractBankApiJsonFromHar` failure, `fieldMissing`; `:485-500`
+`expectedObject` / `dataNotArray` / `dataArrayEmpty`. `catalog.test.ts` only
+asserts the `bankApiHar` form markup (`:304`) and always posts `bankApiJson`;
+`har-bank-json-adapter.test.ts` tests the extractor alone. Overlaps GAP-002 only
+on the handler's own size check.
+
+### GAP-028 — catalog import save-failure branches (`saveFailed`, `changedElsewhere`)
+**Status:** `proposed` · **Proposed:** 2026-10-02 · **Area:** `app/features/catalog`
+
+`catalog/index.ts:516-531`. `lib.test.ts:350-382` pins the lib rejecting, but no
+route test makes the catalog write fail and asserts the flash text / 302 (422
+under JSON Accept) / unchanged catalog. Same file could also pin the
+`catalogProblem: 'unavailable'` copy (`catalog-list-fragment.tsx:253-275`).
+
+### GAP-029 — ETF analysis model selection and fragment error paths
+**Status:** `proposed` · **Proposed:** 2026-10-02 · **Area:** `app/features/catalog`
+
+`catalog/index.ts:203-254, 671-690` (model parsing from form/JSON/URL, fallback
+to `DEFAULT_CATALOG_ETF_MODEL`; a wrong model silently changes cost) and
+`:382-415` (`fragmentEtfAnalysis` 404 empty/over-128 id, 403 pending, 404
+unknown). `catalog.test.ts:135,161` cover only success and an empty POST.
+Also: pending-session `GET /catalog/etf/:id` body (`:610-623`) and empty
+OpenAI content (`catalog-etf-openai.ts:44-47`) have no assertion.
+
+### GAP-030 — `catalog-etf-back.component.ts` click behaviour
+**Status:** `proposed` · **Proposed:** 2026-10-02 · **Area:** `app/features/catalog` · **Priority:** low
+
+history.back with `location.assign` fallback, skipped on modified clicks
+(`:19-40`); only markup/mount is pinned (`catalog.test.ts:124-131`).
 
 ### GAP-025 — advice route tests read the real GitHub API for saved advice
 **Status:** `done` · **Proposed:** 2026-10-01 · **Acted:** 2026-10-02 · **Area:** `app/features/advice` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/242
@@ -81,7 +126,9 @@ asserting the exact returned string (`assert.equal`, not regex) for an
 is unrelated and still open.
 
 ### GAP-023 — `parseAdviceDocument`'s schema-validation-failure branch is untested
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Acted:** 2026-10-02 · **Area:** `app/features/advice` · **PR:** (this run's PR)
+
+Pinned in `advice-openai.test.ts` ("falls back to a single paragraph when the model returns JSON that fails the advice schema"; `{blocks:[]}` and a block missing `text`). Verified it fails when the fallback is broken.
 
 `app/features/advice/advice-document.ts:154-171` has three failure paths.
 Two are tested: `raw == null`/empty content falls back to a paragraph
@@ -102,7 +149,7 @@ through `getInvestmentAdvice`, and assert the result falls back to
 silently accepting the invalid structure.
 
 ### GAP-024 — the unauthenticated `adviceStorageGate: 'sign_in'` banner is never reached by any test
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
+**Status:** `blocked` · **Proposed:** 2026-09-26 · **Checked 2026-10-02:** `GET /advice` with no session returns 302 (sign-in gate, pinned by `app/lib/require-approved-session.test.ts`), so the `sign_in` banner appears unreachable through the router — likely dead production branch (`advice/index.ts:333-337`). Needs a decision (remove the branch in `app/`, or confirm a reachable path); not testable as proposed · **Area:** `app/features/advice`
 
 `app/features/advice/index.ts:328-337` (`adviceStorageGateProps`) returns
 `{ adviceStorageGate: 'sign_in' }` when there is no session cookie at all — this
