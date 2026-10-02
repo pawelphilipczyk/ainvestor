@@ -212,7 +212,13 @@ describe('shared catalog repo', () => {
 		let fetchCount = 0
 		globalThis.fetch = async (input, init) => {
 			fetchCount += 1
-			if (status !== 200) return new Response('', { status })
+			// A rate-limited 403 is told from a refusal by its headers.
+			if (status !== 200) {
+				return new Response('', {
+					status,
+					headers: { 'x-ratelimit-remaining': '0' },
+				})
+			}
 			return repoFetch(input, init)
 		}
 		const originalNow = Date.now
@@ -242,6 +248,45 @@ describe('shared catalog repo', () => {
 			status = 200
 			await fetchSharedCatalogSnapshot('user-token')
 			assert.equal(fetchCount, 3)
+		} finally {
+			Date.now = originalNow
+			console.error = originalError
+		}
+	})
+
+	it("treats a 403 that is not a rate limit as no access, and drops the token's snapshot", async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '1000'
+		catalogRepo()
+		const repoFetch = globalThis.fetch
+		let refuse = false
+		globalThis.fetch = async (input, init) =>
+			refuse ? new Response('', { status: 403 }) : repoFetch(input, init)
+		const originalNow = Date.now
+		let now = 1_000_000
+		Date.now = () => now
+		const logged: string[] = []
+		const originalError = console.error
+		console.error = (...parts: unknown[]) => logged.push(parts.join(' '))
+		try {
+			assert.equal(
+				(await fetchSharedCatalogSnapshot('user-token')).entries[0]?.ticker,
+				'ABC',
+			)
+			// An organization OAuth App restriction: the repo answers 403, not 404.
+			now += 2000
+			refuse = true
+			assert.deepEqual(await fetchSharedCatalogSnapshot('user-token'), {
+				entries: [],
+				problem: 'no-access',
+			})
+			assert.match(logged[0] ?? '', /403/)
+			assert.match(logged[0] ?? '', /approved for the organization/)
+			// The snapshot is gone, so a recovery is read fresh.
+			refuse = false
+			assert.equal(
+				(await fetchSharedCatalogSnapshot('user-token')).entries[0]?.ticker,
+				'ABC',
+			)
 		} finally {
 			Date.now = originalNow
 			console.error = originalError

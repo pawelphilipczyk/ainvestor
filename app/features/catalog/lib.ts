@@ -977,7 +977,11 @@ export async function canWriteSharedCatalog(token: string): Promise<boolean> {
 /** The catalog as a reader sees it, or why it could not be read. */
 type CatalogRead =
 	| { ok: true; entries: CatalogEntry[] }
-	/** GitHub's 404: the token cannot see the repo, or catalog.json is missing. */
+	/**
+	 * GitHub's 401/404, or a 403 that is not a rate limit: the token cannot see
+	 * the repo (not on the team, or the OAuth app is not approved for the
+	 * organization), or catalog.json is missing.
+	 */
 	| { ok: false; reason: 'no-access'; status: number }
 	| { ok: false; reason: 'unavailable'; status: number }
 
@@ -990,7 +994,9 @@ async function readCatalogFile(params: {
 		return {
 			ok: false,
 			reason:
-				result.status === 401 || result.status === 404
+				result.status === 401 ||
+				result.status === 404 ||
+				(result.status === 403 && !result.rateLimited)
 					? 'no-access'
 					: 'unavailable',
 			status: result.status,

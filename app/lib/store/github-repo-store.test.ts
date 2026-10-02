@@ -179,7 +179,43 @@ describe('readFile', () => {
 			location: 'octocat/ainvestor-data',
 			path: 'etfs.json',
 		})
-		assert.deepEqual(result, { ok: false, status: 403 })
+		assert.deepEqual(result, { ok: false, status: 403, rateLimited: false })
+	})
+
+	it('tells a rate-limited 403 or 429 from a refusal', async () => {
+		const read = () =>
+			readFile({
+				token: 'token',
+				location: 'octocat/ainvestor-data',
+				path: 'etfs.json',
+			})
+		stubFetch(
+			() =>
+				new Response(null, {
+					status: 403,
+					headers: { 'x-ratelimit-remaining': '0' },
+				}),
+		)
+		assert.deepEqual(await read(), {
+			ok: false,
+			status: 403,
+			rateLimited: true,
+		})
+		stubFetch(
+			() =>
+				new Response(null, { status: 403, headers: { 'retry-after': '60' } }),
+		)
+		assert.deepEqual(await read(), {
+			ok: false,
+			status: 403,
+			rateLimited: true,
+		})
+		stubFetch(() => new Response(null, { status: 429 }))
+		assert.deepEqual(await read(), {
+			ok: false,
+			status: 429,
+			rateLimited: true,
+		})
 	})
 
 	it('throws when the path is a directory, not a file', async () => {
@@ -247,7 +283,7 @@ describe('readFiles', () => {
 			location: 'octocat/ainvestor-data',
 			paths: ['a.json', 'b.json'],
 		})
-		assert.deepEqual(result, { ok: false, status: 500 })
+		assert.deepEqual(result, { ok: false, status: 500, rateLimited: false })
 	})
 })
 

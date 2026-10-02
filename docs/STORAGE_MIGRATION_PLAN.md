@@ -944,26 +944,28 @@ with only the `gist` scope is still sent back through sign-in by the scope check
 
 ## Traps
 
-- **GitHub returns `404`, not `403`, for a private repo you cannot see.** "Not a
-  collaborator" and "does not exist" are indistinguishable. This bites hardest
+Two outlast the migration; the rest (the gist-named MCP config, the `repo` scope
+not covering gists, the gist-shaped test seams) went with the gist backend.
+
+- **GitHub returns `404`, usually not `403`, for a private repo you cannot see.**
+  "Not a collaborator" and "does not exist" are indistinguishable. An organization
+  that restricts OAuth App access answers `403` instead, until the app the token
+  came from is approved for the organization. This bites hardest
   at `app/features/auth/index.ts`, which reads the catalog *during login* to
-  decide admin status: a `404` there must mean "not an admin, no catalog access"
-  and must not break the login. Needs a deliberate branch and a test.
+  decide admin status: a `404` there means "not an admin, no catalog access" and
+  must not break the login. The shared catalog read marks `401`, `404` and a `403` that is
+  not a rate limit (`429`, or `403` with `x-ratelimit-remaining: 0` or
+  `retry-after`) as `no-access`, and `fetchSharedCatalogSnapshot` tells that
+  apart from `unavailable` (any other failure), which keeps serving the last good
+  copy.
 - The Contents API is base64 and keeps a 1 MB ceiling on the JSON response —
-  catalog reads use the raw media type or Git Data blobs.
-- `AINVESTOR_GIST_ID` and the `x-ainvestor-gist-id` header need repo
-  equivalents (`mcp/config.ts`, `mcp/data-gist.ts`) — named in Phase 4.
-- **`repo` does not include gist access.** Swapping `gist` for `repo` while any
-  data still lives on a gist breaks every write to it. `gist` is only dropped
-  in Phase 7.
-- Test seams assume gist shapes: `app/lib/private-gist-fetch-test-overlay.ts`,
-  `setSharedCatalogForTests`, `app/lib/test-session-fetch.ts`. 27 test files
-  mention gists.
+  reads of a larger file fall back to the Git Data blob (`readFile`).
 
 ## Open questions
 
-1. Whether the `catalog-source.json` bank-import history should move at all, or
-   be archived — it is the largest file and is read by code, never by people.
+None. `catalog-source.json`, the bank-import history, moved with the catalog to
+`ainvestor-shared/ainvestor-catalog` in Phase 6, next to `catalog.json`.
 
-Resolved: preview's repo is `ainvestor-preview-data` (`getDataRepoName`), and
-the data moves by a script rather than on login (Phase 3).
+Resolved along the way: preview's repo is `ainvestor-preview-data`
+(`getDataRepoName`), and the data moved by a script rather than on login
+(Phase 3).

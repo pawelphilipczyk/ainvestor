@@ -125,7 +125,7 @@ export const pl = {
 	'catalog.import.harLabel': 'Plik HAR',
 	'catalog.noAccess.title': 'Nie masz dostępu do wspólnego katalogu.',
 	'catalog.noAccess.hint':
-		'Katalog jest w prywatnym repozytorium GitHub {repo}. Poproś jego opiekuna o dodanie Twojego konta GitHub do zespołu ainvestor-users, a potem zaloguj się ponownie.',
+		'Katalog jest w prywatnym repozytorium GitHub {repo}. Poproś jego opiekuna o dodanie Twojego konta GitHub do zespołu ainvestor-users, a potem zaloguj się ponownie. Jeśli już w nim jesteś, organizacja mogła nie zatwierdzić aplikacji OAuth, którą się logujesz (GitHub → Settings → Applications, poproś o dostęp do organizacji lub go nadaj).',
 	'catalog.unavailable.title': 'Nie udało się wczytać wspólnego katalogu.',
 	'catalog.unavailable.hint':
 		'GitHub nie odpowiedział zgodnie z oczekiwaniami. Odśwież stronę za chwilę.',
