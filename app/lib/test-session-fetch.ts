@@ -40,6 +40,23 @@ export function seedTestSessionCookie(cookie: string): void {
 	testSessionCookie = cookie
 }
 
+/**
+ * Test-only: the `Set-Cookie` header the session middleware would send for a
+ * saved session value. Since 3.0.0 the middleware wraps the value as
+ * `{ value, expires }` whenever the cookie has a `maxAge`, and ignores a bare
+ * value, so tests that hand-build a cookie must wrap it the same way.
+ */
+export async function serializeSessionCookieForTests(
+	value: string,
+): Promise<string> {
+	const maxAge = sessionCookie.maxAge
+	return sessionCookie.serialize(
+		maxAge == null
+			? value
+			: JSON.stringify({ value, expires: Date.now() + maxAge * 1000 }),
+	)
+}
+
 async function seedSessionCookie(
 	fill: (session: Awaited<ReturnType<typeof sessionStorage.read>>) => void,
 ): Promise<string> {
@@ -47,7 +64,7 @@ async function seedSessionCookie(
 	fill(session)
 	const value = await sessionStorage.save(session)
 	if (value == null) throw new Error('expected session save value')
-	const header = await sessionCookie.serialize(value)
+	const header = await serializeSessionCookieForTests(value)
 	const cookie = header.split(';')[0] ?? ''
 	// Seed the sticky jar too, so `testSessionFetch` callers need no header.
 	testSessionCookie = cookie

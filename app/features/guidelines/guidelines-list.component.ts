@@ -1,4 +1,4 @@
-import { clientEntry, createElement } from 'remix/ui'
+import { clientEntry, createElement } from 'remix/component'
 import { openDialogForTrigger } from '../../lib/browser/dialog-trigger.ts'
 import { addEventListeners } from '../../lib/browser/event-listeners.ts'
 

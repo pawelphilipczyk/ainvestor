@@ -3,8 +3,8 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { jsx } from 'remix/ui/jsx-runtime'
-import { renderToString } from 'remix/ui/server'
+import { jsx } from 'remix/component/jsx-runtime'
+import { renderToString } from 'remix/component/server'
 import { assetHref } from '../../lib/remix-assets.ts'
 import { router } from '../../router.ts'
 import { ThemeToggle } from './theme-toggle.component.ts'
@@ -89,7 +89,7 @@ describe('theme-toggle component entry asset', () => {
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
 		// Compiled output, not the source file: quoting is the asset server's choice.
-		assert.match(body, /from ['"]remix\/ui\/toggle\/primitives['"]/)
+		assert.match(body, /from ['"]@remix-run\/ui\/toggle['"]/)
 		// The document-level click delegation this component used before is gone.
 		assert.doesNotMatch(body, /addEventListeners/)
 	})

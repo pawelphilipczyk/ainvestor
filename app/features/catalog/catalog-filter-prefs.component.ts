@@ -1,4 +1,4 @@
-import { clientEntry, createElement } from 'remix/ui'
+import { clientEntry, createElement } from 'remix/component'
 import { addEventListeners } from '../../lib/browser/event-listeners.ts'
 
 // Mirrors CATALOG_FILTER_PREFS_STORAGE_KEY in catalog-filter-prefs.ts (client bundle can't import that TS module).
@@ -97,7 +97,7 @@ function restoreFiltersIfNeeded(catalogIndexHref: string) {
 	if (storedSearch === null) return
 
 	const nextUrl = `${catalogIndexHref}?${storedSearch.toString()}`
-	// A real navigation, not remix/ui's navigate(): that API patches the live
+	// A real navigation, not remix/component's navigate(): that API patches the live
 	// DOM in place and its diffing deliberately preserves "live" form-control
 	// state (an <option>'s selected, an <input>'s value) whenever it differs
 	// from the freshly rendered markup, on the assumption that a divergence

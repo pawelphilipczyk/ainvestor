@@ -1,4 +1,4 @@
-import { clientEntry, createElement } from 'remix/ui'
+import { clientEntry, createElement } from 'remix/component'
 import { watchFrameFormSubmissions } from '../../components/client/frame-form-ux.component.ts'
 
 /**

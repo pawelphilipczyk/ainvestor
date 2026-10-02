@@ -1,6 +1,6 @@
-import type { RemixNode } from 'remix/ui'
-import { clientEntry, createElement } from 'remix/ui'
-import { Context, list, panel, root, tab } from 'remix/ui/tabs/primitives'
+import { Context, list, panel, root, tab } from '@remix-run/ui/tabs'
+import type { RemixNode } from 'remix/component'
+import { clientEntry, createElement } from 'remix/component'
 import {
 	tabsListClass as listClass,
 	tabsTabClass as tabClass,

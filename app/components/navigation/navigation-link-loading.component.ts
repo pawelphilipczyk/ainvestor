@@ -1,4 +1,4 @@
-import { clientEntry, createElement, navigate } from 'remix/ui'
+import { clientEntry, createElement, navigate } from 'remix/component'
 import { addEventListeners } from '../../lib/browser/event-listeners.ts'
 
 const ATTR = 'data-navigation-loading'

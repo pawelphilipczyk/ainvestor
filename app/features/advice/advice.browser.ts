@@ -9,7 +9,8 @@ import {
 	startBrowserTestSession,
 } from '../../lib/browser-test.ts'
 import { setPrivateDataTestStore } from '../../lib/private-data-test-store.ts'
-import { sessionCookie, sessionStorage } from '../../lib/session.ts'
+import { sessionStorage } from '../../lib/session.ts'
+import { serializeSessionCookieForTests } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from './advice-client.ts'
 
 /**
@@ -55,7 +56,7 @@ describe('advice forms (browser)', () => {
 		remixSession.set('dataRepo', 'octocat/ainvestor-data')
 		const value = await sessionStorage.save(remixSession)
 		if (value == null) throw new Error('expected session save value')
-		const cookieHeader = await sessionCookie.serialize(value)
+		const cookieHeader = await serializeSessionCookieForTests(value)
 		const [nameValue] = cookieHeader.split(';')
 		const eqIndex = nameValue.indexOf('=')
 
@@ -185,7 +186,7 @@ describe('advice forms (browser)', () => {
 })
 
 /**
- * `advice-mode-tabs.component.ts`: real, client-side `remix/ui/tabs/primitives`
+ * `advice-mode-tabs.component.ts`: real, client-side `@remix-run/ui/tabs`
  * usage, same shape as `guidelines-tabs.component.ts` but pointing the
  * shared `advice-result` Frame at the other mode's own fragment URL and
  * reloading it on switch, instead of toggling a `hidden` panel — each mode's
@@ -220,7 +221,7 @@ describe('advice mode tabs (browser)', () => {
 		remixSession.set('dataRepo', 'octocat/ainvestor-data')
 		const value = await sessionStorage.save(remixSession)
 		if (value == null) throw new Error('expected session save value')
-		const cookieHeader = await sessionCookie.serialize(value)
+		const cookieHeader = await serializeSessionCookieForTests(value)
 		const [nameValue] = cookieHeader.split(';')
 		const eqIndex = nameValue.indexOf('=')
 
@@ -283,7 +284,7 @@ describe('advice mode tabs (browser)', () => {
 		remixSession.set('dataRepo', 'octocat/ainvestor-data')
 		const value = await sessionStorage.save(remixSession)
 		if (value == null) throw new Error('expected session save value')
-		const cookieHeader = await sessionCookie.serialize(value)
+		const cookieHeader = await serializeSessionCookieForTests(value)
 		const [nameValue] = cookieHeader.split(';')
 		const eqIndex = nameValue.indexOf('=')
 		await context.addCookies([

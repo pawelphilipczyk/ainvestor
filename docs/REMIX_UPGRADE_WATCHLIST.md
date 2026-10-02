@@ -6,7 +6,7 @@ release that changes that behavior does not go unnoticed. Everything here was
 measured, not assumed; each entry says what to re-measure and what result would
 flip the decision.
 
-Current pin: **`remix@^3.0.0-rc.2`** (`package.json`).
+Current pin: **`remix@^3.0.0`** (`package.json`).
 
 This file exists because the alternative is rediscovery. Both migrations that
 got us here closed with items deferred for good reasons, and a deferred item
@@ -33,25 +33,22 @@ with no trigger attached is indistinguishable from a forgotten one.
 These are waiting on something specific. Until it lands, they are closed
 measurements, not open questions.
 
-### 1. `remix/ui/button` / `remix/ui/input` — waiting on a headless tier
+### 1. `button` / `input` — not in `@remix-run/ui` at all
 
-**Decision:** not adopted, reason 2. **Waiting on:** `button/primitives` and
-`input/primitives` shipping — the headless tier every other primitive this app
-adopted (tabs, toggle, select) already has.
+**Decision:** not adopted, reason 2. **Waiting on:** a headless
+`button` / `input` tier, as every other primitive this app adopted (tabs,
+toggle, select) already has.
 
-Both ship only the fully-styled tier, and their CSS lives in a dedicated
-`@layer rmx.<hash>` via `document.adoptedStyleSheets` — by design, per
-`remix/ui`'s own README ("Cascade Layers"), not a bug. A cascade layer wins or
-loses as a whole, never per property, so there is no partial adoption: either
-take the mixin's visual design wholesale (pill buttons, hardcoded colors,
-sizing that is not this app's `h-9`/`h-10` tokens) or keep this app's Tailwind
-design, in which case the mixin contributes nothing.
+As of 3.0.0 neither tier ships: `remix` no longer has `remix/ui/*`, and
+`@remix-run/ui` (0.12.x) exports no `button` or `input`. Before that the
+styled tier lived in a dedicated `@layer rmx.<hash>` via
+`document.adoptedStyleSheets`, and a cascade layer wins or loses as a whole,
+so there was never a partial adoption — the cascade-layer finding is settled.
 
-**How to re-measure:** check whether `remix/ui/button/primitives` and
-`remix/ui/input/primitives` resolve. If they do, this reopens as a real
-question against `submit-button.tsx` and the three input components. If only
-the styled tier still exists, the decision stands unchanged — do not re-argue
-the cascade-layer finding, it is settled.
+**How to re-measure:** check whether `@remix-run/ui/button` and
+`@remix-run/ui/input` resolve (look at its `exports`). If a headless tier
+appears, this reopens against `submit-button.tsx` and the three input
+components. A styled-only tier leaves the decision unchanged.
 
 **Full trace:** `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2 (RESOLVED).
 
@@ -96,7 +93,7 @@ few minutes. Neither is expected to flip.
   against AGENTS.md's "native browser primitives before custom JavaScript".
   Only flips if upstream changes it to build on a real `<select>`; a version
   bump alone will not do it.
-- **`remix/ui/popover` vs the sidebar's hand-rolled overlay** — ruled out under
+- **`@remix-run/ui/popover` vs the sidebar's hand-rolled overlay** — ruled out under
   reason 3 (`docs/REMIX_RC_MIGRATION_PLAN.md` §6), and `app/lib/scroll-lock.ts`
   stays with it. Worth one look if a release reworks `popover`.
 
@@ -116,7 +113,7 @@ would move them.
 - **`locale-select` → the `on()` mixin** — more lines and less typecheck
   coverage for an element-scoped listener, and it would not let us delete
   `app/lib/event-listeners.js` anyway.
-- **Browser-side HMR (`remix/ui/dev/refresh`)** — closed, adopted. The
+- **Browser-side HMR (`remix/component-hmr`)** — closed, adopted. The
   `staticFiles()` architecture that blocked it is gone. Do not re-open on the
   strength of the stale "not adopted" wording still quoted in
   `docs/REMIX_RC_MIGRATION_STATUS.md`'s *Decisions* section; that entry carries

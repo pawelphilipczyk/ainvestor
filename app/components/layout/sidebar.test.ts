@@ -3,8 +3,8 @@ import { existsSync } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { describe, it } from 'node:test'
 import { fileURLToPath } from 'node:url'
-import { jsx } from 'remix/ui/jsx-runtime'
-import { renderToString } from 'remix/ui/server'
+import { jsx } from 'remix/component/jsx-runtime'
+import { renderToString } from 'remix/component/server'
 import type { AppPage } from '../../lib/app-page.ts'
 import { assetHref } from '../../lib/remix-assets.ts'
 import type { SessionData } from '../../lib/session.ts'
@@ -149,10 +149,21 @@ describe('remix ui runtime in document', () => {
 	it('document includes import map for remix ui runtime, and both entries are servable', async () => {
 		const response = await router.fetch('http://localhost/')
 		const body = await response.text()
-		const remixUiHref = /"remix\/ui":\s*"([^"]+)"/.exec(body)?.[1]
-		const remixRunUiHref = /"@remix-run\/ui":\s*"([^"]+)"/.exec(body)?.[1]
-		assert.ok(remixUiHref, 'import map is missing a remix/ui entry')
-		assert.ok(remixRunUiHref, 'import map is missing an @remix-run/ui entry')
+		// The compiled modules import resolved asset paths, so the import map is
+		// keyed by those paths, not by bare `remix/component` / `@remix-run/ui`.
+		const remixUiHref =
+			/"\/assets\/npm\/%40remix-run\/component\/dist\/runtime\/run\.js":\s*"([^"]+)"/.exec(
+				body,
+			)?.[1]
+		const remixRunUiHref =
+			/"\/assets\/npm\/%40remix-run\/ui\/dist\/toggle\.js":\s*"([^"]+)"/.exec(
+				body,
+			)?.[1]
+		assert.ok(
+			remixUiHref,
+			'import map is missing the @remix-run/component runtime',
+		)
+		assert.ok(remixRunUiHref, 'import map is missing @remix-run/ui (toggle)')
 
 		const remixUiResponse = await router.fetch(
 			new URL(remixUiHref, 'http://localhost/'),
@@ -228,7 +239,10 @@ describe('remix ui runtime in document', () => {
 		const body = await response.text()
 		// The asset server compiles what it serves, so this is the compiled
 		// module, not the source file: quoting is its choice, not ours.
-		assert.match(body, /import \{ run \} from ['"]remix\/ui['"]/)
+		assert.match(
+			body,
+			/import \{ run \} from ['"]\/assets\/npm\/%40remix-run\/component\/dist\/runtime\/run\.js['"]/,
+		)
 		assert.match(body, /run\(\{/)
 		assert.match(body, /loadModule\(moduleUrl, exportName\)/)
 		// rc.2's default resolveFrame is a strict superset of the app's old
@@ -265,7 +279,7 @@ describe('sidebar component entry asset', () => {
 		)
 		const body = await response.text()
 		assert.match(body, /clientEntry/)
-		assert.match(body, /from ['"]remix\/ui['"]/)
+		assert.match(body, /from ['"]\/assets\/npm\/%40remix-run\/component\//)
 		assert.match(body, /addEventListeners/)
 		assert.match(body, /handle\.signal/)
 		assert.match(body, /addEventListeners\(doc, handle\.signal/)

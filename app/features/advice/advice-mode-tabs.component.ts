@@ -1,5 +1,5 @@
-import { clientEntry, createElement, ref } from 'remix/ui'
-import { Context, list, root, tab } from 'remix/ui/tabs/primitives'
+import { Context, list, root, tab } from '@remix-run/ui/tabs'
+import { clientEntry, createElement, ref } from 'remix/component'
 import { setSubmitButtonLoading } from '../../components/client/submit-button-loading.component.ts'
 import {
 	tabsListClass as listClass,

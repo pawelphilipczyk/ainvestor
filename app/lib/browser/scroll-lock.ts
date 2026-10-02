@@ -4,7 +4,7 @@
  * Verbatim copy of `@remix-run/ui@0.9.0`'s internal
  * `dist/popover/scroll-lock.js` (only reformatted to this repo's style). The
  * module exists on disk but is not reachable: the package's `exports` map does
- * not expose it, and `remix/ui/popover` — which does export `Context`,
+ * not expose it, and `@remix-run/ui/popover` — which does export `Context`,
  * `anchor`, `surface`, `focusOnShow` and `focusOnHide` — does not re-export
  * `lockScroll`. The old `remix/ui/scroll-lock` subpath was removed in the
  * beta.0 -> rc.2 jump and now fails with `ERR_PACKAGE_PATH_NOT_EXPORTED`.
@@ -16,7 +16,7 @@
  * the mobile drawer is ever split from the desktop rail and moved onto a native
  * `<dialog>`.
  *
- * **Not** when the sidebar moves onto `remix/ui/popover` — Stage 6 tried that
+ * **Not** when the sidebar moves onto `@remix-run/ui/popover` — Stage 6 tried that
  * and ruled it out. Measured in Chromium: `surface` always sets
  * `popover="manual"` (so the element is `display: none` until JS opens it, at
  * every breakpoint, while this sidebar is a persistent desktop rail that must

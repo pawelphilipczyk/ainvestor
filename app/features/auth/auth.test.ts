@@ -59,8 +59,10 @@ async function signInThroughCallback(
 		),
 	)
 	const setCookie = response.headers.get('set-cookie') ?? ''
+	// Since 3.0.0 the middleware wraps the value as `{ value, expires }`.
+	const wrapped = await sessionCookie.parse(setCookie.split(';')[0] ?? '')
 	const session = await sessionStorage.read(
-		await sessionCookie.parse(setCookie.split(';')[0] ?? ''),
+		wrapped == null ? null : (JSON.parse(wrapped) as { value: string }).value,
 	)
 	return { response, session }
 }

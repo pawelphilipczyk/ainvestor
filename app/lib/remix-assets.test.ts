@@ -79,6 +79,7 @@ describe('client entries are served through the asset server', () => {
 			),
 		]
 
+		let bareSpecifierCount = 0
 		for (const moduleUrl of moduleUrls) {
 			const response = await router.fetch(`http://localhost${moduleUrl}`)
 			const source = await response.text()
@@ -88,10 +89,7 @@ describe('client entries are served through the asset server', () => {
 			const bareSpecifiers = specifiers.filter(
 				(specifier) => !specifier.startsWith('.') && !specifier.startsWith('/'),
 			)
-			assert.ok(
-				bareSpecifiers.length > 0,
-				`${moduleUrl} imports nothing bare — the assertion below would be vacuous`,
-			)
+			bareSpecifierCount += bareSpecifiers.length
 			for (const specifier of bareSpecifiers) {
 				const scope = Object.entries(scopes).find(([prefix]) =>
 					moduleUrl.startsWith(prefix),
@@ -102,6 +100,13 @@ describe('client entries are served through the asset server', () => {
 				)
 			}
 		}
+		// Per entry would be too strict: the compiler now rewrites
+		// `remix/component` to a resolved asset path, so an entry may have no
+		// bare import left (only `@remix-run/ui/*` primitives stay bare).
+		assert.ok(
+			bareSpecifierCount > 0,
+			'no entry imports anything bare — the assertion above would be vacuous',
+		)
 	})
 })
 
@@ -285,7 +290,7 @@ describe('asset server access boundary', () => {
 
 	it('ships no HMR instrumentation when browser HMR is off', async () => {
 		// `REMIX_NODE_HMR` is unset in this process, as it is under `npm start`
-		// and `node --test`, so the `uiHmr` loader and the HMR channel are both
+		// and `node --test`, so the `componentHmr` loader and the HMR channel are both
 		// off. Dev tooling reaching production is the regression this guards:
 		// the client is pulled in by `import.meta.hot` boundaries the loader
 		// adds, so a served module carrying either means it was instrumented.
@@ -295,9 +300,9 @@ describe('asset server access boundary', () => {
 			'this test is meaningless under HMR supervision',
 		)
 		const page = await fetchPage('/')
-		assert.doesNotMatch(page, /ui-hmr\/runtime\/browser/)
+		assert.doesNotMatch(page, /component-hmr\/runtime\/browser/)
 
-		// Component modules only. `uiHmr()` instruments those and nothing else:
+		// Component modules only. `componentHmr()` instruments those and nothing else:
 		// measured against a live supervised dev server, `theme-toggle.component.ts`
 		// came back with 10 instrumentation markers while `app/entry.ts` and
 		// `app/lib/browser/scroll-lock.ts` had none. Asserting over a module that is
@@ -312,7 +317,7 @@ describe('asset server access boundary', () => {
 			const body = await response.text()
 			assert.doesNotMatch(body, /import\.meta\.hot/, source)
 			assert.doesNotMatch(body, /__remixCreateHotContext/, source)
-			assert.doesNotMatch(body, /__uiHmrBrowserRuntime__/, source)
+			assert.doesNotMatch(body, /__componentHmrBrowserRuntime__/, source)
 		}
 	})
 

@@ -14,10 +14,19 @@ ahead of time.
 
 ## Where we are
 
+- **3.0.0 (latest):** the app is on `remix@^3.0.0`. `remix/ui` became
+  `remix/component` (also `/server`, `/jsx-runtime`); `remix/ui-hmr` became
+  `remix/component-hmr` (`componentHmr()`). The tabs and toggle primitives
+  moved out of `remix` into `@remix-run/ui` (`@remix-run/ui/tabs`,
+  `@remix-run/ui/toggle`), so `allowPackages` in `app/lib/remix-assets.ts`
+  lists both. Also changed: `innerHTML` props need `unsafeHTML()`, and the
+  session middleware stores cookies as `{ value, expires }` (test helpers
+  mirror it). Everything below describes the rc.2 work that led here.
+
 - **Stage:** 6 (behavior via primitives) is **done and merged on `main`**
   (PR #198). **Stage 7 (styled components and dev tooling) is done — this was
-  the last staged item in the Plan.** Part 1 (`remix/ui/button` /
-  `remix/ui/input`): **not adopted, reason 2**, per a live measurement (see
+  the last staged item in the Plan.** Part 1 (`button` /
+  `input`): **not adopted, reason 2**, per a live measurement (see
   `docs/REMIX_RC_MIGRATION_PLAN.md` Open question 2). Part 2 (dev tooling):
   **partially adopted** — `remix/node-tsx` fully replaces the `tsx`
   dependency everywhere (dev/start/mcp/tests), and `remix/node-hmr` +

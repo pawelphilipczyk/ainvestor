@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/ui'
+import type { Handle } from 'remix/component'
 import { isPreview } from '../../lib/deployment.ts'
 import { t } from '../../lib/i18n.ts'
 import { getPreviewBuildChrome } from '../../lib/preview-build-meta.ts'

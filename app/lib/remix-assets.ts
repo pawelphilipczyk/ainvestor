@@ -1,7 +1,7 @@
 import * as path from 'node:path'
 import { createAssetServer } from 'remix/assets'
-import type { RenderToStreamOptions } from 'remix/ui/server'
-import { uiHmr } from 'remix/ui-hmr/assets'
+import type { RenderToStreamOptions } from 'remix/component/server'
+import { componentHmr } from 'remix/component-hmr/assets'
 
 const rootDir = path.resolve(import.meta.dirname, '..', '..')
 
@@ -118,11 +118,11 @@ export const remixAssetServer = createAssetServer({
 	// not match it. Keep both as denies rather than a narrower allow: they hold
 	// for every glob above, including ones added later.
 	denyFiles: ['**/*.test.*', '**/*.browser.*'],
-	allowPackages: ['remix'],
+	allowPackages: ['@remix-run/ui', 'remix'],
 	// Instrument component modules so an edit can be applied to an open tab
 	// instead of reloading it. Only under HMR: the transform exists to add
 	// `import.meta.hot` boundaries, which nothing consumes otherwise.
-	scripts: browserHmrAvailable ? { loaders: [uiHmr()] } : undefined,
+	scripts: browserHmrAvailable ? { loaders: [componentHmr()] } : undefined,
 	// The browser HMR channel. `remix/node-hmr/runtime` throws if imported by
 	// a process `node-hmr` is not supervising, hence the dynamic import behind
 	// the flag rather than a top-level one — `server.ts` is the same entry
@@ -133,7 +133,7 @@ export const remixAssetServer = createAssetServer({
 	// Watching is what keeps development honest, with or without HMR: this
 	// server caches each module's *compiled* output, where `staticFiles()`
 	// used to read the file per request, so without a watcher an edit is
-	// served stale. `hmr.ts` alone does not save us — `remix/ui-hmr/node`
+	// served stale. `hmr.ts` alone does not save us — `remix/component-hmr/node`
 	// hot-swaps a `.component.js` edit in place, with no process restart to
 	// rebuild this cache with it (measured). Off everywhere else, so
 	// `node --test`'s process-isolated test files do not each start a
@@ -174,7 +174,7 @@ export function assetHref(relativePath: string): Promise<string> {
  *
  * Its map is scoped to `/assets/app/`, so it covers every app module served
  * from that namespace — including client entries the renderer loads later.
- * Each client entry still merges its *own* map (the `remix/ui/*` subpaths only
+ * Each client entry still merges its *own* map (the `@remix-run/ui/*` subpaths only
  * it imports) into the document through `resolveClientEntry` below, so this is
  * the floor, not the whole map.
  */
