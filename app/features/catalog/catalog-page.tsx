@@ -51,7 +51,7 @@ export function CatalogPage(handle: Handle<CatalogPageProps, SessionContext>) {
 					</p>
 					{sessionHasDataRepo(session) ? (
 						<p class="mt-0.5 text-xs text-muted-foreground">
-							{t('catalog.savedGist')}
+							{t('catalog.savedRepo')}
 						</p>
 					) : null}
 				</SectionIntroCard>

@@ -6,7 +6,7 @@ import {
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
 } from '../../features/catalog/lib.ts'
-import { GIST_FILENAME } from '../gist.ts'
+import { ETFS_FILENAME } from '../etfs.ts'
 import { GUIDELINES_FILENAME } from '../guidelines.ts'
 import {
 	approvedSessionCookieForFakeRepo,
@@ -83,7 +83,7 @@ describe('web commit messages', () => {
 	it('names the holding a delete removed', async () => {
 		const repo = installFakeDataRepo({
 			files: {
-				[GIST_FILENAME]: JSON.stringify([
+				[ETFS_FILENAME]: JSON.stringify([
 					{ id: 'h1', name: 'Gold ETC', value: 10, currency: 'PLN' },
 				]),
 			},
@@ -139,7 +139,7 @@ describe('web commit messages', () => {
 		})
 		const repo = installFakeDataRepo({
 			files: {
-				[GIST_FILENAME]: JSON.stringify([
+				[ETFS_FILENAME]: JSON.stringify([
 					{ id: 'h1', name: 'Gold ETC', value: 10, currency: 'PLN' },
 				]),
 				[GUIDELINES_FILENAME]: JSON.stringify([guidelineRow]),

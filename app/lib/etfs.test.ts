@@ -2,11 +2,11 @@ import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 
 import {
+	ETFS_FILENAME,
 	fetchEtfs,
-	GIST_FILENAME,
-	parseEtfsFromGist,
+	parseEtfsFromFiles,
 	updateEtfs,
-} from './gist.ts'
+} from './etfs.ts'
 import { installFakeDataRepo } from './store/github-repo-test-fake.ts'
 
 const originalFetch = globalThis.fetch
@@ -15,35 +15,35 @@ afterEach(() => {
 	globalThis.fetch = originalFetch
 })
 
-describe('gist', () => {
+describe('etfs', () => {
 	it('exports the expected constants', () => {
-		assert.equal(typeof GIST_FILENAME, 'string')
+		assert.equal(typeof ETFS_FILENAME, 'string')
 	})
 
-	it('parseEtfsFromGist returns empty array for missing file', () => {
-		const result = parseEtfsFromGist({ files: {} })
+	it('parseEtfsFromFiles returns empty array for missing file', () => {
+		const result = parseEtfsFromFiles({ files: {} })
 		assert.deepEqual(result, [])
 	})
 
-	it('parseEtfsFromGist returns empty array for null content', () => {
-		const result = parseEtfsFromGist({
-			files: { [GIST_FILENAME]: { content: null } },
+	it('parseEtfsFromFiles returns empty array for null content', () => {
+		const result = parseEtfsFromFiles({
+			files: { [ETFS_FILENAME]: { content: null } },
 		})
 		assert.deepEqual(result, [])
 	})
 
-	it('parseEtfsFromGist parses valid ETF JSON with new fields', () => {
+	it('parseEtfsFromFiles parses valid ETF JSON with new fields', () => {
 		const entries = [
 			{ id: 'abc-1', name: 'VTI', value: 1200.5, currency: 'USD' },
 			{ id: 'abc-2', name: 'VWCE', value: 3400, currency: 'EUR' },
 		]
-		const result = parseEtfsFromGist({
-			files: { [GIST_FILENAME]: { content: JSON.stringify(entries) } },
+		const result = parseEtfsFromFiles({
+			files: { [ETFS_FILENAME]: { content: JSON.stringify(entries) } },
 		})
 		assert.deepEqual(result, entries)
 	})
 
-	it('parseEtfsFromGist drops legacy quantity from stored JSON', () => {
+	it('parseEtfsFromFiles drops legacy quantity from stored JSON', () => {
 		const raw = [
 			{
 				id: 'abc-1',
@@ -53,17 +53,17 @@ describe('gist', () => {
 				quantity: 10,
 			},
 		]
-		const result = parseEtfsFromGist({
-			files: { [GIST_FILENAME]: { content: JSON.stringify(raw) } },
+		const result = parseEtfsFromFiles({
+			files: { [ETFS_FILENAME]: { content: JSON.stringify(raw) } },
 		})
 		assert.deepEqual(result, [
 			{ id: 'abc-1', name: 'VTI', value: 1000, currency: 'USD' },
 		])
 	})
 
-	it('parseEtfsFromGist returns empty array for invalid JSON', () => {
-		const result = parseEtfsFromGist({
-			files: { [GIST_FILENAME]: { content: 'not-json!!!' } },
+	it('parseEtfsFromFiles returns empty array for invalid JSON', () => {
+		const result = parseEtfsFromFiles({
+			files: { [ETFS_FILENAME]: { content: 'not-json!!!' } },
 		})
 		assert.deepEqual(result, [])
 	})
@@ -84,7 +84,7 @@ describe('gist', () => {
 
 	it('updateEtfs throws with the status when GitHub refuses the save', async () => {
 		installFakeDataRepo({
-			files: { [GIST_FILENAME]: '[]' },
+			files: { [ETFS_FILENAME]: '[]' },
 			failWritesWith: 500,
 		})
 		await assert.rejects(
@@ -104,7 +104,7 @@ describe('gist', () => {
 	it('updateEtfs does not retry a 422 on an existing file, which is not a lost race', async () => {
 		// A ruleset or a size limit refuses the save the same way every time.
 		const repo = installFakeDataRepo({
-			files: { [GIST_FILENAME]: '[]' },
+			files: { [ETFS_FILENAME]: '[]' },
 			failWritesWith: 422,
 		})
 		await assert.rejects(
@@ -129,14 +129,14 @@ describe('gist', () => {
 		let deleted = false
 		const repo = installFakeDataRepo({
 			files: {
-				[GIST_FILENAME]: JSON.stringify([
+				[ETFS_FILENAME]: JSON.stringify([
 					{ id: 'old', name: 'Old', value: 1, currency: 'PLN' },
 				]),
 			},
 			afterContentRead: (path, fake) => {
-				if (path !== GIST_FILENAME || deleted) return
+				if (path !== ETFS_FILENAME || deleted) return
 				deleted = true
-				fake.externalDelete(GIST_FILENAME)
+				fake.externalDelete(ETFS_FILENAME)
 			},
 		})
 		await updateEtfs({
@@ -152,7 +152,7 @@ describe('gist', () => {
 			}),
 		})
 		// The retry saw no file, so the new row stands alone rather than reviving the old.
-		const stored = JSON.parse(repo.files.get(GIST_FILENAME) ?? '[]') as {
+		const stored = JSON.parse(repo.files.get(ETFS_FILENAME) ?? '[]') as {
 			id: string
 		}[]
 		assert.deepEqual(
@@ -173,7 +173,7 @@ describe('gist', () => {
 			}),
 		})
 		assert.deepEqual(repo.commitMessages, ['Add X'])
-		assert.equal(JSON.parse(repo.files.get(GIST_FILENAME) ?? '[]').length, 1)
+		assert.equal(JSON.parse(repo.files.get(ETFS_FILENAME) ?? '[]').length, 1)
 	})
 
 	it('updateEtfs redoes its change when another client created the file first', async () => {
@@ -181,10 +181,10 @@ describe('gist', () => {
 		const repo = installFakeDataRepo({
 			// The first read finds no file; before this save lands, another client creates it.
 			afterContentRead: (path, fake) => {
-				if (path !== GIST_FILENAME || created) return
+				if (path !== ETFS_FILENAME || created) return
 				created = true
 				fake.externalWrite(
-					GIST_FILENAME,
+					ETFS_FILENAME,
 					JSON.stringify([
 						{ id: 'theirs', name: 'Y', value: 2, currency: 'PLN' },
 					]),
@@ -203,7 +203,7 @@ describe('gist', () => {
 				result: null,
 			}),
 		})
-		const stored = JSON.parse(repo.files.get(GIST_FILENAME) ?? '[]') as {
+		const stored = JSON.parse(repo.files.get(ETFS_FILENAME) ?? '[]') as {
 			id: string
 		}[]
 		assert.deepEqual(stored.map((holding) => holding.id).sort(), [

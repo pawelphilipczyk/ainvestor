@@ -6,7 +6,7 @@ import {
 	ADVICE_BUY_NEXT_STORAGE_FILENAME,
 	ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME,
 	ADVICE_STORAGE_FILENAME,
-} from '../../app/features/advice/advice-gist.ts'
+} from '../../app/features/advice/advice-storage.ts'
 import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resetDataRepoCache } from '../data-repo.ts'
@@ -43,11 +43,11 @@ function storedAnalysis(
 }
 
 /** Serve these files from a fake data repo, and record the requests made to it. */
-function stubGist(files: Record<string, string>): string[] {
+function stubDataRepo(files: Record<string, string>): string[] {
 	return installFakeDataRepo({ files }).requests
 }
 
-function stubGistFailure(status: number): void {
+function stubDataRepoFailure(status: number): void {
 	installFakeDataRepo({ failContentReadsWith: status })
 }
 
@@ -150,7 +150,7 @@ describe('flattenAdviceDocumentToText', () => {
 
 describe('get_saved_advice', () => {
 	it('returns the stored analysis as text, with when and what it was written for', async () => {
-		stubGist({
+		stubDataRepo({
 			[ADVICE_BUY_NEXT_STORAGE_FILENAME]: JSON.stringify(storedAnalysis()),
 		})
 
@@ -166,7 +166,7 @@ describe('get_saved_advice', () => {
 	})
 
 	it('defaults to the buy-next analysis when no mode is named', async () => {
-		stubGist({
+		stubDataRepo({
 			[ADVICE_BUY_NEXT_STORAGE_FILENAME]: JSON.stringify(storedAnalysis()),
 		})
 		assert.equal((await callTool()).mode, 'buy_next')
@@ -183,7 +183,7 @@ describe('get_saved_advice', () => {
 	it('refuses a named mode that is not a string, instead of defaulting it', async () => {
 		// A mode that is present but the wrong type is a wrong argument, not an
 		// absent one; defaulting it answers a review request with the buy plan.
-		stubGist({
+		stubDataRepo({
 			[ADVICE_BUY_NEXT_STORAGE_FILENAME]: JSON.stringify(storedAnalysis()),
 		})
 		const tool = createGetSavedAdviceTool(credentials)
@@ -196,7 +196,7 @@ describe('get_saved_advice', () => {
 	})
 
 	it('falls back to the legacy single-file snapshot', async () => {
-		stubGist({
+		stubDataRepo({
 			[ADVICE_STORAGE_FILENAME]: JSON.stringify(
 				storedAnalysis({
 					lastAnalysisMode: 'portfolio_review',
@@ -212,7 +212,7 @@ describe('get_saved_advice', () => {
 	})
 
 	it('reports a missing analysis as not_found, and says who writes one', async () => {
-		stubGist({})
+		stubDataRepo({})
 
 		const payload = await callTool({ mode: 'portfolio_review' })
 
@@ -223,7 +223,7 @@ describe('get_saved_advice', () => {
 	})
 
 	it('does not read the other mode’s analysis as this one’s', async () => {
-		stubGist({
+		stubDataRepo({
 			[ADVICE_BUY_NEXT_STORAGE_FILENAME]: JSON.stringify(storedAnalysis()),
 		})
 
@@ -234,7 +234,7 @@ describe('get_saved_advice', () => {
 	})
 
 	it('separates a malformed stored file from a missing one', async () => {
-		stubGist({
+		stubDataRepo({
 			[ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME]: '{"version": 1, "oops"',
 		})
 
@@ -249,7 +249,7 @@ describe('get_saved_advice', () => {
 	it('does not claim a corrupt legacy file holds this mode’s analysis', async () => {
 		// The legacy file holds whichever mode was saved last, so a corrupt one is
 		// no evidence that this mode was ever generated.
-		stubGist({ [ADVICE_STORAGE_FILENAME]: '{"version": 1, "oops"' })
+		stubDataRepo({ [ADVICE_STORAGE_FILENAME]: '{"version": 1, "oops"' })
 
 		const payload = await callTool({ mode: 'portfolio_review' })
 
@@ -266,7 +266,7 @@ describe('get_saved_advice', () => {
 	it('throws with the status when GitHub refuses the read', async () => {
 		// Thrown rather than reported as "nothing saved": over HTTP the transport
 		// turns a 401 into a challenge, which is what makes a client refresh.
-		stubGistFailure(401)
+		stubDataRepoFailure(401)
 		const tool = createGetSavedAdviceTool(credentials)
 		await assert.rejects(
 			tool.handler({}),

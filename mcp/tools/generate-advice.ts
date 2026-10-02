@@ -1,8 +1,4 @@
 import { getOrCreateAdviceClient } from '../../app/features/advice/advice-client.ts'
-import {
-	type StoredAdviceAnalysis,
-	saveStoredAdviceAnalysisForTab,
-} from '../../app/features/advice/advice-gist.ts'
 import type {
 	AdviceAnalysisMode,
 	AdviceModelId,
@@ -13,6 +9,10 @@ import {
 	DEFAULT_ADVICE_MODEL,
 	getInvestmentAdvice,
 } from '../../app/features/advice/advice-openai.ts'
+import {
+	type StoredAdviceAnalysis,
+	saveStoredAdviceAnalysisForTab,
+} from '../../app/features/advice/advice-storage.ts'
 import { fetchCatalog } from '../../app/features/catalog/lib.ts'
 import { CURRENCIES } from '../../app/lib/currencies.ts'
 import {
@@ -28,7 +28,7 @@ import { resolveDataRepo } from '../data-repo.ts'
 import {
 	fetchEtfsCached,
 	fetchGuidelinesOrThrowCached,
-} from '../private-gist-cache.ts'
+} from '../private-data-cache.ts'
 import type { McpToolDefinition, McpToolResult } from '../protocol.ts'
 import { readCashAmountText, resolveCashCurrency } from './buy-plan.ts'
 import { summarizePortfolio } from './portfolio.ts'

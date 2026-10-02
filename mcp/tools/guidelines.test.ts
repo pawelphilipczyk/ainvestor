@@ -10,7 +10,7 @@ import { GUIDELINES_FILENAME } from '../../app/lib/guidelines.ts'
 import { installFakeDataRepo } from '../../app/lib/store/github-repo-test-fake.ts'
 import type { DataRepoCredentials } from '../data-repo.ts'
 import { resetDataRepoCache } from '../data-repo.ts'
-import { resetPrivateGistCacheForTests } from '../private-gist-cache.ts'
+import { resetPrivateDataCacheForTests } from '../private-data-cache.ts'
 import {
 	createDeleteGuidelineTool,
 	createGetGuidelinesTool,
@@ -34,20 +34,23 @@ function guideline(overrides: Partial<EtfGuideline> = {}): EtfGuideline {
 	}
 }
 
-type GistExchange = {
+type DataRepoExchange = {
 	/** Guideline rows as stored after each write the tool made. */
 	saved: EtfGuideline[][]
 	requests: { method: string; url: string }[]
 }
 
 /** Serve guidelines from a fake data repo, recording the writes the tool performs. */
-function stubGist(rows: EtfGuideline[], saveStatus = 200): GistExchange {
+function stubDataRepo(
+	rows: EtfGuideline[],
+	saveStatus = 200,
+): DataRepoExchange {
 	const repo = installFakeDataRepo({
 		files: { [GUIDELINES_FILENAME]: JSON.stringify(rows) },
 		...(saveStatus === 200 ? {} : { failWritesWith: saveStatus }),
 	})
 	const repoFetch = globalThis.fetch
-	const exchange: GistExchange = { saved: [], requests: [] }
+	const exchange: DataRepoExchange = { saved: [], requests: [] }
 	globalThis.fetch = async (input, init) => {
 		const method = init?.method ?? 'GET'
 		exchange.requests.push({ method, url: String(input) })
@@ -70,7 +73,7 @@ afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataRepoCache()
 	resetSharedCatalogForTests()
-	resetPrivateGistCacheForTests()
+	resetPrivateDataCacheForTests()
 })
 
 /** Payload of a tool result, which is always one JSON text block. */
@@ -175,7 +178,7 @@ describe('get_guidelines tool', () => {
 	})
 
 	it('get_guidelines reads the pinned repo and returns the summary as JSON text', async () => {
-		const exchange = stubGist([guideline({ targetPct: 60 })])
+		const exchange = stubDataRepo([guideline({ targetPct: 60 })])
 		const payload = payloadOf(
 			await createGetGuidelinesTool(credentials).handler({}),
 		)
@@ -202,7 +205,9 @@ describe('get_guidelines tool', () => {
 
 describe('set_guideline tool', () => {
 	it('creates an asset-class row and keeps the existing ones', async () => {
-		const exchange = stubGist([guideline({ id: 'existing', targetPct: 40 })])
+		const exchange = stubDataRepo([
+			guideline({ id: 'existing', targetPct: 40 }),
+		])
 		const payload = payloadOf(
 			await createSetGuidelineTool(credentials).handler({
 				kind: 'asset_class',
@@ -223,7 +228,9 @@ describe('set_guideline tool', () => {
 	})
 
 	it('updates the existing row for an asset class rather than adding a second', async () => {
-		const exchange = stubGist([guideline({ id: 'existing', targetPct: 40 })])
+		const exchange = stubDataRepo([
+			guideline({ id: 'existing', targetPct: 40 }),
+		])
 		const payload = payloadOf(
 			await createSetGuidelineTool(credentials).handler({
 				kind: 'asset_class',
@@ -240,7 +247,7 @@ describe('set_guideline tool', () => {
 
 	it('takes the asset class of an instrument from the catalog', async () => {
 		stubCatalog()
-		const exchange = stubGist([])
+		const exchange = stubDataRepo([])
 		const payload = payloadOf(
 			await createSetGuidelineTool(credentials).handler({
 				kind: 'instrument',
@@ -256,7 +263,7 @@ describe('set_guideline tool', () => {
 
 	it('refuses an asset class that contradicts the catalog', async () => {
 		stubCatalog()
-		stubGist([])
+		stubDataRepo([])
 		await assert.rejects(
 			async () =>
 				createSetGuidelineTool(credentials).handler({
@@ -271,7 +278,7 @@ describe('set_guideline tool', () => {
 
 	it('accepts an unlisted ticker only with an explicit asset class, and says it was unverified', async () => {
 		stubCatalog()
-		stubGist([])
+		stubDataRepo([])
 		await assert.rejects(
 			async () =>
 				createSetGuidelineTool(credentials).handler({
@@ -295,7 +302,7 @@ describe('set_guideline tool', () => {
 	})
 
 	it('refuses a target that would push the total above 100%', async () => {
-		const exchange = stubGist([
+		const exchange = stubDataRepo([
 			guideline({ id: 'a', targetPct: 70 }),
 			guideline({ id: 'b', etfType: 'bond', targetPct: 20 }),
 		])
@@ -312,7 +319,7 @@ describe('set_guideline tool', () => {
 	})
 
 	it('counts only the other rows when raising an existing target', async () => {
-		const exchange = stubGist([
+		const exchange = stubDataRepo([
 			guideline({ id: 'a', targetPct: 70 }),
 			guideline({ id: 'b', etfType: 'bond', targetPct: 20 }),
 		])
@@ -328,7 +335,7 @@ describe('set_guideline tool', () => {
 	})
 
 	it('rejects a target outside the allowed range, and a non-numeric one', async () => {
-		stubGist([])
+		stubDataRepo([])
 		const tool = createSetGuidelineTool(credentials)
 		await assert.rejects(
 			async () =>
@@ -347,7 +354,7 @@ describe('set_guideline tool', () => {
 	})
 
 	it('reads a numeric string the way the web form does', async () => {
-		const exchange = stubGist([])
+		const exchange = stubDataRepo([])
 		const tool = createSetGuidelineTool(credentials)
 
 		await tool.handler({
@@ -371,7 +378,7 @@ describe('set_guideline tool', () => {
 	})
 
 	it('names the valid asset classes when one is missing or wrong', async () => {
-		stubGist([])
+		stubDataRepo([])
 		const tool = createSetGuidelineTool(credentials)
 		await assert.rejects(
 			async () => tool.handler({ kind: 'asset_class', targetPct: 10 }),
@@ -389,7 +396,7 @@ describe('set_guideline tool', () => {
 	})
 
 	it('surfaces a rejected write instead of reporting a save that did not happen', async () => {
-		stubGist([], 403)
+		stubDataRepo([], 403)
 		await assert.rejects(
 			async () =>
 				createSetGuidelineTool(credentials).handler({
@@ -404,7 +411,7 @@ describe('set_guideline tool', () => {
 
 describe('delete_guideline tool', () => {
 	it('removes the named row and reports what is left', async () => {
-		const exchange = stubGist([
+		const exchange = stubDataRepo([
 			guideline({ id: 'keep', targetPct: 40 }),
 			guideline({ id: 'drop', etfType: 'bond', targetPct: 30 }),
 		])
@@ -421,7 +428,7 @@ describe('delete_guideline tool', () => {
 	})
 
 	it('says where the ids come from when the id is unknown or missing', async () => {
-		const exchange = stubGist([guideline({ id: 'keep' })])
+		const exchange = stubDataRepo([guideline({ id: 'keep' })])
 		const tool = createDeleteGuidelineTool(credentials)
 		await assert.rejects(
 			async () => tool.handler({ id: 'nope' }),

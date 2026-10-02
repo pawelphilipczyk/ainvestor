@@ -29,8 +29,8 @@ export const ADVICE_BUY_NEXT_STORAGE_FILENAME = 'advice-buy-next.json'
 export const ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME =
 	'advice-portfolio-review.json'
 
-/** Gist filename per analysis mode (single source for save / fetch / clear). */
-export const ADVICE_GIST_FILENAME_BY_MODE = {
+/** Filename per analysis mode (single source for save / fetch / clear). */
+export const ADVICE_FILENAME_BY_MODE = {
 	buy_next: ADVICE_BUY_NEXT_STORAGE_FILENAME,
 	portfolio_review: ADVICE_PORTFOLIO_REVIEW_STORAGE_FILENAME,
 } as const satisfies Record<AdviceAnalysisMode, string>
@@ -60,7 +60,7 @@ export type StoredAdviceAnalysis = {
 }
 
 /** In-memory overlay for tests (avoids mocking `fetch`). */
-const gistTestState: {
+const storageTestState: {
 	enabled: boolean
 	byTab: Partial<Record<AdviceAnalysisMode, StoredAdviceAnalysis | null>>
 	lastSaved: StoredAdviceAnalysis | null
@@ -72,34 +72,34 @@ const gistTestState: {
 	saveShouldFail: false,
 }
 
-export function setAdviceGistTestOverlay(
+export function setAdviceStorageTestOverlay(
 	fetchReturn: StoredAdviceAnalysis | null,
 ): void {
-	gistTestState.enabled = true
-	gistTestState.saveShouldFail = false
-	gistTestState.lastSaved = null
+	storageTestState.enabled = true
+	storageTestState.saveShouldFail = false
+	storageTestState.lastSaved = null
 	if (fetchReturn === null) {
-		gistTestState.byTab = {}
+		storageTestState.byTab = {}
 	} else {
 		const tab = fetchReturn.activeTab ?? fetchReturn.lastAnalysisMode
-		gistTestState.byTab = { [tab]: fetchReturn }
+		storageTestState.byTab = { [tab]: fetchReturn }
 	}
 }
 
-export function resetAdviceGistTestOverlay(): void {
-	gistTestState.enabled = false
-	gistTestState.byTab = {}
-	gistTestState.lastSaved = null
-	gistTestState.saveShouldFail = false
+export function resetAdviceStorageTestOverlay(): void {
+	storageTestState.enabled = false
+	storageTestState.byTab = {}
+	storageTestState.lastSaved = null
+	storageTestState.saveShouldFail = false
 }
 
-/** When the test overlay is on, the next gist save throws (simulates API failure). */
-export function setAdviceGistTestSaveShouldFail(shouldFail: boolean): void {
-	gistTestState.saveShouldFail = shouldFail
+/** When the test overlay is on, the next save throws (simulates API failure). */
+export function setAdviceStorageTestSaveShouldFail(shouldFail: boolean): void {
+	storageTestState.saveShouldFail = shouldFail
 }
 
-export function getAdviceGistLastSavedInTest(): StoredAdviceAnalysis | null {
-	return gistTestState.lastSaved
+export function getAdviceStorageLastSavedInTest(): StoredAdviceAnalysis | null {
+	return storageTestState.lastSaved
 }
 
 function normalizeAnalysisMode(raw: string): AdviceAnalysisMode | null {
@@ -115,7 +115,7 @@ function normalizeModelId(raw: string): AdviceModelId {
 		: DEFAULT_ADVICE_MODEL
 }
 
-export function parseStoredAdviceAnalysisFromGistFile(
+export function parseStoredAdviceAnalysisFromFile(
 	content: string | null | undefined,
 ): StoredAdviceAnalysis | null {
 	if (content == null || content.trim() === '') return null
@@ -161,7 +161,7 @@ function storedMatchesTab(
  *
  * The page only ever needed "a snapshot or nothing", but a client asking for one
  * over MCP has to be told which of the three happened: an analysis that was
- * never generated, one stored in a shape this version cannot read, and a gist
+ * never generated, one stored in a shape this version cannot read, and a repository
  * GitHub refused to hand over are three different problems with three different
  * fixes, and reporting them all as "nothing saved" invites regenerating an
  * analysis that is in fact sitting right there.
@@ -182,7 +182,7 @@ function hasStoredContent(content: string | null | undefined): boolean {
 }
 
 /**
- * Read saved analysis for one tab from the gist, naming the reason when there is
+ * Read saved analysis for one tab from the repository, naming the reason when there is
  * none. Uses a per-mode file; falls back to legacy `advice-analysis.json` when
  * the mode-specific file is missing.
  */
@@ -191,13 +191,13 @@ export async function fetchStoredAdviceAnalysisOutcomeForTab(
 	dataRepo: string,
 	tab: AdviceAnalysisMode,
 ): Promise<StoredAdviceAnalysisOutcome> {
-	if (gistTestState.enabled) {
-		const stored = gistTestState.byTab[tab] ?? null
+	if (storageTestState.enabled) {
+		const stored = storageTestState.byTab[tab] ?? null
 		return stored === null
 			? { status: 'not_found' }
 			: { status: 'found', stored }
 	}
-	const modeFilename = ADVICE_GIST_FILENAME_BY_MODE[tab]
+	const modeFilename = ADVICE_FILENAME_BY_MODE[tab]
 	// One request for both files: the legacy fallback below must not cost a
 	// second round trip on every read.
 	const result = await readFiles({
@@ -209,12 +209,12 @@ export async function fetchStoredAdviceAnalysisOutcomeForTab(
 		return { status: 'unreadable', httpStatus: result.status }
 	}
 	const primaryContent = result.files[modeFilename]?.content ?? null
-	const primary = parseStoredAdviceAnalysisFromGistFile(primaryContent)
+	const primary = parseStoredAdviceAnalysisFromFile(primaryContent)
 	if (primary !== null && storedMatchesTab(primary, tab)) {
 		return { status: 'found', stored: primary }
 	}
 	const legacyContent = result.files[ADVICE_STORAGE_FILENAME]?.content ?? null
-	const legacy = parseStoredAdviceAnalysisFromGistFile(legacyContent)
+	const legacy = parseStoredAdviceAnalysisFromFile(legacyContent)
 	if (legacy !== null && storedMatchesTab(legacy, tab)) {
 		return { status: 'found', stored: legacy }
 	}
@@ -282,15 +282,15 @@ export async function saveStoredAdviceAnalysisForTab(
 	stored: StoredAdviceAnalysis,
 	message?: string,
 ): Promise<void> {
-	if (gistTestState.enabled) {
-		if (gistTestState.saveShouldFail) {
-			throw new Error('simulated gist save failure (test overlay)')
+	if (storageTestState.enabled) {
+		if (storageTestState.saveShouldFail) {
+			throw new Error('simulated save failure (test overlay)')
 		}
-		gistTestState.lastSaved = stored
-		gistTestState.byTab[tab] = stored
+		storageTestState.lastSaved = stored
+		storageTestState.byTab[tab] = stored
 		return
 	}
-	const filename = ADVICE_GIST_FILENAME_BY_MODE[tab]
+	const filename = ADVICE_FILENAME_BY_MODE[tab]
 	const result = await writeFile({
 		token,
 		location: dataRepo,
@@ -319,11 +319,11 @@ export async function clearStoredAdviceAnalysisForTab(
 	tab: AdviceAnalysisMode,
 	message?: string,
 ): Promise<void> {
-	if (gistTestState.enabled) {
-		gistTestState.byTab[tab] = null
+	if (storageTestState.enabled) {
+		storageTestState.byTab[tab] = null
 		return
 	}
-	const filename = ADVICE_GIST_FILENAME_BY_MODE[tab]
+	const filename = ADVICE_FILENAME_BY_MODE[tab]
 	const result = await writeFile({
 		token,
 		location: dataRepo,
@@ -344,7 +344,7 @@ export async function clearLegacyUnifiedAdviceAnalysis(
 	dataRepo: string,
 	message?: string,
 ): Promise<void> {
-	if (gistTestState.enabled) {
+	if (storageTestState.enabled) {
 		return
 	}
 	const result = await writeFile({
@@ -366,9 +366,9 @@ export async function clearStoredAdviceAnalysis(
 	token: string,
 	dataRepo: string,
 ): Promise<void> {
-	if (gistTestState.enabled) {
-		gistTestState.byTab = {}
-		gistTestState.lastSaved = null
+	if (storageTestState.enabled) {
+		storageTestState.byTab = {}
+		storageTestState.lastSaved = null
 		return
 	}
 	const result = await writeFiles({

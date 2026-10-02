@@ -10,7 +10,7 @@ const FRAME_NAME = 'advice-result'
 
 /**
  * Same-page tab switching for advice's two analysis modes. No `panel()`
- * (unlike `guidelines-tabs.component.ts`): each mode's content is gist-backed
+ * (unlike `guidelines-tabs.component.ts`): each mode's content is repo-backed
  * and mode-specific, so switching points the shared `advice-result` Frame at
  * the other mode's fragment URL and reloads it, instead of toggling a
  * `hidden` attribute. See `docs/UI_ARCHITECTURE_GUIDELINES.md` §11.

@@ -1,7 +1,7 @@
 import type { Handle } from 'remix/ui'
 import { Card, Link, ScrollableTable } from '../../components/index.ts'
+import type { EtfEntry } from '../../lib/etfs.ts'
 import { formatValue } from '../../lib/format.ts'
-import type { EtfEntry } from '../../lib/gist.ts'
 import { formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import { format, t } from '../../lib/i18n.ts'
 import { routes } from '../../routes.ts'

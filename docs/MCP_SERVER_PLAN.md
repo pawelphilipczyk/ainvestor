@@ -96,9 +96,9 @@ commit.
 
 | File | Type | Read/write helpers |
 |---|---|---|
-| `etfs.json` | `EtfEntry` — `app/lib/gist.ts` | `fetchEtfs` / `updateEtfs` |
+| `etfs.json` | `EtfEntry` — `app/lib/etfs.ts` | `fetchEtfs` / `updateEtfs` |
 | `guidelines.json` | `EtfGuideline` — `app/lib/guidelines.ts` | `fetchGuidelines` / `updateGuidelines` |
-| `advice-buy-next.json` | `StoredAdviceAnalysis` — `app/features/advice/advice-gist.ts` | `fetchStoredAdviceAnalysisForTab` |
+| `advice-buy-next.json` | `StoredAdviceAnalysis` — `app/features/advice/advice-storage.ts` | `fetchStoredAdviceAnalysisForTab` |
 | `advice-portfolio-review.json` | same | same |
 | `advice-analysis.json`, `portfolio-review.json` | legacy | read-only fallbacks |
 
@@ -148,7 +148,7 @@ the MCP layer; if one of these matters, fix the model in the app first.
   in place, so there is no transaction history. Questions like "how did my
   portfolio do this year" are unanswerable.
 - **No quantity or price.** `quantity` was deliberately dropped
-  (`app/lib/gist.ts`); only a monetary `value` is stored. Market revaluation
+  (`app/lib/etfs.ts`); only a monetary `value` is stored. Market revaluation
   and rate of return are out of reach.
 - **No FX.** With mixed currencies `totalHoldingsValueForShareBars()` and
   `computeAdviceAllocationDiagnostics()` both return `null`. Tools must say so
@@ -282,7 +282,7 @@ outright by id, the same shape `delete_guideline` uses — useful for correcting
 a bad row without computing the exact value a sell would need to zero it.
 Both are **uncached** reads feeding a same-call overwrite, exactly like
 `set_guideline`/`delete_guideline`, and both call `invalidateEtfsCache` (added
-alongside them in `mcp/private-gist-cache.ts`) right after a successful save.
+alongside them in `mcp/private-data-cache.ts`) right after a successful save.
 
 `set_guideline` is an upsert, not an append: there is one row per asset class
 and one per ticker, so setting an existing one updates its target. The 100% cap

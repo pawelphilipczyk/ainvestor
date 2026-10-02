@@ -12,7 +12,7 @@ import { min, minLength } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import type { CatalogEntry } from '../features/catalog/lib.ts'
 import { findCatalogEntryByTicker } from '../features/catalog/lib.ts'
-import type { EtfEntry } from './gist.ts'
+import type { EtfEntry } from './etfs.ts'
 import { t } from './i18n.ts'
 import { parseLocaleDecimalString } from './locale-decimal-input.ts'
 

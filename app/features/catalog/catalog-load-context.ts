@@ -1,6 +1,6 @@
 import { Session } from 'remix/session'
-import type { EtfEntry } from '../../lib/gist.ts'
-import { fetchEtfs } from '../../lib/gist.ts'
+import type { EtfEntry } from '../../lib/etfs.ts'
+import { fetchEtfs } from '../../lib/etfs.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
 import type { SessionData } from '../../lib/session.ts'
 import {

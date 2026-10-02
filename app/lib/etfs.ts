@@ -1,9 +1,10 @@
 import { type CatalogEntry, fetchCatalog } from '../features/catalog/lib.ts'
 import {
-	putPrivateGistTestEtfs,
-	takePrivateGistTestEtfs,
-} from './private-gist-test-store.ts'
+	putPrivateDataTestEtfs,
+	takePrivateDataTestEtfs,
+} from './private-data-test-store.ts'
 import {
+	type FilesPayload,
 	isVersionConflict,
 	readFile,
 	writeFile,
@@ -14,7 +15,7 @@ import {
 	WriteConflictError,
 } from './store/read-modify-write.ts'
 
-export const GIST_FILENAME = 'etfs.json'
+export const ETFS_FILENAME = 'etfs.json'
 
 export type EtfEntry = {
 	id: string
@@ -27,7 +28,7 @@ export type EtfEntry = {
 }
 
 /**
- * Normalizes portfolio rows from JSON (gist or guest session). Legacy `quantity` is dropped.
+ * Normalizes portfolio rows from JSON (stored file). Legacy `quantity` is dropped.
  */
 export function normalizeStoredEtfEntries(rows: unknown): EtfEntry[] {
 	if (!Array.isArray(rows)) return []
@@ -56,17 +57,9 @@ export function normalizeStoredEtfEntries(rows: unknown): EtfEntry[] {
 	return out
 }
 
-type GistFile = {
-	content: string | null
-}
-
-type GistPayload = {
-	files: Record<string, GistFile>
-}
-
-/** Parse ETF entries from a raw GitHub Gist API response object. */
-export function parseEtfsFromGist(gist: GistPayload): EtfEntry[] {
-	const file = gist.files[GIST_FILENAME]
+/** Parse ETF entries from the stored files' contents. */
+export function parseEtfsFromFiles(payload: FilesPayload): EtfEntry[] {
+	const file = payload.files[ETFS_FILENAME]
 	if (!file || !file.content) return []
 	try {
 		const parsed: unknown = JSON.parse(file.content)
@@ -76,24 +69,24 @@ export function parseEtfsFromGist(gist: GistPayload): EtfEntry[] {
 	}
 }
 
-/** Fetch ETF entries from a gist by ID. */
+/** Fetch ETF entries from the data repository. */
 export async function fetchEtfs(
 	token: string,
 	dataRepo: string,
 ): Promise<EtfEntry[]> {
-	const testEtfs = takePrivateGistTestEtfs(token, dataRepo)
+	const testEtfs = takePrivateDataTestEtfs(token, dataRepo)
 	if (testEtfs !== null) return testEtfs
 	const result = await readFile({
 		token,
 		location: dataRepo,
-		path: GIST_FILENAME,
+		path: ETFS_FILENAME,
 	})
 	if (!result.ok) {
 		throw new Error(`GitHub API error fetching the portfolio: ${result.status}`)
 	}
-	return parseEtfsFromGist({
+	return parseEtfsFromFiles({
 		files: result.file
-			? { [GIST_FILENAME]: { content: result.file.content } }
+			? { [ETFS_FILENAME]: { content: result.file.content } }
 			: {},
 	})
 }
@@ -103,20 +96,20 @@ async function fetchEtfsWithVersion(
 	token: string,
 	dataRepo: string,
 ): Promise<{ value: EtfEntry[]; version: string | null }> {
-	const testEtfs = takePrivateGistTestEtfs(token, dataRepo)
+	const testEtfs = takePrivateDataTestEtfs(token, dataRepo)
 	if (testEtfs !== null) return { value: testEtfs, version: null }
 	const result = await readFile({
 		token,
 		location: dataRepo,
-		path: GIST_FILENAME,
+		path: ETFS_FILENAME,
 	})
 	if (!result.ok) {
 		throw new Error(`GitHub API error fetching the portfolio: ${result.status}`)
 	}
 	return {
-		value: parseEtfsFromGist({
+		value: parseEtfsFromFiles({
 			files: result.file
-				? { [GIST_FILENAME]: { content: result.file.content } }
+				? { [ETFS_FILENAME]: { content: result.file.content } }
 				: {},
 		}),
 		version: result.file?.version ?? null,
@@ -142,11 +135,11 @@ export function updateEtfs<TResult>(params: {
 		read: () => fetchEtfsWithVersion(token, dataRepo),
 		change: params.change,
 		write: async ({ value, version, message }) => {
-			if (putPrivateGistTestEtfs(token, dataRepo, value)) return
+			if (putPrivateDataTestEtfs(token, dataRepo, value)) return
 			const result = await writeFile({
 				token,
 				location: dataRepo,
-				path: GIST_FILENAME,
+				path: ETFS_FILENAME,
 				content: JSON.stringify(value, null, 2),
 				expectedVersion: version,
 				message,
@@ -169,7 +162,7 @@ export function updateEtfs<TResult>(params: {
 }
 
 /**
- * One private Gist GET for holdings plus one shared catalog read.
+ * One data repository read for holdings plus one shared catalog read.
  */
 export async function fetchPortfolioSnapshot(
 	token: string,

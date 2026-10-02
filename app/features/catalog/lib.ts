@@ -9,6 +9,7 @@ import {
 	commitMessage,
 } from '../../lib/store/commit-message.ts'
 import {
+	type FilesPayload,
 	getRepoAccess,
 	readFile,
 	readHeadCommit,
@@ -833,25 +834,16 @@ export function mergeBankIntoCatalog(
 }
 
 // ---------------------------------------------------------------------------
-// Gist helpers
+// Stored-file helpers
 // ---------------------------------------------------------------------------
 
-type GistFile = {
-	content: string | null
-}
-
-type GistPayload = {
-	files: Record<string, GistFile>
-}
-
 /**
- * Parse catalog entries from a gist payload whose truncation has already been
- * resolved — the caller reads through `readFile`/`readFiles` in
- * `app/lib/store/github-store.ts`, so `truncated`/`raw_url`/`owner` never
- * reach this function; that module owns the raw wire shape.
+ * Parse catalog entries from the stored files' contents. The caller reads
+ * through `readFile` in `app/lib/store/github-repo-store.ts`, which owns the raw
+ * wire shape, so only text reaches this function.
  */
-export function parseCatalogFromGist(gist: GistPayload): CatalogEntry[] {
-	const file = gist.files[CATALOG_FILENAME]
+export function parseCatalogFromFiles(payload: FilesPayload): CatalogEntry[] {
+	const file = payload.files[CATALOG_FILENAME]
 	if (!file || !file.content) return []
 	try {
 		const parsed = JSON.parse(file.content)
@@ -866,7 +858,7 @@ export function parseCatalogFromGist(gist: GistPayload): CatalogEntry[] {
  * rows file alongside it in the same commit. The source
  * file is compact JSON: it is large and read by code, not by people.
  */
-export function buildCatalogGistPatch(
+export function buildCatalogFilesPatch(
 	entries: CatalogEntry[],
 	sourceRowsById?: Record<string, unknown>,
 ): {
@@ -956,7 +948,7 @@ export function setSharedCatalogForTests(snapshot: {
 /**
  * Test seam: an empty test catalog unless a test already set one, so a route
  * test that never mentions the catalog does not reach for the real private
- * repo with a fake token. Additive, like `ensurePrivateGistTestStore`.
+ * repo with a fake token. Additive, like `ensurePrivateDataTestStore`.
  */
 export function ensureSharedCatalogForTests(): void {
 	if (sharedCatalogTestSnapshot === null) {
@@ -1023,7 +1015,7 @@ async function readCatalogFile(params: {
 	}
 	return {
 		ok: true,
-		entries: parseCatalogFromGist({
+		entries: parseCatalogFromFiles({
 			files: { [CATALOG_FILENAME]: { content: result.file.content } },
 		}),
 	}
@@ -1198,7 +1190,7 @@ export async function updateSharedCatalog<TResult>(params: {
 		},
 		change: params.change,
 		write: async ({ value, version, message }) => {
-			const patch = buildCatalogGistPatch(value.entries, value.sourceRowsById)
+			const patch = buildCatalogFilesPatch(value.entries, value.sourceRowsById)
 			const saved = await writeFiles({
 				token,
 				location,

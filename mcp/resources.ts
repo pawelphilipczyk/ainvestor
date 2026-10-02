@@ -12,7 +12,7 @@ import { resolveDataRepo } from './data-repo.ts'
 import {
 	fetchEtfsCached,
 	fetchGuidelinesOrThrowCached,
-} from './private-gist-cache.ts'
+} from './private-data-cache.ts'
 import type { McpResourceDefinition } from './protocol.ts'
 import { summarizeWholeCatalog } from './tools/catalog.ts'
 import { summarizeGuidelines } from './tools/guidelines.ts'

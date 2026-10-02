@@ -1,6 +1,6 @@
 /**
- * Parse helpers for legacy gist file `portfolio-review.json`. New analyses are
- * stored in `advice-analysis.json` (`app/features/advice/advice-gist.ts`).
+ * Parse helpers for the legacy file `portfolio-review.json`. New analyses are
+ * stored in `advice-analysis.json` (`app/features/advice/advice-storage.ts`).
  * Network read/clear helpers were removed; the app no longer loads this file.
  */
 import { parseSafe } from 'remix/data-schema'
@@ -12,20 +12,13 @@ import {
 	ADVICE_MODEL_IDS,
 	DEFAULT_ADVICE_MODEL,
 } from '../features/advice/advice-openai.ts'
+import type { FilesPayload } from './store/github-repo-store.ts'
 
 export const PORTFOLIO_REVIEW_FILENAME = 'portfolio-review.json'
 
 export type StoredPortfolioReview = {
 	advice: AdviceDocument
 	model: AdviceModelId
-}
-
-type GistFile = {
-	content: string | null
-}
-
-type GistPayload = {
-	files: Record<string, GistFile>
 }
 
 function normalizeModel(raw: unknown): AdviceModelId {
@@ -38,11 +31,11 @@ function normalizeModel(raw: unknown): AdviceModelId {
 	return DEFAULT_ADVICE_MODEL
 }
 
-/** Parse stored portfolio review from a gist API `files` payload. */
-export function parsePortfolioReviewFromGist(
-	gist: GistPayload,
+/** Parse the stored portfolio review from a `files` payload. */
+export function parsePortfolioReviewFromFiles(
+	payload: FilesPayload,
 ): StoredPortfolioReview | null {
-	const file = gist.files[PORTFOLIO_REVIEW_FILENAME]
+	const file = payload.files[PORTFOLIO_REVIEW_FILENAME]
 	if (!file?.content || file.content.trim() === '') return null
 	let parsed: unknown
 	try {
@@ -64,8 +57,8 @@ export function parsePortfolioReviewFromGist(
 	return { advice: legacy.value as AdviceDocument, model: DEFAULT_ADVICE_MODEL }
 }
 
-/** PATCH body: remove the portfolio review file from the gist. */
-export function buildClearPortfolioReviewGistPatch(): {
+/** PATCH body: remove the portfolio review file. */
+export function buildClearPortfolioReviewFilesPatch(): {
 	files: Record<string, null>
 } {
 	return {

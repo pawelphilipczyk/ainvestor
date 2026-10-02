@@ -50,7 +50,7 @@ maintain every run.
 
 `app/features/advice/advice.test.ts:277-323` ("passes guidelines into the
 advice prompt when they exist (gist-backed)") builds a guideline
-`{ etfName: 'VTI', targetPct: 60, etfType: 'equity' }` via the private-gist
+`{ etfName: 'VTI', targetPct: 60, etfType: 'equity' }` via the private-data
 overlay and asserts `capturedUserMessage` matches `/VTI.*60%/` and
 `/equity/`. `app/features/advice/advice-openai.test.ts:253-302` ("includes
 guidelines as target allocation in the user message") uses the identical
@@ -127,15 +127,15 @@ framework-level `remix/ui/tabs/primitives`, and even that's used differently
 stated triage fork ("if each page resolves `?tab=` itself, keep both and
 reject"), the evidence lands on reject.
 
-### RJ-001 — catalog TTL cache vs. MCP private-gist cache
+### RJ-001 — catalog TTL cache vs. MCP private-data cache
 **Rejected:** 2026-09-16 · **Reason:** deliberate parallel coverage, not overlap.
 
 `hits GitHub once and returns independent clones while the cache entry is valid`
 appears in both `app/features/catalog/lib.test.ts` and
-`mcp/private-gist-cache.test.ts`. They cover **two separate cache
+`mcp/private-data-cache.test.ts`. They cover **two separate cache
 implementations**: the shared-catalog TTL cache in
-`app/features/catalog/lib.ts:11`, and the private-gist cache in
-`mcp/private-gist-cache.ts`, whose header comment states it deliberately
+`app/features/catalog/lib.ts:11`, and the private-data cache in
+`mcp/private-data-cache.ts`, whose header comment states it deliberately
 follows the former's shape and is *"kept inside mcp/ only … the web app must
 not see this caching behaviour."* Two implementations need two tests. The
 matching names reflect matching design, not copied coverage.
@@ -143,9 +143,9 @@ matching names reflect matching design, not copied coverage.
 ### RJ-002 — `app/lib/guidelines.test.ts` vs. `mcp/tools/guidelines.test.ts`
 **Rejected:** 2026-09-16 · **Reason:** different layers, no shared assertions.
 
-The `app/lib` file tests pure functions (`parseGuidelinesFromGist`,
+The `app/lib` file tests pure functions (`parseGuidelinesFromFiles`,
 `sumGuidelineTargetPercent`, `findGuidelineDuplicateOf`,
-`buildGuidelinesGistPatch`). The `mcp/tools` file tests tool contracts
+`buildGuidelinesFilesPatch`). The `mcp/tools` file tests tool contracts
 (argument validation, catalog cross-checks, the 100% cap surfaced as a tool
 error, rejected writes). Same domain, disjoint assertions.
 

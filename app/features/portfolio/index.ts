@@ -3,13 +3,13 @@ import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
 import { render, renderFragmentToStream } from '../../components/render.ts'
-import { requestAcceptsFrameSubmitHtml } from '../../lib/frame-submit-request.ts'
-import type { EtfEntry } from '../../lib/gist.ts'
+import type { EtfEntry } from '../../lib/etfs.ts'
 import {
 	fetchEtfs,
 	fetchPortfolioSnapshot,
 	updateEtfs,
-} from '../../lib/gist.ts'
+} from '../../lib/etfs.ts'
+import { requestAcceptsFrameSubmitHtml } from '../../lib/frame-submit-request.ts'
 import { t } from '../../lib/i18n.ts'
 import { decodeCsvBytes, parsePortfolioCsv } from '../../lib/portfolio-csv.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'

@@ -77,7 +77,7 @@ export const en = {
 	'chrome.signIn': 'Sign in',
 	'chrome.pendingShort': '(pending)',
 
-	'portfolio.savedGist': 'Saved to your private GitHub repository',
+	'portfolio.savedRepo': 'Saved to your private GitHub repository',
 	'portfolio.pendingNotSaved':
 		'Account pending approval — a portfolio cannot be saved yet',
 	'portfolio.import.title': 'Import from CSV',
@@ -117,7 +117,7 @@ export const en = {
 	'forms.targetPct.placeholder': 'e.g. 60',
 	'forms.targetPct.placeholderAsset': 'e.g. 40',
 
-	'catalog.savedGist': 'Your portfolio is matched against the shared catalog.',
+	'catalog.savedRepo': 'Your portfolio is matched against the shared catalog.',
 	'catalog.sharedSource':
 		'This catalog is loaded from a shared private GitHub repository.',
 	'catalog.import.title': 'Import',
@@ -186,7 +186,7 @@ export const en = {
 	'catalog.section.otherAvailable': 'Other Available ETFs',
 	'catalog.section.available': 'Available ETFs',
 
-	'guidelines.subtitle.savedGist': 'Saved to your private GitHub repository.',
+	'guidelines.subtitle.savedRepo': 'Saved to your private GitHub repository.',
 	'guidelines.subtitle.pending':
 		'Account pending approval — guidelines cannot be saved yet.',
 	'guidelines.tabs.navAria': 'Add guideline forms',
@@ -248,7 +248,7 @@ export const en = {
 		'Based on your portfolio and {amount} {currency} available.',
 	'advice.result.subtitleReviewGuidelinesOnly':
 		'Based on your current ETF holdings, catalog, and guidelines.',
-	'advice.restore.fromGistNotice':
+	'advice.restore.fromRepoNotice':
 		'Showing your last saved analysis (saved {savedAt}). Run Ask AI again after you change holdings or cash.',
 	'advice.persistFailed.notice':
 		'Could not save this analysis. The result below is shown for this visit only; reload may lose it until saving works again.',
@@ -393,15 +393,15 @@ export const en = {
 		'Enter how much cash you plan to invest for What to buy next.',
 	'errors.advice.notApproved':
 		'Your account is not approved yet. You cannot request advice until your GitHub username is added to app/lib/approved-github-logins.ts and deployed.',
-	'errors.advice.requiresGithubGist':
+	'errors.advice.requiresGithubRepo':
 		'AI advice uses your portfolio and guidelines from your private GitHub repository, which is set up when you sign in. Sign out and sign in with GitHub again before running analysis.',
-	'advice.requiresGist.title': 'Sign in to run AI advice',
-	'advice.requiresGist.bodySignIn':
+	'advice.requiresRepo.title': 'Sign in to run AI advice',
+	'advice.requiresRepo.bodySignIn':
 		'Advice is generated from your saved portfolio and guidelines. Use Sign in with GitHub in the header; your private data repository is set up when you sign in.',
-	'advice.requiresGist.bodyConnectGist':
+	'advice.requiresRepo.bodyConnectRepo':
 		'Your private data repository could not be set up when you signed in. Sign out and sign in again to retry; after that, you can run portfolio review and buy-next analysis here.',
-	'advice.requiresGist.linkSignIn': 'Sign in with GitHub',
-	'advice.requiresGist.linkPortfolio': 'Open Portfolio',
+	'advice.requiresRepo.linkSignIn': 'Sign in with GitHub',
+	'advice.requiresRepo.linkPortfolio': 'Open Portfolio',
 	'errors.advice.service':
 		"We couldn't get advice right now. Please try again in a moment.",
 	'client.formSubmit.genericError': 'Please check your input.',

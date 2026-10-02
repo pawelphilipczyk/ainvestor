@@ -3,7 +3,7 @@ import { afterEach, describe, it } from 'node:test'
 
 import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
-	buildCatalogGistPatch,
+	buildCatalogFilesPatch,
 	CATALOG_FILENAME,
 	CATALOG_SOURCE_FILENAME,
 	canWriteSharedCatalog,
@@ -15,7 +15,7 @@ import {
 	normalizeCatalogTickerLookupKey,
 	parseBankJsonForImport,
 	parseBankJsonToCatalog,
-	parseCatalogFromGist,
+	parseCatalogFromFiles,
 	parseCatalogRiskFilterParam,
 	resetSharedCatalogForTests,
 	riskBandFromRiskKid,
@@ -501,20 +501,20 @@ describe('canWriteSharedCatalog', () => {
 	})
 })
 
-describe('parseCatalogFromGist', () => {
+describe('parseCatalogFromFiles', () => {
 	it('returns empty array when catalog file is absent', () => {
-		const gist = { files: {} }
-		assert.deepEqual(parseCatalogFromGist(gist), [])
+		const payload = { files: {} }
+		assert.deepEqual(parseCatalogFromFiles(payload), [])
 	})
 
 	it('returns empty array when file content is null', () => {
-		const gist = { files: { [CATALOG_FILENAME]: { content: null } } }
-		assert.deepEqual(parseCatalogFromGist(gist), [])
+		const payload = { files: { [CATALOG_FILENAME]: { content: null } } }
+		assert.deepEqual(parseCatalogFromFiles(payload), [])
 	})
 
 	it('returns empty array when content is invalid JSON', () => {
-		const gist = { files: { [CATALOG_FILENAME]: { content: 'not json' } } }
-		assert.deepEqual(parseCatalogFromGist(gist), [])
+		const payload = { files: { [CATALOG_FILENAME]: { content: 'not json' } } }
+		assert.deepEqual(parseCatalogFromFiles(payload), [])
 	})
 
 	it('returns entries from valid JSON content', () => {
@@ -525,19 +525,19 @@ describe('parseCatalogFromGist', () => {
 			type: 'equity',
 			description: '',
 		}
-		const gist = {
+		const payload = {
 			files: {
 				[CATALOG_FILENAME]: { content: JSON.stringify([entry]) },
 			},
 		}
-		const result = parseCatalogFromGist(gist)
+		const result = parseCatalogFromFiles(payload)
 		assert.equal(result.length, 1)
 		assert.equal(result[0].ticker, 'VTI')
 	})
 })
 
-describe('buildCatalogGistPatch', () => {
-	it('wraps entries in the expected gist patch shape', () => {
+describe('buildCatalogFilesPatch', () => {
+	it('wraps entries in the expected files patch shape', () => {
 		const entry = {
 			id: '1',
 			ticker: 'VTI',
@@ -545,7 +545,7 @@ describe('buildCatalogGistPatch', () => {
 			type: 'equity' as const,
 			description: '',
 		}
-		const patch = buildCatalogGistPatch([entry])
+		const patch = buildCatalogFilesPatch([entry])
 		assert.ok(patch.files[CATALOG_FILENAME])
 		const parsed = JSON.parse(patch.files[CATALOG_FILENAME].content)
 		assert.equal(parsed[0].ticker, 'VTI')

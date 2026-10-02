@@ -1,21 +1,21 @@
-import type { EtfEntry } from './gist.ts'
+import type { EtfEntry } from './etfs.ts'
 import type { EtfGuideline } from './guidelines.ts'
 
 /**
- * Test-only in-memory stand-in for a user's private data gist.
+ * Test-only in-memory stand-in for a user's private data repository.
  *
  * When set, `fetchEtfs` / `updateEtfs` / `fetchGuidelines` / `updateGuidelines`
- * read and write **here** instead of GitHub, for the token and gist id below.
+ * read and write **here** instead of GitHub, for the token and data repository below.
  * Route tests need the writes as much as the reads: before guest mode was
  * removed they exercised add/remove flows through the in-memory guest state,
  * and a signed-in session has no such fallback.
  */
-type PrivateGistTestStore = {
+type PrivateDataTestStore = {
 	etfs: EtfEntry[]
 	guidelines: EtfGuideline[]
 }
 
-let store: PrivateGistTestStore | null = null
+let store: PrivateDataTestStore | null = null
 
 export const TEST_TOKEN = 'test-token'
 export const TEST_DATA_REPO = 'octocat/ainvestor-data'
@@ -24,21 +24,21 @@ function handles(token: string, dataRepo: string): boolean {
 	return store !== null && token === TEST_TOKEN && dataRepo === TEST_DATA_REPO
 }
 
-export function setPrivateGistTestStore(
-	next: PrivateGistTestStore | null,
+export function setPrivateDataTestStore(
+	next: PrivateDataTestStore | null,
 ): void {
 	store = next
 }
 
 /**
  * Installs an empty store only when none is set, so a caller that seeded rows
- * first keeps them. `setPrivateGistTestStore` still replaces outright.
+ * first keeps them. `setPrivateDataTestStore` still replaces outright.
  */
-export function ensurePrivateGistTestStore(): void {
+export function ensurePrivateDataTestStore(): void {
 	if (store === null) store = { etfs: [], guidelines: [] }
 }
 
-export function takePrivateGistTestEtfs(
+export function takePrivateDataTestEtfs(
 	token: string,
 	dataRepo: string,
 ): EtfEntry[] | null {
@@ -46,7 +46,7 @@ export function takePrivateGistTestEtfs(
 	return store.etfs
 }
 
-export function takePrivateGistTestGuidelines(
+export function takePrivateDataTestGuidelines(
 	token: string,
 	dataRepo: string,
 ): EtfGuideline[] | null {
@@ -55,7 +55,7 @@ export function takePrivateGistTestGuidelines(
 }
 
 /** True when the write landed here, so the caller must not reach GitHub. */
-export function putPrivateGistTestEtfs(
+export function putPrivateDataTestEtfs(
 	token: string,
 	dataRepo: string,
 	etfs: EtfEntry[],
@@ -66,7 +66,7 @@ export function putPrivateGistTestEtfs(
 }
 
 /** True when the write landed here, so the caller must not reach GitHub. */
-export function putPrivateGistTestGuidelines(
+export function putPrivateDataTestGuidelines(
 	token: string,
 	dataRepo: string,
 	guidelines: EtfGuideline[],

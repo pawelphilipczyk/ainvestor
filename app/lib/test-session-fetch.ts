@@ -1,11 +1,11 @@
 import { ensureSharedCatalogForTests } from '../features/catalog/lib.ts'
 import { router } from '../router.ts'
 import {
-	ensurePrivateGistTestStore,
-	setPrivateGistTestStore,
+	ensurePrivateDataTestStore,
+	setPrivateDataTestStore,
 	TEST_DATA_REPO,
 	TEST_TOKEN,
-} from './private-gist-test-store.ts'
+} from './private-data-test-store.ts'
 import { sessionCookie, sessionStorage } from './session.ts'
 
 let testSessionCookie: string | undefined
@@ -23,7 +23,7 @@ export function catalogImportFormRequest(bankJson: string): Request {
 /** Clears the in-memory session cookie jar (call from test afterEach). */
 export function resetTestSessionCookieJar(): void {
 	testSessionCookie = undefined
-	setPrivateGistTestStore(null)
+	setPrivateDataTestStore(null)
 }
 
 /** Adds one login to `APPROVED_GITHUB_LOGINS`, keeping any already listed. */
@@ -55,7 +55,7 @@ async function seedSessionCookie(
 }
 
 /**
- * Test-only: an approved session holding a private gist, with
+ * Test-only: an approved session holding a private data repository, with
  * `fetchEtfs` / `fetchGuidelines` answered from the in-process overlay so no
  * request reaches GitHub. Every page behind the sign-in gate needs one.
  */
@@ -66,7 +66,7 @@ export async function approvedSessionCookie(
 	// it opens, and a suite that approved its own login or seeded its own rows
 	// beforehand must not have either wiped out from under it.
 	addApprovedGithubLogin(login)
-	ensurePrivateGistTestStore()
+	ensurePrivateDataTestStore()
 	ensureSharedCatalogForTests()
 	return seedSessionCookie((session) => {
 		session.set('login', login)

@@ -72,7 +72,7 @@ export const pl = {
 	'chrome.signInGithub': 'Zaloguj przez GitHuba',
 	'chrome.signIn': 'Zaloguj',
 	'chrome.pendingShort': '(oczekuje)',
-	'portfolio.savedGist': 'Zapisano w prywatnym repozytorium GitHub',
+	'portfolio.savedRepo': 'Zapisano w prywatnym repozytorium GitHub',
 	'portfolio.pendingNotSaved':
 		'Konto oczekuje na akceptację — nie można jeszcze zapisać portfela',
 	'portfolio.import.title': 'Import z pliku CSV',
@@ -111,7 +111,7 @@ export const pl = {
 	'forms.catalog.selectFundPlaceholder': 'Wybierz fundusz…',
 	'forms.targetPct.placeholder': 'np. 60',
 	'forms.targetPct.placeholderAsset': 'np. 40',
-	'catalog.savedGist': 'Twój portfel jest dopasowywany do wspólnego katalogu.',
+	'catalog.savedRepo': 'Twój portfel jest dopasowywany do wspólnego katalogu.',
 	'catalog.sharedSource':
 		'Ten katalog jest wczytywany ze wspólnego prywatnego repozytorium GitHub.',
 	'catalog.import.title': 'Import',
@@ -179,7 +179,7 @@ export const pl = {
 	'catalog.noMatch': 'Żaden ETF nie pasuje do wyszukiwania.',
 	'catalog.section.otherAvailable': 'Inne dostępne ETF',
 	'catalog.section.available': 'Dostępne ETF',
-	'guidelines.subtitle.savedGist': 'Zapisano w prywatnym repozytorium GitHub.',
+	'guidelines.subtitle.savedRepo': 'Zapisano w prywatnym repozytorium GitHub.',
 	'guidelines.subtitle.pending':
 		'Konto oczekuje na akceptację — nie można jeszcze zapisać wytycznych.',
 	'guidelines.tabs.navAria': 'Formularze dodawania wytycznych',
@@ -240,7 +240,7 @@ export const pl = {
 		'Na podstawie portfela i dostępnych {amount} {currency}.',
 	'advice.result.subtitleReviewGuidelinesOnly':
 		'Na podstawie bieżących pozycji ETF, katalogu i wytycznych.',
-	'advice.restore.fromGistNotice':
+	'advice.restore.fromRepoNotice':
 		'Pokazuję ostatnio zapisaną analizę (zapis {savedAt}). Uruchom „Zapytaj AI” ponownie po zmianie pozycji lub gotówki.',
 	'advice.persistFailed.notice':
 		'Nie udało się zapisać tej analizy. Wynik poniżej dotyczy tylko tej wizyty; odświeżenie może go utracić, dopóki zapis nie zadziała ponownie.',
@@ -383,15 +383,15 @@ export const pl = {
 		'Podaj kwotę gotówki planowaną do inwestycji w sekcji „Co kupić następnym razem”.',
 	'errors.advice.notApproved':
 		'Twoje konto nie jest jeszcze zaakceptowane. Nie możesz prosić o porady, dopóki nazwa użytkownika GitHuba nie zostanie dodana do app/lib/approved-github-logins.ts i wdrożona.',
-	'errors.advice.requiresGithubGist':
+	'errors.advice.requiresGithubRepo':
 		'Porady AI korzystają z portfela i wytycznych z prywatnego repozytorium GitHub, które powstaje przy logowaniu. Wyloguj się i zaloguj ponownie przez GitHuba przed uruchomieniem analizy.',
-	'advice.requiresGist.title': 'Zaloguj się, aby uruchomić porady AI',
-	'advice.requiresGist.bodySignIn':
+	'advice.requiresRepo.title': 'Zaloguj się, aby uruchomić porady AI',
+	'advice.requiresRepo.bodySignIn':
 		'Porady są generowane z zapisanego portfela i wytycznych. Użyj „Zaloguj przez GitHuba” w nagłówku; prywatne repozytorium danych powstaje przy logowaniu.',
-	'advice.requiresGist.bodyConnectGist':
+	'advice.requiresRepo.bodyConnectRepo':
 		'Nie udało się przygotować prywatnego repozytorium danych przy logowaniu. Wyloguj się i zaloguj ponownie, aby spróbować jeszcze raz; potem możesz uruchomić przegląd portfela i analizę „co kupić” tutaj.',
-	'advice.requiresGist.linkSignIn': 'Zaloguj przez GitHuba',
-	'advice.requiresGist.linkPortfolio': 'Otwórz Portfel',
+	'advice.requiresRepo.linkSignIn': 'Zaloguj przez GitHuba',
+	'advice.requiresRepo.linkPortfolio': 'Otwórz Portfel',
 	'errors.advice.service':
 		'Nie udało się teraz uzyskać porady. Spróbuj ponownie za chwilę.',
 	'client.formSubmit.genericError': 'Sprawdź wprowadzone dane.',

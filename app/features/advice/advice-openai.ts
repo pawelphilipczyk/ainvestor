@@ -1,4 +1,4 @@
-import type { EtfEntry } from '../../lib/gist.ts'
+import type { EtfEntry } from '../../lib/etfs.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { type EtfType, formatEtfTypeLabel } from '../../lib/guidelines.ts'
 import {
@@ -10,7 +10,7 @@ import type { CatalogEntry } from '../catalog/lib.ts'
 import type { AdviceClient } from './advice-client.ts'
 import { type AdviceDocument, parseAdviceDocument } from './advice-document.ts'
 
-export type { EtfEntry } from '../../lib/gist.ts'
+export type { EtfEntry } from '../../lib/etfs.ts'
 export type { AdviceDocument } from './advice-document.ts'
 
 const BUY_ONLY_USER_BLOCK = `---

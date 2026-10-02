@@ -1,6 +1,6 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import type { EtfEntry } from '../../lib/gist.ts'
+import type { EtfEntry } from '../../lib/etfs.ts'
 import type { EtfGuideline } from '../../lib/guidelines.ts'
 import { parseLocaleDecimalString } from '../../lib/locale-decimal-input.ts'
 import type { CatalogEntry } from '../catalog/lib.ts'

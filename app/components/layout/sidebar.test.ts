@@ -56,7 +56,7 @@ describe('sidebar component', () => {
 			{
 				login: 'catalog-admin',
 				token: 'tok',
-				dataRepo: 'gist-1',
+				dataRepo: 'repo-1',
 				isAdmin: true,
 			},
 		)
@@ -75,7 +75,7 @@ describe('sidebar component', () => {
 			{
 				login: 'alice',
 				token: 'tok',
-				dataRepo: 'gist-1',
+				dataRepo: 'repo-1',
 			},
 		)
 

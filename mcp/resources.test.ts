@@ -6,15 +6,15 @@ import {
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
 } from '../app/features/catalog/lib.ts'
-import type { EtfEntry } from '../app/lib/gist.ts'
-import { GIST_FILENAME } from '../app/lib/gist.ts'
+import type { EtfEntry } from '../app/lib/etfs.ts'
+import { ETFS_FILENAME } from '../app/lib/etfs.ts'
 import type { EtfGuideline } from '../app/lib/guidelines.ts'
 import { GUIDELINES_FILENAME } from '../app/lib/guidelines.ts'
 import { installFakeDataRepo } from '../app/lib/store/github-repo-test-fake.ts'
 import { createAinvestorMcpServer } from './ainvestor-server.ts'
 import type { DataRepoCredentials } from './data-repo.ts'
 import { resetDataRepoCache } from './data-repo.ts'
-import { resetPrivateGistCacheForTests } from './private-gist-cache.ts'
+import { resetPrivateDataCacheForTests } from './private-data-cache.ts'
 import { createAinvestorResources } from './resources.ts'
 
 const credentials: DataRepoCredentials = {
@@ -58,10 +58,10 @@ function catalogEntry(overrides: Partial<CatalogEntry> = {}): CatalogEntry {
 const originalFetch = globalThis.fetch
 
 /** Serve the one private data repo both datasets live in. */
-function stubGist(): void {
+function stubDataRepo(): void {
 	installFakeDataRepo({
 		files: {
-			[GIST_FILENAME]: JSON.stringify(HOLDINGS),
+			[ETFS_FILENAME]: JSON.stringify(HOLDINGS),
 			[GUIDELINES_FILENAME]: JSON.stringify(GUIDELINES),
 		},
 	})
@@ -71,7 +71,7 @@ afterEach(() => {
 	globalThis.fetch = originalFetch
 	resetDataRepoCache()
 	resetSharedCatalogForTests()
-	resetPrivateGistCacheForTests()
+	resetPrivateDataCacheForTests()
 })
 
 function resourceByUri(uri: string) {
@@ -90,9 +90,9 @@ describe('ainvestor resources', () => {
 	// The share/aggregation maths itself is summarizePortfolio's and
 	// summarizeGuidelines's own business logic, exhaustively covered in
 	// portfolio.test.ts and guidelines.test.ts; these two only check that the
-	// resource reads the right gist and hands the result through unchanged.
+	// resource reads the right repository and hands the result through unchanged.
 	it('serves the portfolio, read through to the same summary get_portfolio returns', async () => {
-		stubGist()
+		stubDataRepo()
 
 		const payload = await readResource('ainvestor://portfolio')
 
@@ -101,7 +101,7 @@ describe('ainvestor resources', () => {
 	})
 
 	it('serves the guidelines, read through to the same summary get_guidelines returns', async () => {
-		stubGist()
+		stubDataRepo()
 
 		const payload = await readResource('ainvestor://guidelines')
 

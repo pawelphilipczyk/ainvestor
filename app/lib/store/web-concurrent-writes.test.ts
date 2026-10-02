@@ -5,7 +5,7 @@ import {
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
 } from '../../features/catalog/lib.ts'
-import { type EtfEntry, GIST_FILENAME } from '../gist.ts'
+import { ETFS_FILENAME, type EtfEntry } from '../etfs.ts'
 import { GUIDELINES_FILENAME } from '../guidelines.ts'
 import {
 	approvedSessionCookieForFakeRepo,
@@ -86,8 +86,8 @@ describe('web concurrent writes', () => {
 	it('adds a buy on top of a holding another client saved in between', async () => {
 		setSharedCatalogForTests({ entries: [vti] })
 		const repo = installFakeDataRepo({
-			files: { [GIST_FILENAME]: JSON.stringify([holding('a')]) },
-			afterContentRead: otherClientSavesOnce(GIST_FILENAME, [
+			files: { [ETFS_FILENAME]: JSON.stringify([holding('a')]) },
+			afterContentRead: otherClientSavesOnce(ETFS_FILENAME, [
 				holding('a'),
 				holding('theirs'),
 			]),
@@ -103,7 +103,7 @@ describe('web concurrent writes', () => {
 
 		assert.equal(response.status, 302)
 		const stored = JSON.parse(
-			repo.files.get(GIST_FILENAME) ?? '[]',
+			repo.files.get(ETFS_FILENAME) ?? '[]',
 		) as EtfEntry[]
 		// Both the other client's holding and this buy are there.
 		assert.equal(stored.length, 3)
@@ -116,9 +116,9 @@ describe('web concurrent writes', () => {
 		setSharedCatalogForTests({ entries: [vti] })
 		const original = JSON.stringify([holding('a')])
 		const repo = installFakeDataRepo({
-			files: { [GIST_FILENAME]: original },
+			files: { [ETFS_FILENAME]: original },
 			afterContentRead: (path, fake) => {
-				if (path === GIST_FILENAME) fake.externalWrite(path, original)
+				if (path === ETFS_FILENAME) fake.externalWrite(path, original)
 			},
 		})
 
@@ -139,14 +139,14 @@ describe('web concurrent writes', () => {
 		assert.match(body.error, /changed elsewhere/)
 		assert.match(body.error, /nothing was saved/)
 		assert.deepEqual(repo.commitMessages, [])
-		assert.equal(repo.files.get(GIST_FILENAME), original)
+		assert.equal(repo.files.get(ETFS_FILENAME), original)
 	})
 
 	it('shows the holdings a refused sale was decided on', async () => {
 		setSharedCatalogForTests({ entries: [vti] })
 		installFakeDataRepo({
 			files: {
-				[GIST_FILENAME]: JSON.stringify([
+				[ETFS_FILENAME]: JSON.stringify([
 					holding('a', { ticker: 'VTI', name: 'VTI', value: 100 }),
 					holding('b', { name: 'Gold from the other client' }),
 				]),
@@ -172,9 +172,9 @@ describe('web concurrent writes', () => {
 	it('removes a holding on top of one another client added in between', async () => {
 		const repo = installFakeDataRepo({
 			files: {
-				[GIST_FILENAME]: JSON.stringify([holding('drop'), holding('keep')]),
+				[ETFS_FILENAME]: JSON.stringify([holding('drop'), holding('keep')]),
 			},
-			afterContentRead: otherClientSavesOnce(GIST_FILENAME, [
+			afterContentRead: otherClientSavesOnce(ETFS_FILENAME, [
 				holding('drop'),
 				holding('keep'),
 				holding('theirs'),
@@ -186,7 +186,7 @@ describe('web concurrent writes', () => {
 		)
 
 		const stored = JSON.parse(
-			repo.files.get(GIST_FILENAME) ?? '[]',
+			repo.files.get(ETFS_FILENAME) ?? '[]',
 		) as EtfEntry[]
 		assert.deepEqual(stored.map((row) => row.id).sort(), ['keep', 'theirs'])
 	})

@@ -5,9 +5,9 @@ import { Session } from 'remix/session'
 import { jsx } from 'remix/ui/jsx-runtime'
 import { render, renderFragmentToStream } from '../../components/render.ts'
 import { CURRENCIES } from '../../lib/currencies.ts'
+import { fetchPortfolioSnapshot } from '../../lib/etfs.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import { requestAcceptsFrameSubmitHtml } from '../../lib/frame-submit-request.ts'
-import { fetchPortfolioSnapshot } from '../../lib/gist.ts'
 import { fetchGuidelines } from '../../lib/guidelines.ts'
 import { t } from '../../lib/i18n.ts'
 import type { AppRequestContext } from '../../lib/request-context.ts'
@@ -27,12 +27,6 @@ import { routes } from '../../routes.ts'
 import { type CatalogEntry, fetchCatalog } from '../catalog/lib.ts'
 import { getOrCreateAdviceClient } from './advice-client.ts'
 import type { AdviceDocument } from './advice-document.ts'
-import {
-	clearLegacyUnifiedAdviceAnalysis,
-	clearStoredAdviceAnalysisForTab,
-	fetchStoredAdviceAnalysisForTab,
-	saveStoredAdviceAnalysisForTab,
-} from './advice-gist.ts'
 import type { AdviceAnalysisMode, AdviceModelId } from './advice-openai.ts'
 import {
 	ADVICE_ANALYSIS_MODES,
@@ -48,6 +42,12 @@ import {
 	AdvicePage,
 	type AdviceResultCardProps,
 } from './advice-page.tsx'
+import {
+	clearLegacyUnifiedAdviceAnalysis,
+	clearStoredAdviceAnalysisForTab,
+	fetchStoredAdviceAnalysisForTab,
+	saveStoredAdviceAnalysisForTab,
+} from './advice-storage.ts'
 
 const ADVICE_INTENTS = ['run', 'clear'] as const
 
@@ -89,14 +89,14 @@ type AdvicePageRenderProps = {
 	advice?: AdviceDocument
 	/** Shared catalog snapshot for ETF detail links on proposal rows. */
 	catalog?: CatalogEntry[]
-	/** Shown when `advice` was loaded from `advice-analysis.json` in the user gist. */
-	adviceFromGist?: boolean
-	adviceGistSavedAt?: string
-	/** Gist persistence failed for this response; analysis is shown from the action only. */
-	adviceGistPersistFailed?: boolean
+	/** Shown when `advice` was loaded from `advice-analysis.json` in the user's data repository. */
+	adviceFromStorage?: boolean
+	adviceStorageSavedAt?: string
+	/** Saving failed for this response; analysis is shown from the action only. */
+	adviceStoragePersistFailed?: boolean
 	formError?: { summary: string; detail?: string }
 	pendingApproval?: boolean
-	adviceGistGate?: 'sign_in' | 'connect_gist'
+	adviceStorageGate?: 'sign_in' | 'connect_repo'
 }
 
 function adviceResultFragmentSrc(activeTab: AdviceAnalysisMode): string {
@@ -107,7 +107,7 @@ function adviceResultFragmentSrc(activeTab: AdviceAnalysisMode): string {
 }
 
 function shouldStreamAdviceResult(props: AdvicePageRenderProps): boolean {
-	if (props.adviceGistGate !== undefined) return false
+	if (props.adviceStorageGate !== undefined) return false
 	if (props.advice === undefined) return false
 	const resultMode =
 		props.lastAnalysisMode ?? props.analysisMode ?? DEFAULT_ADVICE_ANALYSIS_MODE
@@ -127,11 +127,11 @@ function adviceResultCardPropsFromPage(
 		cashAmount: props.cashAmount,
 		cashCurrency: props.cashCurrency,
 		catalog: props.catalog,
-		adviceFromGist: props.adviceFromGist,
-		adviceGistSavedAt: props.adviceGistSavedAt,
-		adviceGistPersistFailed: props.adviceGistPersistFailed,
+		adviceFromStorage: props.adviceFromStorage,
+		adviceStorageSavedAt: props.adviceStorageSavedAt,
+		adviceStoragePersistFailed: props.adviceStoragePersistFailed,
 		pendingApproval: props.pendingApproval === true,
-		adviceGistGate: props.adviceGistGate,
+		adviceStorageGate: props.adviceStorageGate,
 	}
 }
 
@@ -146,7 +146,7 @@ function adviceModePanelPropsFromPage(
 		cashCurrency: props.cashCurrency,
 		selectedModel: props.selectedModel,
 		disabled:
-			props.pendingApproval === true || props.adviceGistGate !== undefined,
+			props.pendingApproval === true || props.adviceStorageGate !== undefined,
 		error: props.formError,
 		card: adviceResultCardPropsFromPage(props) ?? undefined,
 	}
@@ -259,10 +259,10 @@ function renderAdviceActionResponse(
 }
 
 /**
- * True when we cannot load `advice-analysis.json` from the user's gist for this request
- * (layout pending approval, missing session, account pending, or no linked gist).
+ * True when we cannot load `advice-analysis.json` from the user's data repository for this request
+ * (layout pending approval, missing session, account pending, or no linked data repository).
  */
-function cannotLoadAdviceGistSnapshot(options: {
+function cannotLoadAdviceStorageSnapshot(options: {
 	pendingApproval: boolean
 	session: SessionData | null
 }): boolean {
@@ -279,7 +279,7 @@ async function loadAdvicePageState(options: {
 	session: SessionData | null
 	pendingApproval: boolean
 	activeTab: AdviceAnalysisMode
-}): Promise<Omit<AdvicePageRenderProps, 'adviceGistGate'>> {
+}): Promise<Omit<AdvicePageRenderProps, 'adviceStorageGate'>> {
 	const { pendingApproval, activeTab, session } = options
 	const baseProps = {
 		pendingApproval,
@@ -287,10 +287,10 @@ async function loadAdvicePageState(options: {
 		activeTab,
 	}
 
-	if (cannotLoadAdviceGistSnapshot({ pendingApproval, session })) {
+	if (cannotLoadAdviceStorageSnapshot({ pendingApproval, session })) {
 		return baseProps
 	}
-	// Type guard: `cannotLoadAdviceGistSnapshot` already implies this; TS needs the call to narrow `session`.
+	// Type guard: `cannotLoadAdviceStorageSnapshot` already implies this; TS needs the call to narrow `session`.
 	if (!sessionHasDataRepo(session)) {
 		return baseProps
 	}
@@ -304,7 +304,7 @@ async function loadAdvicePageState(options: {
 		)
 		if (stored !== null) {
 			const catalog = await fetchCatalog(dataSession.token)
-			const adviceGistSavedAt = new Date(stored.savedAt).toISOString()
+			const adviceStorageSavedAt = new Date(stored.savedAt).toISOString()
 			return {
 				...baseProps,
 				analysisMode: stored.lastAnalysisMode,
@@ -318,37 +318,37 @@ async function loadAdvicePageState(options: {
 						}),
 				advice: stored.document,
 				catalog,
-				adviceFromGist: true,
-				adviceGistSavedAt,
+				adviceFromStorage: true,
+				adviceStorageSavedAt,
 			}
 		}
 	} catch (err) {
-		console.warn('[advice] could not load gist snapshot', err)
+		console.warn('[advice] could not load saved snapshot', err)
 	}
 
 	return baseProps
 }
 
-function adviceGistGateProps(
+function adviceStorageGateProps(
 	layoutSession: SessionData | null,
 	fullSession: SessionData | null,
 	pendingApproval: boolean,
-): { adviceGistGate?: 'sign_in' | 'connect_gist' } {
+): { adviceStorageGate?: 'sign_in' | 'connect_repo' } {
 	if (pendingApproval) return {}
 	if (sessionHasDataRepo(fullSession)) return {}
-	if (layoutSession === null) return { adviceGistGate: 'sign_in' }
-	return { adviceGistGate: 'connect_gist' }
+	if (layoutSession === null) return { adviceStorageGate: 'sign_in' }
+	return { adviceStorageGate: 'connect_repo' }
 }
 
 function withAdviceGate(
-	props: Omit<AdvicePageRenderProps, 'adviceGistGate'>,
+	props: Omit<AdvicePageRenderProps, 'adviceStorageGate'>,
 	layoutSession: SessionData | null,
 	fullSession: SessionData | null,
 	pendingApproval: boolean,
 ): AdvicePageRenderProps {
 	return {
 		...props,
-		...adviceGistGateProps(layoutSession, fullSession, pendingApproval),
+		...adviceStorageGateProps(layoutSession, fullSession, pendingApproval),
 	}
 }
 
@@ -566,7 +566,7 @@ export const adviceController = {
 								activeTab: activeTabFromUrl,
 								selectedModel: adviceModel,
 								formError: {
-									summary: t('errors.advice.requiresGithubGist'),
+									summary: t('errors.advice.requiresGithubRepo'),
 								},
 							},
 							layoutSession,
@@ -635,7 +635,7 @@ export const adviceController = {
 							activeTab: activeTabFromUrl,
 							selectedModel: adviceModel,
 							formError: {
-								summary: t('errors.advice.requiresGithubGist'),
+								summary: t('errors.advice.requiresGithubRepo'),
 							},
 						},
 						layoutSession,
@@ -667,7 +667,7 @@ export const adviceController = {
 					model: adviceModel,
 					analysisMode,
 				})
-				let adviceGistPersistFailed = false
+				let adviceStoragePersistFailed = false
 				try {
 					await saveStoredAdviceAnalysisForTab(
 						session.token,
@@ -688,10 +688,10 @@ export const adviceController = {
 							source: 'web',
 						}),
 					)
-				} catch (gistErr) {
-					// Frame reload reads from gist; without this flag + client handling the result would disappear.
-					adviceGistPersistFailed = true
-					console.warn('[advice] could not save gist snapshot', gistErr)
+				} catch (saveError) {
+					// Frame reload reads from the repository; without this flag + client handling the result would disappear.
+					adviceStoragePersistFailed = true
+					console.warn('[advice] could not save snapshot', saveError)
 				}
 				return renderAdviceActionResponse(context, {
 					session: layoutSession,
@@ -707,8 +707,8 @@ export const adviceController = {
 							selectedModel: adviceModel,
 							advice,
 							catalog,
-							...(adviceGistPersistFailed
-								? { adviceGistPersistFailed: true }
+							...(adviceStoragePersistFailed
+								? { adviceStoragePersistFailed: true }
 								: {}),
 						},
 						layoutSession,
