@@ -19,8 +19,9 @@
 		"check": "npm run -s ensure-deps && biome check ."
 	},
 	"dependencies": {
+		"@remix-run/ui": "^0.12.1",
 		"openai": "^6.29.0",
-		"remix": "^3.0.0-rc.2"
+		"remix": "^3.0.0"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "^2.4.7",

@@ -2,11 +2,12 @@ import * as assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 
-import { sessionCookie, sessionStorage } from '../../lib/session.ts'
+import { sessionStorage } from '../../lib/session.ts'
 import {
 	approvedSessionCookie,
 	resetTestSessionCookieJar,
 	seedTestSessionCookie,
+	serializeSessionCookieForTests,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
@@ -50,7 +51,7 @@ async function signInAs(login: string, params: { isAdmin?: boolean } = {}) {
 	process.env.APPROVED_GITHUB_LOGINS = login
 	const value = await sessionStorage.save(session)
 	if (value == null) throw new Error('expected session save value')
-	const cookieHeader = await sessionCookie.serialize(value)
+	const cookieHeader = await serializeSessionCookieForTests(value)
 	const cookie = cookieHeader.split(';')[0] ?? ''
 	// Take over the sticky jar, which `beforeEach` seeded with a plain approved
 	// user; the jar is what carries flash messages between this test's requests.
@@ -218,7 +219,7 @@ describe('ETF Catalog page', () => {
 		session.set('approvalStatus', 'pending')
 		const value = await sessionStorage.save(session)
 		if (value == null) throw new Error('expected session save value')
-		const cookieHeader = await sessionCookie.serialize(value)
+		const cookieHeader = await serializeSessionCookieForTests(value)
 		const cookie = cookieHeader.split(';')[0]
 
 		const response = await testSessionFetch(
@@ -264,7 +265,7 @@ describe('ETF Catalog page', () => {
 		session.set('approvalStatus', 'pending')
 		const value = await sessionStorage.save(session)
 		if (value == null) throw new Error('expected session save value')
-		const cookieHeader = await sessionCookie.serialize(value)
+		const cookieHeader = await serializeSessionCookieForTests(value)
 		const cookie = cookieHeader.split(';')[0]
 
 		const response = await testSessionFetch('http://localhost/catalog', {

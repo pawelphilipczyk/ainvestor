@@ -4,7 +4,7 @@ import type { BrowserTestSession } from '../../lib/browser-test.ts'
 import { startBrowserTestSession } from '../../lib/browser-test.ts'
 
 /**
- * Covers the Stage 6 move of this control onto `remix/ui/toggle/primitives`:
+ * Covers the Stage 6 move of this control onto `@remix-run/ui/toggle`:
  * the mixin's wiring only exists after hydration, so a server-render test
  * cannot see any of it.
  */

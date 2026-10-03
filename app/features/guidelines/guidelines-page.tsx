@@ -1,4 +1,4 @@
-import { Frame, type Handle } from 'remix/ui'
+import { Frame, type Handle } from 'remix/component'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import {
 	FieldLabel,

@@ -1,5 +1,5 @@
-import { clientEntry, createElement } from 'remix/ui'
-import { control } from 'remix/ui/toggle/primitives'
+import { control } from '@remix-run/ui/toggle'
+import { clientEntry, createElement } from 'remix/component'
 
 const DARK_CLASS = 'dark'
 const THEME_STORAGE_KEY = 'theme'

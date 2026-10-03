@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/ui'
+import type { Handle } from 'remix/component'
 
 export type CatalogEtfAnalysisFragmentProps = {
 	/** Rendered AI overview prose (plain text shown with pre-wrap). */

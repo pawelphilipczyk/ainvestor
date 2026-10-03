@@ -1,5 +1,6 @@
-import type { Handle, RemixNode } from 'remix/ui'
-import { ImportMap } from 'remix/ui/server'
+import type { Handle, RemixNode } from 'remix/component'
+import { unsafeHTML } from 'remix/component'
+import { ImportMap } from 'remix/component/server'
 import { PortfolioTradeFocus } from '../../features/portfolio/portfolio-trade-focus.component.ts'
 import type { AppPage } from '../../lib/app-page.ts'
 import { baseCss } from '../../lib/document-styles.ts'
@@ -76,20 +77,28 @@ export function DocumentShell(handle: Handle<DocumentShellProps>) {
 				<meta charset="utf-8" />
 				<meta name="viewport" content="width=device-width,initial-scale=1" />
 				<title>{handle.props.title}</title>
-				<script innerHTML="if(localStorage.getItem('theme')==='light')document.documentElement.classList.remove('dark')" />
+				<script
+					innerHTML={unsafeHTML(
+						"if(localStorage.getItem('theme')==='light')document.documentElement.classList.remove('dark')",
+					)}
+				/>
 				<script src="https://cdn.tailwindcss.com" />
 				<script
-					innerHTML={`tailwind.config = ${JSON.stringify(tailwindConfig)}`}
+					innerHTML={unsafeHTML(
+						`tailwind.config = ${JSON.stringify(tailwindConfig)}`,
+					)}
 				/>
-				<style type="text/tailwindcss" innerHTML={baseCss} />
+				<style type="text/tailwindcss" innerHTML={unsafeHTML(baseCss)} />
 				<ImportMap value={remixBootstrapEntry.importMap} />
 				<script
 					type="application/json"
 					id="ui-client-messages"
-					innerHTML={JSON.stringify({
-						genericFormError: t('client.formSubmit.genericError'),
-						submitLoadingLabel: t('chrome.loading'),
-					})}
+					innerHTML={unsafeHTML(
+						JSON.stringify({
+							genericFormError: t('client.formSubmit.genericError'),
+							submitLoadingLabel: t('chrome.loading'),
+						}),
+					)}
 				/>
 			</head>
 			<body class="min-h-screen overflow-x-hidden bg-background font-sans text-foreground antialiased">

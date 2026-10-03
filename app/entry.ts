@@ -4,7 +4,7 @@
  * asset server gives `app/entry.ts` — hydrates all clientEntry components.
  * @see https://github.com/remix-run/remix/tree/main/packages/ui
  */
-import { run } from 'remix/ui'
+import { run } from 'remix/component'
 
 declare global {
 	/**

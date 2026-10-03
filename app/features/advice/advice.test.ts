@@ -2,10 +2,11 @@ import * as assert from 'node:assert/strict'
 import { afterEach, describe, it } from 'node:test'
 import { LOCALE_DECIMAL_HTML_PATTERN } from '../../lib/locale-decimal-input.ts'
 import { setPrivateDataTestStore } from '../../lib/private-data-test-store.ts'
-import { sessionCookie, sessionStorage } from '../../lib/session.ts'
+import { sessionStorage } from '../../lib/session.ts'
 import {
 	resetTestSessionCookieJar,
 	seedTestSessionCookie,
+	serializeSessionCookieForTests,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import { uiLocaleCookie } from '../../lib/ui-locale-cookie.ts'
@@ -49,7 +50,7 @@ async function signInWithDataRepo(login = 'advice-test-user') {
 	session.set('dataRepo', 'octocat/ainvestor-data')
 	const value = await sessionStorage.save(session)
 	if (value == null) throw new Error('expected session save value')
-	const cookieHeader = await sessionCookie.serialize(value)
+	const cookieHeader = await serializeSessionCookieForTests(value)
 	// Avoid real GitHub fetches: fetchEtfs throws on non-2xx unless overlay supplies data.
 	setPrivateDataTestStore({ etfs: [], guidelines: [] })
 	// The same for the private catalog repo, unless this test seeded a catalog.
@@ -135,7 +136,7 @@ describe('Advice', () => {
 		session.set('approvalStatus', 'pending')
 		const value = await sessionStorage.save(session)
 		if (value == null) throw new Error('expected session save value')
-		const cookieHeader = await sessionCookie.serialize(value)
+		const cookieHeader = await serializeSessionCookieForTests(value)
 		const cookie = cookieHeader.split(';')[0]
 
 		const response = await testSessionFetch('http://localhost/advice', {
@@ -156,7 +157,7 @@ describe('Advice', () => {
 		session.set('approvalStatus', 'pending')
 		const value = await sessionStorage.save(session)
 		if (value == null) throw new Error('expected session save value')
-		const cookieHeader = await sessionCookie.serialize(value)
+		const cookieHeader = await serializeSessionCookieForTests(value)
 		const cookie = cookieHeader.split(';')[0]
 
 		const form = new FormData()
@@ -339,7 +340,8 @@ describe('Advice', () => {
 		session.set('token', 'test-token')
 		const value = await sessionStorage.save(session)
 		if (value == null) throw new Error('expected session save value')
-		const cookie = (await sessionCookie.serialize(value)).split(';')[0] ?? ''
+		const cookie =
+			(await serializeSessionCookieForTests(value)).split(';')[0] ?? ''
 		setAdviceClient({
 			chat: {
 				completions: {

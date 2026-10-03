@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/ui'
+import type { Handle } from 'remix/component'
 import { addEventListeners } from '../../lib/browser/event-listeners.ts'
 import { setSubmitButtonLoading } from './submit-button-loading.component.ts'
 

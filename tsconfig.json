@@ -20,6 +20,6 @@
 		"skipLibCheck": true,
 		"strict": true,
 		"jsx": "react-jsx",
-		"jsxImportSource": "remix/ui"
+		"jsxImportSource": "remix/component"
 	}
 }

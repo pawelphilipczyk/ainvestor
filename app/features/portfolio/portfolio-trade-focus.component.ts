@@ -1,4 +1,4 @@
-import { clientEntry, createElement } from 'remix/ui'
+import { clientEntry, createElement } from 'remix/component'
 import { addEventListeners } from '../../lib/browser/event-listeners.ts'
 
 /**

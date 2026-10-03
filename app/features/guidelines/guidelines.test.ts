@@ -82,7 +82,7 @@ function addAssetClass(assetClassType: string, targetPct: string) {
 
 /**
  * `guidelines-tabs.component.ts` renders both add-tab panels into the
- * DOM on every load (`remix/ui/tabs/primitives`' `panel()` toggles which one
+ * DOM on every load (`@remix-run/ui/tabs`' `panel()` toggles which one
  * is visible client-side, not server-side conditional rendering) — so the
  * inactive panel's own opening `<div mix={[panel(...)]}>` tag is what carries
  * `hidden`/`inert`/`data-state`, not the panel's absence from the response.

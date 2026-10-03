@@ -1,4 +1,4 @@
-import type { Handle } from 'remix/ui'
+import type { Handle } from 'remix/component'
 import { SectionIntroCard } from '../../components/data-display/section-intro-card.tsx'
 import type { SessionContext } from '../../components/layout/session-provider.tsx'
 import { SessionProvider } from '../../components/layout/session-provider.tsx'

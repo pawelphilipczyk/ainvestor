@@ -1,7 +1,7 @@
+import { jsx } from 'remix/component/jsx-runtime'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
-import { jsx } from 'remix/ui/jsx-runtime'
 import { render, renderFragmentToStream } from '../../components/render.ts'
 import type { EtfEntry } from '../../lib/etfs.ts'
 import {

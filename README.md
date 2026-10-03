@@ -78,7 +78,7 @@ npm run dev
 App runs on: `http://localhost:44100`
 
 The dev server hot-reloads rather than restarting. Editing a server component
-hot-swaps it in place (`remix/node-hmr` + `remix/ui-hmr/node`); editing a
+hot-swaps it in place (`remix/node-hmr` + `remix/component-hmr/node`); editing a
 client entry (`*.component.ts`) patches any open tab without reloading it, over
 the asset server's browser HMR channel. Both are development-only, keyed on the
 `REMIX_NODE_HMR` flag that `npm run dev` sets.

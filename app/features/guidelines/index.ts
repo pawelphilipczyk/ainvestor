@@ -1,11 +1,11 @@
 import type { StandardSchemaV1 } from '@standard-schema/spec'
+import { jsx } from 'remix/component/jsx-runtime'
 import { object, optional, parseSafe, string } from 'remix/data-schema'
 import { max, min } from 'remix/data-schema/checks'
 import * as coerce from 'remix/data-schema/coerce'
 import { createHtmlResponse } from 'remix/response/html'
 import { createRedirectResponse } from 'remix/response/redirect'
 import { Session } from 'remix/session'
-import { jsx } from 'remix/ui/jsx-runtime'
 import { render, renderFragmentToStream } from '../../components/render.ts'
 import { objectFromFormData } from '../../lib/form-data-payload.ts'
 import {
