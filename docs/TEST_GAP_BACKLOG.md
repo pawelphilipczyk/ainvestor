@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-10-03 (`app/features/catalog`)
 
 ---
 
@@ -25,6 +25,36 @@ backlog just feeds the overlap backlog.
 ---
 
 ## Open items
+
+### GAP-026 — `POST /catalog/import` with a HAR upload is never driven at route level
+**Status:** `proposed` · **Proposed:** 2026-10-03 · **Area:** `app/features/catalog`
+
+`app/features/catalog/index.ts:447-467` (the `bankApiHar` branch) has no route
+test: `har-bank-json-adapter.test.ts` covers only the pure
+`extractBankApiJsonFromHar`, and `catalog.test.ts:305` only asserts the
+`name="bankApiHar"` input renders. A test would POST a `File` and assert (a) a
+valid HAR → 302 to `/admin/etf-import` with "Merged N row" flash and the fund on
+`/catalog`; (b) a non-HAR file → `errors.catalog.import.invalidHar` and the
+catalog unchanged. Not the >5MB case (that is `GAP-002`). Pattern to copy:
+`catalog.test.ts:649-683`; HAR builder `minimalHarEntry` in
+`har-bank-json-adapter.test.ts:5-20`.
+
+### GAP-027 — `GET /catalog/fragments/etf-analysis/:id` error branches unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-03 · **Area:** `app/features/catalog`
+
+`index.ts:386-408`: only the happy path is tested (`catalog.test.ts:136`). Unknown
+id → 404, pending-approval session → 403
+(`errors.catalog.etfDetail.pendingAnalysis`), and an oversize/blank id
+(`CATALOG_ENTRY_ID_PARAM_MAX` 128, `:217`) → 404 are not asserted for this
+route; siblings have them (`catalog.test.ts:202` POST pending, `:240` page 404).
+
+### GAP-028 — route-level import save failure messages unasserted
+**Status:** `proposed` · **Proposed:** 2026-10-03 · **Area:** `app/features/catalog` · **Priority:** low
+
+`index.ts:520-534`: `errors.catalog.import.saveFailed` and `changedElsewhere`
+(`WriteConflictError`) are pinned only at lib level (`lib.test.ts:348,371`).
+Needs `installFakeDataRepo` with a failing write (`failWith`,
+`app/lib/store/github-repo-test-fake.ts:38,103`; check its scope) — costlier.
 
 ### GAP-025 — advice route tests read the real GitHub API for saved advice
 **Status:** `done` · **Proposed:** 2026-10-01 · **Acted:** 2026-10-02 · **Area:** `app/features/advice` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/242
@@ -319,7 +349,7 @@ their route. Until then, runs should leave this alone. If the answer is no,
 reject it and stop re-surfacing page components as gaps.
 
 ### GAP-011 — `formatValue`'s currency-fallback branch is untested
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-03 · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/248 · **Area:** `app/lib`
 
 `app/lib/format.ts:1-10` — no test file imports `format.ts` or names
 `formatValue`/`formatPortfolioValueForInput`. `formatValue` is used in
@@ -560,7 +590,12 @@ Flagged during the seed survey; each needs the same triage before becoming an it
 ## Rejected
 
 Runs **must** read this list before proposing, and must never re-propose an
+
 item that appears here.
+
+
+### RJ-catalog-2026-10-03 — catalog candidates already pinned
+**Rejected:** 2026-10-03 · **Reason:** covered by existing tests. Non-admin import: `catalog.test.ts:516`. Import error branches (invalidJson, emptyJson, noRowsParsed, all-rows-fail, skipped/duplicate rows): `catalog.test.ts:649-900`, JSON-Accept variant `:415`. ETF analysis POST upstream failure: `catalog-etf-analysis.browser.ts:90-122`; pending POST `:202`; unknown id page `:240`. Signed-out GETs: `app/lib/require-approved-session.test.ts`. `/catalog/fragments/list`: `catalog.test.ts:1120`. Signed-out `POST /catalog/import` is gated by path middleware already pinned there.
 
 ### RJ-001 — `mcp/data-repo.ts` (was `mcp/data-gist.ts`)
 **Rejected:** 2026-09-19 · **Reason:** covered in effect, no direct test
