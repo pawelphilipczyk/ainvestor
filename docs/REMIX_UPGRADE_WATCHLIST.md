@@ -114,7 +114,5 @@ would move them.
   coverage for an element-scoped listener, and it would not let us delete
   `app/lib/event-listeners.js` anyway.
 - **Browser-side HMR (`remix/component-hmr`)** — closed, adopted. The
-  `staticFiles()` architecture that blocked it is gone. Do not re-open on the
-  strength of the stale "not adopted" wording still quoted in
-  `docs/REMIX_RC_MIGRATION_STATUS.md`'s *Decisions* section; that entry carries
-  its own correction.
+  `staticFiles()` architecture that blocked it is gone. Nothing to revisit;
+  `docs/REMIX_RC_MIGRATION_STATUS.md`'s *Decisions* section now says the same.

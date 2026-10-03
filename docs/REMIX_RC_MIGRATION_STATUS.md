@@ -140,18 +140,14 @@ sits at 590 now.
 
 ## Decisions already taken — do not relitigate
 
-- **Browser-side HMR (`remix/ui/dev/refresh`) is not adopted.** Read
-  `@remix-run/ui-hmr`'s own `browser-runtime.ts` before concluding this:
-  `reconcileRoots`/`setComponentStalenessCheck` are consumed internally by
-  `ui-hmr`'s browser runtime, which needs the browser-facing modules served
-  through `remix/assets`' `createAssetServer` (its `hmr` option). This app's
-  `.component.js` client entries are served as plain static files
-  (`staticFiles()`, `app/router.ts`) instead — reason 3, same architecture
-  Stage 5 already chose for the related "scoped import maps don't resolve for
-  statically-served files" finding. Server-side HMR (`remix/node-hmr` +
-  `remix/ui-hmr/node`) is adopted and confirmed live; only the browser-tab
-  live-patch piece is out. Migration follow-up if that architecture ever
-  changes — see *Backlog* above.
+- **Browser-side HMR is adopted** (superseded: it was "not adopted" here
+  until the assets migration). It did not need `remix/ui/dev/refresh`:
+  `@remix-run/ui-hmr`'s own browser runtime consumes those exports, and it
+  works once the browser modules are served through `remix/assets`'
+  `createAssetServer` (its `hmr` option). This app moved off `staticFiles()`
+  onto the asset server, so editing a client entry now patches an open tab.
+  Server-side HMR (`remix/node-hmr` + `remix/ui-hmr/node`) is adopted too.
+  Full trace: `docs/REMIX_ASSETS_MIGRATION_PLAN.md`.
 - **`remix/ui/button` / `remix/ui/input` are not adopted** for `submit-button.tsx`
   or the three input components. Measured live, reason 2: unlike every other
   primitive this migration adopted, they ship only the fully-styled tier (no
