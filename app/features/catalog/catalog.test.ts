@@ -605,6 +605,70 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Xtrackers Future Mobility/)
 	})
 
+	it('POST /catalog/import with an oversized HAR flashes a too-large banner and imports nothing', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+		const formData = new FormData()
+		formData.set(
+			'bankApiHar',
+			new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'bank.har'),
+		)
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: formData,
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.equal(importResponse.status, 302)
+		assert.equal(importResponse.headers.get('location'), '/admin/etf-import')
+
+		const importPage = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{ headers: { Cookie: cookie } },
+		)
+		assert.match(await importPage.text(), /too large/i)
+
+		const catalogResponse = await testSessionFetch('http://localhost/catalog', {
+			headers: { Cookie: cookie },
+		})
+		assert.match(await catalogResponse.text(), /Existing Fund/)
+	})
+
+	it('POST /catalog/import over the upload limit only redirects back to a same-origin Referer', async () => {
+		const cookie = await signInAs('catalog-admin')
+		const post = (referer: string) => {
+			const formData = new FormData()
+			formData.set(
+				'bankApiHar',
+				new File([new Uint8Array(5 * 1024 * 1024 + 1)], 'bank.har'),
+			)
+			return testSessionFetch(
+				new Request('http://localhost/catalog/import', {
+					method: 'POST',
+					body: formData,
+					headers: { Cookie: cookie, Referer: referer },
+				}),
+			)
+		}
+
+		const sameOrigin = await post('http://localhost/catalog?tab=x')
+		assert.equal(
+			sameOrigin.headers.get('location'),
+			'http://localhost/catalog?tab=x',
+		)
+
+		const crossOrigin = await post('https://evil.example/phish')
+		assert.equal(crossOrigin.headers.get('location'), '/admin/etf-import')
+	})
+
 	it('POST /catalog/import flashes success line when all rows merge with no skips', async () => {
 		setSharedCatalogForTests({ entries: [] })
 		const cookie = await signInAs('catalog-admin')
