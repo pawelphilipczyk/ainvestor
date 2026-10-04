@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-10-04 (`app/features/catalog`)
 
 ---
 
@@ -45,6 +45,51 @@ is preloaded into `npm test` / `npm run test:browser`: a fetch to
 `api.github.com` or `github.com` throws, and the process exits non-zero even if
 the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
+
+### GAP-026 — `POST /catalog/etf/:id` when OpenAI throws or returns nothing
+**Status:** `proposed` · **Proposed:** 2026-10-04 · **Area:** `app/features/catalog`
+
+`catalog/index.ts:711-723` answers 200 with a `role="alert"` fragment
+(`errors.catalog.etfDetail.service`), deliberately not 5xx, because the frame
+runtime drops 5xx bodies. Only the success case (`catalog.test.ts:162`) and
+403/404 are tested. A test with `setAdviceClient` throwing (and one returning
+`content: ''`, `catalog-etf-openai.ts:46`) would assert 200, the alert, and no
+raw error text. Cheap, and pins a documented trap.
+
+### GAP-027 — signed-out and `isAdmin:false` `POST /catalog/import`
+**Status:** `proposed` · **Proposed:** 2026-10-04 · **Area:** `app/features/catalog`
+
+`index.ts:438-445`. `catalog.test.ts:516` covers only the flash/redirect path
+for a non-owner. Uncovered: `isAdmin:false` with `Accept: application/json`
+(expect 422 `importNotAllowed`) and a signed-out POST (gate tests in
+`require-approved-session.test.ts:60` are GET only). Assert the catalog is
+unchanged. Security-adjacent.
+
+### GAP-028 — HAR upload path through the route
+**Status:** `proposed` · **Proposed:** 2026-10-04 · **Area:** `app/features/catalog`
+
+`index.ts:453-467`. `har-bank-json-adapter.test.ts` covers the adapter only;
+`catalog.test.ts:302-305` only the form markup. Assert a valid HAR imports,
+a non-HAR/non-JSON file gives 422 `invalidHar`, and a HAR wins over
+`bankApiJson`.
+
+### GAP-029 — ETF analysis model selection from JSON body / form
+**Status:** `proposed` · **Proposed:** 2026-10-04 · **Area:** `app/features/catalog`
+
+`index.ts:672-693`, `parseAdviceModelFromJsonBody` at `:203-211`. Capture
+`model` in the fake client's `create` args: valid id passes through, unknown id
+and malformed JSON fall back to `DEFAULT_CATALOG_ETF_MODEL` without a 500.
+
+### GAP-030 — remaining import error branches and fragment id edge cases
+**Status:** `proposed` · **Proposed:** 2026-10-04 · **Area:** `app/features/catalog` · **Priority:** low
+
+(a) `index.ts:468-471` `fieldMissing`, `:485-494` `notObject` / `dataNotArray`,
+`:495-500` `dataArrayEmpty` — table-driven beside `catalog.test.ts:415`.
+(b) `GET /catalog/fragments/etf-analysis/:id` 404 for unknown / over-long /
+badly percent-encoded id and 403 for a pending session (`index.ts:386-408`,
+`224-232`). (c) Import save-failure branches (`index.ts:517-531`) likely need a
+failing-store hook; check `setPrivateDataTestStore` first, else `blocked`.
+
 
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
 **Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
@@ -160,7 +205,9 @@ via `git diff` that the temporary edit was fully reverted before this PR.
 Production code was not modified in the final diff.
 
 ### GAP-002 — upload limits and the multipart flash middleware
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-04 · **Area:** `app/lib` · **PR:** PR_LINK
+
+Two cases added to `app/features/catalog/catalog.test.ts`: an over-5 MiB `bankApiHar` upload gets a 302 to `/admin/etf-import`, the next render shows the too-large banner, and the catalog is unchanged; and the redirect honours a same-origin `Referer` but falls back to `/admin/etf-import` for a cross-origin one. Both fail with the middleware's catch disabled. The handler's own size check at `catalog/index.ts:454-456` is unreachable (same 5 MiB limit as the middleware), so it was not tested.
 
 `app/lib/multipart-upload-limits.ts` and
 `app/lib/multipart-limit-flash-middleware.ts` — no direct coverage. This is the
