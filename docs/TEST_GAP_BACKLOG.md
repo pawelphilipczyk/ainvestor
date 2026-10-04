@@ -205,7 +205,7 @@ via `git diff` that the temporary edit was fully reverted before this PR.
 Production code was not modified in the final diff.
 
 ### GAP-002 — upload limits and the multipart flash middleware
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-04 · **Area:** `app/lib` · **PR:** PR_LINK
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-04 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/249
 
 Two cases added to `app/features/catalog/catalog.test.ts`: an over-5 MiB `bankApiHar` upload gets a 302 to `/admin/etf-import`, the next render shows the too-large banner, and the catalog is unchanged; and the redirect honours a same-origin `Referer` but falls back to `/admin/etf-import` for a cross-origin one. Both fail with the middleware's catch disabled. The handler's own size check at `catalog/index.ts:454-456` is unreachable (same 5 MiB limit as the middleware), so it was not tested.
 
