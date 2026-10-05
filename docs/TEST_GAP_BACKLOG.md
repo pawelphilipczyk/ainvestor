@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-10-05 (`app/features/catalog`)
 
 ---
 
@@ -25,6 +25,42 @@ backlog just feeds the overlap backlog.
 ---
 
 ## Open items
+
+### GAP-026 — `POST /catalog/import` failed-save branches are untested
+**Status:** `proposed` · **Proposed:** 2026-10-05 · **Area:** `app/features/catalog`
+
+`app/features/catalog/index.ts:~518-530` catches an `importBankCatalog` throw
+and flashes `errors.catalog.import.saveFailed`; a `WriteConflictError` flashes
+`changedElsewhere`; the JSON path returns 422. Only invalid JSON is tested
+(`catalog.test.ts:415`); `lib.test.ts:348` and `:410` stop below the route.
+Test: as admin, stub the repo write to 500 then to a conflict; assert the flash
+or JSON error text.
+
+### GAP-027 — HAR upload branch of `POST /catalog/import` is unexercised
+**Status:** `proposed` · **Proposed:** 2026-10-05 · **Area:** `app/features/catalog`
+
+`index.ts:453-468` handles `bankApiHar`: oversize (`fileTooLarge`), non-JSON
+(`invalidHar`), no screener entry (`invalidHar`), valid import. Nothing posts
+it; `catalog.test.ts:305` only checks the input exists, and
+`har-bank-json-adapter.test.ts:47` pins the adapter alone.
+
+### GAP-028 — catalog fragment/ETF route error branches
+**Status:** `proposed` · **Proposed:** 2026-10-05 · **Area:** `app/features/catalog`
+
+`GET /catalog/fragments/etf-analysis/:id` (`index.ts:386-407`): 404 for unknown
+id and 403 for a pending session are untested (only 200 at
+`catalog.test.ts:136`). `POST /catalog/etf/:id` (`:652-710`): unknown id 404,
+JSON `model` passthrough/fallback to `DEFAULT_CATALOG_ETF_MODEL`, empty OpenAI
+reply -> 200 with service error. `GET /catalog/etf/:id` for a pending session
+(`:610`) should render `pendingBody` without the form.
+
+### GAP-029 — `catalog-etf-back` and `catalog-filter-prefs` client entries have no browser test
+**Status:** `proposed` · **Proposed:** 2026-10-05 · **Area:** `app/features/catalog` · **Priority:** low
+
+`catalog-etf-back.component.ts` (history.back with modifier-key bypass and
+location fallback) and `catalog-filter-prefs.component.ts` (localStorage
+restore via `location.replace`, legacy-key migration) are only checked as
+mounted (`catalog.test.ts:125`, `:1081`). Costlier browser test.
 
 ### GAP-025 — advice route tests read the real GitHub API for saved advice
 **Status:** `done` · **Proposed:** 2026-10-01 · **Acted:** 2026-10-02 · **Area:** `app/features/advice` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/242
@@ -81,7 +117,7 @@ asserting the exact returned string (`assert.equal`, not regex) for an
 is unrelated and still open.
 
 ### GAP-023 — `parseAdviceDocument`'s schema-validation-failure branch is untested
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Acted:** 2026-10-05 · **PR:** (this run's PR) · **Area:** `app/features/advice`
 
 `app/features/advice/advice-document.ts:154-171` has three failure paths.
 Two are tested: `raw == null`/empty content falls back to a paragraph

@@ -111,6 +111,23 @@ describe('getInvestmentAdvice', () => {
 		assert.equal(chosenModel, 'gpt-5.6-luna')
 	})
 
+	it('falls back to a single paragraph when the model returns JSON that fails the schema', async () => {
+		const invalidDocument = JSON.stringify({ blocks: [] })
+		const client = makeMockClient(invalidDocument)
+		const advice = await getInvestmentAdvice({
+			holdings: [],
+			guidelines: [],
+			cashAmount: '100',
+			cashCurrency: 'PLN',
+			catalog: [],
+			client,
+		})
+
+		assert.deepEqual(advice.blocks, [
+			{ type: 'paragraph', text: invalidDocument },
+		])
+	})
+
 	it('falls back to a single paragraph when the model returns plain text', async () => {
 		const client = makeMockClient('Plain text without JSON.')
 		const advice = await getInvestmentAdvice({

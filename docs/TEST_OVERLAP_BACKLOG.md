@@ -4,15 +4,46 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 6 — `app/components` + shared browser layer
-**Last swept:** 2026-09-26 (`app/lib`)
+**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
+**Last swept:** 2026-10-05 (`app/components` + shared browser layer)
 
 ---
 
 ## Open items
 
+### OV-008 — sidebar source-text greps duplicate behaviour `sidebar.browser.ts` proves
+**Status:** `proposed` · **Proposed:** 2026-10-05 · **Area:** `app/components`
+
+`app/components/layout/sidebar.test.ts:273-286` ("wires document listeners via
+handle.signal") regexes the compiled entry for `addEventListeners` /
+`handle.signal`; `sidebar.browser.ts:78-94` already proves the document-level
+backdrop-click and Escape handlers work. `sidebar.test.ts:288-299` ("uses the
+vendored scroll lock") regexes for the `lockScroll` import;
+`sidebar.browser.ts:61-76` asserts `documentElement.style.overflow` is
+`hidden` then empty again, and `:96-106` that desktop never locks.
+
+**Triage question:** are the greps deliberate guards against a regression the
+browser test would not notice (e.g. listeners leaking without `handle.signal`)?
+If not, drop both. Weaker: `sidebar.test.ts:193-217` (vendored assets served)
+is implied by a passing browser test.
+
+### OV-009 — theme-toggle SSR assertions and asset boilerplate repeated
+**Status:** `proposed` · **Proposed:** 2026-10-05 · **Area:** `app/components`
+
+`app/components/navigation/theme-toggle.test.ts:40-46` and `:85-95` assert
+`role="switch"` / `data-state="checked"` and the `@remix-run/ui/toggle`
+import; `theme-toggle.browser.ts:40-52` and `:54-76` assert the same attributes
+after hydration and the toggle behaviour. Separately, the "served with a
+javascript content-type" and "`.island.js` returns 404" cases in
+`sidebar.test.ts:254-271` and `theme-toggle.test.ts:69-83` are the same rule on
+two paths with nothing component-specific. The `aria-label` /
+`data-theme-toggle` checks are unique and should stay.
+
+**Triage question:** keep SSR-only checks (no-JS first paint) or fold the
+boilerplate into one shared asset test?
+
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/lib`
+**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-05 · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
