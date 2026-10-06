@@ -4,15 +4,35 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 6 — `app/components` + shared browser layer
-**Last swept:** 2026-09-26 (`app/lib`)
+**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
+**Last swept:** 2026-10-06 (`app/components` + shared browser layer)
 
 ---
 
 ## Open items
 
+### OV-008 — retired `.island.js` 404 asserted in three places
+**Status:** `proposed` · **Proposed:** 2026-10-06 · **Area:** `app/components`
+
+`app/components/navigation/theme-toggle.test.ts:78-83` and
+`app/lib/require-approved-session.test.ts:71-74` both request
+`/components/theme-toggle.island.js` and expect 404; `app/components/layout/sidebar.test.ts:266-271`
+asserts the same "legacy `.island.js` route is gone" rule for `sidebar.island.js`.
+The gate test's real purpose is "unknown path is 404, not a sign-in redirect",
+so its URL is incidental. **Triage question:** keep one generic legacy-path pin
+and drop (or fold into a loop) the two per-component tests?
+
+### OV-009 — "file exists" tests subsumed by the file's own import
+**Status:** `proposed` · **Proposed:** 2026-10-06 · **Area:** `app/components`
+
+`app/components/layout/sidebar.test.ts:32-35` (`existsSync` on `sidebar.tsx`)
+while `:12` imports `./sidebar.tsx`; `app/components/navigation/theme-toggle.test.ts:23-26`
+(`existsSync` on `theme-toggle.component.ts`) while `:10` imports it. A missing
+file would already fail the whole test file at load. **Triage question:** delete
+both (and the `existsSync`/`componentsDir` boilerplate)?
+
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/lib`
+**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-06 (evidence re-checked, unchanged) · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel

@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-10-06 (`app/features/catalog`)
 
 ---
 
@@ -25,6 +25,57 @@ backlog just feeds the overlap backlog.
 ---
 
 ## Open items
+
+### GAP-026 — `POST /catalog/import` HAR upload branches are unpinned (extends `GAP-002`)
+**Status:** `proposed` · **Proposed:** 2026-10-06 · **Area:** `app/features/catalog`
+
+`app/features/catalog/index.ts:449-468`: file over `MULTIPART_MAX_FILE_BYTES`
+returns `errors.upload.fileTooLarge`; non-JSON or screener-less HAR returns
+`errors.catalog.import.invalidHar`. `har-bank-json-adapter.test.ts` pins only
+the pure adapter; `catalog.test.ts:305` only checks `name="bankApiHar"`
+renders; no test POSTs a `bankApiHar` File. **Would assert:** admin multipart
+POST for oversize / non-JSON / valid-but-empty HAR yields the matching message
+and leaves the catalog unchanged. Match `catalog.test.ts:415-445` and `:649-850`.
+
+### GAP-027 — import save failures at the route level
+**Status:** `proposed` · **Proposed:** 2026-10-06 · **Area:** `app/features/catalog`
+
+`index.ts:523-535` maps `WriteConflictError` to `changedElsewhere` and any
+other failure to `saveFailed`. `lib.test.ts:371,402` cover only the lib layer;
+no route test makes the write fail. **Would assert:** a refused GitHub write
+(stubbed as in `lib.test.ts:304-402`) yields `saveFailed`; a persistent
+conflict yields `changedElsewhere`.
+
+### GAP-028 — import structural-error messages (`fieldMissing`, `expectedObject`, `dataNotArray`, `dataArrayEmpty`)
+**Status:** `proposed` · **Proposed:** 2026-10-06 · **Area:** `app/features/catalog` · **Priority:** low
+
+`index.ts:471,486,491,498-499`. Neighbours are pinned (`catalog.test.ts:649,685,719`);
+`lib.test.ts:594-600` covers the parser, not the route's text mapping.
+**Would assert:** table of bodies (`[]`, `{"data":"x"}`, `{"data":[]}`, missing field).
+
+### GAP-029 — `fragmentEtfAnalysis` GET and POST error branches
+**Status:** `proposed` · **Proposed:** 2026-10-06 · **Area:** `app/features/catalog`
+
+`index.ts:384-408` (404 bad id, 403 pending, 404 unknown entry), `:670-699`
+(POST unknown id 404), `:228-232` malformed `%E0` id. `catalog.test.ts:136`
+covers only the 200 case. **Would assert:** each status/message.
+
+### GAP-030 — ETF analysis model selection and empty model reply
+**Status:** `proposed` · **Proposed:** 2026-10-06 · **Area:** `app/features/catalog`
+
+`index.ts:673-692,203-253` and `catalog-etf-openai.ts:44-47`; no catalog test
+mentions `model`. **Would assert:** posted model reaches the client, unknown
+falls back to default, `?model=` lands in `analysisFrameSrc`, empty reply gives
+the service-error fragment.
+
+### GAP-031 — `catalog-filter-prefs.component.ts` and `catalog-etf-back.component.ts` have no browser test
+**Status:** `proposed` · **Proposed:** 2026-10-06 · **Area:** `app/features/catalog` · **Priority:** low
+
+Client-only: filter restore redirect, legacy-key migration, Clear
+(`catalog-filter-prefs.component.ts:29-135`) and history-aware Back
+(`catalog-etf-back.component.ts:28-42`). Only the pure
+`catalog-filter-prefs.test.ts` exists. **Would assert** in a new `*.browser.ts`
+modelled on `catalog-list-filter.browser.ts`.
 
 ### GAP-025 — advice route tests read the real GitHub API for saved advice
 **Status:** `done` · **Proposed:** 2026-10-01 · **Acted:** 2026-10-02 · **Area:** `app/features/advice` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/242
@@ -319,7 +370,9 @@ their route. Until then, runs should leave this alone. If the answer is no,
 reject it and stop re-surfacing page components as gaps.
 
 ### GAP-011 — `formatValue`'s currency-fallback branch is untested
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-06 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/251
+
+**Action taken:** added `app/lib/format.test.ts` (valid code formats; unknown code falls back to `100 NOTACURRENCY`). `formatPortfolioValueForInput` still has no production caller — removal candidate, not acted on.
 
 `app/lib/format.ts:1-10` — no test file imports `format.ts` or names
 `formatValue`/`formatPortfolioValueForInput`. `formatValue` is used in
