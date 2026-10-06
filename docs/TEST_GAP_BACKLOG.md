@@ -370,7 +370,7 @@ their route. Until then, runs should leave this alone. If the answer is no,
 reject it and stop re-surfacing page components as gaps.
 
 ### GAP-011 — `formatValue`'s currency-fallback branch is untested
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-06 · **Area:** `app/lib` · **PR:** PR_LINK
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-06 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/251
 
 **Action taken:** added `app/lib/format.test.ts` (valid code formats; unknown code falls back to `100 NOTACURRENCY`). `formatPortfolioValueForInput` still has no production caller — removal candidate, not acted on.
 
