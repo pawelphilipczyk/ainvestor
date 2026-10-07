@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-10-07 (`app/features/catalog`)
 
 ---
 
@@ -45,6 +45,62 @@ is preloaded into `npm test` / `npm run test:browser`: a fetch to
 `api.github.com` or `github.com` throws, and the process exits non-zero even if
 the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
+
+### GAP-026 — `POST /catalog/import` HAR-file upload wiring is unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-07 · **Area:** `app/features/catalog`
+
+`index.ts:453-467` (`bankApiHar` File branch, `JSON.parse` failure, `extractBankApiJsonFromHar` `ok:false` -> `errors.catalog.import.invalidHar`). `bankApiHar` appears in tests only as markup (`catalog.test.ts:305`); the adapter is unit-tested but no test POSTs a File.
+
+**Triage:** genuine gap; test-only. A test would: POST a `FormData` with a `bankApiHar` File: valid HAR merges rows; garbage text and non-HAR JSON give the invalid-HAR flash; `Accept: application/json` gives 422 `{error}`.
+
+### GAP-027 — import route's structural messages (`fieldMissing`, `expectedObject`, `dataNotArray`, `noRowsParsed`) are unasserted
+**Status:** `proposed` · **Proposed:** 2026-10-07 · **Area:** `app/features/catalog`
+
+`index.ts:469-471,485-494,508-510`. `catalog.test.ts:649-750` asserts only `invalidJson`, `emptyJson`, empty paste and empty `data`.
+
+**Triage:** genuine gap; test-only. A test would: Three POSTs: neither field present; `[]` / `"x"` payload; `{data:"x"}`; assert flash or 422 JSON text. One parameterised test.
+
+### GAP-028 — import save-failure and write-conflict mapping at the web route
+**Status:** `proposed` · **Proposed:** 2026-10-07 · **Area:** `app/features/catalog`
+
+`index.ts:517-531` maps `WriteConflictError` -> `changedElsewhere`, else `saveFailed`; neither key appears in any test (`lib.test.ts` pins `updateSharedCatalog` directly, `mcp/tools/write-conflict.ts` the MCP side).
+
+**Triage:** genuine gap; test-only. A test would: Use `installFakeDataRepo` (`failWritesWith: 500`; `afterContentRead` + `externalWrite` for the conflict) with an admin session; assert flash, 302/422, nothing imported. Silence `console.error` as `catalog.test.ts:466-484` does.
+
+### GAP-029 — ETF detail/analysis routes: id normalisation, model plumbing, GET fragment errors
+**Status:** `proposed` · **Proposed:** 2026-10-07 · **Area:** `app/features/catalog`
+
+`index.ts:217-254` (id trim, >128 chars rejected, malformed `%` fallback; `model` from form/JSON/`?model=`), `382-415` (`fragmentEtfAnalysis` 404 and pending 403). Tests only cover the happy path (`catalog.test.ts:136-160`), POST pending 403 (`:202`) and `does-not-exist` (`:240`).
+
+**Triage:** genuine gap; test-only. A test would: 129-char id -> 404 on GET and POST; `%20row-x%20` resolves; malformed `%E0%A4%A` does not 500; valid/invalid `model` reaches `create` via a `setAdviceClient` spy (default fallback); GET fragment unknown id 404 and pending 403.
+
+### GAP-030 — ETF analysis POST failure is pinned only in the browser
+**Status:** `proposed` · **Proposed:** 2026-10-07 · **Area:** `app/features/catalog`
+
+`index.ts:711-724` answers status 200 (not 5xx) because the default frame resolver drops 5xx bodies; empty completion throws at `catalog-etf-openai.ts:44`. Only `catalog-etf-analysis.browser.ts:81` covers it, and cannot see status or header.
+
+**Triage:** genuine gap; test-only. A test would: `setAdviceClient` whose `create` throws / returns blank content: assert 200, `role="alert"`, service text, `Cache-Control: no-store`. Lower priority (partial overlap with the browser case).
+
+### GAP-031 — `catalog-filter-prefs.component.ts` and `catalog-etf-back.component.ts` have no browser coverage
+**Status:** `proposed` · **Proposed:** 2026-10-07 · **Area:** `app/features/catalog`
+
+Prefs: `catalog-filter-prefs.component.ts:30-140` (localStorage `catalog/filters/v1`, one-shot `location.replace`, Clear, legacy `etfCatalogFiltersV1` migration, corrupt JSON); `grep localStorage` hits only `theme-toggle.browser.ts`. Back: `catalog-etf-back.component.ts:21-46` (`history.back()` vs `/catalog` href, modified clicks); `catalog.test.ts:125-133` pins markup only.
+
+**Triage:** genuine gap; test-only. A test would: Needs `*.browser.ts` cases (extend `catalog-list-filter.browser.ts`): persist, restore on bare `/catalog`, Clear, legacy migration; list -> detail -> Back keeps the filter query, direct detail -> Back lands on `/catalog`, ctrl-click not prevented. Hydration-only, so not test-only-cheap.
+
+### GAP-032 — catalog read-path tolerance and fragment headers
+**Status:** `proposed` · **Proposed:** 2026-10-07 · **Area:** `app/features/catalog`
+
+`catalog-load-context.ts:50-57` turns a throwing `fetchEtfs` into `[]` (no test makes the holdings read fail); `index.ts:256-284,568-570` set `Cache-Control: no-store` on fragments/detail (no catalog test asserts it; `/catalog/fragments/list` has no direct GET).
+
+**Triage:** genuine gap; test-only. A test would: `installFakeDataRepo({ failContentReadsWith: 500 })`: `/catalog` 200 with rows and no Your Holdings section. GET `/catalog/fragments/list?type=bond&q=x`: 200, no `<html`, `no-store`, filter applied.
+
+### GAP-033 — `har-bank-json-adapter` branches
+**Status:** `proposed` · **Proposed:** 2026-10-07 · **Area:** `app/features/catalog`
+
+`har-bank-json-adapter.ts:14` (non-HAR root), `:32-37` (`encoding: base64`), `:53` (missing offset -> 0), `:85-87` (non-200 screener skipped), `:92-107` (bad body / `data` not array -> `ok:false`). Existing 4 cases cover merge-by-offset, no screener entries, duplicate and non-numeric offset.
+
+**Triage:** genuine gap; test-only. A test would: Pure unit cases in `har-bank-json-adapter.test.ts`, one per branch.
 
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
 **Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
@@ -412,7 +468,7 @@ asserting the anchor wrapper, `data-rmx-document`, and the nested `Card`. No
 browser test needed.
 
 ### GAP-015 — `busy-control-overlay.ts`'s root/spinner classes are unpinned
-**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** `app/components`
+**Status:** `done` · **Proposed:** 2026-09-17 · **Acted:** 2026-10-07 · **Area:** `app/components` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/252
 
 `app/components/forms/busy-control-overlay.ts` — no test names it directly.
 `busyControlOverlayClass`/`busyControlLabelClass` get indirect substring
@@ -423,7 +479,7 @@ and `busyControlSpinnerClass` have no assertion anywhere — not in
 classes), not for `frame-loading-placeholder.tsx`'s use of
 `busyControlSpinnerClass`.
 
-**Triage:** same shape as `GAP-004`/`OV-002` — a direct unit test of this
+**Triage:** (done: `busy-control-overlay.test.ts` also pins that each marker class has a rule in `baseCss`) same shape as `GAP-004`/`OV-002` — a direct unit test of this
 module's four exported class constants (plain string-content assertions)
 closes it in one small test.
 
@@ -561,6 +617,9 @@ Flagged during the seed survey; each needs the same triage before becoming an it
 
 Runs **must** read this list before proposing, and must never re-propose an
 item that appears here.
+
+### RJ-005 — catalog import: signed-out/`!token` branch and handler `fileTooLarge`
+**Rejected:** 2026-10-07 · **Reason:** `index.ts:438-440` is unreachable in effect: signed-out requests are turned away by `requireApprovedSession` (`require-approved-session.test.ts`), and non-admin/token-less both give `importNotAllowed`, pinned by `catalog.test.ts:516`. The handler-level `fileTooLarge` (`index.ts:454-456`) is dead code behind `formData({ maxFileSize })` in `router.ts:95-98`; the real oversized-upload flow is `GAP-002`.
 
 ### RJ-001 — `mcp/data-repo.ts` (was `mcp/data-gist.ts`)
 **Rejected:** 2026-09-19 · **Reason:** covered in effect, no direct test
