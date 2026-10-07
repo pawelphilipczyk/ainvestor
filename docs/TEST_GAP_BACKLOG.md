@@ -468,7 +468,7 @@ asserting the anchor wrapper, `data-rmx-document`, and the nested `Card`. No
 browser test needed.
 
 ### GAP-015 — `busy-control-overlay.ts`'s root/spinner classes are unpinned
-**Status:** `done` · **Proposed:** 2026-09-17 · **Acted:** 2026-10-07 · **Area:** `app/components` · **PR:** PR_LINK
+**Status:** `done` · **Proposed:** 2026-09-17 · **Acted:** 2026-10-07 · **Area:** `app/components` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/252
 
 `app/components/forms/busy-control-overlay.ts` — no test names it directly.
 `busyControlOverlayClass`/`busyControlLabelClass` get indirect substring
