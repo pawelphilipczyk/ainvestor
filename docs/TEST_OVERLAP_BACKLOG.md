@@ -4,15 +4,48 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 6 — `app/components` + shared browser layer
-**Last swept:** 2026-09-26 (`app/lib`)
+**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
+**Last swept:** 2026-10-07 (`app/components` + shared browser layer)
 
 ---
 
 ## Open items
 
+### OV-008 — tautological file-exists tests and a triplicated legacy-island 404
+**Status:** `proposed` · **Proposed:** 2026-10-07 · **Area:** `app/components`
+
+- **File-exists cases are subsumed by the import.**
+  `app/components/navigation/theme-toggle.test.ts:23-26` asserts
+  `existsSync('theme-toggle.component.ts')`, yet the same file imports
+  `ThemeToggle` from that path (`:10`) and renders it in later cases.
+  `app/components/layout/sidebar.test.ts:32-35` does the same for
+  `sidebar.tsx` (imported `:13`, rendered `:37`). A missing file fails the whole
+  test file at import time, so neither case can fail on its own.
+- **Legacy `*.island.js` 404 asserted three times.**
+  `theme-toggle.test.ts:78-83` (`/components/theme-toggle.island.js`) and
+  `sidebar.test.ts:266-271` (`/components/sidebar.island.js`) only prove an
+  unknown path 404s, which the router does generically.
+  `app/lib/require-approved-session.test.ts:69-75` fetches the same
+  theme-toggle URL with a distinct purpose (404 instead of the sign-in
+  redirect), so it stays.
+
+**Triage question:** delete the two file-exists cases and the two component
+`*.island.js` 404 cases (keeping `require-approved-session.test.ts:69-75`)?
+Reject if the 404 cases are meant to guard each component against a
+re-introduced island route.
+
+**Minor, not proposed:** `theme-toggle.test.ts:70-76` (200 + content type) is a
+near-subset of `:85-95` (same URL, body asserted); only the content-type check is
+unique. Same shape in `sidebar.test.ts:255-264` vs `:273-299`.
+
+**Refresh for OV-006:** the route test now lives at `advice.test.ts:286`
+("...repo-backed", assertions `:330-331`); the unit test is
+`advice-openai.test.ts:254` (assertions ~`:297-302`); `formatGuidelineLine` is
+`advice-openai.ts:272`, called at `:1141` and `:1214`. Subset claim intact.
+OV-007 evidence re-checked and holds.
+
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/lib`
+**Status:** `approved` (2026-10-07, evidence re-checked) · **Proposed:** 2026-09-26 · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
