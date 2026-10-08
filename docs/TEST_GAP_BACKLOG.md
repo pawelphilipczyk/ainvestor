@@ -72,7 +72,7 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 (a) route-level `expectedObject` / `dataNotArray` import flashes (`index.ts:478-486`; only the parser return values are pinned, `lib.test.ts:594-604`); (b) `decodeCatalogEntryIdFromPath` percent-encoded / malformed / over-long ids (`index.ts:218-233`); (c) catalog index page on an upstream 5xx renders `catalogProblem`, not the empty hint (verify rendering first); (d) `loadCatalogPageContext` swallowing a holdings-fetch error (`catalog-load-context.ts:61-67`).
 
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
-**Status:** `done` · **Proposed:** 2026-09-26 · **Acted:** 2026-10-08 · **PR:** (this run's PR) · **Area:** `app/features/advice`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Acted:** 2026-10-08 · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/253 · **Area:** `app/features/advice`
 
 `OV-006` (overlap backlog) flagged `formatGuidelineLine`
 (`app/features/advice/advice-openai.ts:249-254`) as having "no direct unit
