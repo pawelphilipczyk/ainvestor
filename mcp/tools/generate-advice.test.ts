@@ -197,6 +197,16 @@ describe('generate_advice', () => {
 		assert.equal(completions[0].model, 'gpt-5.6-luna')
 	})
 
+	it('accepts the newer flagship gpt-6.1-sol', async () => {
+		setSharedCatalogForTests({ entries: [] })
+		const { completions } = stubServer()
+
+		const payload = await callTool({ cashAmount: '100', model: 'gpt-6.1-sol' })
+
+		assert.equal(payload.model, 'gpt-6.1-sol')
+		assert.equal(completions[0].model, 'gpt-6.1-sol')
+	})
+
 	it('saves to the mode-specific file', async () => {
 		setSharedCatalogForTests({ entries: [] })
 		const { writes } = stubServer()
