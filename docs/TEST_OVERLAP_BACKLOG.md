@@ -4,15 +4,17 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
-**Last swept:** 2026-10-08 (`app/components` + shared browser layer — came back clean)
+**Next area to sweep:** 8 — `mcp/tools`
+**Last swept:** 2026-10-09 (`mcp` core — came back clean)
 
 ---
 
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-09 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/256
+
+**Done:** dropped the two `formatEtfTypeLabel` assertions (and its import) from `ui-locale.test.ts`; renamed the case to `t() and format() use Polish copy inside runWithUiCopyContext`. `guidelines.test.ts:24-28` keeps the pin. Case count unchanged.
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
@@ -46,7 +48,7 @@ than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 maintain every run.
 
 ### OV-006 — guideline formatting asserted twice with the same input/output
-**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** advice
+**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked; not acted on 2026-10-09 — one overlap action per run, OV-007 went first) · **Area:** advice
 
 `app/features/advice/advice.test.ts:277-323` ("passes guidelines into the
 advice prompt when they exist (gist-backed)") builds a guideline
