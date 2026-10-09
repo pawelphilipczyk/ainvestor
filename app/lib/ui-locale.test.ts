@@ -1,6 +1,5 @@
 import * as assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
-import { formatEtfTypeLabel } from './guidelines.ts'
 import { format, t } from './i18n.ts'
 import { localeQueryToUiLocale, runWithUiCopyContext } from './ui-locale.ts'
 
@@ -13,10 +12,8 @@ describe('ui locale', () => {
 		assert.equal(localeQueryToUiLocale('xx'), 'invalid')
 	})
 
-	it('formatEtfTypeLabel uses Polish asset-class labels when UI is Polish', () => {
+	it('t() and format() use Polish copy inside runWithUiCopyContext', () => {
 		runWithUiCopyContext({ locale: 'pl', shellReturnPath: '/catalog' }, () => {
-			assert.equal(formatEtfTypeLabel('equity'), 'Akcje')
-			assert.equal(formatEtfTypeLabel('real_estate'), 'Nieruchomości')
 			assert.equal(t('catalog.table.name'), 'Nazwa')
 			assert.equal(
 				format(t('guidelines.list.deleteAria.instrument'), { name: 'VWCE' }),

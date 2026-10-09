@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-09 (`app/features/guidelines`)
 
 ---
 
@@ -47,9 +47,37 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-09 · **Area:** `app/features/catalog` · **Priority:** high · **PR:** (this run's sweep PR)
+
+**Done (refused-write half):** `catalog.test.ts` "POST /catalog/import reports a refused repository write…" — `installFakeDataRepo({ failWritesWith: 403 })`, 422 JSON with `errors.catalog.import.saveFailed`, no commits, stored catalog unchanged. Note: the sign-in helpers leave an in-memory catalog that short-circuits the save, so the test calls `resetSharedCatalogForTests()` after signing in. The `WriteConflictError` → `changedElsewhere` branch (`index.ts:528`) is still unpinned for the catalog route.
+
 
 `app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
+
+### GAP-031 — guidelines: writes by a pending-approval session are refused, untested
+**Status:** `proposed` · **Proposed:** 2026-10-09 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelinesRequiresApprovalResponse` (`index.ts:287-308`, reached from `persistGuideline` `:354` and `updateGuidelineTarget` `:446`; delete has a silent-redirect branch `:717`). Nothing in `app/` or `mcp/` mentions `errors.guidelines.requiresApproval`; `pendingSessionCookie()` is used only for GET /portfolio and the portfolio list fragment. Test: pending session, POST addAssetClass/addInstrument/updateTarget with JSON (422 `{error}`), `text/html` (422 fragment), plain (302 + flash); delete → 302, no error. Also GET /guidelines as pending shows `guidelines.subtitle.pending` and no rows. Mimic `guidelines.test.ts:211,230`.
+
+### GAP-032 — guidelines: generic repo-write failure is unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-09 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelinesSaveFailureResponse` non-conflict branch (`index.ts:251-282`, `errors.guidelines.persistence`) reached from catch blocks `:401`, `:494`, `:740`. Only `WriteConflictError` is tested (`web-concurrent-writes.test.ts:249`). Test: `installFakeDataRepo({ failWritesWith: 403 })`, add/update/delete → persistence message (not "changed elsewhere"), JSON 422 / html 422 / plain flash+302, `repo.commitMessages` empty. Mimic `web-concurrent-writes.test.ts:249-272`.
+
+### GAP-033 — guidelines: conflict on updateTarget and delete (only add pinned)
+**Status:** `proposed` · **Proposed:** 2026-10-09 · **Area:** `app/features/guidelines` · **Priority:** medium
+
+`web-concurrent-writes.test.ts:194-272` covers only addAssetClass. Test updateTarget/delete with `afterContentRead` external write → 422 "changed elsewhere", nothing committed; `otherClientSavesOnce` shows updateTarget lands on top of another client's row. Could fold into GAP-032.
+
+### GAP-034 — guidelines: addInstrument with an unclassified (`unknown`) catalog entry
+**Status:** `proposed` · **Proposed:** 2026-10-09 · **Area:** `app/features/guidelines` · **Priority:** medium
+
+`catalogEntryUnclassified` branch (`index.ts:576-586`). `seedGuestCatalog` (`guidelines.test.ts:11-30`) has only classified entries; `:809` and `:559` cover the not-in-catalog branch (`:565-573`). Test: catalog entry whose `assets` maps to type `unknown`, html 422 with the unclassified message and ticker, plain POST redirects to `?tab=instrument`, nothing stored.
+
+### GAP-035 — guidelines: updateTarget/delete edge branches, action fallthroughs, fragment list
+**Status:** `proposed` · **Proposed:** 2026-10-09 · **Area:** `app/features/guidelines` · **Priority:** low
+
+`index.ts:501` (updateTarget on missing id), `:676/:712` (empty id), `:727` (delete of already-removed id: silent no-op), `:781/:793` (no FormData / unknown `guidelineIntent` → redirect), non-HTML schema-failure redirects (`:543,:559,:625,:640-646`), and `GET /fragments/guidelines-list` content + `Cache-Control: no-store` (`:798`; `guidelines.test.ts:467,:945` only use it as a frame src). Each: status/Location, stored rows unchanged, no commits.
 
 ### GAP-027 — catalog import: HAR upload branch has no route test
 **Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog`
