@@ -47,7 +47,7 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-09 · **Area:** `app/features/catalog` · **Priority:** high · **PR:** (this run's sweep PR)
+**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-09 · **Area:** `app/features/catalog` · **Priority:** high · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/256
 
 **Done (refused-write half):** `catalog.test.ts` "POST /catalog/import reports a refused repository write…" — `installFakeDataRepo({ failWritesWith: 403 })`, 422 JSON with `errors.catalog.import.saveFailed`, no commits, stored catalog unchanged. Note: the sign-in helpers leave an in-memory catalog that short-circuits the save, so the test calls `resetSharedCatalogForTests()` after signing in. The `WriteConflictError` → `changedElsewhere` branch (`index.ts:528`) is still unpinned for the catalog route.
 
