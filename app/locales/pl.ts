@@ -268,7 +268,8 @@ export const pl = {
 	'advice.guideline.ariaSummary':
 		'Teraz {current}, cel {target}{postBuyClause}.',
 	'advice.guideline.afterProposedBuys': ', po proponowanych zakupach {post}',
-	'advice.model.gpt-5.6-sol': 'GPT-5.6 Sol (najmądrzejszy)',
+	'advice.model.gpt-6.1-sol': 'GPT-6.1 Sol (najmądrzejszy)',
+	'advice.model.gpt-5.6-sol': 'GPT-5.6 Sol (poprzedni flagowy)',
 	'advice.model.gpt-5.6-terra': 'GPT-5.6 Terra (zbalansowany)',
 	'advice.model.gpt-5.6-luna': 'GPT-5.6 Luna (najtańszy)',
 	'errors.portfolio.addInvalid':

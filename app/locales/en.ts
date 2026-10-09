@@ -276,7 +276,8 @@ export const en = {
 	'advice.guideline.ariaSummary':
 		'Current {current}, target {target}{postBuyClause}.',
 	'advice.guideline.afterProposedBuys': ', after proposed buys {post}',
-	'advice.model.gpt-5.6-sol': 'GPT-5.6 Sol (smartest)',
+	'advice.model.gpt-6.1-sol': 'GPT-6.1 Sol (smartest)',
+	'advice.model.gpt-5.6-sol': 'GPT-5.6 Sol (previous flagship)',
 	'advice.model.gpt-5.6-terra': 'GPT-5.6 Terra (balanced)',
 	'advice.model.gpt-5.6-luna': 'GPT-5.6 Luna (cheapest)',
 
