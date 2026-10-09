@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-09-26 (`app/features/advice`)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-10-08 (`app/features/catalog`)
 
 ---
 
@@ -46,8 +46,33 @@ is preloaded into `npm test` / `npm run test:browser`: a fetch to
 the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
+### GAP-026 — catalog import: refused/conflicting repo write is unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
+
+`app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
+
+### GAP-027 — catalog import: HAR upload branch has no route test
+**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog`
+
+`index.ts:451-468` (`bankApiHar` upload: JSON parse failure and `extractBankApiJsonFromHar` not-ok → `invalidHar`; valid HAR imports). `har-bank-json-adapter.test.ts` tests the adapter alone; `catalog.test.ts:305` only checks the field exists. Test: garbage file → 302 + flash on next GET (and 422 with `Accept: application/json`); valid minimal HAR adds the row. Mimic `catalog.test.ts:649-760`. The oversize-file branch (`index.ts:452-454`, probably shadowed by the parser's `maxFileSize` in `app/router.ts:94-97`) belongs with `GAP-002`.
+
+### GAP-028 — `GET /catalog/fragments/etf-analysis/:id` error branches
+**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog`
+
+`index.ts:381-411`: unknown/empty id → 404, pending session → 403 `pendingAnalysis`. Only the happy path is tested (`catalog.test.ts:136`); `:202` pins 403 for `POST /catalog/etf/:id`, `:240` pins 404 for the detail page, not this fragment route.
+
+### GAP-029 — catalog ETF analysis model selection unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog`
+
+`index.ts:626-645` (JSON-body model, form `model` limited to `ADVICE_MODEL_IDS`, fallback `DEFAULT_CATALOG_ETF_MODEL`) and `parseOptionalAdviceModelFromUrl` (`:234`, `?model=` into the frame src). No catalog test mentions "model". Test with a `setAdviceClient` stub recording the `model` argument; mimic `catalog.test.ts:162-200`.
+
+### GAP-030 — lower-priority catalog leftovers
+**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** low
+
+(a) route-level `expectedObject` / `dataNotArray` import flashes (`index.ts:478-486`; only the parser return values are pinned, `lib.test.ts:594-604`); (b) `decodeCatalogEntryIdFromPath` percent-encoded / malformed / over-long ids (`index.ts:218-233`); (c) catalog index page on an upstream 5xx renders `catalogProblem`, not the empty hint (verify rendering first); (d) `loadCatalogPageContext` swallowing a holdings-fetch error (`catalog-load-context.ts:61-67`).
+
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Acted:** 2026-10-08 · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/253 · **Area:** `app/features/advice`
 
 `OV-006` (overlap backlog) flagged `formatGuidelineLine`
 (`app/features/advice/advice-openai.ts:249-254`) as having "no direct unit
@@ -102,7 +127,9 @@ through `getInvestmentAdvice`, and assert the result falls back to
 silently accepting the invalid structure.
 
 ### GAP-024 — the unauthenticated `adviceStorageGate: 'sign_in'` banner is never reached by any test
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
+**Status:** `rejected` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
+**Rejected 2026-10-08:** premise is wrong. A signed-out `GET /advice` is redirected (302 to `/`) by the approved-session gate (pinned in `app/lib/require-approved-session.test.ts:22`), so the `'sign_in'` banner is unreachable via the route; only a production-code change could expose it. Left in place below for the record.
+
 
 `app/features/advice/index.ts:328-337` (`adviceStorageGateProps`) returns
 `{ adviceStorageGate: 'sign_in' }` when there is no session cookie at all — this

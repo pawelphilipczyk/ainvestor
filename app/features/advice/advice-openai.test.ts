@@ -13,6 +13,7 @@ import {
 	formatAggregatedGuidelineBucketsBlock,
 	formatAllocationContext,
 	formatCatalogForAdvice,
+	formatGuidelineLine,
 	formatInstrumentGuidelineWeightsBlock,
 	formatPostInvestmentTotalsBlock,
 	getInvestmentAdvice,
@@ -641,6 +642,45 @@ describe('getInvestmentAdvice', () => {
 		})
 
 		assert.match(capturedMessage, /No ETF catalog entries/)
+	})
+})
+
+describe('formatGuidelineLine', () => {
+	it('renders an instrument row as the exact literal line', () => {
+		assert.equal(
+			formatGuidelineLine({
+				id: 'guideline-1',
+				kind: 'instrument',
+				etfName: 'VTI',
+				targetPct: 60,
+				etfType: 'equity',
+			}),
+			'- VTI (equity): 60% (specific fund — counts toward the **equity** class total together with any other lines of the same type)',
+		)
+	})
+
+	it('renders an asset-class row as the exact literal line', () => {
+		assert.equal(
+			formatGuidelineLine({
+				id: 'guideline-1',
+				kind: 'asset_class',
+				etfName: 'Equity',
+				targetPct: 40,
+				etfType: 'equity',
+			}),
+			'- Asset class equity: 40% (bucket)',
+		)
+	})
+
+	it('keeps a fractional targetPct verbatim, neither rounded nor truncated', () => {
+		const line = formatGuidelineLine({
+			id: 'guideline-1',
+			kind: 'asset_class',
+			etfName: 'Bond',
+			targetPct: 33.5,
+			etfType: 'bond',
+		})
+		assert.equal(line, '- Asset class bond: 33.5% (bucket)')
 	})
 })
 
