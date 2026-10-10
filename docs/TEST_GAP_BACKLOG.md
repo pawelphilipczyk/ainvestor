@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-10 (`app/features/guidelines`)
 
 ---
 
@@ -25,6 +25,47 @@ backlog just feeds the overlap backlog.
 ---
 
 ## Open items
+
+### GAP-031 — guidelines: pending-approval session's refused writes are unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-10 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelinesRequiresApprovalResponse` (`index.ts:286-307`, via `persistGuideline`
+`:354`, `updateGuidelineTarget` `:446`, `handleDelete` `:717`) and the pending
+subtitle (`guidelines-page.tsx:59-61`) are hit by no test; `advice.test.ts:148`
+and `require-approved-session.test.ts:93-105` don't POST to `/guidelines`.
+Test (route, `guidelines.test.ts`, seed `pendingSessionCookie()`): `addAssetClass`
+JSON → 422 /pending approval/; HTML → 422 inline; no Accept → 302 + flash;
+`updateTarget` → 422; `delete` → 302; GET shows "cannot be saved yet".
+
+### GAP-032 — guidelines: non-conflict save failure message
+**Status:** `proposed` · **Proposed:** 2026-10-10 · **Area:** `app/features/guidelines`
+
+The `errors.guidelines.persistence` arm of `guidelinesSaveFailureResponse`
+(`index.ts:258-261`) is unpinned; only the `WriteConflictError` arm is, in
+`web-concurrent-writes.test.ts:~255-275`. Test with
+`installFakeDataRepo({ failWritesWith: 500 })`: add/update/delete → 422 with the
+persistence message.
+
+### GAP-033 — guidelines: updateTarget/delete on missing id or row
+**Status:** `proposed` · **Proposed:** 2026-10-10 · **Area:** `app/features/guidelines`
+
+`index.ts:675-678`, `:711-714`, `:465/:501-503`, `:728` unpinned (existing tests
+at `guidelines.test.ts:503,532,876,901` use real ids only). Assert unknown/empty
+id → 302 to `/guidelines`, rows unchanged, double delete writes nothing.
+
+### GAP-034 — guidelines: unclassified catalog fund rejected
+**Status:** `proposed` · **Proposed:** 2026-10-10 · **Area:** `app/features/guidelines`
+
+`match.type === 'unknown'` → 422 `errors.guidelines.catalogEntryUnclassified`
+(`index.ts:575-587`); sibling branches pinned at `guidelines.test.ts:559,599`.
+
+### GAP-035 — guidelines: `addAssetClass` validation and unknown intent
+**Status:** `proposed` · **Proposed:** 2026-10-10 · **Area:** `app/features/guidelines` · **Priority:** low
+
+`handleAddAssetClass` schema failure (`index.ts:618-628`), out-of-range
+`targetPct` on add paths, and the `default`/`!form` branches (`:780-795`).
+
+---
 
 ### GAP-025 — advice route tests read the real GitHub API for saved advice
 **Status:** `done` · **Proposed:** 2026-10-01 · **Acted:** 2026-10-02 · **Area:** `app/features/advice` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/242
@@ -346,7 +387,7 @@ their route. Until then, runs should leave this alone. If the answer is no,
 reject it and stop re-surfacing page components as gaps.
 
 ### GAP-011 — `formatValue`'s currency-fallback branch is untested
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-10 (`app/lib/format.test.ts`; PR link in the sweep PR) · **Area:** `app/lib`
 
 `app/lib/format.ts:1-10` — no test file imports `format.ts` or names
 `formatValue`/`formatPortfolioValueForInput`. `formatValue` is used in

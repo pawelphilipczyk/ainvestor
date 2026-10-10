@@ -4,15 +4,32 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
-**Last swept:** 2026-10-08 (`app/components` + shared browser layer — came back clean)
+**Next area to sweep:** 8 — `mcp/tools`
+**Last swept:** 2026-10-10 (`mcp` core — one weak proposal, OV-008)
 
 ---
 
 ## Open items
 
+### OV-008 — header-pinned portfolio read is a subset of the per-token isolation test
+**Status:** `proposed` · **Proposed:** 2026-10-10 · **Area:** `mcp` core
+
+`mcp/http.test.ts:288-310` ("reads the portfolio of the repo pinned by header")
+stubs `octocat/data-a` (VWCE 1000 PLN), calls `tools/call get_portfolio` with
+`X-Ainvestor-Data-Repo: octocat/data-a` and asserts `totalValue === 1000`.
+`mcp/http.test.ts:312-350` ("serves each token its own repo, never another
+one") stubs the same `data-a` holding plus `data-b`, goes through the same
+`tools/call get_portfolio` path with the same header, and asserts
+`totalFor('token-one', 'octocat/data-a') === 1000` twice (differs only in the
+bearer token and the extra repo). Weak: the first is a readable happy path.
+
+**Triage question:** is the simple header-pin case worth keeping as the
+documenting test, or should it be dropped as a strict subset?
+
+---
+
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` (2026-10-10, PR link in the sweep PR) · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
