@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-11 (`app/features/guidelines`)
 
 ---
 
@@ -47,9 +47,39 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-11 · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/258 · **Area:** `app/features/catalog` · **Priority:** high
 
 `app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
+
+### GAP-031 — guidelines: pending-approval session POSTing to `/guidelines`
+**Status:** `proposed` · **Proposed:** 2026-10-11 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelinesRequiresApprovalResponse` (`index.ts` ~250-275, reached from `persistGuideline`/`updateGuidelineTarget`) and `handleDelete`'s silent redirect when `!sessionHasDataRepo` (~575). `require-approved-session.test.ts:94-110` only GETs portfolio routes. Test: `pendingSessionCookie()`, POST addAssetClass (JSON → 422 + message; `text/html` → 422 alert; none → 302 + flash), updateTarget, delete; fake repo `commitMessages` empty.
+
+### GAP-032 — guidelines: GET `/guidelines` and fragment for a pending session
+**Status:** `proposed` · **Proposed:** 2026-10-11 · **Area:** `app/features/guidelines`
+
+`guidelines-page.tsx:59-61` (`guidelines.subtitle.pending`), `loadGuidelinesForSession` returns `[]` without a data repo. Only the portfolio fragment is pinned (status only). Test: pending cookie → 200, pending subtitle, empty list; same for `/fragments/guidelines-list`.
+
+### GAP-033 — guidelines: generic write failure on every write path
+**Status:** `proposed` · **Proposed:** 2026-10-11 · **Area:** `app/features/guidelines`
+
+`guidelinesSaveFailureResponse` (`index.ts` ~215-245): non-conflict failure (`errors.guidelines.persistence`) in JSON / HTML-fragment / flash+redirect shapes, and update/delete failures. Only add + `changedElsewhere` is pinned (`web-concurrent-writes.test.ts` ~258). Test: `installFakeDataRepo({ failWritesWith: 500 })` with `approvedSessionCookieForFakeRepo`.
+
+### GAP-034 — guidelines: catalog entry of type `unknown` rejected on add
+**Status:** `proposed` · **Proposed:** 2026-10-11 · **Area:** `app/features/guidelines`
+
+`handleAddInstrument` `match.type === 'unknown'` branch (`index.ts` ~440-455, `errors.guidelines.catalogEntryUnclassified`). `guidelines.test.ts:809`/`:559` hit only the `!match` branch. Test: seed an entry with unrecognised `assets`, POST addInstrument in html / plain shapes; list stays empty.
+
+### GAP-035 — guidelines: updateTarget edge branches and no-Accept redirects
+**Status:** `proposed` · **Proposed:** 2026-10-11 · **Area:** `app/features/guidelines` · **Priority:** low
+
+updateTarget with missing/unknown `id` (302, no write; `index.ts` ~395, ~520-545); no-Accept out-of-range updateTarget flash; add-form schema failures with no Accept asserting `location` (`?tab=instrument` / `?tab=bucket`); bogus/missing `guidelineIntent` fallthrough.
+
+### GAP-036 — guidelines browser: cancel-edit, single open editor, dialog cancel
+**Status:** `proposed` · **Proposed:** 2026-10-11 · **Area:** `app/features/guidelines` · **Priority:** low
+
+`guidelines-list.component.ts` cancel (`data-guideline-cancel-edit`, restores `data-guideline-original-target`), opening a second row's editor closes the first, delete-dialog Cancel keeps the row; `guidelines.browser.ts` covers only the confirm path (:178-212). Needs `npm run test:browser`.
 
 ### GAP-027 — catalog import: HAR upload branch has no route test
 **Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog`
