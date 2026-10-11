@@ -327,8 +327,10 @@ describe('Advice', () => {
 			}),
 		)
 
-		assert.match(capturedUserMessage, /VTI.*60%/)
-		assert.match(capturedUserMessage, /equity/)
+		// Wiring only: the repo-stored guideline reached the prompt. How a
+		// guideline line is phrased is pinned in advice-openai.test.ts.
+		assert.match(capturedUserMessage, /VTI/)
+		assert.match(capturedUserMessage, /60/)
 	})
 
 	// Distinct from the pending-approval 403 above: this login IS approved and

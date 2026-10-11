@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionStorage } from '../../lib/session.ts'
+import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
 	approvedSessionCookie,
 	resetTestSessionCookieJar,
@@ -12,6 +13,7 @@ import {
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
 import {
+	CATALOG_FILENAME,
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
@@ -1265,5 +1267,71 @@ describe('ETF Catalog page', () => {
 
 		assert.match(body, /BND/)
 		assert.doesNotMatch(body, /VTI/)
+	})
+})
+
+describe('POST /catalog/import when the repo refuses the write', () => {
+	const originalFetch = globalThis.fetch
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch
+	})
+
+	async function importAgainstRefusingRepo(headers: Record<string, string>) {
+		const existing = [
+			{ id: '1', ticker: 'OLD', name: 'Old', type: 'equity', description: '' },
+		]
+		// Drop the in-process catalog `beforeEach` seeded, so the import reads
+		// and writes the fake repo instead.
+		resetSharedCatalogForTests()
+		const repo = installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			files: { [CATALOG_FILENAME]: JSON.stringify(existing) },
+			failWritesWith: 403,
+		})
+		const cookie = await signInAs('catalog-admin')
+		const formData = new FormData()
+		formData.set(
+			'bankApiJson',
+			JSON.stringify({
+				data: [{ fund_name: 'New Fund', ticker: 'NEW', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const response = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: formData,
+				headers: { Cookie: cookie, ...headers },
+			}),
+		)
+		return { repo, cookie, response, existing }
+	}
+
+	it('answers 422 JSON with the save-failed error and leaves the stored catalog alone', async () => {
+		const { repo, response, existing } = await importAgainstRefusingRepo({
+			Accept: 'application/json',
+		})
+
+		assert.equal(response.status, 422)
+		const payload = (await response.json()) as { error: string }
+		assert.match(payload.error, /Could not save the catalog/)
+		assert.doesNotMatch(payload.error, /elsewhere/i)
+		assert.deepEqual(
+			JSON.parse(repo.files.get(CATALOG_FILENAME) ?? 'null'),
+			existing,
+		)
+	})
+
+	it('flashes the save-failed error and redirects without Accept', async () => {
+		const { cookie, response } = await importAgainstRefusingRepo({})
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/admin/etf-import')
+		const page = await testSessionFetch('http://localhost/admin/etf-import', {
+			headers: { Cookie: cookie },
+		})
+		assert.match(await page.text(), /<section[^>]*aria-label="Error"/)
 	})
 })
