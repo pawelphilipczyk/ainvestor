@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-12 (`app/features/guidelines`)
 
 ---
 
@@ -25,6 +25,31 @@ backlog just feeds the overlap backlog.
 ---
 
 ## Open items
+
+### GAP-031 — guidelines: a refused repo write is unpinned on add/update/delete
+**Status:** `proposed` · **Proposed:** 2026-10-12 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`app/features/guidelines/index.ts:251-278` (`guidelinesSaveFailureResponse`, non-`WriteConflictError` arm → `errors.guidelines.persistence`), reached from the catches at ~400 (add), ~493 (update), ~739 (delete). `web-concurrent-writes.test.ts:249` pins only the conflict arm, for add via JSON. Test: `installFakeDataRepo({ files: { [GUIDELINES_FILENAME]: '[]' }, failWritesWith: 403 })` + `approvedSessionCookieForFakeRepo`; assert 422 + persistence error (JSON), HTML-fragment and flash arms, empty `repo.commitMessages`, file unchanged. Same shape as GAP-026. Also: `WriteConflictError` on update/delete ("changed elsewhere") unpinned — fold in.
+
+### GAP-032 — guidelines: pending-approval session POSTs have no test
+**Status:** `proposed` · **Proposed:** 2026-10-12 · **Area:** `app/features/guidelines` · **Priority:** medium
+
+`index.ts:286-307` (`guidelinesRequiresApprovalResponse`, from `persistGuideline` ~354 and `updateGuidelineTarget` ~446) and `handleDelete`'s silent redirect (~717). `require-approved-session.test.ts:93-109` covers only portfolio GETs; no guidelines test uses `pendingSessionCookie()`. Test: pending session POST `addAssetClass` → 422 `errors.guidelines.requiresApproval` (JSON), 302 + flash (default), delete → silent 302; `GET /guidelines` shows `guidelines.subtitle.pending`.
+
+### GAP-033 — guidelines: `addInstrument` for an unclassified (`unknown`-type) catalog fund
+**Status:** `proposed` · **Proposed:** 2026-10-12 · **Area:** `app/features/guidelines` · **Priority:** medium
+
+`index.ts:575-587` → `errors.guidelines.catalogEntryUnclassified`. `guidelines.test.ts:559` (not-in-catalog) and `:793` (missing ticker) cover neighbouring arms; `seedGuestCatalog` has only classified funds. Test: seed a fund whose `assets` maps to `unknown`, POST `addInstrument` with `Accept: text/html` → 422 mentioning the ticker; plain → 302 to `/guidelines?tab=instrument`, no row.
+
+### GAP-034 — guidelines: low-priority leftover arms
+**Status:** `proposed` · **Proposed:** 2026-10-12 · **Area:** `app/features/guidelines` · **Priority:** low
+
+(a) addAssetClass schema failure (non-numeric `targetPct`, `index.ts:617-628`) untested in any variant; plain-redirect arm of `assetClassStale` (636-647); `addInstrument` missing ticker with `Accept: text/html` (552-562). (b) `updateTarget`/`delete` with missing or unknown `id`, delete of an already-removed id (no write), unknown `guidelineIntent` — all expected to 302 to `/guidelines` (675-678, 501-503, 712-728, 793-794). (c) flash arm of updateTarget schema failure (`:242-243`; JSON/HTML arms at `guidelines.test.ts:743,769`). (d) browser: 422 inline error for update-target / cap-exceeded in `guidelines.browser.ts` (only duplicate 422 at `:95`).
+
+### GAP-035 — web `GET /guidelines` shows an empty list when the repo read fails
+**Status:** `proposed` · **Proposed:** 2026-10-12 · **Area:** `app/features/guidelines` · **Priority:** medium — needs a decision
+
+`loadGuidelinesForSession` (`index.ts:103-110`) via `fetchGuidelines` (`app/lib/guidelines.ts:296-302`) returns `[]` on a 401/500, rendering "No guidelines added yet". Only MCP read failure is tested (`mcp/tools/guidelines.test.ts:198`). Triage question: is the empty list intended? If so, pin with `installFakeDataRepo({ failContentReadsWith: 500 })`; if not, it is a production bug.
 
 ### GAP-025 — advice route tests read the real GitHub API for saved advice
 **Status:** `done` · **Proposed:** 2026-10-01 · **Acted:** 2026-10-02 · **Area:** `app/features/advice` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/242
@@ -47,7 +72,7 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
+**Status:** `done` (refused-write arm only; `WriteConflictError` → `changedElsewhere` arm still unpinned) · **Proposed:** 2026-10-08 · **Acted:** 2026-10-12 · **PR:** (this run's PR) · **Area:** `app/features/catalog` · **Priority:** high
 
 `app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
 

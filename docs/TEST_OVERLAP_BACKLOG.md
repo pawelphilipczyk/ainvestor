@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
-**Last swept:** 2026-10-08 (`app/components` + shared browser layer — came back clean)
+**Next area to sweep:** 8 — `mcp/tools`
+**Last swept:** 2026-10-12 (`mcp` core — came back clean)
 
 ---
 
@@ -45,50 +45,13 @@ than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 — that doc states baseline counts are a drift signal, not something to
 maintain every run.
 
-### OV-006 — guideline formatting asserted twice with the same input/output
-**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** advice
-
-`app/features/advice/advice.test.ts:277-323` ("passes guidelines into the
-advice prompt when they exist (gist-backed)") builds a guideline
-`{ etfName: 'VTI', targetPct: 60, etfType: 'equity' }` via the private-data
-overlay and asserts `capturedUserMessage` matches `/VTI.*60%/` and
-`/equity/`. `app/features/advice/advice-openai.test.ts:253-302` ("includes
-guidelines as target allocation in the user message") uses the identical
-guideline shape (VTI/60%/equity, plus BND/30%/bond) fed directly to
-`getInvestmentAdvice`, and asserts the same `/VTI.*60%/`-style output plus
-more (`/BND.*30%/`, `/bond/`, `/split of the new cash alone/i`,
-`/whole ETF portfolio/i`). The route test's assertions are a strict subset of
-the unit test's over the same input→output mapping (`formatGuidelineLine`'s
-"name target%" rendering), not just "same module touched."
-
-**Re-verified 2026-09-20** (while sweeping `app/features/portfolio` — this
-was the only open item worth re-checking during that pass): both tests still
-exist exactly as described; only a one-line drift on the unit-test side —
-the `advice-openai.test.ts` case actually runs lines 253-302, not 252-301
-(corrected above). `formatGuidelineLine` (`advice-openai.ts:249`) still has
-no direct test, called only at `advice-openai.ts:864` and `:932`. Evidence
-holds, but the triage question below is a values judgment, not a factual
-one, so this stays at `proposed` rather than being promoted — it needs a
-human call on whether the gist→prompt round-trip guarantee is worth keeping
-separately pinned.
-
-**Triage question:** should `advice.test.ts:277-323` be thinned to assert
-only that *some* guideline text made it into the prompt (e.g. `/VTI/` and one
-target-pct digit, proving the gist→route wiring), leaving the detailed
-phrasing assertions solely to `advice-openai.test.ts`? If the team considers
-proving the literal percentage round-trips through the gist→prompt path a
-distinct, valuable guarantee (catching a serialization bug in the
-overlay/session layer a pure unit test can't reach), reject this as
-intentional layered coverage instead.
-
-Note: `formatGuidelineLine` (`advice-openai.ts:249`) itself has no direct
-unit test — only exercised indirectly via these two prompt-content tests.
-That's a gap, not overlap; logged for a future gap sweep rather than acted on
-here.
-
 ---
 
 ## Rejected
+
+### RJ-005 — OV-006, `advice.test.ts:277-323` vs. `advice-openai.test.ts:253-302`
+**Rejected:** 2026-10-12 — on re-check the route case already asserts only `/VTI.*60%/` and `/equity/`; there is nothing left to thin without dropping the only gist→route→prompt round-trip pin (the unit test feeds guidelines in directly and cannot catch an overlay/session serialization bug). Intentional layered coverage.
+
 
 Runs **must** read this list before proposing, and must never re-propose an
 item that appears here.
