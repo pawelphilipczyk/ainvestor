@@ -46,7 +46,7 @@ than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 maintain every run.
 
 ### OV-006 — guideline formatting asserted twice with the same input/output
-**Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-13 · **PR:** PRLINK · **Area:** advice
+**Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-13 · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/260 · **Area:** advice
 
 **Done:** dropped the `/equity/` assertion from `advice.test.ts` (repo-backed guidelines case); it keeps `/VTI.*60%/` as the repo→prompt wiring check, and the phrasing stays pinned in `advice-openai.test.ts`.
 

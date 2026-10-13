@@ -47,7 +47,7 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-13 · **PR:** PRLINK · **Area:** `app/features/catalog` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-13 · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/260 · **Area:** `app/features/catalog` · **Priority:** high
 
 `app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
 
