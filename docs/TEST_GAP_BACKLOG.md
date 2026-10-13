@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-13 (`app/features/guidelines`)
 
 ---
 
@@ -47,7 +47,7 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-13 · **PR:** PRLINK · **Area:** `app/features/catalog` · **Priority:** high
 
 `app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
 
@@ -70,6 +70,38 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 **Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** low
 
 (a) route-level `expectedObject` / `dataNotArray` import flashes (`index.ts:478-486`; only the parser return values are pinned, `lib.test.ts:594-604`); (b) `decodeCatalogEntryIdFromPath` percent-encoded / malformed / over-long ids (`index.ts:218-233`); (c) catalog index page on an upstream 5xx renders `catalogProblem`, not the empty hint (verify rendering first); (d) `loadCatalogPageContext` swallowing a holdings-fetch error (`catalog-load-context.ts:61-67`).
+
+**Done (refused write):** `catalog.test.ts` now pins `failWritesWith: 403` → 422 JSON with `errors.catalog.import.saveFailed`, no commit, stored catalog unchanged. The `WriteConflictError` → `changedElsewhere` half is still unpinned at this route.
+
+### GAP-031 — guidelines: a pending-approval session POSTing a write
+**Status:** `proposed` · **Proposed:** 2026-10-13 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelines/index.ts:286-307` (`guidelinesRequiresApprovalResponse`: JSON 422 / HTML fragment 422 / flash+302), reached from `persistGuideline` (354) and `updateGuidelineTarget` (446); `handleDelete` (717) has a silent redirect. The only pending-session test (`require-approved-session.test.ts:90-110`) does GETs on `/portfolio`. Test: `pendingSessionCookie()` + `guidelineActionRequest` (see `guidelines.test.ts:1-60`) per shape; assert no write. Also GET `/guidelines` as pending renders `guidelines.subtitle.pending` (`guidelines-page.tsx:59-61`).
+
+### GAP-032 — guidelines: refused (non-conflict) repo write and unsaved read failure
+**Status:** `proposed` · **Proposed:** 2026-10-13 · **Area:** `app/features/guidelines`
+
+`index.ts:258-261` + catch blocks `:400`, `:493`, `:739` (generic failure → `errors.guidelines.persistence`); only `WriteConflictError` is pinned, `web-concurrent-writes.test.ts:249-270`. Also `fetchGuidelines` swallows read errors (`app/lib/guidelines.ts:296-302`) while `updateGuidelines` throws (`:259-262`): a rejected read must not overwrite the file. Test: `installFakeDataRepo({ failWritesWith: 500 })` / `{ failContentReadsWith: 500 }`, `addAssetClass` → 422 persistence, no PUT in `repo.requests`. Mimic `etfs.test.ts:60-105`.
+
+### GAP-033 — guidelines: `updateTarget` / `delete` edge branches
+**Status:** `proposed` · **Proposed:** 2026-10-13 · **Area:** `app/features/guidelines`
+
+`index.ts:674-728`: missing/empty `id` redirect, unknown `id` (`kind: 'missing'`, 302, nothing written), schema-failure flash+redirect shape (`:242-243`; only JSON/HTML shapes pinned, `guidelines.test.ts:743,769`), delete of an already-removed id (`:728`). Mimic `guidelines.test.ts:503-530,876-900`.
+
+### GAP-034 — guidelines: catalog entry of unknown type on `addInstrument`
+**Status:** `proposed` · **Proposed:** 2026-10-13 · **Area:** `app/features/guidelines`
+
+`index.ts:575-587` (`errors.guidelines.catalogEntryUnclassified`) has no test; the empty/stale-ticker non-HTML redirects (`:561,573`) are pinned only by the page not changing (`guidelines.test.ts:793-818`). Test: seed a catalog entry with an unknown type, POST `addInstrument`, expect 422 (HTML) / 302 `?tab=instrument`.
+
+### GAP-035 — guidelines: `targetPct` bounds and the 0.01 vs 0.001 message
+**Status:** `proposed` · **Proposed:** 2026-10-13 · **Area:** `app/features/guidelines` · **Priority:** low
+
+Only `0` and over-100 totals are sent (`guidelines.test.ts:579,743`). Unpinned: per-row `101`, `100` alone accepted, `33.5` round-trip, `abc`. `GUIDELINE_TARGET_PERCENT_MIN = 0.001` (`app/lib/guidelines.ts:57`) but `targetPctInvalid` says "between 0.01 and 100" (`en.ts:373`) — a message/constant mismatch to confirm (may need a production fix, then `blocked`).
+
+### GAP-036 — guidelines: small routing leftovers
+**Status:** `proposed` · **Proposed:** 2026-10-13 · **Area:** `app/features/guidelines` · **Priority:** low
+
+Unknown/absent `guidelineIntent` and missing FormData redirect (`index.ts:781,793-794`); `GET /guidelines?tab=garbage` normalising to the bucket tab (`:60-63`; `guidelines.test.ts:129` pins only default and `instrument`); duplicate detected under a race (`kind: 'duplicate'`; `web-concurrent-writes.test.ts:194-247` pins only the cap race).
 
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
 **Status:** `done` · **Proposed:** 2026-09-26 · **Acted:** 2026-10-08 · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/253 · **Area:** `app/features/advice`

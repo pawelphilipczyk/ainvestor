@@ -1,8 +1,9 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, it } from 'node:test'
+import { t } from '../../lib/i18n.ts'
 import { assetHref } from '../../lib/remix-assets.ts'
-
 import { sessionStorage } from '../../lib/session.ts'
+import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
 	approvedSessionCookie,
 	resetTestSessionCookieJar,
@@ -12,6 +13,7 @@ import {
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
 import {
+	CATALOG_FILENAME,
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
@@ -1265,5 +1267,53 @@ describe('ETF Catalog page', () => {
 
 		assert.match(body, /BND/)
 		assert.doesNotMatch(body, /VTI/)
+	})
+
+	it('POST /catalog/import answers 422 and saves nothing when GitHub refuses the write', async () => {
+		const originalFetch = globalThis.fetch
+		const originalRepo = process.env.SHARED_CATALOG_REPO
+		const existing = JSON.stringify([
+			{ id: '1', ticker: 'OLD', name: 'Existing Fund', type: 'equity' },
+		])
+		const repo = installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			files: { [CATALOG_FILENAME]: existing },
+			failWritesWith: 403,
+		})
+		const originalConsoleError = console.error
+		console.error = () => {}
+		try {
+			const cookie = await signInAs('catalog-admin')
+			// Leave the in-memory catalog the other cases use, so the import reaches
+			// the (fake) catalog repo and its refused write.
+			resetSharedCatalogForTests()
+			const formData = new FormData()
+			formData.set(
+				'bankApiJson',
+				JSON.stringify({
+					data: [{ fund_name: 'New Fund', ticker: 'NEW', assets: 'akcje' }],
+					count: 1,
+				}),
+			)
+			const response = await testSessionFetch(
+				new Request('http://localhost/catalog/import', {
+					method: 'POST',
+					body: formData,
+					headers: { Cookie: cookie, Accept: 'application/json' },
+				}),
+			)
+
+			assert.equal(response.status, 422)
+			const body = (await response.json()) as { error: string }
+			assert.equal(body.error, t('errors.catalog.import.saveFailed'))
+			assert.deepEqual(repo.commitMessages, [])
+			assert.equal(repo.files.get(CATALOG_FILENAME), existing)
+		} finally {
+			console.error = originalConsoleError
+			globalThis.fetch = originalFetch
+			if (originalRepo === undefined) delete process.env.SHARED_CATALOG_REPO
+			else process.env.SHARED_CATALOG_REPO = originalRepo
+		}
 	})
 })

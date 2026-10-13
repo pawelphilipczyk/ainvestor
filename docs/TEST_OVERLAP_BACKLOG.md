@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
-**Last swept:** 2026-10-08 (`app/components` + shared browser layer — came back clean)
+**Next area to sweep:** 8 — `mcp/tools`
+**Last swept:** 2026-10-13 (`mcp` core — came back clean)
 
 ---
 
@@ -46,7 +46,9 @@ than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 maintain every run.
 
 ### OV-006 — guideline formatting asserted twice with the same input/output
-**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** advice
+**Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-13 · **PR:** PRLINK · **Area:** advice
+
+**Done:** dropped the `/equity/` assertion from `advice.test.ts` (repo-backed guidelines case); it keeps `/VTI.*60%/` as the repo→prompt wiring check, and the phrasing stays pinned in `advice-openai.test.ts`.
 
 `app/features/advice/advice.test.ts:277-323` ("passes guidelines into the
 advice prompt when they exist (gist-backed)") builds a guideline
@@ -85,6 +87,12 @@ Note: `formatGuidelineLine` (`advice-openai.ts:249`) itself has no direct
 unit test — only exercised indirectly via these two prompt-content tests.
 That's a gap, not overlap; logged for a future gap sweep rather than acted on
 here.
+
+### 2026-10-13 sweep note — `mcp` core
+Came back clean. One weak candidate not logged: `mcp/http.test.ts:116-126` and
+`:128-146` send the same unauthenticated request but assert disjoint things
+(body text vs. `WWW-Authenticate` challenge), so merging them would save a
+setup, not a rule.
 
 ---
 
