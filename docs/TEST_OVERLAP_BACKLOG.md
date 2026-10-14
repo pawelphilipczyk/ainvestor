@@ -4,15 +4,17 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
-**Last swept:** 2026-10-08 (`app/components` + shared browser layer — came back clean)
+**Next area to sweep:** 8 — `mcp/tools`
+**Last swept:** 2026-10-14 (`mcp` core — came back clean)
 
 ---
 
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-14 · **Area:** `app/lib`
+
+**Done:** dropped the two `formatEtfTypeLabel` assertions (and the import) from `ui-locale.test.ts`; the case, renamed to "runWithUiCopyContext resolves t() and format() in Polish", keeps its `t()`/`format()` assertions, and `guidelines.test.ts` keeps the mapping pin. PR: see this sweep's PR.
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
@@ -39,6 +41,8 @@ intentionally re-checking `formatEtfTypeLabel` specifically because it's
 imported from another module (`guidelines.ts`) rather than `i18n.ts` itself —
 i.e. deliberate cross-module propagation coverage? If the latter, reject as
 intentional.
+
+**Note on OV-006 (2026-10-14):** not acted on this run — oldest approved, but its own triage question is a values call and the case is now titled "(repo-backed)" (evidence drifted); left `approved`, acted on OV-007 instead.
 
 **Note:** the sweep found 14 test files under `app/lib/*.test.ts`, two more
 than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on

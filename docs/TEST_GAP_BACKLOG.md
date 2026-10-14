@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-14 (`app/features/guidelines`)
 
 ---
 
@@ -45,6 +45,26 @@ is preloaded into `npm test` / `npm run test:browser`: a fetch to
 `api.github.com` or `github.com` throws, and the process exits non-zero even if
 the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
+
+### GAP-031 — guidelines: pending-approval session POSTs to write intents are unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-14 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelinesRequiresApprovalResponse` (`app/features/guidelines/index.ts:~283-305`, called from `persistGuideline` ~:352 and `updateGuidelineTarget` ~:420; `handleDelete` ~:700 redirects silently). No test names `errors.guidelines.requiresApproval`; `require-approved-session.test.ts` only GETs. Test: `pendingSessionCookie()` (`test-session-fetch.ts:117`) POST `addAssetClass`/`updateTarget` → JSON 422 `/pending approval/`, HTML 422 fragment, plain POST 302 + flash, delete 302; no write via `installFakeDataRepo`. Conventions: `guidelines.test.ts:690-715`.
+
+### GAP-032 — guidelines: generic save failure and conflicts on update/delete unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-14 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelinesSaveFailureResponse` (`index.ts:~230-258`, catch sites ~:370/:433/:700). Only `web-concurrent-writes.test.ts:249` (add + JSON + conflict) exists; `errors.guidelines.persistence`, HTML/flash shapes and update/delete branches are unpinned. Test: `installFakeDataRepo({ failWritesWith: 500 })` + `updateTarget`/`delete` → 422 `/Could not save/`, no commit, file unchanged. Conventions: `web-concurrent-writes.test.ts:249-275`, `etfs.test.ts:70-110`.
+
+### GAP-033 — guidelines: `addInstrument` with an `unknown`-type catalog entry
+**Status:** `proposed` · **Proposed:** 2026-10-14 · **Area:** `app/features/guidelines`
+
+`index.ts:~571-584` (`catalogEntryUnclassified`). No guidelines test seeds an `unknown` entry (`seedGuestCatalog` at `guidelines.test.ts:12` is all classified). Test: seed entry with empty assets/sector, POST `addInstrument` → 422 fragment with ticker (HTML) / 302 `?tab=instrument` and no row. Copy `guidelines.test.ts:559-578`.
+
+### GAP-034 — guidelines: stale/missing ids, unknown intent, rejected read
+**Status:** `proposed` · **Proposed:** 2026-10-14 · **Area:** `app/features/guidelines` · **Priority:** low
+
+(a) `updateTarget`/`delete` with a vanished or empty id and unknown `guidelineIntent` redirect to `/guidelines` with no write (`index.ts:~441, ~620, ~690`; existing tests only use live ids, `guidelines.test.ts:503,660,876`). (b) `fetchGuidelines` swallowing a rejected read (`app/lib/guidelines.ts:~296-302`) — only the throwing sibling is tested (`mcp/tools/guidelines.test.ts:197`); `installFakeDataRepo({ failContentReadsWith: 500 })` → GET `/guidelines` 200 with empty state.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
 **Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
@@ -106,7 +126,7 @@ asserting the exact returned string (`assert.equal`, not regex) for an
 is unrelated and still open.
 
 ### GAP-023 — `parseAdviceDocument`'s schema-validation-failure branch is untested
-**Status:** `proposed` · **Proposed:** 2026-09-26 · **Area:** `app/features/advice`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Acted:** 2026-10-14 · **Area:** `app/features/advice` · **PR:** this sweep's PR (test added in `advice-openai.test.ts`, verified failing when the schema check is bypassed)
 
 `app/features/advice/advice-document.ts:154-171` has three failure paths.
 Two are tested: `raw == null`/empty content falls back to a paragraph
