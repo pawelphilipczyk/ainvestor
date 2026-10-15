@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
-**Last swept:** 2026-10-08 (`app/components` + shared browser layer — came back clean)
+**Next area to sweep:** 8 — `mcp/tools`
+**Last swept:** 2026-10-15 (`mcp` core — came back clean)
 
 ---
 
@@ -60,6 +60,8 @@ more (`/BND.*30%/`, `/bond/`, `/split of the new cash alone/i`,
 `/whole ETF portfolio/i`). The route test's assertions are a strict subset of
 the unit test's over the same input→output mapping (`formatGuidelineLine`'s
 "name target%" rendering), not just "same module touched."
+
+**2026-10-15 run:** not acted on. The route case already asserts only two loose patterns (`/VTI.*60%/`, `/equity/`), so there is nothing left to thin without dropping the gist→prompt round-trip guarantee the triage question is about. That is a values call for a human; it stays `approved` (reject it if the round-trip pin is wanted).
 
 **Re-verified 2026-09-20** (while sweeping `app/features/portfolio` — this
 was the only open item worth re-checking during that pass): both tests still
