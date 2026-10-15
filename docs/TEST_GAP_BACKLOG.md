@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-15 (`app/features/guidelines`)
 
 ---
 
@@ -47,7 +47,9 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-15 · **Area:** `app/features/catalog` · **Priority:** high · **PR:** PR_LINK_TODO
+
+**Done:** `catalog.test.ts` "flashes and keeps the stored catalog when GitHub refuses the write" — fake catalog repo with `failWritesWith: 403`; form POST → 302 + error flash, `Accept: application/json` → 422 `{error}`, stored `catalog.json` unchanged. Fails with the failure injection removed. The `WriteConflictError` (`changedElsewhere`) branch is still unpinned here (the guidelines/portfolio equivalents are in `web-concurrent-writes.test.ts`).
 
 `app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
 
@@ -70,6 +72,31 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 **Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** low
 
 (a) route-level `expectedObject` / `dataNotArray` import flashes (`index.ts:478-486`; only the parser return values are pinned, `lib.test.ts:594-604`); (b) `decodeCatalogEntryIdFromPath` percent-encoded / malformed / over-long ids (`index.ts:218-233`); (c) catalog index page on an upstream 5xx renders `catalogProblem`, not the empty hint (verify rendering first); (d) `loadCatalogPageContext` swallowing a holdings-fetch error (`catalog-load-context.ts:61-67`).
+
+### GAP-031 — pending-approval session writing guidelines is unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-15 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`index.ts:286-307` (`guidelinesRequiresApprovalResponse`, reached from add `:354` and updateTarget `:446`; delete `:717-719` redirects silently). No guidelines test uses `pendingSessionCookie` (only `app/lib/require-approved-session.test.ts:94,105`, portfolio-only); `errors.guidelines.requiresApproval` appears in no test. Test: pending cookie, POST addAssetClass → JSON 422 `{error}`, HTML 422 `role="alert"`, plain 302 + flash; nothing written. Mimic `guidelines.test.ts:211-230`; reset the cookie jar first (file-level `beforeEach` seeds an approved one). Also: GET `/guidelines` for a pending session renders `guidelines.subtitle.pending` (`guidelines-page.tsx:59-61`) and `/fragments/guidelines-list` an empty list — unasserted. Doc drift: JSDoc at `index.ts:280-285` says "the page disables these forms" but no `disabled` exists in the guidelines `.tsx`.
+
+### GAP-032 — non-conflict persistence failure on guideline writes
+**Status:** `proposed` · **Proposed:** 2026-10-15 · **Area:** `app/features/guidelines`
+
+`index.ts:400-408` (add), `:493-500` (updateTarget), `:739-746` (delete) → `guidelinesSaveFailureResponse` (`:251-278`), `errors.guidelines.persistence` branch. Only `WriteConflictError` is pinned (`web-concurrent-writes.test.ts:249-272`, addAssetClass JSON only); nothing covers a failed delete or the plain-POST flash. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `GAP-026`'s test), add/update/delete → 422 with persistence copy, stored file unchanged.
+
+### GAP-033 — unclassified (`type: 'unknown'`) catalog entry as instrument guideline
+**Status:** `proposed` · **Proposed:** 2026-10-15 · **Area:** `app/features/guidelines` · **Priority:** low
+
+`index.ts:575-587` (`catalogEntryUnclassified`, ticker interpolated) is distinct from the unknown-ticker branch pinned at `guidelines.test.ts:559-577`; `seedGuestCatalog` (`:13-30`) has no unknown-type entry. Test: seed an entry whose `assets` parses to `unknown` (`catalog/lib.ts:358-376`), POST addInstrument → 422 alert with ticker / plain 302, nothing added.
+
+### GAP-034 — guidelines route defensive edges and plain-POST validation
+**Status:** `proposed` · **Proposed:** 2026-10-15 · **Area:** `app/features/guidelines` · **Priority:** low
+
+updateTarget on a vanished id → 302 no write (`index.ts:501-503`); delete of an already-removed id no-op (`:726-728`); missing/empty `id` (`:675-678`, `:711-714`); missing/unknown `guidelineIntent` (`:781`, `:793-794`); plain-POST invalid `targetPct` on add (`:545`, `:627`; only the HTML-fragment variant is pinned, `guidelines.test.ts:579`); locale-comma on updateTarget (add takes it at `:438`). One table-driven `it`, mimic `guidelines.test.ts:793-818`.
+
+### GAP-035 — guidelines browser: cancel-edit and one-edit-form-at-a-time
+**Status:** `proposed` · **Proposed:** 2026-10-15 · **Area:** `app/features/guidelines` · **Priority:** low
+
+`guidelines-list.component.ts:67-77` (`hideGuidelineTargetEdit`, reset to `data-guideline-original-target`) and `:15-26` (opening one edit form closes others). `guidelines.browser.ts` never clicks `[data-guideline-cancel-edit]`. Mimic `guidelines.browser.ts:141-176`. Spinner fallback on plain buttons is already `GAP-013`.
 
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
 **Status:** `done` · **Proposed:** 2026-09-26 · **Acted:** 2026-10-08 · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/253 · **Area:** `app/features/advice`
