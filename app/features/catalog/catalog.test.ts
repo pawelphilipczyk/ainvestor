@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionStorage } from '../../lib/session.ts'
+import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
 	approvedSessionCookie,
 	resetTestSessionCookieJar,
@@ -12,6 +13,7 @@ import {
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
 import {
+	CATALOG_FILENAME,
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
@@ -1265,5 +1267,97 @@ describe('ETF Catalog page', () => {
 
 		assert.match(body, /BND/)
 		assert.doesNotMatch(body, /VTI/)
+	})
+})
+
+describe('POST /catalog/import when the repository refuses the save', () => {
+	const originalFetch = globalThis.fetch
+
+	// The file-level `beforeEach` installs the in-process catalog, which cannot
+	// refuse a write; drop it so the import reaches the fake repository.
+	beforeEach(() => {
+		resetSharedCatalogForTests()
+	})
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch
+	})
+
+	function importForm() {
+		const formData = new FormData()
+		formData.set(
+			'bankApiJson',
+			JSON.stringify({
+				data: [{ fund_name: 'New Fund', ticker: 'NEW', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		return formData
+	}
+
+	it('flashes the save-failed error and leaves the stored catalog unchanged', async () => {
+		const storedCatalog = JSON.stringify([
+			{ id: '1', ticker: 'OLD', name: 'Old Fund', type: 'equity' },
+		])
+		const repo = installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			files: { [CATALOG_FILENAME]: storedCatalog },
+			failWritesWith: 403,
+		})
+		const cookie = await signInAs('catalog-admin')
+		const consoleError = console.error
+		console.error = () => {}
+
+		try {
+			const importResponse = await testSessionFetch(
+				new Request('http://localhost/catalog/import', {
+					method: 'POST',
+					body: importForm(),
+					headers: { Cookie: cookie },
+				}),
+			)
+			assert.equal(importResponse.status, 302)
+			assert.equal(importResponse.headers.get('location'), '/admin/etf-import')
+		} finally {
+			console.error = consoleError
+		}
+
+		const pageResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{ headers: { Cookie: cookie } },
+		)
+		const body = await pageResponse.text()
+		assert.match(body, /<section[^>]*aria-label="Error"/)
+		assert.match(body, /Could not save the catalog to GitHub/)
+		assert.doesNotMatch(body, /Catalog saved/)
+		assert.equal(repo.files.get(CATALOG_FILENAME), storedCatalog)
+	})
+
+	it('answers 422 JSON with the save-failed error for a frame submit', async () => {
+		installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			files: { [CATALOG_FILENAME]: '[]' },
+			failWritesWith: 403,
+		})
+		const cookie = await signInAs('catalog-admin')
+		const consoleError = console.error
+		console.error = () => {}
+
+		try {
+			const importResponse = await testSessionFetch(
+				new Request('http://localhost/catalog/import', {
+					method: 'POST',
+					body: importForm(),
+					headers: { Cookie: cookie, Accept: 'application/json' },
+				}),
+			)
+			assert.equal(importResponse.status, 422)
+			const payload = (await importResponse.json()) as { error: string }
+			assert.match(payload.error, /Could not save the catalog to GitHub/)
+		} finally {
+			console.error = consoleError
+		}
 	})
 })
