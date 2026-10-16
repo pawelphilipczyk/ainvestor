@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-16 (`app/features/guidelines`)
 
 ---
 
@@ -47,9 +47,31 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-16 · **Area:** `app/features/catalog` · **Priority:** high · **PR:** _(this run's PR)_
+
+**Action taken:** added `POST /catalog/import when the repository refuses the save` to `catalog.test.ts` (2 cases, `failWritesWith: 403`): redirect + save-failed flash with the stored `catalog.json` byte-identical, and 422 JSON for `Accept: application/json`. `testSessionFetch`'s cookie helpers install the in-process catalog, which cannot fail, so the describe calls `resetSharedCatalogForTests()` in its own `beforeEach` — without it the import "succeeds" in memory (that was the red state). The `WriteConflictError` → `changedElsewhere` half is still unpinned at route level.
 
 `app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
+
+### GAP-031 — pending-approval session: guideline writes refused and pending subtitle
+**Status:** `proposed` · **Proposed:** 2026-10-16 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelinesRequiresApprovalResponse` (`index.ts:286-309`, reached from `persistGuideline` `:354` and `updateGuidelineTarget` `:446`) is never hit: `pendingSessionCookie` is used only by portfolio cases in `require-approved-session.test.ts:94,105`. Test: POST `/guidelines` with `pendingSessionCookie()` (+ `seedTestSessionCookie`) for add/updateTarget in the JSON (422), HTML-fragment (422) and plain-form (302 + flash) shapes, delete → 302, nothing written; GET shows `guidelines.subtitle.pending` (`guidelines-page.tsx:59-61`). Copy `guidelineActionRequest` (`guidelines.test.ts:56`).
+
+### GAP-032 — guidelines: non-conflict save failure (`errors.guidelines.persistence`) unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-16 · **Area:** `app/features/guidelines`
+
+`guidelinesSaveFailureResponse` (`index.ts:251-279`; callers `:401`, `:494`, `:740`). Only the `WriteConflictError` half is pinned (`web-concurrent-writes.test.ts:249`, add/JSON). Test in `web-concurrent-writes.test.ts` with `installFakeDataRepo({ failWritesWith: 500 })`: add/updateTarget/delete give the "Could not save your guidelines" error in each response shape, one PUT only, no commits. Cheap extra: `changedElsewhere` for updateTarget and delete under lost races.
+
+### GAP-033 — adding an instrument whose catalog type is `unknown`
+**Status:** `proposed` · **Proposed:** 2026-10-16 · **Area:** `app/features/guidelines` · **Priority:** low
+
+`index.ts:572-587` (`errors.guidelines.catalogEntryUnclassified`); the select offers such entries (`catalog/lib.ts:204`). Neighbouring branches pinned at `guidelines.test.ts:559,579`; nothing seeds `type: 'unknown'`. Test: 422 with the ticker in the copy, 302 for plain form, no row added.
+
+### GAP-034 — guidelines: malformed action payloads (missing id, unknown intent, stale row)
+**Status:** `proposed` · **Proposed:** 2026-10-16 · **Area:** `app/features/guidelines` · **Priority:** low
+
+`index.ts:676,712` (missing id), `:793` (unknown/absent intent), `:781` (no form), `:501-503` (updateTarget on vanished id), `:728` (delete of gone id): all redirect to `/guidelines` without writing, none tested. One table-driven case asserting 302 and unchanged stored rows.
 
 ### GAP-027 — catalog import: HAR upload branch has no route test
 **Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog`

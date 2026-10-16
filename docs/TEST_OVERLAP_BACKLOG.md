@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
-**Last swept:** 2026-10-08 (`app/components` + shared browser layer — came back clean)
+**Next area to sweep:** 8 — `mcp/tools`
+**Last swept:** 2026-10-16 (`mcp` core — came back clean; one weak candidate rejected as RJ-005)
 
 ---
 
@@ -46,7 +46,9 @@ than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 maintain every run.
 
 ### OV-006 — guideline formatting asserted twice with the same input/output
-**Status:** `approved` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** advice
+**Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-16 · **Area:** advice · **PR:** _(this run's PR)_
+
+**Action taken:** re-verified 2026-10-16 (the route test is now at `advice.test.ts:~277-330`, named "…(repo-backed)"). Dropped only the `/equity/` assertion from the route test — a strict subset of `advice-openai.test.ts:253-302`. Kept `/VTI.*60%/` so the repo→route→prompt wiring still proves the literal percentage round-trips.
 
 `app/features/advice/advice.test.ts:277-323` ("passes guidelines into the
 advice prompt when they exist (gist-backed)") builds a guideline
@@ -126,6 +128,11 @@ framework-level `remix/ui/tabs/primitives`, and even that's used differently
 (advice never calls its `panel()`; guidelines does). Per this item's own
 stated triage fork ("if each page resolves `?tab=` itself, keep both and
 reject"), the evidence lands on reject.
+
+### RJ-005 — unknown JSON-RPC method asserted in both `protocol.test.ts` and `http.test.ts`
+**Rejected:** 2026-10-16 · **Reason:** deliberate layered coverage.
+
+`mcp/protocol.test.ts:178-186` ("rejects an unknown method") and `mcp/http.test.ts:490-497` ("keeps an unknown method at HTTP 200, however it is spelled") both send `prompts/list` and assert `-32601`. The http test's own rule is the HTTP status mapping (200, not 4xx); the protocol test is the only pin of the dispatcher's error code in isolation. One shared assertion across two layers with different contracts is not worth touching.
 
 ### RJ-001 — catalog TTL cache vs. MCP private-data cache
 **Rejected:** 2026-09-16 · **Reason:** deliberate parallel coverage, not overlap.
