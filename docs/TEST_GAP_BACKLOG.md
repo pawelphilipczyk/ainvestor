@@ -47,7 +47,7 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-16 · **Area:** `app/features/catalog` · **Priority:** high · **PR:** _(this run's PR)_
+**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-16 · **Area:** `app/features/catalog` · **Priority:** high · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/263
 
 **Action taken:** added `POST /catalog/import when the repository refuses the save` to `catalog.test.ts` (2 cases, `failWritesWith: 403`): redirect + save-failed flash with the stored `catalog.json` byte-identical, and 422 JSON for `Accept: application/json`. `testSessionFetch`'s cookie helpers install the in-process catalog, which cannot fail, so the describe calls `resetSharedCatalogForTests()` in its own `beforeEach` — without it the import "succeeds" in memory (that was the red state). The `WriteConflictError` → `changedElsewhere` half is still unpinned at route level.
 

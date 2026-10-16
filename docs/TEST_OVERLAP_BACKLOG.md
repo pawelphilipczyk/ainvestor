@@ -46,7 +46,7 @@ than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 maintain every run.
 
 ### OV-006 — guideline formatting asserted twice with the same input/output
-**Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-16 · **Area:** advice · **PR:** _(this run's PR)_
+**Status:** `done` · **Proposed:** 2026-09-16 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-16 · **Area:** advice · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/263
 
 **Action taken:** re-verified 2026-10-16 (the route test is now at `advice.test.ts:~277-330`, named "…(repo-backed)"). Dropped only the `/equity/` assertion from the route test — a strict subset of `advice-openai.test.ts:253-302`. Kept `/VTI.*60%/` so the repo→route→prompt wiring still proves the literal percentage round-trips.
 
