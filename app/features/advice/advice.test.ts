@@ -327,8 +327,8 @@ describe('Advice', () => {
 			}),
 		)
 
+		// Wiring only: prompt phrasing is pinned in advice-openai.test.ts.
 		assert.match(capturedUserMessage, /VTI.*60%/)
-		assert.match(capturedUserMessage, /equity/)
 	})
 
 	// Distinct from the pending-approval 403 above: this login IS approved and
