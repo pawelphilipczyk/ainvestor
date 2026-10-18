@@ -1,7 +1,9 @@
 # Future improvements
 
 Ideas left out on purpose. None is needed for the app to work. Remove an item
-when it is done.
+when it is done. (AI Shopper keeps the same file, `docs/FUTURE_IMPROVEMENTS.md`.)
+Missing or redundant tests have their own queues, `docs/TEST_GAP_BACKLOG.md`
+and `docs/TEST_OVERLAP_BACKLOG.md`.
 
 ## Take the OpenAI model from a secret, like AI Shopper
 
