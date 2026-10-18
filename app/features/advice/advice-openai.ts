@@ -240,12 +240,16 @@ export function normalizeAdviceAnalysisTab(
  * it costs $10 / $50 per 1M tokens and is still behind limited access, which buys little on a
  * prompt this small.
  *
- * - `gpt-5.6-sol` — flagship reasoning ($5 / $30 per 1M). Noticeably pricier per call than Terra
- *   for a gain the advice prompt rarely needs; still offered so a user can opt into it.
+ * - `gpt-6.1-sol` — the newer flagship ($2 / $10 per 1M, about the price of Terra). Works with
+ *   Chat Completions, which this app uses (it does not use tools). Offered first so a user can opt
+ *   into it; the defaults below stay as they were.
+ * - `gpt-5.6-sol` — the previous flagship ($5 / $30 per 1M). Noticeably pricier per call than
+ *   Terra for a gain the advice prompt rarely needs; still offered so a user can opt into it.
  * - `gpt-5.6-terra` — balanced ($2 / $12 per 1M). Used for the advice itself.
  * - `gpt-5.6-luna` — cheap and fast ($0.20 / $1.20 per 1M). Used for catalog fund write-ups.
  */
 export const ADVICE_MODEL_IDS = [
+	'gpt-6.1-sol',
 	'gpt-5.6-sol',
 	'gpt-5.6-terra',
 	'gpt-5.6-luna',

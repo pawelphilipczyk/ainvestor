@@ -944,6 +944,43 @@ describe('Advice', () => {
 		assert.match(body, /value="gpt-5.6-luna"/)
 	})
 
+	it('accepts the newer flagship gpt-6.1-sol and lists it first', async () => {
+		const cookie = await signInWithDataRepo()
+		let capturedModel = ''
+		setAdviceClient({
+			chat: {
+				completions: {
+					create: async (params: AdviceCompletionCreateParams) => {
+						capturedModel = params.model
+						return { choices: [{ message: { content: 'advice' } }] }
+					},
+				},
+			},
+		})
+
+		const form = new FormData()
+		form.set('cashAmount', '100')
+		form.set('adviceModel', 'gpt-6.1-sol')
+		form.set('analysisMode', 'buy_next')
+
+		const response = await testSessionFetch(
+			new Request(adviceUrl('buy_next'), {
+				method: 'POST',
+				body: form,
+				headers: { Cookie: cookie },
+			}),
+		)
+		const body = await response.text()
+
+		assert.equal(response.status, 200)
+		assert.equal(capturedModel, 'gpt-6.1-sol')
+		assert.match(body, /value="gpt-6.1-sol"/)
+		assert.ok(
+			body.indexOf('value="gpt-6.1-sol"') < body.indexOf('value="gpt-5.6-sol"'),
+			'the newer flagship is listed before the previous one',
+		)
+	})
+
 	it('labels the model select in the request locale, not the import-time default', async () => {
 		const cookie = await signInWithDataRepo()
 
@@ -956,7 +993,8 @@ describe('Advice', () => {
 		const body = await response.text()
 
 		assert.equal(response.status, 200)
-		assert.match(body, /GPT-5\.6 Sol \(najm/)
+		assert.match(body, /GPT-6\.1 Sol \(najm/)
+		assert.match(body, /GPT-5\.6 Sol \(poprzedni/)
 		assert.doesNotMatch(body, /\(smartest\)/)
 	})
 
