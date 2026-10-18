@@ -6,22 +6,12 @@
  */
 import { run } from 'remix/component'
 
-declare global {
-	/**
-	 * The Navigation API, which TypeScript's DOM lib does not declare.
-	 *
-	 * Deliberately `unknown` rather than a hand-written interface: in Chromium
-	 * this is the real platform object, and the only thing this file asks of it
-	 * is whether it is absent. Declaring a shape here would describe the stub
-	 * below accurately and the browser's own object falsely.
-	 */
-	var navigation: unknown
-}
-
 // startNavigationListener() assumes window.navigation (Chromium). Without it, run() throws
 // before hydration on Firefox/Safari; stub is inert for real navigations when links use rmx-document.
-if (typeof globalThis !== 'undefined' && globalThis.navigation == null) {
-	globalThis.navigation = {
+// The DOM types say it is always there; on an older browser it is not, hence the loose view.
+const scope = globalThis as { navigation?: unknown }
+if (scope.navigation == null) {
+	scope.navigation = {
 		updateCurrentEntry() {},
 		addEventListener() {},
 		navigate() {
