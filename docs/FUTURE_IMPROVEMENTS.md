@@ -36,3 +36,31 @@ Fly secret and know no model by name in the code:
 **Why not now:** the list works, new models are rare, and one small PR now and
 then is cheaper than reworking how the model is chosen. Revisit if we want the
 same way of working in both apps.
+
+## Report app errors, like AI Shopper
+
+**Today:** a server error is a `console.error` (23 of them across `app/` and
+`mcp/`) and is gone when the machine restarts; the only way to read it is
+`fly logs`. Script errors on the web page are not reported at all.
+
+**Idea:** what [AI Shopper](https://github.com/pawelphilipczyk/aishopper) has
+(`app/features/errors/`, `app/lib/error-log.ts`, `docs/MCP.md` there):
+
+- One `recordError(where, error)` helper that logs and also keeps the error,
+  so the 23 `console.error` calls become one call each.
+- Each distinct error kept once with a count, the build and the place; only the
+  latest few hundred are kept, so a loop of failures cannot fill the disk.
+- Script errors from the web page sent to a `POST /errors` route, with the
+  browser's text treated as untrusted.
+- A `list_errors` MCP tool, offered only to the maintainer's logins, so Claude
+  can read what went wrong without `fly logs`.
+
+**What stands in the way:** AI Shopper keeps the errors in the same SQLite file
+as its data, on a Fly volume. AInvestor has no volume and keeps its data in the
+user's GitHub repository, so the log needs a home first. Options: a small Fly
+volume with SQLite just for the log (a fixed cost, and a machine tied to one
+volume), or the log in the shared data repo (rate limits, and errors in a place
+other people can read). Decide that before building.
+
+**Why not now:** `fly logs` is enough while the app has one maintainer. Revisit
+when an error is found only by a user telling us about it.
