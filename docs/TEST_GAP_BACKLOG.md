@@ -54,7 +54,7 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 **Blocked (2026-10-18):** tried it; `testSessionFetch` calls `ensureSharedCatalogForTests()` (`app/lib/test-session-fetch.ts:87,104`), so a catalog snapshot is always set and the import writes to memory, never to the fake repo (the write returned 200). Needs a seam change (production/test-helper) or a route test that bypasses `testSessionFetch`.
 
 ### GAP-027 — catalog import: HAR upload branch has no route test
-**Status:** `done` (invalid-HAR branches; valid-HAR import and oversize remain) · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog`
+**Status:** `done` (invalid-HAR branches; valid-HAR import and oversize remain) · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/267 · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog`
 
 `index.ts:451-468` (`bankApiHar` upload: JSON parse failure and `extractBankApiJsonFromHar` not-ok → `invalidHar`; valid HAR imports). `har-bank-json-adapter.test.ts` tests the adapter alone; `catalog.test.ts:305` only checks the field exists. Test: garbage file → 302 + flash on next GET (and 422 with `Accept: application/json`); valid minimal HAR adds the row. Mimic `catalog.test.ts:649-760`. The oversize-file branch (`index.ts:452-454`, probably shadowed by the parser's `maxFileSize` in `app/router.ts:94-97`) belongs with `GAP-002`.
 
