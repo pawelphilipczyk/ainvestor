@@ -41,6 +41,9 @@ Before writing any JS/TS/CSS code, read:
 
 - `docs/BIOME_RULES.md`
 
+Ideas left out on purpose (not needed now, but not forgotten) go in
+`docs/FUTURE_IMPROVEMENTS.md`; remove an item when it is done.
+
 Before adding, deleting or reorganising tests, read:
 
 - `docs/TEST_HEALTH.md` — how the suite is kept free of overlap and gaps, and
