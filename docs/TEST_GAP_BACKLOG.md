@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-18 (`app/features/guidelines`)
 
 ---
 
@@ -47,12 +47,14 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
+**Status:** `blocked` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
 
 `app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
 
+**Blocked (2026-10-18):** tried it; `testSessionFetch` calls `ensureSharedCatalogForTests()` (`app/lib/test-session-fetch.ts:87,104`), so a catalog snapshot is always set and the import writes to memory, never to the fake repo (the write returned 200). Needs a seam change (production/test-helper) or a route test that bypasses `testSessionFetch`.
+
 ### GAP-027 — catalog import: HAR upload branch has no route test
-**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog`
+**Status:** `done` (invalid-HAR branches; valid-HAR import and oversize remain) · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog`
 
 `index.ts:451-468` (`bankApiHar` upload: JSON parse failure and `extractBankApiJsonFromHar` not-ok → `invalidHar`; valid HAR imports). `har-bank-json-adapter.test.ts` tests the adapter alone; `catalog.test.ts:305` only checks the field exists. Test: garbage file → 302 + flash on next GET (and 422 with `Accept: application/json`); valid minimal HAR adds the row. Mimic `catalog.test.ts:649-760`. The oversize-file branch (`index.ts:452-454`, probably shadowed by the parser's `maxFileSize` in `app/router.ts:94-97`) belongs with `GAP-002`.
 
@@ -70,6 +72,21 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 **Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** low
 
 (a) route-level `expectedObject` / `dataNotArray` import flashes (`index.ts:478-486`; only the parser return values are pinned, `lib.test.ts:594-604`); (b) `decodeCatalogEntryIdFromPath` percent-encoded / malformed / over-long ids (`index.ts:218-233`); (c) catalog index page on an upstream 5xx renders `catalogProblem`, not the empty hint (verify rendering first); (d) `loadCatalogPageContext` swallowing a holdings-fetch error (`catalog-load-context.ts:61-67`).
+
+### GAP-031 — guidelines: refused repo write on add/update/delete is unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-18 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelinesSaveFailureResponse` (`index.ts:251-283`; catch blocks at `:400`, `:493`, `:739`) has a non-conflict branch (`errors.guidelines.persistence`) no test reaches; only the `WriteConflictError` add path is pinned (`app/lib/store/web-concurrent-writes.test.ts:249-272`). Test: `installFakeDataRepo({ files: {[GUIDELINES_FILENAME]: …}, failWritesWith: 500 })`, POST delete / updateTarget / addAssetClass with `Accept: application/json` → 422 persistence copy, file unchanged, `commitMessages` empty; plus one default-Accept 302 + flash. Mimic `web-concurrent-writes.test.ts:35-45,249`; `etfs.test.ts:72-76` for `failWritesWith`. Check `testSessionFetch` does not swap in an in-memory store first (see GAP-026).
+
+### GAP-032 — guidelines: POST from a session pending approval is unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-18 · **Area:** `app/features/guidelines` · **Priority:** medium (security-adjacent)
+
+`guidelinesRequiresApprovalResponse` (`index.ts:286-312`, called `:354`, `:446`; delete branch `:717`). No test POSTs `/guidelines` with `pendingSessionCookie()`; only portfolio GETs use it (`require-approved-session.test.ts:94,105`). Assert `errors.guidelines.requiresApproval` in JSON/fragment/redirect shapes and no write. Also: `guidelines.subtitle.pending` appears in no test, and the comment near `index.ts:280` says "the page disables these forms" while no `disabled` exists in the feature — possible stale comment.
+
+### GAP-033 — guidelines: `unknown`-typed catalog entry and defensive handler branches
+**Status:** `proposed` · **Proposed:** 2026-10-18 · **Area:** `app/features/guidelines` · **Priority:** low
+
+(a) `catalogEntryUnclassified` (`index.ts:575-587`): `seedGuestCatalog` (`guidelines.test.ts:12-30`) has no `type: 'unknown'` row; `:809` only hits the unknown-ticker branch. (b) Unknown/absent `guidelineIntent` (`:793`), missing `id` on updateTarget/delete (`:676`, `:712`), updateTarget on a vanished id (`:501`), delete of an already-removed id (`:728`, assert no commit). (c) Plain-POST add-form failures redirect without a flash (`:529-591`, `:615-632`) — unpinned, possibly a UX hole. (d) Signed-out POST `/guidelines` not asserted (`require-approved-session.test.ts` pins GETs only).
 
 ### GAP-022 — `formatGuidelineLine`'s fractional-percent rendering is unpinned (narrower sibling of `OV-006`)
 **Status:** `done` · **Proposed:** 2026-09-26 · **Acted:** 2026-10-08 · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/253 · **Area:** `app/features/advice`
