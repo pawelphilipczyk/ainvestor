@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionStorage } from '../../lib/session.ts'
+import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
 	approvedSessionCookie,
 	resetTestSessionCookieJar,
@@ -12,6 +13,7 @@ import {
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
 import {
+	CATALOG_FILENAME,
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
@@ -680,6 +682,51 @@ describe('ETF Catalog page', () => {
 
 		assert.match(body, /<section[^>]*aria-label="Error"/)
 		assert.match(body, /not valid JSON/)
+	})
+
+	it('POST /catalog/import flashes save-failed when GitHub refuses the catalog write', async () => {
+		const existing = JSON.stringify([
+			{ id: '1', ticker: 'OLD', name: 'Existing Fund', type: 'equity' },
+		])
+		const repo = installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			files: { [CATALOG_FILENAME]: existing },
+			failWritesWith: 403,
+		})
+		const cookie = await signInAs('catalog-admin')
+		// Drop the in-process overlay so the catalog is read and written through
+		// the fake repo, the only way a refused write can happen.
+		resetSharedCatalogForTests()
+
+		const formData = new FormData()
+		formData.set(
+			'bankApiJson',
+			JSON.stringify({
+				data: [{ fund_name: 'New Fund', ticker: 'NEW', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: formData,
+				headers: { Cookie: cookie },
+			}),
+		)
+
+		assert.equal(importResponse.status, 302)
+		assert.equal(importResponse.headers.get('location'), '/admin/etf-import')
+
+		const pageResponse = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{ headers: { Cookie: cookie } },
+		)
+		const body = await pageResponse.text()
+
+		assert.match(body, /<section[^>]*aria-label="Error"/)
+		assert.match(body, /Could not save the catalog to GitHub/)
+		assert.equal(repo.files.get(CATALOG_FILENAME), existing)
 	})
 
 	it('POST /catalog/import flashes when paste is empty after trim', async () => {

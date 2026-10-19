@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-17 (`app/features/guidelines`)
 
 ---
 
@@ -46,8 +46,28 @@ is preloaded into `npm test` / `npm run test:browser`: a fetch to
 the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
+### GAP-031 — guidelines: pending-approval write refusal is never exercised
+**Status:** `proposed` · **Proposed:** 2026-10-17 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelinesRequiresApprovalResponse` (`index.ts:286-307`, reached from `persistGuideline` :354 and `updateGuidelineTarget` :446; delete has its own silent redirect :717-719). No test POSTs `/guidelines` from `pendingSessionCookie()` (used only in `require-approved-session.test.ts`). Test: POST addAssetClass as pending with `Accept: application/json` → 422 `{error}`; frame HTML → 422 + `role="alert"`; plain → 302 `/guidelines` + flash; updateTarget/delete → 302, `commitMessages` stays empty. Seed the catalog first or the stale-asset-class branch fires earlier. Could also assert the pending subtitle on GET `/guidelines`.
+
+### GAP-032 — guidelines: non-conflict repo write failure unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-17 · **Area:** `app/features/guidelines` · **Priority:** high
+
+Non-`WriteConflictError` arm of `guidelinesSaveFailureResponse` (`index.ts:258-261`), reached from catches at :400, :493, :739. No guideline route test uses `failWritesWith` (`github-repo-test-fake.ts:40`). Lost-race is pinned only for add (`web-concurrent-writes.test.ts:249`). Test: `installFakeDataRepo({ failWritesWith: 500 })` with approved fake-repo session; add/update/delete → 422 with the persistence text (not "changed elsewhere"), file unchanged; update catch passes no `addTab`, so check HTML shape too.
+
+### GAP-033 — guidelines: `addInstrument` for an `unknown`-type catalog entry
+**Status:** `proposed` · **Proposed:** 2026-10-17 · **Area:** `app/features/guidelines` · **Priority:** medium
+
+`index.ts:575-587` (`errors.guidelines.catalogEntryUnclassified`, ticker in message; non-frame → 302 `?tab=instrument`). Existing stale tests (`guidelines.test.ts:559-620`) match other messages only. Test: seed a catalog row typed `unknown`, POST addInstrument in both shapes, nothing saved.
+
+### GAP-034 — guidelines: tolerant no-op branches (stale/missing id, unknown intent, non-frame schema failure)
+**Status:** `proposed` · **Proposed:** 2026-10-17 · **Area:** `app/features/guidelines` · **Priority:** low
+
+updateTarget on a vanished row (:465, :501-503) and empty/absent `id` (:675-678, :711-714) → silent 302, no commit; missing/unknown `guidelineIntent` (:781, :793-794); non-frame schema failure redirects for addAssetClass/addInstrument (:545, :627) and updateTarget's flash arm (:242-243). One table-driven test. Browser-only: edit-cancel restore and second-row-closes-first in `guidelines-list.component.ts:15-67` (`guidelines.browser.ts:141` covers edit-then-save only).
+
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-17 · **PR:** see this run's test-sweep PR (refused-write arm pinned in `catalog.test.ts`; the `WriteConflictError` arm remains unpinned) · **Area:** `app/features/catalog` · **Priority:** high
 
 `app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
 
