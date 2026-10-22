@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionStorage } from '../../lib/session.ts'
+import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
 	approvedSessionCookie,
 	resetTestSessionCookieJar,
@@ -12,6 +13,7 @@ import {
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
 import {
+	CATALOG_FILENAME,
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
@@ -714,6 +716,72 @@ describe('ETF Catalog page', () => {
 		const body = await catalogResponse.text()
 
 		assert.match(body, /Paste is empty/)
+	})
+
+	it('POST /catalog/import reports a refused repo write and leaves the stored catalog unchanged', async () => {
+		const originalFetch = globalThis.fetch
+		const originalConsoleError = console.error
+		const bankJson = JSON.stringify({
+			data: [{ fund_name: 'New Fund', ticker: 'NEW', assets: 'akcje' }],
+			count: 1,
+		})
+		try {
+			const cookie = await signInAs('catalog-admin')
+			// The real catalog repo, read-only for this token: GitHub answers 403
+			// to the write, which is not a lost race and so is not retried.
+			const repo = installFakeDataRepo({
+				login: 'ainvestor-shared',
+				repoName: 'ainvestor-catalog',
+				files: { [CATALOG_FILENAME]: '[]' },
+				failWritesWith: 403,
+			})
+			console.error = () => {}
+			// Leave the in-memory test catalog, so the import reaches the repo.
+			resetSharedCatalogForTests()
+
+			const importResponse = await testSessionFetch(
+				new Request('http://localhost/catalog/import', {
+					method: 'POST',
+					body: (() => {
+						const formData = new FormData()
+						formData.set('bankApiJson', bankJson)
+						return formData
+					})(),
+					headers: { Cookie: cookie, Accept: 'application/json' },
+				}),
+			)
+
+			assert.equal(importResponse.status, 422)
+			assert.match(
+				((await importResponse.json()) as { error: string }).error,
+				/Could not save the catalog to GitHub/,
+			)
+			assert.deepEqual(repo.commitMessages, [])
+
+			const redirectResponse = await testSessionFetch(
+				new Request('http://localhost/catalog/import', {
+					method: 'POST',
+					body: (() => {
+						const formData = new FormData()
+						formData.set('bankApiJson', bankJson)
+						return formData
+					})(),
+					headers: { Cookie: cookie },
+				}),
+			)
+			assert.equal(redirectResponse.status, 302)
+			const body = await (
+				await testSessionFetch('http://localhost/admin/etf-import', {
+					headers: { Cookie: cookie },
+				})
+			).text()
+			assert.match(body, /<section[^>]*aria-label="Error"/)
+			assert.match(body, /Could not save the catalog to GitHub/)
+			assert.deepEqual(repo.commitMessages, [])
+		} finally {
+			globalThis.fetch = originalFetch
+			console.error = originalConsoleError
+		}
 	})
 
 	it('POST /catalog/import flashes when JSON parses but no ETF rows are extracted', async () => {

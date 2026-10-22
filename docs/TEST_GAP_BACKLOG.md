@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-08 (`app/features/catalog`)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-10-19 (`app/features/guidelines`)
 
 ---
 
@@ -46,8 +46,28 @@ is preloaded into `npm test` / `npm run test:browser`: a fetch to
 the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
+### GAP-031 — guidelines writes from a pending-approval session are unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`index.ts:286-309` (`guidelinesRequiresApprovalResponse`, reached from `persistGuideline` :354 and `updateGuidelineTarget` :446) and the silent-302 delete path (:717-719). No test posts to `/guidelines` with a pending session (`pendingSessionCookie()`, as in `require-approved-session.test.ts:94,105`). Test: add/update once per Accept shape → 422 JSON / 422 fragment / 302 + flash; delete → 302; nothing written. The code comment says the page disables these forms, but no `disabled` was found in the page components — check while writing.
+
+### GAP-032 — guidelines: refused repo write and rejected read
+**Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
+
+`guidelinesSaveFailureResponse` persistence branch (`index.ts:251-279`; callers :401, :494, :740): only `WriteConflictError` for add + JSON is pinned (`web-concurrent-writes.test.ts:249`); the generic "Could not save your guidelines" message and the `updateTarget`/`delete` catch blocks are not. Also the `fetchGuidelinesOrThrow` no-wipe contract (`app/lib/guidelines.ts:225-238`) is pinned for MCP only (`mcp/tools/guidelines.test.ts:198`), not the web route. Test with `installFakeDataRepo({ failWritesWith: 500 })` (and 422, which must not be retried; `failContentReadsWith: 401` for the read): 422 JSON / 302 + flash, repo files unchanged, no commits.
+
+### GAP-033 — guidelines: smaller route branches
+**Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** low
+
+`addInstrument` for a catalog entry typed `unknown` (`index.ts:575-587`, `errors.guidelines.catalogEntryUnclassified`); `updateTarget` unknown id (:501-503) and missing id (:676-678, :712-714); `delete` of an already-removed id (:728); unknown/missing `guidelineIntent` (:781,793); `updateTarget` invalid target with no Accept header (:241-243) and the add forms' non-fragment schema-failure redirects; `GET /fragments/guidelines-list` and the pending subtitle for a pending session (`guidelines-page.tsx:59-61`).
+
+### GAP-034 — guidelines: cancel-edit and single-open-row have no browser test
+**Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** low
+
+`guidelines-list.component.ts:14-57` (`data-guideline-cancel-edit`, `hideGuidelineTargetEdit`, `showGuidelineTargetEdit`); `guidelines.browser.ts:141-212` covers only edit/submit/delete. Test: cancel resets the input to `data-guideline-original-target` and shows the read view; opening a second row closes the first.
+
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-08 · **Area:** `app/features/catalog` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-19 · **Area:** `app/features/catalog` · **Priority:** high · **PR:** _(this run's PR, see below)_
 
 `app/features/catalog/index.ts:518-537` (`saveFailed` flash, `WriteConflictError` → `changedElsewhere` flash, `console.error`). `catalog.test.ts` only uses `setSharedCatalogForTests`, which cannot fail; `lib.test.ts` stops at the library layer. Test: `installFakeDataRepo({ failWritesWith: 403 })` (see `lib.test.ts:60-107`, `github-repo-test-fake.ts:40`), valid admin import → save-failed flash / 422 JSON, stored catalog unchanged.
 
