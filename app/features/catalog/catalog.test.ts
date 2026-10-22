@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionStorage } from '../../lib/session.ts'
+import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
 	approvedSessionCookie,
 	resetTestSessionCookieJar,
@@ -12,6 +13,7 @@ import {
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
 import {
+	CATALOG_FILENAME,
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
@@ -25,7 +27,16 @@ beforeEach(async () => {
 	await approvedSessionCookie()
 })
 
+const originalFetch = globalThis.fetch
+const originalCatalogCacheTtl = process.env.SHARED_CATALOG_CACHE_TTL_MS
+
 afterEach(() => {
+	globalThis.fetch = originalFetch
+	if (originalCatalogCacheTtl === undefined) {
+		delete process.env.SHARED_CATALOG_CACHE_TTL_MS
+	} else {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = originalCatalogCacheTtl
+	}
 	setAdviceClient(null)
 	resetSharedCatalogForTests()
 	resetTestSessionCookieJar()
@@ -680,6 +691,65 @@ describe('ETF Catalog page', () => {
 
 		assert.match(body, /<section[^>]*aria-label="Error"/)
 		assert.match(body, /not valid JSON/)
+	})
+
+	it('POST /catalog/import flashes and keeps the stored catalog when GitHub refuses the write', async () => {
+		process.env.SHARED_CATALOG_CACHE_TTL_MS = '0'
+		// Leave the in-process test catalog, so the import goes through the repo.
+		resetSharedCatalogForTests()
+		const storedCatalog = JSON.stringify([
+			{ id: '1', ticker: 'OLD', name: 'Existing Fund', type: 'equity' },
+		])
+		const repo = installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			files: { [CATALOG_FILENAME]: storedCatalog },
+			failWritesWith: 403,
+		})
+		const cookie = await signInAs('catalog-admin')
+		const importForm = () => {
+			const formData = new FormData()
+			formData.set(
+				'bankApiJson',
+				JSON.stringify({
+					data: [{ fund_name: 'New Fund', ticker: 'NEW', assets: 'akcje' }],
+					count: 1,
+				}),
+			)
+			return formData
+		}
+
+		const pageResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: importForm(),
+				headers: { Cookie: cookie },
+			}),
+		)
+		assert.equal(pageResponse.status, 302)
+		assert.equal(pageResponse.headers.get('location'), '/admin/etf-import')
+		const flashPage = await testSessionFetch(
+			'http://localhost/admin/etf-import',
+			{ headers: { Cookie: cookie } },
+		)
+		const body = await flashPage.text()
+		assert.match(body, /<section[^>]*aria-label="Error"/)
+		assert.match(body, /Could not save the catalog to GitHub/)
+
+		const jsonResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: importForm(),
+				headers: { Cookie: cookie, Accept: 'application/json' },
+			}),
+		)
+		assert.equal(jsonResponse.status, 422)
+		assert.match(
+			((await jsonResponse.json()) as { error: string }).error,
+			/Could not save the catalog to GitHub/,
+		)
+
+		assert.equal(repo.files.get(CATALOG_FILENAME), storedCatalog)
 	})
 
 	it('POST /catalog/import flashes when paste is empty after trim', async () => {
