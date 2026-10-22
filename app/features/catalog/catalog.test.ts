@@ -1,8 +1,10 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, it } from 'node:test'
+import { t } from '../../lib/i18n.ts'
 import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionStorage } from '../../lib/session.ts'
+import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
 	approvedSessionCookie,
 	resetTestSessionCookieJar,
@@ -12,6 +14,7 @@ import {
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
 import {
+	CATALOG_FILENAME,
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
@@ -644,6 +647,42 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /Catalog saved/)
 		assert.match(body, /Merged 1 row/)
 		assert.match(body, /aria-label="Success"/)
+	})
+
+	it('POST /catalog/import reports a refused repository write and leaves the stored catalog unchanged', async () => {
+		const stored = JSON.stringify([
+			{ id: '1', ticker: 'OLD', name: 'Old', type: 'equity', description: '' },
+		])
+		const repo = installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			files: { [CATALOG_FILENAME]: stored },
+			failWritesWith: 403,
+		})
+		const cookie = await signInAs('catalog-admin')
+		// The sign-in helpers leave an in-memory catalog behind, which would
+		// answer the save without reaching the repo; drop it so the fake serves it.
+		resetSharedCatalogForTests()
+		const bankJson = JSON.stringify({
+			data: [{ fund_name: 'New Fund', ticker: 'NEW', assets: 'akcje' }],
+			count: 1,
+		})
+		const formData = new FormData()
+		formData.set('bankApiJson', bankJson)
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: formData,
+				headers: { Cookie: cookie, Accept: 'application/json' },
+			}),
+		)
+
+		assert.equal(importResponse.status, 422)
+		const payload = (await importResponse.json()) as { error: string }
+		assert.equal(payload.error, t('errors.catalog.import.saveFailed'))
+		assert.deepEqual(repo.commitMessages, [])
+		assert.equal(repo.files.get(CATALOG_FILENAME), stored)
 	})
 
 	it('POST /catalog/import flashes when JSON is invalid', async () => {
