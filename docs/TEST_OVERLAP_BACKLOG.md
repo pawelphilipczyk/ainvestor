@@ -4,15 +4,17 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 8 — `mcp/tools`
-**Last swept:** 2026-10-19 (`mcp` core — came back clean)
+**Next area to sweep:** 1 — `app/features/advice`
+**Last swept:** 2026-10-22 (`mcp/tools` — two low/medium proposals)
 
 ---
 
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-22 (evidence re-checked) · **Area:** `app/lib` · **PR:** _(this run's PR)_
+
+Resolution: removed the two `formatEtfTypeLabel` assertions and the now-unused import from `ui-locale.test.ts`, and renamed the case to `t() and format() use Polish copy when UI is Polish`; `guidelines.test.ts` keeps the pin.
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
@@ -44,6 +46,16 @@ intentional.
 than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 — that doc states baseline counts are a drift signal, not something to
 maintain every run.
+
+### OV-008 — `generate_advice` headline test's save assertions are a subset of the mode-specific test
+**Status:** `proposed` · **Proposed:** 2026-10-22 · **Area:** `mcp/tools`
+
+`mcp/tools/generate-advice.test.ts:120-125` ("generates buy_next advice and saves it by default…") asserts `saved === true`, `typeof savedAt === 'number'` and `writes.length === 1`; `:216-218` ("saves to the mode-specific file") makes the same `callTool({ cashAmount: '500' })` call with the same stub and re-asserts those three, then adds path, `lastAnalysisMode`, `cashAmount` and `document` (`:219-228`). The first test's own value is the payload fields and completion model. **Triage question:** drop the three save assertions from the first test (or merge)?
+
+### OV-009 — `gpt-6.1-sol` test repeats the named-model passthrough test
+**Status:** `proposed` · **Proposed:** 2026-10-22 · **Area:** `mcp/tools` · low confidence
+
+`generate-advice.test.ts:190-196` (named model `gpt-5.6-luna`) and `:200-206` (`gpt-6.1-sol`) run the same call and make the same two assertions (`payload.model`, `completions[0].model`); only the literal differs. **Triage question:** the second may be a deliberate allowlist guard — check blame; if so reject, otherwise fold into one looped test.
 
 ---
 
