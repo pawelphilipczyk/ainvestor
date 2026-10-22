@@ -1,8 +1,10 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, it } from 'node:test'
+import { t } from '../../lib/i18n.ts'
 import { assetHref } from '../../lib/remix-assets.ts'
 
 import { sessionStorage } from '../../lib/session.ts'
+import { installFakeDataRepo } from '../../lib/store/github-repo-test-fake.ts'
 import {
 	approvedSessionCookie,
 	resetTestSessionCookieJar,
@@ -12,6 +14,7 @@ import {
 } from '../../lib/test-session-fetch.ts'
 import { setAdviceClient } from '../advice/advice-client.ts'
 import {
+	CATALOG_FILENAME,
 	parseBankJsonToCatalog,
 	resetSharedCatalogForTests,
 	setSharedCatalogForTests,
@@ -440,6 +443,50 @@ describe('ETF Catalog page', () => {
 		const payload = (await importResponse.json()) as { error?: unknown }
 		assert.equal(typeof payload.error, 'string')
 		assert.match(payload.error as string, /not valid JSON/)
+	})
+
+	it('POST /catalog/import reports a refused repo write and leaves the stored catalog untouched', async () => {
+		const stored = JSON.stringify([
+			{
+				id: '1',
+				ticker: 'OLD',
+				name: 'Existing Fund',
+				type: 'equity',
+				description: '',
+			},
+		])
+		// `beforeEach` installed the in-process catalog, which cannot refuse a write;
+		// drop it so the import reaches the fake repo instead.
+		resetSharedCatalogForTests()
+		const repo = installFakeDataRepo({
+			login: 'ainvestor-shared',
+			repoName: 'ainvestor-catalog',
+			files: { [CATALOG_FILENAME]: stored },
+			failWritesWith: 403,
+		})
+		const cookie = await signInAs('catalog-admin')
+		const formData = new FormData()
+		formData.set(
+			'bankApiJson',
+			JSON.stringify({
+				data: [{ fund_name: 'New Fund', ticker: 'NEW', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+
+		const importResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: formData,
+				headers: { Cookie: cookie, Accept: 'application/json' },
+			}),
+		)
+
+		assert.equal(importResponse.status, 422)
+		const payload = (await importResponse.json()) as { error: string }
+		assert.equal(payload.error, t('errors.catalog.import.saveFailed'))
+		assert.deepEqual(repo.commitMessages, [])
+		assert.equal(repo.files.get(CATALOG_FILENAME), stored)
 	})
 
 	it('GET /catalog hides import section for users without import permission', async () => {
