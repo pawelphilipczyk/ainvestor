@@ -47,7 +47,7 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-031 — guidelines writes from a pending-approval session are unpinned
-**Status:** `done` (partly) · **Acted:** 2026-10-23 — `addInstrument` pinned in all three shapes (422 JSON, 422 fragment, 302 + flash) in `guidelines.test.ts`, and shown to fail with the guard removed. Still open: `updateTarget` (:446) and the silent-302 delete (:717-719) — split into GAP-035. PR link below · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
+**Status:** `done` (partly) · **Acted:** 2026-10-23 — `addInstrument` pinned in all three shapes (422 JSON, 422 fragment, 302 + flash) in `guidelines.test.ts`, and shown to fail with the guard removed. Still open: `updateTarget` (:446) and the silent-302 delete (:717-719) — split into GAP-035. PR: https://github.com/pawelphilipczyk/ainvestor/pull/270 · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
 
 `index.ts:286-309` (`guidelinesRequiresApprovalResponse`, reached from `persistGuideline` :354 and `updateGuidelineTarget` :446) and the silent-302 delete path (:717-719). No test posts to `/guidelines` with a pending session (`pendingSessionCookie()`, as in `require-approved-session.test.ts:94,105`). Test: add/update once per Accept shape → 422 JSON / 422 fragment / 302 + flash; delete → 302; nothing written. The code comment says the page disables these forms, but no `disabled` was found in the page components — check while writing.
 

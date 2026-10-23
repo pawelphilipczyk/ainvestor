@@ -12,7 +12,7 @@ run must obey: `docs/TEST_HEALTH.md`.
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `done` · **Acted:** 2026-10-23 (dropped the two `formatEtfTypeLabel` lines from `ui-locale.test.ts`, kept the `t()`/`format()` ones, renamed the case; PR link below) · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Acted:** 2026-10-23 (dropped the two `formatEtfTypeLabel` lines from `ui-locale.test.ts`, kept the `t()`/`format()` ones, renamed the case; PR: https://github.com/pawelphilipczyk/ainvestor/pull/270) · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
