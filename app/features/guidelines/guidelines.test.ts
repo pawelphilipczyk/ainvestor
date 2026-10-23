@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 import {
 	approvedSessionCookie,
+	pendingSessionCookie,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
@@ -956,5 +957,51 @@ describe('Guidelines page', () => {
 		assert.doesNotMatch(html, /data-frame-submit=/)
 		assert.doesNotMatch(html, /data-frame-replace-from-response/)
 		assert.doesNotMatch(html, /name="_method"/)
+	})
+})
+
+// Signed in but not on the allowlist: the session has no data repo, so a write
+// must be refused in whichever shape the caller asked for, never silently saved.
+describe('Guidelines writes from a session pending approval', () => {
+	beforeEach(async () => {
+		await pendingSessionCookie()
+		await seedGuestCatalog()
+	})
+
+	const addVtiFields = {
+		guidelineIntent: 'addInstrument',
+		instrumentTicker: 'VTI',
+		targetPct: '40',
+	}
+
+	it('addInstrument answers 422 JSON', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest(addVtiFields, { Accept: 'application/json' }),
+		)
+
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as { error?: string }
+		assert.match(data.error ?? '', /pending approval/i)
+	})
+
+	it('addInstrument answers 422 HTML list fragment when Accept is text/html', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest(addVtiFields, { Accept: 'text/html' }),
+		)
+
+		assert.equal(response.status, 422)
+		assert.match(response.headers.get('content-type') ?? '', /text\/html/)
+		assert.match(await response.text(), /pending approval/i)
+	})
+
+	it('addInstrument flashes the refusal and redirects when no Accept is sent', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest(addVtiFields),
+		)
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/guidelines')
+		const page = await testSessionFetch('http://localhost/guidelines')
+		assert.match(await page.text(), /pending approval/i)
 	})
 })
