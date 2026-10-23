@@ -4,15 +4,15 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 8 — `mcp/tools`
-**Last swept:** 2026-10-19 (`mcp` core — came back clean)
+**Next area to sweep:** 1 — `app/features/advice`
+**Last swept:** 2026-10-23 (`mcp/tools` — 3 proposed)
 
 ---
 
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Acted:** 2026-10-23 (dropped the two `formatEtfTypeLabel` lines from `ui-locale.test.ts`, kept the `t()`/`format()` ones, renamed the case; PR link below) · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
@@ -44,6 +44,21 @@ intentional.
 than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 — that doc states baseline counts are a drift signal, not something to
 maintain every run.
+
+### OV-008 — `generate_advice` save assertions repeated
+**Status:** `proposed` · **Proposed:** 2026-10-23 · **Area:** `mcp/tools`
+
+`mcp/tools/generate-advice.test.ts:210` ("saves to the mode-specific file") opens with `saved === true`, `typeof savedAt === 'number'` and `writes.length === 1` (`:216-218`). `:108` ("generates buy_next advice and saves it by default…") makes the same three assertions on the same `callTool({ cashAmount: '500' })` with the same stubs (`:119-120,125`). Only the file-path check at `:219-222` is distinct. **Proposal:** trim the first three assertions from `:210`.
+
+### OV-009 — `generate_advice` named-model pass-through tested twice
+**Status:** `proposed` · **Proposed:** 2026-10-23 · **Area:** `mcp/tools`
+
+`generate-advice.test.ts:190` (`model: 'gpt-5.6-luna'`) and `:200` (`model: 'gpt-6.1-sol'`) have identical setup and assertions (`payload.model`, `completions[0].model`); only the string differs. **Triage question:** does `:200` exist to pin that the newer flagship is on the accepted list? If so, fold both into one loop over the models rather than deleting.
+
+### OV-010 — pinned-repo HTTP smoke test is a subset (borderline)
+**Status:** `proposed` · **Proposed:** 2026-10-23 · **Area:** `mcp`
+
+`mcp/http.test.ts:288` ("reads the portfolio of the repo pinned by header") makes the same `get_portfolio` call with the same `X-Ainvestor-Data-Repo: octocat/data-a` header and asserts the same `totalValue === 1000` as `:312` ("serves each token its own repo…", assertion at `:344`), which also checks isolation. **Triage question:** `:288` is the simplest smoke test with a clearer failure message — keep as intentional, or drop?
 
 ---
 

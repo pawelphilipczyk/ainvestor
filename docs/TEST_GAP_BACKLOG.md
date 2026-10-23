@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 4 — `app/features/portfolio`
-**Last swept:** 2026-10-19 (`app/features/guidelines`)
+**Next area to sweep:** 5 — `app/lib`
+**Last swept:** 2026-10-23 (`app/features/portfolio`)
 
 ---
 
@@ -47,7 +47,7 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-031 — guidelines writes from a pending-approval session are unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
+**Status:** `done` (partly) · **Acted:** 2026-10-23 — `addInstrument` pinned in all three shapes (422 JSON, 422 fragment, 302 + flash) in `guidelines.test.ts`, and shown to fail with the guard removed. Still open: `updateTarget` (:446) and the silent-302 delete (:717-719) — split into GAP-035. PR link below · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
 
 `index.ts:286-309` (`guidelinesRequiresApprovalResponse`, reached from `persistGuideline` :354 and `updateGuidelineTarget` :446) and the silent-302 delete path (:717-719). No test posts to `/guidelines` with a pending session (`pendingSessionCookie()`, as in `require-approved-session.test.ts:94,105`). Test: add/update once per Accept shape → 422 JSON / 422 fragment / 302 + flash; delete → 302; nothing written. The code comment says the page disables these forms, but no `disabled` was found in the page components — check while writing.
 
@@ -208,6 +208,8 @@ Production code was not modified in the final diff.
 
 ### GAP-002 — upload limits and the multipart flash middleware
 **Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+
+_Added 2026-10-23:_ the default redirect is `/admin/etf-import` unless a same-origin Referer is sent, so an over-limit portfolio import with no Referer bounces to the wrong page — include that case.
 
 `app/lib/multipart-upload-limits.ts` and
 `app/lib/multipart-limit-flash-middleware.ts` — no direct coverage. This is the
@@ -601,6 +603,26 @@ Flagged during the seed survey; each needs the same triage before becoming an it
 | `/catalog/fragments/list` | 0 | but `catalog-list-filter.browser.ts` exists — may reach it by another path |
 | `/admin/etf-import` | 1 | admin-only page, thin coverage |
 | `/health` | 2 | probably fine |
+
+### GAP-035 — guidelines: pending-session `updateTarget` and delete (remainder of GAP-031)
+**Status:** `proposed` · **Proposed:** 2026-10-23 · **Area:** `app/features/guidelines` · **Priority:** medium
+
+`updateGuidelineTarget` (`index.ts:446`) and the silent 302 in `handleDelete` (:717-719) from `pendingSessionCookie()`: assert the refusal shapes / the redirect and that nothing is written. Reuse the `Guidelines writes from a session pending approval` describe in `guidelines.test.ts`.
+
+### GAP-036 — portfolio: refused repo write and read failure on all routes
+**Status:** `proposed` · **Proposed:** 2026-10-23 · **Area:** `app/features/portfolio` · **Priority:** high
+
+Unpinned: `portfolioPersistenceFailureResponse` (`portfolio-operation-form/index.ts:103-123`: JSON 422 / frame 422 / flash 302), the generic save-failure fallthrough (:130-141), `handleImport`'s catch incl. `WriteConflictError` (`index.ts:135-137`), the delete catch (:274-282), read-failure fallbacks in `GET /portfolio` (:175-186) and `GET /fragments/portfolio-list` (:206-209), `loadPortfolioEntries` null (op-form :98-100). Only library level (`app/lib/etfs.test.ts:71,90`) and the trade-form conflict (`app/lib/store/web-concurrent-writes.test.ts:115`) are pinned. Test with `installFakeDataRepo({ failWritesWith: 500 | 422, failContentReadsWith: 401 })` using the scaffolding in `web-concurrent-writes.test.ts` (`portfolio.test.ts` has none): per shape, assert status/message, `commitMessages` empty, files unchanged, and no retry on 422. Sibling of GAP-032.
+
+### GAP-037 — portfolio: pending-session writes, and CSV merge into existing holdings
+**Status:** `proposed` · **Proposed:** 2026-10-23 · **Area:** `app/features/portfolio` · **Priority:** medium
+
+(a) Trade POST (`op-form:209-214`) and import POST (`index.ts:109-114`) answer `errors.portfolio.requiresApproval` in three shapes; pending `DELETE` silently redirects (:252-254). Already pinned: only the page notice (`require-approved-session.test.ts:94`) and fragment status (:105). Sibling of GAP-031. (b) `mergeImportedHoldings` (`index.ts:59-81`, unexported): same name case-insensitively + currency sums, other currency stays separate, `exchange` kept from whichever side has it, commit summary `Import portfolio CSV (N rows)` (:127). Every import test starts from an empty store (`portfolio.test.ts:257,279,309`).
+
+### GAP-038 — portfolio: `catalog_entry_missing` route case, small branches, trade-focus browser test
+**Status:** `proposed` · **Proposed:** 2026-10-23 · **Area:** `app/features/portfolio` · **Priority:** low
+
+`catalog_entry_missing` via the route (JSON 422 with `instrumentTicker`/`dataRepo`, `op-form:267-282`; only the pure function is tested, `portfolio-operations.test.ts:119`), plus the `sell_exceeds_holdings` message. Small branches: unknown/missing `portfolioIntent` (`index.ts:242-243`), delete of an unknown id (:263), empty file input falling back to pasted text (:93-98). Client: `portfolio-trade-focus.component.ts:18-56` (Buy more / Sell click sets operation and ticker, focuses the value field; no-op on unknown ticker) is covered by no `*.browser.ts`.
 
 ---
 
