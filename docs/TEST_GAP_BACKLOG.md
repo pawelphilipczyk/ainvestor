@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 4 — `app/features/portfolio`
-**Last swept:** 2026-10-19 (`app/features/guidelines`)
+**Next area to sweep:** 5 — `app/lib`
+**Last swept:** 2026-10-24 (`app/features/portfolio`)
 
 ---
 
@@ -47,9 +47,11 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-031 — guidelines writes from a pending-approval session are unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-19 · **Acted:** 2026-10-24 · **PR:** _(this run's PR)_ · **Area:** `app/features/guidelines` · **Priority:** high
 
 `index.ts:286-309` (`guidelinesRequiresApprovalResponse`, reached from `persistGuideline` :354 and `updateGuidelineTarget` :446) and the silent-302 delete path (:717-719). No test posts to `/guidelines` with a pending session (`pendingSessionCookie()`, as in `require-approved-session.test.ts:94,105`). Test: add/update once per Accept shape → 422 JSON / 422 fragment / 302 + flash; delete → 302; nothing written. The code comment says the page disables these forms, but no `disabled` was found in the page components — check while writing.
+
+**Done:** `guidelines.test.ts` › "Guidelines writes from a session pending approval" pins addInstrument and updateTarget in all three shapes (422 JSON, 422 fragment, 302 + flash) and the silent delete 302, asserting no request leaves the app. Note: the add path validates the fund against the catalog before the approval check, so the test seeds the catalog. `addAssetClass` shares the same helper and was not repeated.
 
 ### GAP-032 — guidelines: refused repo write and rejected read
 **Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
@@ -65,6 +67,26 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 **Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** low
 
 `guidelines-list.component.ts:14-57` (`data-guideline-cancel-edit`, `hideGuidelineTargetEdit`, `showGuidelineTargetEdit`); `guidelines.browser.ts:141-212` covers only edit/submit/delete. Test: cancel resets the input to `data-guideline-original-target` and shows the read view; opening a second row closes the first.
+
+### GAP-035 — portfolio writes from a pending-approval session are unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-24 · **Area:** `app/features/portfolio` · **Priority:** high
+
+`portfolio-operation-form/index.ts:~187-192` (trade, `errors.portfolio.requiresApproval`), `index.ts:~92-97` (import; CSV validity is checked first), and the silent delete redirect `index.ts:~176-179`. `pendingSessionCookie` is only used for GETs in `require-approved-session.test.ts:94,105`. Test (same shape as GAP-031): pending cookie, POST valid buy → 422 JSON / 422 fragment / 302 + flash; import with valid CSV; DELETE → 302; no request leaves the app.
+
+### GAP-036 — portfolio refused-trade and save-failure branches at route level
+**Status:** `proposed` · **Proposed:** 2026-10-24 · **Area:** `app/features/portfolio` · **Priority:** medium
+
+(a) `catalog_entry_missing` JSON body (`portfolio-operation-form/index.ts:~228-238`: adds trimmed `instrumentTicker` and `dataRepo`) and `sell_no_holding` are pinned only in `app/lib/portfolio-operations.test.ts:119,170,185`; at route level only `sell_exceeds_holdings` is (`web-concurrent-writes.test.ts:145`). (b) Generic persistence failure (`portfolioSaveFailureResponse`, `~95-140`) is pinned only in `app/lib/etfs.test.ts:74`, not via `/portfolio`; use `installFakeDataRepo({ failWritesWith: 500 })` for trade and import. (c) Read failure on `GET /portfolio` and `/fragments/portfolio-list` (`index.ts:~129-141,~166-171`): `failContentReadsWith: 500` → 200 with persistence banner, no rows.
+
+### GAP-037 — portfolio: smaller route branches
+**Status:** `proposed` · **Proposed:** 2026-10-24 · **Area:** `app/features/portfolio` · **Priority:** low
+
+DELETE conflict/persistence flash (`index.ts:~208-217`; only the successful merge is pinned, `web-concurrent-writes.test.ts:172`); DELETE of an already-removed id (`~192`); missing/unknown `portfolioIntent` redirect (`~148-157`); import merging into an existing holding via `mergeImportedHoldings` (`~58`, case-insensitive name+currency, first non-empty exchange — `portfolio.test.ts:257,279` import only into an empty portfolio).
+
+### GAP-038 — `portfolio-trade-focus.component.ts` has no browser test
+**Status:** `proposed` · **Proposed:** 2026-10-24 · **Area:** `app/features/portfolio` · **Priority:** low
+
+`portfolio.test.ts` asserts only the `data-portfolio-trade-focus` / `data-instrument-ticker` attributes. A `portfolio-forms.browser.ts` case would click a row's sell trigger and assert `#portfolioOperation` is `sell`, `#instrumentTicker` is the ticker, `#portfolio-trade-value` is empty and focused, and that an unknown ticker leaves the select unchanged. No browser case covers a sell flow or CSV file upload.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
 **Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-19 · **Area:** `app/features/catalog` · **Priority:** high · **PR:** _(this run's PR, see below)_

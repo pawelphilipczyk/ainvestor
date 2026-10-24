@@ -4,15 +4,15 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 8 — `mcp/tools`
-**Last swept:** 2026-10-19 (`mcp` core — came back clean)
+**Next area to sweep:** 1 — `app/features/advice`
+**Last swept:** 2026-10-24 (`mcp/tools`)
 
 ---
 
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-24 (dropped the two `formatEtfTypeLabel` assertions and the import from `ui-locale.test.ts`; the case is renamed to what it now pins) · **PR:** _(this run's PR)_ · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
@@ -44,6 +44,16 @@ intentional.
 than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 — that doc states baseline counts are a drift signal, not something to
 maintain every run.
+
+### OV-008 — default-save assertions repeated in "saves to the mode-specific file"
+**Status:** `proposed` · **Proposed:** 2026-10-24 · **Area:** `mcp/tools`
+
+`mcp/tools/generate-advice.test.ts:108-125` ("generates buy_next advice and saves it by default…") and `:210-229` ("saves to the mode-specific file") make the identical `callTool({cashAmount:'500'})` call and both assert `saved === true`, `typeof savedAt === 'number'` and `writes.length === 1` (`:216-218`). The second adds the file path and content checks (`:219-228`), the first adds mode/model/cash/text/completions. **Triage question:** drop the three repeated lines from the second, or merge the two cases?
+
+### OV-009 — two model pass-through cases differ only in the model string
+**Status:** `proposed` · **Proposed:** 2026-10-24 · **Area:** `mcp/tools` · **Priority:** low
+
+`generate-advice.test.ts:190-198` (`gpt-5.6-luna`) and `:200-208` (`gpt-6.1-sol`) both assert `payload.model` and `completions[0].model` equal the input. **Triage question:** the second may be a deliberate pin that the newer model is on the allowlist; if so reject, otherwise table-drive them.
 
 ---
 

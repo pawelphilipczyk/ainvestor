@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 import {
 	approvedSessionCookie,
+	pendingSessionCookie,
 	resetTestSessionCookieJar,
+	seedTestSessionCookie,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import {
@@ -956,5 +958,90 @@ describe('Guidelines page', () => {
 		assert.doesNotMatch(html, /data-frame-submit=/)
 		assert.doesNotMatch(html, /data-frame-replace-from-response/)
 		assert.doesNotMatch(html, /name="_method"/)
+	})
+})
+
+// The page disables these forms for a login pending approval, so a write only
+// arrives from a hand-built request. It must be refused in the same three
+// shapes as every other guideline failure, and never reach the data repo.
+describe('Guidelines writes from a session pending approval', () => {
+	const originalFetch = globalThis.fetch
+	let fetchedUrls: string[]
+
+	beforeEach(async () => {
+		// The fund check runs before the approval check, so the ticker must exist.
+		await seedGuestCatalog()
+		seedTestSessionCookie(await pendingSessionCookie())
+		fetchedUrls = []
+		globalThis.fetch = (async (input: Parameters<typeof fetch>[0]) => {
+			fetchedUrls.push(String(input))
+			return new Response('{}', { status: 500 })
+		}) as typeof fetch
+	})
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch
+	})
+
+	const writes = [
+		{
+			intent: 'addInstrument',
+			fields: { instrumentTicker: 'VTI', targetPct: '25' },
+		},
+		{
+			intent: 'updateTarget',
+			fields: { id: 'some-id', targetPct: '30' },
+		},
+	]
+
+	for (const { intent, fields } of writes) {
+		it(`${intent} answers 422 JSON and writes nothing`, async () => {
+			const response = await testSessionFetch(
+				guidelineActionRequest(
+					{ guidelineIntent: intent, ...fields },
+					{ Accept: 'application/json' },
+				),
+			)
+
+			assert.equal(response.status, 422)
+			const data = (await response.json()) as { error?: string }
+			assert.match(data.error ?? '', /pending approval/)
+			assert.deepEqual(fetchedUrls, [])
+		})
+
+		it(`${intent} answers a 422 list fragment with the error when Accept is text/html`, async () => {
+			const response = await testSessionFetch(
+				guidelineActionRequest(
+					{ guidelineIntent: intent, ...fields },
+					{ Accept: 'text/html' },
+				),
+			)
+
+			assert.equal(response.status, 422)
+			assert.match(await response.text(), /pending approval/)
+			assert.deepEqual(fetchedUrls, [])
+		})
+
+		it(`${intent} redirects with a flash banner on a plain form post`, async () => {
+			const response = await testSessionFetch(
+				guidelineActionRequest({ guidelineIntent: intent, ...fields }),
+			)
+
+			assert.equal(response.status, 302)
+			assert.match(response.headers.get('Location') ?? '', /^\/guidelines/)
+			assert.deepEqual(fetchedUrls, [])
+			const page = await testSessionFetch('http://localhost/guidelines')
+			assert.match(await page.text(), /pending approval/)
+		})
+	}
+
+	it('delete redirects silently and writes nothing', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest({ guidelineIntent: 'delete', id: 'some-id' }),
+		)
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('Location'), '/guidelines')
+		assert.deepEqual(fetchedUrls, [])
 	})
 })
