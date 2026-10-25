@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 import {
 	approvedSessionCookie,
+	pendingSessionCookie,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
@@ -956,5 +957,85 @@ describe('Guidelines page', () => {
 		assert.doesNotMatch(html, /data-frame-submit=/)
 		assert.doesNotMatch(html, /data-frame-replace-from-response/)
 		assert.doesNotMatch(html, /name="_method"/)
+	})
+})
+
+// The page does not render these forms for a login pending approval, so these
+// are requests built by hand: each must be refused in the shape the caller
+// asked for, and must not reach the data repository.
+describe('Guidelines writes from a session pending approval', () => {
+	const pendingMessage =
+		'Account pending approval — guidelines cannot be saved yet.'
+
+	beforeEach(async () => {
+		await seedGuestCatalog()
+		await pendingSessionCookie()
+	})
+
+	it('addInstrument answers 422 JSON when Accept is JSON', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addInstrument',
+					instrumentTicker: 'VTI',
+					targetPct: '25',
+				},
+				{ Accept: 'application/json' },
+			),
+		)
+		assert.equal(response.status, 422)
+		assert.deepEqual(await response.json(), { error: pendingMessage })
+	})
+
+	it('addAssetClass answers a 422 list fragment when Accept is text/html', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addAssetClass',
+					assetClassType: 'equity',
+					targetPct: '25',
+				},
+				{ Accept: 'text/html' },
+			),
+		)
+		assert.equal(response.status, 422)
+		assert.match(await response.text(), /Account pending approval/)
+	})
+
+	it('addInstrument redirects with a flash banner for a plain form post', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest({
+				guidelineIntent: 'addInstrument',
+				instrumentTicker: 'VTI',
+				targetPct: '25',
+			}),
+		)
+		assert.equal(response.status, 302)
+		assert.equal(
+			new URL(response.headers.get('Location') ?? '', 'http://localhost')
+				.pathname,
+			'/guidelines',
+		)
+		const page = await testSessionFetch('http://localhost/guidelines')
+		assert.match(
+			await page.text(),
+			/Account pending approval — guidelines cannot be saved yet/,
+		)
+	})
+
+	it('delete redirects without writing anything', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest({ guidelineIntent: 'delete', id: 'any-id' }),
+		)
+		assert.equal(response.status, 302)
+	})
+
+	it('nothing from the refused writes shows up for an approved session', async () => {
+		await addInstrument('VTI', '25')
+		await approvedSessionCookie()
+		const fragment = await testSessionFetch(
+			'http://localhost/fragments/guidelines-list',
+		)
+		assert.doesNotMatch(await fragment.text(), /VTI/)
 	})
 })

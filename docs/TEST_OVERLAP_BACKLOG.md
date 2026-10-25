@@ -4,15 +4,24 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 8 — `mcp/tools`
-**Last swept:** 2026-10-19 (`mcp` core — came back clean)
+**Next area to sweep:** 1 — `app/features/advice`
+**Last swept:** 2026-10-25 (`mcp/tools` — one item proposed)
 
 ---
 
 ## Open items
 
+### OV-008 — two `generate_advice` model-passthrough tests differ only by the model string
+**Status:** `proposed` · **Proposed:** 2026-10-25 · **Area:** `mcp/tools`
+
+`mcp/tools/generate-advice.test.ts:190-198` ("passes a named model through to the completion call", `gpt-5.6-luna`) and `:200-208` ("accepts the newer flagship gpt-6.1-sol") share setup, call shape and both assertions (`payload.model`, `completions[0].model`); only the constant differs. `generate-advice.ts:68-75` has a single `ADVICE_MODEL_IDS.includes(raw)` check and no per-model branch, and the flagship entry is already pinned through the real consumer at `app/features/advice/advice.test.ts:947-979`.
+
+**Triage question:** delete `:200-208`, or fold both into one loop over `ADVICE_MODEL_IDS`? Is a per-model pin deliberate (a model dropped from the list should fail loudly here)? If so, reject.
+
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-25 · **Area:** `app/lib` · **PR:** _(this run's PR, `test-sweep(weekly): mcp/tools + app/features/portfolio`)_
+
+**Done:** evidence re-checked, still held. Dropped the two `formatEtfTypeLabel` assertions (and its import) from `ui-locale.test.ts`, renamed the case to "t() and format() resolve Polish copy inside runWithUiCopyContext"; `guidelines.test.ts` keeps the full pin.
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
