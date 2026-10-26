@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 4 — `app/features/portfolio`
-**Last swept:** 2026-10-19 (`app/features/guidelines`)
+**Next area to sweep:** 5 — `app/lib`
+**Last swept:** 2026-10-26 (`app/features/portfolio`)
 
 ---
 
@@ -47,9 +47,41 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-031 — guidelines writes from a pending-approval session are unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-19 · **Acted:** 2026-10-26 · **PR:** _(this run's PR)_ · **Area:** `app/features/guidelines` · **Priority:** high
 
 `index.ts:286-309` (`guidelinesRequiresApprovalResponse`, reached from `persistGuideline` :354 and `updateGuidelineTarget` :446) and the silent-302 delete path (:717-719). No test posts to `/guidelines` with a pending session (`pendingSessionCookie()`, as in `require-approved-session.test.ts:94,105`). Test: add/update once per Accept shape → 422 JSON / 422 fragment / 302 + flash; delete → 302; nothing written. The code comment says the page disables these forms, but no `disabled` was found in the page components — check while writing.
+
+*Done:* new `describe` in `guidelines.test.ts` (addInstrument, addAssetClass, updateTarget × JSON / fragment / plain → 422 / 422 / 302 + flash; delete → silent 302). Confirmed it fails when the message guard is broken. The `delete` case does not assert 'nothing written': the page itself already shows a pending notice, and with the network guard a write attempt would have surfaced as an error.
+
+### GAP-035 — portfolio: pending-approval session POSTs a trade or import
+**Status:** `proposed` · **Proposed:** 2026-10-26 · **Area:** `app/features/portfolio` · **Priority:** high
+
+`errors.portfolio.requiresApproval` (`portfolio/index.ts:~112`, `portfolio-operation-form/index.ts:~212`) has no test; `require-approved-session.test.ts:94,105` only does GETs. Test with `pendingSessionCookie()` (mirror of GAP-031): trade/import → 422 JSON / 422 fragment / 302 + flash; `DELETE /portfolio/:id` → silent 302 (`index.ts:~215`).
+
+### GAP-036 — portfolio: refused repo write on trade, import, delete
+**Status:** `proposed` · **Proposed:** 2026-10-26 · **Area:** `app/features/portfolio` · **Priority:** high
+
+`portfolioPersistenceFailureResponse` (`operation-form/index.ts:~86-107`), the generic save-failed branch, and the delete catch (`index.ts:~232-242`) are unreached by web tests; only `web-concurrent-writes.test.ts:115` (WriteConflictError, trade, JSON) is pinned. Test `installFakeDataRepo({ failWritesWith: 500 })` → 422 JSON / fragment / 302 + flash, stored `ETFS_FILENAME` unchanged; `failWritesWith: 422` must not retry.
+
+### GAP-037 — portfolio: repo read failure on page and list fragment
+**Status:** `proposed` · **Proposed:** 2026-10-26 · **Area:** `app/features/portfolio` · **Priority:** medium
+
+`index.ts:~140-153` (empty entries + flash) and `~185-190` (fragment `inlineError`), plus the `entries === null` fallback (`operation-form/index.ts:~125`). Test `installFakeDataRepo({ failContentReadsWith: 401 })`: 200, error shown, no holdings.
+
+### GAP-038 — portfolio: CSV import merging into existing holdings
+**Status:** `proposed` · **Proposed:** 2026-10-26 · **Area:** `app/features/portfolio` · **Priority:** medium
+
+`mergeImportedHoldings` (`index.ts:~58-75`): every import test (`portfolio.test.ts:257-390`) starts from an empty repo. Seed a VTI/PLN holding with exchange; import `vti` PLN + `VTI` USD → PLN summed, exchange kept, USD separate row, commit `Import portfolio CSV (2 rows)`.
+
+### GAP-039 — portfolio: `catalog_entry_missing` and `sell_no_holding` via the web route
+**Status:** `proposed` · **Proposed:** 2026-10-26 · **Area:** `app/features/portfolio` · **Priority:** medium
+
+Only `sell_exceeds_holdings` is pinned on the route (`portfolio.test.ts:576,611`); `portfolio-operations.test.ts:131,182` pins the lib enum. Test unknown-ticker buy (422 with `instrumentTicker` + `dataRepo`, `operation-form/index.ts:~215-225`) and sell with no holding (`errors.portfolio.sellNoHolding`).
+
+### GAP-040 — portfolio: smaller branches and client trade-focus
+**Status:** `proposed` · **Proposed:** 2026-10-26 · **Area:** `app/features/portfolio` · **Priority:** low
+
+(a) oversize CSV upload on `/portfolio` (portfolio angle on GAP-002; Referer → `/portfolio` flash); (b) unknown/absent `portfolioIntent` → silent 302 (`index.ts:~165-175`); (c) DELETE of an already-removed id (`index.ts:~220`); (d) browser: `portfolio-trade-focus.component.ts` Buy more / Sell buttons set `#portfolioOperation`/`#instrumentTicker` and focus `#portfolio-trade-value` — only a markup assert exists (`portfolio.test.ts:783`).
 
 ### GAP-032 — guidelines: refused repo write and rejected read
 **Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high

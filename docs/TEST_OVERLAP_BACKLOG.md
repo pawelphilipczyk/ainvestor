@@ -4,15 +4,15 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 8 — `mcp/tools`
-**Last swept:** 2026-10-19 (`mcp` core — came back clean)
+**Next area to sweep:** 1 — `app/features/advice`
+**Last swept:** 2026-10-26 (`mcp/tools` — two low-value proposals)
 
 ---
 
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 · **Acted:** 2026-10-26 · **PR:** _(this run's PR)_ · **Area:** `app/lib`
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
@@ -30,6 +30,8 @@ which use `formatEtfTypeLabel` as one example consumer of
 `runWithUiCopyContext` alongside two unrelated ones — those two lines add no
 new coverage on top of `guidelines.test.ts`.
 
+*Done:* dropped the two `formatEtfTypeLabel` lines (and import) from `ui-locale.test.ts`, renaming the case to "t() and format() resolve Polish copy inside runWithUiCopyContext"; `guidelines.test.ts` keeps the pin.
+
 **Triage question:** is `ui-locale.test.ts`'s job to prove
 `runWithUiCopyContext` propagates locale into *any* locale-aware consumer (in
 which case the `formatEtfTypeLabel`-specific lines are redundant with
@@ -44,6 +46,30 @@ intentional.
 than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 — that doc states baseline counts are a drift signal, not something to
 maintain every run.
+
+### OV-008 — `generate_advice` "mode-specific file" test repeats the default-save test
+**Status:** `proposed` · **Proposed:** 2026-10-26 · **Area:** `mcp/tools`
+
+`mcp/tools/generate-advice.test.ts:210-229` ("saves to the mode-specific
+file") and `:108-125` ("generates buy_next advice and saves it by default…")
+use the same setup (`callTool({cashAmount:'500'})`, `stubServer()`, empty
+catalog) and both assert `saved === true`, numeric `savedAt`, one write and
+`cashAmount === '500'`. Not a subset: `:210` also pins the written path
+(`ADVICE_BUY_NEXT_STORAGE_FILENAME`), `lastAnalysisMode` and the document shape.
+
+**Triage question:** trim the first three assertions of `:210` (lines 216-218),
+keeping the test?
+
+### OV-009 — `generate_advice` model pass-through tested twice
+**Status:** `proposed` · **Proposed:** 2026-10-26 · **Area:** `mcp/tools` · **Priority:** low
+
+`mcp/tools/generate-advice.test.ts:190-198` ("passes a named model through…",
+`gpt-5.6-luna`) and `:200-208` ("accepts the newer flagship gpt-6.1-sol") have
+identical bodies, asserting `payload.model` and `completions[0].model`. The
+allowlist is a data array (`app/features/advice/advice-openai.ts:252-255`);
+`generate-advice.ts` has no per-model branching.
+
+**Triage question:** merge into one loop over the models, or delete `:200`?
 
 ---
 

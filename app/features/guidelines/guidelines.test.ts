@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 import {
 	approvedSessionCookie,
+	pendingSessionCookie,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
@@ -956,5 +957,85 @@ describe('Guidelines page', () => {
 		assert.doesNotMatch(html, /data-frame-submit=/)
 		assert.doesNotMatch(html, /data-frame-replace-from-response/)
 		assert.doesNotMatch(html, /name="_method"/)
+	})
+})
+
+// A login still pending allowlist approval has no data repo to write to. The
+// page does not stop it posting; the handler must refuse in all three shapes.
+describe('guidelines writes from a session pending approval', () => {
+	const pendingMessage =
+		'Account pending approval — guidelines cannot be saved yet.'
+
+	const writes = [
+		{
+			name: 'addInstrument',
+			fields: {
+				guidelineIntent: 'addInstrument',
+				instrumentTicker: 'VTI',
+				targetPct: '40',
+			},
+		},
+		{
+			name: 'addAssetClass',
+			fields: {
+				guidelineIntent: 'addAssetClass',
+				assetClassType: 'equity',
+				targetPct: '40',
+			},
+		},
+		{
+			name: 'updateTarget',
+			fields: {
+				guidelineIntent: 'updateTarget',
+				id: 'some-id',
+				targetPct: '40',
+			},
+		},
+	]
+
+	for (const { name, fields } of writes) {
+		it(`${name} answers 422 JSON when Accept is JSON`, async () => {
+			await seedGuestCatalog()
+			await pendingSessionCookie()
+			const response = await testSessionFetch(
+				guidelineActionRequest(fields, { Accept: 'application/json' }),
+			)
+
+			assert.equal(response.status, 422)
+			assert.deepEqual(await response.json(), { error: pendingMessage })
+		})
+
+		it(`${name} answers a 422 fragment with the inline error for a frame submit`, async () => {
+			await seedGuestCatalog()
+			await pendingSessionCookie()
+			const response = await testSessionFetch(
+				guidelineActionRequest(fields, { Accept: 'text/html' }),
+			)
+
+			assert.equal(response.status, 422)
+			assert.match(await response.text(), /guidelines cannot be saved yet/)
+		})
+
+		it(`${name} redirects with a flash banner for a plain form post`, async () => {
+			await seedGuestCatalog()
+			await pendingSessionCookie()
+			const response = await testSessionFetch(guidelineActionRequest(fields))
+
+			assert.equal(response.status, 302)
+			assert.equal(response.headers.get('location'), '/guidelines')
+
+			const page = await testSessionFetch('http://localhost/guidelines')
+			assert.match(await page.text(), /guidelines cannot be saved yet/)
+		})
+	}
+
+	it('delete redirects silently without writing', async () => {
+		await pendingSessionCookie()
+		const response = await testSessionFetch(
+			guidelineActionRequest({ guidelineIntent: 'delete', id: 'some-id' }),
+		)
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/guidelines')
 	})
 })
