@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 4 — `app/features/portfolio`
-**Last swept:** 2026-10-19 (`app/features/guidelines`)
+**Next area to sweep:** 5 — `app/lib`
+**Last swept:** 2026-10-27 (`app/features/portfolio`)
 
 ---
 
@@ -47,7 +47,9 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
 ### GAP-031 — guidelines writes from a pending-approval session are unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-19 · **Acted:** 2026-10-27 · **Area:** `app/features/guidelines` · **Priority:** high · **PR:** _(this run's PR)_
+
+**Done:** new `describe` in `guidelines.test.ts` pins add (422 JSON / 422 fragment / 302 + flash) and delete (302) from `pendingSessionCookie()`, asserting the exact `errors.guidelines.requiresApproval` copy. The tests pass on first run (a gap, not a bug). Not asserted: "nothing written" (a pending session has no store) and `updateTarget`.
 
 `index.ts:286-309` (`guidelinesRequiresApprovalResponse`, reached from `persistGuideline` :354 and `updateGuidelineTarget` :446) and the silent-302 delete path (:717-719). No test posts to `/guidelines` with a pending session (`pendingSessionCookie()`, as in `require-approved-session.test.ts:94,105`). Test: add/update once per Accept shape → 422 JSON / 422 fragment / 302 + flash; delete → 302; nothing written. The code comment says the page disables these forms, but no `disabled` was found in the page components — check while writing.
 
@@ -65,6 +67,26 @@ the app swallowed the error. Suites that install `installFakeDataRepo` replace
 **Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** low
 
 `guidelines-list.component.ts:14-57` (`data-guideline-cancel-edit`, `hideGuidelineTargetEdit`, `showGuidelineTargetEdit`); `guidelines.browser.ts:141-212` covers only edit/submit/delete. Test: cancel resets the input to `data-guideline-original-target` and shows the read view; opening a second row closes the first.
+
+### GAP-035 — portfolio writes from a pending-approval session are unpinned
+**Status:** `proposed` · **Proposed:** 2026-10-27 · **Area:** `app/features/portfolio` · **Priority:** high
+
+`portfolio-operation-form/index.ts:209-214` (trade), `index.ts:109-114` (import), `:251-254` (`DELETE`, silent 302). `pendingSessionCookie` is only used for two GETs (`require-approved-session.test.ts:94,105`); no portfolio test names pending/`requiresApproval`. Test: valid buy and CSV import once per Accept shape → 422 JSON / 422 fragment / 302 + flash; `DELETE` → 302; body must be valid since the schema check runs first. Same shape as the GAP-031 test.
+
+### GAP-036 — portfolio: refused repo write and rejected read
+**Status:** `proposed` · **Proposed:** 2026-10-27 · **Area:** `app/features/portfolio` · **Priority:** high
+
+`portfolioPersistenceFailureResponse` (`portfolio-operation-form/index.ts:103-123`; callers trade :254, import :135, `DELETE` catch :274-282). Only trade + JSON `WriteConflictError` is pinned (`web-concurrent-writes.test.ts:115`); `failWritesWith` is used in no `/portfolio` route test. Also read failure: `index.ts:175-185,206-209`, `portfolio-operation-form/index.ts:98` — no `failContentReadsWith` test; a failed read must not read as "no holdings" nor let a later write wipe the file. Test with `installFakeDataRepo({ failWritesWith: 500 })` (and 422, not retried), `failContentReadsWith: 401`; includes `DELETE` of an unknown id (`:263`, no write).
+
+### GAP-037 — portfolio: route mapping of the three trade refusals
+**Status:** `proposed` · **Proposed:** 2026-10-27 · **Area:** `app/features/portfolio` · **Priority:** medium
+
+`portfolio-operation-form/index.ts:259-293`: blockers are pinned in `portfolio-operations.test.ts:131,182` and MCP (`mcp/tools/portfolio.test.ts:457`), but at route level only schema failure is. Test sell of unheld ticker, sell over holding, buy of ticker not in catalog → 422 message per Accept shape (JSON for `catalog_entry_missing` also carries trimmed `instrumentTicker`, `dataRepo`, :271-276), no commit.
+
+### GAP-038 — portfolio: import merge, file precedence, unknown intent; trade-focus browser test
+**Status:** `proposed` · **Proposed:** 2026-10-27 · **Area:** `app/features/portfolio` · **Priority:** low
+
+`mergeImportedHoldings` (`index.ts:59-81`) add-on-top into an existing holding is unpinned for import (`portfolio.test.ts:279` imports into empty; trade merge is pinned at :392); file beats paste (:93-98); empty file part falls to paste; unknown/missing `portfolioIntent` → 302, no write (:234,242-243). Client-only: `portfolio-trade-focus.component.ts:12-57` (row Buy/Sell sets operation + ticker, clears and focuses value, ignores unknown ticker) has no `*.browser.ts` case — add to `portfolio-forms.browser.ts`.
 
 ### GAP-026 — catalog import: refused/conflicting repo write is unpinned
 **Status:** `done` · **Proposed:** 2026-10-08 · **Acted:** 2026-10-19 · **Area:** `app/features/catalog` · **Priority:** high · **PR:** _(this run's PR, see below)_

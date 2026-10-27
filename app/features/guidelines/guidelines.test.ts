@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 import {
 	approvedSessionCookie,
+	pendingSessionCookie,
 	resetTestSessionCookieJar,
+	seedTestSessionCookie,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import {
@@ -956,5 +958,54 @@ describe('Guidelines page', () => {
 		assert.doesNotMatch(html, /data-frame-submit=/)
 		assert.doesNotMatch(html, /data-frame-replace-from-response/)
 		assert.doesNotMatch(html, /name="_method"/)
+	})
+})
+
+describe('guideline writes from a session pending approval', () => {
+	beforeEach(async () => {
+		seedTestSessionCookie(await pendingSessionCookie())
+	})
+
+	const addFields = {
+		guidelineIntent: 'addAssetClass',
+		assetClassType: 'equity',
+		targetPct: '40',
+	}
+
+	it('answers 422 JSON when Accept is JSON', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest(addFields, { Accept: 'application/json' }),
+		)
+
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as { error?: string }
+		assert.match(data.error ?? '', /guidelines cannot be saved yet/)
+	})
+
+	it('answers 422 with the list fragment when Accept is text/html', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest(addFields, { Accept: 'text/html' }),
+		)
+
+		assert.equal(response.status, 422)
+		assert.match(await response.text(), /guidelines cannot be saved yet/)
+	})
+
+	it('redirects with a flash banner for a plain form post', async () => {
+		const response = await testSessionFetch(guidelineActionRequest(addFields))
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('Location'), '/guidelines')
+		const page = await testSessionFetch('http://localhost/guidelines')
+		assert.match(await page.text(), /guidelines cannot be saved yet/)
+	})
+
+	it('redirects a delete without writing anything', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest({ guidelineIntent: 'delete', id: 'any-id' }),
+		)
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('Location'), '/guidelines')
 	})
 })

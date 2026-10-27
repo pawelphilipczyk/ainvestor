@@ -4,15 +4,17 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 8 — `mcp/tools`
-**Last swept:** 2026-10-19 (`mcp` core — came back clean)
+**Next area to sweep:** 1 — `app/features/advice`
+**Last swept:** 2026-10-27 (`mcp/tools` — one weak proposal)
 
 ---
 
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-27 · **Area:** `app/lib` · **PR:** _(this run's PR)_
+
+**Done:** evidence re-checked, then dropped the two `formatEtfTypeLabel` assertions (and the import) from `ui-locale.test.ts`; the case is renamed "t() and format() use Polish copy inside runWithUiCopyContext" and keeps the `t()`/`format()` propagation checks. `guidelines.test.ts` keeps the `formatEtfTypeLabel` pins.
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
@@ -44,6 +46,13 @@ intentional.
 than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 — that doc states baseline counts are a drift signal, not something to
 maintain every run.
+
+### OV-008 — `generate_advice` "saves to the mode-specific file" repeats the first save case's assertions
+**Status:** `proposed` · **Proposed:** 2026-10-27 · **Area:** `mcp/tools` · **Confidence:** weak
+
+`mcp/tools/generate-advice.test.ts:210` calls `callTool({ cashAmount: '500' })` with an empty catalog and the same `stubServer()` as `:108`, and asserts `saved === true`, `savedAt` is a number and `writes.length === 1` (`:216-218`). `:108` already asserts all three (`:119-121,:124`). The unique part of `:210` is the written path, `lastAnalysisMode`, `cashAmount` and `document` (`:219-229`). Candidate action: drop the first three assertions from `:210`.
+
+**Triage question:** is the repetition deliberate (each case reads standalone)? Not proposed: `:170`/`:180` (model rejected by value vs. by type) and `saved-advice.test.ts:175`/`:183` are parameter variants pinning different guards.
 
 ---
 
