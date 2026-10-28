@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 import {
 	approvedSessionCookie,
+	pendingSessionCookie,
 	resetTestSessionCookieJar,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
@@ -956,5 +957,73 @@ describe('Guidelines page', () => {
 		assert.doesNotMatch(html, /data-frame-submit=/)
 		assert.doesNotMatch(html, /data-frame-replace-from-response/)
 		assert.doesNotMatch(html, /name="_method"/)
+	})
+})
+
+// A login still pending allowlist approval has no data repo to write to. The
+// page disables these forms, so a POST here is a request built by hand; each
+// Accept shape must refuse it in its own form, and nothing may be written.
+describe('Guidelines writes from a session pending approval', () => {
+	const refusal = /Account pending approval/
+
+	async function postAsPending(
+		fields: Record<string, string>,
+		accept?: string,
+	) {
+		await pendingSessionCookie()
+		return testSessionFetch(
+			guidelineActionRequest(fields, accept ? { Accept: accept } : undefined),
+		)
+	}
+
+	const addFields = {
+		guidelineIntent: 'addAssetClass',
+		assetClassType: 'equity',
+		targetPct: '50',
+	}
+
+	it('add answers 422 JSON when Accept is JSON', async () => {
+		const response = await postAsPending(addFields, 'application/json')
+
+		assert.equal(response.status, 422)
+		assert.match(((await response.json()) as { error: string }).error, refusal)
+	})
+
+	it('add answers 422 with the list fragment when Accept is text/html', async () => {
+		const response = await postAsPending(addFields, 'text/html')
+
+		assert.equal(response.status, 422)
+		assert.match(await response.text(), refusal)
+	})
+
+	it('add redirects with an error flash otherwise, and saves nothing', async () => {
+		const response = await postAsPending(addFields)
+
+		assert.equal(response.status, 302)
+		const page = await testSessionFetch('http://localhost/guidelines')
+		assert.match(await page.text(), refusal)
+		const list = await testSessionFetch(
+			'http://localhost/fragments/guidelines-list',
+		)
+		assert.doesNotMatch(await list.text(), /name="guidelineIntent"/)
+	})
+
+	it('updateTarget is refused the same way', async () => {
+		const response = await postAsPending(
+			{ guidelineIntent: 'updateTarget', id: 'some-id', targetPct: '10' },
+			'application/json',
+		)
+
+		assert.equal(response.status, 422)
+		assert.match(((await response.json()) as { error: string }).error, refusal)
+	})
+
+	it('delete redirects silently', async () => {
+		const response = await postAsPending({
+			guidelineIntent: 'delete',
+			id: 'some-id',
+		})
+
+		assert.equal(response.status, 302)
 	})
 })

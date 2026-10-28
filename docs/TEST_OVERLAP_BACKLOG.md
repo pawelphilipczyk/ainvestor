@@ -4,15 +4,17 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 8 — `mcp/tools`
-**Last swept:** 2026-10-19 (`mcp` core — came back clean)
+**Next area to sweep:** 1 — `app/features/advice`
+**Last swept:** 2026-10-28 (`mcp/tools` — came back clean)
 
 ---
 
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Acted:** 2026-10-28 · **Area:** `app/lib` · **PR:** _(this run's PR)_
+
+**Done:** dropped the two `formatEtfTypeLabel` assertions (and its import) from `ui-locale.test.ts`; the case is renamed "runWithUiCopyContext resolves t() and format() in Polish" and keeps the `t()`/`format()` propagation checks. `guidelines.test.ts` keeps the pin.
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
