@@ -67,7 +67,7 @@ Read failure (`index.ts:176-185` page banner, `:205-209` fragment inline error) 
 Missing/unknown `portfolioIntent` redirect (`index.ts:242-244`), missing FormData (`:234`), DELETE of an already-removed id (`:263`), pending fragment asserts only status 200, undecodable CSV upload (`:90-98`). Browser: no delete-through-frame, CSV file-upload, or persistence-error inline state; `portfolio-trade-focus.component.ts` has no browser test (behaviour not read).
 
 ### GAP-031 — guidelines writes from a pending-approval session are unpinned
-**Status:** `done` · **Proposed:** 2026-10-19 · **Acted:** 2026-10-29 · **Area:** `app/features/guidelines` · **Priority:** high · **PR:** _(this run's PR)_
+**Status:** `done` · **Proposed:** 2026-10-19 · **Acted:** 2026-10-29 · **Area:** `app/features/guidelines` · **Priority:** high · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/276
 
 **Action taken:** added two cases to `app/lib/require-approved-session.test.ts` (add-instrument from a pending session: 422 JSON with the approval message; no-Accept 302 to `/guidelines`). Not covered: the `text/html` fragment shape, `updateTarget`, and the silent-302 delete path. The "page disables these forms" comment is unverified.
 

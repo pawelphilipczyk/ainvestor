@@ -12,7 +12,7 @@ run must obey: `docs/TEST_HEALTH.md`.
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 · **Acted:** 2026-10-29 · **Area:** `app/lib` · **PR:** _(this run's PR)_
+**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 · **Acted:** 2026-10-29 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/276
 
 **Action taken:** dropped the two `formatEtfTypeLabel` assertions (and the import) from `ui-locale.test.ts`, renamed the case to "t() and format() resolve Polish copy inside runWithUiCopyContext"; `guidelines.test.ts` keeps the pin.
 
