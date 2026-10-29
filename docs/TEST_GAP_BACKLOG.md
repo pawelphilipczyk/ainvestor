@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 4 — `app/features/portfolio`
-**Last swept:** 2026-10-19 (`app/features/guidelines`)
+**Next area to sweep:** 5 — `app/lib`
+**Last swept:** 2026-10-29 (`app/features/portfolio`)
 
 ---
 
@@ -46,8 +46,30 @@ is preloaded into `npm test` / `npm run test:browser`: a fetch to
 the app swallowed the error. Suites that install `installFakeDataRepo` replace
 `fetch` themselves and are unaffected.
 
+### GAP-035 — portfolio: refused repo write on trade, import and delete
+**Status:** `proposed` · **Proposed:** 2026-10-29 · **Area:** `app/features/portfolio` · **Priority:** high
+
+`portfolio-operation-form/index.ts:103-141` (`portfolioPersistenceFailureResponse`, `portfolioSaveFailureResponse`, trade catch ~:250), `index.ts:136` (import) and `:276-280` (delete): only `WriteConflictError` is pinned (`app/lib/store/web-concurrent-writes.test.ts:115`). The generic "Could not save your portfolio" is untested at route level. Test with `installFakeDataRepo({ failWritesWith: 500 })` (422 must not retry): 422 JSON / 422 fragment / 302 + flash, repo unchanged, no commits. Sibling of GAP-032.
+
+### GAP-036 — portfolio: writes from a pending-approval session
+**Status:** `proposed` · **Proposed:** 2026-10-29 · **Area:** `app/features/portfolio` · **Priority:** high
+
+`portfolio-operation-form/index.ts:209-213` (trade) and `index.ts:109-113` (import) return `requiresApproval`; delete's silent 302 at `index.ts:252-254`. Only GET is pinned (`require-approved-session.test.ts:93,104`). Test with `pendingSessionCookie()`: 422 JSON / 422 fragment / 302 + flash, delete 302, nothing written. Mirror of GAP-031.
+
+### GAP-037 — portfolio: read failure and `catalog_entry_missing`
+**Status:** `proposed` · **Proposed:** 2026-10-29 · **Area:** `app/features/portfolio` · **Priority:** medium
+
+Read failure (`index.ts:176-185` page banner, `:205-209` fragment inline error) untested: `installFakeDataRepo({ failContentReadsWith: 401 })`. Route-level `catalog_entry_missing` 422 (`portfolio-operation-form/index.ts:262`, JSON `instrumentTicker`/`dataRepo`), and `sell_no_holding` / `sell_exceeds_holdings` message text, are unpinned (only the browser test and lib enum cover them).
+
+### GAP-038 — portfolio: small branches and browser leftovers
+**Status:** `proposed` · **Proposed:** 2026-10-29 · **Area:** `app/features/portfolio` · **Priority:** low
+
+Missing/unknown `portfolioIntent` redirect (`index.ts:242-244`), missing FormData (`:234`), DELETE of an already-removed id (`:263`), pending fragment asserts only status 200, undecodable CSV upload (`:90-98`). Browser: no delete-through-frame, CSV file-upload, or persistence-error inline state; `portfolio-trade-focus.component.ts` has no browser test (behaviour not read).
+
 ### GAP-031 — guidelines writes from a pending-approval session are unpinned
-**Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-19 · **Acted:** 2026-10-29 · **Area:** `app/features/guidelines` · **Priority:** high · **PR:** _(this run's PR)_
+
+**Action taken:** added two cases to `app/lib/require-approved-session.test.ts` (add-instrument from a pending session: 422 JSON with the approval message; no-Accept 302 to `/guidelines`). Not covered: the `text/html` fragment shape, `updateTarget`, and the silent-302 delete path. The "page disables these forms" comment is unverified.
 
 `index.ts:286-309` (`guidelinesRequiresApprovalResponse`, reached from `persistGuideline` :354 and `updateGuidelineTarget` :446) and the silent-302 delete path (:717-719). No test posts to `/guidelines` with a pending session (`pendingSessionCookie()`, as in `require-approved-session.test.ts:94,105`). Test: add/update once per Accept shape → 422 JSON / 422 fragment / 302 + flash; delete → 302; nothing written. The code comment says the page disables these forms, but no `disabled` was found in the page components — check while writing.
 
