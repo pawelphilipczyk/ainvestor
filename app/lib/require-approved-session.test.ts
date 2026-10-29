@@ -1,5 +1,10 @@
 import * as assert from 'node:assert/strict'
-import { afterEach, describe, it } from 'node:test'
+import { afterEach, beforeEach, describe, it } from 'node:test'
+import {
+	parseBankJsonToCatalog,
+	resetSharedCatalogForTests,
+	setSharedCatalogForTests,
+} from '../features/catalog/lib.ts'
 import { router } from '../router.ts'
 import { requiresSignIn } from './require-approved-session-middleware.ts'
 import {
@@ -10,6 +15,7 @@ import {
 
 afterEach(() => {
 	resetTestSessionCookieJar()
+	resetSharedCatalogForTests()
 })
 
 /** Every page the app serves to a browser, and so everything the gate covers. */
@@ -108,5 +114,50 @@ describe('sign-in gate', () => {
 			{ headers: { Cookie: cookie } },
 		)
 		assert.equal(response.status, 200)
+	})
+
+	// A pending session has no store to write to. The page is meant to keep
+	// these forms off, so only a hand-built request gets here — it must be
+	// refused in the same three shapes as every other guideline failure.
+	describe('guideline writes from a session pending approval', () => {
+		// The ticker must exist in the catalog, or the request is turned away
+		// before it ever reaches the approval check.
+		beforeEach(() => {
+			setSharedCatalogForTests({
+				entries: parseBankJsonToCatalog({
+					data: [
+						{ fund_name: 'Vanguard Total', ticker: 'VTI', assets: 'akcje' },
+					],
+					count: 1,
+				}),
+			})
+		})
+
+		function addInstrument(headers?: Record<string, string>) {
+			const form = new FormData()
+			form.set('guidelineIntent', 'addInstrument')
+			form.set('instrumentTicker', 'VTI')
+			form.set('targetPct', '10')
+			return { method: 'POST', body: form, headers }
+		}
+
+		it('answers 422 JSON naming the approval requirement', async () => {
+			const cookie = await pendingSessionCookie()
+			const response = await router.fetch('http://localhost/guidelines', {
+				...addInstrument({ Cookie: cookie, Accept: 'application/json' }),
+			})
+			assert.equal(response.status, 422)
+			assert.match((await response.json()).error, /approv/i)
+		})
+
+		it('redirects with a flash when the request accepts neither JSON nor a fragment', async () => {
+			const cookie = await pendingSessionCookie()
+			const response = await router.fetch('http://localhost/guidelines', {
+				...addInstrument({ Cookie: cookie }),
+				redirect: 'manual',
+			})
+			assert.equal(response.status, 302)
+			assert.equal(response.headers.get('Location'), '/guidelines')
+		})
 	})
 })

@@ -4,15 +4,17 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 8 — `mcp/tools`
-**Last swept:** 2026-10-19 (`mcp` core — came back clean)
+**Next area to sweep:** 1 — `app/features/advice`
+**Last swept:** 2026-10-29 (`mcp/tools` — two weak items proposed)
 
 ---
 
 ## Open items
 
 ### OV-007 — `formatEtfTypeLabel`'s Polish mapping pinned twice
-**Status:** `approved` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 (evidence re-checked) · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-26 · **Approved:** 2026-10-08 · **Acted:** 2026-10-29 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/276
+
+**Action taken:** dropped the two `formatEtfTypeLabel` assertions (and the import) from `ui-locale.test.ts`, renamed the case to "t() and format() resolve Polish copy inside runWithUiCopyContext"; `guidelines.test.ts` keeps the pin.
 
 `app/lib/guidelines.test.ts:24-28` ("formatEtfTypeLabel uses Polish labels when
 UI locale is pl") and `app/lib/ui-locale.test.ts:17-19` ("formatEtfTypeLabel
@@ -46,6 +48,16 @@ than the baseline count (12) recorded in `docs/TEST_HEALTH.md`. Not acted on
 maintain every run.
 
 ---
+
+### OV-008 — `generate_advice` accepted-model tests assert one rule twice
+**Status:** `proposed` · **Proposed:** 2026-10-29 · **Area:** `mcp/tools`
+
+`mcp/tools/generate-advice.test.ts:190` ("passes a named model through to the completion call", `gpt-5.6-luna`) and `:200` ("accepts the newer flagship gpt-6.1-sol") share setup and both assert `payload.model` and `completions[0].model` equal the input. Both pin "an accepted model is forwarded". **Triage question:** is `:200` deliberately guarding that this model stays on the accepted list? If so, merge into one loop over accepted models rather than deleting.
+
+### OV-009 — save assertions repeated in the default-path test (weak)
+**Status:** `proposed` · **Proposed:** 2026-10-29 · **Area:** `mcp/tools`
+
+`generate-advice.test.ts:120-122` (`saved === true`, `savedAt` is a number, `writes.length === 1`) are a strict subset of `:217-219` in "saves to the mode-specific file". Only those three lines are redundant; the rest of `:108` is unique. Trimming them is a tidy-up, low value.
 
 ## Rejected
 
