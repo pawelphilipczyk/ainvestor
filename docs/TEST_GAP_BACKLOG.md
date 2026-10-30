@@ -388,7 +388,7 @@ their route. Until then, runs should leave this alone. If the answer is no,
 reject it and stop re-surfacing page components as gaps.
 
 ### GAP-011 — `formatValue`'s currency-fallback branch is untested
-**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-30 · **Area:** `app/lib` · **PR:** (this sweep's PR)
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-30 · **Area:** `app/lib` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/277
 
 **Action taken:** added `app/lib/format.test.ts` pinning the success path (`$1,234.50`) and the fallback (`formatValue(100, 'NOTACURRENCY') === '100 NOTACURRENCY'`; `Intl.NumberFormat` throws `RangeError` for that code).
 
