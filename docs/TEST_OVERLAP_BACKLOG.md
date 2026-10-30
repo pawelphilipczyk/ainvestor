@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 1 — `app/features/advice`
-**Last swept:** 2026-10-29 (`mcp/tools` — two weak items proposed)
+**Next area to sweep:** 2 — `app/features/catalog`
+**Last swept:** 2026-10-30 (`app/features/advice` — one weak item proposed)
 
 ---
 
@@ -58,6 +58,11 @@ maintain every run.
 **Status:** `proposed` · **Proposed:** 2026-10-29 · **Area:** `mcp/tools`
 
 `generate-advice.test.ts:120-122` (`saved === true`, `savedAt` is a number, `writes.length === 1`) are a strict subset of `:217-219` in "saves to the mode-specific file". Only those three lines are redundant; the rest of `:108` is unique. Trimming them is a tidy-up, low value.
+
+### OV-010 — accepted-model forwarding pinned twice in the advice route test (weak)
+**Status:** `proposed` · **Proposed:** 2026-10-30 · **Area:** `app/features/advice`
+
+`advice.test.ts:914` (gpt-5.6-luna) and `:947` (gpt-6.1-sol) have identical setup (stub client capturing `params.model`, POST `buy_next`, `cashAmount=100`) and assert status 200, captured model equals input, and `value="<model>"` in the body. `:947` adds only the option-ordering assertion. Same shape as OV-008. **Triage question:** does `:947` deliberately guard that gpt-6.1-sol stays accepted? If so, merge into a loop over accepted models plus the ordering assertion. (`advice-openai.test.ts:66` is the unit-layer pin; judged layered, not proposed.)
 
 ## Rejected
 

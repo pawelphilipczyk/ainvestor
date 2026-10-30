@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 5 — `app/lib`
-**Last swept:** 2026-10-29 (`app/features/portfolio`)
+**Next area to sweep:** 6 — `app/components` + shared browser layer
+**Last swept:** 2026-10-30 (`app/lib` — two proposed, one test written)
 
 ---
 
@@ -388,7 +388,9 @@ their route. Until then, runs should leave this alone. If the answer is no,
 reject it and stop re-surfacing page components as gaps.
 
 ### GAP-011 — `formatValue`'s currency-fallback branch is untested
-**Status:** `proposed` · **Proposed:** 2026-09-16 · **Area:** `app/lib`
+**Status:** `done` · **Proposed:** 2026-09-16 · **Acted:** 2026-10-30 · **Area:** `app/lib` · **PR:** (this sweep's PR)
+
+**Action taken:** added `app/lib/format.test.ts` pinning the success path (`$1,234.50`) and the fallback (`formatValue(100, 'NOTACURRENCY') === '100 NOTACURRENCY'`; `Intl.NumberFormat` throws `RangeError` for that code).
 
 `app/lib/format.ts:1-10` — no test file imports `format.ts` or names
 `formatValue`/`formatPortfolioValueForInput`. `formatValue` is used in
@@ -625,6 +627,19 @@ Flagged during the seed survey; each needs the same triage before becoming an it
 | `/health` | 2 | probably fine |
 
 ---
+
+### GAP-038 — `normalizeGuideline` drop branches and type guards
+**Status:** `proposed` · **Proposed:** 2026-10-30 · **Area:** `app/lib` · **Priority:** medium
+
+`app/lib/guidelines.ts:125-170`: `guidelines.test.ts:41-95` pins only the valid row, the legacy missing `kind`, and clearing `etfName` for asset_class. Unpinned: `null` for non-object input, non-string `id`, string `targetPct`, invalid `etfType`, blank `etfName` on an instrument row; `kind` fallback for an unknown value; `isGuidelineEtfType('unknown') === false` (`etf-type.ts:26`); `parseGuidelinesFromFile` dropping a bad row / non-array JSON. This is the corrupted-stored-file path. Pure unit test, no source change.
+
+### GAP-039 — `POST /locale` open-redirect guard
+**Status:** `proposed` · **Proposed:** 2026-10-30 · **Area:** `app/features/locale` (found while sweeping `app/lib`) · **Priority:** medium
+
+`app/features/locale/index.ts:25-46`: `isSafeRelativePath` (`//evil`, backslash, CR/LF, >2048 chars), fallback redirect to home on bad schema, and Set-Cookie on success are asserted nowhere; `require-approved-session.test.ts:39` only lists `/locale` as reachable signed out. Needs a route test.
+
+**Also fold into GAP-006 (2026-10-30):** `ui-locale-middleware.ts:30-48` — `?locale=xx` redirect stripping the param, `?locale=pl` setting the cookie only when it differs; `parseUiLocaleCookie` garbage value falls back to `en` (`ui-locale-cookie.ts:19`).
+
 
 ## Rejected
 
