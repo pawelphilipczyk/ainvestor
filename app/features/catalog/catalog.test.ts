@@ -727,6 +727,63 @@ describe('ETF Catalog page', () => {
 		assert.match(body, /not valid JSON/)
 	})
 
+	it('POST /catalog/import rejects a HAR upload that is not valid JSON or holds no bank response', async () => {
+		seedSharedCatalog(
+			JSON.stringify({
+				data: [{ fund_name: 'Existing Fund', ticker: 'OLD', assets: 'akcje' }],
+				count: 1,
+			}),
+		)
+		const cookie = await signInAs('catalog-admin')
+
+		for (const harText of [
+			'{ not json',
+			JSON.stringify({ log: { entries: [] } }),
+		]) {
+			const formData = new FormData()
+			formData.set(
+				'bankApiHar',
+				new File([harText], 'capture.har', { type: 'application/json' }),
+			)
+			const jsonResponse = await testSessionFetch(
+				new Request('http://localhost/catalog/import', {
+					method: 'POST',
+					body: formData,
+					headers: { Cookie: cookie, Accept: 'application/json' },
+				}),
+			)
+			assert.equal(jsonResponse.status, 422)
+			assert.match(
+				((await jsonResponse.json()) as { error: string }).error,
+				/HAR/,
+			)
+		}
+
+		const formData = new FormData()
+		formData.set('bankApiHar', new File(['{ not json'], 'capture.har'))
+		const redirectResponse = await testSessionFetch(
+			new Request('http://localhost/catalog/import', {
+				method: 'POST',
+				body: formData,
+				headers: { Cookie: cookie },
+			}),
+		)
+		assert.equal(redirectResponse.status, 302)
+		assert.equal(redirectResponse.headers.get('location'), '/admin/etf-import')
+		const body = await (
+			await testSessionFetch('http://localhost/admin/etf-import', {
+				headers: { Cookie: cookie },
+			})
+		).text()
+		assert.match(body, /<section[^>]*aria-label="Error"/)
+		assert.match(body, /HAR/)
+
+		const catalogBody = await (
+			await testSessionFetch('http://localhost/catalog')
+		).text()
+		assert.match(catalogBody, /Existing Fund/)
+	})
+
 	it('POST /catalog/import flashes when paste is empty after trim', async () => {
 		seedSharedCatalog(
 			JSON.stringify({
