@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 2 — `app/features/catalog`
-**Last swept:** 2026-10-30 (`app/features/advice` — one weak item proposed)
+**Next area to sweep:** 3 — `app/features/guidelines`
+**Last swept:** 2026-10-31 (`app/features/catalog` — one weak item proposed)
 
 ---
 
@@ -50,7 +50,7 @@ maintain every run.
 ---
 
 ### OV-008 — `generate_advice` accepted-model tests assert one rule twice
-**Status:** `proposed` · **Proposed:** 2026-10-29 · **Area:** `mcp/tools`
+**Status:** `approved` · **Proposed:** 2026-10-29 · **Approved:** 2026-10-31 (evidence re-checked) · **Area:** `mcp/tools`
 
 `mcp/tools/generate-advice.test.ts:190` ("passes a named model through to the completion call", `gpt-5.6-luna`) and `:200` ("accepts the newer flagship gpt-6.1-sol") share setup and both assert `payload.model` and `completions[0].model` equal the input. Both pin "an accepted model is forwarded". **Triage question:** is `:200` deliberately guarding that this model stays on the accepted list? If so, merge into one loop over accepted models rather than deleting.
 
@@ -60,9 +60,14 @@ maintain every run.
 `generate-advice.test.ts:120-122` (`saved === true`, `savedAt` is a number, `writes.length === 1`) are a strict subset of `:217-219` in "saves to the mode-specific file". Only those three lines are redundant; the rest of `:108` is unique. Trimming them is a tidy-up, low value.
 
 ### OV-010 — accepted-model forwarding pinned twice in the advice route test (weak)
-**Status:** `proposed` · **Proposed:** 2026-10-30 · **Area:** `app/features/advice`
+**Status:** `approved` · **Proposed:** 2026-10-30 · **Approved:** 2026-10-31 (evidence re-checked) · **Area:** `app/features/advice`
 
 `advice.test.ts:914` (gpt-5.6-luna) and `:947` (gpt-6.1-sol) have identical setup (stub client capturing `params.model`, POST `buy_next`, `cashAmount=100`) and assert status 200, captured model equals input, and `value="<model>"` in the body. `:947` adds only the option-ordering assertion. Same shape as OV-008. **Triage question:** does `:947` deliberately guard that gpt-6.1-sol stays accepted? If so, merge into a loop over accepted models plus the ordering assertion. (`advice-openai.test.ts:66` is the unit-layer pin; judged layered, not proposed.)
+
+### OV-011 — first-duplicate-in-paste rule pinned twice in catalog `lib.test.ts` (weak)
+**Status:** `proposed` · **Proposed:** 2026-10-31 · **Area:** `app/features/catalog`
+
+`app/features/catalog/lib.test.ts:851` ("parseBankJsonForImport merges first duplicate in paste and skips later duplicate") asserts `entries.length === 1`, `skippedRowDiagnostics.length === 1` and `skippedRowDiagnostics[0].index === 2` for `{data:[row,row]}`. `lib.test.ts:755` ("import parse keeps first duplicate merge key in paste and skips later row") asserts the same three things for two rows sharing a merge key, plus that the first description wins. `:851` is a strict subset. **Triage question:** is `:851` deliberately the identical-row case (vs. same key, different fields)? If not, delete it.
 
 ## Rejected
 
