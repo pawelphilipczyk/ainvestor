@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, it } from 'node:test'
 import { assetHref } from '../../lib/remix-assets.ts'
 import {
 	approvedSessionCookie,
+	pendingSessionCookie,
 	resetTestSessionCookieJar,
+	seedTestSessionCookie,
 	testSessionFetch,
 } from '../../lib/test-session-fetch.ts'
 import {
@@ -956,5 +958,82 @@ describe('Guidelines page', () => {
 		assert.doesNotMatch(html, /data-frame-submit=/)
 		assert.doesNotMatch(html, /data-frame-replace-from-response/)
 		assert.doesNotMatch(html, /name="_method"/)
+	})
+})
+
+// A login still waiting on allowlist approval has no data repository to write
+// to. The page's forms are not disabled for it, so these requests are the only
+// guard — each must be refused in the shape the caller asked for, and the
+// network guard turns any attempted GitHub write into a failure.
+describe('Guidelines writes from a session pending approval', () => {
+	const pendingMessage =
+		'Account pending approval — guidelines cannot be saved yet.'
+
+	beforeEach(async () => {
+		seedTestSessionCookie(await pendingSessionCookie())
+	})
+
+	function addAssetClassWithAccept(accept?: string) {
+		return testSessionFetch(
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addAssetClass',
+					assetClassType: 'equity',
+					targetPct: '40',
+				},
+				accept ? { Accept: accept } : undefined,
+			),
+		)
+	}
+
+	it('refuses an add with 422 JSON when Accept is JSON', async () => {
+		const response = await addAssetClassWithAccept('application/json')
+
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as { error?: string }
+		assert.equal(data.error, pendingMessage)
+	})
+
+	it('refuses an add with a 422 list fragment when Accept is text/html', async () => {
+		const response = await addAssetClassWithAccept('text/html')
+
+		assert.equal(response.status, 422)
+		assert.match(response.headers.get('content-type') ?? '', /text\/html/)
+		assert.match(await response.text(), /guidelines cannot be saved yet/)
+	})
+
+	it('refuses an add with a redirect and flash message otherwise', async () => {
+		const response = await addAssetClassWithAccept()
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/guidelines')
+		const page = await testSessionFetch('http://localhost/guidelines')
+		assert.match(await page.text(), /guidelines cannot be saved yet/)
+	})
+
+	it('refuses a target update with 422 JSON when Accept is JSON', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'updateTarget',
+					id: 'does-not-matter',
+					targetPct: '10',
+				},
+				{ Accept: 'application/json' },
+			),
+		)
+
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as { error?: string }
+		assert.equal(data.error, pendingMessage)
+	})
+
+	it('answers a delete with a silent redirect', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest({ guidelineIntent: 'delete', id: 'any-id' }),
+		)
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/guidelines')
 	})
 })
