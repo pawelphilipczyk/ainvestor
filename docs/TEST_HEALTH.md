@@ -68,8 +68,14 @@ re-reads its accumulated context every turn. To keep a weekly run cheap:
 
 ## What one run is allowed to do
 
-Each run produces **exactly one pull request**, small enough to review in a
-few minutes:
+**Gate: only start when no sweep PR is open.** First thing, before creating a
+branch, list open PRs whose head branch starts with `claude/test-health-sweep-`.
+If any exist, stop: do not branch, sweep or open anything, and finish with a
+one-line `SKIPPED: PR #<n> still open`. This stops unmerged sweeps from piling
+up and conflicting with each other in the two backlog files.
+
+Each run that passes the gate produces **exactly one pull request**, small
+enough to review in a few minutes:
 
 1. **Sweep one area per backlog** (the next one in each rotation below), and
    append what's found to that backlog as `proposed` items, with evidence.
