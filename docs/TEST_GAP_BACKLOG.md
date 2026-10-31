@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 6 — `app/components` + shared browser layer
-**Last swept:** 2026-10-30 (`app/lib` — two proposed, one test written)
+**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
+**Last swept:** 2026-10-31 (`app/components` + shared browser layer — one proposed, one test written, two stale items closed)
 
 ---
 
@@ -417,7 +417,9 @@ production caller left (only its own definition matches a repo-wide grep) —
 worth a look for removal rather than a test, separately from this item.
 
 ### GAP-012 — `NumberInput`'s no-`inputMode` and `numeric` branches are unreached
-**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** `app/components`
+**Status:** `done` · **Proposed:** 2026-09-17 · **Acted:** 2026-09-17 (found stale 2026-10-31) · **Area:** `app/components` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/235
+
+**Done:** `app/components/forms/number-input.test.ts:8-52` pins all three branches.
 
 `app/components/forms/number-input.tsx` — no test file names it. All four
 production call sites (`portfolio-operation-form/operation-form.tsx:79-86`,
@@ -439,8 +441,8 @@ indirect.
 `inputMode="numeric"` renders `[0-9]*`, and no `inputMode` renders
 `type="number" min="0" step="any"`.
 
-### GAP-013 — plain-button spinner fallback in `submit-button-loading.component.js` is unpinned on guidelines' own buttons
-**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** shared browser layer
+### GAP-013 — plain-button spinner fallback in `submit-button-loading.component.ts` is unpinned on guidelines' own buttons
+**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** shared browser layer (files are `.component.ts` now, not `.js`; re-verified 2026-10-31: `guidelines.browser.ts` still has no `aria-busy`/`disabled`/spinner assertion)
 
 `setSubmitButtonLoading` (`app/components/client/submit-button-loading.component.js:64-92`)
 has a fallback branch for a plain `<button type="submit">` with no
@@ -483,7 +485,9 @@ asserting the anchor wrapper, `data-rmx-document`, and the nested `Card`. No
 browser test needed.
 
 ### GAP-015 — `busy-control-overlay.ts`'s root/spinner classes are unpinned
-**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** `app/components`
+**Status:** `done` · **Proposed:** 2026-09-17 · **Acted:** (found stale 2026-10-31) · **Area:** `app/components` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/252
+
+**Done:** `app/components/forms/busy-control-overlay.test.ts` imports the four constants and pins them.
 
 `app/components/forms/busy-control-overlay.ts` — no test names it directly.
 `busyControlOverlayClass`/`busyControlLabelClass` get indirect substring
@@ -499,7 +503,9 @@ module's four exported class constants (plain string-content assertions)
 closes it in one small test.
 
 ### GAP-016 — `getNavLinks()`'s "resolve at render time" rule is unpinned (sibling of `GAP-007`)
-**Status:** `proposed` · **Proposed:** 2026-09-17 · **Area:** `app/components`
+**Status:** `done` · **Proposed:** 2026-09-17 · **Acted:** 2026-10-31 · **Area:** `app/components` · **PR:** (this sweep's PR)
+
+**Done:** added `getNavLinks locale resolution` to `app/components/layout/sidebar.test.ts`: labels under `runWithUiCopyContext({locale:'pl'})` vs. the default, hrefs identical. Verified it fails when a label is hardcoded in `sidebar-nav.ts`.
 
 `app/components/layout/sidebar-nav.ts`'s doc comment states the same
 render-time-not-import-time rule `AGENTS.md` documents for
@@ -615,6 +621,11 @@ already cover what matters (the model gets *some* correctly-shaped error,
 exact wording aside)? Lower priority than the other four either way.
 
 ---
+
+### GAP-040 — `app/lib/browser/scroll-lock.ts` and `event-listeners.ts` have no unit test
+**Status:** `proposed` · **Proposed:** 2026-10-31 · **Area:** shared browser layer · **Priority:** low
+
+`scroll-lock.ts`: reference counting (second lock must not release the first), idempotent release, restoring prior `overflow`/`scrollbarGutter`/scroll position, no-op releaser without body/view. `event-listeners.ts`: abort-signal removal. `dialog-trigger.ts` (guards: no `data-dialog-id`, non-dialog target, already-open dialog) is only reached indirectly. `sidebar.browser.ts:52` only asserts overflow is set while the drawer is open. Vendored copies, so value is guarding local drift; needs a DOM (browser test or jsdom-free fakes).
 
 ## Uncovered routes to check
 
