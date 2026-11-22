@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the gap backlog in the same run. Process, statuses and the rules a
 run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 3 — `app/features/guidelines`
-**Last swept:** 2026-10-31 (`app/features/catalog` — one weak item proposed)
+**Next area to sweep:** 4 — `app/features/portfolio`
+**Last swept:** 2026-11-22 (`app/features/guidelines` — two items proposed, one weak)
 
 ---
 
@@ -50,12 +50,14 @@ maintain every run.
 ---
 
 ### OV-008 — `generate_advice` accepted-model tests assert one rule twice
-**Status:** `approved` · **Proposed:** 2026-10-29 · **Approved:** 2026-10-31 (evidence re-checked) · **Area:** `mcp/tools`
+**Status:** `done` · **Proposed:** 2026-10-29 · **Approved:** 2026-10-31 (evidence re-checked) · **Acted:** 2026-11-22 · **Area:** `mcp/tools` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/280
+
+**Action taken:** evidence re-checked (both cases unchanged). Merged rather than deleted, per the triage question: one case, "passes each accepted named model through to the completion call", loops over `gpt-5.6-luna` and `gpt-6.1-sol` against a single stub, so both models stay guarded as accepted.
 
 `mcp/tools/generate-advice.test.ts:190` ("passes a named model through to the completion call", `gpt-5.6-luna`) and `:200` ("accepts the newer flagship gpt-6.1-sol") share setup and both assert `payload.model` and `completions[0].model` equal the input. Both pin "an accepted model is forwarded". **Triage question:** is `:200` deliberately guarding that this model stays on the accepted list? If so, merge into one loop over accepted models rather than deleting.
 
 ### OV-009 — save assertions repeated in the default-path test (weak)
-**Status:** `proposed` · **Proposed:** 2026-10-29 · **Area:** `mcp/tools`
+**Status:** `approved` · **Proposed:** 2026-10-29 · **Approved:** 2026-11-22 (evidence re-checked) · **Area:** `mcp/tools`
 
 `generate-advice.test.ts:120-122` (`saved === true`, `savedAt` is a number, `writes.length === 1`) are a strict subset of `:217-219` in "saves to the mode-specific file". Only those three lines are redundant; the rest of `:108` is unique. Trimming them is a tidy-up, low value.
 
@@ -65,9 +67,26 @@ maintain every run.
 `advice.test.ts:914` (gpt-5.6-luna) and `:947` (gpt-6.1-sol) have identical setup (stub client capturing `params.model`, POST `buy_next`, `cashAmount=100`) and assert status 200, captured model equals input, and `value="<model>"` in the body. `:947` adds only the option-ordering assertion. Same shape as OV-008. **Triage question:** does `:947` deliberately guard that gpt-6.1-sol stays accepted? If so, merge into a loop over accepted models plus the ordering assertion. (`advice-openai.test.ts:66` is the unit-layer pin; judged layered, not proposed.)
 
 ### OV-011 — first-duplicate-in-paste rule pinned twice in catalog `lib.test.ts` (weak)
-**Status:** `proposed` · **Proposed:** 2026-10-31 · **Area:** `app/features/catalog`
+**Status:** `approved` · **Proposed:** 2026-10-31 · **Approved:** 2026-11-22 (evidence re-checked) · **Area:** `app/features/catalog`
 
 `app/features/catalog/lib.test.ts:851` ("parseBankJsonForImport merges first duplicate in paste and skips later duplicate") asserts `entries.length === 1`, `skippedRowDiagnostics.length === 1` and `skippedRowDiagnostics[0].index === 2` for `{data:[row,row]}`. `lib.test.ts:755` ("import parse keeps first duplicate merge key in paste and skips later row") asserts the same three things for two rows sharing a merge key, plus that the first description wins. `:851` is a strict subset. **Triage question:** is `:851` deliberately the identical-row case (vs. same key, different fields)? If not, delete it.
+
+### OV-012 — pending-approval guideline writes pinned in two files
+**Status:** `proposed` · **Proposed:** 2026-11-22 · **Area:** `app/features/guidelines`
+
+`app/lib/require-approved-session.test.ts:122-167` ("guideline writes from a session pending approval", added for GAP-031 in PR #276) repeats what `app/features/guidelines/guidelines.test.ts:974-1045` already pinned (PR #269). Both reach the same guard (`persistGuideline` → `!sessionHasDataRepo` → `guidelinesRequiresApprovalResponse`, `app/features/guidelines/index.ts:286-307,354-359`). `require-approved-session.test.ts:143` (422 JSON, `error` matches `/approv/i`) is a strict subset of `guidelines.test.ts:995` (422, exact message); `:152` (302 to `/guidelines`) is a strict subset of `guidelines.test.ts:1011` (which also checks the flash). The lib copy goes through `addInstrument` (needs a catalog seed) rather than `addAssetClass`. **Triage question:** is the lib copy deliberately guarding that `addInstrument` passes its catalog check before hitting the approval guard? If yes, move it into the guidelines block as one `addInstrument` JSON case; if not, delete the lib block.
+
+### OV-013 — guidelines delete-dialog markup asserted twice
+**Status:** `proposed` · **Proposed:** 2026-11-22 · **Area:** `app/features/guidelines`
+
+`guidelines.test.ts:839-851` ("guidelines list delete uses dialog confirmation pattern") runs three regexes (`<dialog…id="guideline-delete-dialog-`, `data-dialog-id=…`, the remove button with `value="delete"`) identical to `:503-508` inside `:475` ("guidelines list fragment shows read-only target, hidden edit form, and delete dialog"). `:839` fetches `/guidelines` (which renders the same list fragment) instead of `/fragments/guidelines-list`, and asserts nothing else. **Triage question:** is `:839` meant to prove the dialog survives the full-page render path? If not, delete it.
+
+### OV-014 — `addInstrument` redirect case is a subset of the save case (weak)
+**Status:** `proposed` · **Proposed:** 2026-11-22 · **Area:** `app/features/guidelines`
+
+`guidelines.test.ts:193` ("addInstrument adds a guideline and redirects") asserts only 302 and `location: /guidelines?tab=instrument`; `:446` makes the same two checks (`:450-454`) and then confirms the value was saved. Strict subset, but it is the plain happy path — low-value tidy-up.
+
+**Compared this run, not overlap:** flash vs JSON vs HTML variants of the duplicate/over-cap/schema errors (different response shapes); `:463` vs `:627` (page after redirect vs fragment); `:817` vs `:567`; the three Frame-markup cases `:936,:943,:953`; `:170` vs `number-input.test.ts`; browser form/dialog/tab cases (client-only behaviour). The no-JS `?tab=` browser case stays out per RJ-004.
 
 ## Rejected
 

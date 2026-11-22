@@ -1,8 +1,14 @@
 import * as assert from 'node:assert/strict'
 import { afterEach, beforeEach, describe, it } from 'node:test'
+import { GUIDELINES_FILENAME } from '../../lib/guidelines.ts'
 import { assetHref } from '../../lib/remix-assets.ts'
 import {
+	type FakeDataRepo,
+	installFakeDataRepo,
+} from '../../lib/store/github-repo-test-fake.ts'
+import {
 	approvedSessionCookie,
+	approvedSessionCookieForFakeRepo,
 	pendingSessionCookie,
 	resetTestSessionCookieJar,
 	seedTestSessionCookie,
@@ -1035,5 +1041,86 @@ describe('Guidelines writes from a session pending approval', () => {
 
 		assert.equal(response.status, 302)
 		assert.equal(response.headers.get('location'), '/guidelines')
+	})
+})
+
+// GitHub refusing the write (here a 500 on every PUT) must surface as the
+// generic persistence error in the shape the caller asked for, and leave the
+// stored guidelines exactly as they were. Only the lost-race message is pinned
+// elsewhere (`web-concurrent-writes.test.ts`).
+describe('Guidelines writes GitHub refuses', () => {
+	const persistenceMessage =
+		'Could not save your guidelines. Please try again in a moment.'
+	const original = JSON.stringify([
+		{
+			id: 'g-equity',
+			kind: 'asset_class',
+			etfName: '',
+			targetPct: 40,
+			etfType: 'equity',
+		},
+	])
+	const originalFetch = globalThis.fetch
+	let repo: FakeDataRepo
+
+	beforeEach(async () => {
+		repo = installFakeDataRepo({
+			files: { [GUIDELINES_FILENAME]: original },
+			failWritesWith: 500,
+		})
+		seedTestSessionCookie(await approvedSessionCookieForFakeRepo())
+	})
+
+	afterEach(() => {
+		globalThis.fetch = originalFetch
+	})
+
+	function assertNothingSaved() {
+		assert.deepEqual(repo.commitMessages, [])
+		assert.equal(repo.files.get(GUIDELINES_FILENAME), original)
+	}
+
+	it('answers a refused add with 422 JSON when Accept is JSON', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest(
+				{
+					guidelineIntent: 'addAssetClass',
+					assetClassType: 'bond',
+					targetPct: '20',
+				},
+				{ Accept: 'application/json' },
+			),
+		)
+
+		assert.equal(response.status, 422)
+		const data = (await response.json()) as { error?: string }
+		assert.equal(data.error, persistenceMessage)
+		assertNothingSaved()
+	})
+
+	it('answers a refused target update with a 422 list fragment when Accept is text/html', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest(
+				{ guidelineIntent: 'updateTarget', id: 'g-equity', targetPct: '30' },
+				{ Accept: 'text/html' },
+			),
+		)
+
+		assert.equal(response.status, 422)
+		assert.match(response.headers.get('content-type') ?? '', /text\/html/)
+		assert.match(await response.text(), /Could not save your guidelines/)
+		assertNothingSaved()
+	})
+
+	it('answers a refused delete with a redirect and flash message', async () => {
+		const response = await testSessionFetch(
+			guidelineActionRequest({ guidelineIntent: 'delete', id: 'g-equity' }),
+		)
+
+		assert.equal(response.status, 302)
+		assert.equal(response.headers.get('location'), '/guidelines')
+		const page = await testSessionFetch('http://localhost/guidelines')
+		assert.match(await page.text(), /Could not save your guidelines/)
+		assertNothingSaved()
 	})
 })
