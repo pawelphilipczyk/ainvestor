@@ -74,7 +74,7 @@ Missing/unknown `portfolioIntent` redirect (`index.ts:242-244`), missing FormDat
 `index.ts:286-309` (`guidelinesRequiresApprovalResponse`, reached from `persistGuideline` :354 and `updateGuidelineTarget` :446) and the silent-302 delete path (:717-719). No test posts to `/guidelines` with a pending session (`pendingSessionCookie()`, as in `require-approved-session.test.ts:94,105`). Test: add/update once per Accept shape → 422 JSON / 422 fragment / 302 + flash; delete → 302; nothing written. The code comment says the page disables these forms, but no `disabled` was found in the page components — check while writing.
 
 ### GAP-032 — guidelines: refused repo write and rejected read
-**Status:** `done` · **Proposed:** 2026-10-19 · **Acted:** 2026-11-22 · **Area:** `app/features/guidelines` · **Priority:** high · **PR:** _(this run's PR)_
+**Status:** `done` · **Proposed:** 2026-10-19 · **Acted:** 2026-11-22 · **Area:** `app/features/guidelines` · **Priority:** high · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/280
 
 **Action taken:** new block "Guidelines writes GitHub refuses" in `app/features/guidelines/guidelines.test.ts`, against `installFakeDataRepo({ failWritesWith: 500 })`: add → 422 JSON with the exact persistence message; `updateTarget` → 422 `text/html` list fragment; delete → 302 + flash on the next page. Each asserts no commits and the stored file byte-identical. Verified failing (302/200, no flash) with the refusal removed. Not covered: a 422 refusal (must not be retried) and the `fetchGuidelinesOrThrow` no-wipe read path on the web route — log separately if wanted.
 

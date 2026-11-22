@@ -50,7 +50,7 @@ maintain every run.
 ---
 
 ### OV-008 — `generate_advice` accepted-model tests assert one rule twice
-**Status:** `done` · **Proposed:** 2026-10-29 · **Approved:** 2026-10-31 (evidence re-checked) · **Acted:** 2026-11-22 · **Area:** `mcp/tools` · **PR:** _(this run's PR)_
+**Status:** `done` · **Proposed:** 2026-10-29 · **Approved:** 2026-10-31 (evidence re-checked) · **Acted:** 2026-11-22 · **Area:** `mcp/tools` · **PR:** https://github.com/pawelphilipczyk/ainvestor/pull/280
 
 **Action taken:** evidence re-checked (both cases unchanged). Merged rather than deleted, per the triage question: one case, "passes each accepted named model through to the completion call", loops over `gpt-5.6-luna` and `gpt-6.1-sol` against a single stub, so both models stay guarded as accepted.
 
