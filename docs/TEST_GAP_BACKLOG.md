@@ -4,8 +4,8 @@ Worked by the **Test health sweep** Routine (weekly, Wednesdays 22:00 UTC),
 alongside the overlap backlog in the same run. Process, statuses and the
 rules a run must obey: `docs/TEST_HEALTH.md`.
 
-**Next area to sweep:** 7 — `mcp` core (`http`, `protocol`, `resources`, oauth, caches)
-**Last swept:** 2026-10-31 (`app/components` + shared browser layer — one proposed, one test written, two stale items closed)
+**Next area to sweep:** 8 — `mcp/tools`
+**Last swept:** 2026-11-22 (`mcp` core — five proposed, one test written for GAP-032)
 
 ---
 
@@ -74,7 +74,9 @@ Missing/unknown `portfolioIntent` redirect (`index.ts:242-244`), missing FormDat
 `index.ts:286-309` (`guidelinesRequiresApprovalResponse`, reached from `persistGuideline` :354 and `updateGuidelineTarget` :446) and the silent-302 delete path (:717-719). No test posts to `/guidelines` with a pending session (`pendingSessionCookie()`, as in `require-approved-session.test.ts:94,105`). Test: add/update once per Accept shape → 422 JSON / 422 fragment / 302 + flash; delete → 302; nothing written. The code comment says the page disables these forms, but no `disabled` was found in the page components — check while writing.
 
 ### GAP-032 — guidelines: refused repo write and rejected read
-**Status:** `proposed` · **Proposed:** 2026-10-19 · **Area:** `app/features/guidelines` · **Priority:** high
+**Status:** `done` · **Proposed:** 2026-10-19 · **Acted:** 2026-11-22 · **Area:** `app/features/guidelines` · **Priority:** high · **PR:** _(this run's PR)_
+
+**Action taken:** new block "Guidelines writes GitHub refuses" in `app/features/guidelines/guidelines.test.ts`, against `installFakeDataRepo({ failWritesWith: 500 })`: add → 422 JSON with the exact persistence message; `updateTarget` → 422 `text/html` list fragment; delete → 302 + flash on the next page. Each asserts no commits and the stored file byte-identical. Verified failing (302/200, no flash) with the refusal removed. Not covered: a 422 refusal (must not be retried) and the `fetchGuidelinesOrThrow` no-wipe read path on the web route — log separately if wanted.
 
 `guidelinesSaveFailureResponse` persistence branch (`index.ts:251-279`; callers :401, :494, :740): only `WriteConflictError` for add + JSON is pinned (`web-concurrent-writes.test.ts:249`); the generic "Could not save your guidelines" message and the `updateTarget`/`delete` catch blocks are not. Also the `fetchGuidelinesOrThrow` no-wipe contract (`app/lib/guidelines.ts:225-238`) is pinned for MCP only (`mcp/tools/guidelines.test.ts:198`), not the web route. Test with `installFakeDataRepo({ failWritesWith: 500 })` (and 422, which must not be retried; `failContentReadsWith: 401` for the read): 422 JSON / 302 + flash, repo files unchanged, no commits.
 
@@ -626,6 +628,35 @@ exact wording aside)? Lower priority than the other four either way.
 **Status:** `proposed` · **Proposed:** 2026-10-31 · **Area:** shared browser layer · **Priority:** low
 
 `scroll-lock.ts`: reference counting (second lock must not release the first), idempotent release, restoring prior `overflow`/`scrollbarGutter`/scroll position, no-op releaser without body/view. `event-listeners.ts`: abort-signal removal. `dialog-trigger.ts` (guards: no `data-dialog-id`, non-dialog target, already-open dialog) is only reached indirectly. `sidebar.browser.ts:52` only asserts overflow is set while the drawer is open. Vendored copies, so value is guarding local drift; needs a DOM (browser test or jsdom-free fakes).
+
+### GAP-041 — MCP private-data cache is never invalidated by a tool write in any test
+**Status:** `proposed` · **Proposed:** 2026-11-22 · **Area:** `mcp` core (cache) / `mcp/tools` · **Priority:** high
+
+`invalidateEtfsCache` (`mcp/tools/portfolio.ts:228,308`) and `invalidateGuidelinesCache` (`mcp/tools/guidelines.ts:323,410`) are the only thing stopping a read-after-write inside the 60 s TTL from serving stale data. The only test naming either is `mcp/private-data-cache.test.ts:146`, which calls `invalidateGuidelinesCache` directly; `invalidateEtfsCache` is named by no test. Tool tests reset the cache in `afterEach` and never read → write → read, so deleting any of the four calls passes the suite. Also unpinned: `docs/MCP_SERVER_PLAN.md:634` (a write's pre-write read goes around the cache). Test: `get_portfolio` → `record_operation`/`remove_holding` → `get_portfolio` shows the new value; same for `set_guideline`/`delete_guideline` with `get_guidelines`; optionally warm the cache, change the fake repo underneath, then write and assert it applied to the fresh file.
+
+### GAP-042 — MCP Origin check: public-origin branch and unparseable Origin
+**Status:** `proposed` · **Proposed:** 2026-11-22 · **Area:** `mcp` core (`http`) · **Priority:** high (security-adjacent)
+
+`mcp/http.ts:78-80` (Origin equals the configured public origin while `request.url` differs — the TLS-terminating proxy case) and `:82-84` (`catch` → refuse). `http.test.ts:197` uses an Origin equal to the request URL's own origin, so only `:81` is reached. Test: with the public origin `https://ainvestor.fly.dev`, a request to `http://internal:8080/mcp` with that Origin is accepted; `Origin: null` (or garbage) gets 403; a foreign Origin behind the proxy still gets 403.
+
+### GAP-043 — OAuth discovery routes never requested through the router
+**Status:** `proposed` · **Proposed:** 2026-11-22 · **Area:** `mcp` core (oauth) · **Priority:** medium
+
+`app/router.ts:121-140`: `/.well-known/oauth-protected-resource`, its `/mcp` alias, `/.well-known/oauth-authorization-server`, the `unknownOriginResponse()` 500, and `Access-Control-Allow-Origin: *` (`mcp/oauth-metadata.ts:113`). `oauth-metadata.test.ts` tests only the pure builders; `require-approved-session.test.ts:43` only classifies the path. Test: GET each through the router → 200 JSON with the CORS header, not redirected by the sign-in gate; with no origin configured and a non-loopback Host → 500 `server_error`.
+
+### GAP-044 — streamed MCP body over the size limit without Content-Length
+**Status:** `proposed` · **Proposed:** 2026-11-22 · **Area:** `mcp` core (`http`) · **Priority:** medium
+
+`mcp/http.ts:172-179` (counting a streamed body); `http.test.ts:163` always sends `Content-Length`, so only the early return at `:161` is reached. Test: POST a >256 KiB body as a stream with no `Content-Length` → 413.
+
+### GAP-045 — `tools/call` without a string `name`
+**Status:** `proposed` · **Proposed:** 2026-11-22 · **Area:** `mcp` core (`protocol`) · **Priority:** low
+
+`mcp/protocol.ts:144-150`; every `tools/call` in the tests passes a string name. Test: missing `name` and `name: 1` → `invalidParams` with the "requires a string" message.
+
+**Triaged this run and not proposed (already pinned):** unknown method (`protocol.test.ts:178`, `http.test.ts:490`); malformed envelope / unusable id (`protocol.test.ts:247,225`); missing, non-bearer and bad-repo credentials (`http.test.ts:116,177,148`); 401 challenge with metadata URL (`:128`); expired/rejected token → 401 for tools and resources (`:410,:428,:476`); non-credential tool error stays 200 (`:499`); allowlist refusal/approval (`http.test.ts:352,380`, `approved-caller.test.ts:35-82`); failed caller lookup not cached (`approved-caller.test.ts:68`); bad JSON, notification 202, protocol version (`http.test.ts:230,237,210,220`); cache TTL/expiry/per-repo keys/clones (`private-data-cache.test.ts:52-101`); token-cache LRU (`token-cache.test.ts`); resource read failure and unknown/missing URI (`protocol.test.ts:302,311,319`, `resources.test.ts:140`); public-origin resolution and host spoofing (`oauth-metadata.test.ts:35-71`). PKCE / redirect_uri / token exchange: no code here — the app is not an authorization server (D2 in `docs/MCP_SERVER_PLAN.md`); S256 advertising is pinned at `oauth-metadata.test.ts:142`.
+
+**Note:** two items share the id `GAP-038` (portfolio leftovers, 2026-10-29; `normalizeGuideline`, 2026-10-30). Not renumbered, to keep links stable.
 
 ## Uncovered routes to check
 

@@ -187,24 +187,17 @@ describe('generate_advice', () => {
 		)
 	})
 
-	it('passes a named model through to the completion call', async () => {
+	it('passes each accepted named model through to the completion call', async () => {
 		setSharedCatalogForTests({ entries: [] })
 		const { completions } = stubServer()
 
-		const payload = await callTool({ cashAmount: '100', model: 'gpt-5.6-luna' })
+		for (const model of ['gpt-5.6-luna', 'gpt-6.1-sol']) {
+			const payload = await callTool({ cashAmount: '100', model })
 
-		assert.equal(payload.model, 'gpt-5.6-luna')
-		assert.equal(completions[0].model, 'gpt-5.6-luna')
-	})
-
-	it('accepts the newer flagship gpt-6.1-sol', async () => {
-		setSharedCatalogForTests({ entries: [] })
-		const { completions } = stubServer()
-
-		const payload = await callTool({ cashAmount: '100', model: 'gpt-6.1-sol' })
-
-		assert.equal(payload.model, 'gpt-6.1-sol')
-		assert.equal(completions[0].model, 'gpt-6.1-sol')
+			assert.equal(payload.model, model)
+			assert.equal(completions.at(-1)?.model, model)
+		}
+		assert.equal(completions.length, 2)
 	})
 
 	it('saves to the mode-specific file', async () => {
