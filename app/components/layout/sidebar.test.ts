@@ -8,6 +8,7 @@ import { renderToString } from 'remix/component/server'
 import type { AppPage } from '../../lib/app-page.ts'
 import { assetHref } from '../../lib/remix-assets.ts'
 import type { SessionData } from '../../lib/session.ts'
+import { runWithUiCopyContext } from '../../lib/ui-locale.ts'
 import { router } from '../../router.ts'
 import { SessionProvider } from './session-provider.tsx'
 import { Sidebar } from './sidebar.tsx'
@@ -296,5 +297,27 @@ describe('sidebar component entry asset', () => {
 		// rc.2 removed the `remix/ui/scroll-lock` subpath; see app/lib/browser/scroll-lock.ts.
 		assert.match(body, /from ['"]\.\.\/\.\.\/lib\/browser\/scroll-lock\.ts['"]/)
 		assert.match(body, /lockScroll/)
+	})
+})
+
+describe('getNavLinks locale resolution', () => {
+	it('resolves labels at call time, so the same import follows the active locale', () => {
+		const polish = runWithUiCopyContext(
+			{ locale: 'pl', shellReturnPath: '/' },
+			() => getNavLinks(),
+		)
+		const english = getNavLinks()
+		assert.deepEqual(
+			polish.map((link) => link.label),
+			['Portfel', 'Porady', 'Katalog ETF', 'Wytyczne inwestycyjne'],
+		)
+		assert.deepEqual(
+			english.map((link) => link.label),
+			['Portfolio', 'Get Advice', 'ETF Catalog', 'Investment Guidelines'],
+		)
+		assert.deepEqual(
+			polish.map((link) => link.href),
+			english.map((link) => link.href),
+		)
 	})
 })
